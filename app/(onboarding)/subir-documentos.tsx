@@ -193,19 +193,19 @@ export default function SubirDocumentosScreen() {
   const tomarFoto = async () => {
     console.log('📸 [DEBUG] Iniciando tomarFoto...');
     
-    // NO cerrar el modal aquí - se cerrará después de verificar permisos
+    // Cerrar modal inmediatamente - igual que documentacion.tsx que no tiene modal
+    setModalVisible(false);
     
     try {
       console.log('📸 [DEBUG] Solicitando permisos de cámara...');
       
-      // Solicitar permisos de cámara
+      // Solicitar permisos de cámara - exactamente como documentacion.tsx
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
       console.log('📸 [DEBUG] Estado de permisos:', status);
       
       if (status !== 'granted') {
         console.log('📸 [DEBUG] Permisos denegados');
-        setModalVisible(false);
         Alert.alert(
           'Permisos Requeridos',
           'Necesitamos acceso a tu cámara para tomar fotos de documentos. Por favor, permite el acceso en la configuración de la app.',
@@ -230,27 +230,10 @@ export default function SubirDocumentosScreen() {
         return;
       }
 
-      console.log('📸 [DEBUG] Permisos otorgados');
+      console.log('📸 [DEBUG] Permisos otorgados, ejecutando launchCameraAsync...');
       
-      // Cerrar modal usando setTimeout para que se ejecute en el siguiente ciclo
-      // del event loop, permitiendo que launchCameraAsync se ejecute sin bloqueo
-      setTimeout(() => {
-        setModalVisible(false);
-      }, 0);
-      
-      // En Android, hay un problema conocido donde la cámara no se abre inmediatamente
-      // después de actualizaciones de seguridad. Intentar con un pequeño delay
-      if (Platform.OS === 'android') {
-        console.log('📸 [DEBUG] Android detectado, usando delay adicional');
-        await new Promise(resolve => setTimeout(resolve, 300));
-      } else {
-        // En iOS, un pequeño delay también ayuda
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      
-      console.log('📸 [DEBUG] Ejecutando launchCameraAsync...');
-      
-      // Usar exactamente el mismo patrón que documentacion.tsx que funciona
+      // Usar EXACTAMENTE el mismo patrón que documentacion.tsx que funciona
+      // Sin delays, sin setTimeout, simplemente ejecutar directamente
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [4, 3],
@@ -277,7 +260,6 @@ export default function SubirDocumentosScreen() {
         name: error?.name,
         code: error?.code
       });
-      setModalVisible(false);
       Alert.alert(
         'Error', 
         error?.message || 'No se pudo tomar la foto. Verifica que tengas permisos de cámara.'

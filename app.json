@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mecanimovil-app-proveedores",
+    "name": "MecaniMóvil Proveedores",
     "slug": "mecanimovil-app-proveedores",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,14 +9,38 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mecanimovil.proveedores"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.mecanimovil.proveedores",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "mecanimovilappproveedores",
+              "host": "mercadopago",
+              "pathPrefix": "/callback"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -33,10 +57,40 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "La aplicación accede a tus fotos para subir documentos de verificación.",
+          "cameraPermission": "La aplicación accede a tu cámara para tomar fotos de documentos.",
+          "microphonePermission": "La aplicación necesita acceso al micrófono para usar la cámara."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "La aplicación accede a tu ubicación para servicios de localización."
+        }
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "serverHost": null,
+      "serverPort": 8000,
+      "apiUrl": "https://mecanimovil-api.onrender.com/api",
+      "forceLocalhost": false,
+      "useNgrok": false,
+      "ngrokUrl": null,
+      "productionApiUrl": "https://mecanimovil-api.onrender.com",
+      "forceProduction": true
     }
   }
 }
