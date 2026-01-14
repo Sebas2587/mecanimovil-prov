@@ -611,18 +611,18 @@ export default function SubirDocumentosScreen() {
         <View style={styles.modalContainer}>
           <Text style={styles.modalTitulo}>Seleccionar {tipoDocumentoActual?.nombre}</Text>
           
-          <TouchableOpacity style={styles.modalOpcion} onPress={tomarFoto}>
+          <TouchableOpacity style={styles.modalOpcion} onPress={() => tipoDocumentoActual && tomarFoto(tipoDocumentoActual)}>
             <Ionicons name="camera" size={24} color="#3498db" />
             <Text style={styles.modalOpcionTexto}>Tomar Foto</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.modalOpcion} onPress={seleccionarImagen}>
+          <TouchableOpacity style={styles.modalOpcion} onPress={() => tipoDocumentoActual && seleccionarImagen(tipoDocumentoActual)}>
             <Ionicons name="image" size={24} color="#3498db" />
             <Text style={styles.modalOpcionTexto}>Seleccionar de Galería</Text>
           </TouchableOpacity>
           
           {tipoDocumentoActual?.acepta.includes('PDF') && (
-            <TouchableOpacity style={styles.modalOpcion} onPress={seleccionarDocumento}>
+            <TouchableOpacity style={styles.modalOpcion} onPress={() => tipoDocumentoActual && seleccionarDocumento(tipoDocumentoActual)}>
               <Ionicons name="document" size={24} color="#3498db" />
               <Text style={styles.modalOpcionTexto}>Seleccionar PDF</Text>
             </TouchableOpacity>
