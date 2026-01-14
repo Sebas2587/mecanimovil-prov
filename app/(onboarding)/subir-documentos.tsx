@@ -142,15 +142,15 @@ export default function SubirDocumentosScreen() {
           { text: 'Cancelar', style: 'cancel' },
           { 
             text: 'Tomar Foto', 
-            onPress: () => tomarFoto() 
+            onPress: () => tomarFoto(documentoInfo) 
           },
           { 
             text: 'Galería', 
-            onPress: () => seleccionarImagen() 
+            onPress: () => seleccionarImagen(documentoInfo) 
           },
           ...(documentoInfo.acepta.includes('PDF') ? [{
             text: 'PDF',
-            onPress: () => seleccionarDocumento()
+            onPress: () => seleccionarDocumento(documentoInfo)
           }] : [])
         ]
       );
@@ -160,7 +160,14 @@ export default function SubirDocumentosScreen() {
     }
   };
 
-  const seleccionarImagen = async () => {
+  const seleccionarImagen = async (documentoInfo?: DocumentoInfo) => {
+    // Usar el documento pasado como parámetro o el estado actual
+    const docInfo = documentoInfo || tipoDocumentoActual;
+    if (!docInfo) {
+      console.error('❌ No hay tipo de documento especificado');
+      return;
+    }
+
     if (Platform.OS === 'android') {
       setModalVisible(false);
     }
@@ -205,7 +212,7 @@ export default function SubirDocumentosScreen() {
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        procesarDocumento(asset.uri, asset.fileName || 'imagen.jpg', 'image/jpeg');
+        procesarDocumento(asset.uri, asset.fileName || 'imagen.jpg', 'image/jpeg', docInfo);
       }
     } catch (error: any) {
       if (__DEV__) {
@@ -218,8 +225,15 @@ export default function SubirDocumentosScreen() {
     }
   };
 
-  const tomarFoto = async () => {
-    console.log('📸 [DEBUG] Iniciando tomarFoto...');
+  const tomarFoto = async (documentoInfo?: DocumentoInfo) => {
+    // Usar el documento pasado como parámetro o el estado actual
+    const docInfo = documentoInfo || tipoDocumentoActual;
+    if (!docInfo) {
+      console.error('❌ No hay tipo de documento especificado');
+      return;
+    }
+
+    console.log('📸 [DEBUG] Iniciando tomarFoto para:', docInfo.tipo);
     
     // Cerrar modal si está abierto (solo en Android)
     if (Platform.OS === 'android') {
@@ -277,8 +291,8 @@ export default function SubirDocumentosScreen() {
 
       if (!result.canceled && result.assets && result.assets[0]) {
         const asset = result.assets[0];
-        console.log('📸 [DEBUG] Procesando documento con URI:', asset.uri);
-        procesarDocumento(asset.uri, asset.fileName || 'foto.jpg', 'image/jpeg');
+        console.log('📸 [DEBUG] Procesando documento con URI:', asset.uri, 'para tipo:', docInfo.tipo);
+        procesarDocumento(asset.uri, asset.fileName || 'foto.jpg', 'image/jpeg', docInfo);
       } else {
         console.log('📸 [DEBUG] Usuario canceló o no hay assets');
       }
@@ -298,7 +312,14 @@ export default function SubirDocumentosScreen() {
     }
   };
 
-  const seleccionarDocumento = async () => {
+  const seleccionarDocumento = async (documentoInfo?: DocumentoInfo) => {
+    // Usar el documento pasado como parámetro o el estado actual
+    const docInfo = documentoInfo || tipoDocumentoActual;
+    if (!docInfo) {
+      console.error('❌ No hay tipo de documento especificado');
+      return;
+    }
+
     if (Platform.OS === 'android') {
       setModalVisible(false);
     }
@@ -311,7 +332,7 @@ export default function SubirDocumentosScreen() {
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        procesarDocumento(asset.uri, asset.name, asset.mimeType || 'application/pdf');
+        procesarDocumento(asset.uri, asset.name, asset.mimeType || 'application/pdf', docInfo);
       }
     } catch (error) {
       console.error('Error seleccionando documento:', error);
@@ -320,13 +341,18 @@ export default function SubirDocumentosScreen() {
     setModalVisible(false);
   };
 
-  const procesarDocumento = (uri: string, fileName: string, fileType: string) => {
-    if (!tipoDocumentoActual) return;
+  const procesarDocumento = (uri: string, fileName: string, fileType: string, documentoInfo?: DocumentoInfo) => {
+    // Usar el documento pasado como parámetro o el estado actual
+    const docInfo = documentoInfo || tipoDocumentoActual;
+    if (!docInfo) {
+      console.error('❌ No hay tipo de documento especificado para procesar');
+      return;
+    }
 
-    console.log('📄 Procesando documento:', { tipo: tipoDocumentoActual.tipo, fileName, fileType });
+    console.log('📄 Procesando documento:', { tipo: docInfo.tipo, fileName, fileType });
 
     const documento: DocumentoSubido = {
-      tipo: tipoDocumentoActual.tipo,
+      tipo: docInfo.tipo,
       uri,
       fileName,
       fileType,
@@ -336,7 +362,7 @@ export default function SubirDocumentosScreen() {
 
     setDocumentosSubidos(prev => ({
       ...prev,
-      [tipoDocumentoActual.tipo]: documento
+      [docInfo.tipo]: documento
     }));
 
     // Subir inmediatamente
