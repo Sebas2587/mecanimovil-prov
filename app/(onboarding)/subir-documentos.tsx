@@ -169,7 +169,7 @@ export default function SubirDocumentosScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Mantener MediaTypeOptions por compatibilidad
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
@@ -225,7 +225,7 @@ export default function SubirDocumentosScreen() {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Mantener MediaTypeOptions por compatibilidad
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
