@@ -299,6 +299,10 @@ export default function SubirDocumentosScreen() {
   };
 
   const seleccionarDocumento = async () => {
+    if (Platform.OS === 'android') {
+      setModalVisible(false);
+    }
+    
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
