@@ -131,11 +131,39 @@ export default function SubirDocumentosScreen() {
 
   const abrirSelectorDocumento = (documentoInfo: DocumentoInfo) => {
     setTipoDocumentoActual(documentoInfo);
-    setModalVisible(true);
+    
+    // En iOS con Expo Go, el Modal puede bloquear launchCameraAsync
+    // Usar Alert en lugar de Modal para evitar problemas
+    if (Platform.OS === 'ios') {
+      Alert.alert(
+        `Seleccionar ${documentoInfo.nombre}`,
+        '¿Cómo quieres agregar el documento?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { 
+            text: 'Tomar Foto', 
+            onPress: () => tomarFoto() 
+          },
+          { 
+            text: 'Galería', 
+            onPress: () => seleccionarImagen() 
+          },
+          ...(documentoInfo.acepta.includes('PDF') ? [{
+            text: 'PDF',
+            onPress: () => seleccionarDocumento()
+          }] : [])
+        ]
+      );
+    } else {
+      // En Android, usar Modal normalmente
+      setModalVisible(true);
+    }
   };
 
   const seleccionarImagen = async () => {
-    setModalVisible(false);
+    if (Platform.OS === 'android') {
+      setModalVisible(false);
+    }
     
     try {
       // Solicitar permisos de galería
@@ -193,23 +221,17 @@ export default function SubirDocumentosScreen() {
   const tomarFoto = async () => {
     console.log('📸 [DEBUG] Iniciando tomarFoto...');
     
-    // Cerrar modal primero
-    setModalVisible(false);
-    
-    // En iOS con Expo Go, el Modal puede bloquear la UI thread durante la animación
-    // Esperar a que la animación del modal termine completamente
-    await new Promise(resolve => {
-      // Usar requestAnimationFrame para esperar al siguiente frame de renderizado
-      requestAnimationFrame(() => {
-        // Esperar un poco más para asegurar que el modal se cierre completamente
-        setTimeout(resolve, Platform.OS === 'ios' ? 400 : 200);
-      });
-    });
+    // Cerrar modal si está abierto (solo en Android)
+    if (Platform.OS === 'android') {
+      setModalVisible(false);
+      // Pequeño delay para Android
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
     
     try {
       console.log('📸 [DEBUG] Solicitando permisos de cámara...');
       
-      // Solicitar permisos de cámara
+      // Solicitar permisos de cámara - exactamente como documentacion.tsx
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
       console.log('📸 [DEBUG] Estado de permisos:', status);
@@ -242,7 +264,7 @@ export default function SubirDocumentosScreen() {
 
       console.log('📸 [DEBUG] Permisos otorgados, ejecutando launchCameraAsync...');
       
-      // Ahora ejecutar launchCameraAsync después de que el modal se haya cerrado completamente
+      // Ejecutar directamente - sin delays adicionales en iOS ya que no hay Modal
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [4, 3],
