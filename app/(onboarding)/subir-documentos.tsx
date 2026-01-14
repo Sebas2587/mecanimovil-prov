@@ -193,8 +193,7 @@ export default function SubirDocumentosScreen() {
   const tomarFoto = async () => {
     console.log('📸 [DEBUG] Iniciando tomarFoto...');
     
-    // Cerrar modal inmediatamente
-    setModalVisible(false);
+    // NO cerrar el modal aquí - se cerrará después de verificar permisos
     
     try {
       console.log('📸 [DEBUG] Solicitando permisos de cámara...');
@@ -206,6 +205,7 @@ export default function SubirDocumentosScreen() {
       
       if (status !== 'granted') {
         console.log('📸 [DEBUG] Permisos denegados');
+        setModalVisible(false);
         Alert.alert(
           'Permisos Requeridos',
           'Necesitamos acceso a tu cámara para tomar fotos de documentos. Por favor, permite el acceso en la configuración de la app.',
@@ -232,11 +232,20 @@ export default function SubirDocumentosScreen() {
 
       console.log('📸 [DEBUG] Permisos otorgados');
       
+      // Cerrar modal usando setTimeout para que se ejecute en el siguiente ciclo
+      // del event loop, permitiendo que launchCameraAsync se ejecute sin bloqueo
+      setTimeout(() => {
+        setModalVisible(false);
+      }, 0);
+      
       // En Android, hay un problema conocido donde la cámara no se abre inmediatamente
       // después de actualizaciones de seguridad. Intentar con un pequeño delay
       if (Platform.OS === 'android') {
         console.log('📸 [DEBUG] Android detectado, usando delay adicional');
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300));
+      } else {
+        // En iOS, un pequeño delay también ayuda
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
       console.log('📸 [DEBUG] Ejecutando launchCameraAsync...');
@@ -268,6 +277,7 @@ export default function SubirDocumentosScreen() {
         name: error?.name,
         code: error?.code
       });
+      setModalVisible(false);
       Alert.alert(
         'Error', 
         error?.message || 'No se pudo tomar la foto. Verifica que tengas permisos de cámara.'
