@@ -168,8 +168,8 @@ export default function SubirDocumentosScreen() {
         return;
       }
 
+      // No especificar mediaTypes para evitar problemas de compatibilidad
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Mantener MediaTypeOptions por compatibilidad
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
@@ -191,11 +191,26 @@ export default function SubirDocumentosScreen() {
   };
 
   const tomarFoto = async () => {
+    if (__DEV__) {
+      console.log('📸 Iniciando tomarFoto...');
+    }
+    
     setModalVisible(false);
     
+    // Pequeño delay para asegurar que el modal se cierre antes de abrir la cámara
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     try {
+      if (__DEV__) {
+        console.log('📸 Solicitando permisos de cámara...');
+      }
+      
       // Solicitar permisos de cámara
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (__DEV__) {
+        console.log('📸 Estado de permisos:', status);
+      }
       
       if (status !== 'granted') {
         Alert.alert(
@@ -224,12 +239,20 @@ export default function SubirDocumentosScreen() {
         return;
       }
 
+      if (__DEV__) {
+        console.log('📸 Abriendo cámara...');
+      }
+
+      // No especificar mediaTypes como en documentacion.tsx que funciona
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Mantener MediaTypeOptions por compatibilidad
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
       });
+
+      if (__DEV__) {
+        console.log('📸 Resultado de la cámara:', result.canceled ? 'Cancelado' : 'Éxito');
+      }
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
@@ -237,7 +260,12 @@ export default function SubirDocumentosScreen() {
       }
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error tomando foto:', error);
+        console.error('❌ Error tomando foto:', error);
+        console.error('❌ Detalles del error:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
       }
       Alert.alert(
         'Error', 
