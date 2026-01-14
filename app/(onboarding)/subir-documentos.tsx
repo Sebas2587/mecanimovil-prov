@@ -11,7 +11,6 @@ import {
   Image,
   Linking,
   Platform,
-  InteractionManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -194,16 +193,8 @@ export default function SubirDocumentosScreen() {
   const tomarFoto = async () => {
     console.log('📸 [DEBUG] Iniciando tomarFoto...');
     
-    // Cerrar modal primero
+    // Cerrar modal inmediatamente
     setModalVisible(false);
-    
-    // Usar InteractionManager para esperar a que todas las animaciones del modal terminen
-    await new Promise(resolve => {
-      InteractionManager.runAfterInteractions(() => {
-        // Esperar un poco más para asegurar que el modal se cierre completamente
-        setTimeout(resolve, 100);
-      });
-    });
     
     try {
       console.log('📸 [DEBUG] Solicitando permisos de cámara...');
@@ -239,10 +230,18 @@ export default function SubirDocumentosScreen() {
         return;
       }
 
-      console.log('📸 [DEBUG] Permisos otorgados, abriendo cámara...');
+      console.log('📸 [DEBUG] Permisos otorgados');
+      
+      // En Android, hay un problema conocido donde la cámara no se abre inmediatamente
+      // después de actualizaciones de seguridad. Intentar con un pequeño delay
+      if (Platform.OS === 'android') {
+        console.log('📸 [DEBUG] Android detectado, usando delay adicional');
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
       console.log('📸 [DEBUG] Ejecutando launchCameraAsync...');
       
-      // Ejecutar directamente después de que el modal se cierre
+      // Usar exactamente el mismo patrón que documentacion.tsx que funciona
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [4, 3],
