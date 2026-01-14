@@ -191,28 +191,21 @@ export default function SubirDocumentosScreen() {
   };
 
   const tomarFoto = async () => {
-    if (__DEV__) {
-      console.log('📸 Iniciando tomarFoto...');
-    }
+    console.log('📸 [DEBUG] Iniciando tomarFoto...');
     
+    // Cerrar modal primero
     setModalVisible(false);
     
-    // Pequeño delay para asegurar que el modal se cierre antes de abrir la cámara
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
     try {
-      if (__DEV__) {
-        console.log('📸 Solicitando permisos de cámara...');
-      }
+      console.log('📸 [DEBUG] Solicitando permisos de cámara...');
       
       // Solicitar permisos de cámara
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
-      if (__DEV__) {
-        console.log('📸 Estado de permisos:', status);
-      }
+      console.log('📸 [DEBUG] Estado de permisos:', status);
       
       if (status !== 'granted') {
+        console.log('📸 [DEBUG] Permisos denegados');
         Alert.alert(
           'Permisos Requeridos',
           'Necesitamos acceso a tu cámara para tomar fotos de documentos. Por favor, permite el acceso en la configuración de la app.',
@@ -228,9 +221,7 @@ export default function SubirDocumentosScreen() {
                     await Linking.openSettings();
                   }
                 } catch (error) {
-                  if (__DEV__) {
-                    console.error('Error abriendo configuración:', error);
-                  }
+                  console.error('❌ [DEBUG] Error abriendo configuración:', error);
                 }
               }
             }
@@ -239,34 +230,50 @@ export default function SubirDocumentosScreen() {
         return;
       }
 
-      if (__DEV__) {
-        console.log('📸 Abriendo cámara...');
-      }
+      console.log('📸 [DEBUG] Permisos otorgados, abriendo cámara...');
 
-      // No especificar mediaTypes como en documentacion.tsx que funciona
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
+      // Usar setTimeout para asegurar que el modal se cierre completamente
+      // antes de abrir la cámara (similar a documentacion.tsx pero con delay)
+      setTimeout(async () => {
+        try {
+          console.log('📸 [DEBUG] Ejecutando launchCameraAsync...');
+          
+          // No especificar mediaTypes como en documentacion.tsx que funciona
+          const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+          });
 
-      if (__DEV__) {
-        console.log('📸 Resultado de la cámara:', result.canceled ? 'Cancelado' : 'Éxito');
-      }
+          console.log('📸 [DEBUG] Resultado de la cámara:', result.canceled ? 'Cancelado' : 'Éxito');
+          console.log('📸 [DEBUG] Assets:', result.assets?.length || 0);
 
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        procesarDocumento(asset.uri, asset.fileName || 'foto.jpg', 'image/jpeg');
-      }
+          if (!result.canceled && result.assets[0]) {
+            const asset = result.assets[0];
+            console.log('📸 [DEBUG] Procesando documento con URI:', asset.uri);
+            procesarDocumento(asset.uri, asset.fileName || 'foto.jpg', 'image/jpeg');
+          }
+        } catch (error: any) {
+          console.error('❌ [DEBUG] Error en launchCameraAsync:', error);
+          console.error('❌ [DEBUG] Detalles del error:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+          });
+          Alert.alert(
+            'Error', 
+            error.message || 'No se pudo tomar la foto. Verifica que tengas permisos de cámara.'
+          );
+        }
+      }, 300); // Delay más largo para asegurar que el modal se cierre
+      
     } catch (error: any) {
-      if (__DEV__) {
-        console.error('❌ Error tomando foto:', error);
-        console.error('❌ Detalles del error:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        });
-      }
+      console.error('❌ [DEBUG] Error en tomarFoto:', error);
+      console.error('❌ [DEBUG] Detalles del error:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       Alert.alert(
         'Error', 
         error.message || 'No se pudo tomar la foto. Verifica que tengas permisos de cámara.'
