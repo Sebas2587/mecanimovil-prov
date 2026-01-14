@@ -193,13 +193,23 @@ export default function SubirDocumentosScreen() {
   const tomarFoto = async () => {
     console.log('📸 [DEBUG] Iniciando tomarFoto...');
     
-    // Cerrar modal inmediatamente - igual que documentacion.tsx que no tiene modal
+    // Cerrar modal primero
     setModalVisible(false);
+    
+    // En iOS con Expo Go, el Modal puede bloquear la UI thread durante la animación
+    // Esperar a que la animación del modal termine completamente
+    await new Promise(resolve => {
+      // Usar requestAnimationFrame para esperar al siguiente frame de renderizado
+      requestAnimationFrame(() => {
+        // Esperar un poco más para asegurar que el modal se cierre completamente
+        setTimeout(resolve, Platform.OS === 'ios' ? 400 : 200);
+      });
+    });
     
     try {
       console.log('📸 [DEBUG] Solicitando permisos de cámara...');
       
-      // Solicitar permisos de cámara - exactamente como documentacion.tsx
+      // Solicitar permisos de cámara
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
       console.log('📸 [DEBUG] Estado de permisos:', status);
@@ -232,8 +242,7 @@ export default function SubirDocumentosScreen() {
 
       console.log('📸 [DEBUG] Permisos otorgados, ejecutando launchCameraAsync...');
       
-      // Usar EXACTAMENTE el mismo patrón que documentacion.tsx que funciona
-      // Sin delays, sin setTimeout, simplemente ejecutar directamente
+      // Ahora ejecutar launchCameraAsync después de que el modal se haya cerrado completamente
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [4, 3],
