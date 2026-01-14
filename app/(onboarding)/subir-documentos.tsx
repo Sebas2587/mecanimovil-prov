@@ -11,6 +11,7 @@ import {
   Image,
   Linking,
   Platform,
+  InteractionManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -196,6 +197,14 @@ export default function SubirDocumentosScreen() {
     // Cerrar modal primero
     setModalVisible(false);
     
+    // Usar InteractionManager para esperar a que todas las animaciones del modal terminen
+    await new Promise(resolve => {
+      InteractionManager.runAfterInteractions(() => {
+        // Esperar un poco más para asegurar que el modal se cierre completamente
+        setTimeout(resolve, 100);
+      });
+    });
+    
     try {
       console.log('📸 [DEBUG] Solicitando permisos de cámara...');
       
@@ -231,52 +240,38 @@ export default function SubirDocumentosScreen() {
       }
 
       console.log('📸 [DEBUG] Permisos otorgados, abriendo cámara...');
+      console.log('📸 [DEBUG] Ejecutando launchCameraAsync...');
+      
+      // Ejecutar directamente después de que el modal se cierre
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-      // Usar setTimeout para asegurar que el modal se cierre completamente
-      // antes de abrir la cámara (similar a documentacion.tsx pero con delay)
-      setTimeout(async () => {
-        try {
-          console.log('📸 [DEBUG] Ejecutando launchCameraAsync...');
-          
-          // No especificar mediaTypes como en documentacion.tsx que funciona
-          const result = await ImagePicker.launchCameraAsync({
-            allowsEditing: true,
-            aspect: [4, 3],
-            quality: 0.8,
-          });
+      console.log('📸 [DEBUG] Resultado recibido de launchCameraAsync');
+      console.log('📸 [DEBUG] Resultado cancelado:', result.canceled);
+      console.log('📸 [DEBUG] Assets:', result.assets?.length || 0);
 
-          console.log('📸 [DEBUG] Resultado de la cámara:', result.canceled ? 'Cancelado' : 'Éxito');
-          console.log('📸 [DEBUG] Assets:', result.assets?.length || 0);
-
-          if (!result.canceled && result.assets[0]) {
-            const asset = result.assets[0];
-            console.log('📸 [DEBUG] Procesando documento con URI:', asset.uri);
-            procesarDocumento(asset.uri, asset.fileName || 'foto.jpg', 'image/jpeg');
-          }
-        } catch (error: any) {
-          console.error('❌ [DEBUG] Error en launchCameraAsync:', error);
-          console.error('❌ [DEBUG] Detalles del error:', {
-            message: error.message,
-            stack: error.stack,
-            name: error.name
-          });
-          Alert.alert(
-            'Error', 
-            error.message || 'No se pudo tomar la foto. Verifica que tengas permisos de cámara.'
-          );
-        }
-      }, 300); // Delay más largo para asegurar que el modal se cierre
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        console.log('📸 [DEBUG] Procesando documento con URI:', asset.uri);
+        procesarDocumento(asset.uri, asset.fileName || 'foto.jpg', 'image/jpeg');
+      } else {
+        console.log('📸 [DEBUG] Usuario canceló o no hay assets');
+      }
       
     } catch (error: any) {
       console.error('❌ [DEBUG] Error en tomarFoto:', error);
       console.error('❌ [DEBUG] Detalles del error:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+        code: error?.code
       });
       Alert.alert(
         'Error', 
-        error.message || 'No se pudo tomar la foto. Verifica que tengas permisos de cámara.'
+        error?.message || 'No se pudo tomar la foto. Verifica que tengas permisos de cámara.'
       );
     }
   };
