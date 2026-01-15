@@ -472,8 +472,9 @@ export default function EspecialidadesMarcasScreen() {
     const primaryLight = primaryObj?.['50'] || '#E6F0F5';
     const primary100 = primaryObj?.['100'] || '#D0E0F0';
     const infoObj = safeColors?.info as any;
-    const infoMain = infoObj?.main || infoObj?.['500'] || '#068FFF';
-    const infoLight = infoObj?.light || '#E6F5FF';
+    const infoMain = infoObj?.main || infoObj?.['500'] || COLORS?.info?.main || '#068FFF';
+    const infoLight = infoObj?.light || COLORS?.info?.light || '#E6F5FF';
+    const infoDark = infoObj?.dark || COLORS?.info?.dark || '#0570CC';
     const infoText = infoObj?.text || COLORS?.base?.white || '#FFFFFF';
     const neutralGray200 = (safeColors?.neutral as any)?.gray?.[200] || '#EEEEEE';
     const neutralGray700 = (safeColors?.neutral as any)?.gray?.[700] || '#666666';
