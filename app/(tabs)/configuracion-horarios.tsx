@@ -58,10 +58,26 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
   const fontWeightSemibold = theme?.typography?.fontWeight?.semibold || TYPOGRAPHY?.fontWeight?.semibold || '600';
   
   const timeToDate = (timeString: string): Date => {
-    const [hours, minutes] = timeString.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
-    return date;
+    // Si el valor está vacío o es inválido, usar hora por defecto
+    if (!timeString || timeString.trim() === '' || !timeString.includes(':')) {
+      const date = new Date();
+      date.setHours(8, 0, 0, 0);
+      return date;
+    }
+    
+    try {
+      const parts = timeString.split(':');
+      const hours = parseInt(parts[0] || '8', 10);
+      const minutes = parseInt(parts[1] || '0', 10);
+      const date = new Date();
+      date.setHours(hours, minutes, 0, 0);
+      return date;
+    } catch (error) {
+      console.error('Error convirtiendo hora a Date:', error, 'timeString:', timeString);
+      const date = new Date();
+      date.setHours(8, 0, 0, 0);
+      return date;
+    }
   };
   
   const dateToTime = (date: Date): string => {
@@ -148,7 +164,7 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
       
       {showPicker && (
         <DateTimePicker
-          value={timeToDate(value)}
+          value={timeToDate(value || '08:00')}
           mode="time"
           is24Hour={true}
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
