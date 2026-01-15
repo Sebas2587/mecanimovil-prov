@@ -1208,7 +1208,7 @@ const createStyles = () => {
   const spacingSm = SPACING?.sm || 8;
   const spacingMd = SPACING?.md || 16;
   const spacingLg = SPACING?.lg || 24;
-  const containerHorizontal = SPACING?.container?.horizontal || SPACING?.content?.horizontal || 16;
+  const containerHorizontal = SPACING?.container?.horizontal || SPACING?.content?.horizontal || 18;
   const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
   const fontSizeMd = TYPOGRAPHY?.fontSize?.md || 16;
   const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
