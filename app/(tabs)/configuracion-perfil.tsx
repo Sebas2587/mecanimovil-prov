@@ -12,7 +12,7 @@ import {
   Modal,
   Platform,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
@@ -626,14 +626,19 @@ export default function ConfiguracionPerfilScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: bgPaper }]}>
+      <View style={[styles.container, { backgroundColor: bgPaper }]}>
+        <Header
+          title="Gestionar Perfil"
+          showBack={true}
+          onBackPress={() => router.back()}
+        />
         <LoadingSpinner />
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: bgPaper }]} edges={['top']}>
+    <View style={[styles.container, { backgroundColor: bgPaper }]}>
       <Header
         title="Gestionar Perfil"
         showBack={true}
@@ -1176,7 +1181,7 @@ export default function ConfiguracionPerfilScreen() {
 
       {/* Botón guardar datos personales */}
       {hasChanges && tabActiva === 'datos' && (
-        <SafeAreaView style={styles.saveContainer} edges={['bottom']}>
+        <View style={[styles.saveContainer, { paddingBottom: insets.bottom + spacingMd }]}>
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: primary500 }, saving && styles.saveButtonDisabled]}
             onPress={guardarDatosPersonales}
@@ -1191,9 +1196,9 @@ export default function ConfiguracionPerfilScreen() {
               {saving ? 'Guardando...' : 'Guardar Cambios'}
             </Text>
           </TouchableOpacity>
-        </SafeAreaView>
+        </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -1203,7 +1208,7 @@ const createStyles = () => {
   const spacingSm = SPACING?.sm || 8;
   const spacingMd = SPACING?.md || 16;
   const spacingLg = SPACING?.lg || 24;
-  const containerHorizontal = SPACING?.container?.horizontal || SPACING?.content?.horizontal || 12;
+  const containerHorizontal = SPACING?.container?.horizontal || SPACING?.content?.horizontal || 16;
   const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
   const fontSizeMd = TYPOGRAPHY?.fontSize?.md || 16;
   const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
@@ -1312,7 +1317,10 @@ const createStyles = () => {
       right: 0,
       paddingHorizontal: containerHorizontal,
       paddingTop: spacingMd,
-      paddingBottom: spacingMd,
+      backgroundColor: bgPaper,
+      ...shadowMd,
+      borderTopWidth: 1,
+      borderTopColor: borderLight,
     },
     saveButton: {
       flexDirection: 'row',
