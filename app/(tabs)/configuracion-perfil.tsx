@@ -1240,6 +1240,10 @@ const createStyles = () => {
   const radius2xl = BORDERS?.radius?.['2xl'] || 20;
   const shadowSm = SHADOWS?.sm || { shadowColor: '#000000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
   const shadowMd = SHADOWS?.md || { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
+  
+  // Colores del sistema de diseño para usar en estilos
+  const bgPaper = (COLORS?.background as any)?.paper || (COLORS?.base as any)?.white || '#FFFFFF';
+  const borderLight = (COLORS?.border as any)?.light || '#EEEEEE';
 
   return StyleSheet.create({
     container: {
@@ -1339,7 +1343,7 @@ const createStyles = () => {
       ...shadowMd,
       borderTopWidth: 1,
       borderTopColor: borderLight,
-    },
+    } as any,
     saveButton: {
       flexDirection: 'row',
       borderRadius: radiusXl,
