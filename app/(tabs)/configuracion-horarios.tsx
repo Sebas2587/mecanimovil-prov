@@ -82,17 +82,33 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
   };
   
   const formatDisplayTime = (time: string) => {
+    if (!time || time.trim() === '') {
+      return '--:--';
+    }
+    
     try {
-      const [hours, minutes] = time.split(':');
-      const date = new Date();
-      date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-      return date.toLocaleTimeString('es-ES', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      });
-    } catch {
-      return time;
+      // Asegurar que el formato sea HH:MM
+      const parts = time.split(':');
+      if (parts.length !== 2) {
+        return time; // Si no tiene formato correcto, devolver tal cual
+      }
+      
+      const hours = parseInt(parts[0], 10);
+      const minutes = parseInt(parts[1], 10);
+      
+      // Validar que sean números válidos
+      if (isNaN(hours) || isNaN(minutes)) {
+        return time;
+      }
+      
+      // Formatear con padding para asegurar 2 dígitos
+      const hoursStr = hours.toString().padStart(2, '0');
+      const minutesStr = minutes.toString().padStart(2, '0');
+      
+      return `${hoursStr}:${minutesStr}`;
+    } catch (error) {
+      console.error('Error formateando hora:', error, 'time:', time);
+      return time || '--:--';
     }
   };
 
@@ -113,14 +129,18 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
         activeOpacity={0.8}
       >
         <Ionicons name="time" size={20} color={primaryColor} />
-        <Text style={{
-          fontSize: fontSizeBase,
-          fontWeight: fontWeightSemibold,
-          color: textPrimary,
-          flex: 1,
-          marginHorizontal: spacingMd,
-        }}>
-          {formatDisplayTime(value)}
+        <Text 
+          style={{
+            fontSize: fontSizeBase,
+            fontWeight: fontWeightSemibold,
+            color: textPrimary,
+            flex: 1,
+            marginHorizontal: spacingMd,
+            textAlign: 'left',
+          }}
+          numberOfLines={1}
+        >
+          {formatDisplayTime(value || '08:00')}
         </Text>
         <Ionicons name="chevron-down" size={20} color="#666E7A" />
       </TouchableOpacity>
