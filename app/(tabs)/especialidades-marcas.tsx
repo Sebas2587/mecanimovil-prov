@@ -507,8 +507,8 @@ export default function EspecialidadesMarcasScreen() {
               {modelosDeMarca.length} modelos
             </Text>
             {isSelected && modelosDeMarca.length > 0 && (
-              <View style={[styles.modelosPreview, { backgroundColor: primary500, borderColor: primary500 }]}>
-                <Text style={[styles.modelosPreviewText, { color: COLORS?.base?.white || '#FFFFFF' }]} numberOfLines={2}>
+              <View style={[styles.modelosPreview, { backgroundColor: infoLight, borderColor: infoMain }]}>
+                <Text style={[styles.modelosPreviewText, { color: infoDark }]} numberOfLines={2}>
                   {modelosDeMarca.slice(0, 3).map(m => m.nombre).join(', ')}
                   {modelosDeMarca.length > 3 && ` +${modelosDeMarca.length - 3} más`}
                 </Text>
