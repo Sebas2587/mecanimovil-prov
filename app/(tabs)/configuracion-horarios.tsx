@@ -194,53 +194,50 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
             {/* Lista de opciones - Optimizada */}
             <ScrollView
               style={{
-                flex: 1,
+                maxHeight: 400,
               }}
               contentContainerStyle={{
                 paddingVertical: spacingSm,
+                paddingHorizontal: spacingMd,
               }}
               showsVerticalScrollIndicator={true}
             >
-              <View style={{
-                paddingHorizontal: spacingMd,
-              }}>
-                {opcionesHora.map((opcion) => {
-                  const estaSeleccionada = opcion === horaActual;
-                  return (
-                    <TouchableOpacity
-                      key={opcion}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingVertical: spacingSm + 4,
-                        paddingHorizontal: spacingMd,
-                        marginVertical: 1,
-                        borderRadius: cardRadius / 2,
-                        backgroundColor: estaSeleccionada ? primaryColor : 'transparent',
-                        borderWidth: estaSeleccionada ? 0 : 1,
-                        borderColor: borderLight,
-                      }}
-                      onPress={() => {
-                        onTimeChange(opcion);
-                        setShowModal(false);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={{
-                        fontSize: fontSizeBase,
-                        fontWeight: estaSeleccionada ? fontWeightBold : fontWeightSemibold,
-                        color: estaSeleccionada ? '#FFFFFF' : textPrimary,
-                      }}>
-                        {opcion}
-                      </Text>
-                      {estaSeleccionada && (
-                        <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {opcionesHora.map((opcion) => {
+                const estaSeleccionada = opcion === horaActual;
+                return (
+                  <TouchableOpacity
+                    key={opcion}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: spacingSm + 4,
+                      paddingHorizontal: spacingMd,
+                      marginVertical: 1,
+                      borderRadius: cardRadius / 2,
+                      backgroundColor: estaSeleccionada ? primaryColor : 'transparent',
+                      borderWidth: estaSeleccionada ? 0 : 1,
+                      borderColor: borderLight,
+                    }}
+                    onPress={() => {
+                      onTimeChange(opcion);
+                      setShowModal(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{
+                      fontSize: fontSizeBase,
+                      fontWeight: estaSeleccionada ? fontWeightBold : fontWeightSemibold,
+                      color: estaSeleccionada ? '#FFFFFF' : textPrimary,
+                    }}>
+                      {opcion}
+                    </Text>
+                    {estaSeleccionada && (
+                      <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -249,7 +246,7 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
   );
 };
 
-// Componente NumberPicker moderno - Usando sistema de diseño
+// Componente NumberPicker moderno - Con modal igual que TimePicker
 const NumberPicker = ({ value, onValueChange, label, unit, options, primaryColor = '#003459' }: {
   value: number;
   onValueChange: (value: number) => void;
@@ -258,19 +255,22 @@ const NumberPicker = ({ value, onValueChange, label, unit, options, primaryColor
   options: number[];
   primaryColor?: string;
 }) => {
-  const [showPicker, setShowPicker] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const theme = useTheme();
   
   // Obtener valores del sistema de diseño
   const bgDefault = (theme?.colors?.background as any)?.default || COLORS?.background?.default || '#F5F7F8';
   const textPrimary = theme?.colors?.text?.primary || COLORS?.text?.primary || '#00171F';
+  const textSecondary = theme?.colors?.text?.secondary || COLORS?.text?.secondary || '#666E7A';
   const borderLight = (theme?.colors?.border as any)?.light || COLORS?.border?.light || '#D7DFE3';
   const spacingMd = theme?.spacing?.md || SPACING?.md || 16;
   const spacingSm = theme?.spacing?.sm || SPACING?.sm || 8;
+  const spacingLg = theme?.spacing?.lg || SPACING?.lg || 24;
   const cardRadius = (theme?.borders?.radius as any)?.lg || BORDERS?.radius?.lg || 12;
   const fontSizeBase = theme?.typography?.fontSize?.base || TYPOGRAPHY?.fontSize?.base || 14;
+  const fontSizeLg = theme?.typography?.fontSize?.lg || TYPOGRAPHY?.fontSize?.lg || 18;
   const fontWeightSemibold = theme?.typography?.fontWeight?.semibold || TYPOGRAPHY?.fontWeight?.semibold || '600';
-  const fontWeightMedium = theme?.typography?.fontWeight?.medium || TYPOGRAPHY?.fontWeight?.medium || '500';
+  const fontWeightBold = theme?.typography?.fontWeight?.bold || TYPOGRAPHY?.fontWeight?.bold || '700';
   
   return (
     <View style={{ marginBottom: spacingMd }}>
@@ -285,7 +285,7 @@ const NumberPicker = ({ value, onValueChange, label, unit, options, primaryColor
           borderWidth: 1,
           borderColor: borderLight,
         }}
-        onPress={() => setShowPicker(!showPicker)}
+        onPress={() => setShowModal(true)}
         activeOpacity={0.8}
       >
         <Ionicons name="timer" size={20} color={primaryColor} />
@@ -295,54 +295,120 @@ const NumberPicker = ({ value, onValueChange, label, unit, options, primaryColor
           color: textPrimary,
           flex: 1,
           marginHorizontal: spacingMd,
-        }}>
+          textAlign: 'left',
+          minWidth: 60,
+        }}
+        numberOfLines={1}
+        >
           {value} {unit}
         </Text>
-        <Ionicons 
-          name={showPicker ? "chevron-up" : "chevron-down"} 
-          size={20} 
-          color="#666E7A" 
-        />
+        <Ionicons name="chevron-down" size={20} color="#666E7A" />
       </TouchableOpacity>
       
-      {showPicker && (
-        <View style={{
-          backgroundColor: bgDefault,
-          borderRadius: cardRadius / 2,
-          borderWidth: 1,
-          borderColor: borderLight,
-          marginTop: spacingSm,
-          padding: spacingSm,
-          maxHeight: 200,
-        }}>
-          {options.map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={{
-                paddingVertical: spacingMd - 2,
-                paddingHorizontal: spacingMd,
-                borderRadius: cardRadius / 2,
-                marginVertical: 2,
-                backgroundColor: option === value ? primaryColor : 'transparent',
-              }}
-              onPress={() => {
-                onValueChange(option);
-                setShowPicker(false);
-              }}
-              activeOpacity={0.8}
-            >
+      <Modal
+        visible={showModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowModal(false)}
+      >
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'flex-end',
+          }}
+          activeOpacity={1}
+          onPress={() => setShowModal(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: bgDefault,
+              borderTopLeftRadius: cardRadius,
+              borderTopRightRadius: cardRadius,
+              maxHeight: '75%',
+            }}
+          >
+            {/* Header */}
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: spacingMd,
+              paddingTop: spacingMd,
+              paddingBottom: spacingSm,
+              borderBottomWidth: 1,
+              borderBottomColor: borderLight,
+            }}>
               <Text style={{
-                fontSize: fontSizeBase,
-                fontWeight: option === value ? fontWeightSemibold : fontWeightMedium,
-                color: option === value ? '#FFFFFF' : textPrimary,
-                textAlign: 'center',
+                fontSize: fontSizeLg,
+                fontWeight: fontWeightBold,
+                color: textPrimary,
               }}>
-                {option} {unit}
+                {label}
               </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+              <TouchableOpacity
+                onPress={() => setShowModal(false)}
+                style={{
+                  padding: spacingSm,
+                }}
+              >
+                <Ionicons name="close" size={24} color={textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Lista de opciones */}
+            <ScrollView
+              style={{
+                maxHeight: 400,
+              }}
+              contentContainerStyle={{
+                paddingVertical: spacingSm,
+                paddingHorizontal: spacingMd,
+              }}
+              showsVerticalScrollIndicator={true}
+            >
+              {options.map((option) => {
+                const estaSeleccionada = option === value;
+                return (
+                  <TouchableOpacity
+                    key={option}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: spacingSm + 4,
+                      paddingHorizontal: spacingMd,
+                      marginVertical: 1,
+                      borderRadius: cardRadius / 2,
+                      backgroundColor: estaSeleccionada ? primaryColor : 'transparent',
+                      borderWidth: estaSeleccionada ? 0 : 1,
+                      borderColor: borderLight,
+                    }}
+                    onPress={() => {
+                      onValueChange(option);
+                      setShowModal(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{
+                      fontSize: fontSizeBase,
+                      fontWeight: estaSeleccionada ? fontWeightBold : fontWeightSemibold,
+                      color: estaSeleccionada ? '#FFFFFF' : textPrimary,
+                    }}>
+                      {option} {unit}
+                    </Text>
+                    {estaSeleccionada && (
+                      <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
