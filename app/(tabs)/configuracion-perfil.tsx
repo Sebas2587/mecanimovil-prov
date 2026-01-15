@@ -813,7 +813,7 @@ export default function ConfiguracionPerfilScreen() {
         )}
 
         {tabActiva === 'documentos' && (
-          <View style={styles.contentContainer}>
+          <View>
             {/* Header mejorado del tab de documentos */}
             <View style={[styles.documentsHeader, { backgroundColor: bgPaper, borderColor: borderLight }]}>
               <View style={[styles.documentsHeaderIconContainer, { backgroundColor: primaryLight }]}>
@@ -1381,6 +1381,7 @@ const createStyles = () => {
       flexDirection: 'row',
       alignItems: 'center',
       marginHorizontal: containerHorizontal,
+      marginTop: spacingLg,
       marginBottom: spacingLg,
       borderRadius: radiusXl,
       padding: spacingMd,
@@ -1459,13 +1460,13 @@ const createStyles = () => {
     },
     documentsSection: {
       marginBottom: spacingLg,
-      paddingHorizontal: containerHorizontal,
     },
     sectionHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: spacingSm + 2,
+      paddingHorizontal: containerHorizontal,
     },
     sectionHeaderLeft: {
       flexDirection: 'row',
@@ -1493,18 +1494,19 @@ const createStyles = () => {
     sectionDescription: {
       fontSize: fontSizeBase - 2,
       marginBottom: spacingMd - 2,
-      paddingHorizontal: spacingSm + 2,
+      paddingHorizontal: containerHorizontal,
     },
     documentsGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       justifyContent: 'space-between',
-      paddingHorizontal: spacingSm + 2,
+      paddingHorizontal: containerHorizontal,
+      gap: spacingSm,
     },
     documentCard: {
       width: '48%',
       borderRadius: radiusXl,
-      marginBottom: spacingMd - 2,
+      marginBottom: spacingMd,
       borderWidth: 2,
       overflow: 'hidden',
     },
