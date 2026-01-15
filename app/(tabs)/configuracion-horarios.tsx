@@ -158,7 +158,7 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
   );
 };
 
-// Componente NumberPicker moderno
+// Componente NumberPicker moderno - Usando sistema de diseño
 const NumberPicker = ({ value, onValueChange, label, unit, options, primaryColor = '#003459' }: {
   value: number;
   onValueChange: (value: number) => void;
@@ -168,16 +168,45 @@ const NumberPicker = ({ value, onValueChange, label, unit, options, primaryColor
   primaryColor?: string;
 }) => {
   const [showPicker, setShowPicker] = useState(false);
+  const theme = useTheme();
+  
+  // Obtener valores del sistema de diseño
+  const bgDefault = (theme?.colors?.background as any)?.default || COLORS?.background?.default || '#F5F7F8';
+  const textPrimary = theme?.colors?.text?.primary || COLORS?.text?.primary || '#00171F';
+  const borderLight = (theme?.colors?.border as any)?.light || COLORS?.border?.light || '#D7DFE3';
+  const spacingMd = theme?.spacing?.md || SPACING?.md || 16;
+  const spacingSm = theme?.spacing?.sm || SPACING?.sm || 8;
+  const cardRadius = (theme?.borders?.radius as any)?.lg || BORDERS?.radius?.lg || 12;
+  const fontSizeBase = theme?.typography?.fontSize?.base || TYPOGRAPHY?.fontSize?.base || 14;
+  const fontWeightSemibold = theme?.typography?.fontWeight?.semibold || TYPOGRAPHY?.fontWeight?.semibold || '600';
+  const fontWeightMedium = theme?.typography?.fontWeight?.medium || TYPOGRAPHY?.fontWeight?.medium || '500';
   
   return (
-    <View style={styles.modernNumberPickerContainer}>
+    <View style={{ marginBottom: spacingMd }}>
       <TouchableOpacity 
-        style={styles.modernTimePickerButton}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: bgDefault,
+          borderRadius: cardRadius / 2,
+          padding: spacingMd - 2,
+          borderWidth: 1,
+          borderColor: borderLight,
+        }}
         onPress={() => setShowPicker(!showPicker)}
         activeOpacity={0.8}
       >
         <Ionicons name="timer" size={20} color={primaryColor} />
-        <Text style={styles.modernTimePickerText}>{value} {unit}</Text>
+        <Text style={{
+          fontSize: fontSizeBase,
+          fontWeight: fontWeightSemibold,
+          color: textPrimary,
+          flex: 1,
+          marginHorizontal: spacingMd,
+        }}>
+          {value} {unit}
+        </Text>
         <Ionicons 
           name={showPicker ? "chevron-up" : "chevron-down"} 
           size={20} 
@@ -186,24 +215,37 @@ const NumberPicker = ({ value, onValueChange, label, unit, options, primaryColor
       </TouchableOpacity>
       
       {showPicker && (
-        <View style={styles.modernOptionsContainer}>
+        <View style={{
+          backgroundColor: bgDefault,
+          borderRadius: cardRadius / 2,
+          borderWidth: 1,
+          borderColor: borderLight,
+          marginTop: spacingSm,
+          padding: spacingSm,
+          maxHeight: 200,
+        }}>
           {options.map((option) => (
             <TouchableOpacity
               key={option}
-              style={[
-                styles.modernOptionButton,
-                option === value && [styles.modernOptionButtonSelected, { backgroundColor: primaryColor }]
-              ]}
+              style={{
+                paddingVertical: spacingMd - 2,
+                paddingHorizontal: spacingMd,
+                borderRadius: cardRadius / 2,
+                marginVertical: 2,
+                backgroundColor: option === value ? primaryColor : 'transparent',
+              }}
               onPress={() => {
                 onValueChange(option);
                 setShowPicker(false);
               }}
               activeOpacity={0.8}
             >
-              <Text style={[
-                styles.modernOptionText,
-                option === value && styles.modernOptionTextSelected
-              ]}>
+              <Text style={{
+                fontSize: fontSizeBase,
+                fontWeight: option === value ? fontWeightSemibold : fontWeightMedium,
+                color: option === value ? '#FFFFFF' : textPrimary,
+                textAlign: 'center',
+              }}>
                 {option} {unit}
               </Text>
             </TouchableOpacity>
@@ -1157,57 +1199,7 @@ const createStyles = () => {
       marginBottom: spacingSm,
       fontWeight: fontWeightMedium,
     },
-    // Estilos de TimePicker removidos - ahora se usan estilos inline con sistema de diseño
-    iosTimePicker: {
-      width: '100%',
-      marginTop: spacingSm,
-    },
-    iosPickerButtons: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      marginTop: spacingMd,
-    },
-    iosPickerButton: {
-      paddingVertical: spacingSm,
-      paddingHorizontal: spacingLg,
-      borderRadius: cardRadius,
-    },
-    iosPickerButtonText: {
-      color: '#FFFFFF',
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-    },
-    modernNumberPickerContainer: {
-      marginBottom: spacingMd,
-    },
-    modernOptionsContainer: {
-      backgroundColor: bgDefault,
-      borderRadius: cardRadius / 2,
-      borderWidth: 1,
-      borderColor: borderLight,
-      marginTop: spacingSm,
-      padding: spacingSm,
-      maxHeight: 200,
-    },
-    modernOptionButton: {
-      paddingVertical: spacingMd - 2,
-      paddingHorizontal: spacingMd,
-      borderRadius: cardRadius / 2,
-      marginVertical: spacingXs / 2,
-    },
-    modernOptionButtonSelected: {
-      // backgroundColor se aplica dinámicamente
-    },
-    modernOptionText: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightMedium,
-      color: textPrimary,
-      textAlign: 'center',
-    },
-    modernOptionTextSelected: {
-      color: '#FFFFFF',
-      fontWeight: fontWeightSemibold,
-    },
+    // Estilos de TimePicker y NumberPicker removidos - ahora se usan estilos inline con sistema de diseño
     modernPreviewContainer: {
       backgroundColor: bgDefault,
       borderRadius: cardRadius / 2,
