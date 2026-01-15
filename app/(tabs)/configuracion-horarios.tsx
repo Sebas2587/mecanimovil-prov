@@ -144,26 +144,35 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
         animationType="slide"
         onRequestClose={() => setShowModal(false)}
       >
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          justifyContent: 'flex-end',
-        }}>
-          <View style={{
-            backgroundColor: bgDefault,
-            borderTopLeftRadius: cardRadius,
-            borderTopRightRadius: cardRadius,
-            paddingTop: spacingLg,
-            paddingBottom: spacingLg,
-            maxHeight: '70%',
-          }}>
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'flex-end',
+          }}
+          activeOpacity={1}
+          onPress={() => setShowModal(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: bgDefault,
+              borderTopLeftRadius: cardRadius,
+              borderTopRightRadius: cardRadius,
+              maxHeight: '75%',
+            }}
+          >
             {/* Header */}
             <View style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
-              paddingHorizontal: spacingLg,
-              marginBottom: spacingMd,
+              paddingHorizontal: spacingMd,
+              paddingTop: spacingMd,
+              paddingBottom: spacingSm,
+              borderBottomWidth: 1,
+              borderBottomColor: borderLight,
             }}>
               <Text style={{
                 fontSize: fontSizeLg,
@@ -182,10 +191,13 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
               </TouchableOpacity>
             </View>
             
-            {/* Lista de opciones */}
+            {/* Lista de opciones - Optimizada */}
             <ScrollView
               style={{
-                maxHeight: 400,
+                flex: 1,
+              }}
+              contentContainerStyle={{
+                paddingVertical: spacingSm,
               }}
               showsVerticalScrollIndicator={true}
             >
@@ -201,9 +213,9 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
                         flexDirection: 'row',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        paddingVertical: spacingMd,
+                        paddingVertical: spacingSm + 4,
                         paddingHorizontal: spacingMd,
-                        marginVertical: 2,
+                        marginVertical: 1,
                         borderRadius: cardRadius / 2,
                         backgroundColor: estaSeleccionada ? primaryColor : 'transparent',
                         borderWidth: estaSeleccionada ? 0 : 1,
@@ -223,15 +235,15 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
                         {opcion}
                       </Text>
                       {estaSeleccionada && (
-                        <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                        <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
                       )}
                     </TouchableOpacity>
                   );
                 })}
               </View>
             </ScrollView>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
