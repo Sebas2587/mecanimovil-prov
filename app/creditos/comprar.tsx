@@ -279,10 +279,30 @@ export default function ComprarCreditosScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: backgroundDefault }]}>
         <Stack.Screen
-          options={{
+          options={({ navigation }) => ({
             title: 'Comprar Créditos',
             headerShown: true,
-          }}
+            headerBackTitle: '',
+            headerBackTitleVisible: false,
+            headerLeft: () => {
+              const handleBack = () => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  router.replace('/(tabs)/creditos');
+                }
+              };
+              const headerTextColor = colors?.text?.primary || '#000000';
+              return (
+                <TouchableOpacity
+                  onPress={handleBack}
+                  style={{ marginLeft: 16, padding: 8 }}
+                >
+                  <MaterialIcons name="arrow-back" size={24} color={headerTextColor} />
+                </TouchableOpacity>
+              );
+            },
+          })}
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={primaryColor} />
@@ -298,10 +318,30 @@ export default function ComprarCreditosScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: backgroundDefault }]}>
         <Stack.Screen
-          options={{
+          options={({ navigation }) => ({
             title: 'Comprar Créditos',
             headerShown: true,
-          }}
+            headerBackTitle: '',
+            headerBackTitleVisible: false,
+            headerLeft: () => {
+              const handleBack = () => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  router.replace('/(tabs)/creditos');
+                }
+              };
+              const headerTextColor = colors?.text?.primary || '#000000';
+              return (
+                <TouchableOpacity
+                  onPress={handleBack}
+                  style={{ marginLeft: 16, padding: 8 }}
+                >
+                  <MaterialIcons name="arrow-back" size={24} color={headerTextColor} />
+                </TouchableOpacity>
+              );
+            },
+          })}
         />
         <View style={styles.errorContainer}>
           <MaterialIcons name="error-outline" size={48} color={colors?.error?.main || '#FF5555'} />
