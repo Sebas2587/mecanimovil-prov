@@ -1595,6 +1595,7 @@ const createStyles = () => {
     emptyStateContainer: {
       alignItems: 'center',
       paddingVertical: spacingLg,
+      paddingHorizontal: containerHorizontal,
     },
     emptyStateTitle: {
       fontSize: fontSizeLg,
@@ -1605,7 +1606,6 @@ const createStyles = () => {
       fontSize: fontSizeBase - 2,
       marginTop: spacingXs,
       textAlign: 'center',
-      paddingHorizontal: spacingLg,
     },
     emptyStateAction: {
       flexDirection: 'row',
