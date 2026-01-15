@@ -470,8 +470,13 @@ export default function EspecialidadesMarcasScreen() {
     const primaryObj = safeColors?.primary as any;
     const primary500 = primaryObj?.['500'] || (safeColors?.accent as any)?.['500'] || '#003459';
     const primaryLight = primaryObj?.['50'] || '#E6F0F5';
-    const infoLight = (safeColors?.info as any)?.light || '#E6F5F9';
-    const infoText = (safeColors?.info as any)?.text || '#003D32';
+    const primary100 = primaryObj?.['100'] || '#D0E0F0';
+    const infoObj = safeColors?.info as any;
+    const infoMain = infoObj?.main || infoObj?.['500'] || '#068FFF';
+    const infoLight = infoObj?.light || '#E6F5FF';
+    const infoText = infoObj?.text || COLORS?.base?.white || '#FFFFFF';
+    const neutralGray200 = (safeColors?.neutral as any)?.gray?.[200] || '#EEEEEE';
+    const neutralGray700 = (safeColors?.neutral as any)?.gray?.[700] || '#666666';
     
     return (
       <TouchableOpacity
@@ -502,8 +507,8 @@ export default function EspecialidadesMarcasScreen() {
               {modelosDeMarca.length} modelos
             </Text>
             {isSelected && modelosDeMarca.length > 0 && (
-              <View style={[styles.modelosPreview, { backgroundColor: infoLight, borderColor: borderLight }]}>
-                <Text style={[styles.modelosPreviewText, { color: infoText }]} numberOfLines={2}>
+              <View style={[styles.modelosPreview, { backgroundColor: primary500, borderColor: primary500 }]}>
+                <Text style={[styles.modelosPreviewText, { color: COLORS?.base?.white || '#FFFFFF' }]} numberOfLines={2}>
                   {modelosDeMarca.slice(0, 3).map(m => m.nombre).join(', ')}
                   {modelosDeMarca.length > 3 && ` +${modelosDeMarca.length - 3} más`}
                 </Text>
@@ -1059,7 +1064,7 @@ const createStyles = () => {
       fontSize: fontSizeBase - 1,
       fontWeight: '600',
       lineHeight: (fontSizeBase - 1) * 1.4,
-      letterSpacing: 0.1,
+      letterSpacing: 0.2,
     },
     editButtonContainer: {
       marginBottom: spacingMd,
