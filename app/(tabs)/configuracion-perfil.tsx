@@ -525,7 +525,7 @@ export default function ConfiguracionPerfilScreen() {
   };
 
   const getTiposDocumentoFaltantes = () => {
-    const tiposExistentes = documentos.map(doc => doc.tipo_documento);
+    const tiposExistentes = (documentos || []).map(doc => doc?.tipo_documento).filter(Boolean);
     return Object.keys(tiposDocumentoInfo).filter(tipo => !tiposExistentes.includes(tipo));
   };
 
