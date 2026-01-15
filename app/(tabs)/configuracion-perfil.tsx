@@ -215,14 +215,18 @@ export default function ConfiguracionPerfilScreen() {
         setTiposDocumento(tiposDocumento);
         
         // Convertir documentos a formato local con información adicional
-        const documentosConInfo = documentosData.map(doc => ({
-          ...doc,
-          ...tiposDocumentoInfo[doc.tipo_documento as keyof typeof tiposDocumentoInfo],
-          nombre_amigable: tiposDocumentoInfo[doc.tipo_documento as keyof typeof tiposDocumentoInfo]?.nombre || doc.tipo_documento,
-          icono: tiposDocumentoInfo[doc.tipo_documento as keyof typeof tiposDocumentoInfo]?.icono || 'insert-drive-file',
-          descripcion: tiposDocumentoInfo[doc.tipo_documento as keyof typeof tiposDocumentoInfo]?.descripcion || '',
-          esObligatorio: tiposDocumentoInfo[doc.tipo_documento as keyof typeof tiposDocumentoInfo]?.esObligatorio || false,
-        }));
+        const documentosConInfo = (documentosData || []).map(doc => {
+          const tipoDoc = doc?.tipo_documento;
+          const info = tipoDoc ? tiposDocumentoInfo[tipoDoc as keyof typeof tiposDocumentoInfo] : null;
+          return {
+            ...doc,
+            ...(info || {}),
+            nombre_amigable: info?.nombre || doc?.tipo_documento || 'Documento',
+            icono: info?.icono || 'insert-drive-file',
+            descripcion: info?.descripcion || '',
+            esObligatorio: info?.esObligatorio || false,
+          };
+        });
         
         console.log('✅ Documentos procesados:', documentosConInfo);
         setDocumentos(documentosConInfo);
@@ -261,8 +265,17 @@ export default function ConfiguracionPerfilScreen() {
       
       console.log('📷 Resultado de ImagePicker:', result);
       
+      // Validar que result tenga assets y que no esté vacío
+      if (!result || !result.assets || result.assets.length === 0) {
+        throw new Error('No se seleccionó ninguna imagen');
+      }
+      
       // CORREGIDO: Preparar archivo correctamente para React Native
       const asset = result.assets[0];
+      if (!asset || !asset.uri) {
+        throw new Error('La imagen seleccionada no es válida');
+      }
+      
       const archivo = {
         uri: asset.uri,
         type: asset.mimeType || asset.type || 'image/jpeg',
@@ -320,7 +333,7 @@ export default function ConfiguracionPerfilScreen() {
       setSaving(true);
       
       // Verificar si ya existe un documento de este tipo
-      const documentoExistente = documentos.find(doc => doc.tipo_documento === tipoDocumento.key);
+      const documentoExistente = (documentos || []).find(doc => doc?.tipo_documento === tipoDocumento.key);
       
       if (documentoExistente && documentoExistente.id) {
         // Si es obligatorio, requiere verificación
@@ -379,9 +392,14 @@ export default function ConfiguracionPerfilScreen() {
         quality: 0.9,
       });
 
-      if (!result.canceled) {
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         // Preparar archivo correctamente para React Native
         const asset = result.assets[0];
+        if (!asset || !asset.uri) {
+          Alert.alert('Error', 'La imagen seleccionada no es válida');
+          return;
+        }
+        
         const archivo = {
           uri: asset.uri,
           type: asset.mimeType || asset.type || 'image/jpeg',
@@ -495,14 +513,14 @@ export default function ConfiguracionPerfilScreen() {
   };
 
   const getDocumentosObligatorios = () => {
-    return documentos.filter(doc => doc.esObligatorio && 
-      getDocumentosSegunTipoProveedor().includes(doc.tipo_documento)
+    return (documentos || []).filter(doc => doc?.esObligatorio && 
+      getDocumentosSegunTipoProveedor().includes(doc?.tipo_documento)
     );
   };
 
   const getDocumentosOpcionales = () => {
-    return documentos.filter(doc => !doc.esObligatorio && 
-      getDocumentosSegunTipoProveedor().includes(doc.tipo_documento)
+    return (documentos || []).filter(doc => !doc?.esObligatorio && 
+      getDocumentosSegunTipoProveedor().includes(doc?.tipo_documento)
     );
   };
 
@@ -533,7 +551,7 @@ export default function ConfiguracionPerfilScreen() {
   };
 
   const getTiposDocumentoFaltantesSegunTipo = () => {
-    const tiposExistentes = documentos.map(doc => doc.tipo_documento);
+    const tiposExistentes = (documentos || []).map(doc => doc?.tipo_documento).filter(Boolean);
     const documentosPermitidos = getDocumentosSegunTipoProveedor();
     
     const faltantes = documentosPermitidos.filter(tipo => {
