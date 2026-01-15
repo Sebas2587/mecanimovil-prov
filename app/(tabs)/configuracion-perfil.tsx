@@ -211,7 +211,7 @@ export default function ConfiguracionPerfilScreen() {
         console.log('✅ Tipos de documento obtenidos:', tiposData);
         
         // Arreglar el problema con tipos_documento
-        const tiposDocumento = tiposData.tipos_documento || tiposData || [];
+        const tiposDocumento = tiposData?.tipos_documento || (Array.isArray(tiposData) ? tiposData : []) || [];
         setTiposDocumento(tiposDocumento);
         
         // Convertir documentos a formato local con información adicional
@@ -242,8 +242,8 @@ export default function ConfiguracionPerfilScreen() {
         if (documentError instanceof Error) {
           console.error('Mensaje de error:', documentError.message);
         }
-        if ((documentError as any).response) {
-          console.error('Respuesta del servidor:', (documentError as any).response.status, (documentError as any).response.data);
+        if (documentError?.response) {
+          console.error('Respuesta del servidor:', documentError.response?.status, documentError.response?.data);
         }
         
         // Continuar con arrays vacíos para no bloquear la carga
