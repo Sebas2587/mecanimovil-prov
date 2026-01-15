@@ -19,7 +19,6 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { Stack, router } from 'expo-router';
 import { horariosAPI, type HorarioProveedor, type ConfiguracionSemanal } from '@/services/api';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { Platform } from 'react-native';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
@@ -37,65 +36,44 @@ interface ModalEditarDia {
   horario: HorarioDia | null;
 }
 
-// Componente TimePicker moderno - Igual diseño que FormularioOferta
+// Componente TimePicker con selector de opciones - Diseño simple y legible
 const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: { 
   value: string; 
   onTimeChange: (time: string) => void; 
   label: string;
   primaryColor?: string;
 }) => {
-  const [showPicker, setShowPicker] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const theme = useTheme();
   
   // Obtener valores del sistema de diseño
   const bgDefault = (theme?.colors?.background as any)?.default || COLORS?.background?.default || '#F5F7F8';
   const textPrimary = theme?.colors?.text?.primary || COLORS?.text?.primary || '#00171F';
+  const textSecondary = theme?.colors?.text?.secondary || COLORS?.text?.secondary || '#666E7A';
   const borderLight = (theme?.colors?.border as any)?.light || COLORS?.border?.light || '#D7DFE3';
   const spacingMd = theme?.spacing?.md || SPACING?.md || 16;
   const spacingSm = theme?.spacing?.sm || SPACING?.sm || 8;
+  const spacingLg = theme?.spacing?.lg || SPACING?.lg || 24;
   const cardRadius = (theme?.borders?.radius as any)?.lg || BORDERS?.radius?.lg || 12;
   const fontSizeBase = theme?.typography?.fontSize?.base || TYPOGRAPHY?.fontSize?.base || 14;
+  const fontSizeLg = theme?.typography?.fontSize?.lg || TYPOGRAPHY?.fontSize?.lg || 18;
   const fontWeightSemibold = theme?.typography?.fontWeight?.semibold || TYPOGRAPHY?.fontWeight?.semibold || '600';
+  const fontWeightBold = theme?.typography?.fontWeight?.bold || TYPOGRAPHY?.fontWeight?.bold || '700';
   
-  const timeToDate = (timeString: string): Date => {
-    // Si el valor está vacío o es inválido, usar hora por defecto
-    if (!timeString || timeString.trim() === '' || !timeString.includes(':')) {
-      const date = new Date();
-      date.setHours(8, 0, 0, 0);
-      return date;
+  // Generar opciones de hora cada 15 minutos (00, 15, 30, 45)
+  const generarOpcionesHora = (): string[] => {
+    const opciones: string[] = [];
+    for (let hora = 0; hora < 24; hora++) {
+      for (let minuto = 0; minuto < 60; minuto += 15) {
+        const horaStr = hora.toString().padStart(2, '0');
+        const minutoStr = minuto.toString().padStart(2, '0');
+        opciones.push(`${horaStr}:${minutoStr}`);
+      }
     }
-    
-    try {
-      const parts = timeString.split(':');
-      const hours = parseInt(parts[0] || '8', 10);
-      const minutes = parseInt(parts[1] || '0', 10);
-      const date = new Date();
-      date.setHours(hours, minutes, 0, 0);
-      return date;
-    } catch (error) {
-      console.error('Error convirtiendo hora a Date:', error, 'timeString:', timeString);
-      const date = new Date();
-      date.setHours(8, 0, 0, 0);
-      return date;
-    }
+    return opciones;
   };
   
-  const dateToTime = (date: Date): string => {
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
-  };
-  
-  const handleTimeChange = (event: any, selectedTime?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowPicker(false);
-    }
-    
-    if (selectedTime) {
-      const timeString = dateToTime(selectedTime);
-      onTimeChange(timeString);
-    }
-  };
+  const opcionesHora = generarOpcionesHora();
   
   const formatDisplayTime = (time: string) => {
     if (!time || time.trim() === '') {
@@ -103,32 +81,28 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
     }
     
     try {
-      // Asegurar que el formato sea HH:MM
       const parts = time.split(':');
       if (parts.length !== 2) {
-        return '08:00'; // Si no tiene formato correcto, usar default
+        return '08:00';
       }
       
       const hours = parseInt(parts[0], 10);
       const minutes = parseInt(parts[1], 10);
       
-      // Validar que sean números válidos y estén en rango válido
       if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
         return '08:00';
       }
       
-      // Formatear con padding para asegurar 2 dígitos
       const hoursStr = hours.toString().padStart(2, '0');
       const minutesStr = minutes.toString().padStart(2, '0');
       
-      const formatted = `${hoursStr}:${minutesStr}`;
-      console.log('🕐 formatDisplayTime - Input:', time, 'Output:', formatted);
-      return formatted;
+      return `${hoursStr}:${minutesStr}`;
     } catch (error) {
-      console.error('❌ Error formateando hora:', error, 'time:', time);
       return '08:00';
     }
   };
+  
+  const horaActual = formatDisplayTime(value || '08:00');
 
   return (
     <View style={{ marginBottom: spacingMd }}>
@@ -143,7 +117,7 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
           borderWidth: 1,
           borderColor: borderLight,
         }}
-        onPress={() => setShowPicker(true)}
+        onPress={() => setShowModal(true)}
         activeOpacity={0.8}
       >
         <Ionicons name="time" size={20} color={primaryColor} />
@@ -156,46 +130,109 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
             marginHorizontal: spacingMd,
             textAlign: 'left',
             minWidth: 60,
-            includeFontPadding: false,
-            textAlignVertical: 'center',
           }}
           numberOfLines={1}
-          allowFontScaling={true}
         >
-          {formatDisplayTime(value || '08:00')}
+          {horaActual}
         </Text>
         <Ionicons name="chevron-down" size={20} color="#666E7A" />
       </TouchableOpacity>
       
-      {showPicker && (
-        <DateTimePicker
-          value={timeToDate(value || '08:00')}
-          mode="time"
-          is24Hour={true}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleTimeChange}
-          style={Platform.OS === 'ios' ? { width: '100%', marginTop: spacingSm } : undefined}
-        />
-      )}
-      
-      {Platform.OS === 'ios' && showPicker && (
-        <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: spacingMd }}>
-          <TouchableOpacity
-            style={{
-              paddingVertical: spacingSm,
-              paddingHorizontal: 24,
-              borderRadius: cardRadius,
-              backgroundColor: primaryColor,
-            }}
-            onPress={() => setShowPicker(false)}
-            activeOpacity={0.8}
-          >
-            <Text style={{ color: '#FFFFFF', fontSize: fontSizeBase, fontWeight: fontWeightSemibold }}>
-              Confirmar
-            </Text>
-          </TouchableOpacity>
+      <Modal
+        visible={showModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowModal(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          justifyContent: 'flex-end',
+        }}>
+          <View style={{
+            backgroundColor: bgDefault,
+            borderTopLeftRadius: cardRadius,
+            borderTopRightRadius: cardRadius,
+            paddingTop: spacingLg,
+            paddingBottom: spacingLg,
+            maxHeight: '70%',
+          }}>
+            {/* Header */}
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: spacingLg,
+              marginBottom: spacingMd,
+            }}>
+              <Text style={{
+                fontSize: fontSizeLg,
+                fontWeight: fontWeightBold,
+                color: textPrimary,
+              }}>
+                Seleccionar Hora
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowModal(false)}
+                style={{
+                  padding: spacingSm,
+                }}
+              >
+                <Ionicons name="close" size={24} color={textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Lista de opciones */}
+            <ScrollView
+              style={{
+                maxHeight: 400,
+              }}
+              showsVerticalScrollIndicator={true}
+            >
+              <View style={{
+                paddingHorizontal: spacingMd,
+              }}>
+                {opcionesHora.map((opcion) => {
+                  const estaSeleccionada = opcion === horaActual;
+                  return (
+                    <TouchableOpacity
+                      key={opcion}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingVertical: spacingMd,
+                        paddingHorizontal: spacingMd,
+                        marginVertical: 2,
+                        borderRadius: cardRadius / 2,
+                        backgroundColor: estaSeleccionada ? primaryColor : 'transparent',
+                        borderWidth: estaSeleccionada ? 0 : 1,
+                        borderColor: borderLight,
+                      }}
+                      onPress={() => {
+                        onTimeChange(opcion);
+                        setShowModal(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{
+                        fontSize: fontSizeBase,
+                        fontWeight: estaSeleccionada ? fontWeightBold : fontWeightSemibold,
+                        color: estaSeleccionada ? '#FFFFFF' : textPrimary,
+                      }}>
+                        {opcion}
+                      </Text>
+                      {estaSeleccionada && (
+                        <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </View>
         </View>
-      )}
+      </Modal>
     </View>
   );
 };
