@@ -137,6 +137,7 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
             flex: 1,
             marginHorizontal: spacingMd,
             textAlign: 'left',
+            minWidth: 60,
           }}
           numberOfLines={1}
         >
@@ -432,11 +433,19 @@ export default function ConfiguracionHorariosScreen() {
 
   const abrirModalEditarDia = (diaIndex: number) => {
     const horario = horarios[diaIndex];
+    // Asegurar que las horas tengan formato válido
+    const horaInicio = horario.hora_inicio && horario.hora_inicio.trim() !== '' 
+      ? horario.hora_inicio 
+      : '08:00';
+    const horaFin = horario.hora_fin && horario.hora_fin.trim() !== '' 
+      ? horario.hora_fin 
+      : '18:00';
+    
     setHorariosTemp({
-      hora_inicio: horario.hora_inicio,
-      hora_fin: horario.hora_fin,
-      duracion_slot: horario.duracion_slot,
-      tiempo_descanso: horario.tiempo_descanso,
+      hora_inicio: horaInicio,
+      hora_fin: horaFin,
+      duracion_slot: horario.duracion_slot || 60,
+      tiempo_descanso: horario.tiempo_descanso || 0,
     });
     setModalEditarDia({
       visible: true,
@@ -702,8 +711,11 @@ export default function ConfiguracionHorariosScreen() {
               <View style={styles.modernModalCol}>
                 <Text style={[styles.modernModalLabel, { color: textSecondary }]}>Hora de Inicio</Text>
                 <TimePicker
-                  value={horariosTemp.hora_inicio}
-                  onTimeChange={(time) => setHorariosTemp(prev => ({ ...prev, hora_inicio: time }))}
+                  value={horariosTemp.hora_inicio || '08:00'}
+                  onTimeChange={(time) => {
+                    console.log('🕐 Hora inicio cambiada:', time);
+                    setHorariosTemp(prev => ({ ...prev, hora_inicio: time }));
+                  }}
                   label="Hora de Inicio"
                   primaryColor={primary500}
                 />
@@ -712,8 +724,11 @@ export default function ConfiguracionHorariosScreen() {
               <View style={styles.modernModalCol}>
                 <Text style={[styles.modernModalLabel, { color: textSecondary }]}>Hora de Fin</Text>
                 <TimePicker
-                  value={horariosTemp.hora_fin}
-                  onTimeChange={(time) => setHorariosTemp(prev => ({ ...prev, hora_fin: time }))}
+                  value={horariosTemp.hora_fin || '18:00'}
+                  onTimeChange={(time) => {
+                    console.log('🕐 Hora fin cambiada:', time);
+                    setHorariosTemp(prev => ({ ...prev, hora_fin: time }));
+                  }}
                   label="Hora de Fin"
                   primaryColor={primary500}
                 />
