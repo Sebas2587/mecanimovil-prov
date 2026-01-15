@@ -99,32 +99,34 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
   
   const formatDisplayTime = (time: string) => {
     if (!time || time.trim() === '') {
-      return '--:--';
+      return '08:00';
     }
     
     try {
       // Asegurar que el formato sea HH:MM
       const parts = time.split(':');
       if (parts.length !== 2) {
-        return time; // Si no tiene formato correcto, devolver tal cual
+        return '08:00'; // Si no tiene formato correcto, usar default
       }
       
       const hours = parseInt(parts[0], 10);
       const minutes = parseInt(parts[1], 10);
       
-      // Validar que sean números válidos
-      if (isNaN(hours) || isNaN(minutes)) {
-        return time;
+      // Validar que sean números válidos y estén en rango válido
+      if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        return '08:00';
       }
       
       // Formatear con padding para asegurar 2 dígitos
       const hoursStr = hours.toString().padStart(2, '0');
       const minutesStr = minutes.toString().padStart(2, '0');
       
-      return `${hoursStr}:${minutesStr}`;
+      const formatted = `${hoursStr}:${minutesStr}`;
+      console.log('🕐 formatDisplayTime - Input:', time, 'Output:', formatted);
+      return formatted;
     } catch (error) {
-      console.error('Error formateando hora:', error, 'time:', time);
-      return time || '--:--';
+      console.error('❌ Error formateando hora:', error, 'time:', time);
+      return '08:00';
     }
   };
 
@@ -154,8 +156,11 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
             marginHorizontal: spacingMd,
             textAlign: 'left',
             minWidth: 60,
+            includeFontPadding: false,
+            textAlignVertical: 'center',
           }}
           numberOfLines={1}
+          allowFontScaling={true}
         >
           {formatDisplayTime(value || '08:00')}
         </Text>
