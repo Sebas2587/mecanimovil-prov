@@ -1034,23 +1034,79 @@ export default function ConfiguracionPerfilScreen() {
                   ))}
                 </View>
               ) : (
-                <View style={styles.emptyStateContainer}>
-                  <MaterialIcons name="add-photo-alternate" size={48} color={textTertiary} />
-                  <Text style={[styles.emptyStateTitle, { color: textPrimary }]}>
-                    {estadoProveedor?.tipo_proveedor === 'taller' 
-                      ? 'Sin fotos del taller'
-                      : 'Sin fotos del vehículo'
-                    }
-                  </Text>
-                  <Text style={[styles.emptyStateDescription, { color: textTertiary }]}>
-                    Agrega fotos para generar más confianza en los clientes.
-                  </Text>
-                </View>
+                <>
+                  {/* Mostrar documentos disponibles para agregar si no hay documentos opcionales subidos */}
+                  {getTiposDocumentoFaltantesSegunTipo().filter(tipo => {
+                    const info = tiposDocumentoInfo[tipo as keyof typeof tiposDocumentoInfo];
+                    return info && !info.esObligatorio;
+                  }).length > 0 ? (
+                    <View style={styles.documentsGrid}>
+                      {getTiposDocumentoFaltantesSegunTipo()
+                        .filter(tipo => {
+                          const info = tiposDocumentoInfo[tipo as keyof typeof tiposDocumentoInfo];
+                          return info && !info.esObligatorio;
+                        })
+                        .map(tipoDocumento => {
+                          const info = tiposDocumentoInfo[tipoDocumento as keyof typeof tiposDocumentoInfo];
+                          return (
+                            <TouchableOpacity
+                              key={tipoDocumento}
+                              style={[styles.documentCard, { backgroundColor: bgPaper, borderColor: success500 }]}
+                              onPress={() => abrirGaleriaParaDocumento({ 
+                                key: tipoDocumento, 
+                                label: info.nombre 
+                              } as TipoDocumento)}
+                            >
+                              <View style={[styles.documentCardHeader, { borderBottomColor: borderLight }]}>
+                                <View style={[styles.documentIconContainer, { backgroundColor: successLight }]}>
+                                  <MaterialIcons name={info.icono as any} size={24} color={success500} />
+                                </View>
+                                <View style={styles.documentCardStatus}>
+                                  <View style={[styles.statusBadge, { backgroundColor: success500 }]}>
+                                    <MaterialIcons name="add" size={12} color="#FFFFFF" />
+                                    <Text style={styles.statusBadgeText}>Agregar</Text>
+                                  </View>
+                                </View>
+                              </View>
+                              
+                              <View style={styles.documentCardContent}>
+                                <Text style={[styles.documentName, { color: textPrimary }]}>{info.nombre}</Text>
+                                <Text style={[styles.documentDescription, { color: textTertiary }]}>{info.descripcion}</Text>
+                              </View>
+                              
+                              <View style={styles.documentCardActions}>
+                                <View style={[styles.uploadPrompt, { backgroundColor: neutralGray50, borderColor: success500 }]}>
+                                  <MaterialIcons name="cloud-upload" size={16} color={success500} />
+                                  <Text style={[styles.uploadPromptText, { color: success500 }]}>Tocar para subir</Text>
+                                </View>
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                    </View>
+                  ) : (
+                    <View style={styles.emptyStateContainer}>
+                      <MaterialIcons name="add-photo-alternate" size={48} color={textTertiary} />
+                      <Text style={[styles.emptyStateTitle, { color: textPrimary }]}>
+                        {estadoProveedor?.tipo_proveedor === 'taller' 
+                          ? 'Sin fotos del taller'
+                          : 'Sin fotos del vehículo'
+                        }
+                      </Text>
+                      <Text style={[styles.emptyStateDescription, { color: textTertiary }]}>
+                        Agrega fotos para generar más confianza en los clientes.
+                      </Text>
+                    </View>
+                  )}
+                </>
               )}
             </View>
 
-            {/* Documentos Disponibles - Sección rediseñada */}
-            {getTiposDocumentoFaltantesSegunTipo().length > 0 && (
+            {/* Documentos Disponibles - Solo mostrar documentos obligatorios faltantes */}
+            {getTiposDocumentoFaltantesSegunTipo().filter(tipo => {
+              const info = tiposDocumentoInfo[tipo as keyof typeof tiposDocumentoInfo];
+              return info && info.esObligatorio;
+            }).length > 0 && (
               <View style={styles.documentsSection}>
                 <View style={styles.sectionHeader}>
                   <View style={styles.sectionHeaderLeft}>
@@ -1069,43 +1125,48 @@ export default function ConfiguracionPerfilScreen() {
                 </Text>
                 
                 <View style={styles.documentsGrid}>
-                  {getTiposDocumentoFaltantesSegunTipo().map(tipoDocumento => {
-                    const info = tiposDocumentoInfo[tipoDocumento as keyof typeof tiposDocumentoInfo];
-                    return (
-                      <TouchableOpacity
-                        key={tipoDocumento}
-                        style={[styles.documentCard, { backgroundColor: bgPaper, borderColor: success500 }]}
-                        onPress={() => abrirGaleriaParaDocumento({ 
-                          key: tipoDocumento, 
-                          label: info.nombre 
-                        } as TipoDocumento)}
-                      >
-                        <View style={[styles.documentCardHeader, { borderBottomColor: borderLight }]}>
-                          <View style={[styles.documentIconContainer, { backgroundColor: successLight }]}>
-                            <MaterialIcons name={info.icono as any} size={24} color={success500} />
-                          </View>
-                          <View style={styles.documentCardStatus}>
-                            <View style={[styles.statusBadge, { backgroundColor: success500 }]}>
-                              <MaterialIcons name="add" size={12} color="#FFFFFF" />
-                              <Text style={styles.statusBadgeText}>Agregar</Text>
+                  {getTiposDocumentoFaltantesSegunTipo()
+                    .filter(tipo => {
+                      const info = tiposDocumentoInfo[tipo as keyof typeof tiposDocumentoInfo];
+                      return info && info.esObligatorio;
+                    })
+                    .map(tipoDocumento => {
+                      const info = tiposDocumentoInfo[tipoDocumento as keyof typeof tiposDocumentoInfo];
+                      return (
+                        <TouchableOpacity
+                          key={tipoDocumento}
+                          style={[styles.documentCard, { backgroundColor: bgPaper, borderColor: success500 }]}
+                          onPress={() => abrirGaleriaParaDocumento({ 
+                            key: tipoDocumento, 
+                            label: info.nombre 
+                          } as TipoDocumento)}
+                        >
+                          <View style={[styles.documentCardHeader, { borderBottomColor: borderLight }]}>
+                            <View style={[styles.documentIconContainer, { backgroundColor: successLight }]}>
+                              <MaterialIcons name={info.icono as any} size={24} color={success500} />
+                            </View>
+                            <View style={styles.documentCardStatus}>
+                              <View style={[styles.statusBadge, { backgroundColor: success500 }]}>
+                                <MaterialIcons name="add" size={12} color="#FFFFFF" />
+                                <Text style={styles.statusBadgeText}>Agregar</Text>
+                              </View>
                             </View>
                           </View>
-                        </View>
-                        
-                        <View style={styles.documentCardContent}>
-                          <Text style={[styles.documentName, { color: textPrimary }]}>{info.nombre}</Text>
-                          <Text style={[styles.documentDescription, { color: textTertiary }]}>{info.descripcion}</Text>
-                        </View>
-                        
-                        <View style={styles.documentCardActions}>
-                          <View style={[styles.uploadPrompt, { backgroundColor: neutralGray50, borderColor: success500 }]}>
-                            <MaterialIcons name="cloud-upload" size={16} color={success500} />
-                            <Text style={[styles.uploadPromptText, { color: success500 }]}>Tocar para subir</Text>
+                          
+                          <View style={styles.documentCardContent}>
+                            <Text style={[styles.documentName, { color: textPrimary }]}>{info.nombre}</Text>
+                            <Text style={[styles.documentDescription, { color: textTertiary }]}>{info.descripcion}</Text>
                           </View>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
+                          
+                          <View style={styles.documentCardActions}>
+                            <View style={[styles.uploadPrompt, { backgroundColor: neutralGray50, borderColor: success500 }]}>
+                              <MaterialIcons name="cloud-upload" size={16} color={success500} />
+                              <Text style={[styles.uploadPromptText, { color: success500 }]}>Tocar para subir</Text>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
                 </View>
               </View>
             )}
