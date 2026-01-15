@@ -864,6 +864,7 @@ const createStyles = () => {
   const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
   const fontWeightMedium = TYPOGRAPHY?.fontWeight?.medium || '500';
   const fontWeightBold = TYPOGRAPHY?.fontWeight?.bold || '700';
+  const radiusMd = BORDERS?.radius?.md || 8;
   const radiusLg = BORDERS?.radius?.lg || 12;
   const radiusXl = BORDERS?.radius?.xl || 16;
   const shadowSm = SHADOWS?.sm || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
