@@ -275,14 +275,9 @@ export default function ComprarCreditosScreen() {
     );
   };
   
-  // Función para manejar el retroceso
+  // Función para manejar el retroceso - siempre navegar a créditos para asegurar que funcione
   const handleGoBack = useCallback(() => {
-    // Intentar volver atrás, si falla navegar a créditos
-    if (router.canGoBack && router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)/creditos');
-    }
+    router.replace('/(tabs)/creditos');
   }, []);
 
   if (loading || verificacionAutomatica) {
