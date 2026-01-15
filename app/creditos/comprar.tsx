@@ -278,13 +278,9 @@ export default function ComprarCreditosScreen() {
   // Función para manejar el retroceso
   const handleGoBack = useCallback(() => {
     try {
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/(tabs)/creditos');
-      }
+      router.back();
     } catch (error) {
-      // Si hay error, navegar directamente a créditos
+      // Si hay error o no hay pantalla anterior, navegar directamente a créditos
       router.replace('/(tabs)/creditos');
     }
   }, []);
@@ -347,7 +343,6 @@ export default function ComprarCreditosScreen() {
     minimumFractionDigits: 0,
   }).format(paquete.precio_por_credito);
   
-  // Pantalla principal de compra
   // Pantalla principal de compra
   return (
     <View style={[styles.container, { backgroundColor: backgroundDefault }]}>
