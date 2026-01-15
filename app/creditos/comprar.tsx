@@ -296,13 +296,7 @@ export default function ComprarCreditosScreen() {
         <Header
           title="Comprar Créditos"
           showBack={true}
-          onBackPress={() => {
-            if (router.canGoBack && router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/(tabs)/creditos');
-            }
-          }}
+          onBackPress={handleGoBack}
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={primaryColor} />
@@ -325,13 +319,7 @@ export default function ComprarCreditosScreen() {
         <Header
           title="Comprar Créditos"
           showBack={true}
-          onBackPress={() => {
-            if (router.canGoBack && router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/(tabs)/creditos');
-            }
-          }}
+          onBackPress={handleGoBack}
         />
         <View style={styles.errorContainer}>
           <MaterialIcons name="error-outline" size={48} color={colors?.error?.main || '#FF5555'} />
