@@ -330,10 +330,31 @@ export default function ComprarCreditosScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: backgroundDefault }]}>
       <Stack.Screen
-        options={{
+        options={({ navigation, route }) => ({
           title: 'Comprar Créditos',
           headerShown: true,
-        }}
+          headerBackTitle: '',
+          headerBackTitleVisible: false,
+          headerLeft: () => {
+            const handleBack = () => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                // Si no hay pantalla anterior, navegar a la pantalla de créditos
+                router.replace('/(tabs)/creditos');
+              }
+            };
+            const headerTextColor = colors?.text?.primary || '#000000';
+            return (
+              <TouchableOpacity
+                onPress={handleBack}
+                style={{ marginLeft: 16, padding: 8 }}
+              >
+                <MaterialIcons name="arrow-back" size={24} color={headerTextColor} />
+              </TouchableOpacity>
+            );
+          },
+        })}
       />
       <ScrollView style={styles.content}>
         <View style={[styles.paqueteCard, { backgroundColor: backgroundPaper }]}>
