@@ -12,6 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SolicitudPublica, ServicioSolicitado, DetalleServicioOferta } from '@/services/solicitudesService';
@@ -1884,16 +1885,14 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         )}
 
         {!esOfertaSecundaria && mostrarHoraPicker && (
-          <DateTimePicker
+          <ModernTimePicker
             value={horaAlternativa}
-            mode="time"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(event, selectedTime) => {
-              setMostrarHoraPicker(Platform.OS === 'ios');
-              if (selectedTime) {
-                setHoraAlternativa(selectedTime);
-              }
+            onTimeChange={(date) => {
+              setHoraAlternativa(date);
+              setMostrarHoraPicker(false);
             }}
+            label="Hora de atención"
+            primaryColor={primaryColor}
           />
         )}
       </View>
