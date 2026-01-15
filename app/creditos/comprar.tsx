@@ -9,7 +9,6 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,6 +19,7 @@ import creditosService, {
   type CompraCreditos,
 } from '@/services/creditosService';
 import MercadoPagoWebViewModal from '@/components/creditos/MercadoPagoWebViewModal';
+import Header from '@/components/Header';
 
 const COMPRA_PENDIENTE_KEY = 'compra_creditos_pendiente';
 
@@ -275,34 +275,32 @@ export default function ComprarCreditosScreen() {
     );
   };
   
+  // Función para manejar el retroceso
+  const handleGoBack = useCallback(() => {
+    try {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)/creditos');
+      }
+    } catch (error) {
+      // Si hay error, navegar directamente a créditos
+      router.replace('/(tabs)/creditos');
+    }
+  }, []);
+
   if (loading || verificacionAutomatica) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: backgroundDefault }]}>
+      <View style={[styles.container, { backgroundColor: backgroundDefault }]}>
         <Stack.Screen
-          options={({ navigation }) => ({
-            title: 'Comprar Créditos',
-            headerShown: true,
-            headerBackTitle: '',
-            headerBackTitleVisible: false,
-            headerLeft: () => {
-              const handleBack = () => {
-                if (navigation.canGoBack()) {
-                  navigation.goBack();
-                } else {
-                  router.replace('/(tabs)/creditos');
-                }
-              };
-              const headerTextColor = colors?.text?.primary || '#000000';
-              return (
-                <TouchableOpacity
-                  onPress={handleBack}
-                  style={{ marginLeft: 16, padding: 8 }}
-                >
-                  <MaterialIcons name="arrow-back" size={24} color={headerTextColor} />
-                </TouchableOpacity>
-              );
-            },
-          })}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Header
+          title="Comprar Créditos"
+          showBack={true}
+          onBackPress={handleGoBack}
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={primaryColor} />
@@ -310,38 +308,22 @@ export default function ComprarCreditosScreen() {
             {verificacionAutomatica ? 'Verificando pago...' : 'Cargando...'}
           </Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
   
   if (!paquete) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: backgroundDefault }]}>
+      <View style={[styles.container, { backgroundColor: backgroundDefault }]}>
         <Stack.Screen
-          options={({ navigation }) => ({
-            title: 'Comprar Créditos',
-            headerShown: true,
-            headerBackTitle: '',
-            headerBackTitleVisible: false,
-            headerLeft: () => {
-              const handleBack = () => {
-                if (navigation.canGoBack()) {
-                  navigation.goBack();
-                } else {
-                  router.replace('/(tabs)/creditos');
-                }
-              };
-              const headerTextColor = colors?.text?.primary || '#000000';
-              return (
-                <TouchableOpacity
-                  onPress={handleBack}
-                  style={{ marginLeft: 16, padding: 8 }}
-                >
-                  <MaterialIcons name="arrow-back" size={24} color={headerTextColor} />
-                </TouchableOpacity>
-              );
-            },
-          })}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Header
+          title="Comprar Créditos"
+          showBack={true}
+          onBackPress={handleGoBack}
         />
         <View style={styles.errorContainer}>
           <MaterialIcons name="error-outline" size={48} color={colors?.error?.main || '#FF5555'} />
@@ -349,7 +331,7 @@ export default function ComprarCreditosScreen() {
             Paquete no encontrado
           </Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
   
@@ -368,33 +350,16 @@ export default function ComprarCreditosScreen() {
   // Pantalla principal de compra
   // Pantalla principal de compra
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: backgroundDefault }]}>
+    <View style={[styles.container, { backgroundColor: backgroundDefault }]}>
       <Stack.Screen
-        options={({ navigation, route }) => ({
-          title: 'Comprar Créditos',
-          headerShown: true,
-          headerBackTitle: '',
-          headerBackTitleVisible: false,
-          headerLeft: () => {
-            const handleBack = () => {
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              } else {
-                // Si no hay pantalla anterior, navegar a la pantalla de créditos
-                router.replace('/(tabs)/creditos');
-              }
-            };
-            const headerTextColor = colors?.text?.primary || '#000000';
-            return (
-              <TouchableOpacity
-                onPress={handleBack}
-                style={{ marginLeft: 16, padding: 8 }}
-              >
-                <MaterialIcons name="arrow-back" size={24} color={headerTextColor} />
-              </TouchableOpacity>
-            );
-          },
-        })}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Header
+        title="Comprar Créditos"
+        showBack={true}
+        onBackPress={handleGoBack}
       />
       <ScrollView style={styles.content}>
         <View style={[styles.paqueteCard, { backgroundColor: backgroundPaper }]}>
@@ -476,7 +441,7 @@ export default function ComprarCreditosScreen() {
         onPaymentFailure={handleMPPaymentFailure}
         onPaymentPending={handleMPPaymentPending}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
