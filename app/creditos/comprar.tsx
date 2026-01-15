@@ -277,10 +277,10 @@ export default function ComprarCreditosScreen() {
   
   // Función para manejar el retroceso
   const handleGoBack = useCallback(() => {
-    try {
+    // Intentar volver atrás, si falla navegar a créditos
+    if (router.canGoBack && router.canGoBack()) {
       router.back();
-    } catch (error) {
-      // Si hay error o no hay pantalla anterior, navegar directamente a créditos
+    } else {
       router.replace('/(tabs)/creditos');
     }
   }, []);
@@ -296,7 +296,13 @@ export default function ComprarCreditosScreen() {
         <Header
           title="Comprar Créditos"
           showBack={true}
-          onBackPress={handleGoBack}
+          onBackPress={() => {
+            if (router.canGoBack && router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)/creditos');
+            }
+          }}
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={primaryColor} />
@@ -319,7 +325,13 @@ export default function ComprarCreditosScreen() {
         <Header
           title="Comprar Créditos"
           showBack={true}
-          onBackPress={handleGoBack}
+          onBackPress={() => {
+            if (router.canGoBack && router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)/creditos');
+            }
+          }}
         />
         <View style={styles.errorContainer}>
           <MaterialIcons name="error-outline" size={48} color={colors?.error?.main || '#FF5555'} />
