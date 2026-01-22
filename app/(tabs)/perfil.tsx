@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Image,
   Switch,
+  Linking,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
@@ -20,14 +21,14 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-syst
 
 export default function PerfilScreen() {
   const theme = useTheme();
-  const { 
-    isLoading, 
-    estadoProveedor, 
-    usuario, 
-    logout, 
+  const {
+    isLoading,
+    estadoProveedor,
+    usuario,
+    logout,
     refrescarEstadoProveedor,
     obtenerNombreProveedor,
-    obtenerDatosCompletosProveedor 
+    obtenerDatosCompletosProveedor
   } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -59,10 +60,10 @@ export default function PerfilScreen() {
     // Intentar obtener desde datos_proveedor primero
     const fotoDesdeDatos = (estadoProveedor?.datos_proveedor as any)?.foto_perfil;
     if (fotoDesdeDatos) return fotoDesdeDatos;
-    
+
     // Si no está en datos_proveedor, intentar desde usuario
     if (usuario?.foto_perfil) return usuario.foto_perfil;
-    
+
     return null;
   }, [estadoProveedor?.datos_proveedor, usuario?.foto_perfil]);
 
@@ -71,11 +72,19 @@ export default function PerfilScreen() {
   const esMecanicoDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
 
   const handleContactarSoporte = () => {
-    Alert.alert(
-      'Contactar Soporte',
-      'Para contactar a nuestro equipo de soporte, envía un email a soporte@mecanimovil.com o llama al +56 9 1234 5678',
-      [{ text: 'Entendido', style: 'default' }]
-    );
+    const phoneNumber = '+56995945258';
+    const message = 'Hola, soy proveedor de la app MecaniMóvil y tengo un problema con la aplicación, pagos o configuración.';
+    const url = `https://wa.me/${phoneNumber.replace('+', '')}?text=${encodeURIComponent(message)}`;
+
+    Linking.canOpenURL(url)
+      .then((supported) => {
+        if (!supported) {
+          Alert.alert('Error', 'No se pudo abrir WhatsApp. Por favor verifica que esté instalado.');
+        } else {
+          return Linking.openURL(url);
+        }
+      })
+      .catch((err) => console.error('An error occurred', err));
   };
 
   const handleActualizarEstado = async () => {
@@ -93,9 +102,9 @@ export default function PerfilScreen() {
       '¿Estás seguro de que deseas cerrar sesión?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Cerrar Sesión', 
-          style: 'destructive', 
+        {
+          text: 'Cerrar Sesión',
+          style: 'destructive',
           onPress: async () => {
             try {
               setIsLoggingOut(true);
@@ -115,29 +124,29 @@ export default function PerfilScreen() {
 
   // Funciones de navegación para proveedores verificados
   const handleConfigurarHorarios = () => {
-    router.push('/(tabs)/configuracion-horarios');
+    router.push('/configuracion-horarios');
   };
 
   const handleConfigurarServicios = () => {
-    router.push('/(tabs)/especialidades-marcas');
+    router.push('/especialidades-marcas');
   };
 
   const handleMisServicios = () => {
-    router.push('/(tabs)/mis-servicios');
+    router.push('/mis-servicios');
   };
 
   const handleGestionarPerfil = () => {
-    router.push('/(tabs)/configuracion-perfil');
+    router.push('/configuracion-perfil');
   };
 
   // Funciones específicas para mecánicos a domicilio
   const handleZonasServicio = () => {
-    router.push('/(tabs)/zonas-servicio');
+    router.push('/zonas-servicio');
   };
 
   // Funciones específicas para talleres
   const handleGestionarTaller = () => {
-    router.push('/(tabs)/gestionar-taller');
+    router.push('/gestionar-taller');
   };
 
   const handleVerHistorial = () => {
@@ -145,11 +154,11 @@ export default function PerfilScreen() {
   };
 
   const handleCreditos = () => {
-    router.push('/(tabs)/creditos');
+    router.push('/creditos');
   };
 
   const handleMercadoPago = () => {
-    router.push('/(tabs)/configuracion-mercadopago');
+    router.push('/configuracion-mercadopago');
   };
 
   const getEstadoColor = () => {
@@ -257,23 +266,14 @@ export default function PerfilScreen() {
   return (
     <TabScreenWrapper style={[styles.container, { backgroundColor: bgPaper }]}>
       <Stack.Screen options={{ headerShown: false }} />
-      
+
       {/* Header consistente del sistema de diseño */}
       <Header
         title="Configuración"
-        rightComponent={
-          <TouchableOpacity
-            style={[styles.helpButton, { backgroundColor: neutralGray100 }]}
-            onPress={handleContactarSoporte}
-            activeOpacity={0.7}
-          >
-            <MaterialIcons name="help-outline" size={24} color={textPrimary} />
-          </TouchableOpacity>
-        }
       />
 
-      <ScrollView 
-        style={[styles.scrollView, { backgroundColor: bgPaper }]} 
+      <ScrollView
+        style={[styles.scrollView, { backgroundColor: bgPaper }]}
         showsVerticalScrollIndicator={false}
       >
 
@@ -295,10 +295,10 @@ export default function PerfilScreen() {
             <View style={[styles.statusDot, { backgroundColor: getEstadoColor() }]} />
             <Text style={[styles.statusText, { color: textTertiary }]}>{getEstadoTexto()}</Text>
           </View>
-          
+
           {/* Botón de Editar Perfil - Separado de Información Personal */}
           <TouchableOpacity
-            style={[styles.editProfileButton, { 
+            style={[styles.editProfileButton, {
               backgroundColor: primary500,
               borderColor: primary500,
             }]}
@@ -331,10 +331,10 @@ export default function PerfilScreen() {
               'Número de Teléfono',
               estadoProveedor.datos_proveedor.telefono
             )}
-            {((estadoProveedor?.datos_proveedor as any)?.direccion_fisica?.direccion_completa || estadoProveedor?.datos_proveedor?.direccion) && renderAboutMeItem(
+            {((estadoProveedor?.datos_proveedor as any)?.direccion_fisica?.direccion_completa || (estadoProveedor?.datos_proveedor as any)?.direccion) && renderAboutMeItem(
               'location-on',
               'Dirección',
-              (estadoProveedor.datos_proveedor as any).direccion_fisica?.direccion_completa || estadoProveedor.datos_proveedor.direccion || 'Sin dirección'
+              (estadoProveedor?.datos_proveedor as any)?.direccion_fisica?.direccion_completa || (estadoProveedor?.datos_proveedor as any)?.direccion || 'Sin dirección'
             )}
           </View>
         </View>
@@ -344,65 +344,85 @@ export default function PerfilScreen() {
           <Text style={[styles.sectionTitle, { color: textPrimary }]}>Configuración</Text>
           <View style={styles.configGrid}>
             {/* Card de Créditos */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.configCard, { backgroundColor: bgPaper, borderColor: borderLight }]}
               onPress={handleCreditos}
               activeOpacity={0.7}
             >
-              <View style={[styles.configCardIcon, { backgroundColor: primaryLight }]}>
-                <MaterialIcons name="account-balance-wallet" size={24} color={primary500} />
+              <View style={[styles.configCardIcon, { backgroundColor: 'transparent', padding: 0, overflow: 'hidden' }]}>
+                <Image
+                  source={require('../../assets/images/creditos_icon.jpg')}
+                  style={{ width: 48, height: 48, borderRadius: 24 }}
+                  resizeMode="cover"
+                />
               </View>
               <Text style={[styles.configCardTitle, { color: textPrimary }]}>Créditos</Text>
               <Text style={[styles.configCardSubtitle, { color: textTertiary }]}>Gestionar saldo</Text>
             </TouchableOpacity>
 
             {/* Card de Horarios */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.configCard, { backgroundColor: bgPaper, borderColor: borderLight }]}
               onPress={handleConfigurarHorarios}
               activeOpacity={0.7}
             >
-              <View style={[styles.configCardIcon, { backgroundColor: primaryLight }]}>
-                <MaterialIcons name="schedule" size={24} color={primary500} />
+              <View style={[styles.configCardIcon, { backgroundColor: 'transparent', padding: 0, overflow: 'hidden' }]}>
+                <Image
+                  source={require('../../assets/images/horarios_icon.jpg')}
+                  style={{ width: 48, height: 48, borderRadius: 24 }}
+                  resizeMode="cover"
+                />
               </View>
               <Text style={[styles.configCardTitle, { color: textPrimary }]}>Horarios</Text>
               <Text style={[styles.configCardSubtitle, { color: textTertiary }]}>Disponibilidad</Text>
             </TouchableOpacity>
 
             {/* Card de Especialidades */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.configCard, { backgroundColor: bgPaper, borderColor: borderLight }]}
               onPress={handleConfigurarServicios}
               activeOpacity={0.7}
             >
-              <View style={[styles.configCardIcon, { backgroundColor: primaryLight }]}>
-                <MaterialIcons name="build" size={24} color={primary500} />
+              <View style={[styles.configCardIcon, { backgroundColor: 'transparent', padding: 0, overflow: 'hidden' }]}>
+                <Image
+                  source={require('../../assets/images/especialidades_icon.jpg')}
+                  style={{ width: 48, height: 48, borderRadius: 24 }}
+                  resizeMode="cover"
+                />
               </View>
               <Text style={[styles.configCardTitle, { color: textPrimary }]}>Especialidades</Text>
               <Text style={[styles.configCardSubtitle, { color: textTertiary }]}>Configurar</Text>
             </TouchableOpacity>
 
             {/* Card de Mis Servicios */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.configCard, { backgroundColor: bgPaper, borderColor: borderLight }]}
               onPress={handleMisServicios}
               activeOpacity={0.7}
             >
-              <View style={[styles.configCardIcon, { backgroundColor: primaryLight }]}>
-                <MaterialIcons name="settings-applications" size={24} color={primary500} />
+              <View style={[styles.configCardIcon, { backgroundColor: 'transparent', padding: 0, overflow: 'hidden' }]}>
+                <Image
+                  source={require('../../assets/images/mis_servicios_icon.jpg')}
+                  style={{ width: 48, height: 48, borderRadius: 24 }}
+                  resizeMode="cover"
+                />
               </View>
               <Text style={[styles.configCardTitle, { color: textPrimary }]}>Mis Servicios</Text>
               <Text style={[styles.configCardSubtitle, { color: textTertiary }]}>Gestionar ofertas</Text>
             </TouchableOpacity>
 
             {/* Card de Mercado Pago */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.configCard, { backgroundColor: bgPaper, borderColor: borderLight }]}
               onPress={handleMercadoPago}
               activeOpacity={0.7}
             >
-              <View style={[styles.configCardIcon, { backgroundColor: '#E3F6FF' }]}>
-                <MaterialIcons name="account-balance" size={24} color="#009EE3" />
+              <View style={[styles.configCardIcon, { backgroundColor: 'transparent', padding: 0, overflow: 'hidden' }]}>
+                <Image
+                  source={require('../../assets/images/mercadopago_icon.jpg')}
+                  style={{ width: 48, height: 48, borderRadius: 24 }}
+                  resizeMode="cover"
+                />
               </View>
               <Text style={[styles.configCardTitle, { color: textPrimary }]}>Mercado Pago</Text>
               <Text style={[styles.configCardSubtitle, { color: textTertiary }]}>Recibir pagos</Text>
@@ -410,19 +430,23 @@ export default function PerfilScreen() {
 
             {/* Funcionalidades específicas según el tipo de proveedor */}
             {esMecanicoDomicilio ? (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.configCard, { backgroundColor: bgPaper, borderColor: borderLight }]}
                 onPress={handleZonasServicio}
                 activeOpacity={0.7}
               >
-                <View style={[styles.configCardIcon, { backgroundColor: primaryLight }]}>
-                  <MaterialIcons name="location-on" size={24} color={primary500} />
+                <View style={[styles.configCardIcon, { backgroundColor: 'transparent', padding: 0, overflow: 'hidden' }]}>
+                  <Image
+                    source={require('../../assets/images/zonas_icon.jpg')}
+                    style={{ width: 48, height: 48, borderRadius: 24 }}
+                    resizeMode="cover"
+                  />
                 </View>
                 <Text style={[styles.configCardTitle, { color: textPrimary }]}>Zonas</Text>
                 <Text style={[styles.configCardSubtitle, { color: textTertiary }]}>Cobertura</Text>
               </TouchableOpacity>
             ) : esTaller ? (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.configCard, { backgroundColor: bgPaper, borderColor: borderLight }]}
                 onPress={handleGestionarTaller}
                 activeOpacity={0.7}
@@ -434,13 +458,30 @@ export default function PerfilScreen() {
                 <Text style={[styles.configCardSubtitle, { color: textTertiary }]}>Gestionar información</Text>
               </TouchableOpacity>
             ) : null}
+
+            {/* Card de Soporte */}
+            <TouchableOpacity
+              style={[styles.configCard, { backgroundColor: bgPaper, borderColor: borderLight }]}
+              onPress={handleContactarSoporte}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.configCardIcon, { backgroundColor: 'transparent', padding: 0, overflow: 'hidden' }]}>
+                <Image
+                  source={require('../../assets/images/soporte_icon.jpg')}
+                  style={{ width: 48, height: 48, borderRadius: 24 }}
+                  resizeMode="cover"
+                />
+              </View>
+              <Text style={[styles.configCardTitle, { color: textPrimary }]}>Soporte</Text>
+              <Text style={[styles.configCardSubtitle, { color: textTertiary }]}>Ayuda</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
         {/* Botones inferiores */}
         <View style={[styles.bottomActions, { borderTopColor: borderLight }]}>
-          <TouchableOpacity 
-            style={[styles.signOutButton, isLoggingOut && styles.signOutButtonDisabled]} 
+          <TouchableOpacity
+            style={[styles.signOutButton, isLoggingOut && styles.signOutButtonDisabled]}
             onPress={handleCerrarSesion}
             disabled={isLoggingOut}
           >
@@ -450,7 +491,7 @@ export default function PerfilScreen() {
             </Text>
             {isLoggingOut && <ActivityIndicator size="small" color={error500} style={{ marginLeft: 8 }} />}
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={styles.privacyButton} onPress={handleContactarSoporte}>
             <Text style={[styles.privacyText, { color: textTertiary }]}>Privacidad y Política</Text>
           </TouchableOpacity>

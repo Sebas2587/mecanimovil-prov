@@ -25,7 +25,7 @@ export default function TabLayout() {
   const borderLight = colors?.border?.light || (colors?.neutral as any)?.gray?.[200] || '#E5E5EA';
   const errorMain = colors?.error?.main || '#FF5555';
   const white = COLORS?.base?.white || '#FFFFFF';
-  
+
   // Obtener tokens de espaciado y tipografía
   const spacing = theme?.spacing || SPACING || {};
   const typography = theme?.typography || TYPOGRAPHY || {};
@@ -38,7 +38,7 @@ export default function TabLayout() {
     if (__DEV__) {
       console.log('🏠 TabLayout - Monitoreando autenticación:', { isAuthenticated, isLoading });
     }
-    
+
     // Solo navegar al login si ya terminó de cargar y no está autenticado
     if (!isLoading && !isAuthenticated) {
       if (__DEV__) {
@@ -48,7 +48,7 @@ export default function TabLayout() {
       connectionService.stopConnectionMonitoring();
       router.replace('/(auth)/login');
     }
-    
+
     // Si está autenticado, iniciar conexión WebSocket y monitoreo de conexión
     if (!isLoading && isAuthenticated) {
       if (__DEV__) {
@@ -80,7 +80,7 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: bgPaper,
           borderTopColor: borderLight,
-          borderTopWidth: borders?.width || 1,
+          borderTopWidth: borders?.width?.thin || 1,
           height: Platform.OS === 'ios' ? 88 + insets.bottom : 60 + insets.bottom,
           paddingBottom: insets.bottom,
           paddingTop: spacing?.sm || 8,
@@ -106,7 +106,7 @@ export default function TabLayout() {
           paddingVertical: spacing?.xs || 4,
         },
       }}>
-      
+
       {/* 🏠 INICIO - Dashboard principal con órdenes activas y pendientes */}
       <Tabs.Screen
         name="index"
@@ -117,7 +117,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      
+
       {/* 📋 ÓRDENES - Gestión completa de órdenes con filtros */}
       <Tabs.Screen
         name="ordenes"
@@ -128,15 +128,9 @@ export default function TabLayout() {
           ),
         }}
       />
-      
-      {/* 🔧 MIS SERVICIOS - Gestión de ofertas de servicios */}
-      <Tabs.Screen
-        name="mis-servicios"
-        options={{
-          href: null, // Ocultar del tab bar - se navega desde configuración
-        }}
-      />
-      
+
+
+
       {/* 💬 CHATS - Conversaciones con clientes */}
       <Tabs.Screen
         name="chats"
@@ -156,7 +150,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      
+
       {/* ⚙️ CONFIGURACIÓN - Perfil, servicios, horarios y zonas */}
       <Tabs.Screen
         name="perfil"
@@ -167,55 +161,9 @@ export default function TabLayout() {
           ),
         }}
       />
-      
-      {/* 🗺️ ZONAS DE SERVICIO - Configuración de cobertura */}
-      <Tabs.Screen
-        name="zonas-servicio"
-        options={{
-          href: null, // Ocultar del tab bar - se navega desde configuración
-        }}
-      />
-      
-      {/* 📝 CONFIGURACIÓN DE PERFIL - Datos personales y documentos */}
-      <Tabs.Screen
-        name="configuracion-perfil"
-        options={{
-          href: null, // Ocultar del tab bar - se navega desde configuración
-        }}
-      />
-      
-      {/* ⏰ CONFIGURACIÓN DE HORARIOS - Disponibilidad */}
-      <Tabs.Screen
-        name="configuracion-horarios"
-        options={{
-          href: null, // Ocultar del tab bar - se navega desde configuración
-        }}
-      />
-      
-      {/* 🔧 ESPECIALIDADES Y MARCAS - Configuración de especialidades y marcas atendidas */}
-      <Tabs.Screen
-        name="especialidades-marcas"
-        options={{
-          href: null, // Ocultar del tab bar - se navega desde configuración
-        }}
-      />
-      
-      {/* 📍 ACTUALIZAR UBICACIÓN - Geolocalización */}
-      <Tabs.Screen
-        name="actualizar-ubicacion"
-        options={{
-          href: null, // Ocultar del tab bar - se navega desde configuración
-        }}
-      />
-      
-      {/* 🏪 GESTIONAR TALLER - Información del taller y ubicación */}
-      <Tabs.Screen
-        name="gestionar-taller"
-        options={{
-          href: null, // Ocultar del tab bar - se navega desde configuración
-        }}
-      />
-      
+
+
+
       {/* ✅ CHECKLIST DEMO - Funcionalidad de checklist */}
       <Tabs.Screen
         name="checklist-demo"
@@ -223,7 +171,7 @@ export default function TabLayout() {
           href: null, // Ocultar del tab bar - se navega desde órdenes
         }}
       />
-      
+
       {/* 📅 CALENDARIO - Vista mensual de órdenes */}
       <Tabs.Screen
         name="calendario"
@@ -231,22 +179,12 @@ export default function TabLayout() {
           href: null, // Ocultar del tab bar - se navega desde inicio
         }}
       />
-      
-      {/* 💰 CRÉDITOS - Gestión de créditos Pay-per-Win */}
-      <Tabs.Screen
-        name="creditos"
-        options={{
-          href: null, // Ocultar del tab bar - se navega desde configuración
-        }}
-      />
-      
+
+
+
       {/* 💳 MERCADO PAGO - Configuración de cuenta de pagos */}
-      <Tabs.Screen
-        name="configuracion-mercadopago"
-        options={{
-          href: null, // Ocultar del tab bar - se navega desde configuración
-        }}
-      />
+      {/* Configuración de cuenta de pagos - Movido a stack root */}
+
     </Tabs>
   );
 }
@@ -257,14 +195,14 @@ const createTabStyles = () => {
   const typography = TYPOGRAPHY || {};
   const spacing = SPACING || {};
   const borders = BORDERS || {};
-  
+
   const errorMain = colors?.error?.main || '#FF5555';
   const white = colors?.base?.white || '#FFFFFF';
   const fontSizeXs = typography?.fontSize?.xs || 11;
   const fontWeightBold = typography?.fontWeight?.bold || '700';
   const radiusMd = borders?.radius?.md || 10;
   const spacingXs = spacing?.xs || 4;
-  
+
   return StyleSheet.create({
     badge: {
       position: 'absolute',

@@ -12,7 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+// DateTimePicker removido - ahora usamos modales personalizados
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SolicitudPublica, ServicioSolicitado, DetalleServicioOferta } from '@/services/solicitudesService';
@@ -67,114 +67,15 @@ interface ServicioOferta {
   loadingServicioConfigurado: boolean;
 }
 
-// Componente DatePicker moderno
-const ModernDatePicker = ({ 
-  value, 
-  onDateChange, 
+// Componente DatePicker moderno con modal personalizado
+const ModernDatePicker = ({
+  value,
+  onDateChange,
   label,
-  primaryColor = '#003459' 
-}: { 
-  value: Date; 
-  onDateChange: (date: Date) => void; 
-  label: string;
-  primaryColor?: string;
-}) => {
-  const [showPicker, setShowPicker] = useState(false);
-  const theme = useTheme();
-  const bgDefault = theme.colors?.background?.default || '#F5F7F8';
-  const textPrimary = theme.colors?.text?.primary || '#00171F';
-  const borderLight = theme.colors?.border?.light || '#D7DFE3';
-  const spacingMd = theme.spacing?.md || 16;
-  const spacingSm = theme.spacing?.sm || 8;
-  const cardRadius = theme.borders?.radius?.lg || 12;
-  const fontSizeBase = theme.typography?.fontSize?.base || 14;
-  const fontWeightSemibold = theme.typography?.fontWeight?.semibold || '600';
-  
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowPicker(false);
-    }
-    
-    if (selectedDate) {
-      onDateChange(selectedDate);
-    }
-  };
-
-  return (
-    <View style={{ marginBottom: spacingMd }}>
-      <TouchableOpacity 
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: bgDefault,
-          borderRadius: cardRadius / 2,
-          padding: spacingMd - 2,
-          borderWidth: 1,
-          borderColor: borderLight,
-        }}
-        onPress={() => setShowPicker(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="calendar" size={20} color={primaryColor} />
-        <Text style={{
-          fontSize: fontSizeBase,
-          fontWeight: fontWeightSemibold,
-          color: textPrimary,
-          flex: 1,
-          marginHorizontal: spacingMd,
-        }}>
-          {value.toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          })}
-        </Text>
-        <Ionicons name="chevron-down" size={20} color="#666E7A" />
-      </TouchableOpacity>
-      
-      {showPicker && (
-        <DateTimePicker
-          value={value}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleDateChange}
-          minimumDate={new Date()}
-          style={Platform.OS === 'ios' ? { width: '100%', marginTop: spacingSm } : undefined}
-        />
-      )}
-      
-      {Platform.OS === 'ios' && showPicker && (
-        <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: spacingMd }}>
-          <TouchableOpacity
-            style={{
-              paddingVertical: spacingSm,
-              paddingHorizontal: 24,
-              borderRadius: cardRadius,
-              backgroundColor: primaryColor,
-            }}
-            onPress={() => setShowPicker(false)}
-            activeOpacity={0.8}
-          >
-            <Text style={{ color: '#FFFFFF', fontSize: fontSizeBase, fontWeight: fontWeightSemibold }}>
-              Confirmar
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
-  );
-};
-
-// Componente TimePicker moderno
-const ModernTimePicker = ({ 
-  value, 
-  onTimeChange, 
-  label,
-  primaryColor = '#003459' 
-}: { 
-  value: Date; 
-  onTimeChange: (date: Date) => void; 
+  primaryColor = '#003459'
+}: {
+  value: Date;
+  onDateChange: (date: Date) => void;
   label: string;
   primaryColor?: string;
 }) => {
@@ -192,7 +93,235 @@ const ModernTimePicker = ({
   const fontSizeLg = theme.typography?.fontSize?.lg || 18;
   const fontWeightSemibold = theme.typography?.fontWeight?.semibold || '600';
   const fontWeightBold = theme.typography?.fontWeight?.bold || '700';
-  
+
+  // Generar opciones de fecha (próximos 60 días)
+  const generarOpcionesFecha = (): Date[] => {
+    const opciones: Date[] = [];
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < 60; i++) {
+      const fecha = new Date(hoy);
+      fecha.setDate(hoy.getDate() + i);
+      opciones.push(fecha);
+    }
+    return opciones;
+  };
+
+  const opcionesFecha = generarOpcionesFecha();
+
+  // Formatear fecha para comparación
+  const fechaFormateada = (date: Date): string => {
+    return date.toISOString().split('T')[0];
+  };
+
+  // Formatear fecha para mostrar
+  const formatearFechaDisplay = (date: Date): string => {
+    return date.toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  // Obtener día de la semana
+  const obtenerDiaSemana = (date: Date): string => {
+    return date.toLocaleDateString('es-ES', { weekday: 'short' });
+  };
+
+  const fechaSeleccionada = fechaFormateada(value);
+
+  return (
+    <View style={{ marginBottom: spacingMd }}>
+      <TouchableOpacity
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: bgDefault,
+          borderRadius: cardRadius / 2,
+          padding: spacingMd - 2,
+          borderWidth: 1,
+          borderColor: borderLight,
+        }}
+        onPress={() => setShowModal(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="calendar" size={20} color={primaryColor} />
+        <Text style={{
+          fontSize: fontSizeBase,
+          fontWeight: fontWeightSemibold,
+          color: textPrimary,
+          flex: 1,
+          marginHorizontal: spacingMd,
+        }}>
+          {formatearFechaDisplay(value)}
+        </Text>
+        <Ionicons name="chevron-down" size={20} color="#666E7A" />
+      </TouchableOpacity>
+
+      <Modal
+        visible={showModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowModal(false)}
+      >
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'flex-end',
+          }}
+          activeOpacity={1}
+          onPress={() => setShowModal(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: bgDefault,
+              borderTopLeftRadius: cardRadius,
+              borderTopRightRadius: cardRadius,
+              height: 500,
+              minHeight: '50%',
+              maxHeight: '75%',
+            }}
+          >
+            {/* Header */}
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: spacingMd,
+              paddingTop: spacingMd,
+              paddingBottom: spacingSm,
+              borderBottomWidth: 1,
+              borderBottomColor: borderLight,
+            }}>
+              <Text style={{
+                fontSize: fontSizeLg,
+                fontWeight: fontWeightBold,
+                color: textPrimary,
+              }}>
+                Seleccionar Fecha
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowModal(false)}
+                style={{
+                  padding: spacingSm,
+                }}
+              >
+                <Ionicons name="close" size={24} color={textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Lista de opciones */}
+            <ScrollView
+              style={{
+                height: 400,
+              }}
+              contentContainerStyle={{
+                paddingVertical: spacingSm,
+              }}
+              showsVerticalScrollIndicator={true}
+            >
+              <View style={{
+                paddingHorizontal: spacingMd,
+              }}>
+                {opcionesFecha.map((opcion, index) => {
+                  const estaSeleccionada = fechaFormateada(opcion) === fechaSeleccionada;
+                  const diaSemana = obtenerDiaSemana(opcion);
+                  const fechaDisplay = formatearFechaDisplay(opcion);
+
+                  return (
+                    <TouchableOpacity
+                      key={index}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingVertical: spacingSm + 4,
+                        paddingHorizontal: spacingMd,
+                        marginVertical: 1,
+                        borderRadius: cardRadius / 2,
+                        backgroundColor: estaSeleccionada ? primaryColor : 'transparent',
+                        borderWidth: estaSeleccionada ? 0 : 1,
+                        borderColor: borderLight,
+                      }}
+                      onPress={() => {
+                        const newDate = new Date(opcion);
+                        // Mantener la hora actual
+                        newDate.setHours(value.getHours(), value.getMinutes(), 0, 0);
+                        onDateChange(newDate);
+                        setShowModal(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                        <View style={{
+                          width: 50,
+                          alignItems: 'center',
+                          marginRight: spacingMd,
+                        }}>
+                          <Text style={{
+                            fontSize: 10,
+                            fontWeight: fontWeightSemibold,
+                            color: estaSeleccionada ? '#FFFFFF' : textSecondary,
+                            textTransform: 'uppercase',
+                          }}>
+                            {diaSemana}
+                          </Text>
+                        </View>
+                        <Text style={{
+                          fontSize: fontSizeBase,
+                          fontWeight: estaSeleccionada ? fontWeightBold : fontWeightSemibold,
+                          color: estaSeleccionada ? '#FFFFFF' : textPrimary,
+                        }}>
+                          {fechaDisplay}
+                        </Text>
+                      </View>
+                      {estaSeleccionada && (
+                        <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
+};
+
+// Componente TimePicker moderno
+const ModernTimePicker = ({
+  value,
+  onTimeChange,
+  label,
+  primaryColor = '#003459'
+}: {
+  value: Date;
+  onTimeChange: (date: Date) => void;
+  label: string;
+  primaryColor?: string;
+}) => {
+  const [showModal, setShowModal] = useState(false);
+  const theme = useTheme();
+  const bgDefault = theme.colors?.background?.default || '#F5F7F8';
+  const textPrimary = theme.colors?.text?.primary || '#00171F';
+  const textSecondary = theme.colors?.text?.secondary || '#666E7A';
+  const borderLight = theme.colors?.border?.light || '#D7DFE3';
+  const spacingMd = theme.spacing?.md || 16;
+  const spacingSm = theme.spacing?.sm || 8;
+  const spacingLg = theme.spacing?.lg || 24;
+  const cardRadius = theme.borders?.radius?.lg || 12;
+  const fontSizeBase = theme.typography?.fontSize?.base || 14;
+  const fontSizeLg = theme.typography?.fontSize?.lg || 18;
+  const fontWeightSemibold = theme.typography?.fontWeight?.semibold || '600';
+  const fontWeightBold = theme.typography?.fontWeight?.bold || '700';
+
   // Generar opciones de hora cada 15 minutos (00, 15, 30, 45)
   const generarOpcionesHora = (): string[] => {
     const opciones: string[] = [];
@@ -205,16 +334,16 @@ const ModernTimePicker = ({
     }
     return opciones;
   };
-  
+
   const opcionesHora = generarOpcionesHora();
-  
+
   // Convertir Date a string HH:MM
   const dateToString = (date: Date): string => {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     return `${hours}:${minutes}`;
   };
-  
+
   // Convertir string HH:MM a Date (manteniendo la fecha original)
   const stringToDate = (timeString: string, baseDate: Date): Date => {
     const [hours, minutes] = timeString.split(':').map(Number);
@@ -222,12 +351,12 @@ const ModernTimePicker = ({
     newDate.setHours(hours, minutes, 0, 0);
     return newDate;
   };
-  
+
   const horaActual = dateToString(value);
 
   return (
     <View style={{ marginBottom: spacingMd }}>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={{
           flexDirection: 'row',
           alignItems: 'center',
@@ -251,13 +380,13 @@ const ModernTimePicker = ({
           textAlign: 'left',
           minWidth: 60,
         }}
-        numberOfLines={1}
+          numberOfLines={1}
         >
           {horaActual}
         </Text>
         <Ionicons name="chevron-down" size={20} color="#666E7A" />
       </TouchableOpacity>
-      
+
       <Modal
         visible={showModal}
         transparent={true}
@@ -280,6 +409,8 @@ const ModernTimePicker = ({
               backgroundColor: bgDefault,
               borderTopLeftRadius: cardRadius,
               borderTopRightRadius: cardRadius,
+              height: 500,
+              minHeight: '50%',
               maxHeight: '75%',
             }}
           >
@@ -310,11 +441,11 @@ const ModernTimePicker = ({
                 <Ionicons name="close" size={24} color={textSecondary} />
               </TouchableOpacity>
             </View>
-            
+
             {/* Lista de opciones - Optimizada */}
             <ScrollView
               style={{
-                flex: 1,
+                height: 400,
               }}
               contentContainerStyle={{
                 paddingVertical: spacingSm,
@@ -390,14 +521,13 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   const [fechaAlternativa, setFechaAlternativa] = useState(new Date());
   const [horaAlternativa, setHoraAlternativa] = useState(new Date());
   const [razonCambioFecha, setRazonCambioFecha] = useState('');
-  const [mostrarFechaPicker, setMostrarFechaPicker] = useState(false);
-  const [mostrarHoraPicker, setMostrarHoraPicker] = useState(false);
+  // State variables removed - ModernDatePicker y ModernTimePicker manejan su propia visibilidad
   const [descripcionOferta, setDescripcionOferta] = useState('');
   const [garantiaOfrecida, setGarantiaOfrecida] = useState('');
   const [costoGestionCompra, setCostoGestionCompra] = useState('');
 
   // Estados para ofertas secundarias
-  const [serviciosDisponibles, setServiciosDisponibles] = useState<Array<{id: number; nombre: string; descripcion?: string}>>([]);
+  const [serviciosDisponibles, setServiciosDisponibles] = useState<Array<{ id: number; nombre: string; descripcion?: string }>>([]);
   const [cargandoServicios, setCargandoServicios] = useState(false);
   const [mostrarSelectorServicios, setMostrarSelectorServicios] = useState(false);
 
@@ -407,7 +537,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       setServiciosOferta(prev => {
         const nuevos = [...prev];
         let hayCambios = false;
-        
+
         nuevos.forEach((servicio, index) => {
           // Solo recalcular si tiene repuestos
           if (servicio.tipoServicio === 'con_repuestos' && servicio.repuestos.length > 0) {
@@ -420,7 +550,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
             const costoTotalSinIva = costoManoObra + costoRepuestos + gestionCompra;
             const iva = costoTotalSinIva * 0.19;
             const precioTotal = costoTotalSinIva + iva;
-            
+
             const nuevoPrecio = precioTotal.toFixed(2);
             if (servicio.precio !== nuevoPrecio) {
               nuevos[index].precio = nuevoPrecio;
@@ -428,7 +558,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
             }
           }
         });
-        
+
         return hayCambios ? nuevos : prev;
       });
     }
@@ -444,27 +574,27 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
           // Usar catalogosAPI que maneja correctamente la respuesta
           const { catalogosAPI } = await import('@/services/serviciosApi');
           const { serviciosAPI } = await import('@/services/api');
-          
+
           // Primero obtener todas las marcas para encontrar el ID
           const marcasResponse: any = await catalogosAPI.obtenerMarcas();
           // Asegurarse de que sea un array
-          const marcas = Array.isArray(marcasResponse) 
-            ? marcasResponse 
+          const marcas = Array.isArray(marcasResponse)
+            ? marcasResponse
             : (marcasResponse?.results || marcasResponse?.data || []);
-          
-          const marcaEncontrada = marcas.find((m: any) => 
+
+          const marcaEncontrada = marcas.find((m: any) =>
             m.nombre?.toLowerCase() === solicitud.vehiculo_info.marca?.toLowerCase() ||
             m.id === solicitud.vehiculo_info.marca
           );
-          
+
           if (marcaEncontrada) {
             // Obtener servicios del proveedor filtrados por marca
             const serviciosResponse = await serviciosAPI.obtenerServiciosPorMarca(marcaEncontrada.id);
             // Asegurarse de que sea un array
-            const servicios = Array.isArray(serviciosResponse) 
-              ? serviciosResponse 
+            const servicios = Array.isArray(serviciosResponse)
+              ? serviciosResponse
               : (serviciosResponse?.results || serviciosResponse?.data || []);
-            
+
             // Convertir a formato ServicioSolicitado
             const serviciosFormateados = servicios.map((s: any) => ({
               id: s.servicio_info?.id || s.servicio || s.id,
@@ -484,7 +614,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
           setCargandoServicios(false);
         }
       };
-      
+
       cargarServiciosDisponibles();
     }
   }, [esOfertaSecundaria, solicitud.vehiculo_info?.marca]);
@@ -520,23 +650,23 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     if (esOfertaSecundaria) {
       return;
     }
-    
+
     // Esperar a que serviciosOferta esté completamente inicializado
     if (serviciosOferta.length === 0 || !solicitud.id) {
       return;
     }
-    
+
     // Verificar que todos los servicios tengan estructura válida
-    const serviciosValidos = serviciosOferta.every(s => 
-      s && 
-      s.servicio && 
-      s.servicio.id !== undefined && 
+    const serviciosValidos = serviciosOferta.every(s =>
+      s &&
+      s.servicio &&
+      s.servicio.id !== undefined &&
       s.servicio.id !== null &&
       typeof s.servicio.id === 'number'
     );
-    
+
     if (!serviciosValidos) {
-      console.error('❌ Algunos servicios no tienen estructura válida:', 
+      console.error('❌ Algunos servicios no tienen estructura válida:',
         serviciosOferta.map((s, idx) => ({
           index: idx,
           tieneServicio: !!s?.servicio,
@@ -546,7 +676,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       );
       return;
     }
-    
+
     console.log('🔄 Iniciando carga de servicios configurados...', {
       cantidadServicios: serviciosOferta.length,
       solicitudId: solicitud.id,
@@ -557,18 +687,18 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         tipoId: typeof s.servicio.id
       }))
     });
-    
+
     const cargarServicios = async () => {
       for (let index = 0; index < serviciosOferta.length; index++) {
         // Obtener el servicio actual del estado en cada iteración
         const servicio = serviciosOferta[index];
-        
+
         // Verificar que el servicio tenga estructura válida
         if (!servicio || !servicio.servicio || servicio.servicio.id === undefined || servicio.servicio.id === null) {
           console.error(`❌ Servicio ${index} no tiene estructura válida:`, servicio);
           continue;
         }
-        
+
         console.log(`📋 Servicio ${index}:`, {
           nombre: servicio.servicio.nombre,
           servicioId: servicio.servicio.id,
@@ -576,19 +706,19 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
           tieneConfigurado: !!servicio.servicioConfigurado,
           estaCargando: servicio.loadingServicioConfigurado
         });
-        
+
         if (!servicio.servicioConfigurado && !servicio.loadingServicioConfigurado) {
           console.log(`🚀 Cargando servicio configurado para índice ${index}...`);
           await cargarServicioConfigurado(index);
         }
       }
     };
-    
+
     // Pequeño delay para asegurar que el estado esté completamente actualizado
     const timeoutId = setTimeout(() => {
       cargarServicios();
     }, 100);
-    
+
     return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviciosOferta.length, solicitud.id, esOfertaSecundaria]);
@@ -602,17 +732,17 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
 
     // Obtener el servicio actual del estado directamente
     const servicioActual = serviciosOferta[index];
-    
+
     if (!servicioActual) {
       console.error(`❌ No existe servicio en índice ${index}. Total servicios: ${serviciosOferta.length}`);
       return;
     }
-    
+
     if (servicioActual.loadingServicioConfigurado) {
       console.warn(`⚠️ Servicio ${index} ya está cargando`);
       return;
     }
-    
+
     // Verificar que el servicio tenga la estructura correcta
     if (!servicioActual.servicio) {
       console.error(`❌ Servicio en índice ${index} no tiene estructura válida:`, servicioActual);
@@ -621,7 +751,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
 
     // Asegurar que servicioId sea un número
     const rawId = servicioActual.servicio.id;
-    
+
     if (rawId === undefined || rawId === null) {
       console.error(`❌ servicio.id es undefined o null:`, {
         servicio: servicioActual.servicio,
@@ -631,9 +761,9 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       });
       return;
     }
-    
+
     const servicioId = typeof rawId === 'number' ? rawId : parseInt(String(rawId), 10);
-    
+
     if (isNaN(servicioId)) {
       console.error(`❌ servicioId no es un número válido:`, {
         rawId,
@@ -642,7 +772,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       });
       return;
     }
-    
+
     console.log(`✅ servicioId válido obtenido: ${servicioId} (tipo: ${typeof servicioId})`);
 
     // Marcar como cargando
@@ -662,7 +792,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         vehiculoMarca: solicitud.vehiculo_info?.marca,
         vehiculoModelo: solicitud.vehiculo_info?.modelo
       });
-      
+
       // Buscar servicio configurado
       const servicioConfigurado = await serviciosProveedorAPI.obtenerServicioParaSolicitud(
         solicitud.id,
@@ -681,14 +811,14 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       setServiciosOferta(prev => {
         const nuevos = [...prev];
         if (!nuevos[index]) return prev;
-        
+
         nuevos[index].servicioConfigurado = servicioConfigurado;
         nuevos[index].loadingServicioConfigurado = false;
-        
+
         // NO activar automáticamente - dejar que el usuario decida
         // Si se encontró un servicio configurado, solo guardarlo pero no activarlo
         // El usuario puede elegir usarlo o crear manualmente
-        
+
         return nuevos;
       });
     } catch (error) {
@@ -712,7 +842,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
 
     // Pre-cargar información del servicio configurado
     nuevos[index].usandoServicioConfigurado = true;
-    
+
     // Si la solicitud no requiere repuestos, forzar tipoServicio a 'sin_repuestos'
     // NOTA: Esta validación NO aplica para ofertas secundarias
     if (!esOfertaSecundaria && solicitud.requiere_repuestos === false) {
@@ -720,7 +850,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       nuevos[index].repuestos = [];
     } else {
       nuevos[index].tipoServicio = configurado.tipo_servicio;
-      
+
       // Pre-cargar repuestos solo si la solicitud requiere repuestos o es oferta secundaria
       if (configurado.repuestos_info_detallado && configurado.repuestos_info_detallado.length > 0) {
         nuevos[index].repuestos = configurado.repuestos_info_detallado.map(rep => ({
@@ -729,7 +859,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         }));
       }
     }
-    
+
     nuevos[index].costoManoObra = configurado.costo_mano_de_obra_sin_iva || '0';
 
     // Calcular precio total inicial
@@ -737,13 +867,13 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     // Solo incluir repuestos si la solicitud los requiere o es oferta secundaria
     const costoRepuestos = (!esOfertaSecundaria && solicitud.requiere_repuestos === false) ? 0 : parseFloat(configurado.costo_repuestos_sin_iva || '0');
     // Incluir gestión de compra si hay repuestos
-    const gestionCompra = (nuevos[index].tipoServicio === 'con_repuestos' && nuevos[index].repuestos.length > 0) 
-      ? parseFloat(costoGestionCompra || '0') 
+    const gestionCompra = (nuevos[index].tipoServicio === 'con_repuestos' && nuevos[index].repuestos.length > 0)
+      ? parseFloat(costoGestionCompra || '0')
       : 0;
     const costoTotalSinIva = costoManoObra + costoRepuestos + gestionCompra;
     const iva = costoTotalSinIva * 0.19;
     const precioTotal = costoTotalSinIva + iva;
-    
+
     nuevos[index].precio = precioTotal.toFixed(2);
 
     // Pre-cargar tiempo estimado desde duracion_estimada (formato HH:MM:SS o HH:MM)
@@ -769,14 +899,14 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   const cambiarAModoManual = (index: number) => {
     const nuevos = [...serviciosOferta];
     nuevos[index].usandoServicioConfigurado = false;
-    
+
     // Si la solicitud no requiere repuestos, forzar tipoServicio a 'sin_repuestos' y limpiar repuestos
     // NOTA: Esta validación NO aplica para ofertas secundarias
     if (!esOfertaSecundaria && solicitud.requiere_repuestos === false) {
       nuevos[index].tipoServicio = 'sin_repuestos';
       nuevos[index].repuestos = [];
     }
-    
+
     setServiciosOferta(nuevos);
   };
 
@@ -784,7 +914,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   const actualizarCostoManoObra = (index: number, valor: string) => {
     const nuevos = [...serviciosOferta];
     nuevos[index].costoManoObra = valor;
-    
+
     // SIEMPRE recalcular precio total automáticamente
     const costoManoObra = parseFloat(valor || '0');
     const costoRepuestos = nuevos[index].repuestos.reduce((total, rep) => {
@@ -793,13 +923,13 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       return total + (rep.cantidad || 0) * precioUnitario;
     }, 0);
     // Incluir gestión de compra si hay repuestos
-    const gestionCompra = nuevos[index].tipoServicio === 'con_repuestos' && nuevos[index].repuestos.length > 0 
-      ? parseFloat(costoGestionCompra || '0') 
+    const gestionCompra = nuevos[index].tipoServicio === 'con_repuestos' && nuevos[index].repuestos.length > 0
+      ? parseFloat(costoGestionCompra || '0')
       : 0;
     const costoTotalSinIva = costoManoObra + costoRepuestos + gestionCompra;
     const iva = costoTotalSinIva * 0.19;
     const precioTotal = costoTotalSinIva + iva;
-    
+
     nuevos[index].precio = precioTotal.toFixed(2);
     setServiciosOferta(nuevos);
   };
@@ -815,10 +945,10 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       );
       return;
     }
-    
+
     const nuevos = [...serviciosOferta];
     nuevos[index].repuestos = repuestos;
-    
+
     // SIEMPRE recalcular precio total automáticamente
     const costoManoObra = parseFloat(nuevos[index].costoManoObra || '0');
     const costoRepuestos = repuestos.reduce((total, rep) => {
@@ -827,13 +957,13 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       return total + (rep.cantidad || 0) * precioUnitario;
     }, 0);
     // Incluir gestión de compra si hay repuestos
-    const gestionCompra = nuevos[index].tipoServicio === 'con_repuestos' && repuestos.length > 0 
-      ? parseFloat(costoGestionCompra || '0') 
+    const gestionCompra = nuevos[index].tipoServicio === 'con_repuestos' && repuestos.length > 0
+      ? parseFloat(costoGestionCompra || '0')
       : 0;
     const costoTotalSinIva = costoManoObra + costoRepuestos + gestionCompra;
     const iva = costoTotalSinIva * 0.19;
     const precioTotal = costoTotalSinIva + iva;
-    
+
     nuevos[index].precio = precioTotal.toFixed(2);
     setServiciosOferta(nuevos);
   };
@@ -857,7 +987,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     if (costoGestionCompra) {
       const nuevos = [...serviciosOferta];
       let hayCambios = false;
-      
+
       nuevos.forEach((servicio, index) => {
         // Solo recalcular si tiene repuestos
         if (servicio.tipoServicio === 'con_repuestos' && servicio.repuestos.length > 0) {
@@ -870,7 +1000,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
           const costoTotalSinIva = costoManoObra + costoRepuestos + gestionCompra;
           const iva = costoTotalSinIva * 0.19;
           const precioTotal = costoTotalSinIva + iva;
-          
+
           const nuevoPrecio = precioTotal.toFixed(2);
           if (servicio.precio !== nuevoPrecio) {
             nuevos[index].precio = nuevoPrecio;
@@ -878,7 +1008,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
           }
         }
       });
-      
+
       if (hayCambios) {
         setServiciosOferta(nuevos);
       }
@@ -892,8 +1022,19 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     setServiciosOferta(nuevos);
   };
 
+  // Verificar si el proveedor tiene servicio configurado con repuestos
+  const tieneServicioConfiguradoConRepuestos = (index: number): boolean => {
+    const servicio = serviciosOferta[index];
+    return !!(
+      servicio.servicioConfigurado &&
+      servicio.servicioConfigurado.tipo_servicio === 'con_repuestos' &&
+      servicio.servicioConfigurado.repuestos_info_detallado &&
+      servicio.servicioConfigurado.repuestos_info_detallado.length > 0
+    );
+  };
+
   // Agregar servicio desde lista disponible (solo para ofertas secundarias)
-  const agregarServicioDesdeLista = (servicio: {id: number; nombre: string; descripcion?: string}) => {
+  const agregarServicioDesdeLista = (servicio: { id: number; nombre: string; descripcion?: string }) => {
     // Verificar que no esté ya agregado
     if (serviciosOferta.some(s => s.servicio.id === servicio.id)) {
       Alert.alert('Servicio ya agregado', 'Este servicio ya está en la lista');
@@ -989,7 +1130,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       const precio = parseFloat(s.precio || '0');
       return total + precio;
     }, 0);
-    
+
     return precioServicios;
   };
 
@@ -997,7 +1138,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   const calcularCostoRepuestos = (): number => {
     const total = serviciosOferta.reduce((total, s) => {
       if (s.tipoServicio !== 'con_repuestos') return total;
-      
+
       const costoRepuestos = s.repuestos.reduce((subtotal, rep) => {
         // CORRECCIÓN: Usar precio personalizado del proveedor si existe, sino usar precio_referencia del catálogo
         const precioUnitario = rep.precio !== undefined && rep.precio !== null ? rep.precio : (rep.precio_referencia || 0);
@@ -1005,7 +1146,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       }, 0);
       return total + costoRepuestos;
     }, 0);
-    
+
     return total;
   };
 
@@ -1015,7 +1156,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       const costoManoObra = parseFloat(s.costoManoObra || '0');
       return total + costoManoObra;
     }, 0);
-    
+
     return total;
   };
 
@@ -1025,7 +1166,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       const horas = parseFloat(s.tiempo_estimado || '0');
       return total + horas;
     }, 0);
-    
+
     if (totalHoras < 1) {
       return `${Math.round(totalHoras * 60)} minutos`;
     } else if (totalHoras < 24) {
@@ -1090,10 +1231,10 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   // Enviar oferta
   const handleSubmit = () => {
     if (!validarFormulario()) return;
-    
+
     const detallesServicios: DetalleServicioOferta[] = serviciosOferta.map(s => {
       const tiempoHoras = parseFloat(s.tiempo_estimado || '0');
-      
+
       // Preparar repuestos seleccionados en formato para backend
       // IMPORTANTE: Incluir el precio personalizado del proveedor si existe
       const repuestosSeleccionados = s.repuestos.map(rep => ({
@@ -1101,7 +1242,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         cantidad: rep.cantidad || 1,
         precio: rep.precio !== undefined && rep.precio !== null ? rep.precio : rep.precio_referencia,
       }));
-      
+
       return {
         servicio: s.servicio.id,
         precio_servicio: s.precio,
@@ -1143,13 +1284,13 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     let costoRepuestos = calcularCostoRepuestos();
     let costoManoObra = calcularCostoManoObra();
     const precioTotalCalculado = calcularPrecioTotal();
-    
+
     // FIX: Si hay repuestos pero costoManoObra es 0, calcular automáticamente el desglose
     // basándose en el precio total ingresado por el proveedor
     if (incluyeRepuestos && costoManoObra === 0 && precioTotalCalculado > 0) {
       // El precio total incluye IVA, calculamos el precio sin IVA
       const precioSinIva = precioTotalCalculado / 1.19;
-      
+
       // Si hay repuestos calculados, usar ese valor
       // Si no, asumir que el 60% es mano de obra y 40% repuestos (proporción típica)
       if (costoRepuestos > 0) {
@@ -1161,7 +1302,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         costoManoObra = precioSinIva * 0.6;
         costoRepuestos = precioSinIva * 0.4;
       }
-      
+
       console.log('📊 FormularioOferta: Calculando desglose automático:', {
         precioTotalCalculado,
         precioSinIva,
@@ -1172,7 +1313,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
 
     // Obtener el costo de gestión de compra (solo aplica si incluye repuestos)
     const gestionCompra = incluyeRepuestos ? parseFloat(costoGestionCompra || '0') : 0;
-    
+
     // Calcular precio total final incluyendo gestión de compra
     // precioTotalCalculado ya incluye IVA de (mano de obra + repuestos)
     // Ahora agregamos gestión de compra con su IVA
@@ -1198,7 +1339,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
 
   const precioTotalServicios = calcularPrecioTotal();
   const tiempoTotal = calcularTiempoTotal();
-  
+
   // Calcular precio total REAL incluyendo gestión de compra con IVA
   const gestionCompraValor = parseFloat(costoGestionCompra || '0');
   const tieneRepuestos = serviciosOferta.some(s => s.tipoServicio === 'con_repuestos');
@@ -1207,857 +1348,845 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
 
   return (
     <View style={styles.wrapper}>
-      <ScrollView 
-        style={styles.container} 
+      <ScrollView
+        style={styles.container}
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: 75 + bottomInset }
         ]}
         showsVerticalScrollIndicator={false}
       >
-      {/* Header minimalista */}
-      <View style={styles.headerCard}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>
-              Nueva Oferta
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              Completa la información para enviar tu oferta
-            </Text>
+        {/* Header minimalista */}
+        <View style={styles.headerCard}>
+          <View style={styles.headerRow}>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>
+                Nueva Oferta
+              </Text>
+              <Text style={styles.headerSubtitle}>
+                Completa la información para enviar tu oferta
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Servicios solicitados - Sin checkboxes, todos incluidos */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeaderContainer}>
-          <Text style={styles.sectionTitle}>
-            {esOfertaSecundaria ? 'Servicios Adicionales' : 'Servicios Solicitados'}
-          </Text>
-          <Text style={styles.sectionSubtitle}>
-            {esOfertaSecundaria 
-              ? 'Selecciona o agrega servicios adicionales para esta oferta'
-              : 'Completa los precios y tiempos para cada servicio'}
-          </Text>
-        </View>
+        {/* Servicios solicitados - Sin checkboxes, todos incluidos */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderContainer}>
+            <Text style={styles.sectionTitle}>
+              {esOfertaSecundaria ? 'Servicios Adicionales' : 'Servicios Solicitados'}
+            </Text>
+            <Text style={styles.sectionSubtitle}>
+              {esOfertaSecundaria
+                ? 'Selecciona o agrega servicios adicionales para esta oferta'
+                : 'Completa los precios y tiempos para cada servicio'}
+            </Text>
+          </View>
 
-        {/* Selector de servicios para ofertas secundarias */}
-        {esOfertaSecundaria && (
-          <>
-            <View style={styles.agregarServiciosContainer}>
-              <TouchableOpacity
-                style={styles.agregarServicioButton}
-                onPress={() => setMostrarSelectorServicios(!mostrarSelectorServicios)}
-              >
-                <MaterialIcons name="add-circle" size={20} color="#0061FF" />
-                <Text style={styles.agregarServicioButtonText}>
-                  Agregar Servicio
-                </Text>
-                <MaterialIcons 
-                  name={mostrarSelectorServicios ? "expand-less" : "expand-more"} 
-                  size={20} 
-                  color="#0061FF" 
-                />
-              </TouchableOpacity>
+          {/* Selector de servicios para ofertas secundarias */}
+          {esOfertaSecundaria && (
+            <>
+              <View style={styles.agregarServiciosContainer}>
+                <TouchableOpacity
+                  style={styles.agregarServicioButton}
+                  onPress={() => setMostrarSelectorServicios(!mostrarSelectorServicios)}
+                >
+                  <MaterialIcons name="add-circle" size={20} color="#0061FF" />
+                  <Text style={styles.agregarServicioButtonText}>
+                    Agregar Servicio
+                  </Text>
+                  <MaterialIcons
+                    name={mostrarSelectorServicios ? "expand-less" : "expand-more"}
+                    size={20}
+                    color="#0061FF"
+                  />
+                </TouchableOpacity>
 
-              {mostrarSelectorServicios && (
-                <View style={styles.selectorServiciosContainer}>
-                  {cargandoServicios ? (
-                    <View style={styles.loadingContainer}>
-                      <ActivityIndicator size="small" color="#0061FF" />
-                      <Text style={styles.loadingText}>Cargando servicios...</Text>
-                    </View>
-                  ) : serviciosDisponibles.length > 0 ? (
-                    <>
-                      <Text style={styles.selectorServiciosTitle}>
-                        Servicios Disponibles ({serviciosDisponibles.length})
-                      </Text>
-                      <View style={styles.serviciosGrid}>
-                        {serviciosDisponibles.map((servicio) => {
-                          const yaAgregado = serviciosOferta.some(s => s.servicio.id === servicio.id);
-                          return (
-                            <TouchableOpacity
-                              key={servicio.id}
-                              style={[
-                                styles.servicioCardSelector,
-                                yaAgregado && styles.servicioCardSelectorDisabled
-                              ]}
-                              onPress={() => !yaAgregado && agregarServicioDesdeLista(servicio)}
-                              disabled={yaAgregado}
-                            >
-                              <View style={styles.servicioCardSelectorContent}>
-                                {yaAgregado ? (
-                                  <View style={styles.servicioCardSelectorCheck}>
-                                    <MaterialIcons name="check-circle" size={24} color="#10B981" />
-                                  </View>
-                                ) : (
-                                  <View style={styles.servicioCardSelectorIcon}>
-                                    <MaterialIcons name="build" size={24} color="#0061FF" />
-                                  </View>
-                                )}
-                                <Text 
-                                  style={[
-                                    styles.servicioCardSelectorNombre,
-                                    yaAgregado && styles.servicioCardSelectorNombreDisabled
-                                  ]}
-                                  numberOfLines={2}
-                                >
-                                  {servicio.nombre}
-                                </Text>
-                                {servicio.descripcion && (
-                                  <Text 
-                                    style={styles.servicioCardSelectorDescripcion}
+                {mostrarSelectorServicios && (
+                  <View style={styles.selectorServiciosContainer}>
+                    {cargandoServicios ? (
+                      <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="small" color="#0061FF" />
+                        <Text style={styles.loadingText}>Cargando servicios...</Text>
+                      </View>
+                    ) : serviciosDisponibles.length > 0 ? (
+                      <>
+                        <Text style={styles.selectorServiciosTitle}>
+                          Servicios Disponibles ({serviciosDisponibles.length})
+                        </Text>
+                        <View style={styles.serviciosGrid}>
+                          {serviciosDisponibles.map((servicio) => {
+                            const yaAgregado = serviciosOferta.some(s => s.servicio.id === servicio.id);
+                            return (
+                              <TouchableOpacity
+                                key={servicio.id}
+                                style={[
+                                  styles.servicioCardSelector,
+                                  yaAgregado && styles.servicioCardSelectorDisabled
+                                ]}
+                                onPress={() => !yaAgregado && agregarServicioDesdeLista(servicio)}
+                                disabled={yaAgregado}
+                              >
+                                <View style={styles.servicioCardSelectorContent}>
+                                  {yaAgregado ? (
+                                    <View style={styles.servicioCardSelectorCheck}>
+                                      <MaterialIcons name="check-circle" size={24} color="#10B981" />
+                                    </View>
+                                  ) : (
+                                    <View style={styles.servicioCardSelectorIcon}>
+                                      <MaterialIcons name="build" size={24} color="#0061FF" />
+                                    </View>
+                                  )}
+                                  <Text
+                                    style={[
+                                      styles.servicioCardSelectorNombre,
+                                      yaAgregado && styles.servicioCardSelectorNombreDisabled
+                                    ]}
                                     numberOfLines={2}
                                   >
-                                    {servicio.descripcion}
+                                    {servicio.nombre}
                                   </Text>
-                                )}
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })}
+                                  {servicio.descripcion && (
+                                    <Text
+                                      style={styles.servicioCardSelectorDescripcion}
+                                      numberOfLines={2}
+                                    >
+                                      {servicio.descripcion}
+                                    </Text>
+                                  )}
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </>
+                    ) : (
+                      <View style={styles.emptyServiciosContainer}>
+                        <Text style={styles.emptyServiciosText}>
+                          No hay servicios disponibles para esta marca
+                        </Text>
                       </View>
-                    </>
-                  ) : (
-                    <View style={styles.emptyServiciosContainer}>
-                      <Text style={styles.emptyServiciosText}>
-                        No hay servicios disponibles para esta marca
+                    )}
+                  </View>
+                )}
+              </View>
+
+              {/* Botón de agregar servicio manualmente - Fuera del desplegable, solo para ofertas secundarias */}
+              <TouchableOpacity
+                style={styles.agregarManualButtonOuter}
+                onPress={agregarServicioManual}
+              >
+                <MaterialIcons name="edit" size={20} color="#666" />
+                <Text style={styles.agregarManualButtonTextOuter}>
+                  Agregar Servicio Manualmente
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {serviciosOferta.length === 0 && esOfertaSecundaria ? (
+            <View style={styles.emptyServiciosMessage}>
+              <MaterialIcons name="info-outline" size={24} color="#666" />
+              <Text style={styles.emptyServiciosMessageText}>
+                Agrega al menos un servicio para continuar
+              </Text>
+            </View>
+          ) : (
+            serviciosOferta.map((item, index) => {
+              return (
+                <View
+                  key={`${item.servicio.id}-${index}`}
+                  style={styles.servicioCard}
+                >
+                  <View style={styles.servicioHeader}>
+                    <Text style={styles.servicioNombre}>
+                      {item.servicio.nombre}
+                    </Text>
+                    {esOfertaSecundaria && (
+                      <TouchableOpacity
+                        onPress={() => eliminarServicio(index)}
+                        style={styles.eliminarServicioButton}
+                      >
+                        <MaterialIcons name="delete-outline" size={20} color="#DC3545" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Selector de servicio configurado - Solo para ofertas originales, no para secundarias */}
+                  {!esOfertaSecundaria && !item.usandoServicioConfigurado && (
+                    <View style={styles.selectorContainer}>
+                      <ServicioConfiguradoSelector
+                        servicioConfigurado={item.servicioConfigurado}
+                        loading={item.loadingServicioConfigurado}
+                        onUsarServicioConfigurado={() => usarServicioConfigurado(index)}
+                        onCrearManual={() => {
+                          // Cambiar a modo manual: permitir edición directa del precio
+                          const nuevos = [...serviciosOferta];
+                          nuevos[index].usandoServicioConfigurado = false;
+                          nuevos[index].precio = '';
+                          nuevos[index].tiempo_estimado = '';
+                          nuevos[index].costoManoObra = '';
+                          nuevos[index].repuestos = [];
+                          setServiciosOferta(nuevos);
+                        }}
+                        usandoServicioConfigurado={item.usandoServicioConfigurado}
+                      />
+                    </View>
+                  )}
+
+                  {/* Campos manuales - Mostrar cuando NO está usando servicio configurado */}
+                  {!item.usandoServicioConfigurado && (
+                    <View style={styles.servicioDetalles}>
+                      {/* Mensaje informativo si la solicitud no requiere repuestos (solo para ofertas originales) */}
+                      {!esOfertaSecundaria && solicitud.requiere_repuestos === false && (
+                        <View style={styles.infoBox}>
+                          <MaterialIcons name="info-outline" size={20} color="#FF9800" />
+                          <Text style={styles.infoBoxText}>
+                            Esta solicitud solo requiere mano de obra. No se pueden agregar repuestos.
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Tipo de servicio - Libre en ofertas secundarias */}
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>
+                          Tipo de Servicio
+                        </Text>
+                        <View style={styles.tipoServicioContainer}>
+                          <TouchableOpacity
+                            style={[
+                              styles.tipoServicioButton,
+                              item.tipoServicio === 'con_repuestos' && styles.tipoServicioButtonSelected,
+                              !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioButtonDisabled
+                            ]}
+                            onPress={() => {
+                              if (!esOfertaSecundaria && solicitud.requiere_repuestos === false) return;
+                              const nuevos = [...serviciosOferta];
+                              nuevos[index].tipoServicio = 'con_repuestos';
+                              setServiciosOferta(nuevos);
+                            }}
+                            disabled={!esOfertaSecundaria && solicitud.requiere_repuestos === false}
+                          >
+                            <Text style={[
+                              styles.tipoServicioText,
+                              item.tipoServicio === 'con_repuestos' && styles.tipoServicioTextSelected,
+                              !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioTextDisabled
+                            ]}>
+                              Con Repuestos
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.tipoServicioButton,
+                              item.tipoServicio === 'sin_repuestos' && styles.tipoServicioButtonSelected,
+                              !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioButtonDisabled
+                            ]}
+                            onPress={() => {
+                              if (!esOfertaSecundaria && solicitud.requiere_repuestos === false) return;
+                              const nuevos = [...serviciosOferta];
+                              nuevos[index].tipoServicio = 'sin_repuestos';
+                              nuevos[index].repuestos = [];
+                              setServiciosOferta(nuevos);
+                              actualizarRepuestos(index, []);
+                            }}
+                            disabled={!esOfertaSecundaria && solicitud.requiere_repuestos === false}
+                          >
+                            <Text style={[
+                              styles.tipoServicioText,
+                              item.tipoServicio === 'sin_repuestos' && styles.tipoServicioTextSelected,
+                              !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioTextDisabled
+                            ]}>
+                              Sin Repuestos
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      {/* Costo de mano de obra */}
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>
+                          Costo Mano de Obra (sin IVA)
+                        </Text>
+                        <View style={styles.inputContainer}>
+                          <Text style={styles.currencySymbol}>$</Text>
+                          <TextInput
+                            style={styles.input}
+                            placeholder="0"
+                            placeholderTextColor="#999"
+                            value={item.costoManoObra}
+                            onChangeText={(text) => actualizarCostoManoObra(index, text)}
+                            keyboardType="decimal-pad"
+                          />
+                        </View>
+                      </View>
+
+                      {/* Lista de repuestos - Solo si está configurado o es oferta secundaria */}
+                      {item.tipoServicio === 'con_repuestos' && (esOfertaSecundaria || solicitud.requiere_repuestos !== false) && (
+                        <View style={styles.inputGroup}>
+                          {tieneServicioConfiguradoConRepuestos(index) || esOfertaSecundaria ? (
+                            <RepuestosLista
+                              repuestos={item.repuestos}
+                              onRepuestosChange={(repuestos) => actualizarRepuestos(index, repuestos)}
+                              editable={true}
+                              mostrarTotal={true}
+                              servicioId={esOfertaSecundaria ? item.servicio.id : undefined}
+                            />
+                          ) : (
+                            <View style={styles.warningContainer}>
+                              <MaterialIcons name="warning" size={40} color="#FFA000" />
+                              <Text style={styles.warningTitle}>
+                                Servicio sin repuestos configurados
+                              </Text>
+                              <Text style={styles.warningText}>
+                                El cliente solicitó este servicio con repuestos, pero no tienes un servicio configurado con repuestos para {item.servicio.nombre}.
+                              </Text>
+                              <Text style={styles.warningSubtext}>
+                                Tus opciones:
+                              </Text>
+                              <View style={styles.optionsList}>
+                                <View style={styles.optionItem}>
+                                  <Text style={styles.optionNumber}>1.</Text>
+                                  <Text style={styles.optionText}>
+                                    Cambia el selector arriba a "Sin repuestos" si puedes realizar el servicio sin materiales
+                                  </Text>
+                                </View>
+                                <View style={styles.optionItem}>
+                                  <Text style={styles.optionNumber}>2.</Text>
+                                  <Text style={styles.optionText}>
+                                    Ve a la pantalla de Servicios y configura este servicio con repuestos antes de enviar esta oferta
+                                  </Text>
+                                </View>
+                              </View>
+                            </View>
+                          )}
+                        </View>
+                      )}
+
+                      {/* Precio Total - Automático */}
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>
+                          Precio Total (con IVA)
+                        </Text>
+                        <View style={[styles.inputContainer, { backgroundColor: '#F5F5F5' }]}>
+                          <Text style={styles.currencySymbol}>$</Text>
+                          <TextInput
+                            style={[styles.input, { color: '#666' }]}
+                            placeholder="0"
+                            placeholderTextColor="#999"
+                            value={item.precio}
+                            editable={false}
+                            keyboardType="decimal-pad"
+                          />
+                        </View>
+                        <Text style={styles.precioInfo}>
+                          Calculado automáticamente (Mano de obra + Repuestos + Gestión de compra + IVA 19%)
+                        </Text>
+                      </View>
+
+                      {/* Tiempo estimado y Notas - En modo manual también */}
+                      <View style={styles.infoGroup}>
+                        {/* Tiempo estimado */}
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.inputLabel}>
+                            Tiempo estimado (horas)
+                          </Text>
+                          <View style={styles.inputContainer}>
+                            <TextInput
+                              style={styles.input}
+                              placeholder="Ej: 2.5"
+                              placeholderTextColor="#999"
+                              value={item.tiempo_estimado}
+                              onChangeText={(text) => actualizarTiempoEstimado(index, text)}
+                              keyboardType="decimal-pad"
+                            />
+                            <Text style={styles.unitText}>hrs</Text>
+                          </View>
+                        </View>
+
+                        {/* Notas adicionales */}
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.inputLabel}>
+                            Notas adicionales (opcional)
+                          </Text>
+                          <TextInput
+                            style={styles.textArea}
+                            placeholder="Detalles o aclaraciones sobre este servicio..."
+                            placeholderTextColor="#999"
+                            value={item.notas}
+                            onChangeText={(text) => actualizarNotas(index, text)}
+                            multiline
+                            numberOfLines={2}
+                          />
+                        </View>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Indicador cuando se usa servicio configurado */}
+                  {item.usandoServicioConfigurado && (
+                    <View style={styles.configuradoBadge}>
+                      <MaterialIcons name="check-circle" size={16} color="#10B981" />
+                      <Text style={styles.configuradoText}>
+                        Usando servicio configurado
                       </Text>
+                      <TouchableOpacity
+                        onPress={() => cambiarAModoManual(index)}
+                        style={styles.cambiarLink}
+                      >
+                        <Text style={styles.cambiarLinkText}>Cambiar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {/* Campos cuando está usando servicio configurado */}
+                  {item.usandoServicioConfigurado && (
+                    <View style={styles.servicioDetalles}>
+                      {/* Mensaje informativo si la solicitud no requiere repuestos (solo para ofertas originales) */}
+                      {!esOfertaSecundaria && solicitud.requiere_repuestos === false && (
+                        <View style={styles.infoBox}>
+                          <MaterialIcons name="info-outline" size={20} color="#FF9800" />
+                          <Text style={styles.infoBoxText}>
+                            Esta solicitud solo requiere mano de obra. No se pueden agregar repuestos.
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Tipo de servicio - Libre en ofertas secundarias */}
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>
+                          Tipo de Servicio
+                        </Text>
+                        <View style={styles.tipoServicioContainer}>
+                          <TouchableOpacity
+                            style={[
+                              styles.tipoServicioButton,
+                              item.tipoServicio === 'con_repuestos' && styles.tipoServicioButtonSelected,
+                              !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioButtonDisabled
+                            ]}
+                            onPress={() => {
+                              if (!esOfertaSecundaria && solicitud.requiere_repuestos === false) return;
+                              const nuevos = [...serviciosOferta];
+                              nuevos[index].tipoServicio = 'con_repuestos';
+                              setServiciosOferta(nuevos);
+                            }}
+                            disabled={!esOfertaSecundaria && solicitud.requiere_repuestos === false}
+                          >
+                            <Text style={[
+                              styles.tipoServicioText,
+                              item.tipoServicio === 'con_repuestos' && styles.tipoServicioTextSelected,
+                              !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioTextDisabled
+                            ]}>
+                              Con Repuestos
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.tipoServicioButton,
+                              item.tipoServicio === 'sin_repuestos' && styles.tipoServicioButtonSelected,
+                              !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioButtonDisabled
+                            ]}
+                            onPress={() => {
+                              if (!esOfertaSecundaria && solicitud.requiere_repuestos === false) return;
+                              const nuevos = [...serviciosOferta];
+                              nuevos[index].tipoServicio = 'sin_repuestos';
+                              nuevos[index].repuestos = [];
+                              setServiciosOferta(nuevos);
+                              actualizarRepuestos(index, []);
+                            }}
+                            disabled={!esOfertaSecundaria && solicitud.requiere_repuestos === false}
+                          >
+                            <Text style={[
+                              styles.tipoServicioText,
+                              item.tipoServicio === 'sin_repuestos' && styles.tipoServicioTextSelected,
+                              !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioTextDisabled
+                            ]}>
+                              Sin Repuestos
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      {/* Lista de repuestos - Libre en ofertas secundarias */}
+                      {item.tipoServicio === 'con_repuestos' && (esOfertaSecundaria || solicitud.requiere_repuestos !== false) && (
+                        <View style={styles.inputGroup}>
+                          <RepuestosLista
+                            repuestos={item.repuestos}
+                            onRepuestosChange={(repuestos) => actualizarRepuestos(index, repuestos)}
+                            editable={true}
+                            mostrarTotal={true}
+                            servicioId={esOfertaSecundaria ? item.servicio.id : undefined}
+                          />
+                        </View>
+                      )}
+
+                      {/* Grupo de Precios - Costo Mano de Obra y Precio Total juntos */}
+                      <View style={styles.preciosGroup}>
+                        <Text style={styles.groupTitle}>Precios</Text>
+
+                        {/* Costo de mano de obra */}
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.inputLabel}>
+                            Costo Mano de Obra (sin IVA)
+                          </Text>
+                          <View style={styles.inputContainer}>
+                            <Text style={styles.currencySymbol}>$</Text>
+                            <TextInput
+                              style={styles.input}
+                              placeholder="0"
+                              placeholderTextColor="#999"
+                              value={item.costoManoObra}
+                              onChangeText={(text) => actualizarCostoManoObra(index, text)}
+                              keyboardType="decimal-pad"
+                            />
+                          </View>
+                        </View>
+
+                        {/* Precio Total (calculado automáticamente) */}
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.inputLabel}>
+                            Precio Total (con IVA)
+                          </Text>
+                          <View style={[styles.inputContainer, { backgroundColor: '#F5F5F5' }]}>
+                            <Text style={styles.currencySymbol}>$</Text>
+                            <TextInput
+                              style={[styles.input, { color: '#666' }]}
+                              placeholder="0"
+                              placeholderTextColor="#999"
+                              value={item.precio}
+                              editable={false}
+                              keyboardType="decimal-pad"
+                            />
+                          </View>
+                          <Text style={styles.precioInfo}>
+                            Calculado automáticamente (Mano de obra + Repuestos + Gestión de compra + IVA 19%)
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Tiempo estimado y Notas - Dentro de cada servicio */}
+                      <View style={styles.infoGroup}>
+                        {/* Tiempo estimado */}
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.inputLabel}>
+                            Tiempo estimado (horas)
+                          </Text>
+                          <View style={styles.inputContainer}>
+                            <TextInput
+                              style={styles.input}
+                              placeholder="Ej: 2.5"
+                              placeholderTextColor="#999"
+                              value={item.tiempo_estimado}
+                              onChangeText={(text) => actualizarTiempoEstimado(index, text)}
+                              keyboardType="decimal-pad"
+                            />
+                            <Text style={styles.unitText}>hrs</Text>
+                          </View>
+                        </View>
+
+                        {/* Notas adicionales */}
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.inputLabel}>
+                            Notas adicionales (opcional)
+                          </Text>
+                          <TextInput
+                            style={styles.textArea}
+                            placeholder="Detalles o aclaraciones sobre este servicio..."
+                            placeholderTextColor="#999"
+                            value={item.notas}
+                            onChangeText={(text) => actualizarNotas(index, text)}
+                            multiline
+                            numberOfLines={2}
+                          />
+                        </View>
+                      </View>
                     </View>
                   )}
                 </View>
-              )}
-            </View>
-            
-            {/* Botón de agregar servicio manualmente - Fuera del desplegable, solo para ofertas secundarias */}
-            <TouchableOpacity
-              style={styles.agregarManualButtonOuter}
-              onPress={agregarServicioManual}
-            >
-              <MaterialIcons name="edit" size={20} color="#666" />
-              <Text style={styles.agregarManualButtonTextOuter}>
-                Agregar Servicio Manualmente
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
+              );
+            })
+          )}
+        </View>
 
-        {serviciosOferta.length === 0 && esOfertaSecundaria ? (
-          <View style={styles.emptyServiciosMessage}>
-            <MaterialIcons name="info-outline" size={24} color="#666" />
-            <Text style={styles.emptyServiciosMessageText}>
-              Agrega al menos un servicio para continuar
+        {/* Grupo de Información Adicional - Disponibilidad, Garantía, Descripción */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            Información Adicional
+          </Text>
+
+          {/* Disponibilidad */}
+          <View style={styles.subsection}>
+            <Text style={styles.subsectionTitle}>
+              {esOfertaSecundaria ? 'Fecha y Hora de Atención' : 'Disponibilidad'}
             </Text>
-          </View>
-        ) : (
-          serviciosOferta.map((item, index) => {
-            return (
-          <View 
-              key={`${item.servicio.id}-${index}`} 
-            style={styles.servicioCard}
-          >
-            <View style={styles.servicioHeader}>
-              <Text style={styles.servicioNombre}>
-                {item.servicio.nombre}
+            {!esOfertaSecundaria && (
+              <Text style={styles.sectionSubtitle}>
+                Fecha solicitada: {new Date(solicitud.fecha_preferida).toLocaleDateString('es-ES', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric'
+                })}
+                {solicitud.hora_preferida && ` a las ${solicitud.hora_preferida}`}
               </Text>
-                {esOfertaSecundaria && (
+            )}
+
+            {esOfertaSecundaria ? (
+              // En ofertas secundarias, siempre mostrar selector de fecha/hora moderno
+              <View style={styles.fechaAlternativaContainer}>
+                <Text style={styles.inputLabel}>Fecha de atención</Text>
+                <ModernDatePicker
+                  value={fechaAlternativa}
+                  onDateChange={setFechaAlternativa}
+                  label="Fecha de atención"
+                  primaryColor={primaryColor}
+                />
+
+                <Text style={[styles.inputLabel, { marginTop: 12 }]}>Hora de atención</Text>
+                <ModernTimePicker
+                  value={horaAlternativa}
+                  onTimeChange={setHoraAlternativa}
+                  label="Hora de atención"
+                  primaryColor={primaryColor}
+                />
+              </View>
+            ) : (
+              <>
+                <View style={styles.disponibilidadOptions}>
                   <TouchableOpacity
-                    onPress={() => eliminarServicio(index)}
-                    style={styles.eliminarServicioButton}
+                    style={[
+                      styles.disponibilidadButton,
+                      puedeFechaSolicitada && styles.disponibilidadButtonSelected
+                    ]}
+                    onPress={() => setPuedeFechaSolicitada(true)}
+                    activeOpacity={0.7}
                   >
-                    <MaterialIcons name="delete-outline" size={20} color="#DC3545" />
+                    <View style={[
+                      styles.radioButton,
+                      puedeFechaSolicitada && styles.radioButtonSelected
+                    ]}>
+                      {puedeFechaSolicitada && <View style={styles.radioButtonInner} />}
+                    </View>
+                    <Text style={styles.disponibilidadText}>
+                      Sí, puedo atender en esa fecha
+                    </Text>
                   </TouchableOpacity>
-                )}
-            </View>
 
-            {/* Selector de servicio configurado - Solo para ofertas originales, no para secundarias */}
-            {!esOfertaSecundaria && !item.usandoServicioConfigurado && (
-              <View style={styles.selectorContainer}>
-                <ServicioConfiguradoSelector
-                  servicioConfigurado={item.servicioConfigurado}
-                  loading={item.loadingServicioConfigurado}
-                  onUsarServicioConfigurado={() => usarServicioConfigurado(index)}
-                  onCrearManual={() => {
-                    // Cambiar a modo manual: permitir edición directa del precio
-                    const nuevos = [...serviciosOferta];
-                    nuevos[index].usandoServicioConfigurado = false;
-                    nuevos[index].precio = '';
-                    nuevos[index].tiempo_estimado = '';
-                    nuevos[index].costoManoObra = '';
-                    nuevos[index].repuestos = [];
-                    setServiciosOferta(nuevos);
-                  }}
-                  usandoServicioConfigurado={item.usandoServicioConfigurado}
-                />
-              </View>
-            )}
-            
-            {/* Campos manuales - Mostrar cuando NO está usando servicio configurado */}
-            {!item.usandoServicioConfigurado && (
-            <View style={styles.servicioDetalles}>
-                {/* Mensaje informativo si la solicitud no requiere repuestos (solo para ofertas originales) */}
-                {!esOfertaSecundaria && solicitud.requiere_repuestos === false && (
-                  <View style={styles.infoBox}>
-                    <MaterialIcons name="info-outline" size={20} color="#FF9800" />
-                    <Text style={styles.infoBoxText}>
-                      Esta solicitud solo requiere mano de obra. No se pueden agregar repuestos.
-                    </Text>
-                  </View>
-                )}
-
-                {/* Tipo de servicio - Libre en ofertas secundarias */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                    Tipo de Servicio
-                  </Text>
-                  <View style={styles.tipoServicioContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.tipoServicioButton,
-                        item.tipoServicio === 'con_repuestos' && styles.tipoServicioButtonSelected,
-                        !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioButtonDisabled
-                      ]}
-                      onPress={() => {
-                        if (!esOfertaSecundaria && solicitud.requiere_repuestos === false) return;
-                        const nuevos = [...serviciosOferta];
-                        nuevos[index].tipoServicio = 'con_repuestos';
-                        setServiciosOferta(nuevos);
-                      }}
-                      disabled={!esOfertaSecundaria && solicitud.requiere_repuestos === false}
-                    >
-                      <Text style={[
-                        styles.tipoServicioText,
-                        item.tipoServicio === 'con_repuestos' && styles.tipoServicioTextSelected,
-                        !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioTextDisabled
-                      ]}>
-                        Con Repuestos
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.tipoServicioButton,
-                        item.tipoServicio === 'sin_repuestos' && styles.tipoServicioButtonSelected,
-                        !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioButtonDisabled
-                      ]}
-                      onPress={() => {
-                        if (!esOfertaSecundaria && solicitud.requiere_repuestos === false) return;
-                        const nuevos = [...serviciosOferta];
-                        nuevos[index].tipoServicio = 'sin_repuestos';
-                        nuevos[index].repuestos = [];
-                        setServiciosOferta(nuevos);
-                        actualizarRepuestos(index, []);
-                      }}
-                      disabled={!esOfertaSecundaria && solicitud.requiere_repuestos === false}
-                    >
-                      <Text style={[
-                        styles.tipoServicioText,
-                        item.tipoServicio === 'sin_repuestos' && styles.tipoServicioTextSelected,
-                        !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioTextDisabled
-                      ]}>
-                        Sin Repuestos
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Costo de mano de obra */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>
-                    Costo Mano de Obra (sin IVA)
-                  </Text>
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.currencySymbol}>$</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="0"
-                      placeholderTextColor="#999"
-                      value={item.costoManoObra}
-                      onChangeText={(text) => actualizarCostoManoObra(index, text)}
-                      keyboardType="decimal-pad"
-                    />
-                  </View>
-                </View>
-
-                {/* Lista de repuestos - Libre en ofertas secundarias */}
-                {item.tipoServicio === 'con_repuestos' && (esOfertaSecundaria || solicitud.requiere_repuestos !== false) && (
-                  <View style={styles.inputGroup}>
-                    <RepuestosLista
-                      repuestos={item.repuestos}
-                      onRepuestosChange={(repuestos) => actualizarRepuestos(index, repuestos)}
-                      editable={true}
-                      mostrarTotal={true}
-                      servicioId={esOfertaSecundaria ? item.servicio.id : undefined}
-                    />
-                  </View>
-                )}
-
-                {/* Precio Total - Automático */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>
-                    Precio Total (con IVA)
-                </Text>
-                <View style={[styles.inputContainer, { backgroundColor: '#F5F5F5' }]}>
-                  <Text style={styles.currencySymbol}>$</Text>
-                  <TextInput
-                    style={[styles.input, { color: '#666' }]}
-                    placeholder="0"
-                    placeholderTextColor="#999"
-                    value={item.precio}
-                    editable={false}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-                  <Text style={styles.precioInfo}>
-                    Calculado automáticamente (Mano de obra + Repuestos + Gestión de compra + IVA 19%)
-                  </Text>
-              </View>
-
-                {/* Tiempo estimado y Notas - En modo manual también */}
-                <View style={styles.infoGroup}>
-                  {/* Tiempo estimado */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  Tiempo estimado (horas)
-                </Text>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Ej: 2.5"
-                    placeholderTextColor="#999"
-                    value={item.tiempo_estimado}
-                    onChangeText={(text) => actualizarTiempoEstimado(index, text)}
-                    keyboardType="decimal-pad"
-                  />
-                  <Text style={styles.unitText}>hrs</Text>
-                </View>
-              </View>
-
-                  {/* Notas adicionales */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  Notas adicionales (opcional)
-                </Text>
-                <TextInput
-                  style={styles.textArea}
-                  placeholder="Detalles o aclaraciones sobre este servicio..."
-                  placeholderTextColor="#999"
-                  value={item.notas}
-                  onChangeText={(text) => actualizarNotas(index, text)}
-                  multiline
-                      numberOfLines={2}
-                />
-              </View>
-            </View>
-          </View>
-            )}
-
-            {/* Indicador cuando se usa servicio configurado */}
-            {item.usandoServicioConfigurado && (
-              <View style={styles.configuradoBadge}>
-                <MaterialIcons name="check-circle" size={16} color="#10B981" />
-                <Text style={styles.configuradoText}>
-                  Usando servicio configurado
-                </Text>
-                <TouchableOpacity
-                  onPress={() => cambiarAModoManual(index)}
-                  style={styles.cambiarLink}
-                >
-                  <Text style={styles.cambiarLinkText}>Cambiar</Text>
-                </TouchableOpacity>
-      </View>
-            )}
-
-            {/* Campos cuando está usando servicio configurado */}
-            {item.usandoServicioConfigurado && (
-              <View style={styles.servicioDetalles}>
-                {/* Mensaje informativo si la solicitud no requiere repuestos (solo para ofertas originales) */}
-                {!esOfertaSecundaria && solicitud.requiere_repuestos === false && (
-                  <View style={styles.infoBox}>
-                    <MaterialIcons name="info-outline" size={20} color="#FF9800" />
-                    <Text style={styles.infoBoxText}>
-                      Esta solicitud solo requiere mano de obra. No se pueden agregar repuestos.
-        </Text>
-      </View>
-                )}
-
-                {/* Tipo de servicio - Libre en ofertas secundarias */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>
-                    Tipo de Servicio
-                  </Text>
-                  <View style={styles.tipoServicioContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.tipoServicioButton,
-                        item.tipoServicio === 'con_repuestos' && styles.tipoServicioButtonSelected,
-                        !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioButtonDisabled
-                      ]}
-                      onPress={() => {
-                        if (!esOfertaSecundaria && solicitud.requiere_repuestos === false) return;
-                        const nuevos = [...serviciosOferta];
-                        nuevos[index].tipoServicio = 'con_repuestos';
-                        setServiciosOferta(nuevos);
-                      }}
-                      disabled={!esOfertaSecundaria && solicitud.requiere_repuestos === false}
-                    >
-                      <Text style={[
-                        styles.tipoServicioText,
-                        item.tipoServicio === 'con_repuestos' && styles.tipoServicioTextSelected,
-                        !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioTextDisabled
-                      ]}>
-                        Con Repuestos
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.tipoServicioButton,
-                        item.tipoServicio === 'sin_repuestos' && styles.tipoServicioButtonSelected,
-                        !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioButtonDisabled
-                      ]}
-                      onPress={() => {
-                        if (!esOfertaSecundaria && solicitud.requiere_repuestos === false) return;
-                        const nuevos = [...serviciosOferta];
-                        nuevos[index].tipoServicio = 'sin_repuestos';
-                        nuevos[index].repuestos = [];
-                        setServiciosOferta(nuevos);
-                        actualizarRepuestos(index, []);
-                      }}
-                      disabled={!esOfertaSecundaria && solicitud.requiere_repuestos === false}
-                    >
-                      <Text style={[
-                        styles.tipoServicioText,
-                        item.tipoServicio === 'sin_repuestos' && styles.tipoServicioTextSelected,
-                        !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioTextDisabled
-                      ]}>
-                        Sin Repuestos
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Lista de repuestos - Libre en ofertas secundarias */}
-                {item.tipoServicio === 'con_repuestos' && (esOfertaSecundaria || solicitud.requiere_repuestos !== false) && (
-                  <View style={styles.inputGroup}>
-                    <RepuestosLista
-                      repuestos={item.repuestos}
-                      onRepuestosChange={(repuestos) => actualizarRepuestos(index, repuestos)}
-                      editable={true}
-                      mostrarTotal={true}
-                      servicioId={esOfertaSecundaria ? item.servicio.id : undefined}
-                    />
-                  </View>
-                )}
-
-                {/* Grupo de Precios - Costo Mano de Obra y Precio Total juntos */}
-                <View style={styles.preciosGroup}>
-                  <Text style={styles.groupTitle}>Precios</Text>
-                  
-                  {/* Costo de mano de obra */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>
-                      Costo Mano de Obra (sin IVA)
-                    </Text>
-                    <View style={styles.inputContainer}>
-                      <Text style={styles.currencySymbol}>$</Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="0"
-                        placeholderTextColor="#999"
-                        value={item.costoManoObra}
-                        onChangeText={(text) => actualizarCostoManoObra(index, text)}
-                        keyboardType="decimal-pad"
-                      />
+                  <TouchableOpacity
+                    style={[
+                      styles.disponibilidadButton,
+                      !puedeFechaSolicitada && styles.disponibilidadButtonSelected
+                    ]}
+                    onPress={() => setPuedeFechaSolicitada(false)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[
+                      styles.radioButton,
+                      !puedeFechaSolicitada && styles.radioButtonSelected
+                    ]}>
+                      {!puedeFechaSolicitada && <View style={styles.radioButtonInner} />}
                     </View>
-                  </View>
-
-                  {/* Precio Total (calculado automáticamente) */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>
-                      Precio Total (con IVA)
+                    <Text style={styles.disponibilidadText}>
+                      No, necesito proponer otra fecha
                     </Text>
-                    <View style={[styles.inputContainer, { backgroundColor: '#F5F5F5' }]}>
-                      <Text style={styles.currencySymbol}>$</Text>
-                      <TextInput
-                        style={[styles.input, { color: '#666' }]}
-                        placeholder="0"
-                        placeholderTextColor="#999"
-                        value={item.precio}
-                        editable={false}
-                        keyboardType="decimal-pad"
-                      />
-                    </View>
-                    <Text style={styles.precioInfo}>
-                      Calculado automáticamente (Mano de obra + Repuestos + Gestión de compra + IVA 19%)
-                    </Text>
-                  </View>
+                  </TouchableOpacity>
                 </View>
 
-                {/* Tiempo estimado y Notas - Dentro de cada servicio */}
-                <View style={styles.infoGroup}>
-                  {/* Tiempo estimado */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>
-                      Tiempo estimado (horas)
-                    </Text>
-                    <View style={styles.inputContainer}>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Ej: 2.5"
-                        placeholderTextColor="#999"
-                        value={item.tiempo_estimado}
-                        onChangeText={(text) => actualizarTiempoEstimado(index, text)}
-                        keyboardType="decimal-pad"
-                      />
-                      <Text style={styles.unitText}>hrs</Text>
-                    </View>
-                  </View>
+                {!puedeFechaSolicitada && (
+                  <View style={styles.fechaAlternativaContainer}>
+                    <Text style={styles.inputLabel}>Fecha alternativa</Text>
+                    <ModernDatePicker
+                      value={fechaAlternativa}
+                      onDateChange={setFechaAlternativa}
+                      label="Fecha alternativa"
+                      primaryColor={primaryColor}
+                    />
 
-                  {/* Notas adicionales */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>
-                      Notas adicionales (opcional)
-                    </Text>
+                    <Text style={[styles.inputLabel, { marginTop: 12 }]}>Hora alternativa</Text>
+                    <ModernTimePicker
+                      value={horaAlternativa}
+                      onTimeChange={setHoraAlternativa}
+                      label="Hora alternativa"
+                      primaryColor={primaryColor}
+                    />
+
+                    <Text style={[styles.inputLabel, { marginTop: 12 }]}>Razón del cambio</Text>
                     <TextInput
                       style={styles.textArea}
-                      placeholder="Detalles o aclaraciones sobre este servicio..."
+                      placeholder="Explica por qué no puedes en la fecha solicitada..."
                       placeholderTextColor="#999"
-                      value={item.notas}
-                      onChangeText={(text) => actualizarNotas(index, text)}
+                      value={razonCambioFecha}
+                      onChangeText={setRazonCambioFecha}
                       multiline
-                      numberOfLines={2}
+                      numberOfLines={3}
                     />
                   </View>
-                </View>
-              </View>
-            )}
-          </View>
-            );
-          })
-        )}
-      </View>
-
-      {/* Grupo de Información Adicional - Disponibilidad, Garantía, Descripción */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          Información Adicional
-        </Text>
-
-        {/* Disponibilidad */}
-        <View style={styles.subsection}>
-          <Text style={styles.subsectionTitle}>
-            {esOfertaSecundaria ? 'Fecha y Hora de Atención' : 'Disponibilidad'}
-          </Text>
-          {!esOfertaSecundaria && (
-        <Text style={styles.sectionSubtitle}>
-          Fecha solicitada: {new Date(solicitud.fecha_preferida).toLocaleDateString('es-ES', { 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric' 
-          })}
-          {solicitud.hora_preferida && ` a las ${solicitud.hora_preferida}`}
-        </Text>
-          )}
-
-        {esOfertaSecundaria ? (
-          // En ofertas secundarias, siempre mostrar selector de fecha/hora moderno
-          <View style={styles.fechaAlternativaContainer}>
-            <Text style={styles.inputLabel}>Fecha de atención</Text>
-            <ModernDatePicker
-              value={fechaAlternativa}
-              onDateChange={setFechaAlternativa}
-              label="Fecha de atención"
-              primaryColor={primaryColor}
-            />
-
-            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Hora de atención</Text>
-            <ModernTimePicker
-              value={horaAlternativa}
-              onTimeChange={setHoraAlternativa}
-              label="Hora de atención"
-              primaryColor={primaryColor}
-            />
-          </View>
-        ) : (
-          <>
-        <View style={styles.disponibilidadOptions}>
-          <TouchableOpacity
-            style={[
-              styles.disponibilidadButton,
-              puedeFechaSolicitada && styles.disponibilidadButtonSelected
-            ]}
-            onPress={() => setPuedeFechaSolicitada(true)}
-            activeOpacity={0.7}
-          >
-            <View style={[
-              styles.radioButton,
-              puedeFechaSolicitada && styles.radioButtonSelected
-            ]}>
-              {puedeFechaSolicitada && <View style={styles.radioButtonInner} />}
-            </View>
-            <Text style={styles.disponibilidadText}>
-              Sí, puedo atender en esa fecha
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.disponibilidadButton,
-              !puedeFechaSolicitada && styles.disponibilidadButtonSelected
-            ]}
-            onPress={() => setPuedeFechaSolicitada(false)}
-            activeOpacity={0.7}
-          >
-            <View style={[
-              styles.radioButton,
-              !puedeFechaSolicitada && styles.radioButtonSelected
-            ]}>
-              {!puedeFechaSolicitada && <View style={styles.radioButtonInner} />}
-            </View>
-            <Text style={styles.disponibilidadText}>
-              No, necesito proponer otra fecha
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {!puedeFechaSolicitada && (
-          <View style={styles.fechaAlternativaContainer}>
-            <Text style={styles.inputLabel}>Fecha alternativa</Text>
-            <TouchableOpacity
-              style={styles.datePickerButton}
-              onPress={() => setMostrarFechaPicker(true)}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons name="calendar-today" size={20} color="#666" />
-              <Text style={styles.datePickerText}>
-                {fechaAlternativa.toLocaleDateString('es-ES', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                })}
-              </Text>
-            </TouchableOpacity>
-
-            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Hora alternativa</Text>
-            <TouchableOpacity
-              style={styles.datePickerButton}
-              onPress={() => setMostrarHoraPicker(true)}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons name="access-time" size={20} color="#666" />
-              <Text style={styles.datePickerText}>
-                {horaAlternativa.toLocaleTimeString('es-ES', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </Text>
-            </TouchableOpacity>
-
-            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Razón del cambio</Text>
-            <TextInput
-              style={styles.textArea}
-              placeholder="Explica por qué no puedes en la fecha solicitada..."
-              placeholderTextColor="#999"
-              value={razonCambioFecha}
-              onChangeText={setRazonCambioFecha}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-            )}
-          </>
-        )}
-
-        {/* DateTimePickers para ofertas no secundarias */}
-        {!esOfertaSecundaria && mostrarFechaPicker && (
-          <DateTimePicker
-            value={fechaAlternativa}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(event, selectedDate) => {
-              setMostrarFechaPicker(Platform.OS === 'ios');
-              if (selectedDate) {
-                setFechaAlternativa(selectedDate);
-              }
-            }}
-            minimumDate={new Date()}
-          />
-        )}
-
-        {!esOfertaSecundaria && mostrarHoraPicker && (
-          <ModernTimePicker
-            value={horaAlternativa}
-            onTimeChange={(date) => {
-              setHoraAlternativa(date);
-              setMostrarHoraPicker(false);
-            }}
-            label="Hora de atención"
-            primaryColor={primaryColor}
-          />
-        )}
-      </View>
-
-      {/* Descripción de la oferta */}
-        <View style={styles.subsection}>
-          <Text style={styles.subsectionTitle}>
-          Descripción de la Oferta
-        </Text>
-        <Text style={styles.sectionSubtitle}>
-          Explica cómo realizarás el trabajo, qué incluye, materiales que usarás, etc.
-        </Text>
-        <TextInput
-          style={styles.textArea}
-          placeholder="Describe tu propuesta en detalle..."
-          placeholderTextColor="#999"
-          value={descripcionOferta}
-          onChangeText={setDescripcionOferta}
-          multiline
-            numberOfLines={4}
-        />
-        <Text style={styles.characterCount}>
-          {descripcionOferta.length} caracteres
-        </Text>
-      </View>
-
-      {/* Garantía */}
-        <View style={styles.subsection}>
-          <Text style={styles.subsectionTitle}>
-          Garantía Ofrecida
-        </Text>
-        <Text style={styles.sectionSubtitle}>
-          Opcional - Agrega valor a tu oferta
-        </Text>
-        <View style={styles.inputContainer}>
-          <MaterialIcons name="shield" size={20} color="#666" />
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Ej: 6 meses o 10,000 km"
-            placeholderTextColor="#999"
-            value={garantiaOfrecida}
-            onChangeText={setGarantiaOfrecida}
-          />
-          </View>
-        </View>
-
-        {/* Gestión de Compra de Repuestos - Solo visible cuando hay repuestos */}
-        {serviciosOferta.some(s => s.tipoServicio === 'con_repuestos') && (
-          <View style={styles.subsection}>
-            <View style={styles.gestionCompraHeader}>
-              <MaterialIcons name="local-shipping" size={22} color="#FF9800" />
-              <Text style={styles.subsectionTitle}>
-                Gestión de Compra
-              </Text>
-            </View>
-            <Text style={styles.sectionSubtitle}>
-              Costo del traslado para comprar los repuestos. Ajústalo según la ubicación del cliente.
-            </Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.currencySymbol}>$</Text>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="Ej: 15000"
-                placeholderTextColor="#999"
-                value={costoGestionCompra}
-                onChangeText={setCostoGestionCompra}
-                keyboardType="decimal-pad"
-              />
-            </View>
-            <Text style={styles.gestionCompraInfo}>
-              💡 Este valor se suma al precio de los repuestos cuando el cliente paga por adelantado
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Resumen con desglose */}
-      {serviciosOferta.length > 0 && precioTotal > 0 && (
-        <View style={styles.resumenCard}>
-          <Text style={styles.resumenTitle}>
-            Resumen de tu Oferta
-          </Text>
-          
-          <View style={styles.resumenDivider} />
-          
-          <View style={styles.resumenContent}>
-            <View style={styles.resumenRow}>
-              <Text style={styles.resumenLabel}>Servicios incluidos</Text>
-              <Text style={styles.resumenValue}>
-                {serviciosOferta.length}
-              </Text>
-            </View>
-            
-            <View style={styles.resumenRow}>
-              <Text style={styles.resumenLabel}>Tiempo total estimado</Text>
-              <Text style={styles.resumenValue}>
-                {tiempoTotal}
-              </Text>
-            </View>
-            
-            {/* Desglose de costos */}
-            {serviciosOferta.some(s => s.tipoServicio === 'con_repuestos' && s.repuestos.length > 0) && (
-              <>
-                <View style={styles.resumenDivider} />
-                <Text style={styles.desgloseTitle}>
-                  <MaterialIcons name="receipt-long" size={16} color="#666" /> Desglose de Costos
-                </Text>
-                
-                <View style={styles.resumenRow}>
-                  <Text style={styles.resumenLabel}>📦 Repuestos (sin IVA)</Text>
-                  <Text style={styles.resumenValue}>
-                    ${calcularCostoRepuestos().toLocaleString('es-CL')}
-                  </Text>
-                </View>
-                
-                <View style={styles.resumenRow}>
-                  <Text style={styles.resumenLabel}>🔧 Mano de obra (sin IVA)</Text>
-                  <Text style={styles.resumenValue}>
-                    ${calcularCostoManoObra().toLocaleString('es-CL')}
-                  </Text>
-                </View>
-                
-                {gestionCompraValor > 0 && (
-                  <View style={styles.resumenRow}>
-                    <Text style={styles.resumenLabel}>🚚 Gestión de compra (sin IVA)</Text>
-                    <Text style={styles.resumenValue}>
-                      ${gestionCompraValor.toLocaleString('es-CL')}
-                    </Text>
-                  </View>
                 )}
-                
-                <View style={[styles.resumenRow, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E0E0E0' }]}>
-                  <Text style={[styles.resumenLabel, { fontWeight: '600' }]}>Subtotal (sin IVA)</Text>
-                  <Text style={[styles.resumenValue, { fontWeight: '600' }]}>
-                    ${(calcularCostoRepuestos() + calcularCostoManoObra() + gestionCompraValor).toLocaleString('es-CL')}
-                  </Text>
-                </View>
-                
-                <View style={styles.resumenRow}>
-                  <Text style={styles.resumenLabel}>📋 IVA (19%)</Text>
-                  <Text style={styles.resumenValue}>
-                    ${Math.round((calcularCostoRepuestos() + calcularCostoManoObra() + gestionCompraValor) * 0.19).toLocaleString('es-CL')}
-                  </Text>
-                </View>
-                
-                <View style={styles.infoBoxDesglose}>
-                  <MaterialIcons name="info-outline" size={16} color="#0061FF" />
-                  <Text style={styles.infoBoxDesgloseText}>
-                    El cliente podrá elegir pagar los repuestos por adelantado o pagar todo junto.
-                  </Text>
-                </View>
               </>
             )}
-            
-            <View style={styles.resumenDivider} />
-            
-            <View style={[styles.resumenRow, styles.resumenPrecioRow]}>
-              <Text style={styles.resumenPrecioLabel}>Precio Total</Text>
-              <Text style={styles.resumenPrecioValue}>
-                ${precioTotal.toLocaleString('es-CL')}
-              </Text>
+
+            {/* Los pickers modernos ya están integrados arriba - no se necesitan componentes adicionales */}
+          </View>
+
+          {/* Descripción de la oferta */}
+          <View style={styles.subsection}>
+            <Text style={styles.subsectionTitle}>
+              Descripción de la Oferta
+            </Text>
+            <Text style={styles.sectionSubtitle}>
+              Explica cómo realizarás el trabajo, qué incluye, materiales que usarás, etc.
+            </Text>
+            <TextInput
+              style={styles.textArea}
+              placeholder="Describe tu propuesta en detalle..."
+              placeholderTextColor="#999"
+              value={descripcionOferta}
+              onChangeText={setDescripcionOferta}
+              multiline
+              numberOfLines={4}
+            />
+            <Text style={styles.characterCount}>
+              {descripcionOferta.length} caracteres
+            </Text>
+          </View>
+
+          {/* Garantía */}
+          <View style={styles.subsection}>
+            <Text style={styles.subsectionTitle}>
+              Garantía Ofrecida
+            </Text>
+            <Text style={styles.sectionSubtitle}>
+              Opcional - Agrega valor a tu oferta
+            </Text>
+            <View style={styles.inputContainer}>
+              <MaterialIcons name="shield" size={20} color="#666" />
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Ej: 6 meses o 10,000 km"
+                placeholderTextColor="#999"
+                value={garantiaOfrecida}
+                onChangeText={setGarantiaOfrecida}
+              />
             </View>
           </View>
+
+          {/* Gestión de Compra de Repuestos - Solo visible cuando hay repuestos */}
+          {serviciosOferta.some(s => s.tipoServicio === 'con_repuestos') && (
+            <View style={styles.subsection}>
+              <View style={styles.gestionCompraHeader}>
+                <MaterialIcons name="local-shipping" size={22} color="#FF9800" />
+                <Text style={styles.subsectionTitle}>
+                  Gestión de Compra
+                </Text>
+              </View>
+              <Text style={styles.sectionSubtitle}>
+                Costo del traslado para comprar los repuestos. Ajústalo según la ubicación del cliente.
+              </Text>
+              <View style={styles.inputContainer}>
+                <Text style={styles.currencySymbol}>$</Text>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="Ej: 15000"
+                  placeholderTextColor="#999"
+                  value={costoGestionCompra}
+                  onChangeText={setCostoGestionCompra}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <Text style={styles.gestionCompraInfo}>
+                💡 Este valor se suma al precio de los repuestos cuando el cliente paga por adelantado
+              </Text>
+            </View>
+          )}
         </View>
-      )}
+
+        {/* Resumen con desglose */}
+        {serviciosOferta.length > 0 && precioTotal > 0 && (
+          <View style={styles.resumenCard}>
+            <Text style={styles.resumenTitle}>
+              Resumen de tu Oferta
+            </Text>
+
+            <View style={styles.resumenDivider} />
+
+            <View style={styles.resumenContent}>
+              <View style={styles.resumenRow}>
+                <Text style={styles.resumenLabel}>Servicios incluidos</Text>
+                <Text style={styles.resumenValue}>
+                  {serviciosOferta.length}
+                </Text>
+              </View>
+
+              <View style={styles.resumenRow}>
+                <Text style={styles.resumenLabel}>Tiempo total estimado</Text>
+                <Text style={styles.resumenValue}>
+                  {tiempoTotal}
+                </Text>
+              </View>
+
+              {/* Desglose de costos */}
+              {serviciosOferta.some(s => s.tipoServicio === 'con_repuestos' && s.repuestos.length > 0) && (
+                <>
+                  <View style={styles.resumenDivider} />
+                  <Text style={styles.desgloseTitle}>
+                    <MaterialIcons name="receipt-long" size={16} color="#666" /> Desglose de Costos
+                  </Text>
+
+                  <View style={styles.resumenRow}>
+                    <Text style={styles.resumenLabel}>📦 Repuestos (sin IVA)</Text>
+                    <Text style={styles.resumenValue}>
+                      ${calcularCostoRepuestos().toLocaleString('es-CL')}
+                    </Text>
+                  </View>
+
+                  <View style={styles.resumenRow}>
+                    <Text style={styles.resumenLabel}>🔧 Mano de obra (sin IVA)</Text>
+                    <Text style={styles.resumenValue}>
+                      ${calcularCostoManoObra().toLocaleString('es-CL')}
+                    </Text>
+                  </View>
+
+                  {gestionCompraValor > 0 && (
+                    <View style={styles.resumenRow}>
+                      <Text style={styles.resumenLabel}>🚚 Gestión de compra (sin IVA)</Text>
+                      <Text style={styles.resumenValue}>
+                        ${gestionCompraValor.toLocaleString('es-CL')}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={[styles.resumenRow, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E0E0E0' }]}>
+                    <Text style={[styles.resumenLabel, { fontWeight: '600' }]}>Subtotal (sin IVA)</Text>
+                    <Text style={[styles.resumenValue, { fontWeight: '600' }]}>
+                      ${(calcularCostoRepuestos() + calcularCostoManoObra() + gestionCompraValor).toLocaleString('es-CL')}
+                    </Text>
+                  </View>
+
+                  <View style={styles.resumenRow}>
+                    <Text style={styles.resumenLabel}>📋 IVA (19%)</Text>
+                    <Text style={styles.resumenValue}>
+                      ${Math.round((calcularCostoRepuestos() + calcularCostoManoObra() + gestionCompraValor) * 0.19).toLocaleString('es-CL')}
+                    </Text>
+                  </View>
+
+                  <View style={styles.infoBoxDesglose}>
+                    <MaterialIcons name="info-outline" size={16} color="#0061FF" />
+                    <Text style={styles.infoBoxDesgloseText}>
+                      El cliente podrá elegir pagar los repuestos por adelantado o pagar todo junto.
+                    </Text>
+                  </View>
+                </>
+              )}
+
+              <View style={styles.resumenDivider} />
+
+              <View style={[styles.resumenRow, styles.resumenPrecioRow]}>
+                <Text style={styles.resumenPrecioLabel}>Precio Total</Text>
+                <Text style={styles.resumenPrecioValue}>
+                  ${precioTotal.toLocaleString('es-CL')}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
 
       </ScrollView>
 
@@ -2114,7 +2243,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 120, // Espacio para botones fijos + safe area
   },
-  
+
   // Header minimalista
   headerCard: {
     marginBottom: 32,
@@ -2136,7 +2265,7 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 22,
   },
-  
+
   // Secciones
   section: {
     marginBottom: 24,
@@ -2188,7 +2317,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     lineHeight: 20,
   },
-  
+
   // Tarjetas de servicio minimalistas
   servicioCard: {
     backgroundColor: '#FFF',
@@ -2217,7 +2346,7 @@ const styles = StyleSheet.create({
   servicioDetalles: {
     gap: 16,
   },
-  
+
   // Inputs minimalistas
   inputGroup: {
     marginBottom: 12,
@@ -2272,7 +2401,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'right',
   },
-  
+
   // Gestión de compra
   gestionCompraHeader: {
     flexDirection: 'row',
@@ -2287,7 +2416,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 16,
   },
-  
+
   // Card informativo
   infoCard: {
     flexDirection: 'row',
@@ -2304,7 +2433,7 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 20,
   },
-  
+
   // Disponibilidad
   disponibilidadOptions: {
     gap: 12,
@@ -2369,7 +2498,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#000',
   },
-  
+
   // Resumen minimalista
   resumenCard: {
     backgroundColor: '#FFF',
@@ -2424,7 +2553,7 @@ const styles = StyleSheet.create({
     color: '#000',
     fontWeight: '800',
   },
-  
+
   // Estilos para desglose de costos
   desgloseTitle: {
     fontSize: 14,
@@ -2447,7 +2576,7 @@ const styles = StyleSheet.create({
     color: '#0061FF',
     lineHeight: 18,
   },
-  
+
   // Botones minimalistas
   // Botones inferiores (fijos)
   buttonsContainer: {
@@ -2505,7 +2634,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  
+
   // Nuevos estilos para servicios configurados
   selectorContainer: {
     marginBottom: 16,
@@ -2801,6 +2930,62 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: '#666',
+  },
+  // Estilos para mensajes de advertencia de repuestos
+  warningContainer: {
+    backgroundColor: '#FFF3E0',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFA000',
+    borderRadius: 12,
+    padding: 20,
+    marginVertical: 12,
+    alignItems: 'center',
+  },
+  warningTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#E65100',
+    marginTop: 12,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  warningText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  warningSubtext: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000',
+    marginTop: 8,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  optionsList: {
+    width: '100%',
+    marginTop: 8,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    paddingHorizontal: 12,
+  },
+  optionNumber: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFA000',
+    marginRight: 8,
+    marginTop: 2,
+  },
+  optionText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
   },
 });
 
