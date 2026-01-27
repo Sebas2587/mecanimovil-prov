@@ -11,7 +11,7 @@ import api from './api';
 /**
  * Estados posibles de la cuenta de Mercado Pago del proveedor
  */
-export type EstadoCuentaMP = 
+export type EstadoCuentaMP =
   | 'no_configurada'    // No tiene cuenta configurada
   | 'pendiente'         // Configuración iniciada pero no completada
   | 'conectada'         // Cuenta conectada y activa
@@ -134,7 +134,7 @@ export const obtenerEstadoCuenta = async (): Promise<ApiResponse<CuentaMercadoPa
     if (__DEV__) {
       console.log('Estado de cuenta MP - manejando respuesta de error:', error.response?.status);
     }
-    
+
     // Si es 404 o 400, significa que no tiene cuenta configurada o perfil de proveedor
     // Esto es un estado válido durante el onboarding
     if (error.response?.status === 404 || error.response?.status === 400) {
@@ -150,13 +150,13 @@ export const obtenerEstadoCuenta = async (): Promise<ApiResponse<CuentaMercadoPa
           fecha_conexion: null,
           fecha_actualizacion: new Date().toISOString(),
           puede_recibir_pagos: false,
-          mensaje_estado: error.response?.status === 400 
+          mensaje_estado: error.response?.status === 400
             ? 'Completa tu perfil de proveedor para configurar Mercado Pago.'
             : 'No tienes una cuenta de Mercado Pago configurada. Conecta tu cuenta para recibir pagos directos de los clientes.'
         }
       };
     }
-    
+
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener estado de la cuenta'
@@ -176,7 +176,7 @@ export const iniciarConexion = async (): Promise<ApiResponse<IniciarConexionResp
     };
   } catch (error: any) {
     console.error('Error iniciando conexión con MP:', error);
-    
+
     // Detectar error 503 específico (servicio no disponible - configuración faltante)
     if (error.response?.status === 503) {
       const errorMessage = error.response?.data?.error || 'La integración con Mercado Pago no está configurada correctamente en el servidor. Por favor, contacta al soporte.';
@@ -186,7 +186,7 @@ export const iniciarConexion = async (): Promise<ApiResponse<IniciarConexionResp
         isConfigurationError: true // Marcar como error de configuración
       };
     }
-    
+
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al iniciar la conexión con Mercado Pago'
@@ -284,6 +284,24 @@ export const obtenerEstadisticasPagos = async (): Promise<ApiResponse<Estadistic
       data: response.data
     };
   } catch (error: any) {
+    // Si no tiene cuenta configurada (400), devolver valores en cero
+    if (error.response?.status === 400) {
+      if (__DEV__) {
+        console.log('MP: Cuenta no configurada al obtener estadísticas (400)');
+      }
+      return {
+        success: true, // Tratamos como éxito pero con ceros
+        data: {
+          total_recibido: 0,
+          total_recibido_mes: 0,
+          cantidad_transacciones: 0,
+          cantidad_transacciones_mes: 0,
+          ultima_transaccion: null,
+          moneda: 'CLP'
+        }
+      };
+    }
+
     console.error('Error obteniendo estadísticas de pagos MP:', error);
     return {
       success: false,
@@ -303,6 +321,21 @@ export const obtenerHistorialPagos = async (): Promise<ApiResponse<HistorialPago
       data: response.data
     };
   } catch (error: any) {
+    // Si no tiene cuenta configurada (400), devolver lista vacía
+    if (error.response?.status === 400) {
+      if (__DEV__) {
+        console.log('MP: Cuenta no configurada al obtener historial (400)');
+      }
+      return {
+        success: true,
+        data: {
+          historial: [],
+          total_resultados: 0,
+          moneda: 'CLP'
+        }
+      };
+    }
+
     console.error('Error obteniendo historial de pagos MP:', error);
     return {
       success: false,
