@@ -185,7 +185,8 @@ class WebSocketService {
 
     // Iniciar heartbeat
     console.log('💓 INICIANDO HEARTBEAT - VERSIÓN CORREGIDA');
-    this.startHeartbeat();
+    // OPTIMIZACIÓN: Deshabilitado temporalmente
+    // this.startHeartbeat();
   }
 
   /**
