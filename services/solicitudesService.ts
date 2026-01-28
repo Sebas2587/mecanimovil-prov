@@ -21,7 +21,7 @@ export interface VehiculoInfo {
   cilindraje?: string | null;
 }
 
-export type MotivoRechazo = 
+export type MotivoRechazo =
   | 'ocupado'
   | 'lejos'
   | 'no_servicio'
@@ -219,6 +219,9 @@ export interface MensajeChat {
   leido: boolean;
   fecha_lectura?: string | null;
   nombre_remitente?: string;
+  enviado_por_nombre?: string;
+  archivo_adjunto?: string | null;
+  solicitud_detail?: any; // Add this to fix the error, type could be more specific but 'any' or partial SolicitudDetail is fine for now
 }
 
 export interface ApiResponse<T> {
@@ -234,10 +237,10 @@ export interface ApiResponse<T> {
 export const obtenerSolicitudesDisponibles = async (): Promise<ApiResponse<SolicitudPublica[]>> => {
   try {
     const response = await api.get('/ordenes/solicitudes-publicas/disponibles/');
-    
+
     // El backend puede devolver FeatureCollection o array directo
     let solicitudes: SolicitudPublica[] = [];
-    
+
     if (response.data && Array.isArray(response.data)) {
       solicitudes = response.data;
     } else if (response.data?.features && Array.isArray(response.data.features)) {
@@ -251,7 +254,7 @@ export const obtenerSolicitudesDisponibles = async (): Promise<ApiResponse<Solic
       // Respuesta paginada
       solicitudes = response.data.results;
     }
-    
+
     return {
       success: true,
       data: solicitudes
@@ -271,10 +274,10 @@ export const obtenerSolicitudesDisponibles = async (): Promise<ApiResponse<Solic
 export const obtenerDetalleSolicitud = async (id: string): Promise<ApiResponse<SolicitudPublica>> => {
   try {
     const response = await api.get(`/ordenes/solicitudes-publicas/${id}/`);
-    
+
     // Normalizar respuesta GeoJSON si es necesario
     let solicitud: SolicitudPublica;
-    
+
     if (response.data.type === 'Feature' && response.data.properties) {
       solicitud = {
         ...response.data.properties,
@@ -284,7 +287,7 @@ export const obtenerDetalleSolicitud = async (id: string): Promise<ApiResponse<S
     } else {
       solicitud = response.data;
     }
-    
+
     return {
       success: true,
       data: solicitud
@@ -305,7 +308,7 @@ export const crearOferta = async (datosOferta: OfertaProveedorData): Promise<Api
   try {
     console.log('📤 Enviando oferta:', JSON.stringify(datosOferta, null, 2));
     const response = await api.post('/ordenes/ofertas/', datosOferta);
-    
+
     console.log('✅ Oferta creada exitosamente:', response.data);
     return {
       success: true,
@@ -315,7 +318,7 @@ export const crearOferta = async (datosOferta: OfertaProveedorData): Promise<Api
     console.error('❌ Error creando oferta:', error);
     console.error('❌ Error detallado:', error.response?.data);
     console.error('❌ Datos enviados:', JSON.stringify(datosOferta, null, 2));
-    
+
     // Extraer mensaje de error más detallado
     let errorMessage = 'Error al crear oferta';
     if (error.response?.data) {
@@ -342,7 +345,7 @@ export const crearOferta = async (datosOferta: OfertaProveedorData): Promise<Api
     } else if (error.message) {
       errorMessage = error.message;
     }
-    
+
     return {
       success: false,
       error: errorMessage
@@ -357,13 +360,13 @@ export const obtenerMisOfertas = async (): Promise<ApiResponse<OfertaProveedor[]
   try {
     // ✅ Usar getAPI() para obtener la instancia de API correctamente configurada
     const apiInstance = await getAPI();
-    
+
     console.log('🔄 Obteniendo mis ofertas...');
-    
+
     // ✅ El backend filtra automáticamente por proveedor en get_queryset()
     // No es necesario enviar el parámetro 'proveedor: me', pero no causa problemas si se envía
     const response = await apiInstance.get('/ordenes/ofertas/');
-    
+
     console.log('✅ Respuesta recibida:', {
       hasData: !!response.data,
       isArray: Array.isArray(response.data),
@@ -371,17 +374,17 @@ export const obtenerMisOfertas = async (): Promise<ApiResponse<OfertaProveedor[]
       resultsCount: response.data?.results?.length || 0,
       dataCount: Array.isArray(response.data) ? response.data.length : 0
     });
-    
+
     let ofertas: OfertaProveedor[] = [];
-    
+
     if (response.data && Array.isArray(response.data)) {
       ofertas = response.data;
     } else if (response.data?.results && Array.isArray(response.data.results)) {
       ofertas = response.data.results;
     }
-    
+
     console.log(`✅ Total ofertas obtenidas: ${ofertas.length}`);
-    
+
     return {
       success: true,
       data: ofertas
@@ -397,7 +400,7 @@ export const obtenerMisOfertas = async (): Promise<ApiResponse<OfertaProveedor[]
       isNetworkError: error?.code === 'NETWORK_ERROR' || error?.message === 'Network Error',
       isAxiosError: error?.isAxiosError
     });
-    
+
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener ofertas'
@@ -411,7 +414,7 @@ export const obtenerMisOfertas = async (): Promise<ApiResponse<OfertaProveedor[]
 export const obtenerDetalleOferta = async (id: string): Promise<ApiResponse<OfertaProveedor>> => {
   try {
     const response = await api.get(`/ordenes/ofertas/${id}/`);
-    
+
     return {
       success: true,
       data: response.data
@@ -431,23 +434,23 @@ export const obtenerDetalleOferta = async (id: string): Promise<ApiResponse<Ofer
 export const obtenerChatOferta = async (ofertaId: string): Promise<ApiResponse<MensajeChat[]>> => {
   try {
     console.log(`📨 [SOLICITUDES SERVICE] Obteniendo chat de oferta: ${ofertaId}`);
-    
+
     // Usar el endpoint correcto con la acción personalizada por_oferta
     const response = await api.get(`/ordenes/chat-solicitudes/por_oferta/${ofertaId}/`);
-    
+
     console.log(`✅ [SOLICITUDES SERVICE] Chat obtenido - ${response.data.length} mensajes`);
-    
+
     let mensajes: MensajeChat[] = [];
-    
+
     if (response.data && Array.isArray(response.data)) {
       mensajes = response.data;
     } else if (response.data?.results && Array.isArray(response.data.results)) {
       mensajes = response.data.results;
     }
-    
+
     // Los mensajes ya vienen ordenados del backend por fecha de envío
     console.log(`📨 [SOLICITUDES SERVICE] Mensajes procesados: ${mensajes.length}`);
-    
+
     return {
       success: true,
       data: mensajes
@@ -466,15 +469,79 @@ export const obtenerChatOferta = async (ofertaId: string): Promise<ApiResponse<M
  */
 export const enviarMensajeChat = async (
   ofertaId: string,
-  mensaje: string
+  mensaje: string,
+  attachment?: { uri: string; type: string; name: string } | null
 ): Promise<ApiResponse<MensajeChat>> => {
   try {
+    // Si hay un adjunto, usar FormData
+    if (attachment) {
+      const formData = new FormData();
+      formData.append('oferta', ofertaId);
+      formData.append('mensaje', mensaje || ''); // Mensaje puede ser vacío si hay foto
+      formData.append('es_proveedor', 'true');
+
+      // Detectar tipo de archivo para asegurar MIME type válido
+      let tipoArchivo = attachment.type;
+      const nombreArchivo = attachment.name;
+
+      // Si el tipo es genérico "image" o no contiene "/", intentar deducir de la extensión
+      if (!tipoArchivo || !tipoArchivo.includes('/')) {
+        const nombreLower = nombreArchivo.toLowerCase();
+        if (nombreLower.endsWith('.png')) {
+          tipoArchivo = 'image/png';
+        } else if (nombreLower.endsWith('.jpg') || nombreLower.endsWith('.jpeg')) {
+          tipoArchivo = 'image/jpeg';
+        } else {
+          tipoArchivo = 'image/jpeg'; // Default seguro
+        }
+      }
+
+      // Adjuntar archivo
+      // @ts-ignore - React Native FormData expects this format
+      formData.append('archivo_adjunto', {
+        uri: attachment.uri,
+        name: nombreArchivo,
+        type: tipoArchivo,
+      });
+
+      console.log('📤 [SOLICITUDES SERVICE] Enviando mensaje con adjunto:', attachment.name);
+
+      // Usar fetch nativo para evitar problemas de Network Error con axios + FormData en RN
+      // Obtener URL base de la instancia de axios
+      const apiInstance = await getAPI();
+      const baseURL = apiInstance.defaults.baseURL;
+      const token = await SecureStore.getItemAsync('authToken');
+
+      const response = await fetch(`${baseURL}/ordenes/chat-solicitudes/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${token}`,
+          // Content-Type se establece automáticamente por fetch para FormData
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Error envío fetch:', response.status, errorText);
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+
+      const responseData = await response.json();
+
+      return {
+        success: true,
+        data: responseData
+      };
+    }
+
+    // Si no hay adjunto, usar JSON normal (comportamiento anterior)
     const response = await api.post('/ordenes/chat-solicitudes/', {
       oferta: ofertaId,
       mensaje: mensaje,
       es_proveedor: true
     });
-    
+
     return {
       success: true,
       data: response.data
@@ -499,7 +566,7 @@ export const marcarMensajesComoLeidos = async (ofertaId: string): Promise<ApiRes
     // Ya no es necesario hacer esta llamada porque el endpoint por_oferta
     // marca automáticamente los mensajes como leídos
     console.log('marcarMensajesComoLeidos: No es necesario, por_oferta ya lo hace automáticamente');
-    
+
     return {
       success: true
     };
@@ -525,7 +592,7 @@ export const rechazarSolicitud = async (
       motivo,
       detalle_motivo: detalle || ''
     });
-    
+
     console.log('✅ Solicitud rechazada exitosamente:', response.data);
     return {
       success: true,
@@ -535,7 +602,7 @@ export const rechazarSolicitud = async (
   } catch (error: any) {
     console.error('❌ Error rechazando solicitud:', error);
     console.error('❌ Error detallado:', error.response?.data);
-    
+
     let errorMessage = 'Error al rechazar solicitud';
     if (error.response?.data) {
       if (typeof error.response.data === 'string') {
@@ -562,7 +629,7 @@ export const rechazarSolicitud = async (
     } else if (error.message) {
       errorMessage = error.message;
     }
-    
+
     return {
       success: false,
       error: errorMessage
@@ -582,7 +649,7 @@ export const obtenerListaChats = async (): Promise<any[]> => {
       console.log('⚠️ [SOLICITUDES SERVICE] No hay token, no se puede obtener lista de chats');
       return [];
     }
-    
+
     console.log('📨 [SOLICITUDES SERVICE] Obteniendo lista de chats');
     const response = await api.get('/ordenes/chat-solicitudes/lista-chats/');
     console.log('✅ [SOLICITUDES SERVICE] Lista de chats obtenida:', response.data);
@@ -617,10 +684,10 @@ export const crearOfertaSecundaria = async (
       oferta_original: ofertaOriginalId,
       es_oferta_secundaria: true,
     };
-    
+
     console.log('📤 Enviando oferta secundaria:', JSON.stringify(datosOfertaSecundaria, null, 2));
     const response = await api.post('/ordenes/ofertas/', datosOfertaSecundaria);
-    
+
     console.log('✅ Oferta secundaria creada exitosamente:', response.data);
     return {
       success: true,
@@ -629,7 +696,7 @@ export const crearOfertaSecundaria = async (
   } catch (error: any) {
     console.error('❌ Error creando oferta secundaria:', error);
     console.error('❌ Error detallado:', error.response?.data);
-    
+
     let errorMessage = 'Error al crear oferta secundaria';
     if (error.response?.data) {
       if (typeof error.response.data === 'string') {
@@ -652,7 +719,7 @@ export const crearOfertaSecundaria = async (
     } else if (error.message) {
       errorMessage = error.message;
     }
-    
+
     return {
       success: false,
       error: errorMessage
@@ -668,15 +735,15 @@ export const obtenerOfertasSecundarias = async (
 ): Promise<ApiResponse<OfertaProveedor[]>> => {
   try {
     const response = await api.get(`/ordenes/ofertas/ofertas-secundarias/${ofertaOriginalId}/`);
-    
+
     let ofertas: OfertaProveedor[] = [];
-    
+
     if (response.data && Array.isArray(response.data)) {
       ofertas = response.data;
     } else if (response.data?.results && Array.isArray(response.data.results)) {
       ofertas = response.data.results;
     }
-    
+
     return {
       success: true,
       data: ofertas
@@ -701,7 +768,7 @@ export const pagarOfertaSecundaria = async (
     const response = await api.post(`/ordenes/ofertas/${ofertaId}/pagar-oferta-secundaria/`, {
       metodo_pago: metodoPago
     });
-    
+
     return {
       success: true,
       data: response.data
@@ -722,7 +789,7 @@ export const iniciarServicio = async (ofertaId: string): Promise<ApiResponse<Ofe
   try {
     console.log(`🚀 Iniciando servicio para oferta ${ofertaId}...`);
     const response = await api.post(`/ordenes/ofertas/${ofertaId}/iniciar-servicio/`);
-    
+
     console.log('✅ Servicio iniciado exitosamente:', response.data);
     return {
       success: true,
@@ -743,7 +810,7 @@ export const iniciarServicio = async (ofertaId: string): Promise<ApiResponse<Ofe
     } else if (error.message) {
       errorMessage = error.message;
     }
-    
+
     return {
       success: false,
       error: errorMessage
@@ -758,7 +825,7 @@ export const terminarServicio = async (ofertaId: string): Promise<ApiResponse<Of
   try {
     console.log(`✅ Terminando servicio para oferta ${ofertaId}...`);
     const response = await api.post(`/ordenes/ofertas/${ofertaId}/terminar-servicio/`);
-    
+
     console.log('✅ Servicio terminado exitosamente:', response.data);
     return {
       success: true,
@@ -778,7 +845,7 @@ export const terminarServicio = async (ofertaId: string): Promise<ApiResponse<Of
     } else if (error.message) {
       errorMessage = error.message;
     }
-    
+
     return {
       success: false,
       error: errorMessage

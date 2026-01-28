@@ -49,8 +49,11 @@ export interface NuevoMensajeChatEvent {
   solicitud_id: string;
   enviado_por: string;
   mensaje: string;
+  message?: string; // Optional alias
+  content?: string; // Optional alias
   es_proveedor: boolean;
   timestamp: string;
+  archivo_adjunto?: string | null;
 }
 
 export interface PagoExpiradoEvent {
@@ -274,9 +277,12 @@ class WebSocketService {
             oferta_id: data.oferta_id || data.oferta,
             solicitud_id: data.solicitud_id,
             enviado_por: data.sender_name || data.enviado_por,
-            mensaje: data.message || data.content || data.mensaje,
+            mensaje: data.mensaje || data.message || data.content || '',
+            message: data.message,
+            content: data.content,
             es_proveedor: data.es_proveedor !== undefined ? data.es_proveedor : false,
-            timestamp: data.timestamp
+            timestamp: data.timestamp,
+            archivo_adjunto: data.archivo_adjunto || data.attachment || null
           };
           this.handleNuevoMensajeChat(chatEvent);
           break;
@@ -668,4 +674,4 @@ class WebSocketService {
   }
 }
 
-export default new WebSocketService(); 
+export default new WebSocketService();

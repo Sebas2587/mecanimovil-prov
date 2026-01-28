@@ -11,6 +11,8 @@ import {
   Platform,
   Image,
   Keyboard,
+  Alert,
+  Modal,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
@@ -23,6 +25,7 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens
 import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
 import websocketService, { type NuevoMensajeChatEvent } from '@/app/services/websocketService';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function ChatOfertaScreen() {
   const { ofertaId } = useLocalSearchParams<{ ofertaId: string }>();
@@ -34,9 +37,6 @@ export default function ChatOfertaScreen() {
 
   // Obtener valores del sistema de diseño
   const designColors = theme?.colors || COLORS || {};
-  const designSpacing = theme?.spacing || SPACING || {};
-  const designTypography = theme?.typography || TYPOGRAPHY || {};
-  const designBorders = theme?.borders || BORDERS || {};
 
   // Valores específicos del sistema de diseño
   const bgDefault = designColors?.background?.default || '#EEEEEE';
@@ -45,7 +45,6 @@ export default function ChatOfertaScreen() {
   const textSecondary = designColors?.text?.secondary || '#666666';
   const textTertiary = designColors?.text?.tertiary || '#999999';
   const borderLight = designColors?.border?.light || '#EEEEEE';
-  const borderMain = designColors?.border?.main || '#D0D0D0';
   const secondaryColor = designColors?.secondary?.['500'] || '#068FFF';
   const white = designColors?.base?.white || '#FFFFFF';
 
@@ -55,9 +54,10 @@ export default function ChatOfertaScreen() {
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [attachment, setAttachment] = useState<{ uri: string; type: 'image' | 'video'; name: string } | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
-  const ultimaActualizacionRef = useRef<number>(0);
   const mensajesEnviadosRef = useRef<Set<string>>(new Set());
 
   useFocusEffect(
@@ -80,13 +80,11 @@ export default function ChatOfertaScreen() {
   useEffect(() => {
     // Scroll al final cuando hay nuevos mensajes
     if (mensajes.length > 0) {
-      // Usar requestAnimationFrame para asegurar que el scroll se ejecute después del render
       requestAnimationFrame(() => {
         setTimeout(() => {
           if (flatListRef.current) {
             try {
               flatListRef.current.scrollToEnd({ animated: true });
-              console.log('📜 [CHAT PROVEEDOR] Scroll automático ejecutado');
             } catch (error) {
               console.error('❌ [CHAT PROVEEDOR] Error en scroll automático:', error);
             }
@@ -124,7 +122,6 @@ export default function ChatOfertaScreen() {
     try {
       setLoading(true);
 
-      // Cargar oferta y mensajes en paralelo
       const [ofertaResult, mensajesResult] = await Promise.all([
         solicitudesService.obtenerDetalleOferta(ofertaId),
         solicitudesService.obtenerChatOferta(ofertaId),
@@ -136,8 +133,6 @@ export default function ChatOfertaScreen() {
 
       if (mensajesResult.success && mensajesResult.data) {
         setMensajes(mensajesResult.data);
-
-        // Marcar mensajes como leídos
         await solicitudesService.marcarMensajesComoLeidos(ofertaId);
       }
     } catch (error) {
@@ -150,82 +145,84 @@ export default function ChatOfertaScreen() {
   const suscribirWebSocket = () => {
     if (!ofertaId) return;
 
-    // Suscribirse a mensajes de chat en tiempo real
     const unsubscribe = websocketService.onNuevoMensajeChat((event: NuevoMensajeChatEvent) => {
       console.log('📨 [CHAT PROVEEDOR] Evento recibido:', event);
-      console.log('🔍 [CHAT PROVEEDOR] Comparando IDs:', {
-        eventOferta: event.oferta_id,
-        currentOferta: ofertaId
-      });
 
-      // Solo procesar mensajes de esta oferta (Comparación segura con String)
       if (String(event.oferta_id) !== String(ofertaId)) {
-        console.log('⚠️ [CHAT PROVEEDOR] Oferta ID no coincide, ignorando.');
         return;
       }
 
-      // Evitar duplicados - si el mensaje ya fue enviado por nosotros, ignorarlo
       if (mensajesEnviadosRef.current.has(event.mensaje_id)) {
-        console.log('💬 Mensaje ya procesado (enviado por nosotros), ignorando');
         return;
       }
 
-
-      console.log('💬 [CHAT PROVEEDOR] Nuevo mensaje recibido por WebSocket:', event);
-
-
-      // Agregar mensaje a la lista (actualización en tiempo real)
       setMensajes(prev => {
-        // Verificar que el mensaje no exista ya
         if (prev.some(m => m.id === event.mensaje_id)) {
-          console.log('💬 Mensaje ya existe en la lista, ignorando');
           return prev;
         }
 
-        // Crear objeto de mensaje compatible con MensajeChat
-        const nuevoMensaje: MensajeChat = {
+        const nuevoMensajeObj: MensajeChat = {
           id: event.mensaje_id,
           oferta: event.oferta_id,
-          mensaje: event.mensaje || event.message || event.content, // Handle variations
-          enviado_por: 0, // Se actualizará con la recarga
+          mensaje: event.mensaje || event.message || event.content || '',
+          enviado_por: 0,
           enviado_por_nombre: event.enviado_por,
           es_proveedor: event.es_proveedor,
           fecha_envio: event.timestamp || new Date().toISOString(),
           leido: false,
           fecha_lectura: null,
-          archivo_adjunto: null,
+          archivo_adjunto: event.archivo_adjunto || null,
           solicitud_detail: prev[0]?.solicitud_detail || null,
         };
 
-        // El scroll automático se maneja en el useEffect que depende de mensajes.length
-        return [...prev, nuevoMensaje];
+        return [...prev, nuevoMensajeObj];
       });
 
-      // Marcar como leído si el mensaje no es del proveedor (es del cliente)
       if (!event.es_proveedor) {
-        // Debounced: marcar como leído después de un delay
         setTimeout(() => {
           solicitudesService.marcarMensajesComoLeidos(ofertaId);
         }, 1000);
       }
     });
 
-    // Guardar función de desuscripción
     return unsubscribe;
   };
 
-  const desuscribirWebSocket = () => {
-    // La función unsubscribe se llama automáticamente en el cleanup de useFocusEffect
+  const handlePickAttachment = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso necesario', 'Se necesita acceso a la galería para enviar imágenes.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setAttachment({
+          uri: asset.uri,
+          type: 'image',
+          name: asset.fileName || `image_${Date.now()}.jpg`
+        });
+      }
+    } catch (error) {
+      console.error('Error al seleccionar imagen:', error);
+      Alert.alert('Error', 'No se pudo seleccionar la imagen.');
+    }
   };
 
   const handleEnviarMensaje = async () => {
-    console.log('📤 [CHAT PROVEEDOR] Enviando mensaje:', nuevoMensaje);
-    if (!nuevoMensaje.trim() || !ofertaId || enviando) return;
+    if ((!nuevoMensaje.trim() && !attachment) || !ofertaId || enviando) return;
 
     const mensajeTexto = nuevoMensaje.trim();
-    const mensajeId = `temp-${Date.now()}`; // ID temporal para optimistic update
+    const mensajeId = `temp-${Date.now()}`;
+    const attachmentTemp = attachment;
 
-    // Actualización optimista - agregar mensaje inmediatamente a la UI
     const mensajeOptimista: MensajeChat = {
       id: mensajeId,
       oferta: ofertaId,
@@ -236,65 +233,65 @@ export default function ChatOfertaScreen() {
       fecha_envio: new Date().toISOString(),
       leido: false,
       fecha_lectura: null,
-      archivo_adjunto: null,
+      archivo_adjunto: attachmentTemp ? attachmentTemp.uri : null,
       solicitud_detail: mensajes[0]?.solicitud_detail || null,
     };
 
     setMensajes(prev => [...prev, mensajeOptimista]);
     setNuevoMensaje('');
+    setAttachment(null);
     setEnviando(true);
 
-    // El scroll automático se maneja en el useEffect que depende de mensajes.length
-
     try {
-      const result = await solicitudesService.enviarMensajeChat(ofertaId, mensajeTexto);
-
-      console.log('📤 [CHAT PROVEEDOR] Resultado envío:', result.success ? 'Éxito' : 'Fallo');
+      const result = await solicitudesService.enviarMensajeChat(
+        ofertaId,
+        mensajeTexto,
+        attachmentTemp
+      );
 
       if (result.success && result.data) {
-        // Marcar el mensaje como enviado para evitar duplicados del WebSocket
         mensajesEnviadosRef.current.add(result.data.id);
 
-        // Reemplazar mensaje optimista con el real
         setMensajes(prev =>
           prev.map(m => m.id === mensajeId ? result.data! : m)
         );
 
-        // Limpiar el Set después de un tiempo (para evitar memory leaks)
         setTimeout(() => {
           mensajesEnviadosRef.current.delete(result.data!.id);
         }, 10000);
       } else {
-        // Si falló, eliminar mensaje optimista y restaurar texto
         console.error('❌ [CHAT PROVEEDOR] Error respuesta:', result);
         setMensajes(prev => prev.filter(m => m.id !== mensajeId));
         setNuevoMensaje(mensajeTexto);
-        console.error('Error enviando mensaje:', result.error);
+        setAttachment(attachmentTemp);
+        Alert.alert('Error', 'No se pudo enviar el mensaje');
       }
     } catch (error) {
-      // Si hubo error, eliminar mensaje optimista y restaurar texto
       console.error('❌ [CHAT PROVEEDOR] Excepción envío:', error);
       setMensajes(prev => prev.filter(m => m.id !== mensajeId));
       setNuevoMensaje(mensajeTexto);
-      console.error('Error enviando mensaje:', error);
+      setAttachment(attachmentTemp);
+      Alert.alert('Error', 'Ocurrió un error al enviar el mensaje');
     } finally {
       setEnviando(false);
     }
   };
 
-  const renderMensaje = ({ item }: { item: MensajeChat }) => {
-    // El proveedor es el que envía mensajes con es_proveedor = true
-    const esPropio = item.es_proveedor === true;
+  const handleImagePress = (imageUrl: string) => {
+    setSelectedImage(imageUrl);
+  };
 
+  const renderMensaje = ({ item }: { item: MensajeChat }) => {
+    const esPropio = item.es_proveedor === true;
     return (
       <ChatBubble
         mensaje={item}
         esPropio={esPropio}
+        onImagePress={handleImagePress}
       />
     );
   };
 
-  // Obtener información del cliente
   const clienteNombre = oferta?.solicitud_detail?.cliente_nombre || 'Cliente';
   const clienteFoto = oferta?.solicitud_detail?.cliente_foto;
 
@@ -302,7 +299,6 @@ export default function ChatOfertaScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: bgDefault }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
-        {/* Header personalizado */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={textPrimary} />
@@ -322,7 +318,6 @@ export default function ChatOfertaScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: bgDefault }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Header personalizado con nombre y foto del cliente */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={textPrimary} />
@@ -343,7 +338,6 @@ export default function ChatOfertaScreen() {
       </View>
 
       <View style={styles.contentContainer}>
-        {/* Lista de mensajes */}
         {mensajes.length > 0 ? (
           <FlatList
             ref={flatListRef}
@@ -352,7 +346,7 @@ export default function ChatOfertaScreen() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={[
               styles.mensajesList,
-              { paddingBottom: keyboardHeight > 0 ? 80 : 80 } // Espacio para el input
+              { paddingBottom: keyboardHeight > 0 ? 80 : 80 }
             ]}
             showsVerticalScrollIndicator={false}
             maintainVisibleContentPosition={{
@@ -369,7 +363,7 @@ export default function ChatOfertaScreen() {
           </View>
         )}
 
-        {/* Input de mensaje */}
+        {/* Input area */}
         <View style={[
           styles.inputContainer,
           {
@@ -377,7 +371,22 @@ export default function ChatOfertaScreen() {
             bottom: keyboardHeight
           }
         ]}>
-          <TouchableOpacity style={styles.actionButton}>
+          {/* Attachment Preview (Inside input container but above input) */}
+          {attachment && (
+            <View style={styles.previewContainerAbs}>
+              <View style={styles.previewWrapper}>
+                <Image source={{ uri: attachment.uri }} style={styles.imagePreview} />
+                <TouchableOpacity
+                  style={styles.removePreviewButton}
+                  onPress={() => setAttachment(null)}
+                >
+                  <Ionicons name="close-circle" size={24} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.actionButton} onPress={handlePickAttachment}>
             <Ionicons name="add-circle-outline" size={28} color={textSecondary} />
           </TouchableOpacity>
 
@@ -392,17 +401,13 @@ export default function ChatOfertaScreen() {
             editable={!enviando}
           />
 
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="mic-outline" size={28} color={textSecondary} />
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={[
               styles.sendButton,
-              (!nuevoMensaje.trim() || enviando) && styles.sendButtonDisabled
+              (!nuevoMensaje.trim() && !attachment || enviando) && styles.sendButtonDisabled
             ]}
             onPress={handleEnviarMensaje}
-            disabled={!nuevoMensaje.trim() || enviando}
+            disabled={(!nuevoMensaje.trim() && !attachment) || enviando}
           >
             {enviando ? (
               <ActivityIndicator size="small" color={white} />
@@ -412,21 +417,44 @@ export default function ChatOfertaScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Image Viewer Modal */}
+      <Modal
+        visible={!!selectedImage}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSelectedImage(null)}
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity
+            style={styles.modalCloseButton}
+            onPress={() => setSelectedImage(null)}
+          >
+            <Ionicons name="close" size={30} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <View style={styles.modalContent}>
+            {selectedImage && (
+              <Image
+                source={{ uri: selectedImage }}
+                style={styles.fullScreenImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-// Crear estilos dinámicos usando los tokens del sistema de diseño
 const createStyles = () => {
-  const bgPaper = COLORS?.background?.paper || COLORS?.base?.white || '#FFFFFF';
-  const bgDefault = COLORS?.background?.default || '#EEEEEE';
+  const bgPaper = COLORS?.background?.paper || '#FFFFFF';
   const textPrimary = COLORS?.text?.primary || '#000000';
   const textSecondary = COLORS?.text?.secondary || '#666666';
   const textTertiary = COLORS?.text?.tertiary || '#999999';
   const borderLight = COLORS?.border?.light || '#EEEEEE';
-  const borderMain = COLORS?.border?.main || '#D0D0D0';
   const secondaryColor = COLORS?.secondary?.['500'] || '#068FFF';
-  const white = COLORS?.base?.white || '#FFFFFF';
 
   const spacingXs = SPACING?.xs || 4;
   const spacingSm = SPACING?.sm || 8;
@@ -438,8 +466,6 @@ const createStyles = () => {
   const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
 
   const fontWeightSemibold = TYPOGRAPHY?.fontWeight?.semibold || '600';
-
-  const radiusFull = BORDERS?.radius?.full || 9999;
   const radiusXl = BORDERS?.radius?.xl || 20;
 
   return StyleSheet.create({
@@ -534,6 +560,34 @@ const createStyles = () => {
       borderTopColor: borderLight,
       gap: spacingSm,
     },
+    previewContainerAbs: {
+      position: 'absolute',
+      top: -110,
+      left: spacingMd,
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      padding: spacingSm,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: borderLight,
+    },
+    previewWrapper: {
+      position: 'relative',
+    },
+    imagePreview: {
+      width: 100,
+      height: 100,
+      borderRadius: 8,
+      backgroundColor: '#f0f0f0',
+    },
+    removePreviewButton: {
+      position: 'absolute',
+      top: -8,
+      right: -8,
+      backgroundColor: 'white',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#eee',
+    },
     actionButton: {
       padding: spacingXs,
     },
@@ -558,8 +612,28 @@ const createStyles = () => {
     sendButtonDisabled: {
       opacity: 0.5,
     },
+    modalContainer: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.9)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalCloseButton: {
+      position: 'absolute',
+      top: 50,
+      right: 20,
+      zIndex: 1,
+      padding: 10,
+    },
+    modalContent: {
+      width: '100%',
+      height: '80%',
+    },
+    fullScreenImage: {
+      width: '100%',
+      height: '100%',
+    },
   });
 };
 
 const styles = createStyles();
-

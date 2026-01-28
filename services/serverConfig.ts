@@ -373,6 +373,14 @@ class ServerConfig {
   }
 
   /**
+   * Obtiene la URL base para medios de forma síncrona
+   * (Asume que ya está inicializado)
+   */
+  getMediaURLSync(): string | null {
+    return this.mediaURL;
+  }
+
+  /**
    * Verifica si la configuración está inicializada
    */
   isInitialized(): boolean {
