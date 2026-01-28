@@ -170,15 +170,9 @@ export default function ChatOfertaScreen() {
         return;
       }
 
-      // Debouncing - evitar actualizaciones muy frecuentes
-      const ahora = Date.now();
-      if (ahora - ultimaActualizacionRef.current < 500) {
-        console.log('💬 Debouncing - esperando antes de actualizar');
-        return;
-      }
-      ultimaActualizacionRef.current = ahora;
 
-      console.log('💬 Nuevo mensaje recibido por WebSocket:', event);
+      console.log('💬 [CHAT PROVEEDOR] Nuevo mensaje recibido por WebSocket:', event);
+
 
       // Agregar mensaje a la lista (actualización en tiempo real)
       setMensajes(prev => {
