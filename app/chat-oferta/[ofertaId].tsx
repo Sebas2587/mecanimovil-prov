@@ -37,7 +37,7 @@ export default function ChatOfertaScreen() {
   const designSpacing = theme?.spacing || SPACING || {};
   const designTypography = theme?.typography || TYPOGRAPHY || {};
   const designBorders = theme?.borders || BORDERS || {};
-  
+
   // Valores específicos del sistema de diseño
   const bgDefault = designColors?.background?.default || '#EEEEEE';
   const bgPaper = designColors?.background?.paper || designColors?.base?.white || '#FFFFFF';
@@ -63,12 +63,12 @@ export default function ChatOfertaScreen() {
   useFocusEffect(
     React.useCallback(() => {
       let unsubscribe: (() => void) | undefined;
-      
+
       if (ofertaId) {
         cargarDatos();
         unsubscribe = suscribirWebSocket();
       }
-      
+
       return () => {
         if (unsubscribe) {
           unsubscribe();
@@ -104,7 +104,7 @@ export default function ChatOfertaScreen() {
         setKeyboardHeight(e.endCoordinates.height);
       }
     );
-    
+
     const keyboardWillHide = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
@@ -120,23 +120,23 @@ export default function ChatOfertaScreen() {
 
   const cargarDatos = async () => {
     if (!ofertaId) return;
-    
+
     try {
       setLoading(true);
-      
+
       // Cargar oferta y mensajes en paralelo
       const [ofertaResult, mensajesResult] = await Promise.all([
         solicitudesService.obtenerDetalleOferta(ofertaId),
         solicitudesService.obtenerChatOferta(ofertaId),
       ]);
-      
+
       if (ofertaResult.success && ofertaResult.data) {
         setOferta(ofertaResult.data);
       }
-      
+
       if (mensajesResult.success && mensajesResult.data) {
         setMensajes(mensajesResult.data);
-        
+
         // Marcar mensajes como leídos
         await solicitudesService.marcarMensajesComoLeidos(ofertaId);
       }
@@ -149,18 +149,27 @@ export default function ChatOfertaScreen() {
 
   const suscribirWebSocket = () => {
     if (!ofertaId) return;
-    
+
     // Suscribirse a mensajes de chat en tiempo real
     const unsubscribe = websocketService.onNuevoMensajeChat((event: NuevoMensajeChatEvent) => {
-      // Solo procesar mensajes de esta oferta
-      if (event.oferta_id !== ofertaId) return;
-      
+      console.log('📨 [CHAT PROVEEDOR] Evento recibido:', event);
+      console.log('🔍 [CHAT PROVEEDOR] Comparando IDs:', {
+        eventOferta: event.oferta_id,
+        currentOferta: ofertaId
+      });
+
+      // Solo procesar mensajes de esta oferta (Comparación segura con String)
+      if (String(event.oferta_id) !== String(ofertaId)) {
+        console.log('⚠️ [CHAT PROVEEDOR] Oferta ID no coincide, ignorando.');
+        return;
+      }
+
       // Evitar duplicados - si el mensaje ya fue enviado por nosotros, ignorarlo
       if (mensajesEnviadosRef.current.has(event.mensaje_id)) {
         console.log('💬 Mensaje ya procesado (enviado por nosotros), ignorando');
         return;
       }
-      
+
       // Debouncing - evitar actualizaciones muy frecuentes
       const ahora = Date.now();
       if (ahora - ultimaActualizacionRef.current < 500) {
@@ -168,9 +177,9 @@ export default function ChatOfertaScreen() {
         return;
       }
       ultimaActualizacionRef.current = ahora;
-      
+
       console.log('💬 Nuevo mensaje recibido por WebSocket:', event);
-      
+
       // Agregar mensaje a la lista (actualización en tiempo real)
       setMensajes(prev => {
         // Verificar que el mensaje no exista ya
@@ -178,26 +187,26 @@ export default function ChatOfertaScreen() {
           console.log('💬 Mensaje ya existe en la lista, ignorando');
           return prev;
         }
-        
+
         // Crear objeto de mensaje compatible con MensajeChat
         const nuevoMensaje: MensajeChat = {
           id: event.mensaje_id,
           oferta: event.oferta_id,
-          mensaje: event.mensaje,
+          mensaje: event.mensaje || event.message || event.content, // Handle variations
           enviado_por: 0, // Se actualizará con la recarga
           enviado_por_nombre: event.enviado_por,
           es_proveedor: event.es_proveedor,
-          fecha_envio: event.timestamp,
+          fecha_envio: event.timestamp || new Date().toISOString(),
           leido: false,
           fecha_lectura: null,
           archivo_adjunto: null,
           solicitud_detail: prev[0]?.solicitud_detail || null,
         };
-        
+
         // El scroll automático se maneja en el useEffect que depende de mensajes.length
         return [...prev, nuevoMensaje];
       });
-      
+
       // Marcar como leído si el mensaje no es del proveedor (es del cliente)
       if (!event.es_proveedor) {
         // Debounced: marcar como leído después de un delay
@@ -206,7 +215,7 @@ export default function ChatOfertaScreen() {
         }, 1000);
       }
     });
-    
+
     // Guardar función de desuscripción
     return unsubscribe;
   };
@@ -216,11 +225,12 @@ export default function ChatOfertaScreen() {
   };
 
   const handleEnviarMensaje = async () => {
+    console.log('📤 [CHAT PROVEEDOR] Enviando mensaje:', nuevoMensaje);
     if (!nuevoMensaje.trim() || !ofertaId || enviando) return;
-    
+
     const mensajeTexto = nuevoMensaje.trim();
     const mensajeId = `temp-${Date.now()}`; // ID temporal para optimistic update
-    
+
     // Actualización optimista - agregar mensaje inmediatamente a la UI
     const mensajeOptimista: MensajeChat = {
       id: mensajeId,
@@ -235,37 +245,41 @@ export default function ChatOfertaScreen() {
       archivo_adjunto: null,
       solicitud_detail: mensajes[0]?.solicitud_detail || null,
     };
-    
+
     setMensajes(prev => [...prev, mensajeOptimista]);
     setNuevoMensaje('');
     setEnviando(true);
-    
+
     // El scroll automático se maneja en el useEffect que depende de mensajes.length
-    
+
     try {
       const result = await solicitudesService.enviarMensajeChat(ofertaId, mensajeTexto);
-      
+
+      console.log('📤 [CHAT PROVEEDOR] Resultado envío:', result.success ? 'Éxito' : 'Fallo');
+
       if (result.success && result.data) {
         // Marcar el mensaje como enviado para evitar duplicados del WebSocket
         mensajesEnviadosRef.current.add(result.data.id);
-        
+
         // Reemplazar mensaje optimista con el real
-        setMensajes(prev => 
+        setMensajes(prev =>
           prev.map(m => m.id === mensajeId ? result.data! : m)
         );
-        
+
         // Limpiar el Set después de un tiempo (para evitar memory leaks)
         setTimeout(() => {
           mensajesEnviadosRef.current.delete(result.data!.id);
         }, 10000);
       } else {
         // Si falló, eliminar mensaje optimista y restaurar texto
+        console.error('❌ [CHAT PROVEEDOR] Error respuesta:', result);
         setMensajes(prev => prev.filter(m => m.id !== mensajeId));
         setNuevoMensaje(mensajeTexto);
         console.error('Error enviando mensaje:', result.error);
       }
     } catch (error) {
       // Si hubo error, eliminar mensaje optimista y restaurar texto
+      console.error('❌ [CHAT PROVEEDOR] Excepción envío:', error);
       setMensajes(prev => prev.filter(m => m.id !== mensajeId));
       setNuevoMensaje(mensajeTexto);
       console.error('Error enviando mensaje:', error);
@@ -277,7 +291,7 @@ export default function ChatOfertaScreen() {
   const renderMensaje = ({ item }: { item: MensajeChat }) => {
     // El proveedor es el que envía mensajes con es_proveedor = true
     const esPropio = item.es_proveedor === true;
-    
+
     return (
       <ChatBubble
         mensaje={item}
@@ -313,7 +327,7 @@ export default function ChatOfertaScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bgDefault }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
-      
+
       {/* Header personalizado con nombre y foto del cliente */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -363,16 +377,16 @@ export default function ChatOfertaScreen() {
 
         {/* Input de mensaje */}
         <View style={[
-          styles.inputContainer, 
-          { 
+          styles.inputContainer,
+          {
             paddingBottom: Math.max(insets.bottom || 8, keyboardHeight > 0 ? 8 : insets.bottom || 8),
-            bottom: keyboardHeight 
+            bottom: keyboardHeight
           }
         ]}>
           <TouchableOpacity style={styles.actionButton}>
             <Ionicons name="add-circle-outline" size={28} color={textSecondary} />
           </TouchableOpacity>
-          
+
           <TextInput
             style={styles.input}
             placeholder="Mensaje"
@@ -383,11 +397,11 @@ export default function ChatOfertaScreen() {
             maxLength={500}
             editable={!enviando}
           />
-          
+
           <TouchableOpacity style={styles.actionButton}>
             <Ionicons name="mic-outline" size={28} color={textSecondary} />
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={[
               styles.sendButton,
@@ -419,18 +433,18 @@ const createStyles = () => {
   const borderMain = COLORS?.border?.main || '#D0D0D0';
   const secondaryColor = COLORS?.secondary?.['500'] || '#068FFF';
   const white = COLORS?.base?.white || '#FFFFFF';
-  
+
   const spacingXs = SPACING?.xs || 4;
   const spacingSm = SPACING?.sm || 8;
   const spacingMd = SPACING?.md || 16;
   const spacingXl = SPACING?.xl || 32;
-  
+
   const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
   const fontSizeMd = TYPOGRAPHY?.fontSize?.md || 16;
   const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
-  
+
   const fontWeightSemibold = TYPOGRAPHY?.fontWeight?.semibold || '600';
-  
+
   const radiusFull = BORDERS?.radius?.full || 9999;
   const radiusXl = BORDERS?.radius?.xl || 20;
 

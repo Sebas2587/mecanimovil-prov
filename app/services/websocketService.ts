@@ -267,7 +267,18 @@ class WebSocketService {
 
         case 'nuevo_mensaje_chat':
           console.log('💬 Nuevo mensaje de chat recibido:', data);
-          this.handleNuevoMensajeChat(data as NuevoMensajeChatEvent);
+          // Normalize payload to match interface
+          const chatEvent: NuevoMensajeChatEvent = {
+            type: 'nuevo_mensaje_chat',
+            mensaje_id: data.id || data.mensaje_id,
+            oferta_id: data.oferta_id || data.oferta,
+            solicitud_id: data.solicitud_id,
+            enviado_por: data.sender_name || data.enviado_por,
+            mensaje: data.message || data.content || data.mensaje,
+            es_proveedor: data.es_proveedor !== undefined ? data.es_proveedor : false,
+            timestamp: data.timestamp
+          };
+          this.handleNuevoMensajeChat(chatEvent);
           break;
 
         case 'pago_expirado':
