@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import creditosService, {
@@ -19,6 +19,7 @@ import creditosService, {
   type CompraCreditos,
   type ConsumoCredito,
 } from '@/services/creditosService';
+import suscripcionesService, { type SuscripcionProveedor } from '@/services/suscripcionesService';
 import {
   SaldoCreditos,
   AlertaCreditosBajos,
@@ -46,6 +47,7 @@ export default function CreditosScreen() {
   const [paquetes, setPaquetes] = useState<PaqueteCreditos[]>([]);
   const [compras, setCompras] = useState<CompraCreditos[]>([]);
   const [consumos, setConsumos] = useState<ConsumoCredito[]>([]);
+  const [suscripcion, setSuscripcion] = useState<SuscripcionProveedor | null>(null);
 
   // Obtener valores del sistema de diseño
   const colors = theme?.colors || COLORS || {};
@@ -86,6 +88,12 @@ export default function CreditosScreen() {
       const consumosResult = await creditosService.obtenerHistorialConsumos(50);
       if (consumosResult.success && consumosResult.data) {
         setConsumos(consumosResult.data);
+      }
+
+      // Cargar suscripción activa del proveedor
+      const suscripcionResult = await suscripcionesService.obtenerMiSuscripcion();
+      if (suscripcionResult.success) {
+        setSuscripcion(suscripcionResult.suscripcion);
       }
 
       // Cargar paquetes solo si estamos en la tab de tienda
@@ -159,6 +167,61 @@ export default function CreditosScreen() {
             {saldo && (
               <>
                 <SaldoCreditos saldo={saldo.saldo_creditos} />
+
+                {/* Banner de Suscripción Mensual */}
+                {suscripcion && ['activa', 'pendiente'].includes(suscripcion.estado) ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.suscripcionBanner,
+                      {
+                        backgroundColor: suscripcion.esta_activa ? '#F0FDF4' : '#FFFBEB',
+                        borderColor: suscripcion.esta_activa ? '#22C55E' : '#F59E0B',
+                      },
+                    ]}
+                    onPress={() => router.push('/suscripciones')}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.suscripcionBannerLeft}>
+                      <MaterialCommunityIcons
+                        name={suscripcion.esta_activa ? 'check-decagram' : 'clock-outline'}
+                        size={20}
+                        color={suscripcion.esta_activa ? '#22C55E' : '#F59E0B'}
+                      />
+                      <View>
+                        <Text style={[styles.suscripcionBannerTitulo, { color: textPrimary }]}>
+                          {suscripcion.esta_activa ? 'Suscripción Activa' : 'Suscripción Pendiente'}
+                        </Text>
+                        <Text style={[styles.suscripcionBannerSubtitulo, { color: textSecondary }]}>
+                          {suscripcion.plan.nombre} · {suscripcion.plan.creditos_mensuales} créd/mes
+                        </Text>
+                      </View>
+                    </View>
+                    <MaterialIcons name="chevron-right" size={20} color={textSecondary} />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.suscripcionBanner,
+                      { backgroundColor: backgroundPaper, borderColor: primaryColor },
+                    ]}
+                    onPress={() => router.push('/suscripciones')}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.suscripcionBannerLeft}>
+                      <MaterialCommunityIcons name="lightning-bolt" size={20} color={primaryColor} />
+                      <View>
+                        <Text style={[styles.suscripcionBannerTitulo, { color: textPrimary }]}>
+                          Créditos Automáticos Cada Mes
+                        </Text>
+                        <Text style={[styles.suscripcionBannerSubtitulo, { color: textSecondary }]}>
+                          Suscríbete y nunca te quedes sin créditos
+                        </Text>
+                      </View>
+                    </View>
+                    <MaterialIcons name="chevron-right" size={20} color={primaryColor} />
+                  </TouchableOpacity>
+                )}
+
                 {estadisticas && (
                   <View style={[styles.statsContainer, { backgroundColor: backgroundPaper }]}>
                     <Text style={[styles.statsTitle, { color: textPrimary }]}>
@@ -533,6 +596,33 @@ const styles = StyleSheet.create({
   historialTabText: {
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+
+  // ─── Banner de suscripción (tab Saldo) ───────────────────
+  suscripcionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 12,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  suscripcionBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  suscripcionBannerTitulo: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: '700',
+  },
+  suscripcionBannerSubtitulo: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    marginTop: 1,
   },
 });
 
