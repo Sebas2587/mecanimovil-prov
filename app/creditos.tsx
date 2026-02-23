@@ -197,6 +197,7 @@ export default function CreditosScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [cargandoSuscripcion, setCargandoSuscripcion] = useState(false);
+  const [cargandoSincronizar, setCargandoSincronizar] = useState(false);
   const [modalSuscripcion, setModalSuscripcion] = useState<ModalSuscripcion>({
     visible: false,
     checkoutUrl: '',
@@ -330,6 +331,32 @@ export default function CreditosScreen() {
       ]
     );
   }, []);
+
+  const handleSincronizarSuscripcion = useCallback(async () => {
+    setCargandoSincronizar(true);
+    try {
+      const resultado = await suscripcionesService.sincronizarSuscripcion();
+      if (resultado.success && resultado.sincronizado && resultado.estado === 'activa') {
+        Alert.alert(
+          '¡Suscripción Activa!',
+          resultado.mensaje ?? 'Tu suscripción fue confirmada en Mercado Pago.',
+          [{ text: 'Genial', onPress: () => cargarDatos() }]
+        );
+      } else if (resultado.success) {
+        Alert.alert(
+          'Verificado',
+          resultado.mensaje ?? 'Se verificó el estado. No se encontró suscripción autorizada aún.',
+          [{ text: 'OK', onPress: () => cargarDatos() }]
+        );
+      } else {
+        Alert.alert('Error', resultado.error ?? 'No se pudo verificar el estado.');
+      }
+    } catch {
+      Alert.alert('Error', 'Ocurrió un error al verificar. Intenta nuevamente.');
+    } finally {
+      setCargandoSincronizar(false);
+    }
+  }, [cargarDatos]);
 
   const handlePaymentSuccess = useCallback((_msg: string) => {
     setModalSuscripcion({ visible: false, checkoutUrl: '', suscripcionId: 0 });
@@ -573,9 +600,26 @@ export default function CreditosScreen() {
             </Text>
           )}
           {suscripcion.estado === 'pendiente' && (
-            <Text style={[styles.pendienteNota, { color: '#B45309' }]}>
-              ⚠️ Aún no autorizaste el débito. Completa el proceso para activar tus créditos mensuales.
-            </Text>
+            <View style={{ marginBottom: SPACING.md }}>
+              <Text style={[styles.pendienteNota, { color: '#B45309' }]}>
+                ⚠️ ¿Ya autorizaste el pago en Mercado Pago pero sigue apareciendo como pendiente?
+              </Text>
+              <TouchableOpacity
+                style={[styles.botonVerificar, { borderColor: '#009EE3', backgroundColor: '#EFF8FF', marginTop: 8 }]}
+                onPress={handleSincronizarSuscripcion}
+                disabled={cargandoSincronizar}
+                activeOpacity={0.8}
+              >
+                {cargandoSincronizar ? (
+                  <ActivityIndicator size="small" color="#009EE3" />
+                ) : (
+                  <>
+                    <MaterialIcons name="sync" size={16} color="#009EE3" />
+                    <Text style={[styles.botonVerificarTexto, { color: '#009EE3' }]}>Verificar estado con MP</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           )}
           <TouchableOpacity
             style={[styles.botonCancelar, { borderColor: errorColor }]}
@@ -952,5 +996,16 @@ const styles = StyleSheet.create({
   historialContainer: { flex: 1 },
   historialTabs: { flexDirection: 'row', borderBottomWidth: 1 },
   historialTab: { flex: 1, paddingVertical: SPACING.md, alignItems: 'center', borderBottomWidth: 2 },
+  botonVerificar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: SPACING.sm,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+  },
+  botonVerificarTexto: { fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '600' },
   historialTabText: { fontSize: TYPOGRAPHY.fontSize.md, fontWeight: '500' },
 });

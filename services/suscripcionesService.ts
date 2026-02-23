@@ -161,13 +161,41 @@ const verificarSuscripcion = async (suscripcionId: number): Promise<{
     }
 };
 
+/**
+ * Sincroniza el estado de la suscripción del proveedor consultando MercadoPago
+ * directamente por el email de su cuenta MP conectada.
+ * Útil cuando el webhook no llegó pero el proveedor ya autorizó el preapproval.
+ */
+const sincronizarSuscripcion = async (): Promise<{
+    success: boolean;
+    sincronizado: boolean;
+    estado?: string;
+    mensaje?: string;
+    suscripcion_id?: number | null;
+    error?: string;
+}> => {
+    try {
+        const response = await apiClient.post('/suscripciones/mi-suscripcion/sincronizar/');
+        return { success: true, ...response.data };
+    } catch (error: any) {
+        console.error('[suscripcionesService] Error sincronizando suscripción:', error?.response?.data || error);
+        return {
+            success: false,
+            sincronizado: false,
+            error: error?.response?.data?.error || 'No se pudo sincronizar la suscripción.',
+        };
+    }
+};
+
 const suscripcionesService = {
     obtenerPlanes,
     suscribirse,
     obtenerMiSuscripcion,
     cancelarSuscripcion,
     verificarSuscripcion,
+    sincronizarSuscripcion,
 };
+
 
 
 export default suscripcionesService;
