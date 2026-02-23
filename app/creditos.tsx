@@ -761,6 +761,8 @@ export default function CreditosScreen() {
           visible={modalSuscripcion.visible}
           checkoutUrl={modalSuscripcion.checkoutUrl}
           compraId={modalSuscripcion.suscripcionId}
+          suscripcionId={modalSuscripcion.suscripcionId}
+          verificarSuscripcion={suscripcionesService.verificarSuscripcion}
           onClose={handleModalClose}
           onPaymentSuccess={handlePaymentSuccess}
           onPaymentFailure={handlePaymentFailure}

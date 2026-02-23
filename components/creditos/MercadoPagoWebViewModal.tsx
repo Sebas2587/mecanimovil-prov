@@ -28,6 +28,9 @@ interface MercadoPagoWebViewModalProps {
   onPaymentSuccess: (message: string) => void;
   onPaymentFailure: (message: string) => void;
   onPaymentPending: () => void;
+  // Props opcionales para flujo de suscripción MP Preapproval
+  suscripcionId?: number;
+  verificarSuscripcion?: (id: number) => Promise<{ success: boolean; activa: boolean; estado?: string; mensaje?: string }>;
 }
 
 /**
@@ -45,13 +48,15 @@ const MercadoPagoWebViewModal: React.FC<MercadoPagoWebViewModalProps> = ({
   onPaymentSuccess,
   onPaymentFailure,
   onPaymentPending,
+  suscripcionId,
+  verificarSuscripcion,
 }) => {
   const theme = useTheme();
   const [loading, setLoading] = useState(true);
   const [verificando, setVerificando] = useState(false);
   const webViewRef = useRef<WebView>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
-  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pageLoadedRef = useRef(false);
   const hasProcessedPaymentRef = useRef(false);
 
@@ -110,28 +115,50 @@ const MercadoPagoWebViewModal: React.FC<MercadoPagoWebViewModalProps> = ({
 
     try {
       setVerificando(true);
+
+      // ── Modo Suscripción ─────────────────────────────────────────────
+      // Cuando se procesa un preapproval MP, usamos verificarSuscripcion
+      // porque el flujo es distinto al Checkout Pro de créditos:
+      //   - MP redirige al back_url con status=authorized (no approved)
+      //   - creditosService.verificarPago() no sirve para preapprovals
+      if (verificarSuscripcion && suscripcionId) {
+        console.log('🔍 [MP WebView] Verificando estado de suscripción:', suscripcionId);
+        const result = await verificarSuscripcion(suscripcionId);
+
+        if (result.success) {
+          if (result.activa) {
+            hasProcessedPaymentRef.current = true;
+            onPaymentSuccess(result.mensaje ?? '¡Suscripción activada correctamente!');
+          } else if (result.estado === 'cancelada' || result.estado === 'expirada') {
+            hasProcessedPaymentRef.current = true;
+            onPaymentFailure('La suscripción fue cancelada o rechazada.');
+          } else {
+            // estado 'pendiente' → el proveedor cerró sin completar
+            console.log('⏳ [MP WebView] Suscripción aun pendiente, estado:', result.estado);
+          }
+        }
+        return;
+      }
+
+      // ── Modo Compra de Créditos (flujo original) ────────────────────
       console.log('🔍 [MP WebView] Verificando estado del pago para compra:', compraId);
-      
       const result = await creditosService.verificarPago(compraId);
-      
+
       if (result.success && result.data) {
         if (result.data.creditos_acreditados) {
-          // Pago exitoso
           hasProcessedPaymentRef.current = true;
           await AsyncStorage.removeItem('compra_creditos_pendiente');
           onPaymentSuccess(result.data.mensaje);
           return;
         }
-        
+
         if (result.data.status === 'rejected' || result.data.status === 'cancelled') {
-          // Pago rechazado o cancelado
           hasProcessedPaymentRef.current = true;
           await AsyncStorage.removeItem('compra_creditos_pendiente');
           onPaymentFailure(result.data.mensaje);
           return;
         }
-        
-        // Pago aún pendiente
+
         console.log('⏳ [MP WebView] Pago aún pendiente');
       }
     } catch (error) {
@@ -139,39 +166,44 @@ const MercadoPagoWebViewModal: React.FC<MercadoPagoWebViewModalProps> = ({
     } finally {
       setVerificando(false);
     }
-  }, [compraId, verificando, onPaymentSuccess, onPaymentFailure]);
+  }, [compraId, verificando, onPaymentSuccess, onPaymentFailure, suscripcionId, verificarSuscripcion]);
 
   // Interceptar las redirecciones
   const handleShouldStartLoadWithRequest = (request: any): boolean => {
     const { url } = request;
-    
+
     console.log('🌐 [MP WebView] Intentando cargar URL:', url);
-    
+
     // Si la URL es un deep link de nuestra app, interceptarla
     if (url.startsWith(DEEP_LINK_SCHEME) || url.startsWith('mecanimovil://')) {
       console.log('🔗 [MP WebView] Deep link detectado:', url);
-      
+
       // Parsear parámetros
       try {
         const urlObj = new URL(url);
-        const status = urlObj.searchParams.get('status') || 
-                      urlObj.searchParams.get('collection_status');
-        
+        const status = urlObj.searchParams.get('status') ||
+          urlObj.searchParams.get('collection_status');
+
         console.log('📊 [MP WebView] Status del pago:', status);
-        
+
         // Verificar estado del pago desde el backend
         verificarEstadoPago();
       } catch (e) {
         console.warn('⚠️ [MP WebView] Error parseando URL:', e);
         verificarEstadoPago();
       }
-      
+
       return false; // No permitir que el WebView cargue el deep link
     }
-    
+
     // Detectar URLs de Mercado Pago que indican éxito/fallo
     const urlLower = url.toLowerCase();
-    if (urlLower.includes('/success') || urlLower.includes('status=approved')) {
+
+    // status=authorized → preapproval de suscripción autorizado por el proveedor
+    if (urlLower.includes('status=authorized') || urlLower.includes('suscripciones-resultado')) {
+      console.log('✅ [MP WebView] Suscripción autorizada detectada en URL');
+      setTimeout(() => verificarEstadoPago(), 1500);
+    } else if (urlLower.includes('/success') || urlLower.includes('status=approved')) {
       console.log('✅ [MP WebView] URL de éxito detectada');
       setTimeout(() => verificarEstadoPago(), 1500);
     } else if (urlLower.includes('/failure') || urlLower.includes('status=rejected')) {
@@ -181,7 +213,7 @@ const MercadoPagoWebViewModal: React.FC<MercadoPagoWebViewModalProps> = ({
       console.log('⏳ [MP WebView] URL de pendiente detectada');
       setTimeout(() => verificarEstadoPago(), 1500);
     }
-    
+
     return true;
   };
 
@@ -192,24 +224,28 @@ const MercadoPagoWebViewModal: React.FC<MercadoPagoWebViewModalProps> = ({
       loading: navState.loading,
       title: navState.title
     });
-    
+
     // Detectar si Mercado Pago muestra una página de éxito
     if (navState.url && navState.title) {
       const urlLower = navState.url.toLowerCase();
       const titleLower = navState.title.toLowerCase();
-      
+
       if (
-        urlLower.includes('success') || 
+        urlLower.includes('success') ||
         urlLower.includes('approved') ||
+        urlLower.includes('authorized') ||
+        urlLower.includes('suscripciones-resultado') ||
         titleLower.includes('pago exitoso') ||
         titleLower.includes('pago aprobado') ||
-        titleLower.includes('payment approved')
+        titleLower.includes('payment approved') ||
+        titleLower.includes('suscripción activa') ||
+        titleLower.includes('suscripcion activa')
       ) {
-        console.log('✅ [MP WebView] Página de éxito detectada');
+        console.log('✅ [MP WebView] Página de éxito/autorización detectada:', navState.title);
         setTimeout(() => verificarEstadoPago(), 2000);
       }
     }
-    
+
     // Actualizar estado de loading
     if (!navState.loading) {
       pageLoadedRef.current = true;
@@ -234,18 +270,18 @@ const MercadoPagoWebViewModal: React.FC<MercadoPagoWebViewModalProps> = ({
   const handleLoadStart = () => {
     console.log('🔄 [MP WebView] Comenzando a cargar');
     pageLoadedRef.current = false;
-    
+
     if (loadingTimeoutRef.current) {
       clearTimeout(loadingTimeoutRef.current);
     }
-    
+
     // Timeout de seguridad
     loadingTimeoutRef.current = setTimeout(() => {
       console.warn('⚠️ [MP WebView] Timeout de loading');
       setLoading(false);
       loadingTimeoutRef.current = null;
     }, 15000);
-    
+
     setLoading(true);
   };
 
@@ -253,7 +289,7 @@ const MercadoPagoWebViewModal: React.FC<MercadoPagoWebViewModalProps> = ({
     const { nativeEvent } = syntheticEvent;
     console.error('❌ [MP WebView] Error:', nativeEvent);
     setLoading(false);
-    
+
     Alert.alert(
       'Error de Conexión',
       'No se pudo cargar la página de pago. Por favor, verifica tu conexión a internet.',
@@ -267,7 +303,7 @@ const MercadoPagoWebViewModal: React.FC<MercadoPagoWebViewModalProps> = ({
   // Cerrar el modal
   const handleClose = async () => {
     console.log('🔙 [MP WebView] Usuario cerró el modal');
-    
+
     if (!hasProcessedPaymentRef.current) {
       // Verificar estado antes de cerrar
       Alert.alert(
@@ -365,7 +401,7 @@ const MercadoPagoWebViewModal: React.FC<MercadoPagoWebViewModalProps> = ({
     try {
       const message = JSON.parse(event.nativeEvent.data);
       console.log('📩 [MP WebView] Mensaje recibido:', message.type);
-      
+
       if (message.type === 'deep_link_detected' && message.url) {
         console.log('🔗 [MP WebView] Deep link via JS:', message.url);
         verificarEstadoPago();

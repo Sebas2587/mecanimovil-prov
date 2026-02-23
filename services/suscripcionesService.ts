@@ -132,11 +132,42 @@ const cancelarSuscripcion = async (): Promise<{ success: boolean; mensaje?: stri
     }
 };
 
+/**
+ * Verifica si el proveedor tiene una suscripción activa (post-autorización del preapproval).
+ * Usado por el WebView modal para confirmar el éxito sin depender del webhook.
+ */
+const verificarSuscripcion = async (suscripcionId: number): Promise<{
+    success: boolean;
+    activa: boolean;
+    estado?: string;
+    mensaje?: string;
+}> => {
+    try {
+        const result = await obtenerMiSuscripcion();
+        if (!result.success) {
+            return { success: false, activa: false };
+        }
+        const sus = result.suscripcion;
+        if (sus && sus.id === suscripcionId && sus.esta_activa) {
+            return { success: true, activa: true, estado: sus.estado, mensaje: '¡Suscripción autorizada correctamente!' };
+        }
+        if (sus && sus.id === suscripcionId && sus.estado === 'pendiente') {
+            return { success: true, activa: false, estado: 'pendiente' };
+        }
+        return { success: true, activa: false, estado: sus?.estado };
+    } catch (error: any) {
+        console.error('[suscripcionesService] Error verificando suscripción:', error);
+        return { success: false, activa: false };
+    }
+};
+
 const suscripcionesService = {
     obtenerPlanes,
     suscribirse,
     obtenerMiSuscripcion,
     cancelarSuscripcion,
+    verificarSuscripcion,
 };
+
 
 export default suscripcionesService;
