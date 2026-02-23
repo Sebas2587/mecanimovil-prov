@@ -347,9 +347,14 @@ export default function CreditosScreen() {
 
   const handlePaymentPending = useCallback(() => {
     setModalSuscripcion({ visible: false, checkoutUrl: '', suscripcionId: 0 });
-    Alert.alert('Pendiente', 'Tu suscripción está siendo procesada.', [
-      { text: 'OK', onPress: () => cargarDatos() },
-    ]);
+    // "Pending" en el contexto de preapproval significa que el proveedor
+    // NO completó la autorización del débito automático en el WebView de MP.
+    // El registro de suscripción queda en estado 'pendiente' en la BD.
+    Alert.alert(
+      'Autorización no completada',
+      'No completaste la autorización del débito automático. Tu suscripción quedó en estado pendiente.\n\nPuedes intentarlo nuevamente o cancelarla desde la pestaña Suscripción.',
+      [{ text: 'Entendido', onPress: () => cargarDatos() }]
+    );
   }, [cargarDatos]);
 
   const handleModalClose = useCallback(() => {
@@ -508,14 +513,13 @@ export default function CreditosScreen() {
               </View>
             )}
           </View>
-          {estadisticas.proxima_expiracion.fecha && (
+          {/* Próxima expiración: solo mostrar si hay suscripción activa y una fecha próxima de cobro */}
+          {tieneSuscripcionActiva && suscripcion?.fecha_proximo_cobro && (
             <View style={styles.expirationRow}>
               <MaterialIcons name="schedule" size={14} color={textSecondary} />
               <Text style={[styles.expirationText, { color: textSecondary }]}>
-                Próx. expiración:{' '}
-                {new Date(estadisticas.proxima_expiracion.fecha).toLocaleDateString('es-CL')}
-                {estadisticas.proxima_expiracion.dias_restantes !== null &&
-                  ` (${estadisticas.proxima_expiracion.dias_restantes} días)`}
+                Próx. recarga de créditos:{' '}
+                {new Date(suscripcion.fecha_proximo_cobro).toLocaleDateString('es-CL')}
               </Text>
             </View>
           )}
