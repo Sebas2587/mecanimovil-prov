@@ -336,22 +336,42 @@ export default function CreditosScreen() {
     setCargandoSincronizar(true);
     try {
       const resultado = await suscripcionesService.sincronizarSuscripcion();
-      if (resultado.success && resultado.sincronizado && resultado.estado === 'activa') {
-        Alert.alert(
-          '¡Suscripción Activa!',
-          resultado.mensaje ?? 'Tu suscripción fue confirmada en Mercado Pago.',
-          [{ text: 'Genial', onPress: () => cargarDatos() }]
-        );
-      } else if (resultado.success) {
-        Alert.alert(
-          'Verificado',
-          resultado.mensaje ?? 'Se verificó el estado. No se encontró suscripción autorizada aún.',
-          [{ text: 'OK', onPress: () => cargarDatos() }]
-        );
+      console.log('[handleSincronizarSuscripcion] Resultado:', JSON.stringify(resultado, null, 2));
+
+      if (resultado.success && resultado.sincronizado) {
+        // Verificar si se acreditaron cobros
+        const cobrosProcesados = (resultado as any).cobros_procesados || [];
+        const acreditados = cobrosProcesados.filter((c: any) => c.acreditado);
+
+        let mensajeExito = resultado.mensaje ?? 'Tu suscripción fue sincronizada con Mercado Pago.';
+
+        if (acreditados.length > 0) {
+          const totalCreditos = acreditados.reduce((acc: number, c: any) => acc + (c.creditos || 0), 0);
+          mensajeExito = `¡Éxito! Se detectaron y acreditaron ${totalCreditos} créditos de tu suscripción.`;
+
+          Alert.alert(
+            '¡Créditos Acreditados!',
+            mensajeExito,
+            [{ text: 'Excelente', onPress: () => cargarDatos() }]
+          );
+        } else if (resultado.estado === 'activa') {
+          Alert.alert(
+            'Suscripción Activa',
+            mensajeExito + (cobrosProcesados.length > 0 ? '\n\nLos cobros ya habían sido acreditados anteriormente.' : ''),
+            [{ text: 'OK', onPress: () => cargarDatos() }]
+          );
+        } else {
+          Alert.alert(
+            'Verificado',
+            mensajeExito,
+            [{ text: 'OK', onPress: () => cargarDatos() }]
+          );
+        }
       } else {
-        Alert.alert('Error', resultado.error ?? 'No se pudo verificar el estado.');
+        Alert.alert('No encontrado', resultado.error || 'No se encontró una suscripción autorizada en Mercado Pago para tu cuenta.');
       }
-    } catch {
+    } catch (error) {
+      console.error('[handleSincronizarSuscripcion] Error:', error);
       Alert.alert('Error', 'Ocurrió un error al verificar. Intenta nuevamente.');
     } finally {
       setCargandoSincronizar(false);
