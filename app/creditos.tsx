@@ -669,6 +669,24 @@ export default function CreditosScreen() {
           Los créditos mensuales son adicionales a tus recargas manuales. Los créditos de compras únicas (Top-Up) no se ven afectados por la suscripción.
         </Text>
       </View>
+
+      {/* Botón de sincronización manual (siempre visible como escape hatch) */}
+      <TouchableOpacity
+        style={[styles.syncButton, { backgroundColor: backgroundPaper, borderColor: borderMain }]}
+        onPress={handleSincronizarSuscripcion}
+        disabled={cargandoSincronizar}
+      >
+        {cargandoSincronizar ? (
+          <ActivityIndicator size="small" color={primaryColor} />
+        ) : (
+          <>
+            <MaterialIcons name="sync" size={18} color={primaryColor} />
+            <Text style={[styles.syncButtonText, { color: textPrimary }]}>
+              ¿Tienes una suscripción activa que no aparece? Sincronizar
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
     </ScrollView>
   );
 
@@ -1008,4 +1026,20 @@ const styles = StyleSheet.create({
   },
   botonVerificarTexto: { fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '600' },
   historialTabText: { fontSize: TYPOGRAPHY.fontSize.md, fontWeight: '500' },
+  syncButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.lg,
+    padding: SPACING.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  syncButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: '500',
+  },
 });
