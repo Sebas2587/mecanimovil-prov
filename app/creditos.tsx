@@ -380,12 +380,9 @@ export default function CreditosScreen() {
 
   const handlePaymentSuccess = useCallback((_msg: string) => {
     setModalSuscripcion({ visible: false, checkoutUrl: '', suscripcionId: 0 });
-    Alert.alert(
-      '¡Suscripción Activada!',
-      'Tu suscripción mensual fue autorizada. Los créditos se acreditarán automáticamente cada mes.',
-      [{ text: 'Entendido', onPress: () => cargarDatos() }]
-    );
-  }, [cargarDatos]);
+    // Inactivar el modal antes de disparar la alerta para evitar bloqueos
+    handleSincronizarSuscripcion();
+  }, [handleSincronizarSuscripcion]);
 
   const handlePaymentFailure = useCallback((_msg: string) => {
     setModalSuscripcion({ visible: false, checkoutUrl: '', suscripcionId: 0 });
@@ -394,20 +391,14 @@ export default function CreditosScreen() {
 
   const handlePaymentPending = useCallback(() => {
     setModalSuscripcion({ visible: false, checkoutUrl: '', suscripcionId: 0 });
-    // "Pending" en el contexto de preapproval significa que el proveedor
-    // NO completó la autorización del débito automático en el WebView de MP.
-    // El registro de suscripción queda en estado 'pendiente' en la BD.
-    Alert.alert(
-      'Autorización no completada',
-      'No completaste la autorización del débito automático. Tu suscripción quedó en estado pendiente.\n\nPuedes intentarlo nuevamente o cancelarla desde la pestaña Suscripción.',
-      [{ text: 'Entendido', onPress: () => cargarDatos() }]
-    );
-  }, [cargarDatos]);
+    // Probar sincronización por si el pago fue aprobado pero el WebView no se enteró
+    handleSincronizarSuscripcion();
+  }, [handleSincronizarSuscripcion]);
 
   const handleModalClose = useCallback(() => {
     setModalSuscripcion({ visible: false, checkoutUrl: '', suscripcionId: 0 });
-    cargarDatos();
-  }, [cargarDatos]);
+    handleSincronizarSuscripcion();
+  }, [handleSincronizarSuscripcion]);
 
   const handleComprarPaquete = useCallback((paquete: PaqueteCreditos) => {
     router.push({ pathname: '/creditos/comprar', params: { paqueteId: paquete.id.toString() } });
