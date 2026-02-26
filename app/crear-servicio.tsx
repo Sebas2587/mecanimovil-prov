@@ -929,7 +929,7 @@ const CrearServicioScreen = () => {
         [
           {
             text: 'Ver mis servicios',
-            onPress: () => router.replace('/(tabs)/mis-servicios')
+            onPress: () => router.replace('/mis-servicios')
           }
         ]
       );
@@ -2168,6 +2168,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
+  },
+
+  // Empty states for Repuestos
+  emptyRepuestosContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  emptyRepuestosTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginTop: 12,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyRepuestosText: {
+    fontSize: 14,
+    color: '#4B5563',
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  emptyRepuestosOptions: {
+    width: '100%',
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 8,
+  },
+  emptyRepuestosHint: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  emptyOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  emptyOptionBullet: {
+    fontSize: 16,
+    color: '#3B82F6',
+    marginRight: 8,
+    lineHeight: 20,
+  },
+  emptyOptionText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#4B5563',
+    lineHeight: 18,
   },
 });
 
