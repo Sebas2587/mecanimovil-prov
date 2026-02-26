@@ -19,6 +19,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 // import { Picker } from '@react-native-picker/picker'; // Ya no se usa - reemplazado por selectores visuales
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import Header from '@/components/Header';
 
 // Interfaces
 interface MarcaVehiculo {
@@ -1569,9 +1570,13 @@ const CrearServicioScreen = () => {
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          title: isEditMode ? 'Editar Servicio' : 'Crear Nuevo Servicio',
-          headerBackTitle: 'Atrás',
+          headerShown: false,
         }}
+      />
+      <Header
+        title={isEditMode ? 'Editar Servicio' : 'Crear Nuevo Servicio'}
+        showBack
+        onBackPress={() => router.back()}
       />
 
       <KeyboardAvoidingView
