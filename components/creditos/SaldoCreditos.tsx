@@ -9,12 +9,16 @@ interface SaldoCreditosProps {
   saldo: number;
   ganancias?: number;
   onPress?: () => void;
+  titulo?: string;
+  disabled?: boolean;
 }
 
 export const SaldoCreditos: React.FC<SaldoCreditosProps> = ({
   saldo,
   ganancias,
   onPress,
+  titulo,
+  disabled = false,
 }) => {
   const theme = useTheme();
 
@@ -46,6 +50,7 @@ export const SaldoCreditos: React.FC<SaldoCreditosProps> = ({
   };
 
   const handlePress = () => {
+    if (disabled) return;
     if (onPress) {
       onPress();
     } else {
@@ -75,9 +80,10 @@ export const SaldoCreditos: React.FC<SaldoCreditosProps> = ({
         backgroundColor: backgroundPaper,
         borderColor: colorEstado + '30',
         borderWidth: 1,
-      }]}
+      }, disabled && { ...SHADOWS.sm, borderWidth: 0.5 }]}
       onPress={handlePress}
-      activeOpacity={0.7}
+      activeOpacity={disabled ? 1 : 0.7}
+      disabled={disabled}
     >
       <View style={styles.contentContainer}>
         {/* Sección de Créditos */}
@@ -91,7 +97,7 @@ export const SaldoCreditos: React.FC<SaldoCreditosProps> = ({
           </View>
           <View style={styles.infoContent}>
             <Text style={[styles.title, { color: textSecondary }]}>
-              Créditos
+              {titulo || 'Créditos'}
             </Text>
             <View style={styles.valueContainer}>
               <Text style={[styles.saldo, { color: colorEstado }]}>
@@ -130,14 +136,16 @@ export const SaldoCreditos: React.FC<SaldoCreditosProps> = ({
           </View>
         )}
 
-        {/* Flecha indicadora */}
-        <View style={styles.arrowContainer}>
-          <MaterialIcons
-            name="chevron-right"
-            size={24}
-            color={textSecondary}
-          />
-        </View>
+        {/* Flecha indicadora (oculta si está deshabilitado) */}
+        {!disabled && (
+          <View style={styles.arrowContainer}>
+            <MaterialIcons
+              name="chevron-right"
+              size={24}
+              color={textSecondary}
+            />
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );

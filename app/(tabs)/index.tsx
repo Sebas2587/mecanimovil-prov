@@ -30,6 +30,8 @@ import { CountdownTimer } from '@/components/solicitudes/CountdownTimer';
 import AlertaPagoExpirado from '@/components/alerts/AlertaPagoExpirado';
 import { AlertsPanel } from '@/components/alerts/AlertsPanel';
 import { useAlerts } from '@/context/AlertsContext';
+import suscripcionesService, { type SuscripcionProveedor } from '@/services/suscripcionesService';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface OrdenConChecklist extends Orden {
   checklist_instance?: ChecklistInstance;
@@ -66,6 +68,8 @@ export default function HomeScreen() {
   const [nuevasSolicitudesIds, setNuevasSolicitudesIds] = useState<Set<string>>(new Set());
 
   // Estado para suscripción
+  const [suscripcion, setSuscripcion] = useState<SuscripcionProveedor | null>(null);
+  const [loadingSuscripcion, setLoadingSuscripcion] = useState(false);
 
   // Estado para créditos
   const [saldoCreditos, setSaldoCreditos] = useState<CreditoProveedor | null>(null);
@@ -120,6 +124,7 @@ export default function HomeScreen() {
       cargarSolicitudesDisponibles();
       cargarCreditos();
       cargarEstadisticasMP();
+      cargarSuscripcion();
     }
   }, [estadoProveedor]);
 
@@ -131,6 +136,7 @@ export default function HomeScreen() {
         cargarSolicitudesDisponibles();
         cargarCreditos();
         cargarEstadisticasMP();
+        cargarSuscripcion();
         // Actualizar alertas cuando se regresa a la pantalla principal
         verificarYGenerarAlertas();
       }
@@ -164,6 +170,21 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Error cargando estadísticas MP:', error);
       // No es crítico si falla, mantener null
+    }
+  };
+
+  // Cargar suscripción
+  const cargarSuscripcion = async () => {
+    try {
+      setLoadingSuscripcion(true);
+      const result = await suscripcionesService.obtenerMiSuscripcion();
+      if (result.success) {
+        setSuscripcion(result.suscripcion);
+      }
+    } catch (error) {
+      console.error('Error cargando suscripción:', error);
+    } finally {
+      setLoadingSuscripcion(false);
     }
   };
 
@@ -567,7 +588,8 @@ export default function HomeScreen() {
       cargarOrdenes(),
       cargarSolicitudesDisponibles(),
       cargarCreditos(),
-      cargarEstadisticasMP()
+      cargarEstadisticasMP(),
+      cargarSuscripcion()
     ]);
     setRefreshing(false);
   };
@@ -870,9 +892,76 @@ export default function HomeScreen() {
                 saldo={saldoCreditos.saldo_creditos}
                 ganancias={estadisticasMP?.total_recibido_mes || 0}
                 onPress={() => router.push('/creditos')}
+                titulo={suscripcion?.plan.nombre}
               />
             </View>
           )}
+
+          {/* Banner de Suscripción */}
+          <View style={{ paddingHorizontal: 18, marginBottom: 20 }}>
+            {suscripcion && ['activa', 'pendiente', 'pausada'].includes(suscripcion.estado) ? (
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 16,
+                  borderRadius: 12,
+                  backgroundColor: suscripcion?.esta_activa ? '#F0FDF4' : '#FFFBEB',
+                  borderWidth: 1,
+                  borderColor: suscripcion?.esta_activa ? '#22C55E' : '#F59E0B',
+                }}
+                onPress={() => router.push('/creditos?tab=suscripcion')}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <MaterialCommunityIcons
+                    name={suscripcion?.esta_activa ? 'check-decagram' : 'clock-outline'}
+                    size={22}
+                    color={suscripcion?.esta_activa ? '#22C55E' : '#F59E0B'}
+                  />
+                  <View>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: (safeColors?.text as any)?.primary || '#000' }}>
+                      {suscripcion?.esta_activa ? 'Suscripción Activa' : 'Suscripción Pendiente'}
+                    </Text>
+                    <Text style={{ fontSize: 13, color: (safeColors?.text as any)?.secondary || '#666' }}>
+                      {suscripcion?.plan.nombre} · {suscripcion?.plan.creditos_mensuales} créd/mes
+                    </Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color={(safeColors?.text as any)?.secondary || '#666'} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 16,
+                  borderRadius: 12,
+                  backgroundColor: '#FFFFFF',
+                  borderWidth: 1,
+                  borderColor: primaryColor,
+                  ...SHADOWS.sm,
+                }}
+                onPress={() => router.push('/creditos?tab=suscripcion')}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <MaterialCommunityIcons name="lightning-bolt" size={22} color={primaryColor} />
+                  <View>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: primaryColor }}>
+                      Créditos Automáticos
+                    </Text>
+                    <Text style={{ fontSize: 13, color: (safeColors?.text as any)?.secondary || '#666' }}>
+                      Suscríbete y nunca te quedes sin créditos
+                    </Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color={primaryColor} />
+              </TouchableOpacity>
+            )}
+          </View>
 
           {/* Quick Actions - Diseño similar a categorías de app usuarios */}
           <View style={styles.quickActionsSection}>
@@ -963,7 +1052,7 @@ export default function HomeScreen() {
                   />
                 </View>
                 <Text style={styles.quickActionCardLabel} numberOfLines={2}>
-                  Créditos
+                  Suscripción
                 </Text>
               </TouchableOpacity>
             </ScrollView>

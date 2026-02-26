@@ -18,7 +18,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
 }) => {
   const theme = useTheme();
   const [procesando, setProcesando] = useState<number | null>(null);
-  
+
   // Obtener valores del sistema de diseño
   const colors = theme?.colors || COLORS || {};
   const textPrimary = colors?.text?.primary || '#000000';
@@ -29,7 +29,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
   const errorColor = colors?.error?.main || '#FF5555';
   const backgroundPaper = colors?.background?.paper || '#FFFFFF';
   const borderMain = colors?.border?.main || '#D0D0D0';
-  
+
   const formatearFecha = (fecha: string) => {
     const date = new Date(fecha);
     return date.toLocaleDateString('es-CL', {
@@ -63,7 +63,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
         return item.metodo_pago || 'No especificado';
     }
   };
-  
+
   const formatearPrecio = (precio: number) => {
     return new Intl.NumberFormat('es-CL', {
       style: 'currency',
@@ -71,7 +71,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
       minimumFractionDigits: 0,
     }).format(precio);
   };
-  
+
   const getEstadoColor = (estado: string) => {
     switch (estado) {
       case 'completada':
@@ -111,16 +111,16 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
         return textSecondary;
     }
   };
-  
+
   // Verificar estado del pago
   const handleVerificarPago = async (compra: CompraCreditos) => {
     try {
       setProcesando(compra.id);
       const result = await creditosService.verificarPago(compra.id);
-      
+
       if (result.success && result.data) {
         const { status, mensaje, creditos_acreditados } = result.data;
-        
+
         if (creditos_acreditados) {
           Alert.alert(
             '¡Pago Confirmado!',
@@ -145,16 +145,16 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
       setProcesando(null);
     }
   };
-  
+
   // Reintentar pago (genera nueva URL de MP)
   const handleReintentarPago = async (compra: CompraCreditos) => {
     try {
       setProcesando(compra.id);
       const result = await creditosService.reintentarPago(compra.id);
-      
+
       if (result.success && result.data && result.data.mercadopago) {
         const urlPago = result.data.mercadopago.init_point || result.data.mercadopago.sandbox_init_point;
-        
+
         if (urlPago) {
           const canOpen = await Linking.canOpenURL(urlPago);
           if (canOpen) {
@@ -172,7 +172,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
       setProcesando(null);
     }
   };
-  
+
   // Cancelar compra pendiente
   const handleCancelarCompra = async (compra: CompraCreditos) => {
     Alert.alert(
@@ -187,7 +187,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
             try {
               setProcesando(compra.id);
               const result = await creditosService.cancelarCompra(compra.id);
-              
+
               if (result.success) {
                 Alert.alert(
                   'Compra Cancelada',
@@ -207,24 +207,24 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
       ]
     );
   };
-  
+
   const renderItem = ({ item }: { item: CompraCreditos }) => {
     const isPendiente = item.estado === 'pendiente';
     const isMercadoPago = item.metodo_pago === 'mercadopago';
     const isProcessing = procesando === item.id;
-    
+
     return (
       <View style={[styles.item, { backgroundColor: backgroundPaper, borderColor: borderMain }]}>
         <View style={styles.itemHeader}>
           <View style={styles.itemHeaderLeft}>
-            <MaterialIcons 
-              name="shopping-cart" 
-              size={20} 
-              color={getEstadoColor(item.estado)} 
+            <MaterialIcons
+              name="shopping-cart"
+              size={20}
+              color={getEstadoColor(item.estado)}
             />
             <View style={styles.itemInfo}>
               <Text style={[styles.itemNombre, { color: textPrimary }]}>
-                {item.paquete.nombre}
+                {item.paquete?.nombre || 'Recarga a medida'}
               </Text>
               <Text style={[styles.itemFecha, { color: textSecondary }]}>
                 {formatearFecha(item.fecha_compra)}
@@ -237,7 +237,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
             </Text>
           </View>
         </View>
-        
+
         <View style={styles.itemDetails}>
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: textSecondary }]}>Créditos:</Text>
@@ -253,10 +253,10 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
           </View>
           <View style={styles.detailRow}>
             <View style={styles.detailRowLeft}>
-              <MaterialIcons 
-                name={getMetodoPagoIcon(item.metodo_pago)} 
-                size={16} 
-                color={getMetodoPagoColor(item.metodo_pago)} 
+              <MaterialIcons
+                name={getMetodoPagoIcon(item.metodo_pago)}
+                size={16}
+                color={getMetodoPagoColor(item.metodo_pago)}
               />
               <Text style={[styles.detailLabel, { color: textSecondary, marginLeft: SPACING.xs / 2 }]}>Método:</Text>
             </View>
@@ -269,10 +269,10 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
           {item.fecha_expiracion_creditos && item.estado === 'completada' && (
             <View style={styles.detailRow}>
               <View style={styles.detailRowLeft}>
-                <MaterialIcons 
-                  name="event" 
-                  size={16} 
-                  color={warningColor} 
+                <MaterialIcons
+                  name="event"
+                  size={16}
+                  color={warningColor}
                 />
                 <Text style={[styles.detailLabel, { color: textSecondary, marginLeft: SPACING.xs / 2 }]}>Expira:</Text>
               </View>
@@ -282,7 +282,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
             </View>
           )}
         </View>
-        
+
         {/* Acciones para compras pendientes */}
         {isPendiente && (
           <View style={styles.actionsContainer}>
@@ -297,12 +297,12 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
                 <View style={[styles.pendingMessage, { backgroundColor: warningColor + '10' }]}>
                   <MaterialIcons name="info-outline" size={16} color={warningColor} />
                   <Text style={[styles.pendingMessageText, { color: textSecondary }]}>
-                    {isMercadoPago 
+                    {isMercadoPago
                       ? 'Pago pendiente. Verifica el estado o reintenta el pago.'
                       : 'Esperando confirmación de transferencia.'}
                   </Text>
                 </View>
-                
+
                 <View style={styles.actionsButtons}>
                   {isMercadoPago && (
                     <>
@@ -313,7 +313,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
                         <MaterialIcons name="refresh" size={16} color="#FFFFFF" />
                         <Text style={styles.actionButtonText}>Verificar Pago</Text>
                       </TouchableOpacity>
-                      
+
                       <TouchableOpacity
                         style={[styles.actionButton, styles.actionButtonOutline, { borderColor: primaryColor }]}
                         onPress={() => handleReintentarPago(item)}
@@ -325,7 +325,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
                       </TouchableOpacity>
                     </>
                   )}
-                  
+
                   <TouchableOpacity
                     style={[styles.actionButton, styles.actionButtonDanger, { borderColor: errorColor }]}
                     onPress={() => handleCancelarCompra(item)}
@@ -343,7 +343,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
       </View>
     );
   };
-  
+
   if (compras.length === 0) {
     return (
       <View style={styles.emptyContainer}>
@@ -354,12 +354,12 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
       </View>
     );
   }
-  
+
   // Separar compras pendientes y completadas
   const comprasPendientes = compras.filter(c => c.estado === 'pendiente');
   const comprasOtras = compras.filter(c => c.estado !== 'pendiente');
   const comprasOrdenadas = [...comprasPendientes, ...comprasOtras];
-  
+
   return (
     <FlatList
       data={comprasOrdenadas}

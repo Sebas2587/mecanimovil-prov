@@ -26,21 +26,24 @@ const COMPRA_PENDIENTE_KEY = 'compra_creditos_pendiente';
 export default function ComprarCreditosScreen() {
   const theme = useTheme();
   const params = useLocalSearchParams();
-  const paqueteId = params.paqueteId ? parseInt(params.paqueteId as string) : null;
-  
-  const [paquete, setPaquete] = useState<PaqueteCreditos | null>(null);
+  const cantidadCreditosParams = params.cantidadCreditos ? parseInt(params.cantidadCreditos as string, 10) : null;
+
+  const [cantidad, setCantidad] = useState<number | null>(null);
+  const [precioTotal, setPrecioTotal] = useState<number>(0);
+  const PRECIO_BASE = 300; // Constante local para el precio por crédito
+
   const [loading, setLoading] = useState(true);
   const [comprando, setComprando] = useState(false);
   const [metodoPago, setMetodoPago] = useState<'mercadopago'>('mercadopago');
   const [compraRealizada, setCompraRealizada] = useState<CompraCreditos | null>(null);
   const [verificandoPago, setVerificandoPago] = useState(false);
   const [verificacionAutomatica, setVerificacionAutomatica] = useState(false);
-  
+
   // Estado para el WebView modal de Mercado Pago
   const [showMPWebView, setShowMPWebView] = useState(false);
   const [mpCheckoutUrl, setMPCheckoutUrl] = useState<string>('');
   const [mpCompraId, setMPCompraId] = useState<number>(0);
-  
+
   // Obtener valores del sistema de diseño
   const colors = theme?.colors || COLORS || {};
   const textPrimary = colors?.text?.primary || '#000000';
@@ -51,12 +54,12 @@ export default function ComprarCreditosScreen() {
   const borderMain = colors?.border?.main || '#D0D0D0';
   const successColor = colors?.success?.main || '#3DB6B1';
   const warningColor = colors?.warning?.main || '#FFB84D';
-  
+
   useEffect(() => {
-    cargarPaquete();
+    cargarDatos();
     verificarCompraPendiente();
-  }, [paqueteId]);
-  
+  }, [cantidadCreditosParams]);
+
   // Verificar el estado del pago cuando la pantalla vuelve a estar en foco
   useFocusEffect(
     useCallback(() => {
@@ -65,21 +68,21 @@ export default function ComprarCreditosScreen() {
       }
     }, [loading, comprando])
   );
-  
+
   // Verificar si hay una compra pendiente guardada
   const verificarCompraPendiente = async () => {
     try {
       const compraPendienteStr = await AsyncStorage.getItem(COMPRA_PENDIENTE_KEY);
       if (compraPendienteStr) {
         const compraPendiente = JSON.parse(compraPendienteStr);
-        
+
         // Verificar que sea del mismo paquete o que el usuario volvió de MP
         if (compraPendiente.compraId) {
           setVerificacionAutomatica(true);
-          
+
           // Verificar estado del pago automáticamente
           const result = await creditosService.verificarPago(compraPendiente.compraId);
-          
+
           if (result.success && result.data) {
             if (result.data.creditos_acreditados) {
               // Pago exitoso - limpiar y mostrar mensaje
@@ -101,7 +104,7 @@ export default function ComprarCreditosScreen() {
             }
             // Si está pendiente, no hacer nada - el usuario puede verificar manualmente
           }
-          
+
           setVerificacionAutomatica(false);
         }
       }
@@ -110,60 +113,40 @@ export default function ComprarCreditosScreen() {
       setVerificacionAutomatica(false);
     }
   };
-  
-  const cargarPaquete = async () => {
-    if (!paqueteId) {
-      Alert.alert('Error', 'No se especificó un paquete');
+
+  const cargarDatos = async () => {
+    if (!cantidadCreditosParams || isNaN(cantidadCreditosParams) || cantidadCreditosParams <= 0) {
+      Alert.alert('Error', 'Cantidad de créditos inválida');
       router.back();
       return;
     }
-    
-    try {
-      setLoading(true);
-      const result = await creditosService.obtenerPaquetes();
-      
-      if (result.success && result.data) {
-        const paqueteEncontrado = result.data.find((p) => p.id === paqueteId);
-        if (paqueteEncontrado) {
-          setPaquete(paqueteEncontrado);
-        } else {
-          Alert.alert('Error', 'Paquete no encontrado');
-          router.back();
-        }
-      } else {
-        Alert.alert('Error', result.error || 'Error al cargar el paquete');
-        router.back();
-      }
-    } catch (error: any) {
-      console.error('Error cargando paquete:', error);
-      Alert.alert('Error', 'Error al cargar el paquete');
-      router.back();
-    } finally {
-      setLoading(false);
-    }
+
+    setCantidad(cantidadCreditosParams);
+    setPrecioTotal(cantidadCreditosParams * PRECIO_BASE);
+    setLoading(false);
   };
-  
+
   const handleComprar = async () => {
-    if (!paquete) return;
-    
+    if (!cantidad) return;
+
     try {
       setComprando(true);
-      const result = await creditosService.comprarCreditos(paquete.id, metodoPago);
-      
+      const result = await creditosService.comprarCreditos(cantidad, metodoPago);
+
       if (result.success && result.data) {
         setCompraRealizada(result.data);
-        
+
         if (metodoPago === 'mercadopago' && result.data.mercadopago) {
           // Guardar información de la compra para verificar al volver
           await AsyncStorage.setItem(COMPRA_PENDIENTE_KEY, JSON.stringify({
             compraId: result.data.id,
-            paqueteId: paquete.id,
+            cantidad: cantidad,
             timestamp: Date.now(),
           }));
-          
+
           // Obtener URL de pago
           const urlPago = result.data.mercadopago.init_point || result.data.mercadopago.sandbox_init_point;
-          
+
           if (urlPago) {
             // Abrir el WebView modal de Mercado Pago (in-app)
             setMPCheckoutUrl(urlPago);
@@ -189,20 +172,20 @@ export default function ComprarCreditosScreen() {
       setComprando(false);
     }
   };
-  
+
   // Handlers para el WebView modal de Mercado Pago
   const handleMPClose = useCallback(() => {
     setShowMPWebView(false);
     setMPCheckoutUrl('');
     setMPCompraId(0);
   }, []);
-  
+
   const handleMPPaymentSuccess = useCallback(async (message: string) => {
     setShowMPWebView(false);
     setMPCheckoutUrl('');
     setMPCompraId(0);
     await AsyncStorage.removeItem(COMPRA_PENDIENTE_KEY);
-    
+
     Alert.alert(
       '¡Pago Exitoso!',
       message,
@@ -214,24 +197,24 @@ export default function ComprarCreditosScreen() {
       ]
     );
   }, []);
-  
+
   const handleMPPaymentFailure = useCallback(async (message: string) => {
     setShowMPWebView(false);
     setMPCheckoutUrl('');
     setMPCompraId(0);
     await AsyncStorage.removeItem(COMPRA_PENDIENTE_KEY);
-    
+
     Alert.alert('Pago No Exitoso', message, [
-      { text: 'Intentar de nuevo', onPress: () => {} },
+      { text: 'Intentar de nuevo', onPress: () => { } },
       { text: 'Ir a Créditos', onPress: () => router.replace('/creditos') },
     ]);
   }, []);
-  
+
   const handleMPPaymentPending = useCallback(() => {
     setShowMPWebView(false);
     setMPCheckoutUrl('');
     setMPCompraId(0);
-    
+
     Alert.alert(
       'Pago Pendiente',
       'Tu pago está siendo procesado. Puedes verificar el estado en el historial de compras.',
@@ -243,11 +226,11 @@ export default function ComprarCreditosScreen() {
       ]
     );
   }, []);
-  
-  
+
+
   const handleCancelarCompra = async () => {
     if (!compraRealizada) return;
-    
+
     Alert.alert(
       'Cancelar Compra',
       '¿Estás seguro de que deseas cancelar esta compra?',
@@ -274,10 +257,10 @@ export default function ComprarCreditosScreen() {
       ]
     );
   };
-  
+
   // Función para manejar el retroceso - siempre navegar a créditos para asegurar que funcione
   const handleGoBack = useCallback(() => {
-    router.replace('/(tabs)/creditos');
+    router.replace('/creditos');
   }, []);
 
   if (loading || verificacionAutomatica) {
@@ -302,8 +285,8 @@ export default function ComprarCreditosScreen() {
       </View>
     );
   }
-  
-  if (!paquete) {
+
+  if (!cantidad) {
     return (
       <View style={[styles.container, { backgroundColor: backgroundDefault }]}>
         <Stack.Screen
@@ -319,25 +302,25 @@ export default function ComprarCreditosScreen() {
         <View style={styles.errorContainer}>
           <MaterialIcons name="error-outline" size={48} color={colors?.error?.main || '#FF5555'} />
           <Text style={[styles.errorText, { color: textPrimary }]}>
-            Paquete no encontrado
+            Información de compra inválida
           </Text>
         </View>
       </View>
     );
   }
-  
+
   const precioFormateado = new Intl.NumberFormat('es-CL', {
     style: 'currency',
     currency: 'CLP',
     minimumFractionDigits: 0,
-  }).format(paquete.precio);
-  
+  }).format(precioTotal);
+
   const precioPorCreditoFormateado = new Intl.NumberFormat('es-CL', {
     style: 'currency',
     currency: 'CLP',
     minimumFractionDigits: 0,
-  }).format(paquete.precio_por_credito);
-  
+  }).format(PRECIO_BASE);
+
   // Pantalla principal de compra
   return (
     <View style={[styles.container, { backgroundColor: backgroundDefault }]}>
@@ -354,27 +337,18 @@ export default function ComprarCreditosScreen() {
       <ScrollView style={styles.content}>
         <View style={[styles.paqueteCard, { backgroundColor: backgroundPaper }]}>
           <Text style={[styles.paqueteNombre, { color: textPrimary }]}>
-            {paquete.nombre}
+            Recarga a medida
           </Text>
-          
-          {paquete.bonificacion_creditos > 0 && (
-            <View style={[styles.bonificacion, { backgroundColor: successColor + '20' }]}>
-              <MaterialIcons name="card-giftcard" size={20} color={successColor} />
-              <Text style={[styles.bonificacionText, { color: successColor }]}>
-                +{paquete.bonificacion_creditos} créditos de bonificación
-              </Text>
-            </View>
-          )}
-          
+
           <View style={styles.creditosContainer}>
             <Text style={[styles.creditos, { color: primaryColor }]}>
-              {paquete.total_creditos}
+              {cantidad}
             </Text>
             <Text style={[styles.creditosLabel, { color: textSecondary }]}>
-              créditos totales
+              créditos a comprar
             </Text>
           </View>
-          
+
           <View style={styles.precioContainer}>
             <Text style={[styles.precio, { color: textPrimary }]}>
               {precioFormateado}
@@ -384,8 +358,8 @@ export default function ComprarCreditosScreen() {
             </Text>
           </View>
         </View>
-        
-        
+
+
         <TouchableOpacity
           style={[
             styles.comprarButton,
@@ -399,10 +373,10 @@ export default function ComprarCreditosScreen() {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <>
-              <MaterialIcons 
-                name="payment" 
-                size={24} 
-                color="#FFFFFF" 
+              <MaterialIcons
+                name="payment"
+                size={24}
+                color="#FFFFFF"
                 style={{ marginRight: 8 }}
               />
               <Text style={styles.comprarButtonText}>
@@ -411,7 +385,7 @@ export default function ComprarCreditosScreen() {
             </>
           )}
         </TouchableOpacity>
-        
+
         {/* Información de seguridad */}
         <View style={styles.securityInfo}>
           <MaterialIcons name="lock" size={16} color={textSecondary} />
@@ -420,7 +394,7 @@ export default function ComprarCreditosScreen() {
           </Text>
         </View>
       </ScrollView>
-      
+
       {/* Modal de Mercado Pago in-app */}
       <MercadoPagoWebViewModal
         visible={showMPWebView}

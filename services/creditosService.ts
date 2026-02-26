@@ -18,7 +18,7 @@ export interface CompraCreditos {
   id: number;
   proveedor: number;
   proveedor_nombre: string;
-  paquete: PaqueteCreditos;
+  paquete?: PaqueteCreditos | null;
   cantidad_creditos: number;
   precio_total: number;
   metodo_pago: 'mercadopago' | 'transferencia' | 'migracion';
@@ -147,15 +147,15 @@ export const obtenerSaldo = async (): Promise<ApiResponse<CreditoProveedor>> => 
 export const obtenerPaquetes = async (): Promise<ApiResponse<PaqueteCreditos[]>> => {
   try {
     const response = await api.get('/suscripciones/creditos/paquetes/disponibles/');
-    
+
     let paquetes: PaqueteCreditos[] = [];
-    
+
     if (response.data && Array.isArray(response.data)) {
       paquetes = response.data;
     } else if (response.data?.results && Array.isArray(response.data.results)) {
       paquetes = response.data.results;
     }
-    
+
     return {
       success: true,
       data: paquetes
@@ -170,25 +170,25 @@ export const obtenerPaquetes = async (): Promise<ApiResponse<PaqueteCreditos[]>>
 };
 
 /**
- * Crea una compra de créditos
+ * Crea una compra de créditos dinámica
  */
 export const comprarCreditos = async (
-  paqueteId: number,
+  cantidadCreditos: number,
   metodoPago: 'mercadopago' | 'transferencia' = 'mercadopago'
 ): Promise<ApiResponse<CompraCreditos>> => {
   try {
     const response = await api.post('/suscripciones/creditos/compras/', {
-      paquete_id: paqueteId,
+      cantidad_creditos: cantidadCreditos,
       metodo_pago: metodoPago
     });
-    
+
     return {
       success: true,
       data: response.data
     };
   } catch (error: any) {
     console.error('Error comprando créditos:', error);
-    
+
     let errorMessage = 'Error al comprar créditos';
     if (error.response?.data) {
       if (typeof error.response.data === 'string') {
@@ -211,7 +211,7 @@ export const comprarCreditos = async (
     } else if (error.message) {
       errorMessage = error.message;
     }
-    
+
     return {
       success: false,
       error: errorMessage
@@ -230,7 +230,7 @@ export const confirmarPago = async (
     const response = await api.post(`/suscripciones/creditos/compras/${compraId}/confirmar-pago/`, {
       payment_id_mp: paymentIdMp
     });
-    
+
     return {
       success: true,
       data: response.data
@@ -347,14 +347,14 @@ export const verificarCreditosOferta = async (
 ): Promise<ApiResponse<VerificacionCreditosOferta>> => {
   try {
     const body: { solicitud_id?: string; servicios_ids?: number[] } = {};
-    
+
     if (solicitudId) {
       body.solicitud_id = solicitudId;
     }
     if (serviciosIds && serviciosIds.length > 0) {
       body.servicios_ids = serviciosIds;
     }
-    
+
     const response = await api.post('/suscripciones/creditos/mi-saldo/verificar-creditos-oferta/', body);
     return {
       success: true,

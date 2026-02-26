@@ -27,7 +27,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import creditosService, {
   type CreditoProveedor,
@@ -40,13 +40,17 @@ import suscripcionesService, {
   type PlanSuscripcion,
   type SuscripcionProveedor,
 } from '@/services/suscripcionesService';
-import mercadoPagoProveedorService from '@/services/mercadoPagoProveedorService';
+import mercadoPagoProveedorService, {
+  type EstadisticasPagosMP,
+  type PagoRecibido,
+} from '@/services/mercadoPagoProveedorService';
 import {
   SaldoCreditos,
   PaqueteCard,
   HistorialCompras,
   HistorialConsumos,
 } from '@/components/creditos';
+import { InteractiveStatsChart } from '@/components/creditos/InteractiveStatsChart';
 import MercadoPagoWebViewModal from '@/components/creditos/MercadoPagoWebViewModal';
 import Header from '@/components/Header';
 
@@ -192,8 +196,16 @@ export default function CreditosScreen() {
   const successColor = colors?.success?.main ?? '#22C55E';
 
   // ── Estado de UI ──────────────────────────────────────────
+  const { tab } = useLocalSearchParams<{ tab: TabType }>();
   const [activeTab, setActiveTab] = useState<TabType>('saldo');
   const [historialSubTab, setHistorialSubTab] = useState<HistorialSubTabType>('compras');
+
+  // Manejar cambio de pestaña por parámetros (navegación profunda)
+  useEffect(() => {
+    if (tab && ['saldo', 'suscripcion', 'tienda', 'historial'].includes(tab)) {
+      setActiveTab(tab as TabType);
+    }
+  }, [tab]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [cargandoSuscripcion, setCargandoSuscripcion] = useState(false);
@@ -213,6 +225,9 @@ export default function CreditosScreen() {
   const [consumos, setConsumos] = useState<ConsumoCredito[]>([]);
   const [suscripcion, setSuscripcion] = useState<SuscripcionProveedor | null>(null);
   const [planes, setPlanes] = useState<PlanSuscripcion[]>([]);
+  const [estadisticasMP, setEstadisticasMP] = useState<EstadisticasPagosMP | null>(null);
+  const [historialPagos, setHistorialPagos] = useState<PagoRecibido[]>([]);
+  const [cantidadComprar, setCantidadComprar] = useState<number>(5);
 
   // ── Computed ──────────────────────────────────────────────
   const tieneSuscripcionActiva = useMemo(
@@ -253,6 +268,8 @@ export default function CreditosScreen() {
         consumosResult,
         suscripcionResult,
         planesResult,
+        estadisticasMPResult,
+        historialPagosResult,
       ] = await Promise.all([
         creditosService.obtenerSaldo(),
         creditosService.obtenerEstadisticas(),
@@ -260,6 +277,8 @@ export default function CreditosScreen() {
         creditosService.obtenerHistorialConsumos(50),
         suscripcionesService.obtenerMiSuscripcion(),
         suscripcionesService.obtenerPlanes(),
+        mercadoPagoProveedorService.obtenerEstadisticasPagos(),
+        mercadoPagoProveedorService.obtenerHistorialPagos(),
       ]);
 
       if (saldoResult.success && saldoResult.data) setSaldo(saldoResult.data);
@@ -268,6 +287,12 @@ export default function CreditosScreen() {
       if (consumosResult.success && consumosResult.data) setConsumos(consumosResult.data);
       if (suscripcionResult.success) setSuscripcion(suscripcionResult.suscripcion);
       if (planesResult.success) setPlanes(planesResult.planes);
+      if (estadisticasMPResult && estadisticasMPResult.success && estadisticasMPResult.data) {
+        setEstadisticasMP(estadisticasMPResult.data);
+      }
+      if (historialPagosResult?.success && historialPagosResult.data) {
+        setHistorialPagos(historialPagosResult.data.historial);
+      }
 
       // 3. Paquetes (solo si la tab tienda es relevante)
       const paquetesResult = await creditosService.obtenerPaquetes();
@@ -454,7 +479,20 @@ export default function CreditosScreen() {
       contentContainerStyle={{ paddingBottom: 32 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
     >
-      {saldo && <SaldoCreditos saldo={saldo.saldo_creditos} />}
+      {saldo && (
+        <SaldoCreditos
+          saldo={saldo.saldo_creditos}
+          ganancias={estadisticasMP?.total_recibido_mes}
+          titulo={suscripcion?.plan.nombre}
+          disabled={true}
+        />
+      )}
+
+      {/* Gráfica interactiva */}
+      <InteractiveStatsChart
+        ingresos={historialPagos}
+        consumos={consumos}
+      />
 
       {/* Banner saldo cero con suscripción activa → comprar extra */}
       {saldoCero && tieneSuscripcionActiva && (
@@ -471,57 +509,6 @@ export default function CreditosScreen() {
             </Text>
           </View>
           <MaterialIcons name="chevron-right" size={22} color="#F59E0B" />
-        </TouchableOpacity>
-      )}
-
-      {/* Banner de suscripción */}
-      {tieneSuscripcionActiva ? (
-        <TouchableOpacity
-          style={[
-            styles.suscripcionBanner,
-            {
-              backgroundColor: suscripcion?.esta_activa ? '#F0FDF4' : '#FFFBEB',
-              borderColor: suscripcion?.esta_activa ? '#22C55E' : '#F59E0B',
-            },
-          ]}
-          onPress={() => setActiveTab('suscripcion')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.bannerLeft}>
-            <MaterialCommunityIcons
-              name={suscripcion?.esta_activa ? 'check-decagram' : 'clock-outline'}
-              size={20}
-              color={suscripcion?.esta_activa ? '#22C55E' : '#F59E0B'}
-            />
-            <View>
-              <Text style={[styles.suscripcionBannerTitulo, { color: textPrimary }]}>
-                {suscripcion?.esta_activa ? 'Suscripción Activa' : 'Suscripción Pendiente'}
-              </Text>
-              <Text style={[styles.suscripcionBannerSubtitulo, { color: textSecondary }]}>
-                {suscripcion?.plan.nombre} · {suscripcion?.plan.creditos_mensuales} créd/mes
-              </Text>
-            </View>
-          </View>
-          <MaterialIcons name="chevron-right" size={20} color={textSecondary} />
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity
-          style={[styles.suscripcionBanner, { backgroundColor: backgroundPaper, borderColor: primaryColor }]}
-          onPress={() => setActiveTab('suscripcion')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.bannerLeft}>
-            <MaterialCommunityIcons name="lightning-bolt" size={20} color={primaryColor} />
-            <View>
-              <Text style={[styles.suscripcionBannerTitulo, { color: textPrimary }]}>
-                Créditos Automáticos Cada Mes
-              </Text>
-              <Text style={[styles.suscripcionBannerSubtitulo, { color: textSecondary }]}>
-                Suscríbete y nunca te quedes sin créditos
-              </Text>
-            </View>
-          </View>
-          <MaterialIcons name="chevron-right" size={20} color={primaryColor} />
         </TouchableOpacity>
       )}
 
@@ -572,6 +559,25 @@ export default function CreditosScreen() {
       contentContainerStyle={{ paddingBottom: 32 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
     >
+      {/* Botón de sincronización manual (Sutil en la parte superior) */}
+      <TouchableOpacity
+        style={styles.topSyncContainer}
+        onPress={handleSincronizarSuscripcion}
+        disabled={cargandoSincronizar}
+        activeOpacity={0.7}
+      >
+        {cargandoSincronizar ? (
+          <ActivityIndicator size="small" color={primaryColor} />
+        ) : (
+          <View style={styles.topSyncContent}>
+            <MaterialIcons name="sync" size={16} color={primaryColor} />
+            <Text style={[styles.topSyncText, { color: primaryColor }]}>
+              ¿Suscripción no aparece? Sincronizar
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
       {/* Suscripción activa */}
       {suscripcion && ['activa', 'pendiente', 'pausada'].includes(suscripcion.estado) && (
         <View
@@ -644,101 +650,131 @@ export default function CreditosScreen() {
         </View>
       )}
 
-      {/* Hero */}
-      <View style={styles.heroSection}>
-        <MaterialCommunityIcons name="lightning-bolt-circle" size={40} color={primaryColor} />
-        <Text style={[styles.heroTitulo, { color: textPrimary }]}>Créditos Automáticos Cada Mes</Text>
-        <Text style={[styles.heroSubtitulo, { color: textSecondary }]}>
-          Elige un plan y recibe créditos automáticamente. Cancela cuando quieras.
-        </Text>
+      {/* Contenedor de Planes con espaciado superior consistente */}
+      <View style={{ marginTop: suscripcion && ['activa', 'pendiente', 'pausada'].includes(suscripcion.estado) ? SPACING.sm : 0 }}>
+        {/* Planes */}
+        {planes.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons name="package-variant-closed" size={48} color={textSecondary} />
+            <Text style={[styles.emptyText, { color: textSecondary }]}>
+              No hay planes disponibles en este momento.
+            </Text>
+          </View>
+        ) : (
+          planes.map((plan) => (
+            <PlanCard
+              key={plan.id}
+              plan={plan}
+              suscripcionActual={suscripcion}
+              onSuscribirse={handleSuscribirse}
+              cargando={cargandoSuscripcion}
+              colors={colors}
+            />
+          ))
+        )}
       </View>
 
-      {/* Planes */}
-      {planes.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons name="package-variant-closed" size={48} color={textSecondary} />
-          <Text style={[styles.emptyText, { color: textSecondary }]}>
-            No hay planes disponibles en este momento.
-          </Text>
-        </View>
-      ) : (
-        planes.map((plan) => (
-          <PlanCard
-            key={plan.id}
-            plan={plan}
-            suscripcionActual={suscripcion}
-            onSuscribirse={handleSuscribirse}
-            cargando={cargandoSuscripcion}
-            colors={colors}
-          />
-        ))
-      )}
-
-      <View style={[styles.notaContainer, { backgroundColor: backgroundPaper, borderColor: borderMain }]}>
+      <View style={[styles.notaContainer, { backgroundColor: backgroundPaper, borderColor: borderMain, marginTop: SPACING.md }]}>
         <MaterialIcons name="info-outline" size={16} color={textSecondary} />
         <Text style={[styles.notaTexto, { color: textSecondary }]}>
           Los créditos mensuales son adicionales a tus recargas manuales. Los créditos de compras únicas (Top-Up) no se ven afectados por la suscripción.
         </Text>
       </View>
+    </ScrollView>
+  );
 
-      {/* Botón de sincronización manual (siempre visible como escape hatch) */}
-      <TouchableOpacity
-        style={[styles.syncButton, { backgroundColor: backgroundPaper, borderColor: borderMain }]}
-        onPress={handleSincronizarSuscripcion}
-        disabled={cargandoSincronizar}
+  const renderTabTienda = () => {
+    const PRECIO_BASE = 300;
+    const PRECIO_TOTAL = cantidadComprar * PRECIO_BASE;
+    const precioFormateado = new Intl.NumberFormat('es-CL', {
+      style: 'currency',
+      currency: 'CLP',
+      minimumFractionDigits: 0,
+    }).format(PRECIO_TOTAL);
+
+    return (
+      <ScrollView
+        style={styles.scrollContent}
+        contentContainerStyle={{ paddingBottom: 32 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
       >
-        {cargandoSincronizar ? (
-          <ActivityIndicator size="small" color={primaryColor} />
-        ) : (
-          <>
-            <MaterialIcons name="sync" size={18} color={primaryColor} />
-            <Text style={[styles.syncButtonText, { color: textPrimary }]}>
-              ¿Tienes una suscripción activa que no aparece? Sincronizar
-            </Text>
-          </>
-        )}
-      </TouchableOpacity>
-    </ScrollView>
-  );
-
-  const renderTabTienda = () => (
-    <ScrollView
-      style={styles.scrollContent}
-      contentContainerStyle={{ paddingBottom: 32 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
-    >
-      {/* Banner si saldo = 0 */}
-      {saldoCero && (
-        <View style={[styles.bannerAlerta, { backgroundColor: '#FFF3E0', borderColor: '#F59E0B', marginBottom: 12 }]}>
-          <MaterialCommunityIcons name="lightning-bolt" size={20} color="#F59E0B" />
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={[styles.bannerTitulo, { color: '#B45309' }]}>Sin créditos disponibles</Text>
-            <Text style={[styles.bannerSubtitulo, { color: '#92400E' }]}>
-              Comprá un paquete extra para seguir postulando antes de la recarga automática
-            </Text>
+        {/* Banner si saldo = 0 */}
+        {saldoCero && (
+          <View style={[styles.bannerAlerta, { backgroundColor: '#FFF3E0', borderColor: '#F59E0B', marginBottom: 12 }]}>
+            <MaterialCommunityIcons name="lightning-bolt" size={20} color="#F59E0B" />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[styles.bannerTitulo, { color: '#B45309' }]}>Sin créditos disponibles</Text>
+              <Text style={[styles.bannerSubtitulo, { color: '#92400E' }]}>
+                Comprá créditos para seguir postulando a los trabajos disponibles.
+              </Text>
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {paquetes.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <MaterialIcons name="shopping-cart" size={48} color={textSecondary} />
-          <Text style={[styles.emptyText, { color: textSecondary }]}>No hay paquetes disponibles</Text>
+        <View style={[styles.planCard, { backgroundColor: backgroundPaper }]}>
+          <Text style={[styles.planNombre, { color: textPrimary, textAlign: 'center', marginBottom: SPACING.md }]}>
+            Comprar Créditos
+          </Text>
+          <Text style={[styles.planDescripcion, { color: textSecondary, textAlign: 'center', marginBottom: SPACING.xl }]}>
+            Ingresa la cantidad exacta de créditos que necesitas. Cada crédito tiene un valor base de $300 CLP.
+          </Text>
+
+          <View style={styles.counterContainer}>
+            <TouchableOpacity
+              style={[styles.counterButton, { backgroundColor: backgroundDefault, borderColor: borderMain }]}
+              onPress={() => setCantidadComprar(prev => Math.max(1, prev - 1))}
+            >
+              <MaterialIcons name="remove" size={24} color={textPrimary} />
+            </TouchableOpacity>
+
+            <View style={styles.counterValueContainer}>
+              <Text style={[styles.counterValue, { color: primaryColor }]}>{cantidadComprar}</Text>
+              <Text style={[styles.counterLabel, { color: textSecondary }]}>créditos</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.counterButton, { backgroundColor: backgroundDefault, borderColor: borderMain }]}
+              onPress={() => setCantidadComprar(prev => prev + 1)}
+            >
+              <MaterialIcons name="add" size={24} color={textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.quickSelectContainer}>
+            {[5, 10, 20, 50].map(val => (
+              <TouchableOpacity
+                key={val}
+                style={[
+                  styles.quickSelectButton,
+                  cantidadComprar === val ? { backgroundColor: primaryColor, borderColor: primaryColor } : { backgroundColor: backgroundDefault, borderColor: borderMain }
+                ]}
+                onPress={() => setCantidadComprar(val)}
+              >
+                <Text style={[
+                  styles.quickSelectText,
+                  cantidadComprar === val ? { color: '#FFF' } : { color: textPrimary }
+                ]}>+{val}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={[styles.separador, { backgroundColor: borderMain }]} />
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md }}>
+            <Text style={{ fontSize: TYPOGRAPHY.fontSize.lg, color: textSecondary, fontWeight: '600' }}>Total a pagar:</Text>
+            <Text style={{ fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: 'bold', color: textPrimary }}>{precioFormateado}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.botonSuscribirse, { backgroundColor: primaryColor }]}
+            onPress={() => router.push(`/creditos/comprar?cantidadCreditos=${cantidadComprar}`)}
+          >
+            <Text style={[styles.botonSuscribirseTexto, { color: '#FFF' }]}>Continuar</Text>
+          </TouchableOpacity>
         </View>
-      ) : (
-        <View style={{ gap: SPACING.md }}>
-          {paquetes.map((paquete) => (
-            <PaqueteCard
-              key={paquete.id}
-              paquete={paquete}
-              destacado={paquete.destacado}
-              onPress={() => handleComprarPaquete(paquete)}
-            />
-          ))}
-        </View>
-      )}
-    </ScrollView>
-  );
+      </ScrollView>
+    );
+  };
 
   const renderTabHistorial = () => (
     <View style={styles.historialContainer}>
@@ -963,14 +999,6 @@ const styles = StyleSheet.create({
   },
   botonCancelarTexto: { fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '600' },
 
-  heroSection: { alignItems: 'center', paddingVertical: SPACING.lg, gap: 8 },
-  heroTitulo: { fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: '800', textAlign: 'center' },
-  heroSubtitulo: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: SPACING.md,
-  },
 
   // ─── PlanCard ─────────────────────────────────────────────
   planCard: {
@@ -1052,5 +1080,72 @@ const styles = StyleSheet.create({
   syncButtonText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontWeight: '500',
+  },
+  topSyncContainer: {
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  topSyncContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F0F7FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D0E7FF',
+  },
+  topSyncText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: '600',
+  },
+  // ─── Custom Counter ────────────────────────────────────────
+  counterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.lg,
+    gap: SPACING.lg,
+  },
+  counterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  counterValueContainer: {
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  counterValue: {
+    fontSize: 48,
+    fontWeight: '900',
+    lineHeight: 52,
+  },
+  counterLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  quickSelectContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  quickSelectButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  quickSelectText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: '700',
   },
 });

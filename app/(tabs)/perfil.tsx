@@ -270,6 +270,15 @@ export default function PerfilScreen() {
       {/* Header consistente del sistema de diseño */}
       <Header
         title="Configuración"
+        rightComponent={
+          <TouchableOpacity
+            onPress={handleGestionarPerfil}
+            style={styles.subtleEditButton}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="edit" size={24} color={primary500} />
+          </TouchableOpacity>
+        }
       />
 
       <ScrollView
@@ -296,20 +305,6 @@ export default function PerfilScreen() {
             <Text style={[styles.statusText, { color: textTertiary }]}>{getEstadoTexto()}</Text>
           </View>
 
-          {/* Botón de Editar Perfil - Separado de Información Personal */}
-          <TouchableOpacity
-            style={[styles.editProfileButton, {
-              backgroundColor: primary500,
-              borderColor: primary500,
-            }]}
-            onPress={handleGestionarPerfil}
-            activeOpacity={0.8}
-          >
-            <MaterialIcons name="edit" size={18} color={textOnPrimary} />
-            <Text style={[styles.editProfileButtonText, { color: textOnPrimary }]}>
-              Editar Perfil
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* Sección "Información Personal" (About Me) */}
@@ -356,8 +351,8 @@ export default function PerfilScreen() {
                   resizeMode="cover"
                 />
               </View>
-              <Text style={[styles.configCardTitle, { color: textPrimary }]}>Créditos</Text>
-              <Text style={[styles.configCardSubtitle, { color: textTertiary }]}>Gestionar saldo</Text>
+              <Text style={[styles.configCardTitle, { color: textPrimary }]}>Suscripción</Text>
+              <Text style={[styles.configCardSubtitle, { color: textTertiary }]}>Gestionar mi plan</Text>
             </TouchableOpacity>
 
             {/* Card de Horarios */}
@@ -586,6 +581,14 @@ const createStyles = () => {
     statusText: {
       fontSize: fontSizeBase,
       fontWeight: fontWeightMedium,
+    },
+    // Botón sutil en el header
+    subtleEditButton: {
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: -spacingSm, // Ajustar para alinear con el borde del contenedor
     },
     // Botón de Editar Perfil - Usando tokens del sistema de diseño
     editProfileButton: {
