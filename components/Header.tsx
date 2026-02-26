@@ -91,7 +91,7 @@ export default function Header({
         {/* Componente izquierdo */}
         <View style={styles.leftContainer}>
           {leftComponent ||
-            (showBack && (
+            (showBack ? (
               <TouchableOpacity
                 onPress={onBackPress}
                 style={styles.iconButton}
@@ -99,7 +99,7 @@ export default function Header({
               >
                 <Ionicons name="arrow-back" size={24} color={primaryColor} />
               </TouchableOpacity>
-            ))}
+            ) : null)}
         </View>
 
         {/* Título centrado */}

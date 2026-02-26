@@ -534,7 +534,13 @@ const CrearServicioScreen = () => {
 
       const response = await serviciosAPI.obtenerMisMarcas();
       console.log('✅ Marcas del proveedor cargadas:', response.data?.length || 0);
-      setMarcas(response.data || []);
+
+      const marcasObtenidas = response.data || [];
+      // Agregar la marca genérica (ID 0) a la lista
+      setMarcas([
+        { id: 0, nombre: 'Todas las marcas (Generico)', logo: null },
+        ...marcasObtenidas
+      ]);
     } catch (error) {
       console.error('❌ Error cargando marcas del proveedor:', error);
       Alert.alert('Error', 'No se pudieron cargar las marcas de vehículos que usted atiende');
@@ -796,8 +802,8 @@ const CrearServicioScreen = () => {
       return;
     }
 
-    // Validar marca del vehículo (siempre requerida)
-    if (!marcaSeleccionada) {
+    // Validar marca del vehículo (siempre requerida, 0 = genérica)
+    if (marcaSeleccionada === null || marcaSeleccionada === undefined) {
       Alert.alert('Error', 'Debes seleccionar una marca de vehículo');
       return;
     }
@@ -889,7 +895,7 @@ const CrearServicioScreen = () => {
       const datosServicio = {
         tipo_servicio: tipoServicio,
         servicio: servicioSeleccionado,
-        marca_vehiculo_seleccionada: marcaSeleccionada,
+        marca_vehiculo_seleccionada: marcaSeleccionada === 0 ? null : marcaSeleccionada,
         detalles_adicionales: descripcion.trim(),
         costo_mano_de_obra_sin_iva: parseFloat(costoManoObra),
         costo_repuestos_sin_iva: parseFloat(costoRepuestos) || 0,
@@ -1105,14 +1111,14 @@ const CrearServicioScreen = () => {
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>🚗 Marca del Vehículo</Text>
         <Text style={styles.subtitle}>
-          {isEditMode && !marcaSeleccionada && servicioSeleccionado ?
+          {isEditMode && (marcaSeleccionada === null || marcaSeleccionada === undefined) && servicioSeleccionado ?
             `Determinando marca del servicio... (${marcas.length} disponibles)` :
             `Selecciona la marca de vehículo que atenderás (${marcas.length} disponibles)`
           }
         </Text>
 
         {/* Indicador de búsqueda en modo edición */}
-        {isEditMode && !marcaSeleccionada && servicioSeleccionado && (
+        {isEditMode && (marcaSeleccionada === null || marcaSeleccionada === undefined) && servicioSeleccionado && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#3B82F6" />
             <Text style={styles.loadingText}>Buscando marca del servicio...</Text>
@@ -1162,7 +1168,7 @@ const CrearServicioScreen = () => {
   // Componente de selección de servicio
   const ServicioSelector = () => {
     // Ya no filtramos por tipoServicio !== 'con_repuestos', mostramos para todos
-    if (!marcaSeleccionada) return null;
+    if (marcaSeleccionada === null || marcaSeleccionada === undefined) return null;
 
     const handleSelectServicio = (servicioId: number, servicioNombre: string) => {
       console.log('⚙️ Servicio seleccionado:', servicioId, servicioNombre);
