@@ -612,53 +612,6 @@ export default function EspecialidadesMarcasScreen() {
             </View>
           </View>
 
-          {/* Botón de editar */}
-          {!modoEdicion ? (
-            <View style={styles.editButtonContainer}>
-              <TouchableOpacity
-                style={[styles.editButtonTop, { backgroundColor: primary500, ...shadowMd }]}
-                onPress={() => setModoEdicion(true)}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons name="edit" size={18} color={COLORS?.text?.onPrimary || '#FFFFFF'} />
-                <Text style={[styles.editButtonTextTop, { color: COLORS?.text?.onPrimary || '#FFFFFF' }]}>Editar</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.editingButtonsTop}>
-              <TouchableOpacity
-                style={[styles.cancelButtonTop, { backgroundColor: textTertiary, ...shadowSm }]}
-                onPress={cancelarEdicion}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="close" size={18} color="#FFFFFF" />
-                <Text style={styles.cancelButtonTextTop}>Cancelar</Text>
-              </TouchableOpacity>
-
-              {hasChanges && (
-                <TouchableOpacity
-                  style={[
-                    styles.saveButtonTop,
-                    { backgroundColor: success500, ...shadowMd },
-                    saving && { opacity: 0.6 }
-                  ]}
-                  onPress={guardarCambios}
-                  disabled={saving}
-                  activeOpacity={0.8}
-                >
-                  {saving ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-                  )}
-                  <Text style={styles.saveButtonTextTop}>
-                    {saving ? 'Guardando...' : 'Guardar'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-
           {/* Tabs modernos - UI Card */}
           <View style={styles.uiCard}>
             <View style={styles.modernTabsContainer}>
@@ -839,6 +792,50 @@ export default function EspecialidadesMarcasScreen() {
         </View>
       </ScrollView>
 
+      {/* Action Buttons Floating Footer */}
+      <View style={[styles.floatingBottomBar, { paddingBottom: Math.max(insets.bottom, SPACING?.md || 16) }]}>
+        {!modoEdicion ? (
+          <TouchableOpacity
+            style={[styles.editButtonFloat, { backgroundColor: primary500, ...shadowMd }]}
+            onPress={() => setModoEdicion(true)}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="edit" size={20} color="#FFFFFF" />
+            <Text style={styles.editButtonTextFloat}>Configurar mis especialidades</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.editingButtonsFloat}>
+            <TouchableOpacity
+              style={[styles.cancelButtonFloat, { backgroundColor: bgPaper, borderColor: borderLight, borderWidth: 1 }]}
+              onPress={cancelarEdicion}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.cancelButtonTextFloat, { color: textPrimary }]}>Cancelar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.saveButtonFloat,
+                { backgroundColor: hasChanges ? success500 : bgDefault },
+                saving && { opacity: 0.7 }
+              ]}
+              onPress={guardarCambios}
+              disabled={saving || !hasChanges}
+              activeOpacity={0.8}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="checkmark" size={20} color={hasChanges ? "#FFFFFF" : textTertiary} />
+              )}
+              <Text style={[styles.saveButtonTextFloat, { color: hasChanges ? "#FFFFFF" : textTertiary }]}>
+                {saving ? 'Guardando...' : 'Guardar Cambios'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
       {/* Snackbar para alertas */}
       <Snackbar
         visible={snackbarVisible}
@@ -874,6 +871,7 @@ const createStyles = () => {
   const radiusLg = BORDERS?.radius?.lg || 12;
   const radiusXl = BORDERS?.radius?.xl || 16;
   const shadowSm = SHADOWS?.sm || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
+  const shadowMd = SHADOWS?.md || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
 
   return StyleSheet.create({
     container: {
@@ -1002,55 +1000,55 @@ const createStyles = () => {
     },
     modernCard: {
       backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: spacingMd,
-      marginBottom: spacingMd,
+      borderRadius: radiusLg,
+      padding: spacingSm + 2,
+      marginBottom: spacingXs || 4,
       ...shadowSm,
       borderWidth: 1,
       borderColor: borderLight,
       width: '48%',
-      minHeight: 120,
+      minHeight: 100,
       position: 'relative',
     },
     cardContent: {
       flexDirection: 'column',
       alignItems: 'flex-start',
-      gap: spacingSm,
+      gap: spacingXs + 2,
     },
     cardIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
       justifyContent: 'center',
       alignItems: 'center',
       alignSelf: 'flex-start',
+      marginBottom: spacingXs,
     },
     cardInfo: {
       flex: 1,
       width: '100%',
     },
     cardTitle: {
-      fontSize: fontSizeBase,
+      fontSize: fontSizeBase - 1,
       fontWeight: '600',
-      marginBottom: spacingXs || 4,
+      marginBottom: 2,
     },
     cardDescription: {
-      fontSize: fontSizeBase - 2,
+      fontSize: fontSizeBase - 3,
       lineHeight: fontSizeBase,
     },
     modernCheckbox: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      borderWidth: 2,
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 1.5,
       borderColor: borderLight,
       backgroundColor: bgPaper,
       justifyContent: 'center',
       alignItems: 'center',
-      alignSelf: 'flex-end',
       position: 'absolute',
-      top: 0,
-      right: 0,
+      top: spacingSm + 2,
+      right: spacingSm + 2,
     },
     modelosPreview: {
       marginTop: spacingSm,
@@ -1067,57 +1065,60 @@ const createStyles = () => {
       lineHeight: (fontSizeBase - 1) * 1.4,
       letterSpacing: 0.2,
     },
-    editButtonContainer: {
-      marginBottom: spacingMd,
-      alignItems: 'flex-end',
+    floatingBottomBar: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: bgPaper,
+      paddingTop: spacingMd,
+      paddingHorizontal: containerHorizontal,
+      borderTopWidth: 1,
+      borderColor: borderLight,
+      ...shadowMd,
     },
-    editButtonTop: {
+    editButtonFloat: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: spacingSm + 2,
-      paddingHorizontal: spacingLg,
+      paddingVertical: spacingMd,
       borderRadius: radiusLg,
       gap: spacingSm,
-      minHeight: 40,
     },
-    editButtonTextTop: {
-      fontSize: fontSizeBase,
-      fontWeight: '600',
+    editButtonTextFloat: {
+      color: '#FFFFFF',
+      fontSize: fontSizeBase + 1,
+      fontWeight: 'bold',
     },
-    editingButtonsTop: {
+    editingButtonsFloat: {
       flexDirection: 'row',
       gap: spacingMd,
-      marginBottom: spacingMd,
-      justifyContent: 'flex-end',
+      justifyContent: 'space-between',
     },
-    cancelButtonTop: {
+    cancelButtonFloat: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacingSm + 2,
-      paddingHorizontal: spacingLg,
+      justifyContent: 'center',
+      paddingVertical: spacingMd - 2,
       borderRadius: radiusLg,
-      gap: spacingSm,
-      minHeight: 40,
     },
-    cancelButtonTextTop: {
-      color: '#FFFFFF',
+    cancelButtonTextFloat: {
       fontSize: fontSizeBase,
       fontWeight: '600',
     },
-    saveButtonTop: {
+    saveButtonFloat: {
+      flex: 2,
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacingSm + 2,
-      paddingHorizontal: spacingLg,
+      justifyContent: 'center',
+      paddingVertical: spacingMd - 2,
       borderRadius: radiusLg,
-      gap: spacingSm,
-      minHeight: 40,
+      gap: spacingXs,
     },
-    saveButtonTextTop: {
-      color: '#FFFFFF',
+    saveButtonTextFloat: {
       fontSize: fontSizeBase,
-      fontWeight: '600',
+      fontWeight: 'bold',
     },
   });
 };
