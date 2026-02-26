@@ -635,7 +635,8 @@ export const vehiculoAPI = {
   obtenerMarcas: async () => {
     const api = await getAPI();
     const response = await api.get('/vehiculos/marcas/');
-    return response.data;
+    const data = response.data;
+    return Array.isArray(data) ? data : (data?.results || []);
   },
 };
 
@@ -815,8 +816,9 @@ export const especialidadesAPI = {
       console.log('📋 Obteniendo categorías de servicios...');
       // Usar el endpoint de categorías principales que sabemos que funciona
       const response = await api.get('/servicios/categorias/principales/');
-      console.log('✅ Categorías obtenidas:', response.data?.length || 0);
-      return response.data || [];
+      console.log('✅ Categorías obtenidas:', response.data?.length || (response.data?.results?.length || 0));
+      const data = response.data;
+      return Array.isArray(data) ? data : (data?.results || []);
     } catch (error) {
       console.error('❌ Error obteniendo categorías:', error);
       // Retornar categorías de ejemplo en caso de error
@@ -1509,14 +1511,16 @@ export const modelosAPI = {
   obtenerModelosPorMarca: async (marcaId: number) => {
     const api = await getAPI();
     const response = await api.get(`/vehiculos/modelos/?marca=${marcaId}`);
-    return response.data;
+    const data = response.data;
+    return Array.isArray(data) ? data : (data?.results || []);
   },
 
   // Obtener todos los modelos
   obtenerTodosLosModelos: async () => {
     const api = await getAPI();
     const response = await api.get('/vehiculos/modelos/');
-    return response.data;
+    const data = response.data;
+    return Array.isArray(data) ? data : (data?.results || []);
   },
 };
 
