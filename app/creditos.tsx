@@ -220,7 +220,6 @@ export default function CreditosScreen() {
   const [mpConectado, setMpConectado] = useState<boolean | null>(null); // null = cargando
   const [saldo, setSaldo] = useState<CreditoProveedor | null>(null);
   const [estadisticas, setEstadisticas] = useState<EstadisticasCreditos | null>(null);
-  const [paquetes, setPaquetes] = useState<PaqueteCreditos[]>([]);
   const [compras, setCompras] = useState<CompraCreditos[]>([]);
   const [consumos, setConsumos] = useState<ConsumoCredito[]>([]);
   const [suscripcion, setSuscripcion] = useState<SuscripcionProveedor | null>(null);
@@ -294,9 +293,7 @@ export default function CreditosScreen() {
         setHistorialPagos(historialPagosResult.data.historial);
       }
 
-      // 3. Paquetes (solo si la tab tienda es relevante)
-      const paquetesResult = await creditosService.obtenerPaquetes();
-      if (paquetesResult.success && paquetesResult.data) setPaquetes(paquetesResult.data);
+      // 3. (Eliminado: Paquetes ya no se utilizan)
     } catch (err: any) {
       console.error('[CreditosScreen] Error cargando datos:', err);
     } finally {
@@ -692,6 +689,9 @@ export default function CreditosScreen() {
       minimumFractionDigits: 0,
     }).format(PRECIO_TOTAL);
 
+    const creditosDisponibles = saldo?.saldo_creditos || 0;
+    const restringirCompra = tieneSuscripcionActiva && creditosDisponibles > 5;
+
     return (
       <ScrollView
         style={styles.scrollContent}
@@ -711,67 +711,81 @@ export default function CreditosScreen() {
           </View>
         )}
 
-        <View style={[styles.planCard, { backgroundColor: backgroundPaper }]}>
-          <Text style={[styles.planNombre, { color: textPrimary, textAlign: 'center', marginBottom: SPACING.md }]}>
-            Comprar Créditos
-          </Text>
-          <Text style={[styles.planDescripcion, { color: textSecondary, textAlign: 'center', marginBottom: SPACING.xl }]}>
-            Ingresa la cantidad exacta de créditos que necesitas. Cada crédito tiene un valor base de $300 CLP.
-          </Text>
+        {restringirCompra ? (
+          <View style={[styles.planCard, { backgroundColor: backgroundPaper, alignItems: 'center', paddingVertical: SPACING['2xl'] }]}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: successColor + '20', alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.md }}>
+              <MaterialCommunityIcons name="shield-check" size={32} color={successColor} />
+            </View>
+            <Text style={[styles.planNombre, { color: textPrimary, textAlign: 'center', marginBottom: SPACING.sm }]}>
+              Todo en orden
+            </Text>
+            <Text style={[styles.planDescripcion, { color: textSecondary, textAlign: 'center' }]}>
+              Ya posees una suscripción activa y {creditosDisponibles} créditos disponibles. Podrás comprar más créditos de recarga cuando te queden 5 o menos créditos.
+            </Text>
+          </View>
+        ) : (
+          <View style={[styles.planCard, { backgroundColor: backgroundPaper }]}>
+            <Text style={[styles.planNombre, { color: textPrimary, textAlign: 'center', marginBottom: SPACING.md }]}>
+              Comprar Créditos
+            </Text>
+            <Text style={[styles.planDescripcion, { color: textSecondary, textAlign: 'center', marginBottom: SPACING.xl }]}>
+              Ingresa la cantidad exacta de créditos que necesitas. Cada crédito tiene un valor base de $300 CLP.
+            </Text>
 
-          <View style={styles.counterContainer}>
-            <TouchableOpacity
-              style={[styles.counterButton, { backgroundColor: backgroundDefault, borderColor: borderMain }]}
-              onPress={() => setCantidadComprar(prev => Math.max(1, prev - 1))}
-            >
-              <MaterialIcons name="remove" size={24} color={textPrimary} />
-            </TouchableOpacity>
+            <View style={styles.counterContainer}>
+              <TouchableOpacity
+                style={[styles.counterButton, { backgroundColor: backgroundDefault, borderColor: borderMain }]}
+                onPress={() => setCantidadComprar(prev => Math.max(1, prev - 1))}
+              >
+                <MaterialIcons name="remove" size={24} color={textPrimary} />
+              </TouchableOpacity>
 
-            <View style={styles.counterValueContainer}>
-              <Text style={[styles.counterValue, { color: primaryColor }]}>{cantidadComprar}</Text>
-              <Text style={[styles.counterLabel, { color: textSecondary }]}>créditos</Text>
+              <View style={styles.counterValueContainer}>
+                <Text style={[styles.counterValue, { color: primaryColor }]}>{cantidadComprar}</Text>
+                <Text style={[styles.counterLabel, { color: textSecondary }]}>créditos</Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.counterButton, { backgroundColor: backgroundDefault, borderColor: borderMain }]}
+                onPress={() => setCantidadComprar(prev => prev + 1)}
+              >
+                <MaterialIcons name="add" size={24} color={textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.quickSelectContainer}>
+              {[5, 10, 20, 50].map(val => (
+                <TouchableOpacity
+                  key={val}
+                  style={[
+                    styles.quickSelectButton,
+                    cantidadComprar === val ? { backgroundColor: primaryColor, borderColor: primaryColor } : { backgroundColor: backgroundDefault, borderColor: borderMain }
+                  ]}
+                  onPress={() => setCantidadComprar(val)}
+                >
+                  <Text style={[
+                    styles.quickSelectText,
+                    cantidadComprar === val ? { color: '#FFF' } : { color: textPrimary }
+                  ]}>+{val}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={[styles.separador, { backgroundColor: borderMain }]} />
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md }}>
+              <Text style={{ fontSize: TYPOGRAPHY.fontSize.lg, color: textSecondary, fontWeight: '600' }}>Total a pagar:</Text>
+              <Text style={{ fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: 'bold', color: textPrimary }}>{precioFormateado}</Text>
             </View>
 
             <TouchableOpacity
-              style={[styles.counterButton, { backgroundColor: backgroundDefault, borderColor: borderMain }]}
-              onPress={() => setCantidadComprar(prev => prev + 1)}
+              style={[styles.botonSuscribirse, { backgroundColor: primaryColor }]}
+              onPress={() => router.push(`/creditos/comprar?cantidadCreditos=${cantidadComprar}`)}
             >
-              <MaterialIcons name="add" size={24} color={textPrimary} />
+              <Text style={[styles.botonSuscribirseTexto, { color: '#FFF' }]}>Continuar</Text>
             </TouchableOpacity>
           </View>
-
-          <View style={styles.quickSelectContainer}>
-            {[5, 10, 20, 50].map(val => (
-              <TouchableOpacity
-                key={val}
-                style={[
-                  styles.quickSelectButton,
-                  cantidadComprar === val ? { backgroundColor: primaryColor, borderColor: primaryColor } : { backgroundColor: backgroundDefault, borderColor: borderMain }
-                ]}
-                onPress={() => setCantidadComprar(val)}
-              >
-                <Text style={[
-                  styles.quickSelectText,
-                  cantidadComprar === val ? { color: '#FFF' } : { color: textPrimary }
-                ]}>+{val}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <View style={[styles.separador, { backgroundColor: borderMain }]} />
-
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md }}>
-            <Text style={{ fontSize: TYPOGRAPHY.fontSize.lg, color: textSecondary, fontWeight: '600' }}>Total a pagar:</Text>
-            <Text style={{ fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: 'bold', color: textPrimary }}>{precioFormateado}</Text>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.botonSuscribirse, { backgroundColor: primaryColor }]}
-            onPress={() => router.push(`/creditos/comprar?cantidadCreditos=${cantidadComprar}`)}
-          >
-            <Text style={[styles.botonSuscribirseTexto, { color: '#FFF' }]}>Continuar</Text>
-          </TouchableOpacity>
-        </View>
+        )}
       </ScrollView>
     );
   };

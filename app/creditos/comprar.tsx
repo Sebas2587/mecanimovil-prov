@@ -103,6 +103,10 @@ export default function ComprarCreditosScreen() {
               Alert.alert('Pago No Exitoso', result.data.mensaje);
             }
             // Si está pendiente, no hacer nada - el usuario puede verificar manualmente
+          } else if (result.isNotFound) {
+            // Error 404, la compra no existe en el origen (ej. cambio a BD Prod) - limpiar localmente
+            await AsyncStorage.removeItem(COMPRA_PENDIENTE_KEY);
+            console.log('Compra no encontrada (404). Se limpió el registro pendiente.');
           }
 
           setVerificacionAutomatica(false);

@@ -404,7 +404,7 @@ export interface VerificacionPagoResponse {
 /**
  * Verifica el estado de pago de una compra de créditos consultando a Mercado Pago
  */
-export const verificarPago = async (compraId: number): Promise<ApiResponse<VerificacionPagoResponse>> => {
+export const verificarPago = async (compraId: number): Promise<ApiResponse<VerificacionPagoResponse> & { isNotFound?: boolean }> => {
   try {
     const response = await api.get(`/suscripciones/creditos/compras/${compraId}/verificar-pago/`);
     return {
@@ -413,8 +413,13 @@ export const verificarPago = async (compraId: number): Promise<ApiResponse<Verif
     };
   } catch (error: any) {
     console.error('Error verificando pago:', error);
+
+    // Si la compra no existe (404), indicarlo específicamente
+    const isNotFound = error.response?.status === 404;
+
     return {
       success: false,
+      isNotFound,
       error: error.response?.data?.error || error.message || 'Error al verificar pago'
     };
   }
