@@ -193,17 +193,18 @@ export default function OrdenesScreen() {
         
         // Separar ofertas activas y completadas
         // ✅ Ofertas activas: estado activo Y solicitud NO cancelada/expirada
-        // IMPORTANTE: Si solicitud_estado es undefined/null, considerar válida (compatibilidad)
+        // ✅ Excluir pagada y en_ejecucion: ya tienen orden asociada y solo deben verse en "Órdenes de Servicio"
         const activas = ofertasData.filter(oferta => {
+          if (oferta.estado === 'pagada' || oferta.estado === 'en_ejecucion') {
+            return false;
+          }
           const estadoActivo = ESTADOS_ACTIVOS.includes(oferta.estado);
-          // Si no hay solicitud_estado, asumir que es válida (para ofertas antiguas o compatibilidad)
           if (!oferta.solicitud_estado) {
             return estadoActivo;
           }
           const solicitudValida = oferta.solicitud_estado !== 'cancelada' && 
                                   oferta.solicitud_estado !== 'expirada';
-          const esActiva = estadoActivo && solicitudValida;
-          return esActiva;
+          return estadoActivo && solicitudValida;
         });
         
         // ✅ Ofertas completadas: estado completado O solicitud cancelada/expirada
@@ -473,7 +474,7 @@ export default function OrdenesScreen() {
                   {vehiculo.año && ` (${vehiculo.año})`}
                 </Text>
               )}
-              {oferta.incluye_repuestos && (
+              {oferta.incluye_repuestos === true && (
                 <View style={styles.orderListCardRepuestosBadge}>
                   <MaterialIcons name="build-circle" size={10} color={(safeColors?.success as any)?.['500'] || '#3DB6B1'} />
                   <Text style={styles.orderListCardRepuestosText}>Incluye repuestos</Text>
@@ -625,12 +626,16 @@ export default function OrdenesScreen() {
           {orden.metodo_pago && (
             <View style={styles.orderListCardPagoBadge}>
               <MaterialIcons 
-                name={orden.metodo_pago === 'transferencia' ? 'account-balance' : 'money'} 
+                name={
+                  orden.metodo_pago === 'mercadopago' ? 'credit-card' :
+                  orden.metodo_pago === 'transferencia' ? 'account-balance' : 'money'
+                } 
                 size={10} 
                 color={(safeColors?.text?.tertiary || (safeColors?.neutral?.gray as any)?.[700] || '#666666')} 
               />
               <Text style={styles.orderListCardPagoText}>
-                {orden.metodo_pago === 'transferencia' ? 'Transferencia' : 
+                {orden.metodo_pago === 'mercadopago' ? 'Mercado Pago' :
+                 orden.metodo_pago === 'transferencia' ? 'Transferencia' : 
                  orden.metodo_pago === 'efectivo' ? 'Efectivo' : 
                  orden.metodo_pago}
               </Text>
@@ -767,15 +772,6 @@ export default function OrdenesScreen() {
             </View>
           ) : tieneDatos ? (
             <View style={styles.content}>
-              {/* Debug info - temporal para diagnóstico */}
-              {__DEV__ && (
-                <View style={{ padding: 10, backgroundColor: '#f0f0f0', marginBottom: 10 }}>
-                  <Text style={{ fontSize: 12, color: '#666' }}>
-                    DEBUG: Tab={tabActivo}, Órdenes={ordenesMostrar.length}, Ofertas={ofertasMostrar.length}
-                  </Text>
-                </View>
-              )}
-              
               {/* Banner informativo para ofertas activas */}
               {tabActivo === 'activas' && ofertasMostrar.length > 0 && (
                 <View style={styles.bannerContainer}>

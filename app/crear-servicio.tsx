@@ -892,10 +892,10 @@ const CrearServicioScreen = () => {
 
       console.log('📦 repuestosArray final:', JSON.stringify(repuestosArray, null, 2));
 
-
-      const datosServicio = {
+      // No enviar servicio cuando es null: la API rechaza "este campo no puede ser nulo".
+      // En PATCH, si no se envía servicio, se conserva el valor actual de la oferta.
+      const datosServicio: Record<string, unknown> = {
         tipo_servicio: tipoServicio,
-        servicio: servicioSeleccionado,
         marca_vehiculo_seleccionada: marcaSeleccionada === 0 ? null : marcaSeleccionada,
         detalles_adicionales: descripcion.trim(),
         costo_mano_de_obra_sin_iva: parseFloat(costoManoObra),
@@ -903,6 +903,9 @@ const CrearServicioScreen = () => {
         repuestos_seleccionados: repuestosArray,
         disponible: true,
       };
+      if (servicioSeleccionado != null) {
+        datosServicio.servicio = servicioSeleccionado;
+      }
 
       console.log('📤 Datos del servicio:', datosServicio);
       console.log('📤 Repuestos array:', JSON.stringify(repuestosArray, null, 2));
