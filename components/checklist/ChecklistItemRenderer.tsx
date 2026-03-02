@@ -68,6 +68,42 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   const [photoDescriptionInput, setPhotoDescriptionInput] = useState('');
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
 
+  // Almacenar fotos localmente por response.id para que no se pierdan
+  // al salir y volver a entrar al item (offline-first).
+  useEffect(() => {
+    const hydrateOfflinePhotos = async () => {
+      if (item.tipo_pregunta !== 'PHOTO') return;
+      if (!response?.id) return;
+
+      try {
+        const serverPhotos = Array.isArray(response.fotos) ? response.fotos : [];
+        const offlinePhotos = await checklistService.getOfflinePhotosByResponse(response.id);
+
+        // Merge sin duplicar: server.id contra offline.server_id
+        const serverIds = new Set(serverPhotos.map((p: any) => p?.id).filter(Boolean));
+        const mergedOffline = offlinePhotos.filter((p: any) => !p.server_id || !serverIds.has(p.server_id));
+
+        const merged = [
+          ...serverPhotos,
+          ...mergedOffline.map((p: any) => ({
+            local_id: p.local_id,
+            uri: p.uri,
+            imagen_url: p.imagen_url || p.uri,
+            descripcion: p.descripcion,
+            orden_en_respuesta: p.orden_en_respuesta,
+            id: p.server_id, // si existe, lo tratamos como sincronizado
+          })),
+        ].sort((a: any, b: any) => (a.orden_en_respuesta || 0) - (b.orden_en_respuesta || 0));
+
+        setPhotos(merged);
+      } catch (e) {
+        console.warn('⚠️ No se pudieron hidratar fotos offline:', e);
+      }
+    };
+
+    hydrateOfflinePhotos();
+  }, [item.tipo_pregunta, response?.id, response?.fotos]);
+
   // Inicializar valor desde la respuesta existente
   useEffect(() => {
     console.log('🔄 Inicializando ChecklistItemRenderer para item:', item.id, 'con respuesta:', response);
@@ -266,6 +302,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
 
     const descripcion = photoDescriptionInput.trim() || `Foto ${photos.length + 1}`;
     const nextOrder = photos.length + 1;
+    const localId = `photo_${response?.id || 'tmp'}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
     try {
       // Paso 1: asegurar que existe una respuesta en el backend
@@ -295,6 +332,8 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         if (uploadResult.success && uploadResult.data) {
           serverPhoto = uploadResult.data;
           console.log('✅ Foto subida exitosamente:', serverPhoto.id);
+          // Persistir/actualizar offline como sincronizada
+          await checklistService.markOfflinePhotoSynced(localId, serverPhoto);
         } else {
           console.warn('⚠️ Error al subir foto:', uploadResult.message);
           Alert.alert('Advertencia', 'La foto se guardó localmente pero no se pudo subir al servidor. Se sincronizará cuando tengas conexión.');
@@ -303,6 +342,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
 
       // Paso 3: agregar a la lista local (usando datos del servidor si están disponibles)
       const newPhoto = serverPhoto ?? {
+        local_id: localId,
         uri: pendingPhotoData.uri,
         imagen_url: pendingPhotoData.uri,
         descripcion,
@@ -313,6 +353,21 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
 
       const updatedPhotos = [...photos, newPhoto];
       setPhotos(updatedPhotos);
+
+      // Persistir offline SIEMPRE (aunque falle el upload)
+      await checklistService.saveOfflinePhoto({
+        local_id: localId,
+        instanceId: instance?.id,
+        item_template: item.id,
+        responseId,
+        uri: pendingPhotoData.uri,
+        descripcion,
+        orden_en_respuesta: nextOrder,
+        created_at: new Date().toISOString(),
+        synced: !!serverPhoto?.id,
+        server_id: serverPhoto?.id,
+        imagen_url: serverPhoto?.imagen_url,
+      } as any);
 
       // Paso 4: actualizar la respuesta como completada.
       // IMPORTANTE: pasar el id explícitamente para que el hook use PATCH en vez de POST,
@@ -355,6 +410,10 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                 Alert.alert('Error', 'No se pudo eliminar la foto del servidor.');
                 return;
               }
+            }
+            // Si es foto local pendiente, eliminar del storage offline
+            if (photo.local_id) {
+              await checklistService.removeOfflinePhoto(photo.local_id);
             }
             const updatedPhotos = photos.filter((_, i) => i !== index);
             setPhotos(updatedPhotos);

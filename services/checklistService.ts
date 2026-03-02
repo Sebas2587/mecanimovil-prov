@@ -335,6 +335,20 @@ const STORAGE_KEYS = {
   PENDING_SYNC: 'checklist_pending_sync',
 };
 
+type OfflineChecklistPhoto = {
+  local_id: string;
+  instanceId: number;
+  item_template: number;
+  responseId: number;
+  uri: string; // uri local (file://...)
+  descripcion?: string;
+  orden_en_respuesta: number;
+  created_at: string;
+  synced: boolean;
+  server_id?: number;
+  imagen_url?: string;
+};
+
 class ChecklistOfflineManager {
   
   // Guardar instancia de checklist localmente
@@ -495,6 +509,67 @@ class ChecklistOfflineManager {
     } catch (error) {
       console.error('❌ Error getting responses offline:', error);
       return [];
+    }
+  }
+
+  // ==================== FOTOS (OFFLINE) ====================
+
+  async saveOfflinePhoto(photo: OfflineChecklistPhoto): Promise<void> {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.CHECKLIST_PHOTOS);
+      const photos: OfflineChecklistPhoto[] = stored ? JSON.parse(stored) : [];
+
+      const existingIndex = photos.findIndex(p => p.local_id === photo.local_id);
+      if (existingIndex >= 0) {
+        photos[existingIndex] = photo;
+      } else {
+        photos.push(photo);
+      }
+
+      await AsyncStorage.setItem(STORAGE_KEYS.CHECKLIST_PHOTOS, JSON.stringify(photos));
+    } catch (error) {
+      console.error('❌ Error saving offline photo:', error);
+    }
+  }
+
+  async getOfflinePhotosByResponse(responseId: number): Promise<OfflineChecklistPhoto[]> {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.CHECKLIST_PHOTOS);
+      const photos: OfflineChecklistPhoto[] = stored ? JSON.parse(stored) : [];
+      return photos.filter(p => p.responseId === responseId);
+    } catch (error) {
+      console.error('❌ Error getting offline photos:', error);
+      return [];
+    }
+  }
+
+  async removeOfflinePhoto(localId: string): Promise<void> {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.CHECKLIST_PHOTOS);
+      const photos: OfflineChecklistPhoto[] = stored ? JSON.parse(stored) : [];
+      const filtered = photos.filter(p => p.local_id !== localId);
+      await AsyncStorage.setItem(STORAGE_KEYS.CHECKLIST_PHOTOS, JSON.stringify(filtered));
+    } catch (error) {
+      console.error('❌ Error removing offline photo:', error);
+    }
+  }
+
+  async markOfflinePhotoSynced(localId: string, serverPhoto: any): Promise<void> {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.CHECKLIST_PHOTOS);
+      const photos: OfflineChecklistPhoto[] = stored ? JSON.parse(stored) : [];
+      const idx = photos.findIndex(p => p.local_id === localId);
+      if (idx >= 0) {
+        photos[idx] = {
+          ...photos[idx],
+          synced: true,
+          server_id: serverPhoto?.id ?? photos[idx].server_id,
+          imagen_url: serverPhoto?.imagen_url ?? photos[idx].imagen_url,
+        };
+        await AsyncStorage.setItem(STORAGE_KEYS.CHECKLIST_PHOTOS, JSON.stringify(photos));
+      }
+    } catch (error) {
+      console.error('❌ Error marking offline photo synced:', error);
     }
   }
 
@@ -956,6 +1031,24 @@ class ChecklistService {
     } catch (error) {
       return this.handleServiceError(error, 'eliminar foto');
     }
+  }
+
+  // ==================== FOTOS (PERSISTENCIA LOCAL) ====================
+
+  async saveOfflinePhoto(photo: OfflineChecklistPhoto): Promise<void> {
+    return this.offlineManager.saveOfflinePhoto(photo);
+  }
+
+  async getOfflinePhotosByResponse(responseId: number): Promise<OfflineChecklistPhoto[]> {
+    return this.offlineManager.getOfflinePhotosByResponse(responseId);
+  }
+
+  async removeOfflinePhoto(localId: string): Promise<void> {
+    return this.offlineManager.removeOfflinePhoto(localId);
+  }
+
+  async markOfflinePhotoSynced(localId: string, serverPhoto: any): Promise<void> {
+    return this.offlineManager.markOfflinePhotoSynced(localId, serverPhoto);
   }
 
   // ==================== SINCRONIZACIÓN ====================
