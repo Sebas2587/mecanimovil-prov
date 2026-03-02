@@ -129,9 +129,12 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           break;
 
         case 'PHOTO':
-          if (response.fotos && response.fotos.length > 0) {
+          // Siempre sincronizar con la respuesta del servidor cuando cambia.
+          // Si el servidor devuelve fotos (imagen_url), las mostramos.
+          // Si devuelve array vacío, se limpia el estado local para no mostrar fotos fantasma.
+          if (Array.isArray(response.fotos)) {
             setPhotos(response.fotos);
-            console.log('✅ Fotos cargadas:', response.fotos.length);
+            console.log('✅ Fotos sincronizadas desde servidor:', response.fotos.length);
           }
           break;
 
@@ -151,7 +154,6 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       }
     } else {
       console.log('🆕 No hay respuesta previa, inicializando valores por defecto');
-      // Inicializar con valores por defecto según el tipo
       switch (item.tipo_pregunta) {
         case 'BOOLEAN':
         case 'CLIENT_CONFIRMATION':
@@ -174,6 +176,10 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         case 'ENGINE_INSPECTION':
         case 'FLUID_LEVEL':
           setInputValue([]);
+          break;
+        case 'PHOTO':
+          // Sin respuesta previa → sin fotos
+          setPhotos([]);
           break;
         default:
           setInputValue('');
