@@ -129,10 +129,10 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           break;
 
         case 'PHOTO':
-          // Siempre sincronizar con la respuesta del servidor cuando cambia.
-          // Si el servidor devuelve fotos (imagen_url), las mostramos.
-          // Si devuelve array vacío, se limpia el estado local para no mostrar fotos fantasma.
-          if (Array.isArray(response.fotos)) {
+          // Sincronizar con el servidor SOLO cuando haya fotos persistidas.
+          // Esto evita borrar las fotos recién capturadas localmente mientras
+          // todavía no se ha recargado la instancia completa desde la API.
+          if (Array.isArray(response.fotos) && response.fotos.length > 0) {
             setPhotos(response.fotos);
             console.log('✅ Fotos sincronizadas desde servidor:', response.fotos.length);
           }
