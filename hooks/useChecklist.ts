@@ -618,6 +618,28 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
     updateState({ finalizing: true });
     
     try {
+      // Subir fotos pendientes (offline) antes de finalizar para que queden en el servidor
+      const pendingPhotos = await checklistService.getOfflinePhotosByInstance(state.instance.id);
+      const toSync = pendingPhotos.filter(p => !p.synced);
+      if (toSync.length > 0) {
+        console.log(`📤 Sincronizando ${toSync.length} foto(s) pendiente(s) antes de finalizar...`);
+        for (const photo of toSync) {
+          try {
+            const uploadResult = await uploadPhoto(
+              photo.uri,
+              photo.responseId,
+              photo.orden_en_respuesta,
+              photo.descripcion
+            );
+            if (uploadResult.success && uploadResult.data) {
+              await checklistService.markOfflinePhotoSynced(photo.local_id, uploadResult.data);
+            }
+          } catch (e) {
+            console.warn('No se pudo subir foto pendiente:', photo.local_id, e);
+          }
+        }
+      }
+
       const result = await checklistService.finalizeInstance(state.instance.id, finalizationData);
       
       if (result.success) {
@@ -635,7 +657,7 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
     } finally {
       updateState({ finalizing: false });
     }
-  }, [state.instance, updateState]);
+  }, [state.instance, updateState, uploadPhoto]);
 
   // ==================== NAVEGACIÓN ====================
 

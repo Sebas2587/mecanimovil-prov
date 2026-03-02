@@ -16,6 +16,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useChecklist } from '@/hooks/useChecklist';
 import { ChecklistProgressBar } from '@/components/checklist/ChecklistProgressBar';
 import { ChecklistSignatureModal } from '@/components/checklist/ChecklistSignatureModal';
+import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 
@@ -98,6 +99,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   });
 
   const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [showCompletedView, setShowCompletedView] = useState(false);
 
   // ==================== HANDLERS ====================
 
@@ -174,6 +176,12 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
       estado: instance?.estado,
       puede_finalizar_check: instance?.puede_finalizar_check
     });
+
+    // Si el checklist ya está completado, mostrar resumen en lugar de "incompleto"
+    if (instance?.estado === 'COMPLETADO') {
+      setShowCompletedView(true);
+      return;
+    }
 
     if (!canFinalize) {
       console.log('❌ No se puede finalizar - canFinalize es false');
@@ -492,10 +500,10 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             )}
             <TouchableOpacity
               style={[styles.finalizeButton, styles.completedFinalizeButton]}
-              onPress={handleFinalize}
+              onPress={() => setShowCompletedView(true)}
             >
-              <MaterialIcons name="done-all" size={20} color={COLORS.neutral.white} />
-              <Text style={styles.finalizeButtonText}>Finalizar Checklist</Text>
+              <MaterialIcons name="visibility" size={20} color={COLORS.neutral.white} />
+              <Text style={styles.finalizeButtonText}>Ver checklist completado</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -532,6 +540,13 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           cliente: `Orden #${instance.orden}`,
           vehiculo: 'Vehículo de la orden',
         }}
+      />
+
+      {/* Vista de checklist completado (resumen para técnico y usuario) */}
+      <ChecklistCompletedView
+        visible={showCompletedView}
+        onClose={() => setShowCompletedView(false)}
+        ordenId={ordenId}
       />
     </SafeAreaView>
   );

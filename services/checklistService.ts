@@ -543,6 +543,18 @@ class ChecklistOfflineManager {
     }
   }
 
+  /** Fotos offline por instancia (para sincronizar pendientes al finalizar) */
+  async getOfflinePhotosByInstance(instanceId: number): Promise<OfflineChecklistPhoto[]> {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.CHECKLIST_PHOTOS);
+      const photos: OfflineChecklistPhoto[] = stored ? JSON.parse(stored) : [];
+      return photos.filter(p => p.instanceId === instanceId);
+    } catch (error) {
+      console.error('❌ Error getting offline photos by instance:', error);
+      return [];
+    }
+  }
+
   async removeOfflinePhoto(localId: string): Promise<void> {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.CHECKLIST_PHOTOS);
@@ -1005,9 +1017,11 @@ class ChecklistService {
 
   async uploadPhoto(photoData: FormData): Promise<ServiceResponse<ChecklistPhoto>> {
     try {
+      // No enviar Content-Type: axios debe asignar multipart/form-data con boundary
+      // para que el servidor pueda parsear el body (en prod fallaba sin boundary)
       const response = await api.post(`${this.baseUrl}/photos/`, photoData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Accept': 'application/json',
         },
       });
       
@@ -1041,6 +1055,10 @@ class ChecklistService {
 
   async getOfflinePhotosByResponse(responseId: number): Promise<OfflineChecklistPhoto[]> {
     return this.offlineManager.getOfflinePhotosByResponse(responseId);
+  }
+
+  async getOfflinePhotosByInstance(instanceId: number): Promise<OfflineChecklistPhoto[]> {
+    return this.offlineManager.getOfflinePhotosByInstance(instanceId);
   }
 
   async removeOfflinePhoto(localId: string): Promise<void> {

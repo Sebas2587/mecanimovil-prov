@@ -139,16 +139,24 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
         
         {fotos && fotos.length > 0 && (
           <View style={styles.photosContainer}>
-            <Text style={styles.photosTitle}>Fotos ({fotos.length}):</Text>
+            <Text style={styles.photosTitle}>Fotos de evidencia ({fotos.length})</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {fotos.map((foto, index) => (
-                <Image
-                  key={index}
-                  source={{ uri: foto.imagen_url || foto.imagen }}
-                  style={styles.photoThumbnail}
-                  resizeMode="cover"
-                />
-              ))}
+              {fotos.map((foto, index) => {
+                const uri = typeof foto.imagen_url === 'string' ? foto.imagen_url : (foto.imagen && typeof foto.imagen === 'string' ? foto.imagen : null);
+                if (!uri) return null;
+                return (
+                  <View key={foto.id ?? `foto-${response.id}-${index}`} style={styles.photoWrapper}>
+                    <Image
+                      source={{ uri }}
+                      style={styles.photoThumbnail}
+                      resizeMode="cover"
+                    />
+                    {foto.descripcion ? (
+                      <Text style={styles.photoCaption} numberOfLines={2}>{foto.descripcion}</Text>
+                    ) : null}
+                  </View>
+                );
+              })}
             </ScrollView>
           </View>
         )}
@@ -522,14 +530,24 @@ const createStyles = () => {
       marginBottom: spacingXs,
       fontWeight: fontWeightMedium,
     },
+    photoWrapper: {
+      marginRight: spacingXs,
+      alignItems: 'center',
+      maxWidth: 80,
+    },
     photoThumbnail: {
       width: 60,
       height: 60,
       borderRadius: radiusMd,
-      marginRight: spacingXs,
       backgroundColor: bgDefault,
       borderWidth: 1,
       borderColor: borderLight,
+    },
+    photoCaption: {
+      fontSize: 10,
+      color: textTertiary,
+      marginTop: 4,
+      textAlign: 'center',
     },
     responseDate: {
       fontSize: fontSizeXs,
