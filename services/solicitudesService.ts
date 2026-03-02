@@ -132,6 +132,9 @@ export interface OfertaProveedorData {
   garantia_ofrecida?: string;
   fecha_disponible: string;
   hora_disponible: string;
+  // Fecha alternativa (proveedor propone otra fecha que la solicitada)
+  es_fecha_alternativa?: boolean;
+  motivo_fecha_alternativa?: string;
   // Campos para ofertas secundarias
   oferta_original?: string;
   es_oferta_secundaria?: boolean;
@@ -181,6 +184,8 @@ export interface OfertaProveedor {
   garantia_ofrecida?: string;
   fecha_disponible: string;
   hora_disponible: string;
+  es_fecha_alternativa?: boolean;
+  motivo_fecha_alternativa?: string | null;
   estado: 'enviada' | 'vista' | 'en_chat' | 'aceptada' | 'pendiente_pago' | 'pagada' | 'en_ejecucion' | 'completada' | 'rechazada' | 'retirada' | 'expirada';
   fecha_envio: string;
   nombre_proveedor?: string;

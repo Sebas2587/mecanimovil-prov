@@ -130,6 +130,8 @@ export default function CrearOfertaScreen() {
     garantia_ofrecida?: string;
     fecha_disponible: string;
     hora_disponible: string;
+    es_fecha_alternativa?: boolean;
+    motivo_fecha_alternativa?: string;
     // Campos de desglose de costos
     costo_repuestos?: string;
     costo_mano_obra?: string;
@@ -244,6 +246,8 @@ export default function CrearOfertaScreen() {
         garantia_ofrecida: datosOferta.garantia_ofrecida,
         fecha_disponible: datosOferta.fecha_disponible,
         hora_disponible: datosOferta.hora_disponible,
+        es_fecha_alternativa: datosOferta.es_fecha_alternativa,
+        motivo_fecha_alternativa: datosOferta.motivo_fecha_alternativa,
         // Campos de desglose de costos
         costo_repuestos: datosOferta.costo_repuestos,
         costo_mano_obra: datosOferta.costo_mano_obra,

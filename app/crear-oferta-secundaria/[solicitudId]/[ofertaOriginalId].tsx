@@ -177,6 +177,8 @@ export default function CrearOfertaSecundariaScreen() {
     garantia_ofrecida?: string;
     fecha_disponible: string;
     hora_disponible: string;
+    es_fecha_alternativa?: boolean;
+    motivo_fecha_alternativa?: string;
   }) => {
     // Validar que el motivo esté presente
     if (!motivoServicioAdicional || motivoServicioAdicional.trim() === '') {
@@ -199,6 +201,8 @@ export default function CrearOfertaSecundariaScreen() {
         garantia_ofrecida: datosOferta.garantia_ofrecida,
         fecha_disponible: datosOferta.fecha_disponible,
         hora_disponible: datosOferta.hora_disponible,
+        es_fecha_alternativa: datosOferta.es_fecha_alternativa,
+        motivo_fecha_alternativa: datosOferta.motivo_fecha_alternativa,
         oferta_original: ofertaOriginalId,
         es_oferta_secundaria: true,
         motivo_servicio_adicional: motivoServicioAdicional.trim(),

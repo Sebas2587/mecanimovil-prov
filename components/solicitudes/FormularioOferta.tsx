@@ -38,6 +38,8 @@ interface FormularioOfertaProps {
     garantia_ofrecida?: string;
     fecha_disponible: string;
     hora_disponible: string;
+    es_fecha_alternativa?: boolean;
+    motivo_fecha_alternativa?: string;
     // Campos de desglose para pagos separados
     costo_repuestos?: string;
     costo_mano_obra?: string;
@@ -1320,6 +1322,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     const gestionCompraConIva = gestionCompra * 1.19;
     const precioTotalFinal = precioTotalCalculado + gestionCompraConIva;
 
+    const usaFechaAlternativa = esOfertaSecundaria || !puedeFechaSolicitada;
     onSubmit({
       servicios_ofertados: serviciosOferta.map(s => s.servicio.id),
       detalles_servicios: detallesServicios,
@@ -1330,6 +1333,8 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       garantia_ofrecida: garantiaOfrecida || undefined,
       fecha_disponible: fechaFormateada,
       hora_disponible: horaFormateada,
+      es_fecha_alternativa: usaFechaAlternativa,
+      motivo_fecha_alternativa: usaFechaAlternativa ? (razonCambioFecha.trim() || undefined) : undefined,
       // Campos de desglose para ofertas con repuestos
       costo_repuestos: incluyeRepuestos ? costoRepuestos.toFixed(2) : '0',
       costo_mano_obra: costoManoObra.toFixed(2),
