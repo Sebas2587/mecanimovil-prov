@@ -18,7 +18,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { ChecklistItemTemplate, ChecklistItemResponse, ChecklistInstance } from '@/services/checklistService';
-import { ChecklistSignatureModal } from './ChecklistSignatureModal';
+import { ChecklistSignatureModal, type SignatureMode } from './ChecklistSignatureModal';
 import { InventoryChecklistComponent } from './items/InventoryChecklistComponent';
 import { FuelGaugeComponent } from './items/FuelGaugeComponent';
 import {
@@ -430,27 +430,31 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
     );
   };
 
+  // Determinar si este item pide solo firma del técnico, solo del cliente, o ambas
+  const getSignatureMode = (): SignatureMode => {
+    const text = (item.pregunta_texto || '').toLowerCase();
+    if (/firma del cliente/i.test(text) && !/técnico|tecnico/.test(text)) {
+      return 'cliente_only';
+    }
+    if (/firma del técnico|firma del tecnico|técnico responsable|tecnico responsable/i.test(text)) {
+      return 'tecnico_only';
+    }
+    return 'both';
+  };
+
+  const signatureMode = getSignatureMode();
+
   // Función para manejar el resultado de la firma digital
   const handleSignatureComplete = async (firmaTecnico: string, firmaCliente: string, ubicacion: { lat: number; lng: number }) => {
     try {
-      console.log('✍️ Procesando firmas digitales para item específico...', {
-        itemId: item.id,
-        itemTipo: item.tipo_pregunta,
-        instanceId: instance?.id,
-        firmaTecnico: firmaTecnico.substring(0, 20) + '...',
-        firmaCliente: firmaCliente.substring(0, 20) + '...',
-        ubicacion
-      });
+      console.log('✍️ Procesando firma(s) para item:', item.id, 'modo:', signatureMode);
 
-      // IMPORTANTE: Este es solo un item SIGNATURE, NO la finalización completa del checklist
-      // Solo guardamos la respuesta de este item específico
       await onSave({
         completado: true,
-        respuesta_texto: `Firmas digitales capturadas en ubicación (${ubicacion.lat}, ${ubicacion.lng})`,
-        // Guardar las firmas en respuesta_seleccion como JSON
+        respuesta_texto: `Firma capturada en ubicación (${ubicacion.lat.toFixed(4)}, ${ubicacion.lng.toFixed(4)})`,
         respuesta_seleccion: {
-          firma_tecnico: firmaTecnico,
-          firma_cliente: firmaCliente,
+          firma_tecnico: firmaTecnico || undefined,
+          firma_cliente: firmaCliente || undefined,
           ubicacion_captura: ubicacion,
           fecha_captura: new Date().toISOString()
         }
@@ -458,21 +462,13 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
 
       setShowSignatureModal(false);
 
-      console.log('✅ Respuesta de firmas guardada exitosamente para el item específico');
-
-      // Mensaje de éxito para este item solamente (no todo el checklist)
-      Alert.alert(
-        '✍️ Firmas Capturadas',
-        `Las firmas digitales han sido registradas exitosamente para este paso del checklist.\n\n✅ Firma del técnico capturada\n✅ Firma del cliente capturada\n✅ Ubicación GPS registrada\n\nPuedes continuar con los siguientes pasos del checklist.`,
-        [
-          {
-            text: 'Continuar',
-            onPress: () => {
-              console.log('🎯 Usuario confirmó captura de firmas para este item');
-            }
-          }
-        ]
-      );
+      const msg =
+        signatureMode === 'tecnico_only'
+          ? 'Firma del técnico responsable registrada correctamente.'
+          : signatureMode === 'cliente_only'
+            ? 'Firma del cliente registrada correctamente.'
+            : 'Firmas del técnico y del cliente registradas correctamente.';
+      Alert.alert('✍️ Firma(s) guardada(s)', msg, [{ text: 'Continuar' }]);
 
     } catch (error: any) {
       console.error('❌ Error procesando firmas para item:', error);
@@ -899,28 +895,42 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         );
 
       case 'SIGNATURE':
-        return (
-          <View style={styles.modernSignatureContainer}>
-            <TouchableOpacity
-              style={styles.modernSignatureButton}
-              onPress={() => {
-                console.log('✍️ Abriendo modal de firma digital para item:', item.id);
-                setShowSignatureModal(true);
-              }}
-            >
-              <MaterialIcons name="gesture" size={22} color="#619FF0" />
-              <Text style={styles.modernSignatureButtonText}>
-                {response?.completado ? 'Firmas capturadas ✓' : 'Capturar Firmas Digitales'}
-              </Text>
-            </TouchableOpacity>
+        {
+          const signatureButtonLabel =
+            response?.completado
+              ? (signatureMode === 'tecnico_only'
+                  ? 'Firma del técnico capturada ✓'
+                  : signatureMode === 'cliente_only'
+                    ? 'Firma del cliente capturada ✓'
+                    : 'Firmas capturadas ✓')
+              : (signatureMode === 'tecnico_only'
+                  ? 'Capturar firma del técnico'
+                  : signatureMode === 'cliente_only'
+                    ? 'Capturar firma del cliente'
+                    : 'Capturar firmas (técnico y cliente)');
 
-            {item.descripcion_ayuda && (
-              <Text style={styles.modernSignatureHelp}>
-                {item.descripcion_ayuda}
-              </Text>
-            )}
-          </View>
-        );
+          return (
+            <View style={styles.modernSignatureContainer}>
+              <TouchableOpacity
+                style={styles.modernSignatureButton}
+                onPress={() => {
+                  setShowSignatureModal(true);
+                }}
+              >
+                <MaterialIcons name="gesture" size={22} color="#619FF0" />
+                <Text style={styles.modernSignatureButtonText}>
+                  {signatureButtonLabel}
+                </Text>
+              </TouchableOpacity>
+
+              {item.descripcion_ayuda && (
+                <Text style={styles.modernSignatureHelp}>
+                  {item.descripcion_ayuda}
+                </Text>
+              )}
+            </View>
+          );
+        }
 
       case 'DATETIME':
         return (
@@ -1189,30 +1199,6 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           </TouchableOpacity>
         )}
 
-        {/* FIRMA DIGITAL */}
-        {item.tipo_pregunta === 'SIGNATURE' && (
-          <View style={styles.modernSignatureContainer}>
-            <TouchableOpacity
-              style={styles.modernSignatureButton}
-              onPress={() => {
-                console.log('✍️ Abriendo modal de firma digital para item:', item.id);
-                setShowSignatureModal(true);
-              }}
-            >
-              <MaterialIcons name="gesture" size={22} color="#619FF0" />
-              <Text style={styles.modernSignatureButtonText}>
-                {response?.completado ? 'Firmas capturadas ✓' : 'Capturar Firmas Digitales'}
-              </Text>
-            </TouchableOpacity>
-
-            {item.descripcion_ayuda && (
-              <Text style={styles.modernSignatureHelp}>
-                {item.descripcion_ayuda}
-              </Text>
-            )}
-          </View>
-        )}
-
         {/* TIPOS NO IMPLEMENTADOS */}
         {![
           'TEXT',
@@ -1275,12 +1261,13 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         </View>
       )}
 
-      {/* Modal de firma digital */}
+      {/* Modal de firma digital (una sola firma según el item: técnico o cliente) */}
       {showSignatureModal && (
         <ChecklistSignatureModal
           visible={showSignatureModal}
           onComplete={handleSignatureComplete}
           onClose={handleSignatureCancel}
+          signatureMode={signatureMode}
           ordenInfo={{
             id: instance?.orden_info?.id || instance?.orden || 0,
             cliente: `Cliente - Orden #${instance?.orden_info?.id || instance?.orden || 0}`,

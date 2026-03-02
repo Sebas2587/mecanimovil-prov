@@ -14,6 +14,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import SignatureScreen from 'react-native-signature-canvas';
 import * as Location from 'expo-location';
 
+export type SignatureMode = 'both' | 'tecnico_only' | 'cliente_only';
+
 interface ChecklistSignatureModalProps {
   visible: boolean;
   onClose: () => void;
@@ -23,6 +25,8 @@ interface ChecklistSignatureModalProps {
     cliente: string;
     vehiculo: string;
   };
+  /** Si es un item de "solo técnico" o "solo cliente", capturar una sola firma. Por defecto 'both'. */
+  signatureMode?: SignatureMode;
 }
 
 interface SignatureData {
@@ -39,14 +43,29 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
   onClose,
   onComplete,
   ordenInfo,
+  signatureMode = 'both',
 }) => {
-  const [currentStep, setCurrentStep] = useState<'tecnico' | 'cliente'>('tecnico');
+  const initialStep: 'tecnico' | 'cliente' =
+    signatureMode === 'cliente_only' ? 'cliente' : 'tecnico';
+  const [currentStep, setCurrentStep] = useState<'tecnico' | 'cliente'>(initialStep);
   const [signatures, setSignatures] = useState<SignatureData>({});
   const [obtainingLocation, setObtainingLocation] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [hasDrawnSignature, setHasDrawnSignature] = useState(false);
   
   const signatureRef = useRef<any>(null);
+
+  // Al abrir el modal, resetear estado y paso según modo
+  React.useEffect(() => {
+    if (visible) {
+      const step = signatureMode === 'cliente_only' ? 'cliente' : 'tecnico';
+      setCurrentStep(step);
+      setSignatures({});
+      setLocation(null);
+      setHasDrawnSignature(false);
+      setTimeout(() => signatureRef.current?.clearSignature(), 150);
+    }
+  }, [visible, signatureMode]);
 
   // Configuración de la firma - ocultar botones nativos pero mantener footer para no afectar canvas
   const signatureStyle = `
@@ -101,7 +120,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
 
   // Manejar firma capturada
   const handleSignature = (signature: string) => {
-    console.log('✍️ Firma capturada para:', currentStep);
+    console.log('✍️ Firma capturada para:', currentStep, 'modo:', signatureMode);
     const cleanSignature = signature.replace('data:image/png;base64,', '');
     
     const newSignatures = {
@@ -110,18 +129,21 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
     };
     
     setSignatures(newSignatures);
-    setHasDrawnSignature(false); // Resetear para el siguiente paso
-    console.log('📝 Firma guardada, avanzando al siguiente paso');
-    
-    // Automaticamente avanzar al siguiente paso o finalizar
+    setHasDrawnSignature(false);
+
+    // Modo una sola firma: ir directo a ubicación
+    if (signatureMode === 'tecnico_only' || signatureMode === 'cliente_only') {
+      console.log('🎯 Firma única completada, obteniendo ubicación');
+      obtenerUbicacion(newSignatures);
+      return;
+    }
+
+    // Modo ambas: avanzar al siguiente paso o finalizar
     if (currentStep === 'tecnico') {
       console.log('➡️ Avanzando a firma del cliente');
       setCurrentStep('cliente');
-      // Limpiar canvas para la siguiente firma
-      setTimeout(() => {
-        signatureRef.current?.clearSignature();
-      }, 100);
-    } else if (currentStep === 'cliente') {
+      setTimeout(() => signatureRef.current?.clearSignature(), 100);
+    } else {
       console.log('🎯 Ambas firmas completadas, obteniendo ubicación');
       obtenerUbicacion(newSignatures);
     }
@@ -201,10 +223,12 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
       console.log('🎯 Ubicación obtenida exitosamente:', coords);
       setLocation(coords);
       
-      // Finalizar con ubicación
-      if (finalSignatures.tecnico && finalSignatures.cliente) {
-        console.log('🏁 Finalizando checklist con ubicación GPS');
-        onComplete(finalSignatures.tecnico, finalSignatures.cliente, coords);
+      // Finalizar con ubicación (en modo única firma solo uno vendrá; en modo both ambos)
+      const firmaTecnico = finalSignatures.tecnico || '';
+      const firmaCliente = finalSignatures.cliente || '';
+      if (firmaTecnico || firmaCliente) {
+        console.log('🏁 Finalizando con ubicación GPS');
+        onComplete(firmaTecnico, firmaCliente, coords);
       }
       
     } catch (error: any) {
@@ -246,10 +270,11 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
 
   // Finalizar sin ubicación GPS
   const finalizarSinUbicacion = (finalSignatures: SignatureData) => {
-    console.log('📍 Finalizando checklist sin ubicación GPS (usando coordenadas por defecto)');
-    if (finalSignatures.tecnico && finalSignatures.cliente) {
-      // Usar coordenadas por defecto (0,0) si no hay GPS
-      onComplete(finalSignatures.tecnico, finalSignatures.cliente, { lat: 0, lng: 0 });
+    console.log('📍 Finalizando sin ubicación GPS (usando coordenadas por defecto)');
+    const firmaTecnico = finalSignatures.tecnico || '';
+    const firmaCliente = finalSignatures.cliente || '';
+    if (firmaTecnico || firmaCliente) {
+      onComplete(firmaTecnico, firmaCliente, { lat: 0, lng: 0 });
     }
   };
 
@@ -278,7 +303,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
           style: 'destructive',
           onPress: () => {
             setSignatures({});
-            setCurrentStep('tecnico');
+            setCurrentStep(signatureMode === 'cliente_only' ? 'cliente' : 'tecnico');
             setLocation(null);
             onClose();
           }
@@ -289,18 +314,34 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
 
   // Información del paso actual
   const getStepInfo = () => {
+    if (signatureMode === 'tecnico_only') {
+      return {
+        title: 'Firma del Técnico Responsable',
+        subtitle: 'Firma como técnico responsable de este servicio',
+        icon: 'engineering',
+        color: '#2A4065',
+      };
+    }
+    if (signatureMode === 'cliente_only') {
+      return {
+        title: 'Firma del Cliente',
+        subtitle: 'El cliente debe firmar para confirmar la recepción del servicio',
+        icon: 'person',
+        color: '#28a745',
+      };
+    }
     switch (currentStep) {
       case 'tecnico':
         return {
           title: 'Firma del Técnico',
-          subtitle: 'Como técnico responsable, confirma que has iniciado el servicio',
+          subtitle: 'Como técnico responsable, confirma que has realizado el servicio',
           icon: 'engineering',
           color: '#2A4065',
         };
       case 'cliente':
         return {
           title: 'Firma del Cliente',
-          subtitle: 'Como cliente, confirma que autorizas el inicio del servicio',
+          subtitle: 'Como cliente, confirma que autorizas o recibes el servicio',
           icon: 'person',
           color: '#28a745',
         };
@@ -337,40 +378,40 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
           <View style={styles.headerRight} />
         </View>
 
-        {/* Progress indicator minimalista */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressStep}>
-            <View style={[
-              styles.progressCircle,
-              signatures.tecnico ? styles.progressCircleCompleted : 
-              (currentStep === 'tecnico' ? styles.progressCircleCurrent : styles.progressCirclePending)
-            ]}>
-              {signatures.tecnico ? (
-                <MaterialIcons name="check" size={18} color="#fff" />
-              ) : (
-                <Text style={[styles.progressNumber, currentStep === 'tecnico' && styles.progressNumberCurrent]}>1</Text>
-              )}
+        {/* Progress indicator: solo ambos pasos cuando signatureMode === 'both' */}
+        {signatureMode === 'both' && (
+          <View style={styles.progressContainer}>
+            <View style={styles.progressStep}>
+              <View style={[
+                styles.progressCircle,
+                signatures.tecnico ? styles.progressCircleCompleted : 
+                (currentStep === 'tecnico' ? styles.progressCircleCurrent : styles.progressCirclePending)
+              ]}>
+                {signatures.tecnico ? (
+                  <MaterialIcons name="check" size={18} color="#fff" />
+                ) : (
+                  <Text style={[styles.progressNumber, currentStep === 'tecnico' && styles.progressNumberCurrent]}>1</Text>
+                )}
+              </View>
+              <Text style={styles.progressLabel}>Técnico</Text>
             </View>
-            <Text style={styles.progressLabel}>Técnico</Text>
-          </View>
-          
-          <View style={styles.progressLine} />
-          
-          <View style={styles.progressStep}>
-            <View style={[
-              styles.progressCircle,
-              signatures.cliente ? styles.progressCircleCompleted : 
-              (currentStep === 'cliente' ? styles.progressCircleCurrent : styles.progressCirclePending)
-            ]}>
-              {signatures.cliente ? (
-                <MaterialIcons name="check" size={18} color="#fff" />
-              ) : (
-                <Text style={[styles.progressNumber, currentStep === 'cliente' && styles.progressNumberCurrent]}>2</Text>
-              )}
+            <View style={styles.progressLine} />
+            <View style={styles.progressStep}>
+              <View style={[
+                styles.progressCircle,
+                signatures.cliente ? styles.progressCircleCompleted : 
+                (currentStep === 'cliente' ? styles.progressCircleCurrent : styles.progressCirclePending)
+              ]}>
+                {signatures.cliente ? (
+                  <MaterialIcons name="check" size={18} color="#fff" />
+                ) : (
+                  <Text style={[styles.progressNumber, currentStep === 'cliente' && styles.progressNumberCurrent]}>2</Text>
+                )}
+              </View>
+              <Text style={styles.progressLabel}>Cliente</Text>
             </View>
-            <Text style={styles.progressLabel}>Cliente</Text>
           </View>
-        </View>
+        )}
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainer}>
           {/* Información del paso actual - minimalista */}
