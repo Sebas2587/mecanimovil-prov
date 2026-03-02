@@ -280,8 +280,10 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <LoadingSpinner />
-        <Text style={styles.loadingText}>Cargando checklist...</Text>
+        <View style={styles.loadingContainer}>
+          <LoadingSpinner />
+          <Text style={styles.loadingText}>Cargando checklist...</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -290,7 +292,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <MaterialIcons name="error" size={64} color="#dc3545" />
+          <MaterialIcons name="error" size={64} color={COLORS.error.main} />
           <Text style={styles.errorTitle}>Error</Text>
           <Text style={styles.errorMessage}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => onCancel?.()}>
@@ -305,7 +307,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <MaterialIcons name="assignment" size={64} color="#6c757d" />
+          <MaterialIcons name="assignment" size={64} color={COLORS.neutral.gray[400]} />
           <Text style={styles.errorTitle}>No hay checklist disponible</Text>
           <Text style={styles.errorMessage}>
             Este servicio no tiene checklist configurado. Puedes continuar con el servicio normalmente.
@@ -320,19 +322,28 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
 
   // ==================== RENDER PRINCIPAL ====================
 
+  const totalCompletados = instance.respuestas?.filter(r => r.completado).length || 0;
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: COLORS.background.default }]} edges={[]}>
-      {/* Header Minimalista */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleCancel} style={styles.closeButton}>
-          <MaterialIcons name="close" size={24} color="#212529" />
+          <MaterialIcons name="close" size={24} color={COLORS.neutral.white} />
         </TouchableOpacity>
 
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>{template.nombre}</Text>
-          <Text style={styles.headerSubtitle}>
-            {instance.respuestas?.filter(r => r.completado).length || 0} de {totalSteps} completados
-          </Text>
+          <View style={styles.headerSubtitleRow}>
+            <Text style={styles.headerSubtitle}>
+              {totalCompletados} de {totalSteps} completados
+            </Text>
+            <View style={styles.headerStatusBadge}>
+              <Text style={styles.headerStatusBadgeText}>
+                {instance.estado || 'PENDIENTE'}
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
 
@@ -340,7 +351,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
       {instance.estado === 'EN_PROGRESO' && (
         <View style={styles.progressSection}>
           <ChecklistProgressBar
-            currentStep={instance.respuestas?.filter(r => r.completado).length || 0}
+            currentStep={totalCompletados}
             totalSteps={totalSteps}
             progreso={progreso}
             items={template.items}
@@ -355,7 +366,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           <MaterialIcons
             name={isOffline ? "cloud-off" : "sync"}
             size={16}
-            color="#856404"
+            color={COLORS.warning.dark}
           />
           <Text style={styles.statusText}>
             {isOffline ? 'Modo offline' : 'Pendiente de sincronización'}
@@ -376,13 +387,14 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         {canStart && (
           <View style={styles.startCard}>
             <View style={styles.startIconContainer}>
-              <MaterialIcons name="play-arrow" size={40} color="#619FF0" />
+              <MaterialIcons name="play-arrow" size={40} color={COLORS.primary[500]} />
             </View>
             <Text style={styles.startTitle}>Listo para iniciar</Text>
             <Text style={styles.startDescription}>
               Presiona "Iniciar" para comenzar con el checklist de pre-servicio.
             </Text>
             <TouchableOpacity style={styles.startButton} onPress={handleStart}>
+              <MaterialIcons name="play-arrow" size={18} color={COLORS.neutral.white} />
               <Text style={styles.startButtonText}>Iniciar Checklist</Text>
             </TouchableOpacity>
           </View>
@@ -391,13 +403,14 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         {canResume && (
           <View style={styles.resumeCard}>
             <View style={styles.resumeIconContainer}>
-              <MaterialIcons name="play-arrow" size={40} color="#619FF0" />
+              <MaterialIcons name="play-arrow" size={40} color={COLORS.warning.dark} />
             </View>
             <Text style={styles.resumeTitle}>Checklist pausado</Text>
             <Text style={styles.resumeDescription}>
               Puedes continuar donde lo dejaste.
             </Text>
             <TouchableOpacity style={styles.resumeButton} onPress={handleResume}>
+              <MaterialIcons name="play-circle-filled" size={18} color={COLORS.text.onWarning} />
               <Text style={styles.resumeButtonText}>Continuar</Text>
             </TouchableOpacity>
           </View>
@@ -406,28 +419,38 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         {/* Lista de items del checklist - diseño to-do list */}
         {instance.estado === 'EN_PROGRESO' && !isCompleted && template.items && (
           <View style={styles.checklistItemsList}>
+            <View style={styles.checklistSummary}>
+              <Text style={styles.checklistSummaryText}>
+                {totalCompletados} de {totalSteps} completados
+              </Text>
+            </View>
             {template.items
               .sort((a, b) => (a.orden_visual || 0) - (b.orden_visual || 0))
               .map((item) => {
                 const response = instance.respuestas?.find(r => r.item_template === item.id);
                 const isCompleted = response?.completado || false;
+                const isRequired = item.es_obligatorio_efectivo;
 
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    style={styles.checklistItem}
+                    style={[
+                      styles.checklistItem,
+                      isCompleted && styles.checklistItemCompleted,
+                      isRequired && !isCompleted && styles.checklistItemRequired,
+                    ]}
                     onPress={() => router.push(`/checklist-item/${ordenId}/${item.id}`)}
                   >
                     {/* Checkbox */}
                     <View style={[styles.checkbox, isCompleted && styles.checkboxCompleted]}>
                       {isCompleted && (
-                        <MaterialIcons name="check" size={20} color="#ffffff" />
+                        <MaterialIcons name="check" size={20} color={COLORS.neutral.white} />
                       )}
                     </View>
 
                     {/* Info del item */}
                     <View style={styles.checklistItemInfo}>
-                      <Text style={styles.checklistItemTitle}>
+                      <Text style={[styles.checklistItemTitle, isCompleted && styles.checklistItemTitleCompleted]}>
                         {item.pregunta_texto}
                       </Text>
                       {item.descripcion_ayuda && (
@@ -440,12 +463,12 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                     {/* Badge obligatorio si aplica */}
                     {item.es_obligatorio_efectivo && (
                       <View style={styles.requiredBadge}>
-                        <MaterialIcons name="star" size={14} color="#dc3545" />
+                        <MaterialIcons name="star" size={14} color={COLORS.error.main} />
                       </View>
                     )}
 
                     {/* Icono de flecha */}
-                    <MaterialIcons name="chevron-right" size={24} color="#6c757d" />
+                    <MaterialIcons name="chevron-right" size={24} color={COLORS.neutral.gray[400]} />
                   </TouchableOpacity>
                 );
               })}
@@ -456,7 +479,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         {isCompleted && (
           <View style={styles.completedCard}>
             <View style={styles.completedIconContainer}>
-              <MaterialIcons name="check-circle" size={64} color="#28a745" />
+              <MaterialIcons name="check-circle" size={64} color={COLORS.success.main} />
             </View>
             <Text style={styles.completedTitle}>Checklist Completado</Text>
             <Text style={styles.completedDescription}>
@@ -468,10 +491,10 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
               </Text>
             )}
             <TouchableOpacity
-              style={styles.finalizeButton}
+              style={[styles.finalizeButton, styles.completedFinalizeButton]}
               onPress={handleFinalize}
             >
-              <MaterialIcons name="done-all" size={20} color="#fff" />
+              <MaterialIcons name="done-all" size={20} color={COLORS.neutral.white} />
               <Text style={styles.finalizeButtonText}>Finalizar Checklist</Text>
             </TouchableOpacity>
           </View>
@@ -488,10 +511,10 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             activeOpacity={0.7}
           >
             {finalizing ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={COLORS.neutral.white} />
             ) : (
               <>
-                <MaterialIcons name="done-all" size={20} color="#fff" />
+                <MaterialIcons name="done-all" size={20} color={COLORS.neutral.white} />
                 <Text style={styles.finalizeButtonText}>Finalizar Checklist</Text>
               </>
             )}
@@ -522,11 +545,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs, // Reducido de 12 a xs (4-8px) para fix gap
-    backgroundColor: COLORS.background.paper,
-    borderBottomWidth: BORDERS.width.thin,
-    borderBottomColor: COLORS.border.light,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.primary[500],
   },
   closeButton: {
     padding: SPACING.xs,
@@ -538,18 +559,37 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text.primary,
-    marginBottom: 2,
+    color: COLORS.neutral.white,
+    marginBottom: SPACING.xs / 2,
   },
   headerSubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm - 1,
-    color: COLORS.text.secondary,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.neutral.white,
+    opacity: 0.75,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
+  headerSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+  },
+  headerStatusBadge: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs / 2,
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: COLORS.neutral.white,
+    opacity: 0.85,
+  },
+  headerStatusBadgeText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    color: COLORS.primary[500],
+  },
   progressSection: {
-    backgroundColor: COLORS.background.paper,
-    borderBottomWidth: BORDERS.width.thin,
-    borderBottomColor: COLORS.border.light,
+    backgroundColor: COLORS.primary[600],
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.sm,
   },
   statusBanner: {
     flexDirection: 'row',
@@ -574,6 +614,12 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: SPACING.xl,
     paddingTop: SPACING.xs, // Reducido para minimizar gap
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xl,
   },
   loadingText: {
     textAlign: 'center',
@@ -617,16 +663,20 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.xl,
     padding: SPACING.xl,
     margin: SPACING.lg,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     borderWidth: BORDERS.width.thin,
     borderColor: COLORS.border.light,
     ...SHADOWS.sm,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.accent[500],
   },
   startIconContainer: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: COLORS.accent[50],
+    backgroundColor: COLORS.primary[50],
+    borderWidth: 2,
+    borderColor: COLORS.accent[200],
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.md,
@@ -645,14 +695,17 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   startButton: {
-    backgroundColor: COLORS.accent[500],
-    paddingHorizontal: SPACING.xl + SPACING.xs,
-    paddingVertical: SPACING.sm + SPACING.xs,
-    borderRadius: BORDERS.radius.lg,
-    minWidth: 180,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary[500],
+    paddingVertical: SPACING.md,
+    borderRadius: BORDERS.radius.xl,
+    width: '100%',
+    gap: SPACING.xs,
   },
   startButtonText: {
-    color: COLORS.text.onAccent,
+    color: COLORS.neutral.white,
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
@@ -661,16 +714,20 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.xl,
     padding: SPACING.xl,
     margin: SPACING.lg,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     borderWidth: BORDERS.width.thin,
     borderColor: COLORS.border.light,
     ...SHADOWS.sm,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.warning.main,
   },
   resumeIconContainer: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: COLORS.accent[50],
+    backgroundColor: COLORS.warning.light,
+    borderWidth: 2,
+    borderColor: COLORS.warning.main,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.md,
@@ -689,26 +746,29 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   resumeButton: {
-    backgroundColor: COLORS.accent[500],
-    paddingHorizontal: SPACING.xl + SPACING.xs,
-    paddingVertical: SPACING.sm + SPACING.xs,
-    borderRadius: BORDERS.radius.lg,
-    minWidth: 180,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.warning.main,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDERS.radius.xl,
+    width: '100%',
+    gap: SPACING.xs,
   },
   resumeButtonText: {
-    color: COLORS.text.onAccent,
+    color: COLORS.text.onWarning,
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   completedCard: {
-    backgroundColor: COLORS.background.paper,
+    backgroundColor: COLORS.success.light,
     borderRadius: BORDERS.radius.xl,
     padding: SPACING.xl,
     margin: SPACING.lg,
     alignItems: 'center',
     borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.border.light,
-    ...SHADOWS.sm,
+    borderColor: COLORS.success.main,
+    ...SHADOWS.md,
   },
   completedIconContainer: {
     marginBottom: SPACING.md,
@@ -716,7 +776,7 @@ const styles = StyleSheet.create({
   completedTitle: {
     fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text.primary,
+    color: COLORS.success.dark,
     marginBottom: SPACING.xs,
   },
   completedDescription: {
@@ -738,7 +798,7 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.border.light,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.md,
-    ...SHADOWS.md,
+    ...SHADOWS.lg,
   },
   navigationContainer: {
     flexDirection: 'row',
@@ -790,13 +850,15 @@ const styles = StyleSheet.create({
   finalizeButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.sm + SPACING.xs / 2,
-    borderRadius: BORDERS.radius.lg,
+    borderRadius: BORDERS.radius.xl,
     backgroundColor: COLORS.success.main,
     gap: SPACING.xs,
-    minHeight: 52,
-    ...SHADOWS.md,
+    minHeight: 56,
+    width: '100%',
+    ...SHADOWS.lg,
   },
   finalizeButtonDisabled: {
     backgroundColor: COLORS.neutral.gray[400],
@@ -805,11 +867,19 @@ const styles = StyleSheet.create({
   finalizeButtonText: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.text.onSuccess,
+    color: COLORS.neutral.white,
   },
   // Estilos para lista tipo to-do
   checklistItemsList: {
     padding: SPACING.lg,
+  },
+  checklistSummary: {
+    marginBottom: SPACING.sm,
+  },
+  checklistSummaryText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.text.secondary,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
   checklistItem: {
     flexDirection: 'row',
@@ -828,14 +898,22 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: COLORS.border.main,
-    backgroundColor: COLORS.background.paper,
+    borderColor: COLORS.neutral.gray[300],
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxCompleted: {
     backgroundColor: COLORS.success.main,
     borderColor: COLORS.success.main,
+  },
+  checklistItemCompleted: {
+    backgroundColor: COLORS.success.light,
+    borderColor: COLORS.success.main,
+  },
+  checklistItemRequired: {
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.error.main,
   },
   checklistItemInfo: {
     flex: 1,
@@ -845,6 +923,10 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.text.primary,
     marginBottom: SPACING.xs,
+  },
+  checklistItemTitleCompleted: {
+    color: COLORS.text.secondary,
+    textDecorationLine: 'line-through',
   },
   checklistItemDescription: {
     fontSize: TYPOGRAPHY.fontSize.sm - 1,
@@ -858,6 +940,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.error[200],
+    borderColor: COLORS.error.main,
+  },
+  completedFinalizeButton: {
+    width: '100%',
+    marginTop: SPACING.lg,
+    justifyContent: 'center',
   },
 }); 

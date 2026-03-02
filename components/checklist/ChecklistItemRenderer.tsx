@@ -11,6 +11,9 @@ import {
   Image,
   ActivityIndicator,
   Dimensions,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,13 +30,19 @@ import {
 interface ChecklistItemRendererProps {
   item: ChecklistItemTemplate;
   response?: ChecklistItemResponse | null;
-  onSave: (responseData: any) => Promise<void>;
+  onSave: (responseData: any, options?: { silent?: boolean }) => Promise<any>;
   saving: boolean;
   instance: ChecklistInstance;
   finalizeChecklist: (data: any) => Promise<any>;
   takePicture?: () => Promise<any>;
   pickFromGallery?: () => Promise<any>;
-  uploadPhoto?: (photoUri: string, responseId: number, descripcion?: string) => Promise<any>;
+  uploadPhoto?: (
+    photoUri: string,
+    responseId: number,
+    ordenEnRespuesta: number,
+    descripcion?: string
+  ) => Promise<any>;
+  deletePhoto?: (photoId: number) => Promise<any>;
 }
 
 export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
@@ -46,12 +55,18 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   takePicture,
   pickFromGallery,
   uploadPhoto,
+  deletePhoto,
 }) => {
   const [inputValue, setInputValue] = useState<any>('');
   const [isModified, setIsModified] = useState(false);
   const [photos, setPhotos] = useState<any[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
+
+  // Estado para el flujo de fotos con descripción
+  const [pendingPhotoData, setPendingPhotoData] = useState<any>(null);
+  const [photoDescriptionInput, setPhotoDescriptionInput] = useState('');
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false);
 
   // Inicializar valor desde la respuesta existente
   useEffect(() => {
@@ -212,10 +227,12 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       Alert.alert('Error', 'Función de cámara no disponible');
       return;
     }
-
     const result = await takePicture();
-    if (result.success) {
-      await handlePhotoSelected(result.data);
+    if (result.success && result.data) {
+      const defaultDesc = `Foto ${photos.length + 1}`;
+      setPendingPhotoData(result.data);
+      setPhotoDescriptionInput(defaultDesc);
+      setShowDescriptionModal(true);
     }
   };
 
@@ -225,72 +242,121 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       Alert.alert('Error', 'Función de galería no disponible');
       return;
     }
-
     const result = await pickFromGallery();
-    if (result.success) {
-      await handlePhotoSelected(result.data);
+    if (result.success && result.data) {
+      const defaultDesc = `Foto ${photos.length + 1}`;
+      setPendingPhotoData(result.data);
+      setPhotoDescriptionInput(defaultDesc);
+      setShowDescriptionModal(true);
     }
   };
 
-  // Manejar foto seleccionada (cámara o galería)
-  const handlePhotoSelected = async (photoData: any) => {
-    if (!photoData) return;
+  // Confirmación: subir foto con descripción al backend
+  const handlePhotoSubmit = async () => {
+    if (!pendingPhotoData) return;
 
+    setShowDescriptionModal(false);
     setUploadingPhoto(true);
 
+    const descripcion = photoDescriptionInput.trim() || `Foto ${photos.length + 1}`;
+    const nextOrder = photos.length + 1;
+
     try {
-      console.log('📸 Procesando nueva foto:', photoData);
-
-      // Agregar foto a la lista local
-      const updatedPhotos = [...photos, {
-        uri: photoData.uri,
-        descripcion: `Foto ${photos.length + 1}`,
-        orden_en_respuesta: photos.length + 1,
-        sincronizada: false,
-        fecha_captura: new Date().toISOString(),
-      }];
-
-      setPhotos(updatedPhotos);
-      console.log('📝 Fotos actualizadas localmente:', updatedPhotos.length);
-
-      // Intentar subir la foto si tenemos ID de respuesta
-      if (response?.id && uploadPhoto) {
-        try {
-          console.log('☁️ Subiendo foto al servidor...');
-          const uploadResult = await uploadPhoto(photoData.uri, response.id);
-
-          if (uploadResult.success) {
-            console.log('✅ Foto subida exitosamente');
-            // Marcar la foto como sincronizada
-            const syncedPhotos = updatedPhotos.map(photo =>
-              photo.uri === photoData.uri
-                ? { ...photo, sincronizada: true, id: uploadResult.data?.id }
-                : photo
-            );
-            setPhotos(syncedPhotos);
-          } else {
-            console.log('⚠️ Error subiendo foto, se guardará para sincronizar después');
-          }
-        } catch (uploadError) {
-          console.log('⚠️ Error en subida de foto, se guardará offline:', uploadError);
+      // Paso 1: asegurar que existe una respuesta en el backend
+      let responseId = response?.id;
+      if (!responseId) {
+        console.log('📝 Creando respuesta inicial para item PHOTO...');
+        const saveResult = await onSave({ completado: false }, { silent: true });
+        responseId = saveResult?.data?.id;
+        if (!responseId) {
+          Alert.alert('Error', 'No se pudo registrar la respuesta del item. Intenta de nuevo.');
+          return;
         }
       }
 
-      // Marcar como completado si cumple requisitos mínimos
+      // Paso 2: subir la imagen al servidor
+      let serverPhoto: any = null;
+      if (uploadPhoto) {
+        console.log(`☁️ Subiendo foto #${nextOrder} al servidor...`);
+        const uploadResult = await uploadPhoto(
+          pendingPhotoData.uri,
+          responseId,
+          nextOrder,
+          descripcion
+        );
+        if (uploadResult.success && uploadResult.data) {
+          serverPhoto = uploadResult.data;
+          console.log('✅ Foto subida exitosamente:', serverPhoto.id);
+        } else {
+          console.warn('⚠️ Error al subir foto:', uploadResult.message);
+          Alert.alert('Advertencia', 'La foto se guardó localmente pero no se pudo subir al servidor. Se sincronizará cuando tengas conexión.');
+        }
+      }
+
+      // Paso 3: agregar a la lista local (usando datos del servidor si están disponibles)
+      const newPhoto = serverPhoto ?? {
+        uri: pendingPhotoData.uri,
+        imagen_url: pendingPhotoData.uri,
+        descripcion,
+        orden_en_respuesta: nextOrder,
+        sincronizada: false,
+        fecha_captura: new Date().toISOString(),
+      };
+
+      const updatedPhotos = [...photos, newPhoto];
+      setPhotos(updatedPhotos);
+
+      // Paso 4: marcar como completado si supera el mínimo
       const isComplete = updatedPhotos.length >= (item.min_fotos || 1);
       await onSave({
         completado: isComplete,
-        respuesta_texto: `${updatedPhotos.length} foto(s) capturada(s)`
-      });
+        respuesta_texto: `${updatedPhotos.length} foto(s) de evidencia`,
+      }, { silent: true });
 
-      console.log('🎯 Foto procesada completamente, completado:', isComplete);
+      console.log(`🎯 Foto #${nextOrder} procesada. Total: ${updatedPhotos.length}. Completado: ${isComplete}`);
 
     } catch (error) {
       console.error('❌ Error procesando foto:', error);
-      Alert.alert('Error', 'No se pudo procesar la foto');
+      Alert.alert('Error', 'No se pudo procesar la foto. Intenta de nuevo.');
     } finally {
       setUploadingPhoto(false);
+      setPendingPhotoData(null);
+      setPhotoDescriptionInput('');
     }
+  };
+
+  // Eliminar foto
+  const handleDeletePhoto = async (photo: any, index: number) => {
+    Alert.alert(
+      'Eliminar foto',
+      `¿Eliminar "${photo.descripcion || `Foto ${index + 1}`}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            // Si tiene ID del servidor, eliminar en backend
+            if (photo.id && deletePhoto) {
+              const result = await deletePhoto(photo.id);
+              if (!result.success) {
+                Alert.alert('Error', 'No se pudo eliminar la foto del servidor.');
+                return;
+              }
+            }
+            const updatedPhotos = photos.filter((_, i) => i !== index);
+            setPhotos(updatedPhotos);
+            const isComplete = updatedPhotos.length >= (item.min_fotos || 1);
+            await onSave({
+              completado: isComplete,
+              respuesta_texto: updatedPhotos.length > 0
+                ? `${updatedPhotos.length} foto(s) de evidencia`
+                : '',
+            }, { silent: true });
+          },
+        },
+      ]
+    );
   };
 
   // Función para manejar el resultado de la firma digital
@@ -355,18 +421,31 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
     setShowSignatureModal(false);
   };
 
+  // Tipos que usan selección única (una sola opción marcada)
+  const SINGLE_SELECT_TYPES = [
+    'SELECT',
+    'FLUID_LEVEL',
+    'EXTERIOR_INSPECTION',
+    'INTERIOR_INSPECTION',
+    'ENGINE_INSPECTION',
+    'ELECTRICAL_CHECK',
+    'BRAKE_CHECK',
+    'SUSPENSION_CHECK',
+    'TIRE_CONDITION',
+    'VEHICLE_CONDITION',
+  ];
+  const isSingleSelect = SINGLE_SELECT_TYPES.includes(item.tipo_pregunta);
+
   // Renderizar opciones de selección - Minimalista
   const renderSelectOptions = () => {
     if (!item.opciones_seleccion) return null;
 
     const isSelected = (opcion: any) => {
-      if (item.tipo_pregunta === 'SELECT') {
-        return inputValue === opcion;
-      } else if (item.tipo_pregunta === 'MULTISELECT' || item.tipo_pregunta.includes('SELECT')) {
-        const currentValues = Array.isArray(inputValue) ? inputValue : [];
-        return currentValues.includes(opcion);
+      if (isSingleSelect) {
+        return inputValue === opcion || String(inputValue) === String(opcion);
       }
-      return false;
+      const currentValues = Array.isArray(inputValue) ? inputValue : [];
+      return currentValues.includes(opcion);
     };
 
     return item.opciones_seleccion.map((opcion: any, index: number) => {
@@ -380,10 +459,10 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
             selected && styles.modernOptionButtonSelected,
           ]}
           onPress={() => {
-            if (item.tipo_pregunta === 'SELECT') {
+            if (isSingleSelect) {
               handleInputChange(opcion);
             } else {
-              // MULTISELECT
+              // MULTISELECT / SERVICE_SELECTION
               const currentValues = Array.isArray(inputValue) ? inputValue : [];
               if (currentValues.includes(opcion)) {
                 handleInputChange(currentValues.filter((v: any) => v !== opcion));
@@ -439,24 +518,44 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
 
     return (
       <View style={styles.photoPreviewContainer}>
-        <Text style={styles.photoPreviewTitle}>Fotos capturadas:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {photos.map((photo, index) => (
-            <View key={index} style={styles.photoPreviewItem}>
-              <Image source={{ uri: photo.uri }} style={styles.photoPreviewImage} />
-              <TouchableOpacity
-                style={styles.photoDeleteButton}
-                onPress={() => {
-                  const newPhotos = photos.filter((_, i) => i !== index);
-                  setPhotos(newPhotos);
-                  setIsModified(true);
-                }}
-              >
-                <MaterialIcons name="close" size={16} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          ))}
-        </ScrollView>
+        <Text style={styles.photoPreviewTitle}>
+          {photos.length} foto{photos.length !== 1 ? 's' : ''} de evidencia
+        </Text>
+        <View style={styles.photoGrid}>
+          {photos.map((photo, index) => {
+            const imageUri = photo.imagen_url || photo.uri;
+            const desc = photo.descripcion || `Foto ${index + 1}`;
+            const isSynced = !!photo.id;
+            return (
+              <View key={photo.id ?? `local-${index}`} style={styles.photoCard}>
+                <View style={styles.photoCardImageWrapper}>
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={styles.photoCardImage}
+                    resizeMode="cover"
+                  />
+                  {/* Badge de estado sincronización */}
+                  <View style={[styles.photoSyncBadge, isSynced ? styles.photoSyncBadgeSynced : styles.photoSyncBadgePending]}>
+                    <MaterialIcons
+                      name={isSynced ? 'cloud-done' : 'cloud-off'}
+                      size={12}
+                      color="#fff"
+                    />
+                  </View>
+                  {/* Botón eliminar */}
+                  <TouchableOpacity
+                    style={styles.photoDeleteButton}
+                    onPress={() => handleDeletePhoto(photo, index)}
+                    disabled={uploadingPhoto}
+                  >
+                    <MaterialIcons name="delete" size={16} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.photoCardDesc} numberOfLines={2}>{desc}</Text>
+              </View>
+            );
+          })}
+        </View>
       </View>
     );
   };
@@ -596,40 +695,135 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       case 'PHOTO':
         return (
           <View style={styles.modernPhotoContainer}>
+            {/* Botones de agregar */}
             <View style={styles.modernPhotoButtonsContainer}>
               <TouchableOpacity
-                style={styles.modernPhotoButton}
+                style={[styles.modernPhotoButton, uploadingPhoto && styles.modernPhotoButtonDisabled]}
                 onPress={handleTakePicture}
                 disabled={uploadingPhoto}
               >
-                <MaterialIcons name="camera-alt" size={22} color="#007bff" />
+                <MaterialIcons name="camera-alt" size={22} color="#003459" />
                 <Text style={styles.modernPhotoButtonText}>Tomar Foto</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.modernPhotoButton}
+                style={[styles.modernPhotoButton, uploadingPhoto && styles.modernPhotoButtonDisabled]}
                 onPress={handlePickFromGallery}
                 disabled={uploadingPhoto}
               >
-                <MaterialIcons name="photo-library" size={22} color="#007bff" />
+                <MaterialIcons name="photo-library" size={22} color="#003459" />
                 <Text style={styles.modernPhotoButtonText}>Galería</Text>
               </TouchableOpacity>
             </View>
 
+            {/* Spinner mientras sube */}
             {uploadingPhoto && (
               <View style={styles.uploadingContainer}>
-                <ActivityIndicator size="small" color="#619FF0" />
-                <Text style={styles.uploadingText}>Procesando foto...</Text>
+                <ActivityIndicator size="small" color="#003459" />
+                <Text style={styles.uploadingText}>Subiendo foto al servidor...</Text>
               </View>
             )}
 
+            {/* Requisito de fotos mínimas */}
+            {item.min_fotos != null && item.min_fotos > 0 && (
+              <View style={styles.photoRequirementRow}>
+                <MaterialIcons
+                  name={photos.length >= item.min_fotos ? 'check-circle' : 'info'}
+                  size={14}
+                  color={photos.length >= item.min_fotos ? '#00C9A7' : '#6c757d'}
+                />
+                <Text style={[
+                  styles.photoRequirement,
+                  photos.length >= item.min_fotos && styles.photoRequirementMet,
+                ]}>
+                  Mínimo {item.min_fotos} foto{item.min_fotos !== 1 ? 's' : ''} requerida{item.min_fotos !== 1 ? 's' : ''}
+                  {photos.length > 0 ? ` · ${photos.length} agregada${photos.length !== 1 ? 's' : ''}` : ''}
+                </Text>
+              </View>
+            )}
+
+            {/* Vista previa */}
             {renderPhotoPreview()}
 
-            {item.min_fotos && photos.length < item.min_fotos && (
-              <Text style={styles.photoRequirement}>
-                Mínimo {item.min_fotos} foto(s) requerida(s)
-              </Text>
-            )}
+            {/* Modal de descripción */}
+            <Modal
+              visible={showDescriptionModal}
+              transparent
+              animationType="slide"
+              onRequestClose={() => {
+                setShowDescriptionModal(false);
+                setPendingPhotoData(null);
+              }}
+            >
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.descriptionModalOverlay}
+              >
+                <View style={styles.descriptionModalSheet}>
+                  <View style={styles.descriptionModalHandle} />
+
+                  <Text style={styles.descriptionModalTitle}>
+                    Describe esta evidencia
+                  </Text>
+                  <Text style={styles.descriptionModalSubtitle}>
+                    Una descripción clara ayuda a identificar el trabajo realizado.
+                    {'\n'}Ej: "Motor antes del servicio", "Filtro de aceite reemplazado"
+                  </Text>
+
+                  {/* Preview de la foto pendiente */}
+                  {pendingPhotoData?.uri && (
+                    <Image
+                      source={{ uri: pendingPhotoData.uri }}
+                      style={styles.descriptionModalPreview}
+                      resizeMode="cover"
+                    />
+                  )}
+
+                  <TextInput
+                    style={styles.descriptionInput}
+                    value={photoDescriptionInput}
+                    onChangeText={setPhotoDescriptionInput}
+                    placeholder="Descripción de la foto..."
+                    placeholderTextColor="#adb5bd"
+                    maxLength={120}
+                    autoFocus
+                    returnKeyType="done"
+                    onSubmitEditing={handlePhotoSubmit}
+                  />
+                  <Text style={styles.descriptionCharCount}>
+                    {photoDescriptionInput.length}/120
+                  </Text>
+
+                  <View style={styles.descriptionModalActions}>
+                    <TouchableOpacity
+                      style={styles.descriptionCancelButton}
+                      onPress={() => {
+                        setShowDescriptionModal(false);
+                        setPendingPhotoData(null);
+                        setPhotoDescriptionInput('');
+                      }}
+                    >
+                      <Text style={styles.descriptionCancelText}>Cancelar</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.descriptionConfirmButton}
+                      onPress={handlePhotoSubmit}
+                      disabled={uploadingPhoto}
+                    >
+                      {uploadingPhoto ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <>
+                          <MaterialIcons name="cloud-upload" size={18} color="#fff" />
+                          <Text style={styles.descriptionConfirmText}>Guardar foto</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </KeyboardAvoidingView>
+            </Modal>
           </View>
         );
 
@@ -903,46 +1097,6 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       <View style={styles.inputContainer}>
         {renderItemComponent()}
 
-        {/* FOTOS */}
-        {item.tipo_pregunta === 'PHOTO' && (
-          <View style={styles.modernPhotoContainer}>
-            <View style={styles.modernPhotoButtonsContainer}>
-              <TouchableOpacity
-                style={styles.modernPhotoButton}
-                onPress={handleTakePicture}
-                disabled={uploadingPhoto}
-              >
-                <MaterialIcons name="camera-alt" size={22} color="#007bff" />
-                <Text style={styles.modernPhotoButtonText}>Tomar Foto</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modernPhotoButton}
-                onPress={handlePickFromGallery}
-                disabled={uploadingPhoto}
-              >
-                <MaterialIcons name="photo-library" size={22} color="#007bff" />
-                <Text style={styles.modernPhotoButtonText}>Galería</Text>
-              </TouchableOpacity>
-            </View>
-
-            {uploadingPhoto && (
-              <View style={styles.uploadingContainer}>
-                <ActivityIndicator size="small" color="#619FF0" />
-                <Text style={styles.uploadingText}>Procesando foto...</Text>
-              </View>
-            )}
-
-            {renderPhotoPreview()}
-
-            {item.min_fotos && photos.length < item.min_fotos && (
-              <Text style={styles.photoRequirement}>
-                Mínimo {item.min_fotos} foto(s) requerida(s)
-              </Text>
-            )}
-          </View>
-        )}
-
         {/* FECHA Y HORA */}
         {item.tipo_pregunta === 'DATETIME' && (
           <TouchableOpacity style={styles.modernSelectButton}>
@@ -989,7 +1143,32 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         )}
 
         {/* TIPOS NO IMPLEMENTADOS */}
-        {!['TEXT', 'NUMBER', 'KILOMETER_INPUT', 'BOOLEAN', 'SELECT', 'MULTISELECT', 'RATING', 'PHOTO', 'DATETIME', 'LOCATION', 'SIGNATURE'].includes(item.tipo_pregunta) && (
+        {![
+          'TEXT',
+          'NUMBER',
+          'KILOMETER_INPUT',
+          'BOOLEAN',
+          'CLIENT_CONFIRMATION',
+          'SELECT',
+          'MULTISELECT',
+          'SERVICE_SELECTION',
+          'VEHICLE_CONDITION',
+          'ELECTRICAL_CHECK',
+          'BRAKE_CHECK',
+          'SUSPENSION_CHECK',
+          'TIRE_CONDITION',
+          'EXTERIOR_INSPECTION',
+          'INTERIOR_INSPECTION',
+          'ENGINE_INSPECTION',
+          'FLUID_LEVEL',
+          'INVENTORY_CHECKLIST',
+          'FUEL_GAUGE',
+          'RATING',
+          'PHOTO',
+          'DATETIME',
+          'LOCATION',
+          'SIGNATURE',
+        ].includes(item.tipo_pregunta) && (
           <View style={styles.notImplementedContainer}>
             <MaterialIcons name="warning" size={20} color="#ffc107" />
             <Text style={styles.notImplementedText}>
@@ -1222,9 +1401,9 @@ const styles = StyleSheet.create({
     color: '#212529',
     fontWeight: '500',
   },
-  // Photo container compacto - diseño claro mejorado
+  // Photo container
   modernPhotoContainer: {
-    gap: 16,
+    gap: 14,
   },
   modernPhotoButtonsContainer: {
     flexDirection: 'row',
@@ -1239,15 +1418,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#dee2e6',
-    backgroundColor: '#ffffff',
+    borderColor: '#003459',
+    backgroundColor: '#E6F2F7',
     gap: 10,
-    minHeight: 50,
+    minHeight: 52,
+  },
+  modernPhotoButtonDisabled: {
+    opacity: 0.5,
   },
   modernPhotoButtonText: {
     fontSize: 15,
-    fontWeight: '500',
-    color: '#212529',
+    fontWeight: '600',
+    color: '#003459',
   },
   uploadingContainer: {
     flexDirection: 'row',
@@ -1255,43 +1437,182 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 12,
+    backgroundColor: '#f0f9ff',
+    borderRadius: 10,
   },
   uploadingText: {
     fontSize: 14,
-    color: '#6c757d',
-  },
-  photoPreviewContainer: {
-    gap: 8,
-  },
-  photoPreviewTitle: {
-    fontSize: 14,
+    color: '#003459',
     fontWeight: '500',
-    color: '#212529',
   },
-  photoPreviewItem: {
-    position: 'relative',
-    marginRight: 8,
-  },
-  photoPreviewImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-  },
-  photoDeleteButton: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#dc3545',
-    borderRadius: 12,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
+  photoRequirementRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   photoRequirement: {
     fontSize: 12,
-    color: '#dc3545',
-    fontStyle: 'italic',
+    color: '#6c757d',
+  },
+  photoRequirementMet: {
+    color: '#00C9A7',
+    fontWeight: '500',
+  },
+  photoPreviewContainer: {
+    gap: 10,
+  },
+  photoPreviewTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#212529',
+  },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  photoCard: {
+    width: 100,
+    gap: 4,
+  },
+  photoCardImageWrapper: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+  },
+  photoCardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  photoSyncBadge: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  photoSyncBadgeSynced: {
+    backgroundColor: '#00C9A7',
+  },
+  photoSyncBadgePending: {
+    backgroundColor: '#adb5bd',
+  },
+  photoDeleteButton: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: '#dc3545',
+    borderRadius: 14,
+    width: 26,
+    height: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoCardDesc: {
+    fontSize: 11,
+    color: '#495057',
+    fontWeight: '500',
+    lineHeight: 14,
+  },
+  // Modal de descripción de foto
+  descriptionModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  descriptionModalSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 32,
+    gap: 12,
+  },
+  descriptionModalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#dee2e6',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 4,
+  },
+  descriptionModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#003459',
+    textAlign: 'center',
+  },
+  descriptionModalSubtitle: {
+    fontSize: 13,
+    color: '#6c757d',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  descriptionModalPreview: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+    backgroundColor: '#f8f9fa',
+  },
+  descriptionInput: {
+    borderWidth: 2,
+    borderColor: '#003459',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: '#212529',
+    backgroundColor: '#f8f9fa',
+    marginTop: 4,
+  },
+  descriptionCharCount: {
+    fontSize: 11,
+    color: '#adb5bd',
+    textAlign: 'right',
+    marginTop: -6,
+  },
+  descriptionModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  descriptionCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#dee2e6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  descriptionCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6c757d',
+  },
+  descriptionConfirmButton: {
+    flex: 2,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#003459',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  descriptionConfirmText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   // Number input wrapper
   numberInputWrapper: {

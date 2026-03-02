@@ -422,7 +422,7 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
     try {
       const response: ChecklistItemResponse = {
         item_template: itemTemplateId,
-        completado: true,
+        completado: responseData.completado ?? true,
         ...responseData,
       };
       
@@ -547,7 +547,7 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
     }
   }, []);
 
-  const uploadPhoto = useCallback(async (photoUri: string, responseId: number, descripcion?: string) => {
+  const uploadPhoto = useCallback(async (photoUri: string, responseId: number, ordenEnRespuesta: number, descripcion?: string) => {
     updateState({ uploading: true });
     
     try {
@@ -558,7 +558,7 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
         type: 'image/jpeg',
         name: `checklist_photo_${Date.now()}.jpg`,
       } as any);
-      formData.append('orden_en_respuesta', '1');
+      formData.append('orden_en_respuesta', String(ordenEnRespuesta));
       
       if (descripcion) {
         formData.append('descripcion', descripcion);
@@ -591,6 +591,15 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
       updateState({ uploading: false });
     }
   }, [updateState]);
+
+  const deletePhoto = useCallback(async (photoId: number) => {
+    try {
+      const result = await checklistService.deletePhoto(photoId);
+      return result;
+    } catch (error) {
+      return { success: false, message: 'Error eliminando foto' };
+    }
+  }, []);
 
   // ==================== FINALIZACIÓN ====================
 
@@ -707,6 +716,7 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
     takePicture,
     pickFromGallery,
     uploadPhoto,
+    deletePhoto,
     
     // Navegación
     goToStep,

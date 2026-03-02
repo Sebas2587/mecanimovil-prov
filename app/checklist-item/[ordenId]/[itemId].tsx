@@ -31,6 +31,7 @@ export default function ChecklistItemDetailScreen() {
     takePicture,
     pickFromGallery,
     uploadPhoto,
+    deletePhoto,
     finalizeChecklist,
   } = useChecklist({ ordenId: ordenIdNum });
 
@@ -64,25 +65,47 @@ export default function ChecklistItemDetailScreen() {
     }
   }, [template, instance, itemIdNum]);
 
-  const handleSave = async (responseData: any) => {
-    if (!item) return;
+  // Para items de tipo FOTO: asegurar que exista una respuesta en backend
+  // antes de intentar subir fotos, de modo que se puedan asociar múltiples evidencias.
+  useEffect(() => {
+    const ensurePhotoResponse = async () => {
+      if (!item || !instance) return;
+      if (item.tipo_pregunta !== 'PHOTO') return;
+      if (response) return;
+
+      const result = await saveResponse(item.id, { completado: false });
+      if (result.success) {
+        setResponse(result.data);
+      } else {
+        console.error('❌ No se pudo inicializar respuesta para item PHOTO:', result.message);
+      }
+    };
+
+    ensurePhotoResponse();
+  }, [item, instance, response, saveResponse]);
+
+  const handleSave = async (responseData: any, options?: { silent?: boolean }) => {
+    if (!item) return { success: false, message: 'Item no disponible' };
     
     const result = await saveResponse(item.id, responseData);
     
     if (result.success) {
-      Alert.alert(
-        'Guardado',
-        'Tu respuesta ha sido guardada exitosamente.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]
-      );
+      if (result.data) {
+        setResponse(result.data);
+      }
+      if (!options?.silent) {
+        Alert.alert(
+          'Guardado',
+          'Tu respuesta ha sido guardada exitosamente.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      }
     } else {
-      Alert.alert('Error', result.message || 'No se pudo guardar la respuesta');
+      if (!options?.silent) {
+        Alert.alert('Error', result.message || 'No se pudo guardar la respuesta');
+      }
     }
+    return result;
   };
 
   const handleGoBack = () => {
@@ -150,6 +173,7 @@ export default function ChecklistItemDetailScreen() {
             takePicture={takePicture}
             pickFromGallery={pickFromGallery}
             uploadPhoto={uploadPhoto}
+            deletePhoto={deletePhoto}
           />
         </View>
       </ScrollView>
