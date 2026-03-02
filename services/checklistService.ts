@@ -864,10 +864,22 @@ class ChecklistService {
       
       // Intentar guardar online
       try {
-        const apiResponse = await api.post(`${this.baseUrl}/responses/`, {
-          checklist_instance: instanceId,
-          ...response
-        });
+        let apiResponse;
+        if (response.id) {
+          // Ya existe: actualizar con PATCH para evitar error de unicidad
+          console.log('🔄 Actualizando respuesta existente ID:', response.id);
+          const { id, ...updateData } = response;
+          apiResponse = await api.patch(`${this.baseUrl}/responses/${id}/`, {
+            checklist_instance: instanceId,
+            ...updateData,
+          });
+        } else {
+          // Nueva respuesta: crear con POST
+          apiResponse = await api.post(`${this.baseUrl}/responses/`, {
+            checklist_instance: instanceId,
+            ...response,
+          });
+        }
         
         console.log('✅ Response saved online');
         return {

@@ -263,6 +263,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
 
     try {
       // Paso 1: asegurar que existe una respuesta en el backend
+      // Usamos response?.id si ya existe (prop) o lo obtenemos al crear una nueva
       let responseId = response?.id;
       if (!responseId) {
         console.log('📝 Creando respuesta inicial para item PHOTO...');
@@ -272,6 +273,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           Alert.alert('Error', 'No se pudo registrar la respuesta del item. Intenta de nuevo.');
           return;
         }
+        console.log('✅ Respuesta inicial creada con ID:', responseId);
       }
 
       // Paso 2: subir la imagen al servidor
@@ -306,9 +308,13 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       const updatedPhotos = [...photos, newPhoto];
       setPhotos(updatedPhotos);
 
-      // Paso 4: marcar como completado si supera el mínimo
+      // Paso 4: actualizar la respuesta como completada.
+      // IMPORTANTE: pasar el id explícitamente para que el hook use PATCH en vez de POST,
+      // evitando el error de unicidad cuando state.instance.respuestas aún tiene la closure
+      // anterior (stale state entre las dos llamadas a onSave dentro de la misma ejecución).
       const isComplete = updatedPhotos.length >= (item.min_fotos || 1);
       await onSave({
+        id: responseId,
         completado: isComplete,
         respuesta_texto: `${updatedPhotos.length} foto(s) de evidencia`,
       }, { silent: true });

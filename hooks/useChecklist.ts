@@ -420,10 +420,19 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
     updateState({ saving: true });
     
     try {
+      // Buscar si ya existe una respuesta para este item (para reutilizar su ID y hacer PATCH)
+      // El caller puede pasar responseData.id explícitamente cuando hay stale closure,
+      // lo cual es más confiable que buscar en state.instance.respuestas
+      const existingInState = Array.isArray(state.instance.respuestas)
+        ? state.instance.respuestas.find(r => r.item_template === itemTemplateId)
+        : undefined;
+      const resolvedId = (responseData as any).id || existingInState?.id;
+
       const response: ChecklistItemResponse = {
         item_template: itemTemplateId,
         completado: responseData.completado ?? true,
         ...responseData,
+        ...(resolvedId ? { id: resolvedId } : {}),
       };
       
       const result = await checklistService.saveResponse(response, state.instance.id);
