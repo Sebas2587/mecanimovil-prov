@@ -93,6 +93,33 @@ export const puedeContactarCliente = (orden: Orden): boolean => {
   return orden.informacion_disponible.puede_contactar;
 };
 
+/**
+ * El endpoint activas puede devolver varias filas para la misma oferta (FK no única + carreras al crear SolicitudServicio)
+ * o la misma orden repetida en listas combinadas. Mantiene un registro por id y, si hay oferta_proveedor_id, el de mayor id.
+ */
+export function dedupeOrdenesPorIdYOferta<T extends Orden>(list: T[]): T[] {
+  const byId = new Map<number, T>();
+  for (const o of list) {
+    byId.set(o.id, o);
+  }
+  const porId = Array.from(byId.values());
+  const porOferta = new Map<string, T>();
+  const sinOferta: T[] = [];
+  for (const o of porId) {
+    const ofertaId = o.oferta_proveedor_id;
+    if (ofertaId == null || ofertaId === '') {
+      sinOferta.push(o);
+      continue;
+    }
+    const key = String(ofertaId);
+    const prev = porOferta.get(key);
+    if (!prev || o.id > prev.id) {
+      porOferta.set(key, o);
+    }
+  }
+  return [...sinOferta, ...porOferta.values()];
+}
+
 // Interfaz para las estadísticas del proveedor
 export interface EstadisticasProveedor {
   total_ordenes: number;

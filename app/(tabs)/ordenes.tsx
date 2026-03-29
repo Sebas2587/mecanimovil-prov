@@ -10,7 +10,13 @@ import {
   Image,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { ordenesProveedorService, type Orden, obtenerNombreSeguro, esClienteCompleto } from '@/services/ordenesProveedor';
+import {
+  ordenesProveedorService,
+  type Orden,
+  obtenerNombreSeguro,
+  esClienteCompleto,
+  dedupeOrdenesPorIdYOferta,
+} from '@/services/ordenesProveedor';
 import { obtenerMisOfertas, type OfertaProveedor } from '@/services/solicitudesService';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
@@ -141,10 +147,8 @@ export default function OrdenesScreen() {
         todasLasOrdenes.push(...canceladasRes.data);
       }
 
-      // Eliminar duplicados y ordenar por fecha más reciente
-      const ordenesUnicas = todasLasOrdenes.filter((orden, index, self) => 
-        index === self.findIndex((o) => o.id === orden.id)
-      );
+      // Eliminar duplicados (mismo id o misma oferta_proveedor) y ordenar por fecha más reciente
+      const ordenesUnicas = dedupeOrdenesPorIdYOferta(todasLasOrdenes);
 
       ordenesUnicas.sort((a, b) => 
         new Date(b.fecha_hora_solicitud).getTime() - new Date(a.fecha_hora_solicitud).getTime()

@@ -15,7 +15,12 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { router, useFocusEffect } from 'expo-router';
 import EstadoRevisionScreen from '@/components/EstadoRevisionScreen';
-import { ordenesProveedorService, type Orden, obtenerNombreSeguro } from '@/services/ordenesProveedor';
+import {
+  ordenesProveedorService,
+  type Orden,
+  obtenerNombreSeguro,
+  dedupeOrdenesPorIdYOferta,
+} from '@/services/ordenesProveedor';
 import { checklistService, type ChecklistInstance } from '@/services/checklistService';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import solicitudesService, { type SolicitudPublica } from '@/services/solicitudesService';
@@ -378,7 +383,7 @@ export default function HomeScreen() {
       let todasLasOrdenes: Orden[] = [];
 
       if (activasResult.success && activasResult.data && Array.isArray(activasResult.data)) {
-        todasLasOrdenes = activasResult.data;
+        todasLasOrdenes = dedupeOrdenesPorIdYOferta(activasResult.data);
       } else {
         console.log('⚠️ No se pudieron cargar órdenes activas:', activasResult.message || 'Error desconocido');
       }
