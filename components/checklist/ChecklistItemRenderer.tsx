@@ -234,9 +234,19 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         break;
       case 'NUMBER':
       case 'KILOMETER_INPUT':
-      case 'RATING':
-        responseData.respuesta_numero = parseFloat(inputValue) || 0;
+      case 'RATING': {
+        const rawStr = String(inputValue ?? '')
+          .trim()
+          .replace(/\s/g, '')
+          .replace(/,/g, '.');
+        const n = parseFloat(rawStr);
+        if (item.tipo_pregunta === 'KILOMETER_INPUT' || item.tipo_pregunta === 'NUMBER') {
+          responseData.respuesta_numero = Number.isFinite(n) ? n : null;
+        } else {
+          responseData.respuesta_numero = Number.isFinite(n) ? n : 0;
+        }
         break;
+      }
       case 'BOOLEAN':
         responseData.respuesta_booleana = inputValue;
         break;
