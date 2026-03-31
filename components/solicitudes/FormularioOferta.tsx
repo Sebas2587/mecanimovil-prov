@@ -24,7 +24,7 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens
 import { useAuth } from '@/context/AuthContext';
 import { useAlerts } from '@/context/AlertsContext';
 import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
-import { serviceAreasApi } from '@/services/serviceAreasApi';
+import serviceAreasApi from '@/services/serviceAreasApi';
 
 interface FormularioOfertaProps {
   solicitud: SolicitudPublica;

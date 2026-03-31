@@ -18,7 +18,7 @@ import creditosService, { type VerificacionCreditosOferta } from '@/services/cre
 import { ModalCreditosInsuficientes } from '@/components/creditos';
 import { useAuth } from '@/context/AuthContext';
 import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
-import { serviceAreasApi } from '@/services/serviceAreasApi';
+import serviceAreasApi from '@/services/serviceAreasApi';
 import { useAlerts } from '@/context/AlertsContext';
 
 export default function CrearOfertaScreen() {
