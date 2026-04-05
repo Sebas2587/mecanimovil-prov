@@ -39,6 +39,7 @@ import creditosService, {
 import suscripcionesService, {
   type PlanSuscripcion,
   type SuscripcionProveedor,
+  type CobroMP,
 } from '@/services/suscripcionesService';
 import mercadoPagoProveedorService, {
   type EstadisticasPagosMP,
@@ -227,6 +228,8 @@ export default function CreditosScreen() {
   const [estadisticasMP, setEstadisticasMP] = useState<EstadisticasPagosMP | null>(null);
   const [historialPagos, setHistorialPagos] = useState<PagoRecibido[]>([]);
   const [cantidadComprar, setCantidadComprar] = useState<number>(5);
+  const [cobrosMP, setCobrosMP] = useState<CobroMP[]>([]);
+  const [cargandoCobros, setCargandoCobros] = useState(false);
 
   // ── Computed ──────────────────────────────────────────────
   const tieneSuscripcionActiva = useMemo(
@@ -269,6 +272,7 @@ export default function CreditosScreen() {
         planesResult,
         estadisticasMPResult,
         historialPagosResult,
+        cobrosResult,
       ] = await Promise.all([
         creditosService.obtenerSaldo(),
         creditosService.obtenerEstadisticas(),
@@ -278,6 +282,7 @@ export default function CreditosScreen() {
         suscripcionesService.obtenerPlanes(),
         mercadoPagoProveedorService.obtenerEstadisticasPagos(),
         mercadoPagoProveedorService.obtenerHistorialPagos(),
+        suscripcionesService.obtenerHistorialCobros(),
       ]);
 
       if (saldoResult.success && saldoResult.data) setSaldo(saldoResult.data);
@@ -291,6 +296,9 @@ export default function CreditosScreen() {
       }
       if (historialPagosResult?.success && historialPagosResult.data) {
         setHistorialPagos(historialPagosResult.data.historial);
+      }
+      if (cobrosResult?.success) {
+        setCobrosMP(cobrosResult.cobros);
       }
 
       // 3. (Eliminado: Paquetes ya no se utilizan)
@@ -644,6 +652,74 @@ export default function CreditosScreen() {
               Cancelar Suscripción
             </Text>
           </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Historial de cobros reales de MercadoPago */}
+      {suscripcion && suscripcion.estado === 'activa' && (
+        <View style={[styles.cobrosSection, { backgroundColor: backgroundPaper }]}>
+          <View style={styles.cobrosHeader}>
+            <MaterialIcons name="receipt-long" size={20} color={primaryColor} />
+            <Text style={[styles.cobrosTitle, { color: textPrimary }]}>Pagos Recurrentes MP</Text>
+          </View>
+
+          {cobrosMP.length === 0 ? (
+            <View style={styles.cobrosEmpty}>
+              <MaterialIcons name="info-outline" size={18} color={textSecondary} />
+              <Text style={[styles.cobrosEmptyText, { color: textSecondary }]}>
+                No se encontraron cobros recurrentes en MercadoPago para esta suscripción.
+                {'\n'}Los créditos solo se acreditan cuando MP confirma un cobro real.
+              </Text>
+            </View>
+          ) : (
+            cobrosMP.map((cobro) => {
+              const isApproved = ['approved', 'authorized', 'processed'].includes(cobro.status);
+              const isRejected = ['rejected', 'cancelled'].includes(cobro.status);
+
+              return (
+                <View
+                  key={cobro.id}
+                  style={[
+                    styles.cobroRow,
+                    {
+                      backgroundColor: isApproved ? '#F0FDF4' : isRejected ? '#FEF2F2' : '#FFFBEB',
+                      borderColor: isApproved ? '#BBF7D0' : isRejected ? '#FECACA' : '#FDE68A',
+                    },
+                  ]}
+                >
+                  <View style={styles.cobroLeft}>
+                    <MaterialIcons
+                      name={isApproved ? 'check-circle' : isRejected ? 'cancel' : 'schedule'}
+                      size={20}
+                      color={isApproved ? '#16A34A' : isRejected ? '#DC2626' : '#D97706'}
+                    />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={[styles.cobroStatus, { color: isApproved ? '#16A34A' : isRejected ? '#DC2626' : '#D97706' }]}>
+                        {isApproved ? 'Cobro Aprobado' : isRejected ? 'Cobro Rechazado' : `Estado: ${cobro.status}`}
+                      </Text>
+                      {cobro.fecha && (
+                        <Text style={[styles.cobroDate, { color: textSecondary }]}>
+                          {new Date(cobro.fecha).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  <View style={styles.cobroRight}>
+                    {cobro.monto != null && (
+                      <Text style={[styles.cobroMonto, { color: textPrimary }]}>
+                        ${Math.round(cobro.monto).toLocaleString('es-CL')}
+                      </Text>
+                    )}
+                    {cobro.acreditado && (
+                      <View style={[styles.cobroAcreditadoBadge, { backgroundColor: '#DCFCE7' }]}>
+                        <Text style={{ fontSize: 10, color: '#16A34A', fontWeight: '700' }}>ACREDITADO</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              );
+            })
+          )}
         </View>
       )}
 
@@ -1161,5 +1237,76 @@ const styles = StyleSheet.create({
   quickSelectText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontWeight: '700',
+  },
+
+  // ─── Cobros MP ─────────────────────────────────────────────
+  cobrosSection: {
+    borderRadius: 16,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  cobrosHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: SPACING.md,
+  },
+  cobrosTitle: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: '700',
+  },
+  cobrosEmpty: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: SPACING.sm,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+  },
+  cobrosEmptyText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    flex: 1,
+    lineHeight: 18,
+  },
+  cobroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: SPACING.sm,
+    marginBottom: 8,
+  },
+  cobroLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  cobroStatus: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: '600',
+  },
+  cobroDate: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    marginTop: 2,
+  },
+  cobroRight: {
+    alignItems: 'flex-end',
+    marginLeft: SPACING.sm,
+  },
+  cobroMonto: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: '700',
+  },
+  cobroAcreditadoBadge: {
+    marginTop: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
 });

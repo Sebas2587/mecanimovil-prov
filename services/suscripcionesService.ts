@@ -187,6 +187,43 @@ const sincronizarSuscripcion = async (): Promise<{
     }
 };
 
+export interface CobroMP {
+    id: string;
+    status: string;
+    monto: number | null;
+    moneda: string;
+    fecha: string | null;
+    acreditado: boolean;
+}
+
+/**
+ * Obtiene el historial de cobros reales de MercadoPago para la suscripción
+ * del proveedor. Consulta directamente la API de MP.
+ */
+const obtenerHistorialCobros = async (): Promise<{
+    success: boolean;
+    cobros: CobroMP[];
+    total: number;
+    error?: string;
+}> => {
+    try {
+        const response = await apiClient.get('/suscripciones/mi-suscripcion/historial-cobros/');
+        return {
+            success: true,
+            cobros: response.data?.cobros ?? [],
+            total: response.data?.total ?? 0,
+        };
+    } catch (error: any) {
+        console.error('[suscripcionesService] Error obteniendo historial cobros:', error?.response?.data || error);
+        return {
+            success: false,
+            cobros: [],
+            total: 0,
+            error: error?.response?.data?.error || 'No se pudo obtener el historial de cobros.',
+        };
+    }
+};
+
 const suscripcionesService = {
     obtenerPlanes,
     suscribirse,
@@ -194,8 +231,7 @@ const suscripcionesService = {
     cancelarSuscripcion,
     verificarSuscripcion,
     sincronizarSuscripcion,
+    obtenerHistorialCobros,
 };
-
-
 
 export default suscripcionesService;
