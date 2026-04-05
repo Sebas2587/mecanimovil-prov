@@ -219,6 +219,7 @@ export default function SolicitudDetalleScreen() {
         <Stack.Screen
           options={{
             title: 'Detalle de Solicitud',
+            headerBackTitle: '',
             headerStyle: { backgroundColor: bgPaper },
             headerTintColor: textPrimary,
           }}
@@ -239,6 +240,7 @@ export default function SolicitudDetalleScreen() {
         <Stack.Screen
           options={{
             title: 'Detalle de Solicitud',
+            headerBackTitle: '',
             headerStyle: { backgroundColor: bgPaper },
             headerTintColor: textPrimary,
           }}
@@ -257,6 +259,7 @@ export default function SolicitudDetalleScreen() {
       <Stack.Screen
         options={{
           title: 'Detalle de Solicitud',
+          headerBackTitle: '',
           headerStyle: { backgroundColor: bgPaper },
           headerTintColor: textPrimary,
         }}

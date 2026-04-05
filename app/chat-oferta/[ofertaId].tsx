@@ -15,13 +15,13 @@ import {
   Modal,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import {
+  ArrowLeft, User, Send, Paperclip, X, MessageCircle, ImageIcon,
+} from 'lucide-react-native';
 import solicitudesService, { type MensajeChat, type OfertaProveedor } from '@/services/solicitudesService';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
 import websocketService, { type NuevoMensajeChatEvent } from '@/app/services/websocketService';
@@ -29,24 +29,8 @@ import * as ImagePicker from 'expo-image-picker';
 
 export default function ChatOfertaScreen() {
   const { ofertaId } = useLocalSearchParams<{ ofertaId: string }>();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const theme = useTheme();
   const { usuario } = useAuth();
   const insets = useSafeAreaInsets();
-
-  // Obtener valores del sistema de diseño
-  const designColors = theme?.colors || COLORS || {};
-
-  // Valores específicos del sistema de diseño
-  const bgDefault = designColors?.background?.default || '#EEEEEE';
-  const bgPaper = designColors?.background?.paper || designColors?.base?.white || '#FFFFFF';
-  const textPrimary = designColors?.text?.primary || '#000000';
-  const textSecondary = designColors?.text?.secondary || '#666666';
-  const textTertiary = designColors?.text?.tertiary || '#999999';
-  const borderLight = designColors?.border?.light || '#EEEEEE';
-  const secondaryColor = designColors?.secondary?.['500'] || '#068FFF';
-  const white = designColors?.base?.white || '#FFFFFF';
 
   const [mensajes, setMensajes] = useState<MensajeChat[]>([]);
   const [oferta, setOferta] = useState<OfertaProveedor | null>(null);
@@ -63,74 +47,41 @@ export default function ChatOfertaScreen() {
   useFocusEffect(
     React.useCallback(() => {
       let unsubscribe: (() => void) | undefined;
-
       if (ofertaId) {
         cargarDatos();
         unsubscribe = suscribirWebSocket();
       }
-
-      return () => {
-        if (unsubscribe) {
-          unsubscribe();
-        }
-      };
+      return () => { if (unsubscribe) unsubscribe(); };
     }, [ofertaId])
   );
 
   useEffect(() => {
-    // Scroll al final cuando hay nuevos mensajes
     if (mensajes.length > 0) {
       requestAnimationFrame(() => {
         setTimeout(() => {
-          if (flatListRef.current) {
-            try {
-              flatListRef.current.scrollToEnd({ animated: true });
-            } catch (error) {
-              console.error('❌ [CHAT PROVEEDOR] Error en scroll automático:', error);
-            }
-          }
+          try { flatListRef.current?.scrollToEnd({ animated: true }); } catch {}
         }, 100);
       });
     }
   }, [mensajes.length]);
 
   useEffect(() => {
-    // Listeners del teclado
-    const keyboardWillShow = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        setKeyboardHeight(e.endCoordinates.height);
-      }
-    );
-
-    const keyboardWillHide = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        setKeyboardHeight(0);
-      }
-    );
-
-    return () => {
-      keyboardWillShow.remove();
-      keyboardWillHide.remove();
-    };
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => { show.remove(); hide.remove(); };
   }, []);
 
   const cargarDatos = async () => {
     if (!ofertaId) return;
-
     try {
       setLoading(true);
-
       const [ofertaResult, mensajesResult] = await Promise.all([
         solicitudesService.obtenerDetalleOferta(ofertaId),
         solicitudesService.obtenerChatOferta(ofertaId),
       ]);
-
-      if (ofertaResult.success && ofertaResult.data) {
-        setOferta(ofertaResult.data);
-      }
-
+      if (ofertaResult.success && ofertaResult.data) setOferta(ofertaResult.data);
       if (mensajesResult.success && mensajesResult.data) {
         setMensajes(mensajesResult.data);
         await solicitudesService.marcarMensajesComoLeidos(ofertaId);
@@ -144,23 +95,11 @@ export default function ChatOfertaScreen() {
 
   const suscribirWebSocket = () => {
     if (!ofertaId) return;
-
     const unsubscribe = websocketService.onNuevoMensajeChat((event: NuevoMensajeChatEvent) => {
-      console.log('📨 [CHAT PROVEEDOR] Evento recibido:', event);
-
-      if (String(event.oferta_id) !== String(ofertaId)) {
-        return;
-      }
-
-      if (mensajesEnviadosRef.current.has(event.mensaje_id)) {
-        return;
-      }
-
+      if (String(event.oferta_id) !== String(ofertaId)) return;
+      if (mensajesEnviadosRef.current.has(event.mensaje_id)) return;
       setMensajes(prev => {
-        if (prev.some(m => m.id === event.mensaje_id)) {
-          return prev;
-        }
-
+        if (prev.some(m => m.id === event.mensaje_id)) return prev;
         const nuevoMensajeObj: MensajeChat = {
           id: event.mensaje_id,
           oferta: event.oferta_id,
@@ -174,17 +113,12 @@ export default function ChatOfertaScreen() {
           archivo_adjunto: event.archivo_adjunto || null,
           solicitud_detail: prev[0]?.solicitud_detail || null,
         };
-
         return [...prev, nuevoMensajeObj];
       });
-
       if (!event.es_proveedor) {
-        setTimeout(() => {
-          solicitudesService.marcarMensajesComoLeidos(ofertaId);
-        }, 1000);
+        setTimeout(() => solicitudesService.marcarMensajesComoLeidos(ofertaId), 1000);
       }
     });
-
     return unsubscribe;
   };
 
@@ -195,44 +129,31 @@ export default function ChatOfertaScreen() {
         Alert.alert('Permiso necesario', 'Se necesita acceso a la galería para enviar imágenes.');
         return;
       }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 0.8,
       });
-
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        setAttachment({
-          uri: asset.uri,
-          type: 'image',
-          name: asset.fileName || `image_${Date.now()}.jpg`
-        });
+        setAttachment({ uri: asset.uri, type: 'image', name: asset.fileName || `image_${Date.now()}.jpg` });
       }
     } catch (error) {
-      console.error('Error al seleccionar imagen:', error);
       Alert.alert('Error', 'No se pudo seleccionar la imagen.');
     }
   };
 
   const handleEnviarMensaje = async () => {
     if ((!nuevoMensaje.trim() && !attachment) || !ofertaId || enviando) return;
-
     const mensajeTexto = nuevoMensaje.trim();
     const mensajeId = `temp-${Date.now()}`;
     const attachmentTemp = attachment;
 
     const mensajeOptimista: MensajeChat = {
-      id: mensajeId,
-      oferta: ofertaId,
-      mensaje: mensajeTexto,
-      enviado_por: usuario?.id || 0,
-      enviado_por_nombre: usuario?.first_name || 'Tú',
-      es_proveedor: true,
-      fecha_envio: new Date().toISOString(),
-      leido: false,
-      fecha_lectura: null,
+      id: mensajeId, oferta: ofertaId, mensaje: mensajeTexto,
+      enviado_por: usuario?.id || 0, enviado_por_nombre: usuario?.first_name || 'Tú',
+      es_proveedor: true, fecha_envio: new Date().toISOString(),
+      leido: false, fecha_lectura: null,
       archivo_adjunto: attachmentTemp ? attachmentTemp.uri : null,
       solicitud_detail: mensajes[0]?.solicitud_detail || null,
     };
@@ -243,31 +164,18 @@ export default function ChatOfertaScreen() {
     setEnviando(true);
 
     try {
-      const result = await solicitudesService.enviarMensajeChat(
-        ofertaId,
-        mensajeTexto,
-        attachmentTemp
-      );
-
+      const result = await solicitudesService.enviarMensajeChat(ofertaId, mensajeTexto, attachmentTemp);
       if (result.success && result.data) {
         mensajesEnviadosRef.current.add(result.data.id);
-
-        setMensajes(prev =>
-          prev.map(m => m.id === mensajeId ? result.data! : m)
-        );
-
-        setTimeout(() => {
-          mensajesEnviadosRef.current.delete(result.data!.id);
-        }, 10000);
+        setMensajes(prev => prev.map(m => m.id === mensajeId ? result.data! : m));
+        setTimeout(() => mensajesEnviadosRef.current.delete(result.data!.id), 10000);
       } else {
-        console.error('❌ [CHAT PROVEEDOR] Error respuesta:', result);
         setMensajes(prev => prev.filter(m => m.id !== mensajeId));
         setNuevoMensaje(mensajeTexto);
         setAttachment(attachmentTemp);
         Alert.alert('Error', 'No se pudo enviar el mensaje');
       }
-    } catch (error) {
-      console.error('❌ [CHAT PROVEEDOR] Excepción envío:', error);
+    } catch {
       setMensajes(prev => prev.filter(m => m.id !== mensajeId));
       setNuevoMensaje(mensajeTexto);
       setAttachment(attachmentTemp);
@@ -277,363 +185,288 @@ export default function ChatOfertaScreen() {
     }
   };
 
-  const handleImagePress = (imageUrl: string) => {
-    setSelectedImage(imageUrl);
-  };
-
-  const renderMensaje = ({ item }: { item: MensajeChat }) => {
-    const esPropio = item.es_proveedor === true;
-    return (
-      <ChatBubble
-        mensaje={item}
-        esPropio={esPropio}
-        onImagePress={handleImagePress}
-      />
-    );
-  };
+  const renderMensaje = ({ item }: { item: MensajeChat }) => (
+    <ChatBubble mensaje={item} esPropio={item.es_proveedor === true} onImagePress={setSelectedImage} />
+  );
 
   const clienteNombre = oferta?.solicitud_detail?.cliente_nombre || 'Cliente';
   const clienteFoto = oferta?.solicitud_detail?.cliente_foto;
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: bgDefault }]} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={textPrimary} />
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <ArrowLeft size={22} color="#1F2937" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Chat</Text>
-          <View style={styles.headerRight} />
+          <View style={{ width: 36 }} />
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={secondaryColor} />
-          <Text style={styles.loadingText}>Cargando chat...</Text>
+        <View style={styles.centeredState}>
+          <ActivityIndicator size="large" color="#3B82F6" />
+          <Text style={styles.centeredText}>Cargando chat...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: bgDefault }]} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={textPrimary} />
+      {/* Glass Header */}
+      <BlurView intensity={50} tint="light" style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <ArrowLeft size={22} color="#1F2937" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{clienteNombre}</Text>
-        <View style={styles.headerRight}>
+        <View style={styles.headerCenter}>
           {clienteFoto ? (
-            <Image
-              source={{ uri: clienteFoto }}
-              style={styles.headerAvatar}
-            />
+            <Image source={{ uri: clienteFoto }} style={styles.headerAvatar} />
           ) : (
             <View style={styles.headerAvatarPlaceholder}>
-              <MaterialIcons name="person" size={20} color={textSecondary} />
+              <User size={16} color="#FFFFFF" />
             </View>
           )}
+          <Text style={styles.headerTitle} numberOfLines={1}>{clienteNombre}</Text>
         </View>
-      </View>
+        <View style={{ width: 36 }} />
+      </BlurView>
 
-      <View style={styles.contentContainer}>
+      <LinearGradient colors={['#F3F5F8', '#FAFBFC', '#FFFFFF']} locations={[0, 0.15, 1]} style={styles.chatArea}>
         {mensajes.length > 0 ? (
           <FlatList
             ref={flatListRef}
             data={mensajes}
             renderItem={renderMensaje}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={[
-              styles.mensajesList,
-              { paddingBottom: keyboardHeight > 0 ? 80 : 80 }
-            ]}
+            contentContainerStyle={[styles.messagesList, { paddingBottom: 80 }]}
             showsVerticalScrollIndicator={false}
-            maintainVisibleContentPosition={{
-              minIndexForVisible: 0,
-            }}
+            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
           />
         ) : (
-          <View style={styles.emptyContainer}>
-            <MaterialIcons name="chat-bubble-outline" size={64} color={textTertiary} />
-            <Text style={styles.emptyText}>No hay mensajes aún</Text>
-            <Text style={styles.emptySubtext}>
-              Comienza la conversación enviando un mensaje
-            </Text>
+          <View style={styles.centeredState}>
+            <View style={styles.emptyIconWrap}>
+              <MessageCircle size={40} color="#9CA3AF" />
+            </View>
+            <Text style={styles.emptyTitle}>Sin mensajes</Text>
+            <Text style={styles.centeredText}>Comienza la conversación enviando un mensaje</Text>
           </View>
         )}
 
-        {/* Input area */}
-        <View style={[
-          styles.inputContainer,
-          {
-            paddingBottom: Math.max(insets.bottom || 8, keyboardHeight > 0 ? 8 : insets.bottom || 8),
-            bottom: keyboardHeight
-          }
+        {/* Glass Input Bar */}
+        <BlurView intensity={60} tint="light" style={[
+          styles.inputBar,
+          { paddingBottom: Math.max(insets.bottom || 8, keyboardHeight > 0 ? 8 : insets.bottom || 8), bottom: keyboardHeight }
         ]}>
-          {/* Attachment Preview (Inside input container but above input) */}
           {attachment && (
-            <View style={styles.previewContainerAbs}>
-              <View style={styles.previewWrapper}>
-                <Image source={{ uri: attachment.uri }} style={styles.imagePreview} />
-                <TouchableOpacity
-                  style={styles.removePreviewButton}
-                  onPress={() => setAttachment(null)}
-                >
-                  <Ionicons name="close-circle" size={24} color="#EF4444" />
-                </TouchableOpacity>
-              </View>
+            <View style={styles.attachPreview}>
+              <Image source={{ uri: attachment.uri }} style={styles.attachThumb} />
+              <TouchableOpacity style={styles.attachRemove} onPress={() => setAttachment(null)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
             </View>
           )}
-
-          <TouchableOpacity style={styles.actionButton} onPress={handlePickAttachment}>
-            <Ionicons name="add-circle-outline" size={28} color={textSecondary} />
-          </TouchableOpacity>
-
-          <TextInput
-            style={styles.input}
-            placeholder="Mensaje"
-            placeholderTextColor={textTertiary}
-            value={nuevoMensaje}
-            onChangeText={setNuevoMensaje}
-            multiline
-            maxLength={500}
-            editable={!enviando}
-          />
-
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              (!nuevoMensaje.trim() && !attachment || enviando) && styles.sendButtonDisabled
-            ]}
-            onPress={handleEnviarMensaje}
-            disabled={(!nuevoMensaje.trim() && !attachment) || enviando}
-          >
-            {enviando ? (
-              <ActivityIndicator size="small" color={white} />
-            ) : (
-              <Ionicons name="send" size={20} color={white} />
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Image Viewer Modal */}
-      <Modal
-        visible={!!selectedImage}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setSelectedImage(null)}
-      >
-        <View style={styles.modalContainer}>
-          <TouchableOpacity
-            style={styles.modalCloseButton}
-            onPress={() => setSelectedImage(null)}
-          >
-            <Ionicons name="close" size={30} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          <View style={styles.modalContent}>
-            {selectedImage && (
-              <Image
-                source={{ uri: selectedImage }}
-                style={styles.fullScreenImage}
-                resizeMode="contain"
-              />
-            )}
+          <View style={styles.inputRow}>
+            <TouchableOpacity style={styles.attachBtn} onPress={handlePickAttachment}>
+              <ImageIcon size={22} color="#6B7280" />
+            </TouchableOpacity>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Escribe un mensaje..."
+              placeholderTextColor="#9CA3AF"
+              value={nuevoMensaje}
+              onChangeText={setNuevoMensaje}
+              multiline
+              maxLength={500}
+              editable={!enviando}
+            />
+            <TouchableOpacity
+              style={[styles.sendBtn, (!nuevoMensaje.trim() && !attachment || enviando) && styles.sendBtnDisabled]}
+              onPress={handleEnviarMensaje}
+              disabled={(!nuevoMensaje.trim() && !attachment) || enviando}
+            >
+              {enviando ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Send size={18} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
           </View>
+        </BlurView>
+      </LinearGradient>
+
+      <Modal visible={!!selectedImage} transparent animationType="fade" onRequestClose={() => setSelectedImage(null)}>
+        <View style={styles.modalBg}>
+          <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedImage(null)}>
+            <X size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          {selectedImage && (
+            <Image source={{ uri: selectedImage }} style={styles.modalImage} resizeMode="contain" />
+          )}
         </View>
       </Modal>
     </SafeAreaView>
   );
 }
 
-const createStyles = () => {
-  const bgPaper = COLORS?.background?.paper || '#FFFFFF';
-  const textPrimary = COLORS?.text?.primary || '#000000';
-  const textSecondary = COLORS?.text?.secondary || '#666666';
-  const textTertiary = COLORS?.text?.tertiary || '#999999';
-  const borderLight = COLORS?.border?.light || '#EEEEEE';
-  const secondaryColor = COLORS?.secondary?.['500'] || '#068FFF';
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F3F5F8',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
+  },
+  backBtn: {
+    padding: 4,
+  },
+  headerCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginHorizontal: 8,
+  },
+  headerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  headerAvatarPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  chatArea: {
+    flex: 1,
+  },
+  messagesList: {
+    paddingHorizontal: 8,
+    paddingTop: 12,
+    flexGrow: 1,
+  },
+  centeredState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  centeredText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  emptyIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#374151',
+  },
 
-  const spacingXs = SPACING?.xs || 4;
-  const spacingSm = SPACING?.sm || 8;
-  const spacingMd = SPACING?.md || 16;
-  const spacingXl = SPACING?.xl || 32;
+  // Input bar
+  inputBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  attachBtn: {
+    padding: 6,
+  },
+  textInput: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 15,
+    maxHeight: 100,
+    color: '#1F2937',
+  },
+  sendBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendBtnDisabled: {
+    opacity: 0.4,
+  },
+  attachPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  attachThumb: {
+    width: 60,
+    height: 60,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+  },
+  attachRemove: {
+    marginLeft: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
-  const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
-  const fontSizeMd = TYPOGRAPHY?.fontSize?.md || 16;
-  const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
-
-  const fontWeightSemibold = TYPOGRAPHY?.fontWeight?.semibold || '600';
-  const radiusXl = BORDERS?.radius?.xl || 20;
-
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacingMd,
-      paddingTop: spacingSm + spacingXs,
-      paddingBottom: spacingSm + spacingXs,
-      backgroundColor: bgPaper,
-      borderBottomWidth: 1,
-      borderBottomColor: borderLight,
-    },
-    backButton: {
-      padding: spacingXs,
-      marginRight: spacingSm,
-    },
-    headerTitle: {
-      flex: 1,
-      fontSize: fontSizeMd + 1,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-      textAlign: 'center',
-      marginHorizontal: spacingSm,
-    },
-    headerRight: {
-      width: 36,
-      alignItems: 'flex-end',
-    },
-    headerAvatar: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-    },
-    headerAvatarPlaceholder: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: borderLight,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    contentContainer: {
-      flex: 1,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    loadingText: {
-      marginTop: spacingSm + spacingXs,
-      fontSize: fontSizeMd,
-      color: textSecondary,
-    },
-    mensajesList: {
-      padding: spacingMd,
-      flexGrow: 1,
-    },
-    emptyContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacingXl,
-    },
-    emptyText: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightSemibold,
-      marginTop: spacingMd,
-      color: textPrimary,
-    },
-    emptySubtext: {
-      fontSize: fontSizeBase,
-      marginTop: spacingSm,
-      textAlign: 'center',
-      color: textTertiary,
-    },
-    inputContainer: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacingSm + spacingXs,
-      paddingTop: spacingSm,
-      backgroundColor: bgPaper,
-      borderTopWidth: 1,
-      borderTopColor: borderLight,
-      gap: spacingSm,
-    },
-    previewContainerAbs: {
-      position: 'absolute',
-      top: -110,
-      left: spacingMd,
-      backgroundColor: 'rgba(255,255,255,0.9)',
-      padding: spacingSm,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: borderLight,
-    },
-    previewWrapper: {
-      position: 'relative',
-    },
-    imagePreview: {
-      width: 100,
-      height: 100,
-      borderRadius: 8,
-      backgroundColor: '#f0f0f0',
-    },
-    removePreviewButton: {
-      position: 'absolute',
-      top: -8,
-      right: -8,
-      backgroundColor: 'white',
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: '#eee',
-    },
-    actionButton: {
-      padding: spacingXs,
-    },
-    input: {
-      flex: 1,
-      backgroundColor: borderLight,
-      borderRadius: radiusXl,
-      paddingHorizontal: spacingMd,
-      paddingVertical: spacingSm,
-      fontSize: fontSizeMd,
-      maxHeight: 100,
-      color: textPrimary,
-    },
-    sendButton: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: secondaryColor,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    sendButtonDisabled: {
-      opacity: 0.5,
-    },
-    modalContainer: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.9)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    modalCloseButton: {
-      position: 'absolute',
-      top: 50,
-      right: 20,
-      zIndex: 1,
-      padding: 10,
-    },
-    modalContent: {
-      width: '100%',
-      height: '80%',
-    },
-    fullScreenImage: {
-      width: '100%',
-      height: '100%',
-    },
-  });
-};
-
-const styles = createStyles();
+  // Modal
+  modalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalClose: {
+    position: 'absolute',
+    top: 56,
+    right: 20,
+    zIndex: 1,
+    padding: 8,
+  },
+  modalImage: {
+    width: '100%',
+    height: '80%',
+  },
+});

@@ -247,6 +247,7 @@ export default function CrearOfertaSecundariaScreen() {
         <Stack.Screen
           options={{
             title: 'Servicio Adicional',
+            headerBackTitle: '',
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.text,
           }}
@@ -267,6 +268,7 @@ export default function CrearOfertaSecundariaScreen() {
         <Stack.Screen
           options={{
             title: 'Servicio Adicional',
+            headerBackTitle: '',
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.text,
           }}
@@ -285,6 +287,7 @@ export default function CrearOfertaSecundariaScreen() {
       <Stack.Screen
         options={{
           title: 'Servicio Adicional',
+          headerBackTitle: '',
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
         }}

@@ -291,6 +291,7 @@ export default function CrearOfertaScreen() {
         <Stack.Screen
           options={{
             title: 'Crear Oferta',
+            headerBackTitle: '',
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.text,
           }}
@@ -311,6 +312,7 @@ export default function CrearOfertaScreen() {
         <Stack.Screen
           options={{
             title: 'Crear Oferta',
+            headerBackTitle: '',
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.text,
           }}
@@ -329,6 +331,7 @@ export default function CrearOfertaScreen() {
       <Stack.Screen
         options={{
           title: 'Crear Oferta',
+          headerBackTitle: '',
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
         }}

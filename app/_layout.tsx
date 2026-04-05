@@ -90,12 +90,23 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { AuthProvider } from '@/context/AuthContext';
 import { ChatsProvider } from '@/context/ChatsContext';
 import { AlertsProvider } from '@/context/AlertsContext';
 import { DesignSystemThemeProvider } from '@/app/design-system/theme/DesignSystemThemeProvider';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -109,13 +120,14 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <DesignSystemThemeProvider>
-        <AuthProvider>
-          <AlertsProvider>
-            <ChatsProvider>
-              <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-                <Stack>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
+        <DesignSystemThemeProvider>
+          <AuthProvider>
+            <AlertsProvider>
+              <ChatsProvider>
+                <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                  <Stack>
                   <Stack.Screen name="index" options={{ headerShown: false }} />
                   <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                   <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
@@ -133,13 +145,14 @@ export default function RootLayout() {
                   <Stack.Screen name="servicio-detalle/[id]" options={{ headerShown: false }} />
                   <Stack.Screen name="checklist-item/[ordenId]/[itemId]" options={{ headerShown: false }} />
                   <Stack.Screen name="+not-found" />
-                </Stack>
-                <StatusBar style="auto" />
-              </ThemeProvider>
-            </ChatsProvider>
-          </AlertsProvider>
-        </AuthProvider>
-      </DesignSystemThemeProvider>
-    </SafeAreaProvider>
+                  </Stack>
+                  <StatusBar style="auto" />
+                </ThemeProvider>
+              </ChatsProvider>
+            </AlertsProvider>
+          </AuthProvider>
+        </DesignSystemThemeProvider>
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }

@@ -112,6 +112,7 @@ export default function SolicitudesDisponiblesScreen() {
       <Stack.Screen
         options={{
           title: 'Solicitudes Disponibles',
+          headerBackTitle: '',
           headerStyle: {
             backgroundColor: bgPaper,
           },

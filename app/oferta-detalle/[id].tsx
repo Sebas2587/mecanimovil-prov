@@ -330,6 +330,7 @@ export default function OfertaDetalleScreen() {
         <Stack.Screen
           options={{
             title: 'Detalle de Oferta',
+            headerBackTitle: '',
             headerStyle: { backgroundColor: bgPaper },
             headerTintColor: textPrimary,
           }}
@@ -350,6 +351,7 @@ export default function OfertaDetalleScreen() {
         <Stack.Screen
           options={{
             title: 'Detalle de Oferta',
+            headerBackTitle: '',
             headerStyle: { backgroundColor: bgPaper },
             headerTintColor: textPrimary,
           }}
@@ -453,6 +455,7 @@ export default function OfertaDetalleScreen() {
       <Stack.Screen
         options={{
           title: 'Detalle de Oferta',
+          headerBackTitle: '',
           headerStyle: { backgroundColor: bgPaper },
           headerTintColor: textPrimary,
         }}

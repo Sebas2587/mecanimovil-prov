@@ -224,24 +224,22 @@ const setupInterceptors = (api: any) => {
           }
         }
         // El AuthContext detectará el cambio y limpiará el estado
-      } else if (error.code === 'NETWORK_ERROR' || error.message === 'Network Error') {
-        // Log solo en desarrollo
+      } else if (error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
         if (__DEV__) {
-          console.log('🔄 Error de red detectado, intentando reconexión...');
+          console.log('🔄 Error de red en:', error.config?.url, '—', error.code || error.message);
         }
-        // Si es un error de red, intentar reinicializar la configuración
-        if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
+        const isProductionUrl = error.config?.baseURL?.includes('onrender.com') ||
+          error.config?.baseURL?.includes('render.com');
+        if (!isProductionUrl && (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK')) {
           try {
             await serverConfig.recheckConnection();
-            // Recrear instancia de API con nueva configuración
             apiInstance = null;
             if (__DEV__) {
-              console.log('✅ Configuración del servidor actualizada');
+              console.log('✅ Configuración del servidor actualizada (desarrollo)');
             }
           } catch (recheckError) {
-            // Log solo en desarrollo
             if (__DEV__) {
-              console.error('❌ Error al verificar reconexión (detalles solo en desarrollo):', recheckError);
+              console.error('❌ Error al verificar reconexión:', recheckError);
             }
           }
         }
@@ -377,63 +375,127 @@ export const authAPI = {
     }
   },
 
-  // Login - Usa endpoint específico para proveedores
+  // Login - Usa fetch() directo para máxima compatibilidad con iOS
   login: async (credenciales: LoginCredentials) => {
-    // Log solo en desarrollo (__DEV__), nunca en producción (APK)
     if (__DEV__) {
-      console.log('🚀 Iniciando login proveedor con credenciales:', credenciales.username);
+      console.log('🚀 Iniciando login proveedor:', credenciales.username);
     }
 
-    try {
-      const api = await getAPI();
-      // ✅ Usar endpoint específico para proveedores que incluye email en la respuesta
-      const response = await api.post('/usuarios/login-proveedor/', credenciales);
+    const baseURL = await getBaseURL();
+    const loginUrl = `${baseURL.replace(/\/$/, '')}/usuarios/login-proveedor/`;
 
-      if (__DEV__) {
-        console.log('✅ Login exitoso - Token recibido');
-      }
-
-      // Guardar token y datos del usuario
-      if (response.data.token) {
+    // Diagnóstico de conectividad (solo dev)
+    if (__DEV__) {
+      console.log('🩺 Diagnóstico de red antes de login...');
+      const probes = [
+        { label: 'Google HTTPS', url: 'https://www.google.com/generate_204' },
+        { label: 'Render GET', url: `${baseURL.replace(/\/$/, '')}/hello/` },
+      ];
+      for (const probe of probes) {
+        const t0 = Date.now();
         try {
-          await SecureStore.setItemAsync('authToken', response.data.token);
-          await SecureStore.setItemAsync('userData', JSON.stringify(response.data.user));
-
-          if (__DEV__) {
-            console.log('✅ Credenciales guardadas en SecureStore');
-          }
-        } catch (saveError) {
-          // Log solo en desarrollo
-          if (__DEV__) {
-            console.error('❌ Error guardando credenciales (detalles solo en desarrollo):', saveError);
-          }
-          throw new Error('Error al guardar la sesión. Por favor, intenta nuevamente.');
+          const ctrl = new AbortController();
+          const tm = setTimeout(() => ctrl.abort(), 10000);
+          const r = await fetch(probe.url, {
+            method: 'GET',
+            signal: ctrl.signal,
+            headers: { Accept: '*/*' },
+          });
+          clearTimeout(tm);
+          console.log(`  ✅ ${probe.label}: HTTP ${r.status} (${Date.now() - t0}ms)`);
+        } catch (e: any) {
+          console.log(`  ❌ ${probe.label}: ${e.name} ${e.message} (${Date.now() - t0}ms)`);
         }
-      } else {
-        // Log solo en desarrollo
-        if (__DEV__) {
-          console.error('❌ No se recibió token en la respuesta del login');
-        }
-        throw new Error('No se recibió un token válido del servidor. Por favor, intenta nuevamente.');
       }
-
-      return response.data;
-    } catch (error: any) {
-      // Log detallado solo en desarrollo para debugging
-      // En producción (APK), estos logs NO aparecerán
-      if (__DEV__) {
-        console.error('❌ Error en authAPI.login (detalles solo en desarrollo):', {
-          message: error.message,
-          status: error.response?.status,
-          code: error.code,
-          // NO loguear datos sensibles, contraseñas, o detalles técnicos completos
-        });
-      }
-
-      // Re-lanzar el error para que AuthContext lo maneje apropiadamente
-      // El error ya puede tener información útil del backend
-      throw error;
     }
+
+    const maxAttempts = 3;
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (attempt > 1) {
+        const delay = attempt * 2000;
+        if (__DEV__) {
+          console.log(`🔁 Reintento login ${attempt}/${maxAttempts} en ${delay}ms...`);
+        }
+        await new Promise(r => setTimeout(r, delay));
+      }
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 60000);
+
+      try {
+        if (__DEV__) {
+          console.log(`📡 [Intento ${attempt}] POST ${loginUrl}`);
+        }
+
+        const response = await fetch(loginUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(credenciales),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timer);
+        const data = await response.json();
+
+        if (__DEV__) {
+          console.log(`📡 [Intento ${attempt}] HTTP ${response.status}`);
+        }
+
+        if (!response.ok) {
+          const serverMsg =
+            data.detail ||
+            data.non_field_errors?.[0] ||
+            data.error ||
+            `Error ${response.status}`;
+          const error: any = new Error(serverMsg);
+          error.response = { status: response.status, data };
+          error.code = `HTTP_${response.status}`;
+          throw error;
+        }
+
+        if (data.token) {
+          await SecureStore.setItemAsync('authToken', data.token);
+          await SecureStore.setItemAsync('userData', JSON.stringify(data.user));
+          if (__DEV__) {
+            console.log('✅ Login exitoso - Credenciales guardadas');
+          }
+        } else {
+          throw new Error('No se recibió un token válido del servidor.');
+        }
+
+        return data;
+      } catch (error: any) {
+        clearTimeout(timer);
+        lastError = error;
+
+        if (error.response?.status) {
+          if (__DEV__) {
+            console.error('❌ Error del servidor:', error.response.status, error.message);
+          }
+          throw error;
+        }
+
+        if (__DEV__) {
+          console.warn(`⚠️ [Intento ${attempt}/${maxAttempts}] Red:`, error.name, error.message);
+        }
+
+        if (attempt >= maxAttempts) {
+          const networkError: any = new Error(
+            'Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.'
+          );
+          networkError.code = 'ERR_NETWORK';
+          networkError.originalError = error;
+          throw networkError;
+        }
+      }
+    }
+
+    throw lastError;
   },
 
   // Logout

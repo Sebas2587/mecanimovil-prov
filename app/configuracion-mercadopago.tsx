@@ -98,8 +98,10 @@ export default function ConfiguracionMercadoPagoScreen() {
             setEstadisticas({
               total_recibido: 0,
               total_recibido_mes: 0,
+              total_recibido_mes_anterior: 0,
               cantidad_transacciones: 0,
               cantidad_transacciones_mes: 0,
+              cantidad_transacciones_mes_anterior: 0,
               ultima_transaccion: null,
               cantidad_pagos_repuestos: 0,
               total_repuestos: 0,

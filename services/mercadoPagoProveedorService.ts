@@ -67,8 +67,10 @@ export interface CallbackOAuthResponse {
 export interface EstadisticasPagosMP {
   total_recibido: number;
   total_recibido_mes: number;
+  total_recibido_mes_anterior: number;
   cantidad_transacciones: number;
   cantidad_transacciones_mes: number;
+  cantidad_transacciones_mes_anterior: number;
   ultima_transaccion: string | null;
   cantidad_pagos_repuestos?: number;
   total_repuestos?: number;
@@ -294,8 +296,10 @@ export const obtenerEstadisticasPagos = async (): Promise<ApiResponse<Estadistic
         data: {
           total_recibido: 0,
           total_recibido_mes: 0,
+          total_recibido_mes_anterior: 0,
           cantidad_transacciones: 0,
           cantidad_transacciones_mes: 0,
+          cantidad_transacciones_mes_anterior: 0,
           ultima_transaccion: null,
           moneda: 'CLP'
         }

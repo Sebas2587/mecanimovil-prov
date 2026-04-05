@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,18 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  Switch,
+  Animated,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  Bell, Wallet, DollarSign, Radar, Briefcase, Calendar,
+  History, CreditCard, ShieldCheck, Car, Clock,
+  TrendingUp, TrendingDown, Zap, ChevronRight, Search,
+} from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { router, useFocusEffect } from 'expo-router';
 import EstadoRevisionScreen from '@/components/EstadoRevisionScreen';
@@ -23,7 +32,7 @@ import {
 } from '@/services/ordenesProveedor';
 import { checklistService, type ChecklistInstance } from '@/services/checklistService';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
-import solicitudesService, { type SolicitudPublica } from '@/services/solicitudesService';
+import solicitudesService, { type SolicitudPublica, obtenerMisOfertas, type OfertaProveedor } from '@/services/solicitudesService';
 import { SolicitudCard } from '@/components/solicitudes/SolicitudCard';
 import websocketService, { type NuevaSolicitudEvent } from '@/app/services/websocketService';
 import { useTheme } from '@/app/design-system/theme/useTheme';
@@ -90,6 +99,26 @@ export default function HomeScreen() {
   const [alertaSolicitudId, setAlertaSolicitudId] = useState<string | undefined>(undefined);
   const [alertaCreditosDevueltos, setAlertaCreditosDevueltos] = useState(false);
 
+  // Mapa oferta_id → estado real de la oferta (para cruzar con órdenes)
+  const [ofertasMap, setOfertasMap] = useState<Record<string, string>>({});
+
+  // Estado para toggle del radar de oportunidades (UI)
+  const [isOnline, setIsOnline] = useState(true);
+
+  // Animación de pulso para notificaciones y badges
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.3, duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
   // Obtener valores seguros del tema con fallbacks
   const safeColors = useMemo(() => {
     return theme?.colors || COLORS || {};
@@ -130,6 +159,7 @@ export default function HomeScreen() {
       cargarCreditos();
       cargarEstadisticasMP();
       cargarSuscripcion();
+      cargarOfertasMap();
     }
   }, [estadoProveedor]);
 
@@ -142,7 +172,7 @@ export default function HomeScreen() {
         cargarCreditos();
         cargarEstadisticasMP();
         cargarSuscripcion();
-        // Actualizar alertas cuando se regresa a la pantalla principal
+        cargarOfertasMap();
         verificarYGenerarAlertas();
       }
     }, [estadoProveedor?.verificado])
@@ -190,6 +220,23 @@ export default function HomeScreen() {
       console.error('Error cargando suscripción:', error);
     } finally {
       setLoadingSuscripcion(false);
+    }
+  };
+
+  // Cargar mapa de ofertas del proveedor (id → estado) para cruzar con órdenes
+  const cargarOfertasMap = async () => {
+    try {
+      const response = await obtenerMisOfertas();
+      if (response.success && response.data) {
+        const map: Record<string, string> = {};
+        const ofertas = Array.isArray(response.data) ? response.data : [];
+        for (const oferta of ofertas) {
+          map[String(oferta.id)] = oferta.estado;
+        }
+        setOfertasMap(map);
+      }
+    } catch (error) {
+      console.error('Error cargando mapa de ofertas:', error);
     }
   };
 
@@ -594,7 +641,8 @@ export default function HomeScreen() {
       cargarSolicitudesDisponibles(),
       cargarCreditos(),
       cargarEstadisticasMP(),
-      cargarSuscripcion()
+      cargarSuscripcion(),
+      cargarOfertasMap()
     ]);
     setRefreshing(false);
   };
@@ -619,34 +667,66 @@ export default function HomeScreen() {
     return 'Buenas noches';
   };
 
-  // Calcular porcentaje de cambio (simulado - se puede mejorar con datos reales)
-  const calcularPorcentajeCambio = () => {
-    // Por ahora retornamos un valor fijo, pero se puede calcular comparando semanas
-    return '+14.35%';
+  const calcularPorcentajeCambio = (): { texto: string; positivo: boolean } => {
+    const actual = estadisticasMP?.total_recibido_mes || 0;
+    const anterior = estadisticasMP?.total_recibido_mes_anterior || 0;
+    if (anterior === 0) return { texto: actual > 0 ? '+100%' : '0%', positivo: actual >= 0 };
+    const cambio = ((actual - anterior) / anterior) * 100;
+    return { texto: `${cambio >= 0 ? '+' : ''}${cambio.toFixed(1)}%`, positivo: cambio >= 0 };
   };
 
-  // Función para renderizar item de lista como UI Card
   const renderTransactionItem = (orden: OrdenConChecklist) => {
     const clienteFoto = (orden.cliente_detail as any)?.foto_perfil;
     const nombreCompleto = obtenerNombreSeguro(orden.cliente_detail);
-
-    // Obtener nombres de servicios - usar todos los servicios de las líneas
     const serviciosNombres = orden.lineas.map(linea => linea.servicio_nombre);
     const nombreServicio = serviciosNombres.length > 0
-      ? (serviciosNombres.length === 1
-        ? serviciosNombres[0]
-        : serviciosNombres.join(', '))
+      ? (serviciosNombres.length === 1 ? serviciosNombres[0] : serviciosNombres.join(', '))
       : 'Servicio';
-
     const precioFormateado = orden.total
       ? parseFloat(orden.total.toString().replace(/[^0-9.-]+/g, '')).toLocaleString('es-CL')
       : '';
     const precioConSimbolo = precioFormateado ? `$${precioFormateado}` : '';
 
+    const ofertaId = orden.oferta_proveedor_id ? String(orden.oferta_proveedor_id) : null;
+    const estadoOferta = ofertaId ? ofertasMap[ofertaId] : null;
+
+    const estadoColorsMap: Record<string, { bg: string; dot: string; text: string }> = {
+      pendiente_aceptacion_proveedor: { bg: '#FEF3C7', dot: '#F59E0B', text: '#92400E' },
+      confirmado:                     { bg: '#DBEAFE', dot: '#3B82F6', text: '#1E40AF' },
+      aceptada_por_proveedor:         { bg: '#D1FAE5', dot: '#10B981', text: '#065F46' },
+      servicio_iniciado:              { bg: '#ECFDF5', dot: '#34D399', text: '#065F46' },
+      checklist_en_progreso:          { bg: '#EDE9FE', dot: '#8B5CF6', text: '#5B21B6' },
+      checklist_completado:           { bg: '#D1FAE5', dot: '#059669', text: '#065F46' },
+      en_proceso:                     { bg: '#DBEAFE', dot: '#2563EB', text: '#1E40AF' },
+      // Offer-originated states
+      enviada:        { bg: '#DBEAFE', dot: '#3B82F6', text: '#1E40AF' },
+      vista:          { bg: '#EDE9FE', dot: '#7C3AED', text: '#5B21B6' },
+      en_chat:        { bg: '#FEF3C7', dot: '#F59E0B', text: '#92400E' },
+      aceptada:       { bg: '#D1FAE5', dot: '#10B981', text: '#065F46' },
+      pendiente_pago: { bg: '#FEF3C7', dot: '#F59E0B', text: '#92400E' },
+      pagada:         { bg: '#D1FAE5', dot: '#059669', text: '#065F46' },
+      en_ejecucion:   { bg: '#DBEAFE', dot: '#2563EB', text: '#1E40AF' },
+    };
+
+    const ofertaLabels: Record<string, string> = {
+      enviada: 'Oferta Enviada',
+      vista: 'Vista por Cliente',
+      en_chat: 'En Conversación',
+      aceptada: 'Aceptada',
+      pendiente_pago: 'Pendiente de Pago',
+      pagada: 'Pagada',
+      en_ejecucion: 'En Ejecución',
+    };
+
+    const estadoEfectivo = estadoOferta || orden.estado;
+    const estadoStyle = estadoColorsMap[estadoEfectivo] || { bg: '#F3F4F6', dot: '#9CA3AF', text: '#374151' };
+    const estadoLabel = estadoOferta && ofertaLabels[estadoOferta]
+      ? ofertaLabels[estadoOferta]
+      : (orden.estado_display || orden.estado.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
+
     return (
       <TouchableOpacity
         key={orden.id}
-        style={styles.orderListCard}
         onPress={() => {
           const ofertaId = (orden as any).oferta_proveedor_id;
           if (ofertaId) {
@@ -656,98 +736,58 @@ export default function HomeScreen() {
           }
         }}
         activeOpacity={0.8}
+        style={styles.ticketCard}
       >
-        <View style={{ flex: 1, gap: 10 }}>
-          {/* Header con Categoría y Fecha */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View style={{
-              backgroundColor: orden.tipo_servicio === 'domicilio'
-                ? (safeColors?.success as any)?.['50'] || '#ECFDF5'
-                : (safeColors?.info as any)?.['50'] || '#EFF6FF',
-              paddingHorizontal: 8,
-              paddingVertical: 3,
-              borderRadius: 4,
-              borderWidth: 1,
-              borderColor: orden.tipo_servicio === 'domicilio'
-                ? (safeColors?.success as any)?.['200'] || '#A7F3D0'
-                : (safeColors?.info as any)?.['200'] || '#BFDBFE',
-            }}>
-              <Text style={{
-                fontSize: 11,
-                fontWeight: '700',
-                color: orden.tipo_servicio === 'domicilio'
-                  ? (safeColors?.success as any)?.['700'] || '#047857'
-                  : (safeColors?.info as any)?.['700'] || '#1D4ED8',
-                textTransform: 'uppercase'
-              }}>
-                {orden.tipo_servicio === 'domicilio' ? 'A Domicilio' : 'En Taller'}
-              </Text>
+        <View style={[styles.ticketTop, { backgroundColor: estadoStyle.bg }]}>
+          <View style={styles.ticketBadgeRow}>
+            <View style={styles.ticketBadge}>
+              <Animated.View style={[styles.ticketPulseDot, { backgroundColor: estadoStyle.dot, transform: [{ scale: pulseAnim }] }]} />
+              <Text style={[styles.ticketBadgeText, { color: estadoStyle.text }]}>{estadoLabel}</Text>
             </View>
-
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: (safeColors?.text as any)?.primary || '#000000' }}>
-                {formatearFecha(orden.fecha_servicio)}
-              </Text>
-              {orden.hora_servicio && (
-                <Text style={{ fontSize: 12, color: (safeColors?.text as any)?.tertiary || '#666666' }}>
-                  {formatearHora(orden.hora_servicio)} hrs
-                </Text>
-              )}
-            </View>
-          </View>
-
-          {/* Vehículo Destacado */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="car" size={18} color={(safeColors?.text as any)?.secondary || '#4B5563'} />
-            <Text style={{ fontSize: 15, fontWeight: '700', color: (safeColors?.text as any)?.primary || '#000000' }}>
-              {orden.vehiculo_detail?.marca} {orden.vehiculo_detail?.modelo}
-            </Text>
-            {orden.vehiculo_detail?.año && (
-              <Text style={{ fontSize: 14, color: (safeColors?.text as any)?.tertiary || '#9CA3AF' }}>
-                ({orden.vehiculo_detail.año})
-              </Text>
+            {orden.hora_servicio && (
+              <View style={styles.ticketTimeBlock}>
+                <Clock size={13} color="#6B7280" />
+                <Text style={styles.ticketTimeText}>{formatearHora(orden.hora_servicio)}</Text>
+              </View>
             )}
           </View>
+        </View>
 
-          {/* Servicio Título */}
-          <Text style={{
-            fontSize: 16,
-            color: (safeColors?.text as any)?.primary || '#374151',
-            lineHeight: 22
-          }}>
-            {nombreServicio}
-          </Text>
+        <View style={styles.ticketDash} />
 
-          {/* Footer con Usuario y Precio */}
-          <View style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginTop: 4,
-            paddingTop: 8,
-            borderTopWidth: 1,
-            borderTopColor: (safeColors?.border as any)?.light || '#F3F4F6'
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {clienteFoto ? (
-                <Image source={{ uri: clienteFoto }} style={{ width: 24, height: 24, borderRadius: 12 }} />
-              ) : (
-                <MaterialIcons name="account-circle" size={24} color={(safeColors?.text as any)?.disabled || '#D1D5DB'} />
-              )}
-              <Text style={{ fontSize: 13, color: (safeColors?.text as any)?.secondary || '#4B5563' }}>
-                {nombreCompleto}
+        <View style={styles.ticketBody}>
+          <Text style={styles.ticketServiceTitle} numberOfLines={2}>{nombreServicio}</Text>
+
+          <View style={styles.ticketClientRow}>
+            {clienteFoto ? (
+              <Image source={{ uri: clienteFoto }} style={styles.ticketClientPhoto} />
+            ) : (
+              <View style={styles.ticketClientPlaceholder}>
+                <Text style={styles.ticketClientInitial}>{nombreCompleto.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
+            <Text style={styles.ticketClientName} numberOfLines={1}>{nombreCompleto}</Text>
+          </View>
+
+          <View style={styles.ticketFooter}>
+            <View style={styles.ticketInfoItem}>
+              <Car size={14} color="#9CA3AF" />
+              <Text style={styles.ticketInfoText} numberOfLines={1}>
+                {orden.vehiculo_detail?.marca} {orden.vehiculo_detail?.modelo}
               </Text>
             </View>
-            {precioConSimbolo && (
-              <Text style={{ fontSize: 16, fontWeight: '800', color: (safeColors?.success as any)?.['600'] || '#059669' }}>
-                {precioConSimbolo}
-              </Text>
-            )}
+            {precioConSimbolo ? (
+              <View style={styles.ticketPriceBlock}>
+                <Text style={styles.ticketPriceLabel}>A COBRAR</Text>
+                <Text style={styles.ticketPriceAmount}>{precioConSimbolo}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
       </TouchableOpacity>
     );
   };
+
 
   const getChecklistEstado = (orden: OrdenConChecklist) => {
     // Colores seguros del sistema de diseño - usando acceso seguro
@@ -868,2181 +908,895 @@ export default function HomeScreen() {
   // Si está verificado, mostrar el dashboard principal
   return (
     <TabScreenWrapper>
-      {/* Header con SafeAreaView */}
-      <SafeAreaView edges={['top']} style={[styles.headerSafeArea, { backgroundColor: primaryColor }]}>
-        <View style={[styles.header, { backgroundColor: primaryColor }]}>
-          <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>{obtenerNombreProveedor()}</Text>
-          </View>
-          <View style={styles.headerAlertsContainer}>
-            <AlertsPanel variant="header" iconColor="#FFFFFF" />
-          </View>
-        </View>
-      </SafeAreaView>
-
-      <ScrollView
-        style={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+      <LinearGradient
+        style={styles.screen}
+        colors={['#F3F5F8', '#FAFBFC', '#FFFFFF']}
+        locations={[0, 0.35, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
       >
-        <View style={styles.content}>
+        {/* 1. HEADER */}
+        <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              {(usuario as any)?.foto_perfil ? (
+                <Image source={{ uri: (usuario as any).foto_perfil }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarInitial}>
+                    {(obtenerNombreProveedor() || 'T').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.welcomeLabel}>Bienvenido</Text>
+                <Text style={styles.providerName} numberOfLines={1}>{obtenerNombreProveedor()}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.bellOuter}
+              activeOpacity={0.7}
+              onPress={() => router.push('/solicitudes-disponibles')}
+            >
+              <BlurView intensity={60} tint="light" style={styles.bellBlur}>
+                <Bell size={20} color="#374151" />
+              </BlurView>
+              {nuevasSolicitudesIds.size > 0 && (
+                <Animated.View style={[styles.bellDot, { transform: [{ scale: pulseAnim }] }]} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
 
-          {/* Saldo de créditos */}
+        <ScrollView
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+        >
+          {/* 2. RESUMEN FINANCIERO */}
           {saldoCreditos && (
-            <View style={styles.creditosContainer}>
-              <SaldoCreditos
-                saldo={saldoCreditos.saldo_creditos}
-                ganancias={estadisticasMP?.total_recibido_mes || 0}
-                onPress={() => router.push('/creditos')}
-                titulo={suscripcion?.plan.nombre}
-              />
+            <View style={styles.sectionWrap}>
+              <View style={styles.glassOuter}>
+                <BlurView intensity={60} tint="light" style={styles.glassInner}>
+                  <View style={styles.finHeader}>
+                    <Text style={styles.finHeaderTitle}>FINANZAS DEL TALLER</Text>
+                    <TouchableOpacity
+                      style={styles.planBadge}
+                      onPress={() => router.push('/creditos?tab=suscripcion')}
+                      activeOpacity={0.7}
+                    >
+                      <ShieldCheck size={14} color="#2563EB" />
+                      <Text style={styles.planBadgeText}>
+                        {suscripcion?.plan?.nombre || 'Plan Básico'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.finBody}>
+                    <TouchableOpacity
+                      style={styles.finCol}
+                      onPress={() => router.push('/creditos')}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.finIconAmber}>
+                        <Wallet size={20} color="#D97706" />
+                      </View>
+                      <Text style={styles.finLabel}>Créditos</Text>
+                      <Text style={styles.finCreditsVal}>{saldoCreditos.saldo_creditos}</Text>
+                      <Text style={styles.finBuyMore}>Comprar más +</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.finDivider} />
+
+                    <View style={styles.finCol}>
+                      <View style={styles.finIconGreen}>
+                        <DollarSign size={20} color="#059669" />
+                      </View>
+                      <Text style={styles.finLabel}>Ganancias</Text>
+                      <Text style={styles.finEarningsVal}>
+                        ${(estadisticasMP?.total_recibido_mes || estadisticasSemanales.dinero || 0).toLocaleString('es-CL')}
+                      </Text>
+                      {(() => {
+                        const cambio = calcularPorcentajeCambio();
+                        return (
+                          <View style={styles.finGrowth}>
+                            {cambio.positivo ? (
+                              <TrendingUp size={12} color="#059669" />
+                            ) : (
+                              <TrendingDown size={12} color="#DC2626" />
+                            )}
+                            <Text style={[styles.finGrowthText, !cambio.positivo && { color: '#DC2626' }]}>
+                              {cambio.texto} este mes
+                            </Text>
+                          </View>
+                        );
+                      })()}
+                    </View>
+                  </View>
+                </BlurView>
+              </View>
             </View>
           )}
 
-          {/* Banner de Suscripción */}
-          <View style={{ paddingHorizontal: 18, marginBottom: 20 }}>
-            {suscripcion && ['activa', 'pendiente', 'pausada'].includes(suscripcion.estado) ? (
-              <TouchableOpacity
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: 16,
-                  borderRadius: 12,
-                  backgroundColor: suscripcion?.esta_activa ? '#F0FDF4' : '#FFFBEB',
-                  borderWidth: 1,
-                  borderColor: suscripcion?.esta_activa ? '#22C55E' : '#F59E0B',
-                }}
-                onPress={() => router.push('/creditos?tab=suscripcion')}
-                activeOpacity={0.8}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <MaterialCommunityIcons
-                    name={suscripcion?.esta_activa ? 'check-decagram' : 'clock-outline'}
-                    size={22}
-                    color={suscripcion?.esta_activa ? '#22C55E' : '#F59E0B'}
-                  />
-                  <View>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: (safeColors?.text as any)?.primary || '#000' }}>
-                      {suscripcion?.esta_activa ? 'Suscripción Activa' : 'Suscripción Pendiente'}
-                    </Text>
-                    <Text style={{ fontSize: 13, color: (safeColors?.text as any)?.secondary || '#666' }}>
-                      {suscripcion?.plan.nombre} · {suscripcion?.plan.creditos_mensuales} créd/mes
-                    </Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color={(safeColors?.text as any)?.secondary || '#666'} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: 16,
-                  borderRadius: 12,
-                  backgroundColor: '#FFFFFF',
-                  borderWidth: 1,
-                  borderColor: primaryColor,
-                  ...SHADOWS.sm,
-                }}
-                onPress={() => router.push('/creditos?tab=suscripcion')}
-                activeOpacity={0.8}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <MaterialCommunityIcons name="lightning-bolt" size={22} color={primaryColor} />
-                  <View>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: primaryColor }}>
-                      Créditos Automáticos
-                    </Text>
-                    <Text style={{ fontSize: 13, color: (safeColors?.text as any)?.secondary || '#666' }}>
-                      Suscríbete y nunca te quedes sin créditos
-                    </Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color={primaryColor} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Quick Actions - Diseño similar a categorías de app usuarios */}
-          <View style={styles.quickActionsSection}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.quickActionsHorizontal}
-              bounces={false}
-              decelerationRate="fast"
-            >
-              <TouchableOpacity
-                style={styles.quickActionCard}
-                onPress={() => router.push('/(tabs)/calendario')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.quickActionIconCircle, {
-                  backgroundColor: COLORS?.background?.paper || '#FFFFFF',
-                  padding: 0,
-                  overflow: 'hidden'
-                }]}>
-                  <Image
-                    source={require('../../assets/images/calendario_icon.jpg')}
-                    style={{ width: 68, height: 68, borderRadius: 34 }}
-                    resizeMode="cover"
-                  />
-                </View>
-                <Text style={styles.quickActionCardLabel} numberOfLines={2}>
-                  Calendario
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickActionCard}
-                onPress={() => router.push('/(tabs)/ordenes?tab=completadas')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.quickActionIconCircle, {
-                  backgroundColor: COLORS?.background?.paper || '#FFFFFF',
-                  padding: 0,
-                  overflow: 'hidden'
-                }]}>
-                  <Image
-                    source={require('../../assets/images/historial_icon.jpg')}
-                    style={{ width: 68, height: 68, borderRadius: 34 }}
-                    resizeMode="cover"
-                  />
-                </View>
-                <Text style={styles.quickActionCardLabel} numberOfLines={2}>
-                  Historial
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickActionCard}
-                onPress={() => router.push('/configuracion-mercadopago')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.quickActionIconCircle, {
-                  backgroundColor: COLORS?.background?.paper || '#FFFFFF',
-                  padding: 0,
-                  overflow: 'hidden'
-                }]}>
-                  <Image
-                    source={require('../../assets/images/mercadopago_icon.jpg')}
-                    style={{ width: 68, height: 68, borderRadius: 34 }}
-                    resizeMode="cover"
-                  />
-                </View>
-                <Text style={styles.quickActionCardLabel} numberOfLines={2}>
-                  Mercado Pago
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickActionCard}
-                onPress={() => router.push('/creditos')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.quickActionIconCircle, {
-                  backgroundColor: COLORS?.background?.paper || '#FFFFFF',
-                  padding: 0,
-                  overflow: 'hidden'
-                }]}>
-                  <Image
-                    source={require('../../assets/images/creditos_icon.jpg')}
-                    style={{ width: 68, height: 68, borderRadius: 34 }}
-                    resizeMode="cover"
-                  />
-                </View>
-                <Text style={styles.quickActionCardLabel} numberOfLines={2}>
-                  Suscripción
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-
-          {/* Sección de Oportunidades de Trabajo - PRIMERO (arriba de Mis Órdenes) */}
-          <View style={styles.transactionsSection}>
-            <View style={styles.transactionsHeader}>
-              <Text style={styles.transactionsTitle}>Oportunidades de Trabajo</Text>
-              {solicitudesDisponibles.length > 3 && (
-                <TouchableOpacity
-                  style={styles.viewAllLink}
-                  onPress={() => router.push('/solicitudes-disponibles')}
-                >
-                  <Text style={styles.viewAllLinkText}>Ver todas</Text>
-                </TouchableOpacity>
-              )}
+          {/* 3. RADAR DE OPORTUNIDADES */}
+          <View style={styles.sectionWrap}>
+            <View style={styles.sectionTitleRow}>
+              <Radar size={20} color="#374151" />
+              <Text style={styles.sectionTitleText}>Radar de Oportunidades</Text>
+              <View style={{ flex: 1 }} />
+              <Switch
+                value={isOnline}
+                onValueChange={setIsOnline}
+                trackColor={{ false: '#D1D5DB', true: '#93C5FD' }}
+                thumbColor={isOnline ? '#2563EB' : '#9CA3AF'}
+              />
             </View>
 
-            {loadingSolicitudes ? (
-              <View style={styles.loadingOrdenes}>
-                <ActivityIndicator size="small" color={primaryColor} />
-                <Text style={styles.loadingOrdenesTextDark}>Cargando...</Text>
-              </View>
-            ) : solicitudesDisponibles.length > 0 ? (
-              <>
-                {solicitudesDisponibles.slice(0, 5).map((solicitud) => {
-                  const clienteFoto = solicitud.cliente_info?.foto_perfil || (solicitud as any).cliente_detail?.foto_perfil;
-                  // Corregir: Dar prioridad a la info detallada del cliente sobre el nombre plano
-                  const nombreCliente = solicitud.cliente_info?.nombre || (solicitud as any).cliente_detail?.nombre || solicitud.cliente_nombre || 'Cliente';
-                  const servicios = solicitud.servicios_solicitados_detail || [];
-                  const primerServicio = servicios[0]?.nombre || 'Servicio solicitado';
-                  const serviciosTexto = servicios.length > 1
-                    ? servicios.map(s => s.nombre).join(', ')
-                    : primerServicio;
-                  const vehiculo = solicitud.vehiculo_info;
-                  const vehiculoMarca = vehiculo?.marca || '';
-                  const vehiculoModelo = vehiculo?.modelo || '';
-                  const vehiculoAno = vehiculo?.anio || vehiculo?.año || '';
-
-                  // Determinar tipo de servicio: si tiene dirección es a domicilio, si no es en taller
-                  const esDomicilio = !!(solicitud.direccion_servicio_texto || solicitud.direccion_usuario_info || solicitud.ubicacion_servicio);
-                  const tipoServicioTexto = esDomicilio ? 'A domicilio' : 'En taller';
-
-                  return (
-                    <TouchableOpacity
-                      key={solicitud.id}
-                      style={styles.opportunityCard}
-                      onPress={() => router.push(`/solicitud-detalle/${solicitud.id}`)}
-                      activeOpacity={0.8}
-                    >
-                      {/* Cabecera con Badge de Categoría y Precio/Tipo */}
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                        <View style={{
-                          backgroundColor: (safeColors?.primary as any)?.['50'] || '#E6F2FF',
-                          paddingHorizontal: 10,
-                          paddingVertical: 4,
-                          borderRadius: 6,
-                          borderWidth: 1,
-                          borderColor: (safeColors?.primary as any)?.['200'] || '#BFDBFE',
-                        }}>
-                          <Text style={{
-                            fontSize: 12,
-                            fontWeight: '600',
-                            color: (safeColors?.primary as any)?.['700'] || '#1D4ED8',
-                            textTransform: 'uppercase'
-                          }}>
-                            {tipoServicioTexto}
-                          </Text>
-                        </View>
-
-                        {/* Fecha de Servicio Destacada */}
-                        <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                          {/* Timer de expiración */}
-                          {solicitud.fecha_expiracion && (
-                            <CountdownTimer targetDate={solicitud.fecha_expiracion} />
-                          )}
-
-                          <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={{ fontSize: 13, fontWeight: '700', color: (safeColors?.text as any)?.primary || '#000000' }}>
-                              {solicitud.fecha_preferida
-                                ? new Date(solicitud.fecha_preferida).toLocaleDateString('es-CL', {
-                                  day: 'numeric',
-                                  month: 'short'
-                                })
-                                : 'Fecha flexible'}
-                            </Text>
-                            <Text style={{ fontSize: 12, color: (safeColors?.text as any)?.tertiary || '#666666' }}>
-                              {solicitud.hora_preferida ? formatearHora(solicitud.hora_preferida) : 'Por definir'}
-                            </Text>
-                          </View>
-                        </View>
+            {isOnline && (
+            <View style={styles.glassOuter}>
+              <BlurView intensity={60} tint="light" style={styles.glassInner}>
+                <View style={styles.radarBody}>
+                  {loadingSolicitudes ? (
+                      <View style={styles.radarSearching}>
+                        <ActivityIndicator size="small" color="#2563EB" />
                       </View>
-
-                      {/* Contenido principal */}
-                      <View style={styles.opportunityCardContent}>
-                        {/* Título: Nombre del servicio */}
-                        <Text style={[styles.orderListCardTitle, { marginBottom: 8 }]} numberOfLines={2}>
-                          {serviciosTexto}
+                    ) : solicitudesDisponibles.length > 0 ? (
+                      <>
+                        {solicitudesDisponibles.slice(0, 3).map((solicitud) => {
+                          const servicios = solicitud.servicios_solicitados_detail || [];
+                          const primerServicio = servicios[0]?.nombre || 'Servicio solicitado';
+                          const vehiculo = solicitud.vehiculo_info;
+                          const vehiculoText = vehiculo
+                            ? `${vehiculo.marca} ${vehiculo.modelo}`
+                            : '';
+                          return (
+                            <TouchableOpacity
+                              key={solicitud.id}
+                              style={styles.radarOffer}
+                              onPress={() => router.push(`/solicitud-detalle/${solicitud.id}`)}
+                              activeOpacity={0.8}
+                            >
+                              <View style={styles.radarOfferTop}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.radarOfferTitle} numberOfLines={1}>
+                                    {primerServicio}
+                                  </Text>
+                                  {vehiculoText ? (
+                                    <View style={styles.radarOfferMeta}>
+                                      <Car size={13} color="#6B7280" />
+                                      <Text style={styles.radarOfferMetaText}>
+                                        {vehiculoText}
+                                      </Text>
+                                    </View>
+                                  ) : null}
+                                </View>
+                                {solicitud.fecha_expiracion && (
+                                  <CountdownTimer targetDate={solicitud.fecha_expiracion} />
+                                )}
+                              </View>
+                              <TouchableOpacity
+                                style={styles.radarCTA}
+                                onPress={() =>
+                                  router.push(`/solicitud-detalle/${solicitud.id}`)
+                                }
+                                activeOpacity={0.8}
+                              >
+                                <Text style={styles.radarCTAText}>Cotizar Trabajo</Text>
+                                <ChevronRight size={16} color="#FFFFFF" />
+                              </TouchableOpacity>
+                            </TouchableOpacity>
+                          );
+                        })}
+                        {solicitudesDisponibles.length > 3 && (
+                          <TouchableOpacity
+                            style={styles.seeAllBtn}
+                            onPress={() => router.push('/solicitudes-disponibles')}
+                          >
+                            <Text style={styles.seeAllBtnText}>
+                              Ver todas ({solicitudesDisponibles.length})
+                            </Text>
+                            <ChevronRight size={14} color="#2563EB" />
+                          </TouchableOpacity>
+                        )}
+                      </>
+                    ) : (
+                      <View style={styles.radarEmpty}>
+                        <Search size={36} color="#D1D5DB" />
+                        <Text style={styles.radarEmptyTitle}>No hay oportunidades</Text>
+                        <Text style={styles.radarEmptySub}>
+                          Revisa más tarde para encontrar nuevas oportunidades
                         </Text>
-
-                        {/* Información del Vehículo Destacada */}
-                        <View style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          backgroundColor: (safeColors?.neutral as any)?.gray?.[50] || '#F9FAFB',
-                          padding: 10,
-                          borderRadius: 8,
-                          marginBottom: 8,
-                          borderWidth: 1,
-                          borderColor: (safeColors?.border as any)?.light || '#EEEEEE'
-                        }}>
-                          <Ionicons name="car-sport" size={20} color={(safeColors?.primary as any)?.['500'] || '#4E4FEB'} style={{ marginRight: 8 }} />
-                          <View>
-                            <Text style={{ fontSize: 14, fontWeight: '700', color: (safeColors?.text as any)?.primary || '#000000' }}>
-                              {vehiculoMarca} {vehiculoModelo}
-                            </Text>
-                            {vehiculoAno ? (
-                              <Text style={{ fontSize: 13, color: (safeColors?.text as any)?.secondary || '#4B5563' }}>
-                                Año {vehiculoAno}
-                              </Text>
-                            ) : null}
-                          </View>
-                        </View>
-
-                        {/* Información del usuario (más sutil) */}
-                        {/* Información del usuario (más visible) */}
-                        <View style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          marginTop: 4,
-                          marginBottom: 8,
-                          gap: 8
-                        }}>
-                          {clienteFoto ? (
-                            <Image
-                              source={{ uri: clienteFoto }}
-                              style={{ width: 28, height: 28, borderRadius: 14 }}
-                            />
-                          ) : (
-                            <View style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: 14,
-                              backgroundColor: (safeColors?.neutral as any)?.gray?.[200] || '#E5E7EB',
-                              justifyContent: 'center',
-                              alignItems: 'center'
-                            }}>
-                              <MaterialIcons name="person" size={16} color={(safeColors?.text as any)?.secondary || '#6B7280'} />
-                            </View>
-                          )}
-
-                          <View>
-                            <Text style={{ fontSize: 12, color: (safeColors?.text as any)?.tertiary || '#6B7280', marginBottom: 2 }}>
-                              Cliente
-                            </Text>
-                            <Text style={{ fontSize: 14, fontWeight: '600', color: (safeColors?.text as any)?.primary || '#1F2937' }}>
-                              {nombreCliente}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Botón de acción */}
-                        <View style={styles.opportunityCardActionButton}>
-                          <Text style={styles.opportunityCardActionText}>
-                            Ver detalle y ofertar
-                          </Text>
-                          <MaterialIcons name="arrow-forward" size={16} color={(safeColors?.primary as any)?.['500'] || (safeColors?.accent as any)?.['500'] || '#4E4FEB'} />
-                        </View>
                       </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </>
-            ) : (
-              <View style={styles.emptyState}>
-                <MaterialIcons name="search" size={48} color={(safeColors?.text?.tertiary || (safeColors?.neutral?.gray as any)?.[700] || '#666666')} />
-                <Text style={styles.emptyStateTextDark}>
-                  No hay oportunidades disponibles
-                </Text>
-                <Text style={styles.emptyStateSubtext}>
-                  Revisa más tarde para encontrar nuevas oportunidades
-                </Text>
-              </View>
+                    )}
+                  </View>
+              </BlurView>
+            </View>
             )}
           </View>
 
-          {/* Sección de Mis Órdenes - SEGUNDO (debajo de Oportunidades) */}
-          <View style={styles.transactionsSection}>
-            <View style={styles.transactionsHeader}>
-              <Text style={styles.transactionsTitle}>Mis Órdenes</Text>
-              {ordenes.length > 0 && (
-                <TouchableOpacity
-                  style={styles.viewAllLink}
-                  onPress={() => router.push('/(tabs)/ordenes')}
-                >
-                  <Text style={styles.viewAllLinkText}>Ver todas</Text>
+          {/* 4. MIS ÓRDENES ACTIVAS */}
+          <View style={styles.sectionWrap}>
+            <View style={styles.sectionTitleRow}>
+              <Briefcase size={20} color="#374151" />
+              <Text style={styles.sectionTitleText}>Órdenes en Curso</Text>
+              <View style={{ flex: 1 }} />
+              {ordenes.filter(o => {
+                const estadosFinalizadosOrden = ['completado', 'cancelado', 'rechazada_por_proveedor', 'devuelto'];
+                const estadosFinalizadosOferta = ['completada', 'rechazada', 'retirada', 'expirada'];
+                if (estadosFinalizadosOrden.includes(o.estado)) return false;
+                const ofertaId = o.oferta_proveedor_id ? String(o.oferta_proveedor_id) : null;
+                if (ofertaId && ofertasMap[ofertaId] && estadosFinalizadosOferta.includes(ofertasMap[ofertaId])) return false;
+                return true;
+              }).length > 0 && (
+                <TouchableOpacity onPress={() => router.push('/(tabs)/ordenes')}>
+                  <Text style={styles.seeAllLink}>Ver todas</Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            {loading ? (
-              <View style={styles.loadingOrdenes}>
-                <ActivityIndicator size="small" color={primaryColor} />
-                <Text style={styles.loadingOrdenesTextDark}>Cargando órdenes...</Text>
-              </View>
-            ) : ordenes.length > 0 ? (
-              // Agrupar órdenes por fecha y mostrar estilo transacciones
-              (() => {
-                const ordenesOrdenadas = [...ordenes]
-                  .sort((a, b) => {
-                    const fechaA = new Date(a.fecha_hora_solicitud || a.fecha_servicio).getTime();
-                    const fechaB = new Date(b.fecha_hora_solicitud || b.fecha_servicio).getTime();
-                    return fechaB - fechaA;
-                  })
-                  .slice(0, 5);
+            {(() => {
+              const estadosFinalizadosOrden = ['completado', 'cancelado', 'rechazada_por_proveedor', 'devuelto'];
+              const estadosFinalizadosOferta = ['completada', 'rechazada', 'retirada', 'expirada'];
+              const ordenesEnCurso = ordenes.filter(o => {
+                if (estadosFinalizadosOrden.includes(o.estado)) return false;
+                const ofertaId = o.oferta_proveedor_id ? String(o.oferta_proveedor_id) : null;
+                if (ofertaId && ofertasMap[ofertaId] && estadosFinalizadosOferta.includes(ofertasMap[ofertaId])) return false;
+                return true;
+              });
 
-                // Agrupar por fecha
-                const hoy = new Date();
-                hoy.setHours(0, 0, 0, 0);
-                const ayer = new Date(hoy);
-                ayer.setDate(ayer.getDate() - 1);
-
-                const ordenesHoy = ordenesOrdenadas.filter(orden => {
-                  const fechaOrden = new Date(orden.fecha_hora_solicitud || orden.fecha_servicio);
-                  fechaOrden.setHours(0, 0, 0, 0);
-                  return fechaOrden.getTime() === hoy.getTime();
-                });
-
-                const ordenesAyer = ordenesOrdenadas.filter(orden => {
-                  const fechaOrden = new Date(orden.fecha_hora_solicitud || orden.fecha_servicio);
-                  fechaOrden.setHours(0, 0, 0, 0);
-                  return fechaOrden.getTime() === ayer.getTime();
-                });
-
-                const ordenesAnteriores = ordenesOrdenadas.filter(orden => {
-                  const fechaOrden = new Date(orden.fecha_hora_solicitud || orden.fecha_servicio);
-                  fechaOrden.setHours(0, 0, 0, 0);
-                  return fechaOrden.getTime() < ayer.getTime();
-                });
-
+              if (loading) {
                 return (
-                  <>
-                    {ordenesHoy.length > 0 && (
-                      <>
-                        <Text style={styles.transactionDateLabel}>Hoy</Text>
-                        {ordenesHoy.map((orden) => renderTransactionItem(orden))}
-                      </>
-                    )}
-                    {ordenesAyer.length > 0 && (
-                      <>
-                        <Text style={styles.transactionDateLabel}>Ayer</Text>
-                        {ordenesAyer.map((orden) => renderTransactionItem(orden))}
-                      </>
-                    )}
-                    {ordenesAnteriores.length > 0 && (
-                      <>
-                        {ordenesAnteriores.map((orden) => renderTransactionItem(orden))}
-                      </>
-                    )}
-                  </>
+                  <View style={styles.loadingRow}>
+                    <ActivityIndicator size="small" color="#2563EB" />
+                    <Text style={styles.loadingRowText}>Cargando órdenes...</Text>
+                  </View>
                 );
-              })()
-            ) : (
-              <View style={styles.emptyState}>
-                <MaterialIcons name="assignment" size={48} color={(safeColors?.text?.tertiary || (safeColors?.neutral?.gray as any)?.[700] || '#666666')} />
-                <Text style={styles.emptyStateTextDark}>
-                  No tienes órdenes asignadas
-                </Text>
-                <Text style={styles.emptyStateSubtext}>
-                  Las órdenes aparecerán aquí cuando te asignen trabajos
-                </Text>
-              </View>
-            )}
+              }
+
+              if (ordenesEnCurso.length > 0) {
+                return [...ordenesEnCurso]
+                  .sort(
+                    (a, b) =>
+                      new Date(b.fecha_hora_solicitud || b.fecha_servicio).getTime() -
+                      new Date(a.fecha_hora_solicitud || a.fecha_servicio).getTime()
+                  )
+                  .slice(0, 5)
+                  .map((orden) => renderTransactionItem(orden));
+              }
+
+              return (
+                <View style={styles.emptyBox}>
+                  <Briefcase size={40} color="#D1D5DB" />
+                  <Text style={styles.emptyTitle}>No tienes órdenes en curso</Text>
+                  <Text style={styles.emptySub}>
+                    Las órdenes aparecerán aquí cuando tengas trabajos activos
+                  </Text>
+                </View>
+              );
+            })()}
           </View>
 
+          {/* 5. CATEGORÍAS DE GESTIÓN - Grid 2x2 */}
+          <View style={styles.sectionWrap}>
+            <Text style={styles.mgmtTitle}>Gestión del Taller</Text>
+            <View style={styles.mgmtGrid}>
+              <View style={styles.mgmtRow}>
+                <TouchableOpacity
+                  style={styles.mgmtCard}
+                  onPress={() => router.push('/(tabs)/calendario')}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.mgmtIconBox, { backgroundColor: '#DBEAFE' }]}>
+                    <Calendar size={22} color="#2563EB" />
+                  </View>
+                  <View>
+                    <Text style={styles.mgmtCardTitle}>Calendario</Text>
+                    <Text style={styles.mgmtCardSub}>Disponibilidad</Text>
+                  </View>
+                </TouchableOpacity>
 
+                <TouchableOpacity
+                  style={styles.mgmtCard}
+                  onPress={() => router.push('/(tabs)/ordenes?tab=completadas')}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.mgmtIconBox, { backgroundColor: '#E0E7FF' }]}>
+                    <History size={22} color="#4F46E5" />
+                  </View>
+                  <View>
+                    <Text style={styles.mgmtCardTitle}>Historial</Text>
+                    <Text style={styles.mgmtCardSub}>Trabajos realizados</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
 
-          {/* App Features Guide - Always visible at the bottom */}
-          <View style={styles.featuresGuideContainer}>
-            <Text style={styles.featuresGuideTitle}>Con la App de Profesional Mecánico podrás:</Text>
+              <View style={styles.mgmtRow}>
+                <TouchableOpacity
+                  style={styles.mgmtCard}
+                  onPress={() => router.push('/configuracion-mercadopago')}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.mgmtIconBox, { backgroundColor: '#CFFAFE' }]}>
+                    <CreditCard size={22} color="#0891B2" />
+                  </View>
+                  <View>
+                    <Text style={styles.mgmtCardTitle}>Mercado Pago</Text>
+                    <Text style={styles.mgmtCardSub}>Cobros y pagos</Text>
+                  </View>
+                </TouchableOpacity>
 
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIconContainer, { backgroundColor: '#E0F2FE' }]}>
-                <MaterialIcons name="work-outline" size={24} color="#0061FF" />
-              </View>
-              <View style={styles.featureTextContainer}>
-                <Text style={styles.featureTitle}>Ver oportunidades de trabajo reales</Text>
-                <Text style={styles.featureDescription}>
-                  Los servicios llegan a ti, no necesitas buscarlos.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIconContainer, { backgroundColor: '#DCFCE7' }]}>
-                <MaterialIcons name="settings-remote" size={24} color="#10B981" />
-              </View>
-              <View style={styles.featureTextContainer}>
-                <Text style={styles.featureTitle}>Control total de tus servicios</Text>
-                <Text style={styles.featureDescription}>
-                  Gestiona tus órdenes y clientes desde un solo lugar.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIconContainer, { backgroundColor: '#F3E8FF' }]}>
-                <MaterialIcons name="payments" size={24} color="#9333EA" />
-              </View>
-              <View style={styles.featureTextContainer}>
-                <Text style={styles.featureTitle}>Recibe pagos seguros</Text>
-                <Text style={styles.featureDescription}>
-                  Pagos garantizados y seguros con Mercado Pago.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIconContainer, { backgroundColor: '#FEF3C7' }]}>
-                <MaterialIcons name="schedule" size={24} color="#D97706" />
-              </View>
-              <View style={styles.featureTextContainer}>
-                <Text style={styles.featureTitle}>Trabaja cuando quieras</Text>
-                <Text style={styles.featureDescription}>
-                  Tú decides tu horario y disponibilidad.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIconContainer, { backgroundColor: '#FCE7F3' }]}>
-                <MaterialIcons name="rocket-launch" size={24} color="#EC4899" />
-              </View>
-              <View style={styles.featureTextContainer}>
-                <Text style={styles.featureTitle}>Aumenta tu alcance</Text>
-                <Text style={styles.featureDescription}>
-                  Diversos paquetes de créditos para llegar a más clientes.
-                </Text>
+                <TouchableOpacity
+                  style={styles.mgmtCard}
+                  onPress={() => router.push('/creditos')}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.mgmtIconBox, { backgroundColor: '#FEF3C7' }]}>
+                    <Zap size={22} color="#D97706" />
+                  </View>
+                  <View>
+                    <Text style={styles.mgmtCardTitle}>Suscripción</Text>
+                    <Text style={styles.mgmtCardSub}>Créditos y plan</Text>
+                  </View>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
 
-      {/* Alerta de pago expirado o cancelado */}
-      <AlertaPagoExpirado
-        visible={mostrarAlertaPago}
-        mensaje={alertaMensaje}
-        tipo={alertaTipo}
-        ofertaId={alertaOfertaId}
-        solicitudId={alertaSolicitudId}
-        creditosDevueltos={alertaCreditosDevueltos}
-        onDismiss={async () => {
-          setMostrarAlertaPago(false);
-          // Marcar alerta como descartada en el backend si hay solicitud_id
-          if (alertaSolicitudId) {
-            try {
-              const { post } = await import('@/services/api');
-              await post(`/ordenes/solicitudes-publicas/${alertaSolicitudId}/descartar-alerta/`);
-            } catch (error) {
-              console.error('Error descartando alerta:', error);
+        <AlertaPagoExpirado
+          visible={mostrarAlertaPago}
+          mensaje={alertaMensaje}
+          tipo={alertaTipo}
+          ofertaId={alertaOfertaId}
+          solicitudId={alertaSolicitudId}
+          creditosDevueltos={alertaCreditosDevueltos}
+          onDismiss={async () => {
+            setMostrarAlertaPago(false);
+            if (alertaSolicitudId) {
+              try {
+                const { post } = await import('@/services/api');
+                await post(`/ordenes/solicitudes-publicas/${alertaSolicitudId}/descartar-alerta/`);
+              } catch (error) {
+                console.error('Error descartando alerta:', error);
+              }
             }
-          }
-        }}
-      />
+          }}
+        />
+      </LinearGradient>
     </TabScreenWrapper>
   );
 }
 
-// Función para crear estilos usando tokens del sistema de diseño
-const createStyles = () => {
-  // Valores seguros con fallbacks
-  const bgPaper = COLORS?.background?.paper || COLORS?.base?.white || '#FFFFFF';
-  const bgDefault = COLORS?.background?.default || '#EEEEEE';
-  const textPrimary = COLORS?.text?.primary || COLORS?.neutral?.inkBlack || '#000000';
-  const textSecondary = COLORS?.text?.secondary || COLORS?.neutral?.gray?.[700] || '#666666';
-  const neutralGrayObj = COLORS?.neutral?.gray as any;
-  const textTertiary = COLORS?.text?.tertiary || neutralGrayObj?.[700] || '#666666';
-  const borderLight = COLORS?.border?.light || COLORS?.neutral?.gray?.[200] || '#EEEEEE';
-  const borderMain = COLORS?.border?.main || COLORS?.neutral?.gray?.[300] || '#D0D0D0';
-  // Acceso seguro a propiedades numéricas usando type assertion
-  const primaryObj = COLORS?.primary as any;
-  const accentObj = COLORS?.accent as any;
-  const successObj = COLORS?.success as any;
-  const warningObj = COLORS?.warning as any;
-  const infoObj = COLORS?.info as any;
-  const errorObj = COLORS?.error as any;
-
-  const primary500 = primaryObj?.['500'] || '#4E4FEB';
-  const accent500 = accentObj?.['500'] || '#FF6B00';
-  const success500 = successObj?.['500'] || '#3DB6B1';
-  const warningColor = warningObj?.main || warningObj?.['500'] || '#FFB84D';
-  const infoColor = infoObj?.main || infoObj?.['500'] || accentObj?.['500'] || '#068FFF';
-  const errorColor = errorObj?.main || errorObj?.['500'] || '#FF5555';
-
-  const spacingXs = SPACING?.xs || 4;
-  const spacingSm = SPACING?.sm || 8;
-  const spacingMd = SPACING?.md || 16;
-  const spacingLg = SPACING?.lg || 24;
-  const spacingXl = SPACING?.xl || 32;
-
-  // Espaciado optimizado para contenido y containers
-  const containerHorizontal = SPACING?.container?.horizontal || SPACING?.content?.horizontal || 18;
-  const containerVertical = SPACING?.container?.vertical || SPACING?.content?.vertical || 20;
-  const cardPadding = SPACING?.cardPadding || spacingMd;
-  const cardGap = SPACING?.cardGap || spacingSm;
-  const cardMargin = SPACING?.cardMargin || spacingSm;
-
-  const fontSizeXs = TYPOGRAPHY?.fontSize?.xs || 10;
-  const fontSizeSm = TYPOGRAPHY?.fontSize?.sm || 12;
-  const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
-  const fontSizeMd = TYPOGRAPHY?.fontSize?.md || 16;
-  const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
-  const fontSizeXl = TYPOGRAPHY?.fontSize?.xl || 20;
-  const fontSize2xl = TYPOGRAPHY?.fontSize?.['2xl'] || 24;
-  const fontSize3xl = TYPOGRAPHY?.fontSize?.['3xl'] || 28;
-
-  const fontWeightLight = TYPOGRAPHY?.fontWeight?.light || '300';
-  const fontWeightRegular = TYPOGRAPHY?.fontWeight?.regular || '400';
-  const fontWeightMedium = TYPOGRAPHY?.fontWeight?.medium || '500';
-  const fontWeightSemibold = TYPOGRAPHY?.fontWeight?.semibold || '600';
-  const fontWeightBold = TYPOGRAPHY?.fontWeight?.bold || '700';
-
-  const radiusSm = BORDERS?.radius?.sm || 4;
-  const radiusMd = BORDERS?.radius?.md || 8;
-  const radiusLg = BORDERS?.radius?.lg || 12;
-  const radiusXl = BORDERS?.radius?.xl || 16;
-  const radius2xl = BORDERS?.radius?.['2xl'] || 20;
-  const radiusFull = BORDERS?.radius?.full || 9999;
-  const cardRadius = BORDERS?.radius?.card?.md || radiusLg;
-
-  // Definir borderWidthThin para usar en los estilos
-  const borderWidthThin = BORDERS?.width?.thin || 1;
-
-  const shadowSm = SHADOWS?.sm || { shadowColor: '#000000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-  const shadowMd = SHADOWS?.md || { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
-
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: bgPaper,
-    },
-    headerSafeArea: {
-      borderBottomWidth: 0,
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: containerHorizontal,
-      paddingVertical: spacingMd,
-    },
-    headerContent: {
-      flex: 1,
-    },
-    headerAlertsContainer: {
-      marginLeft: spacingSm,
-    },
-    headerTitle: {
-      fontSize: fontSize2xl,
-      fontWeight: fontWeightBold,
-      color: '#FFFFFF',
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: bgPaper,
-    },
-    loadingText: {
-      marginTop: spacingMd,
-      fontSize: fontSizeMd,
-      color: textTertiary,
-    },
-    scrollContainer: {
-      flex: 1,
-      backgroundColor: bgPaper,
-    },
-    scrollableHeader: {
-      paddingHorizontal: containerHorizontal,
-      paddingVertical: spacingMd,
-      backgroundColor: bgPaper,
-      borderBottomWidth: 1,
-      borderBottomColor: borderLight,
-    },
-    content: {
-      paddingHorizontal: 0,
-      paddingVertical: containerVertical,
-      backgroundColor: bgPaper,
-      flex: 1,
-    },
-    welcomeSection: {
-      marginBottom: spacingLg + 6, // 30
-    },
-    saludo: {
-      fontSize: fontSize2xl,
-      fontWeight: fontWeightLight,
-      color: textSecondary,
-      marginBottom: spacingXs,
-    },
-    nombreProveedor: {
-      fontSize: fontSize3xl,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      marginBottom: spacingSm + 4, // 12
-    },
-    estadoBadge: {
-      backgroundColor: (successObj?.light || successObj?.['50'] || COLORS?.background?.success),
-      paddingHorizontal: spacingSm + 4, // 12
-      paddingVertical: 6,
-      borderRadius: radius2xl,
-      alignSelf: 'flex-start',
-      borderWidth: 1,
-      borderColor: (successObj?.light || successObj?.['100'] || COLORS?.success?.light),
-    },
-    estadoText: {
-      color: (successObj?.text || successObj?.['700'] || COLORS?.text?.onSuccess),
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-    },
-    alertaChecklist: {
-      backgroundColor: (warningObj?.light || warningObj?.['50'] || COLORS?.background?.warning),
-      borderWidth: 1,
-      borderColor: (warningObj?.light || warningObj?.['100'] || COLORS?.warning?.light),
-      borderRadius: radiusLg,
-      padding: spacingMd,
-      marginBottom: spacingXl,
-    },
-    alertaChecklistContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingSm + 4, // 12
-    },
-    alertaChecklistTexto: {
-      flex: 1,
-    },
-    alertaChecklistTitle: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightSemibold,
-      color: (warningObj?.text || warningObj?.['700'] || COLORS?.text?.onWarning),
-      marginBottom: 2,
-    },
-    alertaChecklistSubtitle: {
-      fontSize: fontSizeBase,
-      color: (warningObj?.text || warningObj?.['700'] || COLORS?.text?.onWarning),
-    },
-    ordenesSection: {
-      marginBottom: spacingLg + 6, // 30
-    },
-    ordenesTitle: {
-      fontSize: fontSizeXl + 2, // 22
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      marginBottom: spacingSm,
-    },
-    ordenesSubtitle: {
-      fontSize: fontSizeMd,
-      color: textTertiary,
-      marginBottom: spacingXl,
-    },
-    loadingOrdenes: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacingXl,
-    },
-    loadingOrdenesText: {
-      marginLeft: 10,
-      fontSize: fontSizeMd,
-      color: textTertiary,
-    },
-    emptyState: {
-      backgroundColor: bgPaper,
-      padding: spacingXl,
-      borderRadius: radiusLg,
-      alignItems: 'center',
-      marginBottom: 10,
-    },
-    emptyStateIcon: {
-      marginBottom: spacingMd,
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: COLORS?.neutral?.gray?.[100] || '#F3F4F6',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    emptyStateText: {
-      fontSize: fontSizeMd,
-      color: textTertiary,
-      textAlign: 'center',
-    },
-    modernCard: {
-      backgroundColor: bgPaper,
-      borderRadius: cardRadius,
-      ...shadowSm,
-      marginBottom: cardGap,
-      marginHorizontal: 0,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: borderLight,
-    },
-    pendingCard: {
-      borderLeftWidth: 4,
-      borderLeftColor: warningColor,
-    },
-    urgentCard: {
-      borderLeftWidth: 4,
-      borderLeftColor: errorColor,
-    },
-    completableCard: {
-      borderLeftWidth: 4,
-      borderLeftColor: success500,
-    },
-    cardHeader: {
-      paddingHorizontal: spacingMd,
-      paddingVertical: spacingSm + 4, // 12
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 0,
-    },
-    headerLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingSm,
-    },
-    orderNumber: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: COLORS?.base?.white || '#FFFFFF',
-    },
-    headerRight: {
-      flexDirection: 'row',
-      alignItems: 'flex-end',
-      gap: spacingXs,
-    },
-    orderStatus: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightSemibold,
-      color: COLORS?.base?.white || '#FFFFFF',
-      textTransform: 'uppercase',
-    },
-    pendingIcon: {
-      marginLeft: spacingXs,
-    },
-    cardContent: {
-      padding: spacingMd,
-    },
-    // Nuevos estilos para diseño minimalista
-    headerSection: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacingLg,
-      paddingTop: 0, // El padding vertical viene del contenedor
-    },
-    headerLeftSection: {
-      flex: 1,
-    },
-    welcomeText: {
-      fontSize: fontSizeMd,
-      color: textTertiary,
-      marginBottom: spacingXs,
-      fontWeight: fontWeightRegular,
-    },
-    providerName: {
-      fontSize: fontSize2xl,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      marginBottom: spacingSm,
-    },
-    priorityBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginTop: spacingXs,
-    },
-    priorityText: {
-      fontSize: fontSizeBase,
-      color: primary500,
-      fontWeight: fontWeightMedium,
-    },
-    profileImage: {
-      width: 56,
-      height: 56,
-      borderRadius: radiusFull,
-      borderWidth: 2,
-      borderColor: borderMain,
-    },
-    profileImagePlaceholder: {
-      width: 56,
-      height: 56,
-      borderRadius: radiusFull,
-      backgroundColor: COLORS?.neutral?.gray?.[100] || '#EBEFF1',
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 2,
-      borderColor: borderMain,
-    },
-    summaryCard: {
-      borderRadius: radius2xl,
-      padding: spacingLg,
-      marginBottom: spacingLg,
-      minHeight: 180,
-    },
-    summaryCardContent: {
-      flex: 1,
-      justifyContent: 'space-between',
-    },
-    summaryAmountContainer: {
-      marginBottom: spacingSm,
-    },
-    summaryAmount: {
-      fontSize: fontSize3xl + 8, // 36
-      fontWeight: fontWeightBold,
-      color: COLORS?.base?.white || '#FFFFFF',
-      lineHeight: 42,
-    },
-    summaryAmountDecimals: {
-      fontSize: fontSize2xl,
-    },
-    summaryLabel: {
-      fontSize: fontSizeMd,
-      color: COLORS?.base?.white || '#FFFFFF',
-      opacity: 0.9,
-      marginBottom: spacingXs,
-    },
-    summaryDescription: {
-      fontSize: fontSizeBase,
-      color: COLORS?.base?.white || '#FFFFFF',
-      opacity: 0.8,
-    },
-    categoryCardsContainer: {
-      flexDirection: 'row',
-      gap: spacingMd,
-      marginBottom: spacingLg,
-      paddingHorizontal: 0,
-    },
-    categoryCard: {
-      flex: 1,
-      backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: spacingLg,
-      ...shadowSm,
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 120,
-      gap: spacingMd,
-    },
-    categoryCardTitle: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      textAlign: 'center',
-    },
-    ordersSection: {
-      marginBottom: spacingLg,
-    },
-    sectionHeaderWithDescription: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      marginBottom: spacingMd,
-      gap: spacingMd,
-    },
-    sectionHeaderContent: {
-      flex: 1,
-    },
-    sectionHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacingMd,
-    },
-    sectionDescription: {
-      fontSize: fontSizeSm,
-      color: textTertiary,
-      marginTop: spacingXs / 2,
-      fontWeight: fontWeightRegular,
-    },
-    viewAllButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingXs / 2,
-      paddingTop: spacingXs,
-    },
-    viewAllText: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: primary500 || accent500 || '#4E4FEB',
-    },
-    sectionTitle: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-    },
-    sortButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingXs,
-    },
-    sortButtonText: {
-      fontSize: fontSizeBase,
-      color: textPrimary,
-      fontWeight: fontWeightMedium,
-    },
-    incomingServiceItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: spacingMd,
-      backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      marginBottom: spacingSm + 4, // 12
-      gap: spacingSm + 4, // 12
-      ...shadowMd,
-    },
-    orderItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: cardPadding,
-      backgroundColor: bgPaper,
-      borderRadius: cardRadius,
-      marginBottom: cardGap,
-      marginHorizontal: 0, // El padding horizontal viene del contenedor padre
-      gap: spacingSm + 4, // 12
-      ...shadowSm,
-      borderWidth: 1,
-      borderColor: borderLight,
-    },
-    serviceItemInfo: {
-      flex: 1,
-      marginLeft: spacingSm + 4, // 12
-    },
-    serviceItemHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: spacingSm,
-    },
-    serviceItemName: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      flex: 1,
-    },
-    serviceItemDetails: {
-      gap: spacingXs,
-    },
-    serviceItemDetailRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginBottom: 2,
-    },
-    serviceItemDate: {
-      fontSize: fontSizeBase - 1, // 13
-      color: textTertiary,
-    },
-    serviceItemType: {
-      fontSize: fontSizeBase - 1, // 13
-      color: textTertiary,
-      flex: 1,
-    },
-    serviceItemPrice: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: success500,
-    },
-    serviceItemStatus: {
-      alignItems: 'flex-end',
-      gap: spacingXs,
-    },
-    actionHint: {
-      fontSize: fontSizeXs + 1, // 11
-      color: textTertiary,
-      fontStyle: 'italic',
-      marginTop: 2,
-    },
-    serviceItemStatusText: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightSemibold,
-      paddingHorizontal: spacingSm + 4, // 12
-      paddingVertical: spacingXs,
-      borderRadius: radiusLg,
-      overflow: 'hidden',
-    },
-    statusSuccess: {
-      backgroundColor: success500,
-      color: COLORS?.base?.white || '#FFFFFF',
-    },
-    statusFailed: {
-      backgroundColor: errorColor,
-      color: COLORS?.base?.white || '#FFFFFF',
-    },
-    statusBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: spacingXs,
-      borderRadius: radiusLg,
-      minWidth: 80,
-      alignItems: 'center',
-    },
-    statusBadgeText: {
-      fontSize: fontSizeXs + 1, // 11
-      fontWeight: fontWeightSemibold,
-      color: COLORS?.base?.white || '#FFFFFF',
-      textTransform: 'uppercase',
-    },
-    loadingOrdenesTextDark: {
-      marginLeft: 10,
-      fontSize: fontSizeMd,
-      color: textTertiary,
-    },
-    emptyStateTextDark: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-      textAlign: 'center',
-      marginTop: spacingMd,
-      marginBottom: spacingXs,
-    },
-    emptyStateSubtext: {
-      fontSize: fontSizeSm,
-      color: textTertiary,
-      textAlign: 'center',
-      paddingHorizontal: spacingMd,
-    },
-    // Nuevos estilos para cards de órdenes
-    orderCard: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: spacingLg,
-      marginBottom: cardGap,
-      ...shadowSm,
-    },
-    orderCardHeader: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      alignItems: 'center',
-      gap: spacingXs + 1,
-      marginBottom: spacingMd,
-    },
-    orderStatusBadge: {
-      paddingHorizontal: spacingSm + 2,
-      paddingVertical: spacingXs + 1,
-      borderRadius: radiusLg,
-    },
-    orderStatusText: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightSemibold,
-      color: COLORS?.base?.white || '#FFFFFF',
-    },
-    urgentBadgeSmall: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: errorColor,
-      paddingHorizontal: spacingXs + 2,
-      paddingVertical: spacingXs,
-      borderRadius: radiusSm,
-      gap: spacingXs / 2,
-    },
-    urgentBadgeTextSmall: {
-      fontSize: fontSizeSm - 1,
-      fontWeight: fontWeightBold,
-      color: COLORS?.base?.white || '#FFFFFF',
-    },
-    checklistPendingBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: (warningObj?.light || warningObj?.['50'] || COLORS?.warning?.light),
-      paddingHorizontal: spacingXs + 2,
-      paddingVertical: spacingXs,
-      borderRadius: radiusSm,
-      gap: spacingXs / 2,
-      borderWidth: 1,
-      borderColor: (warningObj?.['200'] || warningColor),
-    },
-    checklistPendingText: {
-      fontSize: fontSizeSm - 1,
-      fontWeight: fontWeightSemibold,
-      color: (warningObj?.text || warningObj?.['700'] || COLORS?.warning?.text),
-    },
-    orderCardClientRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingSm + 2,
-      marginBottom: spacingMd,
-      paddingBottom: spacingMd,
-      borderBottomWidth: 1,
-      borderBottomColor: borderLight,
-    },
-    orderClientPhoto: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: (neutralGrayObj?.[200]) || '#E5E7EB',
-    },
-    orderClientPhotoPlaceholder: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: primary500,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    orderClientInfo: {
-      flex: 1,
-    },
-    orderClientName: {
-      fontSize: fontSizeMd + 1,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      marginBottom: spacingXs / 2,
-    },
-    orderVehicleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingXs / 2,
-      marginTop: 2,
-    },
-    orderVehicleText: {
-      fontSize: fontSizeBase,
-      color: textTertiary,
-      flex: 1,
-    },
-    orderCardServiceInfo: {
-      marginBottom: spacingMd,
-      gap: spacingSm,
-    },
-    orderServiceRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingXs + 1,
-    },
-    orderServiceText: {
-      fontSize: fontSizeBase,
-      color: textPrimary,
-      flex: 1,
-    },
-    orderDateRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingXs + 1,
-    },
-    orderDateText: {
-      fontSize: fontSizeBase,
-      color: textTertiary,
-    },
-    orderCardFooter: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingTop: spacingMd,
-      borderTopWidth: 1,
-      borderTopColor: borderLight,
-    },
-    orderFooterLeft: {
-      flex: 1,
-    },
-    serviceTypeBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingXs / 2,
-      alignSelf: 'flex-start',
-    },
-    serviceTypeText: {
-      fontSize: fontSizeSm,
-      color: primary500,
-      fontWeight: fontWeightMedium,
-    },
-    orderPrice: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-    },
-    viewAllOrdersButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacingSm + 4,
-      marginTop: spacingSm,
-      gap: spacingXs,
-    },
-    viewAllOrdersText: {
-      color: primary500 || accent500 || '#4E4FEB',
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-    },
-    solicitudesSection: {
-      marginTop: spacingLg,
-      marginBottom: spacingLg + 6, // 30
-    },
-    sectionHeaderLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingSm,
-    },
-    badgeNuevo: {
-      backgroundColor: errorColor,
-      borderRadius: radiusLg,
-      paddingHorizontal: spacingSm,
-      paddingVertical: 2,
-      minWidth: 24,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    badgeNuevoTexto: {
-      color: COLORS?.base?.white || '#FFFFFF',
-      fontSize: fontSizeXs + 1, // 11
-      fontWeight: fontWeightBold,
-    },
-    verTodasTexto: {
-      color: accent500,
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-    },
-    verTodasButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacingSm + 4, // 12
-      marginTop: spacingSm,
-      gap: spacingXs,
-    },
-    verTodasButtonTexto: {
-      color: accent500,
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-    },
-    // Estilos minimalistas para órdenes activas
-    minimalCard: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: spacingMd,
-      marginBottom: spacingSm + 4, // 12
-      ...SHADOWS?.sm || shadowMd,
-    },
-    minimalCardHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacingMd,
-      paddingBottom: spacingSm + 4, // 12
-      borderBottomWidth: 1,
-      borderBottomColor: borderLight,
-    },
-    minimalHeaderLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingSm,
-    },
-    minimalOrderNumber: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-    },
-    minimalStatusBadge: {
-      paddingHorizontal: spacingSm + 4, // 12
-      paddingVertical: spacingXs,
-      borderRadius: radiusLg,
-    },
-    minimalStatusText: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightSemibold,
-      color: COLORS?.base?.white || '#FFFFFF',
-      textTransform: 'uppercase',
-    },
-    minimalVehicleSection: {
-      marginBottom: spacingSm + 4, // 12
-    },
-    minimalVehicleBrand: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      marginBottom: spacingXs,
-    },
-    minimalVehicleDetails: {
-      fontSize: fontSizeBase,
-      color: textTertiary,
-    },
-    minimalClientSection: {
-      marginBottom: spacingSm + 4, // 12
-    },
-    minimalClientName: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightMedium,
-      color: primary500,
-    },
-    minimalTimeSection: {
-      marginBottom: spacingSm + 4, // 12
-    },
-    minimalTimeText: {
-      fontSize: fontSizeBase - 1, // 13
-      color: textTertiary,
-    },
-    minimalServicesSection: {
-      marginBottom: spacingSm + 4, // 12
-    },
-    minimalServiceText: {
-      fontSize: fontSizeBase - 1, // 13
-      color: textPrimary,
-      marginBottom: spacingXs,
-    },
-    minimalMoreServices: {
-      fontSize: fontSizeSm,
-      color: textTertiary,
-      fontStyle: 'italic',
-    },
-    minimalChecklistInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginBottom: spacingSm + 4, // 12
-    },
-    minimalChecklistText: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightMedium,
-    },
-    minimalPriceSection: {
-      marginBottom: spacingSm + 4, // 12
-    },
-    minimalPriceAmount: {
-      fontSize: fontSizeXl,
-      fontWeight: fontWeightBold,
-      color: success500,
-    },
-    minimalActionSection: {
-      flexDirection: 'row',
-      gap: 10,
-      paddingTop: spacingSm + 4, // 12
-      borderTopWidth: 1,
-      borderTopColor: borderLight,
-    },
-    minimalDetailButton: {
-      flex: 1,
-      paddingVertical: 10,
-      paddingHorizontal: spacingMd,
-      borderRadius: radiusSm,
-      borderWidth: 1,
-      borderColor: borderMain,
-      backgroundColor: COLORS?.neutral?.gray?.[50] || '#F9F9F9',
-      alignItems: 'center',
-    },
-    minimalDetailButtonFull: {
-      width: '100%',
-      paddingVertical: 10,
-      paddingHorizontal: spacingMd,
-      borderRadius: radiusSm,
-      borderWidth: 1,
-      borderColor: borderMain,
-      backgroundColor: COLORS?.neutral?.gray?.[50] || '#F9F9F9',
-      alignItems: 'center',
-    },
-    minimalDetailButtonText: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightMedium,
-      color: textSecondary,
-    },
-    // Estilos adicionales que pueden estar siendo usados
-    clientPhotoInList: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      borderWidth: 1,
-      borderColor: borderMain,
-    },
-    clientPhotoPlaceholderInList: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: COLORS?.neutral?.gray?.[100] || '#EBEFF1',
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: borderMain,
-    },
-    // Mantener todos los estilos adicionales para compatibilidad
-    serviceItemIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: COLORS?.neutral?.gray?.[50] || '#F9F9F9',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    vehicleSection: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: spacingMd,
-      paddingBottom: spacingSm + 4, // 12
-      borderBottomWidth: 1,
-      borderBottomColor: borderLight,
-    },
-    vehicleIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: COLORS?.neutral?.gray?.[50] || '#F9F9F9',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: spacingSm + 4, // 12
-    },
-    vehicleInfo: {
-      flex: 1,
-    },
-    vehicleBrand: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      marginBottom: 2,
-    },
-    vehicleDetails: {
-      fontSize: fontSizeBase - 1, // 13
-      color: textTertiary,
-    },
-    priceContainer: {
-      alignItems: 'flex-end',
-    },
-    priceLabel: {
-      fontSize: fontSizeXs + 1, // 11
-      color: textTertiary,
-      textTransform: 'uppercase',
-      fontWeight: fontWeightSemibold,
-    },
-    priceAmount: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightBold,
-      color: success500,
-    },
-    clientSection: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: spacingSm + 4, // 12
-      backgroundColor: COLORS?.neutral?.gray?.[50] || '#F9F9F9',
-      padding: spacingSm,
-      borderRadius: 6,
-    },
-    clientIcon: {
-      marginRight: spacingSm,
-    },
-    clientName: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightMedium,
-      color: primary500,
-    },
-    serviceTimeSection: {
-      flexDirection: 'row',
-      gap: spacingMd,
-    },
-    timeBlock: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: COLORS?.info?.light || '#E6F5F9',
-      paddingHorizontal: spacingSm,
-      paddingVertical: spacingXs,
-      borderRadius: radiusSm,
-      gap: spacingXs,
-    },
-    timeText: {
-      fontSize: fontSizeSm,
-      color: infoColor,
-      fontWeight: fontWeightMedium,
-    },
-    servicesSection: {
-      marginBottom: spacingSm + 4, // 12
-    },
-    servicesTitle: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-      marginBottom: 6,
-    },
-    serviceItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: spacingXs,
-      gap: spacingSm,
-    },
-    serviceText: {
-      fontSize: fontSizeBase - 1, // 13
-      color: textTertiary,
-    },
-    serviceType: {
-      fontSize: fontSizeXs + 1, // 11
-      color: accent500,
-      fontWeight: fontWeightMedium,
-    },
-    moreServices: {
-      fontSize: fontSizeSm,
-      color: accent500,
-      fontStyle: 'italic',
-      marginLeft: 22,
-    },
-    checklistBanner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: (infoObj?.light || infoObj?.['50'] || COLORS?.info?.light),
-      padding: 10,
-      borderRadius: 6,
-      marginBottom: spacingSm + 4, // 12
-      borderLeftWidth: 3,
-      borderLeftColor: primary500,
-      gap: spacingSm,
-    },
-    checklistUrgent: {
-      backgroundColor: (warningObj?.light || warningObj?.['50'] || COLORS?.background?.warning),
-      borderLeftColor: warningColor,
-    },
-    checklistCompleted: {
-      backgroundColor: (successObj?.light || successObj?.['50'] || COLORS?.background?.success),
-      borderLeftColor: success500,
-    },
-    checklistText: {
-      fontSize: fontSizeBase - 1, // 13
-      fontWeight: fontWeightMedium,
-      flex: 1,
-    },
-    urgentAlert: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: (errorObj?.light || errorObj?.['50'] || COLORS?.error?.light),
-      padding: 10,
-      borderRadius: 6,
-      marginBottom: spacingSm + 4, // 12
-      borderWidth: 1,
-      borderColor: (errorObj?.light || errorObj?.['100'] || COLORS?.error?.light),
-      gap: spacingSm,
-    },
-    urgentAlertText: {
-      fontSize: fontSizeSm,
-      color: (errorObj?.text || errorObj?.['700'] || COLORS?.text?.onError),
-      fontWeight: fontWeightMedium,
-      flex: 1,
-    },
-    progressSection: {
-      marginBottom: spacingSm + 4, // 12
-      backgroundColor: COLORS?.neutral?.gray?.[50] || '#F9F9F9',
-      padding: 10,
-      borderRadius: 6,
-    },
-    progressHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 6,
-    },
-    progressLabel: {
-      fontSize: fontSizeSm,
-      color: textSecondary,
-      fontWeight: fontWeightSemibold,
-    },
-    progressPercentage: {
-      fontSize: fontSizeSm,
-      color: warningColor,
-    },
-    progressBarContainer: {
-      height: 6,
-      backgroundColor: borderLight,
-      borderRadius: 3,
-      overflow: 'hidden',
-    },
-    progressBar: {
-      height: '100%',
-      backgroundColor: warningColor,
-      borderRadius: 3,
-    },
-    actionSection: {
-      paddingHorizontal: spacingMd,
-      paddingVertical: spacingSm + 4, // 12
-      borderTopWidth: 1,
-      borderTopColor: borderLight,
-    },
-    pendingActions: {
-      gap: 10,
-    },
-    detailButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: spacingSm,
-      paddingHorizontal: spacingSm + 4, // 12
-      borderRadius: 6,
-      borderWidth: 1,
-      borderColor: borderMain,
-      backgroundColor: COLORS?.neutral?.gray?.[50] || '#F9F9F9',
-      gap: 6,
-      justifyContent: 'center',
-    },
-    detailButtonFull: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: spacingSm + 4, // 12
-      paddingHorizontal: spacingMd,
-      borderRadius: radiusSm,
-      borderWidth: 1,
-      borderColor: borderMain,
-      backgroundColor: COLORS?.neutral?.gray?.[50] || '#F9F9F9',
-      gap: spacingSm,
-      justifyContent: 'center',
-      width: '100%',
-    },
-    detailButtonText: {
-      fontSize: fontSizeBase,
-      color: textSecondary,
-      fontWeight: fontWeightMedium,
-    },
-    decisionButtons: {
-      flexDirection: 'row',
-      gap: 10,
-    },
-    rejectButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: spacingSm + 4, // 12
-      paddingHorizontal: spacingXl,
-      borderRadius: 25,
-      backgroundColor: errorColor,
-      flex: 1,
-      justifyContent: 'center',
-      gap: 6,
-    },
-    rejectButtonText: {
-      fontSize: fontSizeBase,
-      color: COLORS?.base?.white || '#FFFFFF',
-      fontWeight: fontWeightSemibold,
-    },
-    acceptButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: spacingSm + 4, // 12
-      paddingHorizontal: spacingXl,
-      borderRadius: 25,
-      backgroundColor: success500,
-      flex: 1,
-      justifyContent: 'center',
-      gap: 6,
-    },
-    acceptButtonText: {
-      fontSize: fontSizeBase,
-      color: COLORS?.base?.white || '#FFFFFF',
-      fontWeight: fontWeightSemibold,
-    },
-    activeActions: {
-      flexDirection: 'row',
-      gap: 10,
-    },
-    checklistActionButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: spacingSm + 4, // 12
-      paddingHorizontal: spacingXl,
-      borderRadius: 25,
-      flex: 2,
-      justifyContent: 'center',
-      gap: 6,
-    },
-    checklistActionText: {
-      fontSize: fontSizeBase,
-      color: COLORS?.base?.white || '#FFFFFF',
-      fontWeight: fontWeightSemibold,
-    },
-    urgentActionButton: {
-      elevation: 2,
-      shadowColor: errorColor,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.3,
-      shadowRadius: 4,
-    },
-    timeLimit: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: COLORS?.error?.light || '#FFEBEE',
-      padding: spacingSm,
-      borderRadius: 6,
-      marginBottom: spacingSm + 4, // 12
-    },
-    timeLimitText: {
-      fontSize: fontSizeSm,
-      color: COLORS?.error?.text || '#8B1A1A',
-      fontWeight: fontWeightMedium,
-    },
-    infoCard: {
-      backgroundColor: bgPaper,
-      padding: spacingXl,
-      borderRadius: radiusLg,
-      ...shadowMd,
-    },
-    infoTitle: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      marginBottom: spacingMd,
-    },
-    infoRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: spacingSm,
-      borderBottomWidth: 1,
-      borderBottomColor: COLORS?.neutral?.gray?.[50] || '#F9F9F9',
-    },
-    infoLabel: {
-      fontSize: fontSizeBase,
-      color: textTertiary,
-      flex: 1,
-    },
-    infoValue: {
-      fontSize: fontSizeBase,
-      color: textPrimary,
-      fontWeight: fontWeightMedium,
-      flex: 2,
-      textAlign: 'right',
-    },
-    verificado: {
-      color: success500,
-    },
-    // Estilos para Créditos
-    creditosContainer: {
-      marginHorizontal: containerHorizontal,
-      marginBottom: spacingMd,
-      marginTop: spacingMd,
-    },
-    // Estilos para Quick Actions - Diseño similar a categorías de app usuarios
-    quickActionsSection: {
-      marginBottom: spacingLg,
-    },
-    quickActionsHorizontal: {
-      paddingVertical: spacingXs,
-      paddingHorizontal: spacingMd,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexGrow: 1,
-    },
-    quickActionCard: {
-      alignItems: 'center',
-      justifyContent: 'flex-start',
-      width: 90,
-      marginRight: spacingMd,
-      paddingVertical: 0,
-    },
-    quickActionIconCircle: {
-      width: 68,
-      height: 68,
-      borderRadius: 34,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: spacingXs,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    quickActionCardLabel: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightMedium,
-      color: textPrimary,
-      textAlign: 'center',
-      lineHeight: fontSizeSm * 1.3,
-      maxWidth: 90,
-      paddingHorizontal: spacingXs,
-      marginTop: 0,
-      flexShrink: 1,
-    },
-    // Estilos para Transactions Section
-    transactionsSection: {
-      marginBottom: spacingLg,
-      marginHorizontal: containerHorizontal,
-    },
-    transactionsHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacingMd,
-    },
-    transactionsHeaderLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingSm,
-    },
-    transactionsTitle: {
-      fontSize: fontSize2xl + 2, // 26
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      letterSpacing: -0.5,
-    },
-    viewAllLink: {
-      paddingVertical: spacingXs,
-    },
-    viewAllLinkText: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: primary500 || accent500 || '#4E4FEB',
-    },
-    transactionDateLabel: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: textSecondary,
-      marginTop: spacingMd,
-      marginBottom: spacingSm,
-    },
-    transactionItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: spacingMd,
-      paddingHorizontal: 0,
-      gap: spacingMd,
-    },
-    transactionIconContainer: {
-      position: 'relative',
-    },
-    transactionIconImage: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: borderLight,
-    },
-    transactionIconPlaceholder: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    newBadgeDot: {
-      position: 'absolute',
-      top: -2,
-      right: -2,
-      width: 12,
-      height: 12,
-      borderRadius: 6,
-      backgroundColor: errorColor,
-      borderWidth: 2,
-      borderColor: bgPaper,
-    },
-    transactionContent: {
-      flex: 1,
-    },
-    transactionType: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-      marginBottom: 2,
-    },
-    transactionDescription: {
-      fontSize: fontSizeSm,
-      color: textTertiary,
-    },
-    transactionAmount: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-    },
-    // Estilos para Order List Cards (UI Card format) - Mejorado
-    orderListCard: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: spacingMd + 4, // 20
-      marginBottom: spacingMd,
-      ...shadowSm,
-      borderWidth: borderWidthThin,
-      borderColor: borderLight,
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacingMd,
-      minHeight: 120,
-    },
-    orderListCardContent: {
-      flex: 1,
-      gap: spacingSm,
-      minWidth: 0,
-      paddingRight: spacingSm,
-    },
-    orderListCardTitle: {
-      fontSize: fontSizeLg, // 18
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      marginBottom: spacingXs,
-      lineHeight: fontSizeLg * 1.4,
-    },
-    orderListCardDate: {
-      fontSize: fontSizeSm,
-      color: textTertiary,
-      marginBottom: spacingSm + 2,
-      fontWeight: fontWeightRegular,
-    },
-    orderListCardUserSection: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingSm + 2,
-      marginTop: spacingXs,
-      paddingTop: spacingSm,
-      borderTopWidth: borderWidthThin,
-      borderTopColor: borderLight,
-    },
-    orderListCardUserPhoto: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: borderLight,
-      flexShrink: 0,
-      borderWidth: 1,
-      borderColor: borderMain,
-    },
-    orderListCardUserPhotoPlaceholder: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: primary500,
-      justifyContent: 'center',
-      alignItems: 'center',
-      flexShrink: 0,
-      borderWidth: 1,
-      borderColor: (primaryObj?.['300'] || primary500),
-    },
-    orderListCardUserInfo: {
-      flex: 1,
-      gap: 3,
-    },
-    orderListCardUserName: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-    },
-    orderListCardVehicle: {
-      fontSize: fontSizeSm,
-      color: textTertiary,
-      fontWeight: fontWeightRegular,
-    },
-    orderListCardServiceTypeContainer: {
-      marginTop: spacingSm,
-      marginBottom: spacingSm,
-      alignSelf: 'flex-start',
-    },
-    orderListCardServiceType: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightMedium,
-      color: textTertiary,
-      paddingHorizontal: spacingSm + 4,
-      paddingVertical: spacingXs + 2,
-      backgroundColor: (neutralGrayObj?.[50] || COLORS?.neutral?.gray?.[50] || '#F9F9F9'),
-      borderRadius: radiusSm,
-      overflow: 'hidden',
-      borderWidth: borderWidthThin,
-      borderColor: borderLight,
-    },
-    orderListCardPriceContainer: {
-      marginTop: spacingXs,
-      paddingTop: spacingSm,
-      borderTopWidth: borderWidthThin,
-      borderTopColor: borderLight,
-      width: '100%',
-      alignItems: 'flex-end',
-    },
-    orderListCardPrice: {
-      fontSize: fontSizeLg + 2, // 20
-      fontWeight: fontWeightBold,
-      color: success500 || '#3DB6B1',
-      textAlign: 'right',
-    },
-    orderListCardActionButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacingXs,
-      paddingHorizontal: spacingMd,
-      paddingVertical: spacingSm + 2,
-      marginTop: spacingSm,
-      backgroundColor: (primaryObj?.['50'] || primaryObj?.['100'] || COLORS?.primary?.['50'] || '#F0F0FF'),
-      borderRadius: radiusMd,
-      borderWidth: borderWidthThin,
-      borderColor: (primaryObj?.['200'] || primaryObj?.['300'] || primary500 || '#4E4FEB'),
-      width: '100%',
-    },
-    orderListCardActionText: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: primary500 || accent500 || '#4E4FEB',
-    },
-    // Estilos específicos para cards de oportunidades de trabajo
-    opportunityCard: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: spacingMd + 4, // 20
-      marginBottom: spacingMd,
-      ...shadowSm,
-      borderWidth: borderWidthThin,
-      borderColor: borderLight,
-      flexDirection: 'column',
-      alignItems: 'stretch',
-      minHeight: 120,
-    },
-    opportunityCardContent: {
-      flex: 1,
-      gap: spacingSm,
-      width: '100%',
-    },
-    opportunityCardServiceTypeContainer: {
-      marginTop: spacingSm,
-      marginBottom: spacingSm,
-      alignSelf: 'flex-start',
-    },
-    opportunityCardServiceType: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightMedium,
-      color: textTertiary,
-      paddingHorizontal: spacingSm + 4,
-      paddingVertical: spacingXs + 2,
-      backgroundColor: (neutralGrayObj?.[50] || COLORS?.neutral?.gray?.[50] || '#F9F9F9'),
-      borderRadius: radiusSm,
-      overflow: 'hidden',
-      borderWidth: borderWidthThin,
-      borderColor: borderLight,
-    },
-    opportunityCardActionButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacingXs,
-      paddingHorizontal: spacingMd,
-      paddingVertical: spacingSm + 2,
-      marginTop: spacingSm,
-      backgroundColor: (primaryObj?.['50'] || primaryObj?.['100'] || COLORS?.primary?.['50'] || '#F0F0FF'),
-      borderRadius: radiusMd,
-      borderWidth: borderWidthThin,
-      borderColor: (primaryObj?.['200'] || primaryObj?.['300'] || primary500 || '#4E4FEB'),
-      width: '100%',
-    },
-    opportunityCardActionText: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: primary500 || accent500 || '#4E4FEB',
-    },
-    // Features Guide Styles
-    featuresGuideContainer: {
-      marginTop: spacingXl || 32,
-      marginHorizontal: 0, // Padding handled by parent container
-      marginBottom: spacingLg || 24,
-      backgroundColor: bgPaper || '#FFFFFF',
-      borderRadius: radiusLg || 16,
-      padding: spacingLg || 20,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      elevation: 2,
-      borderWidth: 1,
-      borderColor: 'rgba(0,0,0,0.03)',
-    },
-    featuresGuideTitle: {
-      fontSize: fontSizeLg || 18,
-      fontWeight: '800',
-      color: textPrimary || '#00171F',
-      marginBottom: spacingLg || 20,
-      textAlign: 'center',
-    },
-    featureItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: spacingMd || 16,
-    },
-    featureIconContainer: {
-      width: 48,
-      height: 48,
-      borderRadius: 14,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: spacingMd || 16,
-    },
-    featureTextContainer: {
-      flex: 1,
-    },
-    featureTitle: {
-      fontSize: (fontSizeMd || 15) + 1,
-      fontWeight: '700',
-      color: textPrimary || '#00171F',
-      marginBottom: 2,
-    },
-    featureDescription: {
-      fontSize: 13,
-      color: textSecondary || '#5D6F75',
-      lineHeight: 18,
-    },
-  });
-};
-
-// Crear estilos usando la función
-const styles = createStyles();
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.06)',
+  },
+  avatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E0E7FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.06)',
+  },
+  avatarInitial: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
+  welcomeLabel: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  providerName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  bellOuter: {
+    position: 'relative',
+  },
+  bellBlur: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
+  },
+  bellDot: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#EF4444',
+    borderWidth: 2,
+    borderColor: '#FAFAFA',
+  },
+  sectionWrap: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  sectionTitleText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  seeAllLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  glassOuter: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  glassInner: {
+    padding: 20,
+  },
+  finHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  finHeaderTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 1,
+  },
+  planBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  planBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  finBody: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  finCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  finDivider: {
+    width: 1,
+    backgroundColor: '#E5E7EB',
+    alignSelf: 'stretch',
+    marginHorizontal: 12,
+  },
+  finIconAmber: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  finIconGreen: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#D1FAE5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  finLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  finCreditsVal: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#111827',
+  },
+  finBuyMore: {
+    fontSize: 13,
+    color: '#2563EB',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  finEarningsVal: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#059669',
+  },
+  finGrowth: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginTop: 2,
+  },
+  finGrowthText: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '600',
+  },
+  radarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  radarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  radarIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radarTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  radarSub: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 1,
+  },
+  radarBody: {
+    marginTop: 16,
+    gap: 12,
+  },
+  radarSearching: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 10,
+  },
+  radarSearchingText: {
+    fontSize: 14,
+    color: '#2563EB',
+    fontWeight: '500',
+  },
+  radarOffer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    gap: 10,
+  },
+  radarOfferTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  radarOfferTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  radarOfferMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  radarOfferMetaText: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  radarCTA: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    borderRadius: 10,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  radarCTAText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  radarEmpty: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    gap: 8,
+  },
+  radarEmptyTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  radarEmptySub: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+  seeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    gap: 4,
+  },
+  seeAllBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  ticketCard: {
+    marginBottom: 14,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  ticketTop: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  ticketBadgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  ticketBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  ticketPulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  ticketBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  ticketTimeBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  ticketTimeText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  ticketDash: {
+    borderBottomWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#D1D5DB',
+    marginHorizontal: 16,
+  },
+  ticketBody: {
+    padding: 16,
+    gap: 10,
+  },
+  ticketServiceTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  ticketClientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ticketClientPhoto: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  ticketClientPlaceholder: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E0E7FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ticketClientInitial: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
+  ticketClientName: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+    flex: 1,
+  },
+  ticketFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  ticketInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flex: 1,
+  },
+  ticketInfoText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  ticketPriceBlock: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'flex-end',
+  },
+  ticketPriceLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 0.5,
+  },
+  ticketPriceAmount: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#059669',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 32,
+    gap: 10,
+  },
+  loadingRowText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  emptyBox: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  emptySub: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+  mgmtTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 14,
+  },
+  mgmtGrid: {
+    gap: 12,
+  },
+  mgmtRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  mgmtCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+    overflow: 'hidden',
+  },
+  mgmtIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mgmtCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  mgmtCardSub: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 1,
+  },
+});
 
