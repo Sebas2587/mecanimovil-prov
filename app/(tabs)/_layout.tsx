@@ -1,36 +1,18 @@
 import { Tabs } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Platform, View, Text, StyleSheet } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Home, ClipboardList, MessageCircle, Settings } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useChats } from '@/context/ChatsContext';
 import websocketService from '../services/websocketService';
 import connectionService from '@/services/connectionService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 
 export default function TabLayout() {
-  const theme = useTheme();
   const { isAuthenticated, isLoading } = useAuth();
   const { totalMensajesNoLeidos } = useChats();
   const insets = useSafeAreaInsets();
-
-  // Obtener colores del sistema de diseño con fallbacks
-  const colors = theme?.colors || COLORS || {};
-  const primary500 = (colors?.primary as any)?.['500'] || colors?.accent?.['500'] || '#4E4FEB';
-  const textTertiary = colors?.text?.tertiary || (colors?.neutral as any)?.gray?.[400] || '#8E8E93';
-  const bgPaper = colors?.background?.paper || COLORS?.base?.white || '#FFFFFF';
-  const borderLight = colors?.border?.light || (colors?.neutral as any)?.gray?.[200] || '#E5E5EA';
-  const errorMain = colors?.error?.main || '#FF5555';
-  const white = COLORS?.base?.white || '#FFFFFF';
-
-  // Obtener tokens de espaciado y tipografía
-  const spacing = theme?.spacing || SPACING || {};
-  const typography = theme?.typography || TYPOGRAPHY || {};
-  const shadows = theme?.shadows || SHADOWS || {};
-  const borders = theme?.borders || BORDERS || {};
 
   // Monitorear estado de autenticación y manejar conexión WebSocket
   useEffect(() => {
@@ -71,74 +53,74 @@ export default function TabLayout() {
     };
   }, []);
 
+  const TAB_ACTIVE = '#2563EB';
+  const TAB_INACTIVE = '#9CA3AF';
+  /** Blur en la tab bar mezcla el contenido de detrás y en iOS se ve gris; mismo blanco en ambas plataformas */
+  const TAB_BAR_WHITE = '#FFFFFF';
+  const tabH = Platform.OS === 'ios' ? 84 : 64;
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: primary500,
-        tabBarInactiveTintColor: textTertiary,
+        tabBarActiveTintColor: TAB_ACTIVE,
+        tabBarInactiveTintColor: TAB_INACTIVE,
         headerShown: false,
+        tabBarBackground: () => (
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: TAB_BAR_WHITE }]} />
+        ),
         tabBarStyle: {
-          backgroundColor: bgPaper,
-          borderTopColor: borderLight,
-          borderTopWidth: borders?.width?.thin || 1,
-          height: Platform.OS === 'ios' ? 88 + insets.bottom : 60 + insets.bottom,
+          backgroundColor: TAB_BAR_WHITE,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: '#E8E8E8',
+          height: tabH + insets.bottom,
           paddingBottom: insets.bottom,
-          paddingTop: spacing?.sm || 8,
-          paddingHorizontal: spacing?.sm || 10,
-          ...shadows?.lg || {
-            shadowColor: '#00171F',
-            shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: 0.15,
-            shadowRadius: 8,
-            elevation: 12,
-          },
-          zIndex: 1000,
+          paddingTop: 6,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0.08,
+          shadowRadius: 4,
+          elevation: 12,
         },
         tabBarLabelStyle: {
-          fontSize: typography?.fontSize?.xs || 11,
-          fontWeight: typography?.fontWeight?.semibold || '600',
-          marginTop: spacing?.xs || 2,
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: 2,
         },
         tabBarIconStyle: {
-          marginBottom: spacing?.xs || 2,
+          marginBottom: 0,
         },
         tabBarItemStyle: {
-          paddingVertical: spacing?.xs || 4,
+          paddingVertical: 2,
         },
       }}>
 
-      {/* 🏠 INICIO - Dashboard principal con órdenes activas y pendientes */}
       <Tabs.Screen
         name="index"
         options={{
           title: 'Inicio',
-          tabBarIcon: ({ color, size = 24 }) => (
-            <MaterialIcons name="dashboard" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Home size={22} color={color} strokeWidth={focused ? 2.4 : 1.8} />
           ),
         }}
       />
 
-      {/* 📋 ÓRDENES - Gestión completa de órdenes con filtros */}
       <Tabs.Screen
         name="ordenes"
         options={{
           title: 'Órdenes',
-          tabBarIcon: ({ color, size = 24 }) => (
-            <MaterialIcons name="assignment" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <ClipboardList size={22} color={color} strokeWidth={focused ? 2.4 : 1.8} />
           ),
         }}
       />
 
-
-
-      {/* 💬 CHATS - Conversaciones con clientes */}
       <Tabs.Screen
         name="chats"
         options={{
           title: 'Chats',
-          tabBarIcon: ({ color, size = 24 }) => (
-            <View style={{ width: size + 10, height: size + 10 }}>
-              <MaterialIcons name="chat-bubble" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={tabStyles.iconWrap}>
+              <MessageCircle size={22} color={color} strokeWidth={focused ? 2.4 : 1.8} />
               {totalMensajesNoLeidos > 0 && (
                 <View style={tabStyles.badge}>
                   <Text style={tabStyles.badgeText}>
@@ -151,79 +133,46 @@ export default function TabLayout() {
         }}
       />
 
-      {/* ⚙️ CONFIGURACIÓN - Perfil, servicios, horarios y zonas */}
       <Tabs.Screen
         name="perfil"
         options={{
           title: 'Configuración',
-          tabBarIcon: ({ color, size = 24 }) => (
-            <MaterialIcons name="settings" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Settings size={22} color={color} strokeWidth={focused ? 2.4 : 1.8} />
           ),
         }}
       />
 
-
-
-      {/* ✅ CHECKLIST DEMO - Funcionalidad de checklist */}
-      <Tabs.Screen
-        name="checklist-demo"
-        options={{
-          href: null, // Ocultar del tab bar - se navega desde órdenes
-        }}
-      />
-
-      {/* 📅 CALENDARIO - Vista mensual de órdenes */}
-      <Tabs.Screen
-        name="calendario"
-        options={{
-          href: null, // Ocultar del tab bar - se navega desde inicio
-        }}
-      />
-
-
-
-      {/* 💳 MERCADO PAGO - Configuración de cuenta de pagos */}
-      {/* Configuración de cuenta de pagos - Movido a stack root */}
-
+      <Tabs.Screen name="checklist-demo" options={{ href: null }} />
+      <Tabs.Screen name="calendario" options={{ href: null }} />
     </Tabs>
   );
 }
 
-// Crear estilos del badge usando el sistema de diseño
-const createTabStyles = () => {
-  const colors = COLORS || {};
-  const typography = TYPOGRAPHY || {};
-  const spacing = SPACING || {};
-  const borders = BORDERS || {};
-
-  const errorMain = colors?.error?.main || '#FF5555';
-  const white = colors?.base?.white || '#FFFFFF';
-  const fontSizeXs = typography?.fontSize?.xs || 11;
-  const fontWeightBold = typography?.fontWeight?.bold || '700';
-  const radiusMd = borders?.radius?.md || 10;
-  const spacingXs = spacing?.xs || 4;
-
-  return StyleSheet.create({
-    badge: {
-      position: 'absolute',
-      top: -3,
-      right: -3,
-      backgroundColor: errorMain,
-      borderRadius: radiusMd,
-      minWidth: 20,
-      height: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: spacingXs + 1, // 5
-      borderWidth: 2,
-      borderColor: white,
-    },
-    badgeText: {
-      color: white,
-      fontSize: fontSizeXs,
-      fontWeight: fontWeightBold,
-    },
-  });
-};
-
-const tabStyles = createTabStyles(); 
+const tabStyles = StyleSheet.create({
+  iconWrap: {
+    width: 32,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -10,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+}); 

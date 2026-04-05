@@ -127,11 +127,25 @@ export default function RootLayout() {
             <AlertsProvider>
               <ChatsProvider>
                 <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-                  <Stack>
+                  <Stack
+                    screenOptions={{
+                      // iOS: evita el texto "(tabs)" junto a la flecha al abrir pantallas fuera del grupo tabs
+                      headerBackTitleVisible: false,
+                      headerBackTitle: '',
+                    }}
+                  >
                   <Stack.Screen name="index" options={{ headerShown: false }} />
                   <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                   <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="(tabs)"
+                    options={{
+                      headerShown: false,
+                      title: '',
+                      headerTitle: '',
+                      headerBackTitle: '',
+                    }}
+                  />
                   <Stack.Screen name="creditos" options={{ headerShown: false }} />
                   <Stack.Screen name="mis-servicios" options={{ headerShown: false }} />
                   <Stack.Screen name="configuracion-horarios" options={{ headerShown: false }} />
@@ -143,6 +157,13 @@ export default function RootLayout() {
                   <Stack.Screen name="actualizar-ubicacion" options={{ headerShown: false }} />
                   <Stack.Screen name="orden-detalle/[id]" options={{ headerShown: false }} />
                   <Stack.Screen name="servicio-detalle/[id]" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="oferta-detalle/[id]"
+                    options={{
+                      headerBackTitle: '',
+                      headerBackTitleVisible: false,
+                    }}
+                  />
                   <Stack.Screen name="checklist-item/[ordenId]/[itemId]" options={{ headerShown: false }} />
                   <Stack.Screen name="+not-found" />
                   </Stack>

@@ -194,6 +194,15 @@ export interface CobroMP {
     moneda: string;
     fecha: string | null;
     acreditado: boolean;
+    verificado: boolean;
+    payment_id: number | null;
+    card_last_four: string | null;
+    payment_status: string | null;
+    payment_status_detail: string | null;
+    net_received: number | null;
+    date_approved: string | null;
+    payer_email: string | null;
+    payment_method: string | null;
 }
 
 /**

@@ -331,6 +331,7 @@ export default function OfertaDetalleScreen() {
           options={{
             title: 'Detalle de Oferta',
             headerBackTitle: '',
+            headerBackTitleVisible: false,
             headerStyle: { backgroundColor: bgPaper },
             headerTintColor: textPrimary,
           }}
@@ -352,6 +353,7 @@ export default function OfertaDetalleScreen() {
           options={{
             title: 'Detalle de Oferta',
             headerBackTitle: '',
+            headerBackTitleVisible: false,
             headerStyle: { backgroundColor: bgPaper },
             headerTintColor: textPrimary,
           }}
@@ -456,6 +458,7 @@ export default function OfertaDetalleScreen() {
         options={{
           title: 'Detalle de Oferta',
           headerBackTitle: '',
+          headerBackTitleVisible: false,
           headerStyle: { backgroundColor: bgPaper },
           headerTintColor: textPrimary,
         }}

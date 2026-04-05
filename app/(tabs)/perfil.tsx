@@ -164,22 +164,24 @@ export default function PerfilScreen() {
             </BlurView>
           </View>
 
-          {/* Personal Info */}
+          {/* Información personal — una card glass por dato */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Información Personal</Text>
-            <View style={styles.infoCardOuter}>
-              <BlurView intensity={40} tint="light" style={styles.infoCardInner}>
-                {infoItems.map((item, index) => (
-                  <View key={index} style={[styles.infoRow, index < infoItems.length - 1 && styles.infoRowBorder]}>
+            {infoItems.map((item, index) => (
+              <View key={index} style={styles.infoItemCardOuter}>
+                <BlurView intensity={50} tint="light" style={styles.infoItemCardInner}>
+                  <View style={styles.infoItemRow}>
                     <View style={styles.infoIconWrap}>{item.icon}</View>
                     <View style={styles.infoTextWrap}>
                       <Text style={styles.infoLabel}>{item.label}</Text>
-                      <Text style={styles.infoValue} numberOfLines={2}>{item.value}</Text>
+                      <Text style={styles.infoValue} numberOfLines={4}>
+                        {item.value}
+                      </Text>
                     </View>
                   </View>
-                ))}
-              </BlurView>
-            </View>
+                </BlurView>
+              </View>
+            ))}
           </View>
 
           {/* Settings Grid */}
@@ -274,23 +276,35 @@ const styles = StyleSheet.create({
   section: { marginBottom: 20, paddingHorizontal: 18 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: '#1F2937', marginBottom: 12 },
 
-  // Info Card
-  infoCardOuter: {
-    borderRadius: 16, overflow: 'hidden',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+  infoItemCardOuter: {
+    marginBottom: 10,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  infoCardInner: { backgroundColor: 'rgba(255,255,255,0.55)' },
-  infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, gap: 12 },
-  infoRowBorder: { borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  infoItemCardInner: {
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  infoItemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
   infoIconWrap: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(59,130,246,0.08)',
-    alignItems: 'center', justifyContent: 'center',
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: 'rgba(59,130,246,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  infoTextWrap: { flex: 1 },
-  infoLabel: { fontSize: 12, fontWeight: '500', color: '#9CA3AF', marginBottom: 2 },
-  infoValue: { fontSize: 14, fontWeight: '500', color: '#1F2937' },
+  infoTextWrap: { flex: 1, minWidth: 0 },
+  infoLabel: { fontSize: 11, fontWeight: '600', color: '#9CA3AF', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.4 },
+  infoValue: { fontSize: 15, fontWeight: '600', color: '#1F2937', lineHeight: 21 },
 
   // Settings Grid
   settingsGrid: {

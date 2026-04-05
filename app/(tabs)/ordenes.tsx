@@ -13,8 +13,8 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Briefcase, CheckCircle, Inbox, User, Car, Clock,
-  ChevronRight, Wrench, AlertTriangle, Shield, CreditCard,
-  PlusCircle, Package,
+  Wrench, AlertTriangle, Shield, CreditCard,
+  PlusCircle, Package, XCircle,
 } from 'lucide-react-native';
 import {
   ordenesProveedorService,
@@ -29,16 +29,23 @@ import { useAuth } from '@/context/AuthContext';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { useFocusEffect } from '@react-navigation/native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import Header from '@/components/Header';
 
-type TabType = 'activas' | 'completadas';
+type TabType = 'activas' | 'completadas' | 'rechazadas';
 
 const ESTADOS_ACTIVOS = ['enviada', 'vista', 'en_chat', 'aceptada', 'pendiente_pago', 'pagada', 'en_ejecucion'];
-const ESTADOS_COMPLETADOS = ['completada', 'rechazada', 'retirada', 'expirada'];
-const ESTADOS_TERMINALES_ORDEN = ['completado', 'cancelado', 'rechazada_por_proveedor', 'devuelto'];
-const ESTADOS_TERMINALES_OFERTA = ['completada', 'rechazada', 'retirada', 'expirada'];
-
+/** Éxito: solo estos van al tab Completadas */
+const ESTADOS_COMPLETADOS_OK = ['completado', 'completada'];
+/** Rechazo / cancelación / expiración: tab Rechazadas */
+const ESTADOS_RECHAZADAS = [
+  'cancelado',
+  'rechazada_por_proveedor',
+  'devuelto',
+  'rechazada',
+  'retirada',
+  'expirada',
+];
 const ESTADO_COLORS: Record<string, { bg: string; dot: string; text: string }> = {
   pendiente_aceptacion_proveedor: { bg: '#FFF7ED', dot: '#F59E0B', text: '#92400E' },
   aceptada_por_proveedor: { bg: '#ECFDF5', dot: '#10B981', text: '#065F46' },
@@ -109,11 +116,12 @@ async function fetchOfertas(): Promise<OfertaProveedor[]> {
 export default function OrdenesScreen() {
   const params = useLocalSearchParams<{ tab?: string }>();
   const { estadoProveedor } = useAuth();
-  const queryClient = useQueryClient();
 
-  const [tabActivo, setTabActivo] = useState<TabType>(
-    params.tab === 'completadas' ? 'completadas' : 'activas'
-  );
+  const [tabActivo, setTabActivo] = useState<TabType>(() => {
+    if (params.tab === 'completadas') return 'completadas';
+    if (params.tab === 'rechazadas') return 'rechazadas';
+    return 'activas';
+  });
 
   const isVerified = estadoProveedor?.verificado;
 
@@ -187,20 +195,33 @@ export default function OrdenesScreen() {
     return estadoActivo && solicitudValida;
   }), [ofertas]);
 
-  const ofertasCompletadas = useMemo(() => ofertas.filter(oferta => {
-    const estadoCompletado = ESTADOS_COMPLETADOS.includes(oferta.estado);
-    const solicitudCancelada = oferta.solicitud_estado === 'cancelada' || oferta.solicitud_estado === 'expirada';
-    return estadoCompletado || solicitudCancelada;
+  const ofertasTabCompletadas = useMemo(
+    () => ofertas.filter(o => o.estado === 'completada'),
+    [ofertas]
+  );
+
+  const ofertasTabRechazadas = useMemo(() => ofertas.filter(oferta => {
+    if (oferta.estado === 'completada' || oferta.estado === 'pagada' || oferta.estado === 'en_ejecucion') {
+      return false;
+    }
+    if (['rechazada', 'retirada', 'expirada'].includes(oferta.estado)) return true;
+    const solCancel = oferta.solicitud_estado === 'cancelada' || oferta.solicitud_estado === 'expirada';
+    return solCancel;
   }), [ofertas]);
 
   const ordenesActivas = useMemo(() => ordenesCompletas.filter(o => {
     const efectivo = getEstadoEfectivo(o);
-    return !ESTADOS_TERMINALES_ORDEN.includes(efectivo) && !ESTADOS_TERMINALES_OFERTA.includes(efectivo);
+    return !ESTADOS_COMPLETADOS_OK.includes(efectivo) && !ESTADOS_RECHAZADAS.includes(efectivo);
   }), [ordenesCompletas, getEstadoEfectivo]);
 
   const ordenesCompletadasTab = useMemo(() => ordenesCompletas.filter(o => {
     const efectivo = getEstadoEfectivo(o);
-    return ESTADOS_TERMINALES_ORDEN.includes(efectivo) || ESTADOS_TERMINALES_OFERTA.includes(efectivo);
+    return ESTADOS_COMPLETADOS_OK.includes(efectivo);
+  }), [ordenesCompletas, getEstadoEfectivo]);
+
+  const ordenesRechazadasTab = useMemo(() => ordenesCompletas.filter(o => {
+    const efectivo = getEstadoEfectivo(o);
+    return ESTADOS_RECHAZADAS.includes(efectivo);
   }), [ordenesCompletas, getEstadoEfectivo]);
 
   // In completadas tab, de-duplicate: if an order references an offer via oferta_proveedor_id,
@@ -214,15 +235,31 @@ export default function OrdenesScreen() {
   }, [ordenesCompletas]);
 
   const ofertasCompletadasSinDuplicar = useMemo(
-    () => ofertasCompletadas.filter(o => !ofertaIdsConOrden.has(String(o.id))),
-    [ofertasCompletadas, ofertaIdsConOrden]
+    () => ofertasTabCompletadas.filter(o => !ofertaIdsConOrden.has(String(o.id))),
+    [ofertasTabCompletadas, ofertaIdsConOrden]
+  );
+
+  const ofertasRechazadasSinDuplicar = useMemo(
+    () => ofertasTabRechazadas.filter(o => !ofertaIdsConOrden.has(String(o.id))),
+    [ofertasTabRechazadas, ofertaIdsConOrden]
   );
 
   const activasCount = ordenesActivas.length + ofertasActivas.length;
   const completadasCount = ordenesCompletadasTab.length + ofertasCompletadasSinDuplicar.length;
+  const rechazadasCount = ordenesRechazadasTab.length + ofertasRechazadasSinDuplicar.length;
 
-  const ordenesMostrar = tabActivo === 'activas' ? ordenesActivas : ordenesCompletadasTab;
-  const ofertasMostrar = tabActivo === 'activas' ? ofertasActivas : ofertasCompletadasSinDuplicar;
+  const ordenesMostrar =
+    tabActivo === 'activas'
+      ? ordenesActivas
+      : tabActivo === 'completadas'
+        ? ordenesCompletadasTab
+        : ordenesRechazadasTab;
+  const ofertasMostrar =
+    tabActivo === 'activas'
+      ? ofertasActivas
+      : tabActivo === 'completadas'
+        ? ofertasCompletadasSinDuplicar
+        : ofertasRechazadasSinDuplicar;
   const tieneDatos = ordenesMostrar.length > 0 || ofertasMostrar.length > 0;
 
   const handleOrdenPress = useCallback((orden: Orden) => {
@@ -468,8 +505,8 @@ export default function OrdenesScreen() {
               onPress={() => setTabActivo('activas')}
               activeOpacity={0.7}
             >
-              <Briefcase size={15} color={tabActivo === 'activas' ? '#FFFFFF' : '#6B7280'} />
-              <Text style={[styles.tabPillText, tabActivo === 'activas' && styles.tabPillTextActive]}>
+              <Briefcase size={14} color={tabActivo === 'activas' ? '#FFFFFF' : '#6B7280'} />
+              <Text style={[styles.tabPillText, tabActivo === 'activas' && styles.tabPillTextActive]} numberOfLines={1}>
                 Activas
               </Text>
               {activasCount > 0 && (
@@ -486,14 +523,32 @@ export default function OrdenesScreen() {
               onPress={() => setTabActivo('completadas')}
               activeOpacity={0.7}
             >
-              <CheckCircle size={15} color={tabActivo === 'completadas' ? '#FFFFFF' : '#6B7280'} />
-              <Text style={[styles.tabPillText, tabActivo === 'completadas' && styles.tabPillTextActive]}>
+              <CheckCircle size={14} color={tabActivo === 'completadas' ? '#FFFFFF' : '#6B7280'} />
+              <Text style={[styles.tabPillText, tabActivo === 'completadas' && styles.tabPillTextActive]} numberOfLines={1}>
                 Completadas
               </Text>
               {completadasCount > 0 && (
                 <View style={[styles.tabCount, tabActivo === 'completadas' && styles.tabCountActive]}>
                   <Text style={[styles.tabCountText, tabActivo === 'completadas' && styles.tabCountTextActive]}>
                     {completadasCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabPill, tabActivo === 'rechazadas' && styles.tabPillActive]}
+              onPress={() => setTabActivo('rechazadas')}
+              activeOpacity={0.7}
+            >
+              <XCircle size={14} color={tabActivo === 'rechazadas' ? '#FFFFFF' : '#6B7280'} />
+              <Text style={[styles.tabPillText, tabActivo === 'rechazadas' && styles.tabPillTextActive]} numberOfLines={1}>
+                Rechazadas
+              </Text>
+              {rechazadasCount > 0 && (
+                <View style={[styles.tabCount, tabActivo === 'rechazadas' && styles.tabCountActive]}>
+                  <Text style={[styles.tabCountText, tabActivo === 'rechazadas' && styles.tabCountTextActive]}>
+                    {rechazadasCount}
                   </Text>
                 </View>
               )}
@@ -560,12 +615,22 @@ export default function OrdenesScreen() {
                     </View>
                   )}
                 </>
-              ) : (
+              ) : tabActivo === 'completadas' ? (
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
                     <CheckCircle size={18} color="#374151" />
-                    <Text style={styles.sectionTitle}>Historial</Text>
+                    <Text style={styles.sectionTitle}>Completadas</Text>
                     <Text style={styles.sectionCount}>{completadasCount}</Text>
+                  </View>
+                  {ordenesMostrar.map(renderOrdenCard)}
+                  {ofertasMostrar.map(renderOfertaCard)}
+                </View>
+              ) : (
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <XCircle size={18} color="#374151" />
+                    <Text style={styles.sectionTitle}>Rechazadas y canceladas</Text>
+                    <Text style={styles.sectionCount}>{rechazadasCount}</Text>
                   </View>
                   {ordenesMostrar.map(renderOrdenCard)}
                   {ofertasMostrar.map(renderOfertaCard)}
@@ -577,17 +642,25 @@ export default function OrdenesScreen() {
               <View style={styles.emptyIconWrap}>
                 {tabActivo === 'activas' ? (
                   <Inbox size={48} color="#9CA3AF" />
-                ) : (
+                ) : tabActivo === 'completadas' ? (
                   <CheckCircle size={48} color="#9CA3AF" />
+                ) : (
+                  <XCircle size={48} color="#9CA3AF" />
                 )}
               </View>
               <Text style={styles.emptyTitle}>
-                {tabActivo === 'activas' ? 'Sin actividad' : 'Sin historial'}
+                {tabActivo === 'activas'
+                  ? 'Sin actividad'
+                  : tabActivo === 'completadas'
+                    ? 'Sin completadas'
+                    : 'Sin rechazadas'}
               </Text>
               <Text style={styles.emptySubtitle}>
                 {tabActivo === 'activas'
                   ? 'No hay órdenes o ofertas activas por el momento'
-                  : 'No hay órdenes o ofertas completadas aún'}
+                  : tabActivo === 'completadas'
+                    ? 'Aquí verás servicios finalizados con éxito'
+                    : 'Aquí verás ofertas rechazadas, expiradas u órdenes canceladas'}
               </Text>
             </View>
           )}
@@ -641,9 +714,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 4,
     borderRadius: 11,
-    gap: 6,
+    gap: 4,
+    minWidth: 0,
   },
   tabPillActive: {
     backgroundColor: '#1F2937',
@@ -654,9 +729,10 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   tabPillText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#6B7280',
+    flexShrink: 1,
   },
   tabPillTextActive: {
     color: '#FFFFFF',

@@ -689,17 +689,22 @@ export default function CreditosScreen() {
                 >
                   <View style={styles.cobroLeft}>
                     <MaterialIcons
-                      name={isApproved ? 'check-circle' : isRejected ? 'cancel' : 'schedule'}
+                      name={cobro.verificado ? 'verified' : isApproved ? 'check-circle' : isRejected ? 'cancel' : 'schedule'}
                       size={20}
-                      color={isApproved ? '#16A34A' : isRejected ? '#DC2626' : '#D97706'}
+                      color={cobro.verificado ? '#16A34A' : isApproved ? '#65A30D' : isRejected ? '#DC2626' : '#D97706'}
                     />
                     <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text style={[styles.cobroStatus, { color: isApproved ? '#16A34A' : isRejected ? '#DC2626' : '#D97706' }]}>
-                        {isApproved ? 'Cobro Aprobado' : isRejected ? 'Cobro Rechazado' : `Estado: ${cobro.status}`}
+                      <Text style={[styles.cobroStatus, { color: cobro.verificado ? '#16A34A' : isApproved ? '#65A30D' : isRejected ? '#DC2626' : '#D97706' }]}>
+                        {cobro.verificado ? 'Cobro Verificado' : isApproved ? 'Cobro Aprobado' : isRejected ? 'Cobro Rechazado' : `Estado: ${cobro.status}`}
                       </Text>
                       {cobro.fecha && (
                         <Text style={[styles.cobroDate, { color: textSecondary }]}>
                           {new Date(cobro.fecha).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </Text>
+                      )}
+                      {cobro.verificado && cobro.card_last_four && (
+                        <Text style={[styles.cobroDate, { color: textSecondary }]}>
+                          {cobro.payment_method === 'debit_card' ? 'Débito' : cobro.payment_method === 'credit_card' ? 'Crédito' : 'Tarjeta'} ****{cobro.card_last_four}
                         </Text>
                       )}
                     </View>
@@ -710,9 +715,19 @@ export default function CreditosScreen() {
                         ${Math.round(cobro.monto).toLocaleString('es-CL')}
                       </Text>
                     )}
+                    {cobro.verificado && cobro.net_received != null && (
+                      <Text style={{ fontSize: 10, color: textSecondary }}>
+                        Neto: ${Math.round(cobro.net_received).toLocaleString('es-CL')}
+                      </Text>
+                    )}
                     {cobro.acreditado && (
                       <View style={[styles.cobroAcreditadoBadge, { backgroundColor: '#DCFCE7' }]}>
                         <Text style={{ fontSize: 10, color: '#16A34A', fontWeight: '700' }}>ACREDITADO</Text>
+                      </View>
+                    )}
+                    {cobro.verificado && !cobro.acreditado && (
+                      <View style={[styles.cobroAcreditadoBadge, { backgroundColor: '#FEF3C7' }]}>
+                        <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '700' }}>PENDIENTE</Text>
                       </View>
                     )}
                   </View>

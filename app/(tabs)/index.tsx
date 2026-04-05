@@ -18,8 +18,9 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Bell, Wallet, DollarSign, Radar, Briefcase, Calendar,
-  History, CreditCard, ShieldCheck, Car, Clock,
-  TrendingUp, TrendingDown, Zap, ChevronRight, Search,
+  ShieldCheck, Car, Clock,
+  TrendingUp, TrendingDown, ChevronRight, Search,
+  Wrench, Settings, Map,
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { router, useFocusEffect } from 'expo-router';
@@ -65,6 +66,8 @@ export default function HomeScreen() {
     usuario,
     obtenerNombreProveedor
   } = useAuth();
+
+  const esMecanicoDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
   const [ordenes, setOrdenes] = useState<OrdenConChecklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -1177,7 +1180,7 @@ export default function HomeScreen() {
             })()}
           </View>
 
-          {/* 5. CATEGORÍAS DE GESTIÓN - Grid 2x2 */}
+          {/* 5. CATEGORÍAS DE GESTIÓN - Grid glass */}
           <View style={styles.sectionWrap}>
             <Text style={styles.mgmtTitle}>Gestión del Taller</Text>
             <View style={styles.mgmtGrid}>
@@ -1190,7 +1193,7 @@ export default function HomeScreen() {
                   <View style={[styles.mgmtIconBox, { backgroundColor: '#DBEAFE' }]}>
                     <Calendar size={22} color="#2563EB" />
                   </View>
-                  <View>
+                  <View style={styles.mgmtCardTextCol}>
                     <Text style={styles.mgmtCardTitle}>Calendario</Text>
                     <Text style={styles.mgmtCardSub}>Disponibilidad</Text>
                   </View>
@@ -1198,15 +1201,15 @@ export default function HomeScreen() {
 
                 <TouchableOpacity
                   style={styles.mgmtCard}
-                  onPress={() => router.push('/(tabs)/ordenes?tab=completadas')}
+                  onPress={() => router.push('/especialidades-marcas')}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.mgmtIconBox, { backgroundColor: '#E0E7FF' }]}>
-                    <History size={22} color="#4F46E5" />
+                  <View style={[styles.mgmtIconBox, { backgroundColor: '#F5F3FF' }]}>
+                    <Wrench size={22} color="#7C3AED" />
                   </View>
-                  <View>
-                    <Text style={styles.mgmtCardTitle}>Historial</Text>
-                    <Text style={styles.mgmtCardSub}>Trabajos realizados</Text>
+                  <View style={styles.mgmtCardTextCol}>
+                    <Text style={styles.mgmtCardTitle}>Especialidades</Text>
+                    <Text style={styles.mgmtCardSub}>Marcas y rubros</Text>
                   </View>
                 </TouchableOpacity>
               </View>
@@ -1214,32 +1217,50 @@ export default function HomeScreen() {
               <View style={styles.mgmtRow}>
                 <TouchableOpacity
                   style={styles.mgmtCard}
-                  onPress={() => router.push('/configuracion-mercadopago')}
+                  onPress={() => router.push('/mis-servicios')}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.mgmtIconBox, { backgroundColor: '#CFFAFE' }]}>
-                    <CreditCard size={22} color="#0891B2" />
+                  <View style={[styles.mgmtIconBox, { backgroundColor: '#ECFEFF' }]}>
+                    <Settings size={22} color="#0891B2" />
                   </View>
-                  <View>
-                    <Text style={styles.mgmtCardTitle}>Mercado Pago</Text>
-                    <Text style={styles.mgmtCardSub}>Cobros y pagos</Text>
+                  <View style={styles.mgmtCardTextCol}>
+                    <Text style={styles.mgmtCardTitle}>Mis servicios</Text>
+                    <Text style={styles.mgmtCardSub}>Gestionar ofertas</Text>
                   </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.mgmtCard}
-                  onPress={() => router.push('/creditos')}
+                  onPress={() => router.push('/configuracion-horarios')}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.mgmtIconBox, { backgroundColor: '#FEF3C7' }]}>
-                    <Zap size={22} color="#D97706" />
+                  <View style={[styles.mgmtIconBox, { backgroundColor: '#EFF6FF' }]}>
+                    <Clock size={22} color="#2563EB" />
                   </View>
-                  <View>
-                    <Text style={styles.mgmtCardTitle}>Suscripción</Text>
-                    <Text style={styles.mgmtCardSub}>Créditos y plan</Text>
+                  <View style={styles.mgmtCardTextCol}>
+                    <Text style={styles.mgmtCardTitle}>Horarios</Text>
+                    <Text style={styles.mgmtCardSub}>Franjas de atención</Text>
                   </View>
                 </TouchableOpacity>
               </View>
+
+              {esMecanicoDomicilio && (
+                <View style={styles.mgmtRow}>
+                  <TouchableOpacity
+                    style={[styles.mgmtCard, styles.mgmtCardFull]}
+                    onPress={() => router.push('/zonas-servicio')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.mgmtIconBox, { backgroundColor: '#ECFDF5' }]}>
+                      <Map size={22} color="#059669" />
+                    </View>
+                    <View style={styles.mgmtCardTextCol}>
+                      <Text style={styles.mgmtCardTitle}>Zonas</Text>
+                      <Text style={styles.mgmtCardSub}>Cobertura a domicilio</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -1771,15 +1792,22 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 16,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    backgroundColor: 'rgba(255,255,255,0.55)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.6)',
+    borderColor: 'rgba(255,255,255,0.7)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
     overflow: 'hidden',
+  },
+  mgmtCardFull: {
+    flex: 1,
+  },
+  mgmtCardTextCol: {
+    flex: 1,
+    minWidth: 0,
   },
   mgmtIconBox: {
     width: 44,
