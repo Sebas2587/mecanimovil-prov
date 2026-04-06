@@ -20,7 +20,7 @@ import {
   Bell, Wallet, DollarSign, Radar, Briefcase, Calendar,
   ShieldCheck, Car, Clock,
   TrendingUp, TrendingDown, ChevronRight, Search,
-  Wrench, Settings, Map,
+  Wrench, Settings, Map, AlertTriangle, CreditCard,
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { router, useFocusEffect } from 'expo-router';
@@ -45,7 +45,7 @@ import { CountdownTimer } from '@/components/solicitudes/CountdownTimer';
 import AlertaPagoExpirado from '@/components/alerts/AlertaPagoExpirado';
 import { AlertsPanel } from '@/components/alerts/AlertsPanel';
 import { useAlerts } from '@/context/AlertsContext';
-import suscripcionesService, { type SuscripcionProveedor } from '@/services/suscripcionesService';
+import suscripcionesService, { type SuscripcionProveedor, type SaludSuscripcion } from '@/services/suscripcionesService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface OrdenConChecklist extends Orden {
@@ -57,7 +57,7 @@ export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { verificarYGenerarAlertas } = useAlerts();
+  const { verificarYGenerarAlertas, saludSuscripcion } = useAlerts();
 
   const {
     isAuthenticated,
@@ -1022,6 +1022,62 @@ export default function HomeScreen() {
             </View>
           )}
 
+          {/* BANNER ESTADO SUSCRIPCIÓN */}
+          {saludSuscripcion && saludSuscripcion.estado_salud !== 'ok' && (
+            <View style={styles.sectionWrap}>
+              <TouchableOpacity
+                style={[
+                  styles.suscBanner,
+                  saludSuscripcion.estado_salud === 'pago_fallido' && styles.suscBannerDanger,
+                  saludSuscripcion.estado_salud === 'vencida' && styles.suscBannerDanger,
+                  saludSuscripcion.estado_salud === 'sin_suscripcion' && styles.suscBannerDanger,
+                  saludSuscripcion.estado_salud === 'por_vencer' && styles.suscBannerWarning,
+                ]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (saludSuscripcion.accion) {
+                    router.push(saludSuscripcion.accion as any);
+                  }
+                }}
+              >
+                <View style={[
+                  styles.suscBannerIcon,
+                  saludSuscripcion.estado_salud === 'por_vencer'
+                    ? { backgroundColor: '#FEF3C7' }
+                    : { backgroundColor: '#FEE2E2' },
+                ]}>
+                  {saludSuscripcion.estado_salud === 'por_vencer' ? (
+                    <Clock size={18} color="#D97706" />
+                  ) : saludSuscripcion.estado_salud === 'pago_fallido' ? (
+                    <CreditCard size={18} color="#DC2626" />
+                  ) : (
+                    <AlertTriangle size={18} color="#DC2626" />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[
+                    styles.suscBannerTitle,
+                    saludSuscripcion.estado_salud !== 'por_vencer' && { color: '#991B1B' },
+                  ]}>
+                    {saludSuscripcion.estado_salud === 'por_vencer'
+                      ? 'Renovación próxima'
+                      : saludSuscripcion.estado_salud === 'pago_fallido'
+                        ? 'Pago fallido'
+                        : saludSuscripcion.estado_salud === 'sin_suscripcion'
+                          ? 'Sin suscripción'
+                          : 'Suscripción vencida'}
+                  </Text>
+                  <Text style={styles.suscBannerMsg} numberOfLines={2}>
+                    {saludSuscripcion.mensaje}
+                  </Text>
+                </View>
+                {saludSuscripcion.accion && (
+                  <ChevronRight size={18} color="#6B7280" />
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* 3. RADAR DE OPORTUNIDADES */}
           <View style={styles.sectionWrap}>
             <View style={styles.sectionTitleRow}>
@@ -1825,6 +1881,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
     marginTop: 1,
+  },
+  /* ── Banner suscripción ── */
+  suscBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 14,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  suscBannerWarning: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  suscBannerDanger: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  suscBannerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  suscBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  suscBannerMsg: {
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 16,
   },
 });
 

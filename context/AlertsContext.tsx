@@ -2,12 +2,17 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useAuth } from './AuthContext';
 import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
 import serviceAreasApi from '@/services/serviceAreasApi';
+import suscripcionesService, { type SaludSuscripcion } from '@/services/suscripcionesService';
 
 export type TipoAlerta = 
   | 'mercado_pago_no_configurado'
   | 'zonas_cobertura_no_configuradas'
   | 'creditos_bajos'
-  | 'pago_expirado';
+  | 'pago_expirado'
+  | 'suscripcion_por_vencer'
+  | 'suscripcion_vencida'
+  | 'suscripcion_pago_fallido'
+  | 'creditos_agotados';
 
 export interface Alerta {
   id: string;
@@ -26,6 +31,7 @@ export interface Alerta {
 interface AlertsContextType {
   alertas: Alerta[];
   alertasNoLeidas: number;
+  saludSuscripcion: SaludSuscripcion | null;
   agregarAlerta: (alerta: Omit<Alerta, 'id' | 'fecha' | 'leida'>) => void;
   marcarComoLeida: (id: string) => void;
   eliminarAlerta: (id: string) => void;
@@ -37,6 +43,7 @@ const AlertsContext = createContext<AlertsContextType | undefined>(undefined);
 
 export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
+  const [saludSuscripcion, setSaludSuscripcion] = useState<SaludSuscripcion | null>(null);
   const { estadoProveedor, usuario } = useAuth();
 
   // Calcular alertas no leídas
@@ -160,8 +167,27 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         }
       }
 
+      // ── Verificar estado de salud de la suscripción ──
+      let saludData: SaludSuscripcion | null = null;
+      try {
+        const resultSalud = await suscripcionesService.obtenerEstadoSalud();
+        if (resultSalud.success && resultSalud.data) {
+          saludData = resultSalud.data;
+          setSaludSuscripcion(saludData);
+        }
+      } catch (error) {
+        console.error('Error verificando salud de suscripción:', error);
+      }
+
       // Eliminar todas las alertas de configuración existentes
-      eliminarAlertasDeConfiguracion(['mercado_pago_no_configurado', 'zonas_cobertura_no_configuradas']);
+      eliminarAlertasDeConfiguracion([
+        'mercado_pago_no_configurado',
+        'zonas_cobertura_no_configuradas',
+        'suscripcion_por_vencer',
+        'suscripcion_vencida',
+        'suscripcion_pago_fallido',
+        'creditos_agotados',
+      ]);
 
       // Agregar solo las alertas que realmente se necesitan
       if (necesitaMercadoPago) {
@@ -189,6 +215,59 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           prioridad: 'alta',
         });
       }
+
+      // ── Alertas de suscripción basadas en estado-salud ──
+      if (saludData) {
+        if (saludData.estado_salud === 'vencida' || saludData.estado_salud === 'sin_suscripcion') {
+          agregarAlerta({
+            tipo: 'suscripcion_vencida',
+            titulo: saludData.estado_salud === 'sin_suscripcion'
+              ? 'Sin suscripción activa'
+              : 'Tu suscripción ha vencido',
+            mensaje: saludData.mensaje || 'Activa un plan para recibir créditos mensuales.',
+            accion: saludData.accion ? {
+              texto: 'Activar suscripción',
+              ruta: saludData.accion,
+            } : undefined,
+            prioridad: 'alta',
+          });
+        }
+
+        if (saludData.estado_salud === 'pago_fallido') {
+          agregarAlerta({
+            tipo: 'suscripcion_pago_fallido',
+            titulo: 'Pago de suscripción fallido',
+            mensaje: saludData.mensaje || 'No se pudo cobrar tu suscripción.',
+            accion: saludData.accion ? {
+              texto: 'Revisar método de pago',
+              ruta: saludData.accion,
+            } : undefined,
+            prioridad: 'alta',
+          });
+        }
+
+        if (saludData.estado_salud === 'por_vencer') {
+          agregarAlerta({
+            tipo: 'suscripcion_por_vencer',
+            titulo: 'Suscripción por renovarse',
+            mensaje: saludData.mensaje || 'Tu suscripción se renueva pronto.',
+            prioridad: 'media',
+          });
+        }
+
+        if (!saludData.puede_ofertar && saludData.saldo_creditos <= 0) {
+          agregarAlerta({
+            tipo: 'creditos_agotados',
+            titulo: 'Sin créditos disponibles',
+            mensaje: 'No tienes créditos para ofertar. Compra créditos o activa un plan mensual.',
+            accion: {
+              texto: 'Comprar créditos',
+              ruta: '/creditos',
+            },
+            prioridad: 'alta',
+          });
+        }
+      }
     } catch (error) {
       console.error('Error verificando alertas:', error);
     }
@@ -206,6 +285,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       value={{
         alertas,
         alertasNoLeidas,
+        saludSuscripcion,
         agregarAlerta,
         marcarComoLeida,
         eliminarAlerta,

@@ -187,6 +187,19 @@ const sincronizarSuscripcion = async (): Promise<{
     }
 };
 
+export type EstadoSaludSuscripcion = 'ok' | 'por_vencer' | 'pago_fallido' | 'vencida' | 'sin_suscripcion';
+
+export interface SaludSuscripcion {
+    estado_salud: EstadoSaludSuscripcion;
+    puede_ofertar: boolean;
+    saldo_creditos: number;
+    suscripcion_estado: string | null;
+    plan_nombre: string | null;
+    fecha_proximo_cobro: string | null;
+    mensaje: string | null;
+    accion: string | null;
+}
+
 export interface CobroMP {
     id: string;
     status: string;
@@ -233,6 +246,28 @@ const obtenerHistorialCobros = async (): Promise<{
     }
 };
 
+/**
+ * Obtiene el estado de salud de la suscripción del proveedor.
+ * Indica si está ok, por vencer, con pago fallido, vencida, o sin suscripción.
+ */
+const obtenerEstadoSalud = async (): Promise<{
+    success: boolean;
+    data: SaludSuscripcion | null;
+    error?: string;
+}> => {
+    try {
+        const response = await apiClient.get('/suscripciones/mi-suscripcion/estado-salud/');
+        return { success: true, data: response.data };
+    } catch (error: any) {
+        console.error('[suscripcionesService] Error obteniendo estado salud:', error?.response?.data || error);
+        return {
+            success: false,
+            data: null,
+            error: error?.response?.data?.error || 'No se pudo obtener el estado de la suscripción.',
+        };
+    }
+};
+
 const suscripcionesService = {
     obtenerPlanes,
     suscribirse,
@@ -241,6 +276,7 @@ const suscripcionesService = {
     verificarSuscripcion,
     sincronizarSuscripcion,
     obtenerHistorialCobros,
+    obtenerEstadoSalud,
 };
 
 export default suscripcionesService;
