@@ -83,8 +83,8 @@ export type SolicitudCanceladaClienteCallback = (event: SolicitudCanceladaClient
 class WebSocketService {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 1000; // 1 segundo
+  private reconnectDelay = 1000;
+  private maxReconnectDelay = 30000;
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private isConnected = false;
   private isConnecting = false;
@@ -151,23 +151,21 @@ class WebSocketService {
       const isProduction = serverUrl.startsWith('https://');
       const wsProtocol = isProduction ? 'wss' : 'ws';
       const wsUrl = serverUrl.replace(/^https?:\/\//, `${wsProtocol}://`) + '/ws/mechanic_status/?token=' + token;
-      console.log('🔗 CONECTANDO A WEBSOCKET:', wsUrl);
-      console.log('🔗 URL COMPLETA:', wsUrl);
-      console.log('🔑 TOKEN EN URL:', token.substring(0, 10) + '...');
+      console.log('🔗 Conectando WebSocket proveedor...');
 
       this.isConnecting = true;
 
-      // Crear conexión WebSocket
       this.ws = new WebSocket(wsUrl);
 
-      // Configurar event listeners
       this.ws.onopen = this.handleOpen.bind(this);
       this.ws.onmessage = this.handleMessage.bind(this);
       this.ws.onclose = this.handleClose.bind(this);
       this.ws.onerror = this.handleError.bind(this);
 
-      // Configurar listener de estado de la app
-      this.setupAppStateListener();
+      // Evitar listeners duplicados de AppState
+      if (!this.appStateListener) {
+        this.setupAppStateListener();
+      }
 
     } catch (error) {
       console.log('❌ Error conectando WebSocket:', error);
@@ -186,10 +184,7 @@ class WebSocketService {
     this.reconnectAttempts = 0;
     this.currentStatus = 'online';
 
-    // Iniciar heartbeat
-    console.log('💓 INICIANDO HEARTBEAT - VERSIÓN CORREGIDA');
-    // OPTIMIZACIÓN: Deshabilitado temporalmente
-    // this.startHeartbeat();
+    this.startHeartbeat();
   }
 
   /**
@@ -330,21 +325,25 @@ class WebSocketService {
   }
 
   /**
-   * Programa una reconexión
+   * Programa reconexión con exponential backoff + jitter (sin límite de intentos).
    */
   private scheduleReconnect(): void {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      const delay = this.reconnectDelay * this.reconnectAttempts;
-
-      console.log(`🔄 Programando reconexión ${this.reconnectAttempts}/${this.maxReconnectAttempts} en ${delay}ms`);
-
-      this.reconnectTimeout = setTimeout(() => {
-        this.connect();
-      }, delay) as any;
-    } else {
-      console.log('❌ Máximo de intentos de reconexión alcanzado');
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
     }
+    this.reconnectAttempts++;
+    const exponential = Math.min(
+      this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
+      this.maxReconnectDelay
+    );
+    const jitter = Math.random() * 1000;
+    const delay = exponential + jitter;
+
+    console.log(`🔄 Reconexión #${this.reconnectAttempts} en ${Math.round(delay)}ms`);
+
+    this.reconnectTimeout = setTimeout(() => {
+      this.connect();
+    }, delay) as any;
   }
 
   /**
