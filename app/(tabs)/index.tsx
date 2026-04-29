@@ -68,6 +68,8 @@ export default function HomeScreen() {
   } = useAuth();
 
   const esMecanicoDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
+  /** Habilitado por admin para operar (≠ sello "Verificado" en perfil). */
+  const cuentaAprobadaPorAdmin = estadoProveedor?.estado_verificacion === 'aprobado';
   const [ordenes, setOrdenes] = useState<OrdenConChecklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -156,7 +158,7 @@ export default function HomeScreen() {
 
   // Cargar órdenes cuando el componente se monta
   useEffect(() => {
-    if (estadoProveedor?.verificado) {
+    if (cuentaAprobadaPorAdmin) {
       cargarOrdenes();
       cargarSolicitudesDisponibles();
       cargarCreditos();
@@ -169,7 +171,7 @@ export default function HomeScreen() {
   // Recargar órdenes cuando la pantalla recibe foco (cuando se regresa del detalle)
   useFocusEffect(
     React.useCallback(() => {
-      if (estadoProveedor?.verificado) {
+      if (cuentaAprobadaPorAdmin) {
         cargarOrdenes();
         cargarSolicitudesDisponibles();
         cargarCreditos();
@@ -178,7 +180,7 @@ export default function HomeScreen() {
         cargarOfertasMap();
         verificarYGenerarAlertas();
       }
-    }, [estadoProveedor?.verificado])
+    }, [cuentaAprobadaPorAdmin])
   );
 
   // Cargar saldo de créditos
@@ -245,7 +247,7 @@ export default function HomeScreen() {
 
   // Suscribirse a eventos de nueva solicitud vía WebSocket
   useEffect(() => {
-    if (!estadoProveedor?.verificado) return;
+    if (!cuentaAprobadaPorAdmin) return;
 
     const unsubscribe = websocketService.onNuevaSolicitud((event: NuevaSolicitudEvent) => {
       console.log('📬 Nueva solicitud recibida vía WebSocket:', event);
@@ -267,11 +269,11 @@ export default function HomeScreen() {
     return () => {
       unsubscribe();
     };
-  }, [estadoProveedor?.verificado]);
+  }, [cuentaAprobadaPorAdmin]);
 
   // Suscribirse a eventos de pago expirado y cancelación
   useEffect(() => {
-    if (!estadoProveedor?.verificado) return;
+    if (!cuentaAprobadaPorAdmin) return;
 
     // Handler para pago expirado
     const unsubscribePagoExpirado = websocketService.onPagoExpirado?.((event: any) => {
@@ -317,7 +319,7 @@ export default function HomeScreen() {
       unsubscribePagoExpirado?.();
       unsubscribeCancelada?.();
     };
-  }, [estadoProveedor?.verificado]);
+  }, [cuentaAprobadaPorAdmin]);
 
   // Cargar alertas desde API como fallback (polling cada 5 minutos)
   useEffect(() => {
@@ -415,12 +417,12 @@ export default function HomeScreen() {
       }
     };
 
-    if (estadoProveedor?.verificado) {
+    if (cuentaAprobadaPorAdmin) {
       cargarAlertas();
       const interval = setInterval(cargarAlertas, 5 * 60 * 1000);
       return () => clearInterval(interval);
     }
-  }, [estadoProveedor?.verificado]);
+  }, [cuentaAprobadaPorAdmin]);
 
   const cargarOrdenes = async () => {
     setLoading(true);
@@ -903,12 +905,12 @@ export default function HomeScreen() {
     );
   }
 
-  // Si no está verificado, mostrar la pantalla de revisión
-  if (!estadoProveedor.verificado) {
+  // Sin aprobación administrativa (estado aprobado), pantalla de revisión
+  if (!cuentaAprobadaPorAdmin) {
     return <EstadoRevisionScreen estadoProveedor={estadoProveedor} />;
   }
 
-  // Si está verificado, mostrar el dashboard principal
+  // Cuenta aprobada: dashboard principal
   return (
     <TabScreenWrapper>
       <LinearGradient

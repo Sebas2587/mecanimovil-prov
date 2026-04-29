@@ -29,9 +29,8 @@ export default function CuentaEnRevisionScreen() {
   useEffect(() => {
     console.log('🔍 CuentaEnRevisionScreen - Estado del proveedor:', estadoProveedor);
     
-    // Si el usuario está verificado, redirigir a la app principal
-    if (estadoProveedor?.verificado) {
-      console.log('✅ Usuario verificado, redirigiendo a app principal');
+    if (estadoProveedor?.estado_verificacion === 'aprobado') {
+      console.log('✅ Cuenta aprobada, redirigiendo a app principal');
       router.replace('/(tabs)');
       return;
     }
@@ -270,11 +269,11 @@ export default function CuentaEnRevisionScreen() {
   };
 
   const renderAcciones = () => {
-    const verificado = estadoProveedor?.verificado || false;
+    const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
     
     return (
       <View style={styles.accionesContainer}>
-        {verificado ? (
+        {cuentaAprobada ? (
           <TouchableOpacity 
             style={styles.accionPrimaria}
             onPress={irAInicio}

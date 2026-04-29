@@ -121,9 +121,8 @@ export default function SubirDocumentosScreen() {
       return;
     }
 
-    // Si ya está verificado, redirigir a revisión
-    if (estadoProveedor?.verificado) {
-      console.log('✅ Proveedor ya verificado, redirigiendo a revisión');
+    if (estadoProveedor?.estado_verificacion === 'aprobado') {
+      console.log('✅ Cuenta ya aprobada, saliendo del flujo de documentos');
       router.replace('/(onboarding)/cuenta-en-revision');
       return;
     }

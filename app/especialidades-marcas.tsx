@@ -92,10 +92,10 @@ export default function EspecialidadesMarcasScreen() {
   const MAX_MARCAS = 3;
 
   useEffect(() => {
-    if (!estadoProveedor?.verificado) {
+    if (estadoProveedor?.estado_verificacion !== 'aprobado') {
       Alert.alert(
         'Acceso Restringido',
-        'Solo los proveedores verificados pueden configurar sus especialidades y marcas.',
+        'Solo los proveedores con cuenta aprobada pueden configurar sus especialidades y marcas.',
         [{ text: 'Entendido', onPress: () => router.back() }]
       );
       return;

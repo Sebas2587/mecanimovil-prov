@@ -114,18 +114,18 @@ export default function IndexScreen() {
         return;
       }
 
-      // CASO 6: Usuario con onboarding completado pero no verificado
-      if (estadoProveedor.onboarding_completado && !estadoProveedor.verificado) {
+      // CASO 6: Onboarding listo; cuenta aún no aprobada por admin
+      if (estadoProveedor.onboarding_completado && estadoProveedor.estado_verificacion !== 'aprobado') {
         if (__DEV__) {
-          console.log('⏳ Onboarding completado pero no verificado - mostrando pantalla de revisión');
+          console.log('⏳ Onboarding completado, cuenta pendiente de aprobación');
         }
         return;
       }
 
-      // CASO 7: Usuario verificado
-      if (estadoProveedor.verificado) {
+      // CASO 7: Cuenta aprobada por admin → tabs
+      if (estadoProveedor.estado_verificacion === 'aprobado') {
         if (__DEV__) {
-          console.log('✅ Usuario verificado - navegando a tabs principales');
+          console.log('✅ Cuenta aprobada - navegando a tabs principales');
         }
         router.replace('/(tabs)');
         return;
@@ -191,9 +191,8 @@ export default function IndexScreen() {
     );
   }
 
-  // Si está autenticado, tiene perfil, completó onboarding pero no está verificado
-  if (isAuthenticated && estadoProveedor && estadoProveedor.tiene_perfil && 
-      estadoProveedor.onboarding_completado && !estadoProveedor.verificado) {
+  if (isAuthenticated && estadoProveedor && estadoProveedor.tiene_perfil &&
+      estadoProveedor.onboarding_completado && estadoProveedor.estado_verificacion !== 'aprobado') {
     return <EstadoRevisionScreen estadoProveedor={estadoProveedor} />;
   }
 

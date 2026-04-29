@@ -494,10 +494,10 @@ export default function ConfiguracionHorariosScreen() {
   };
 
   useEffect(() => {
-    if (!estadoProveedor?.verificado) {
+    if (estadoProveedor?.estado_verificacion !== 'aprobado') {
       Alert.alert(
         'Acceso Restringido',
-        'Solo los proveedores verificados pueden configurar sus horarios.',
+        'Solo los proveedores con cuenta aprobada pueden configurar sus horarios.',
         [{ text: 'Entendido', onPress: () => router.back() }]
       );
       return;

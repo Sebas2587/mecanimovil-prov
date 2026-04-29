@@ -37,7 +37,7 @@ export default function CalendarioScreen() {
 
   // Cargar órdenes
   useEffect(() => {
-    if (estadoProveedor?.verificado) {
+    if (estadoProveedor?.estado_verificacion === 'aprobado') {
       cargarOrdenes();
     }
   }, [estadoProveedor]);

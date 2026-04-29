@@ -65,6 +65,7 @@ export default function PerfilScreen() {
 
   const getEstadoColor = () => {
     if (estadoProveedor?.verificado) return '#10B981';
+    if (estadoProveedor?.estado_verificacion === 'aprobado' && !estadoProveedor?.verificado) return '#3B82F6';
     switch (estadoProveedor?.estado_verificacion) {
       case 'pendiente': return '#F59E0B';
       case 'en_revision': return '#3B82F6';
@@ -75,6 +76,9 @@ export default function PerfilScreen() {
 
   const getEstadoTexto = () => {
     if (estadoProveedor?.verificado) return 'Verificado';
+    if (estadoProveedor?.estado_verificacion === 'aprobado' && !estadoProveedor?.verificado) {
+      return 'Validando documentación';
+    }
     switch (estadoProveedor?.estado_verificacion) {
       case 'pendiente': return 'Pendiente de Revisión';
       case 'en_revision': return 'En Revisión';

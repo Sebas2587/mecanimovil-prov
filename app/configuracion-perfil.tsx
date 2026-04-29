@@ -170,10 +170,10 @@ export default function ConfiguracionPerfilScreen() {
   };
 
   useEffect(() => {
-    if (!estadoProveedor?.verificado) {
+    if (estadoProveedor?.estado_verificacion !== 'aprobado') {
       Alert.alert(
         'Acceso Restringido',
-        'Solo los proveedores verificados pueden gestionar su perfil.',
+        'Solo los proveedores con cuenta aprobada pueden gestionar su perfil.',
         [{ text: 'Entendido', onPress: () => router.back() }]
       );
       return;

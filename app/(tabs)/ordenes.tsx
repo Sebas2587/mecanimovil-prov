@@ -123,7 +123,7 @@ export default function OrdenesScreen() {
     return 'activas';
   });
 
-  const isVerified = estadoProveedor?.verificado;
+  const isVerified = estadoProveedor?.estado_verificacion === 'aprobado';
 
   const {
     data: ordenesCompletas = [],
