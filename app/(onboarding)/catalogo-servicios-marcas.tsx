@@ -34,6 +34,8 @@ export default function CatalogoServiciosMarcasScreen() {
 
   const [grupos, setGrupos] = useState<GrupoMarca[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // marcaId → Set de servicioIds seleccionados
+  const [seleccionados, setSeleccionados] = useState<Record<number, Set<number>>>({});
 
   const marcasIds = useMemo(() => {
     const m = Array.isArray(marcasParam) ? marcasParam[0] : marcasParam;
@@ -85,11 +87,7 @@ export default function CatalogoServiciosMarcasScreen() {
           });
         } catch (e) {
           console.warn('Error catálogo marca', marcaId, e);
-          resultados.push({
-            marcaId,
-            marcaNombre: nombreMarca(marcaId),
-            servicios: [],
-          });
+          resultados.push({ marcaId, marcaNombre: nombreMarca(marcaId), servicios: [] });
         }
       }
       resultados.sort((a, b) => a.marcaNombre.localeCompare(b.marcaNombre, 'es', { sensitivity: 'base' }));
@@ -107,6 +105,35 @@ export default function CatalogoServiciosMarcasScreen() {
     cargarCatalogo();
   }, [cargarCatalogo]);
 
+  const toggleServicio = useCallback((marcaId: number, servicioId: number) => {
+    setSeleccionados((prev) => {
+      const set = new Set(prev[marcaId] ?? []);
+      if (set.has(servicioId)) {
+        set.delete(servicioId);
+      } else {
+        set.add(servicioId);
+      }
+      return { ...prev, [marcaId]: set };
+    });
+  }, []);
+
+  const toggleTodoGrupo = useCallback(
+    (grupo: GrupoMarca) => {
+      const actuales = seleccionados[grupo.marcaId] ?? new Set();
+      const todosSeleccionados = grupo.servicios.every((s) => actuales.has(s.id));
+      setSeleccionados((prev) => ({
+        ...prev,
+        [grupo.marcaId]: todosSeleccionados ? new Set() : new Set(grupo.servicios.map((s) => s.id)),
+      }));
+    },
+    [seleccionados],
+  );
+
+  const totalSeleccionados = useMemo(
+    () => Object.values(seleccionados).reduce((sum, set) => sum + set.size, 0),
+    [seleccionados],
+  );
+
   const getBackPath = () => {
     const params = new URLSearchParams();
     Object.entries(otherParams).forEach(([key, value]) => {
@@ -122,6 +149,21 @@ export default function CatalogoServiciosMarcasScreen() {
   };
 
   const handleContinuar = () => {
+    if (totalSeleccionados === 0) {
+      Alert.alert(
+        'Sin servicios seleccionados',
+        'Selecciona al menos un servicio para continuar. Puedes agregar más desde "Mis servicios" luego.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Continuar de todas formas', onPress: () => navegar() },
+        ],
+      );
+      return;
+    }
+    navegar();
+  };
+
+  const navegar = () => {
     try {
       const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
       if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) {
@@ -129,6 +171,15 @@ export default function CatalogoServiciosMarcasScreen() {
         router.replace('/(onboarding)/tipo-cuenta');
         return;
       }
+
+      // Serializar { marcaId: [servicioId, ...] }[]
+      const serviciosSeleccionadosArr: { marcaId: number; servicioId: number }[] = [];
+      for (const [mId, set] of Object.entries(seleccionados)) {
+        for (const sId of Array.from(set)) {
+          serviciosSeleccionadosArr.push({ marcaId: Number(mId), servicioId: sId });
+        }
+      }
+
       const params = new URLSearchParams();
       Object.entries(rawParams).forEach(([key, value]) => {
         if (value === undefined || value === null) return;
@@ -138,6 +189,8 @@ export default function CatalogoServiciosMarcasScreen() {
       if (!params.has('especialidades')) {
         params.append('especialidades', JSON.stringify([]));
       }
+      params.set('servicios_seleccionados', JSON.stringify(serviciosSeleccionadosArr));
+
       router.push(`/(onboarding)/finalizar-basico?${params.toString()}` as any);
     } catch (e) {
       console.error(e);
@@ -149,7 +202,7 @@ export default function CatalogoServiciosMarcasScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3498db" />
+          <ActivityIndicator size="large" color="#4E4FEB" />
           <Text style={styles.loadingText}>Cargando servicios por marca…</Text>
         </View>
       </SafeAreaView>
@@ -166,7 +219,7 @@ export default function CatalogoServiciosMarcasScreen() {
         >
           <OnboardingHeader
             title="Servicios por marca"
-            subtitle="Así quedará tu catálogo según las marcas que elegiste. Luego podrás publicar precios en Mis servicios."
+            subtitle="Selecciona los servicios que ofrecerás por cada marca. Configura precios desde Mis servicios."
             currentStep={4}
             totalSteps={5}
             icon="construct"
@@ -176,9 +229,18 @@ export default function CatalogoServiciosMarcasScreen() {
           <View style={styles.infoBox}>
             <Ionicons name="information-circle" size={22} color="#4E4FEB" />
             <Text style={styles.infoText}>
-              No necesitas elegir categorías: solo servicios compatibles con cada marca. Los precios los configuras al publicar cada servicio.
+              Toca cada servicio para marcarlo. Usa el botón por marca para seleccionar/deseleccionar todos. Los precios los configuras al publicar cada servicio.
             </Text>
           </View>
+
+          {totalSeleccionados > 0 && (
+            <View style={styles.resumenBox}>
+              <Ionicons name="checkmark-circle" size={18} color="#27AE60" />
+              <Text style={styles.resumenText}>
+                {totalSeleccionados} servicio{totalSeleccionados !== 1 ? 's' : ''} seleccionado{totalSeleccionados !== 1 ? 's' : ''}
+              </Text>
+            </View>
+          )}
 
           {marcasIds.length === 0 ? (
             <View style={styles.emptyBox}>
@@ -186,30 +248,92 @@ export default function CatalogoServiciosMarcasScreen() {
               <Text style={styles.emptySub}>Vuelve atrás y elige al menos una marca.</Text>
             </View>
           ) : (
-            grupos.map((grupo) => (
-              <View key={grupo.marcaId} style={styles.grupo}>
-                <Text style={styles.grupoTitulo}>{grupo.marcaNombre}</Text>
-                <Text style={styles.grupoCount}>{grupo.servicios.length} servicio(s)</Text>
-                {grupo.servicios.length === 0 ? (
-                  <Text style={styles.sinServicios}>No hay servicios catalogados para esta marca aún.</Text>
-                ) : (
-                  grupo.servicios.map((s) => (
-                    <View key={`${grupo.marcaId}-${s.id}`} style={styles.servicioRow}>
-                      <Text style={styles.servicioNombre}>{s.nombre}</Text>
-                      <Text style={styles.servicioMeta}>
-                        {s.requiere_repuestos ? 'Con repuestos' : 'Sin repuestos'}
+            grupos.map((grupo) => {
+              const grupoSet = seleccionados[grupo.marcaId] ?? new Set<number>();
+              const todosSeleccionados =
+                grupo.servicios.length > 0 && grupo.servicios.every((s) => grupoSet.has(s.id));
+              const algunoSeleccionado = grupo.servicios.some((s) => grupoSet.has(s.id));
+
+              return (
+                <View key={grupo.marcaId} style={styles.grupo}>
+                  <View style={styles.grupoHeader}>
+                    <View style={styles.grupoTituloRow}>
+                      <Text style={styles.grupoTitulo}>{grupo.marcaNombre}</Text>
+                      <Text style={styles.grupoCount}>
+                        {grupoSet.size}/{grupo.servicios.length}
                       </Text>
                     </View>
-                  ))
-                )}
-              </View>
-            ))
+                    {grupo.servicios.length > 0 && (
+                      <TouchableOpacity
+                        onPress={() => toggleTodoGrupo(grupo)}
+                        style={[
+                          styles.toggleTodoBtn,
+                          todosSeleccionados && styles.toggleTodoBtnActive,
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name={todosSeleccionados ? 'checkbox' : algunoSeleccionado ? 'remove-circle-outline' : 'square-outline'}
+                          size={16}
+                          color={todosSeleccionados ? '#fff' : algunoSeleccionado ? '#4E4FEB' : '#555'}
+                        />
+                        <Text
+                          style={[
+                            styles.toggleTodoBtnText,
+                            todosSeleccionados && styles.toggleTodoBtnTextActive,
+                          ]}
+                        >
+                          {todosSeleccionados ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {grupo.servicios.length === 0 ? (
+                    <Text style={styles.sinServicios}>No hay servicios catalogados para esta marca aún.</Text>
+                  ) : (
+                    grupo.servicios.map((s) => {
+                      const isSelected = grupoSet.has(s.id);
+                      return (
+                        <TouchableOpacity
+                          key={`${grupo.marcaId}-${s.id}`}
+                          style={[styles.servicioRow, isSelected && styles.servicioRowSelected]}
+                          onPress={() => toggleServicio(grupo.marcaId, s.id)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.servicioLeft}>
+                            <Ionicons
+                              name={isSelected ? 'checkbox' : 'square-outline'}
+                              size={22}
+                              color={isSelected ? '#4E4FEB' : '#aaa'}
+                              style={styles.checkIcon}
+                            />
+                            <View style={styles.servicioInfo}>
+                              <Text style={[styles.servicioNombre, isSelected && styles.servicioNombreSelected]}>
+                                {s.nombre}
+                              </Text>
+                              <Text style={styles.servicioMeta}>
+                                {s.requiere_repuestos ? 'Con repuestos' : 'Sin repuestos'}
+                              </Text>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
+                </View>
+              );
+            })
           )}
         </ScrollView>
 
         <SafeAreaView edges={['bottom']} style={styles.fixedButtonContainer}>
           <TouchableOpacity style={styles.continueButton} onPress={handleContinuar} activeOpacity={0.8}>
-            <Text style={styles.continueButtonText}>Continuar</Text>
+            <Text style={styles.continueButtonText}>
+              {totalSeleccionados > 0
+                ? `Continuar con ${totalSeleccionados} servicio${totalSeleccionados !== 1 ? 's' : ''}`
+                : 'Continuar'}
+            </Text>
           </TouchableOpacity>
         </SafeAreaView>
       </View>
@@ -231,11 +355,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 14,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E8E8F0',
   },
   infoText: { flex: 1, fontSize: 14, color: '#444', lineHeight: 20 },
+  resumenBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EAF9EF',
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#B7E4C7',
+  },
+  resumenText: { fontSize: 14, color: '#27AE60', fontWeight: '600' },
   grupo: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -244,15 +380,56 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EEEEEE',
   },
+  grupoHeader: { marginBottom: 10 },
+  grupoTituloRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   grupoTitulo: { fontSize: 17, fontWeight: '700', color: '#000' },
-  grupoCount: { fontSize: 13, color: '#666', marginBottom: 10 },
+  grupoCount: { fontSize: 13, color: '#666', fontWeight: '600' },
+  toggleTodoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F3F3FF',
+    borderWidth: 1,
+    borderColor: '#D0D0F0',
+    alignSelf: 'flex-start',
+  },
+  toggleTodoBtnActive: {
+    backgroundColor: '#4E4FEB',
+    borderColor: '#4E4FEB',
+  },
+  toggleTodoBtnText: { fontSize: 13, color: '#555', fontWeight: '500' },
+  toggleTodoBtnTextActive: { color: '#fff' },
   sinServicios: { fontSize: 14, color: '#888', fontStyle: 'italic' },
   servicioRow: {
-    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#E0E0E0',
+    borderRadius: 8,
+    marginHorizontal: -4,
   },
-  servicioNombre: { fontSize: 15, fontWeight: '600', color: '#222' },
+  servicioRowSelected: {
+    backgroundColor: '#F3F3FF',
+  },
+  servicioLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  checkIcon: { marginRight: 12 },
+  servicioInfo: { flex: 1 },
+  servicioNombre: { fontSize: 15, fontWeight: '500', color: '#333' },
+  servicioNombreSelected: { color: '#4E4FEB', fontWeight: '600' },
   servicioMeta: { fontSize: 12, color: '#888', marginTop: 2 },
   emptyBox: { padding: 24, alignItems: 'center' },
   emptyTitle: { fontSize: 16, fontWeight: '600', color: '#333' },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -27,10 +27,29 @@ import {
   extraerNueveDigitosDesdeGuardado,
 } from '@/utils/chilePhone';
 
+const DEBOUNCE_MS = 500;
+
+type RemotoEstado = 'idle' | 'checking' | 'free' | 'taken' | 'error';
+
+function normalizarTipoParam(tipo: string | string[] | undefined): string {
+  if (tipo === undefined || tipo === null) return '';
+  return Array.isArray(tipo) ? String(tipo[0] ?? '') : String(tipo);
+}
+
+function mensajeRutLocal(compact: string): string | null {
+  if (!compact) return null;
+  if (compact.length < 2) return 'Ingresa tu RUT y el dígito verificador.';
+  if (!rutCompactoEsValido(compact)) return 'Revisa el número y el dígito verificador (módulo 11).';
+  return null;
+}
+
 export default function InformacionBasicaScreen() {
   const { tipo } = useLocalSearchParams();
   const router = useRouter();
   const { usuario } = useAuth();
+
+  const tipoStr = useMemo(() => normalizarTipoParam(tipo), [tipo]);
+  const esTaller = tipoStr === 'taller';
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -43,6 +62,16 @@ export default function InformacionBasicaScreen() {
   const [dniCompact, setDniCompact] = useState('');
   const [telefonoNacional, setTelefonoNacional] = useState('');
   const [verificando, setVerificando] = useState(false);
+
+  const [rutRemoto, setRutRemoto] = useState<RemotoEstado>('idle');
+  const [rutRemotoMsg, setRutRemotoMsg] = useState('');
+  const [telRemoto, setTelRemoto] = useState<RemotoEstado>('idle');
+  const [telRemotoMsg, setTelRemotoMsg] = useState('');
+
+  const rutVerifySeq = useRef(0);
+  const telVerifySeq = useRef(0);
+
+  const docCompact = esTaller ? rutCompact : dniCompact;
 
   useEffect(() => {
     try {
@@ -66,167 +95,216 @@ export default function InformacionBasicaScreen() {
     }
   }, [usuario]);
 
-  const handleInputChange = (field: keyof typeof formData, value: string) => {
+  const handleInputChange = useCallback((field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
-  };
+  }, []);
 
-  const onRutChange = (text: string) => {
+  const onRutChange = useCallback((text: string) => {
     setRutCompact(mergeRutCompactInput(text));
-  };
+  }, []);
 
-  const onDniChange = (text: string) => {
+  const onDniChange = useCallback((text: string) => {
     setDniCompact(mergeRutCompactInput(text));
-  };
+  }, []);
 
-  const tipoStrForValidation = Array.isArray(tipo) ? tipo[0] : tipo;
-  const esTaller = tipoStrForValidation === 'taller';
-
-  const isFormValid = () => {
+  /** Campos obligatorios locales (sin depender del estado remoto aún). */
+  const camposLocalesCompletos = useMemo(() => {
     if (!formData.nombre.trim()) return false;
     if (!formData.descripcion.trim()) return false;
     if (!telefonoMovilChileValido(telefonoNacional)) return false;
+    if (!rutCompactoEsValido(docCompact)) return false;
 
     if (esTaller) {
-      if (rutCompact.length !== 9 || !rutCompactoEsValido(rutCompact)) return false;
       if (!formData.direccion.trim()) return false;
     } else {
-      if (dniCompact.length !== 9 || !rutCompactoEsValido(dniCompact)) return false;
       if (!formData.experiencia_anos.trim()) return false;
-      const experiencia = parseInt(formData.experiencia_anos, 10);
-      if (Number.isNaN(experiencia) || experiencia < 0) return false;
+      const exp = parseInt(formData.experiencia_anos, 10);
+      if (Number.isNaN(exp) || exp < 0) return false;
     }
-
     return true;
-  };
+  }, [formData, telefonoNacional, docCompact, esTaller]);
 
-  const validateSyncLocal = (): boolean => {
-    if (!formData.nombre.trim()) {
-      Alert.alert('Error', 'El nombre es requerido');
-      return false;
+  const puedeContinuar = useMemo(() => {
+    if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) return false;
+    return (
+      camposLocalesCompletos &&
+      rutRemoto === 'free' &&
+      telRemoto === 'free' &&
+      !verificando
+    );
+  }, [tipoStr, camposLocalesCompletos, rutRemoto, telRemoto, verificando]);
+
+  useEffect(() => {
+    const msgLocal = mensajeRutLocal(docCompact);
+    if (msgLocal) {
+      setRutRemoto('idle');
+      setRutRemotoMsg('');
+      return;
     }
-    if (!formData.descripcion.trim()) {
-      Alert.alert('Error', 'La descripción es requerida');
-      return false;
+    if (!rutCompactoEsValido(docCompact)) {
+      setRutRemoto('idle');
+      setRutRemotoMsg('');
+      return;
     }
 
+    const seq = ++rutVerifySeq.current;
+    setRutRemoto('checking');
+    setRutRemotoMsg('Verificando RUT…');
+
+    const timer = setTimeout(async () => {
+      try {
+        const valor = formatRutForDisplay(docCompact);
+        const res = await authAPI.verificarDatosOnboarding({
+          tipo: 'rut',
+          valor,
+          contexto: tipoStr === 'mecanico' ? 'mecanico' : 'taller',
+        });
+        if (seq !== rutVerifySeq.current) return;
+        const data = res.data as { disponible?: boolean; mensaje?: string };
+        if (!data.disponible) {
+          setRutRemoto('taken');
+          setRutRemotoMsg(data.mensaje || 'Este RUT ya está registrado en el sistema.');
+        } else {
+          setRutRemoto('free');
+          setRutRemotoMsg('Este RUT está disponible.');
+        }
+      } catch (e: any) {
+        if (seq !== rutVerifySeq.current) return;
+        setRutRemoto('error');
+        setRutRemotoMsg(
+          e.response?.data?.mensaje ||
+            e.response?.data?.error ||
+            e.response?.data?.detail ||
+            'No se pudo verificar el RUT. Revisa tu conexión.'
+        );
+      }
+    }, DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [docCompact, tipoStr, esTaller]);
+
+  useEffect(() => {
     if (!telefonoMovilChileValido(telefonoNacional)) {
-      Alert.alert(
-        'Teléfono inválido',
-        'Ingresa los 9 dígitos de tu número móvil chileno (debe comenzar en 9).'
+      setTelRemoto('idle');
+      setTelRemotoMsg('');
+      return;
+    }
+
+    const seq = ++telVerifySeq.current;
+    setTelRemoto('checking');
+    setTelRemotoMsg('Verificando teléfono…');
+
+    const timer = setTimeout(async () => {
+      try {
+        const valor = telefonoCompletoDesdeNacional(telefonoNacional);
+        const res = await authAPI.verificarDatosOnboarding({
+          tipo: 'telefono',
+          valor,
+          contexto: tipoStr === 'mecanico' ? 'mecanico' : 'taller',
+        });
+        if (seq !== telVerifySeq.current) return;
+        const data = res.data as { disponible?: boolean; mensaje?: string };
+        if (!data.disponible) {
+          setTelRemoto('taken');
+          setTelRemotoMsg(data.mensaje || 'Este número ya está registrado.');
+        } else {
+          setTelRemoto('free');
+          setTelRemotoMsg('Número disponible.');
+        }
+      } catch (e: any) {
+        if (seq !== telVerifySeq.current) return;
+        setTelRemoto('error');
+        setTelRemotoMsg(
+          e.response?.data?.mensaje ||
+            e.response?.data?.error ||
+            e.response?.data?.detail ||
+            'No se pudo verificar el teléfono. Revisa tu conexión.'
+        );
+      }
+    }, DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [telefonoNacional, tipoStr]);
+
+  const renderFeedback = (estado: RemotoEstado, mensaje: string, localMsg: string | null) => {
+    if (localMsg) {
+      return (
+        <View style={styles.feedbackRow}>
+          <Ionicons name="alert-circle-outline" size={16} color="#C0392B" />
+          <Text style={styles.feedbackTextWarn}>{localMsg}</Text>
+        </View>
       );
-      return false;
     }
-
-    if (esTaller) {
-      if (rutCompact.length !== 9) {
-        Alert.alert('RUT incompleto', 'Ingresa el RUT completo con dígito verificador.');
-        return false;
-      }
-      if (!rutCompactoEsValido(rutCompact)) {
-        Alert.alert('RUT inválido', 'Verifica el número y el dígito verificador.');
-        return false;
-      }
-      if (!formData.direccion.trim()) {
-        Alert.alert('Error', 'La dirección es requerida para ubicar tu taller');
-        return false;
-      }
-    } else {
-      if (dniCompact.length !== 9) {
-        Alert.alert('RUT incompleto', 'Ingresa tu RUT completo con dígito verificador.');
-        return false;
-      }
-      if (!rutCompactoEsValido(dniCompact)) {
-        Alert.alert('RUT inválido', 'Verifica el número y el dígito verificador.');
-        return false;
-      }
-      if (!formData.experiencia_anos.trim()) {
-        Alert.alert('Error', 'Los años de experiencia son requeridos');
-        return false;
-      }
-      const experiencia = parseInt(formData.experiencia_anos, 10);
-      if (Number.isNaN(experiencia) || experiencia < 0) {
-        Alert.alert('Error', 'Ingrese un número válido de años de experiencia');
-        return false;
-      }
+    if (estado === 'idle' || !mensaje) return null;
+    if (estado === 'checking') {
+      return (
+        <View style={styles.feedbackRow}>
+          <ActivityIndicator size="small" color="#4E4FEB" />
+          <Text style={styles.feedbackTextMuted}>{mensaje}</Text>
+        </View>
+      );
     }
-
-    return true;
+    if (estado === 'free') {
+      return (
+        <View style={styles.feedbackRow}>
+          <Ionicons name="checkmark-circle" size={16} color="#27AE60" />
+          <Text style={styles.feedbackTextOk}>{mensaje}</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.feedbackRow}>
+        <Ionicons name="close-circle" size={16} color="#C0392B" />
+        <Text style={styles.feedbackTextErr}>{mensaje}</Text>
+      </View>
+    );
   };
 
-  const getBackPath = () => {
-    return `/(onboarding)/tipo-cuenta`;
-  };
+  const getBackPath = () => `/(onboarding)/tipo-cuenta`;
 
   const handleContinuar = async () => {
-    if (!validateSyncLocal()) return;
+    if (!puedeContinuar) return;
 
-    const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
     if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) {
       Alert.alert('Error', 'Tipo de proveedor no válido. Por favor, vuelve al inicio.');
       router.replace('/(onboarding)/tipo-cuenta');
       return;
     }
 
-    const docFormatted =
-      tipoStr === 'taller' ? formatRutForDisplay(rutCompact) : formatRutForDisplay(dniCompact);
-    const telCompleto = telefonoCompletoDesdeNacional(telefonoNacional);
-
     setVerificando(true);
     try {
-      try {
-        const resDoc = await authAPI.verificarDatosOnboarding({
+      const docFormatted = formatRutForDisplay(docCompact);
+      const telCompleto = telefonoCompletoDesdeNacional(telefonoNacional);
+
+      const [resDoc, resTel] = await Promise.all([
+        authAPI.verificarDatosOnboarding({
           tipo: 'rut',
           valor: docFormatted,
           contexto: tipoStr,
-        });
-        const dataDoc = resDoc.data as {
-          disponible?: boolean;
-          mensaje?: string;
-        };
-        if (!dataDoc.disponible) {
-          Alert.alert(
-            'Documento ya registrado',
-            dataDoc.mensaje || 'Este RUT ya está registrado en el sistema.'
-          );
-          return;
-        }
-      } catch (e: any) {
-        const msg =
-          e.response?.data?.mensaje ||
-          e.response?.data?.error ||
-          e.response?.data?.detail ||
-          'No se pudo validar el RUT.';
-        Alert.alert('Validación de RUT', msg);
+        }),
+        authAPI.verificarDatosOnboarding({
+          tipo: 'telefono',
+          valor: telCompleto,
+          contexto: tipoStr,
+        }),
+      ]);
+
+      const dataDoc = resDoc.data as { disponible?: boolean; mensaje?: string };
+      const dataTel = resTel.data as { disponible?: boolean; mensaje?: string };
+
+      if (!dataDoc.disponible) {
+        setRutRemoto('taken');
+        setRutRemotoMsg(dataDoc.mensaje || 'Este RUT ya está registrado.');
+        Alert.alert('Documento ya registrado', dataDoc.mensaje || 'Este RUT ya está registrado.');
         return;
       }
-
-      try {
-        const resTel = await authAPI.verificarDatosOnboarding({
-          tipo: 'telefono',
-          valor: telCompleto || '',
-          contexto: tipoStr,
-        });
-        const dataTel = resTel.data as {
-          disponible?: boolean;
-          mensaje?: string;
-        };
-        if (!dataTel.disponible) {
-          Alert.alert(
-            'Teléfono no disponible',
-            dataTel.mensaje || 'Este número ya está registrado en el sistema.'
-          );
-          return;
-        }
-      } catch (e: any) {
-        const msg =
-          e.response?.data?.mensaje ||
-          e.response?.data?.error ||
-          e.response?.data?.detail ||
-          'No se pudo validar el teléfono.';
-        Alert.alert('Validación de teléfono', msg);
+      if (!dataTel.disponible) {
+        setTelRemoto('taken');
+        setTelRemotoMsg(dataTel.mensaje || 'Este número ya está registrado.');
+        Alert.alert('Teléfono no disponible', dataTel.mensaje || 'Este número ya está registrado.');
         return;
       }
 
@@ -249,16 +327,31 @@ export default function InformacionBasicaScreen() {
         pathname: '/(onboarding)/marcas' as any,
         params: paramsParaEnviar,
       });
+    } catch (e: any) {
+      const msg =
+        e.response?.data?.mensaje ||
+        e.response?.data?.error ||
+        e.response?.data?.detail ||
+        'No se pudo confirmar los datos. Intenta de nuevo.';
+      Alert.alert('Error', msg);
     } finally {
       setVerificando(false);
     }
   };
 
+  const inputTelStyle = useMemo(() => {
+    if (!telefonoNacional) return [styles.phoneRow];
+    if (!telefonoMovilChileValido(telefonoNacional)) return [styles.phoneRow, styles.inputBorderWarn];
+    if (telRemoto === 'taken' || telRemoto === 'error') return [styles.phoneRow, styles.inputBorderErr];
+    if (telRemoto === 'free') return [styles.phoneRow, styles.inputBorderOk];
+    return [styles.phoneRow];
+  }, [telefonoNacional, telRemoto]);
+
   const renderTelefonoInput = () => (
     <View style={styles.inputGroup}>
       <Text style={styles.label}>Teléfono de contacto *</Text>
       <Text style={styles.hint}>Ingresa solo los 9 dígitos de tu móvil (comienza en 9).</Text>
-      <View style={styles.phoneRow}>
+      <View style={inputTelStyle}>
         <Text style={styles.phonePrefix}>+56 </Text>
         <TextInput
           style={styles.phoneInput}
@@ -270,8 +363,40 @@ export default function InformacionBasicaScreen() {
           maxLength={9}
         />
       </View>
+      {renderFeedback(telRemoto, telRemotoMsg, !telefonoNacional ? null : !telefonoMovilChileValido(telefonoNacional) ? 'Debe ser un móvil de 9 dígitos que comience en 9.' : null)}
     </View>
   );
+
+  const renderRutBlock = (valueCompact: string, onChange: (t: string) => void, label: string) => {
+    const local = mensajeRutLocal(valueCompact);
+    const rutInputStyle = (() => {
+      const localErr = mensajeRutLocal(valueCompact);
+      if (localErr) return [styles.input, styles.inputBorderWarn];
+      if (rutRemoto === 'taken' || rutRemoto === 'error') return [styles.input, styles.inputBorderErr];
+      if (rutRemoto === 'free') return [styles.input, styles.inputBorderOk];
+      return [styles.input];
+    })();
+    return (
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.hint}>
+          Puedes ingresar el RUT con o sin puntos. Con cuerpo de 7 dígitos basta el dígito verificador (8
+          caracteres); si el cuerpo tiene 8 dígitos, el verificador es el noveno. Debe cumplir módulo 11.
+        </Text>
+        <TextInput
+          style={rutInputStyle}
+          value={formatRutForDisplay(valueCompact)}
+          onChangeText={onChange}
+          placeholder="Ej. 12.345.678-9"
+          placeholderTextColor="#95a5a6"
+          keyboardType="default"
+          autoCapitalize="characters"
+          autoCorrect={false}
+        />
+        {renderFeedback(rutRemoto, rutRemotoMsg, local)}
+      </View>
+    );
+  };
 
   const renderTallerForm = () => (
     <>
@@ -286,20 +411,7 @@ export default function InformacionBasicaScreen() {
         />
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>RUT/CUIT/ID Fiscal *</Text>
-        <Text style={styles.hint}>El guión antes del dígito verificador se coloca solo al escribir.</Text>
-        <TextInput
-          style={styles.input}
-          value={formatRutForDisplay(rutCompact)}
-          onChangeText={onRutChange}
-          placeholder="Ej. 12.345.678-9"
-          placeholderTextColor="#95a5a6"
-          keyboardType="default"
-          autoCapitalize="characters"
-          autoCorrect={false}
-        />
-      </View>
+      {renderRutBlock(rutCompact, onRutChange, 'RUT/CUIT/ID Fiscal *')}
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Dirección del Taller *</Text>
@@ -344,20 +456,7 @@ export default function InformacionBasicaScreen() {
         />
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>DNI/RUT Personal *</Text>
-        <Text style={styles.hint}>El guión antes del dígito verificador se coloca solo al escribir.</Text>
-        <TextInput
-          style={styles.input}
-          value={formatRutForDisplay(dniCompact)}
-          onChangeText={onDniChange}
-          placeholder="Ej: 12.345.678-9"
-          placeholderTextColor="#95a5a6"
-          keyboardType="default"
-          autoCapitalize="characters"
-          autoCorrect={false}
-        />
-      </View>
+      {renderRutBlock(dniCompact, onDniChange, 'DNI/RUT Personal *')}
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Años de Experiencia *</Text>
@@ -388,6 +487,17 @@ export default function InformacionBasicaScreen() {
     </>
   );
 
+  if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingTipo}>
+          <ActivityIndicator size="large" color="#4E4FEB" />
+          <Text style={styles.loadingTipoText}>Cargando…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.contentWrapper}>
@@ -398,38 +508,38 @@ export default function InformacionBasicaScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <OnboardingHeader
-            title={`Información de tu ${tipo === 'taller' ? 'taller' : 'servicio'}`}
+            title={`Información de tu ${esTaller ? 'taller' : 'servicio'}`}
             subtitle="Completa la información básica para continuar"
             currentStep={2}
             totalSteps={5}
             canGoBack={true}
             backPath={getBackPath()}
-            icon={tipo === 'taller' ? 'business-outline' : 'car-sport-outline'}
+            icon={esTaller ? 'business-outline' : 'car-sport-outline'}
           />
 
           <View style={styles.form}>
             <View style={styles.infoContainer}>
               <Ionicons name="information-circle" size={20} color="#4E4FEB" />
               <Text style={styles.infoText}>
-                Los campos marcados con * son obligatorios. Validamos RUT y teléfono para evitar cuentas duplicadas.
+                Los campos con * son obligatorios. RUT y teléfono se validan en tiempo real antes de continuar.
               </Text>
             </View>
-            {tipo === 'taller' ? renderTallerForm() : renderMecanicoForm()}
+            {esTaller ? renderTallerForm() : renderMecanicoForm()}
           </View>
         </ScrollView>
 
         <SafeAreaView edges={['bottom']} style={styles.fixedButtonContainer}>
           <TouchableOpacity
-            style={[styles.continuarButton, (!isFormValid() || verificando) && styles.buttonDisabled]}
+            style={[styles.continuarButton, (!puedeContinuar || verificando) && styles.buttonDisabled]}
             onPress={handleContinuar}
-            disabled={!isFormValid() || verificando}
+            disabled={!puedeContinuar || verificando}
             activeOpacity={0.8}
           >
             {verificando ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.continuarButtonText}>
-                {isFormValid() ? 'Continuar' : 'Completa los campos requeridos'}
+                {puedeContinuar ? 'Continuar' : 'Completa y valida los datos'}
               </Text>
             )}
           </TouchableOpacity>
@@ -453,6 +563,17 @@ const styles = StyleSheet.create({
   scrollContainer: {
     padding: 20,
     paddingBottom: 24,
+  },
+  loadingTipo: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  loadingTipoText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: '#666666',
   },
   form: {
     backgroundColor: '#FFFFFF',
@@ -490,6 +611,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#F9F9F9',
     color: '#000000',
+  },
+  inputBorderWarn: {
+    borderColor: '#F5B041',
+    borderWidth: 1.5,
+  },
+  inputBorderErr: {
+    borderColor: '#E74C3C',
+    borderWidth: 1.5,
+  },
+  inputBorderOk: {
+    borderColor: '#27AE60',
+    borderWidth: 1.5,
   },
   phoneRow: {
     flexDirection: 'row',
@@ -563,5 +696,33 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     flex: 1,
     lineHeight: 18,
+  },
+  feedbackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 2,
+  },
+  feedbackTextMuted: {
+    fontSize: 13,
+    color: '#666666',
+    flex: 1,
+  },
+  feedbackTextOk: {
+    fontSize: 13,
+    color: '#27AE60',
+    fontWeight: '600',
+    flex: 1,
+  },
+  feedbackTextErr: {
+    fontSize: 13,
+    color: '#C0392B',
+    flex: 1,
+  },
+  feedbackTextWarn: {
+    fontSize: 13,
+    color: '#A04000',
+    flex: 1,
   },
 });

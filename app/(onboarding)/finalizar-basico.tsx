@@ -11,12 +11,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { onboardingAPI, tallerAPI, mecanicoAPI, especialidadesAPI, authAPI } from '@/services/api';
+import { onboardingAPI, tallerAPI, mecanicoAPI, especialidadesAPI, authAPI, serviciosAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
 
 export default function FinalizarBasicoScreen() {
-  const { tipo, especialidades, marcas, ...otherParams } = useLocalSearchParams();
+  const { tipo, especialidades, marcas, servicios_seleccionados, ...otherParams } = useLocalSearchParams();
   const router = useRouter();
   const { usuario, refrescarEstadoProveedor } = useAuth();
   
@@ -35,6 +35,9 @@ export default function FinalizarBasicoScreen() {
     const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
     const especialidadesStr = Array.isArray(especialidades) ? especialidades[0] : especialidades;
     const marcasStr = Array.isArray(marcas) ? marcas[0] : marcas;
+    const serviciosSeleccionadosStr = Array.isArray(servicios_seleccionados)
+      ? servicios_seleccionados[0]
+      : servicios_seleccionados;
     
     // Validar que los parámetros necesarios estén presentes
     if (!tipoStr) {
@@ -114,6 +117,15 @@ export default function FinalizarBasicoScreen() {
         experiencia_anos: (experienciaValue ?? '') as string,
         especialidades: especialidadesParsed,
         marcas: marcasParsed,
+        servicios_seleccionados: (() => {
+          try {
+            if (serviciosSeleccionadosStr && typeof serviciosSeleccionadosStr === 'string') {
+              const parsed = JSON.parse(serviciosSeleccionadosStr);
+              if (Array.isArray(parsed)) return parsed as { marcaId: number; servicioId: number }[];
+            }
+          } catch { /* ignore */ }
+          return [] as { marcaId: number; servicioId: number }[];
+        })(),
       };
       
       // Validar que especialidadesParsed y marcasParsed sean arrays antes de crear datos
@@ -157,7 +169,7 @@ export default function FinalizarBasicoScreen() {
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipo, especialidades, marcas]); // Dependencias primitivas desde useLocalSearchParams
+  }, [tipo, especialidades, marcas, servicios_seleccionados]);
 
   const validarDatos = () => {
     try {
@@ -260,6 +272,27 @@ export default function FinalizarBasicoScreen() {
       }
       
       console.log('Especialidades y marcas guardadas exitosamente');
+
+      // Guardar catálogo inicial de servicios por marca (si el proveedor seleccionó servicios)
+      const serviciosArr = Array.isArray(datosCompletos.servicios_seleccionados)
+        ? datosCompletos.servicios_seleccionados
+        : [];
+      if (serviciosArr.length > 0) {
+        try {
+          setProgresoSubida('Guardando catálogo de servicios…');
+          const payload = serviciosArr.map((item: { marcaId: number; servicioId: number }) => ({
+            servicio_id: item.servicioId,
+            marca_id: item.marcaId,
+          }));
+          await serviciosAPI.crearCatalogoInicial(payload);
+          console.log('Catálogo inicial guardado exitosamente:', payload.length, 'servicios');
+        } catch (error: any) {
+          // No bloquear el onboarding si falla; el proveedor puede configurar servicios después
+          console.warn('⚠️ No se pudo guardar el catálogo inicial:', error?.response?.data || error?.message);
+        }
+      } else {
+        console.log('No hay servicios seleccionados para el catálogo inicial');
+      }
     } catch (error: any) {
       console.error('Error en guardarEspecialidadesYMarcas:', error);
       throw error; // Re-lanzar para que el caller lo maneje

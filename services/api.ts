@@ -1693,6 +1693,9 @@ export const serviciosAPI = {
   obtenerCatalogoServiciosPorMarca: (marcaId: number) =>
     get(`/servicios/servicios/catalogo_por_marca/?marca_id=${marcaId}`),
 
+  crearCatalogoInicial: (servicios: { servicio_id: number; marca_id: number }[]) =>
+    post('/servicios/proveedor/mis-servicios/crear_catalogo_inicial/', { servicios }),
+
   // Catálogos generales (mantener para compatibilidad)
   obtenerMarcas: () => get('/vehiculos/marcas/'),
   obtenerServicios: (marcaId?: number) => {
