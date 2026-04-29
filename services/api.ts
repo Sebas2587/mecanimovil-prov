@@ -89,7 +89,8 @@ const getAPI = async () => {
 
     apiInstance = axios.create({
       baseURL,
-      timeout: 10000,
+      // 30s: listas de órdenes / Render cold start / redes móviles lentas (antes 10s causaba timeouts falsos)
+      timeout: 30000,
       // NO incluir configuración global que pueda interferir con FormData
     });
 
@@ -224,6 +225,13 @@ const setupInterceptors = (api: any) => {
           }
         }
         // El AuthContext detectará el cambio y limpiará el estado
+      } else if (
+        error.code === 'ECONNABORTED' ||
+        (typeof error.message === 'string' && error.message.toLowerCase().includes('timeout'))
+      ) {
+        if (__DEV__) {
+          console.log('⏱️ Timeout de solicitud HTTP:', error.config?.url, '—', error.message);
+        }
       } else if (error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
         if (__DEV__) {
           console.log('🔄 Error de red en:', error.config?.url, '—', error.code || error.message);

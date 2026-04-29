@@ -150,8 +150,23 @@ class OrdenesProveedorService {
   private baseUrl = '/ordenes/proveedor-ordenes';
 
   private handleServiceError(error: any, action: string): ServiceResponse<any> {
+    const isTimeout =
+      error?.code === 'ECONNABORTED' ||
+      (typeof error?.message === 'string' && error.message.toLowerCase().includes('timeout'));
+
+    if (isTimeout) {
+      if (__DEV__) {
+        console.warn(`⏱️ Timeout en ${action}:`, error.config?.url || '', error.message);
+      }
+      return {
+        success: false,
+        message: 'La solicitud tardó demasiado. Comprueba tu conexión o inténtalo de nuevo.',
+        error: error.message,
+      };
+    }
+
     console.error(`Error en ${action}:`, error);
-    
+
     if (error.response) {
       return {
         success: false,
@@ -320,7 +335,6 @@ class OrdenesProveedorService {
         data: this.extractDataFromResponse(response.data)
       };
     } catch (error) {
-      console.log('❌ Error obteniendo órdenes completadas:', error);
       return this.handleServiceError(error, 'obtener órdenes completadas');
     }
   }
