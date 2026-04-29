@@ -610,6 +610,23 @@ export const authAPI = {
     return response.data;
   },
 
+  /**
+   * Verifica RUT o teléfono móvil duplicados durante onboarding (requiere sesión).
+   */
+  verificarDatosOnboarding: async (params: {
+    tipo: 'rut' | 'telefono';
+    valor: string;
+    contexto: 'taller' | 'mecanico';
+  }) => {
+    const api = await getAPI();
+    const q = new URLSearchParams({
+      tipo: params.tipo,
+      valor: params.valor,
+      contexto: params.contexto,
+    });
+    return api.get(`/usuarios/verificar-datos-onboarding/?${q.toString()}`);
+  },
+
   // Limpiar completamente el almacenamiento (para debugging)
   clearStorage: async () => {
     await SecureStore.deleteItemAsync('authToken');

@@ -7,99 +7,147 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
+import { authAPI } from '@/services/api';
+import {
+  mergeRutCompactInput,
+  formatRutForDisplay,
+  rutCompactoEsValido,
+} from '@/utils/chileRut';
+import {
+  mergeNineMobileDigits,
+  telefonoCompletoDesdeNacional,
+  telefonoMovilChileValido,
+  extraerNueveDigitosDesdeGuardado,
+} from '@/utils/chilePhone';
 
 export default function InformacionBasicaScreen() {
   const { tipo } = useLocalSearchParams();
   const router = useRouter();
   const { usuario } = useAuth();
-  
+
   const [formData, setFormData] = useState({
     nombre: '',
-    rut: '',
     direccion: '',
     descripcion: '',
-    telefono: '',
     experiencia_anos: '',
-    dni: '',
   });
 
+  const [rutCompact, setRutCompact] = useState('');
+  const [dniCompact, setDniCompact] = useState('');
+  const [telefonoNacional, setTelefonoNacional] = useState('');
+  const [verificando, setVerificando] = useState(false);
+
   useEffect(() => {
-    // Pre-llenar con datos del usuario si están disponibles
     try {
       if (usuario) {
-        // Capturar nombre completo del registro (first_name puede contener nombre completo)
-        const nombreCompleto = usuario?.first_name 
+        const nombreCompleto = usuario?.first_name
           ? `${usuario.first_name}${usuario?.last_name ? ` ${usuario.last_name}` : ''}`.trim()
           : '';
-        
-        setFormData(prev => ({
+
+        setFormData((prev) => ({
           ...prev,
           nombre: nombreCompleto || prev.nombre || '',
-          telefono: usuario?.telefono || prev.telefono || '',
         }));
+
+        const nueve = extraerNueveDigitosDesdeGuardado(usuario?.telefono);
+        if (nueve) {
+          setTelefonoNacional(nueve);
+        }
       }
     } catch (error) {
       console.error('Error pre-llenando datos del usuario:', error);
-      // Continuar sin pre-llenar si hay un error
     }
   }, [usuario]);
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
+  const handleInputChange = (field: keyof typeof formData, value: string) => {
+    setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
+  const onRutChange = (text: string) => {
+    setRutCompact(mergeRutCompactInput(text));
+  };
+
+  const onDniChange = (text: string) => {
+    setDniCompact(mergeRutCompactInput(text));
+  };
+
+  const tipoStrForValidation = Array.isArray(tipo) ? tipo[0] : tipo;
+  const esTaller = tipoStrForValidation === 'taller';
+
   const isFormValid = () => {
     if (!formData.nombre.trim()) return false;
-    if (!formData.descripcion.trim()) return false; // Descripción es requerida
+    if (!formData.descripcion.trim()) return false;
+    if (!telefonoMovilChileValido(telefonoNacional)) return false;
 
-    if (tipo === 'taller') {
-      if (!formData.rut.trim()) return false;
+    if (esTaller) {
+      if (rutCompact.length !== 9 || !rutCompactoEsValido(rutCompact)) return false;
       if (!formData.direccion.trim()) return false;
-    } else if (tipo === 'mecanico') {
-      if (!formData.dni.trim()) return false;
+    } else {
+      if (dniCompact.length !== 9 || !rutCompactoEsValido(dniCompact)) return false;
       if (!formData.experiencia_anos.trim()) return false;
-      const experiencia = parseInt(formData.experiencia_anos);
-      if (isNaN(experiencia) || experiencia < 0) return false;
+      const experiencia = parseInt(formData.experiencia_anos, 10);
+      if (Number.isNaN(experiencia) || experiencia < 0) return false;
     }
 
     return true;
   };
 
-  const validateForm = () => {
+  const validateSyncLocal = (): boolean => {
     if (!formData.nombre.trim()) {
       Alert.alert('Error', 'El nombre es requerido');
       return false;
     }
+    if (!formData.descripcion.trim()) {
+      Alert.alert('Error', 'La descripción es requerida');
+      return false;
+    }
 
-    if (tipo === 'taller') {
-      if (!formData.rut.trim()) {
-        Alert.alert('Error', 'El RUT/CUIT es requerido para la identificación fiscal del taller');
+    if (!telefonoMovilChileValido(telefonoNacional)) {
+      Alert.alert(
+        'Teléfono inválido',
+        'Ingresa los 9 dígitos de tu número móvil chileno (debe comenzar en 9).'
+      );
+      return false;
+    }
+
+    if (esTaller) {
+      if (rutCompact.length !== 9) {
+        Alert.alert('RUT incompleto', 'Ingresa el RUT completo con dígito verificador.');
+        return false;
+      }
+      if (!rutCompactoEsValido(rutCompact)) {
+        Alert.alert('RUT inválido', 'Verifica el número y el dígito verificador.');
         return false;
       }
       if (!formData.direccion.trim()) {
         Alert.alert('Error', 'La dirección es requerida para ubicar tu taller');
         return false;
       }
-    } else if (tipo === 'mecanico') {
-      if (!formData.dni.trim()) {
-        Alert.alert('Error', 'El DNI/RUT personal es requerido para tu identificación');
+    } else {
+      if (dniCompact.length !== 9) {
+        Alert.alert('RUT incompleto', 'Ingresa tu RUT completo con dígito verificador.');
+        return false;
+      }
+      if (!rutCompactoEsValido(dniCompact)) {
+        Alert.alert('RUT inválido', 'Verifica el número y el dígito verificador.');
         return false;
       }
       if (!formData.experiencia_anos.trim()) {
-        Alert.alert('Error', 'Los años de experiencia son requeridos para validar tu competencia');
+        Alert.alert('Error', 'Los años de experiencia son requeridos');
         return false;
       }
-      const experiencia = parseInt(formData.experiencia_anos);
-      if (isNaN(experiencia) || experiencia < 0) {
+      const experiencia = parseInt(formData.experiencia_anos, 10);
+      if (Number.isNaN(experiencia) || experiencia < 0) {
         Alert.alert('Error', 'Ingrese un número válido de años de experiencia');
         return false;
       }
@@ -109,47 +157,121 @@ export default function InformacionBasicaScreen() {
   };
 
   const getBackPath = () => {
-    // Retroceder al paso 1 (tipo-cuenta)
     return `/(onboarding)/tipo-cuenta`;
   };
 
-  const handleContinuar = () => {
+  const handleContinuar = async () => {
+    if (!validateSyncLocal()) return;
+
+    const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
+    if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) {
+      Alert.alert('Error', 'Tipo de proveedor no válido. Por favor, vuelve al inicio.');
+      router.replace('/(onboarding)/tipo-cuenta');
+      return;
+    }
+
+    const docFormatted =
+      tipoStr === 'taller' ? formatRutForDisplay(rutCompact) : formatRutForDisplay(dniCompact);
+    const telCompleto = telefonoCompletoDesdeNacional(telefonoNacional);
+
+    setVerificando(true);
     try {
-      if (!validateForm()) return;
-      
-      // Validar que tipo esté definido
-      const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
-      if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) {
-        Alert.alert('Error', 'Tipo de proveedor no válido. Por favor, vuelve al inicio.');
-        router.replace('/(onboarding)/tipo-cuenta');
+      try {
+        const resDoc = await authAPI.verificarDatosOnboarding({
+          tipo: 'rut',
+          valor: docFormatted,
+          contexto: tipoStr,
+        });
+        const dataDoc = resDoc.data as {
+          disponible?: boolean;
+          mensaje?: string;
+        };
+        if (!dataDoc.disponible) {
+          Alert.alert(
+            'Documento ya registrado',
+            dataDoc.mensaje || 'Este RUT ya está registrado en el sistema.'
+          );
+          return;
+        }
+      } catch (e: any) {
+        const msg =
+          e.response?.data?.mensaje ||
+          e.response?.data?.error ||
+          e.response?.data?.detail ||
+          'No se pudo validar el RUT.';
+        Alert.alert('Validación de RUT', msg);
         return;
       }
-      
-      // Validar y limpiar datos antes de enviar
-      const paramsParaEnviar: any = {
-        tipo: tipoStr,
-      };
-      
-      // Agregar solo campos válidos
-      Object.entries(formData).forEach(([key, value]) => {
-        if (value && typeof value === 'string' && value.trim()) {
-          paramsParaEnviar[key] = value.trim();
+
+      try {
+        const resTel = await authAPI.verificarDatosOnboarding({
+          tipo: 'telefono',
+          valor: telCompleto || '',
+          contexto: tipoStr,
+        });
+        const dataTel = resTel.data as {
+          disponible?: boolean;
+          mensaje?: string;
+        };
+        if (!dataTel.disponible) {
+          Alert.alert(
+            'Teléfono no disponible',
+            dataTel.mensaje || 'Este número ya está registrado en el sistema.'
+          );
+          return;
         }
-      });
-      
+      } catch (e: any) {
+        const msg =
+          e.response?.data?.mensaje ||
+          e.response?.data?.error ||
+          e.response?.data?.detail ||
+          'No se pudo validar el teléfono.';
+        Alert.alert('Validación de teléfono', msg);
+        return;
+      }
+
+      const paramsParaEnviar: Record<string, string> = {
+        tipo: tipoStr,
+        nombre: formData.nombre.trim(),
+        descripcion: formData.descripcion.trim(),
+        telefono: telCompleto,
+      };
+
+      if (tipoStr === 'taller') {
+        paramsParaEnviar.rut = docFormatted;
+        paramsParaEnviar.direccion = formData.direccion.trim();
+      } else {
+        paramsParaEnviar.dni = docFormatted;
+        paramsParaEnviar.experiencia_anos = formData.experiencia_anos.trim();
+      }
+
       router.push({
         pathname: '/(onboarding)/marcas' as any,
-        params: paramsParaEnviar
+        params: paramsParaEnviar,
       });
-    } catch (error: any) {
-      console.error('Error en handleContinuar:', error);
-      Alert.alert(
-        'Error',
-        'Ocurrió un error al continuar. Por favor, intenta nuevamente.',
-        [{ text: 'OK' }]
-      );
+    } finally {
+      setVerificando(false);
     }
   };
+
+  const renderTelefonoInput = () => (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>Teléfono de contacto *</Text>
+      <Text style={styles.hint}>Ingresa solo los 9 dígitos de tu móvil (comienza en 9).</Text>
+      <View style={styles.phoneRow}>
+        <Text style={styles.phonePrefix}>+56 </Text>
+        <TextInput
+          style={styles.phoneInput}
+          value={telefonoNacional}
+          onChangeText={(t) => setTelefonoNacional(mergeNineMobileDigits(t))}
+          placeholder="912345678"
+          placeholderTextColor="#95a5a6"
+          keyboardType="number-pad"
+          maxLength={9}
+        />
+      </View>
+    </View>
+  );
 
   const renderTallerForm = () => (
     <>
@@ -166,12 +288,16 @@ export default function InformacionBasicaScreen() {
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>RUT/CUIT/ID Fiscal *</Text>
+        <Text style={styles.hint}>El guión antes del dígito verificador se coloca solo al escribir.</Text>
         <TextInput
           style={styles.input}
-          value={formData.rut}
-          onChangeText={(value) => handleInputChange('rut', value)}
+          value={formatRutForDisplay(rutCompact)}
+          onChangeText={onRutChange}
           placeholder="Ej. 12.345.678-9"
           placeholderTextColor="#95a5a6"
+          keyboardType="default"
+          autoCapitalize="characters"
+          autoCorrect={false}
         />
       </View>
 
@@ -188,20 +314,10 @@ export default function InformacionBasicaScreen() {
         />
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Teléfono de Contacto</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.telefono}
-          onChangeText={(value) => handleInputChange('telefono', value)}
-          placeholder="Ej. +56 9 1234 5678"
-          placeholderTextColor="#95a5a6"
-          keyboardType="phone-pad"
-        />
-      </View>
+      {renderTelefonoInput()}
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Descripción del Servicio</Text>
+        <Text style={styles.label}>Descripción del Servicio *</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
           value={formData.descripcion}
@@ -230,12 +346,16 @@ export default function InformacionBasicaScreen() {
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>DNI/RUT Personal *</Text>
+        <Text style={styles.hint}>El guión antes del dígito verificador se coloca solo al escribir.</Text>
         <TextInput
           style={styles.input}
-          value={formData.dni}
-          onChangeText={(value) => handleInputChange('dni', value)}
+          value={formatRutForDisplay(dniCompact)}
+          onChangeText={onDniChange}
           placeholder="Ej: 12.345.678-9"
           placeholderTextColor="#95a5a6"
+          keyboardType="default"
+          autoCapitalize="characters"
+          autoCorrect={false}
         />
       </View>
 
@@ -251,25 +371,15 @@ export default function InformacionBasicaScreen() {
         />
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Teléfono de Contacto</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.telefono}
-          onChangeText={(value) => handleInputChange('telefono', value)}
-          placeholder="Ej: +56 9 1234 5678"
-          placeholderTextColor="#95a5a6"
-          keyboardType="phone-pad"
-        />
-      </View>
+      {renderTelefonoInput()}
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Descripción de tu Experiencia</Text>
+        <Text style={styles.label}>Descripción de tu Experiencia *</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
           value={formData.descripcion}
           onChangeText={(value) => handleInputChange('descripcion', value)}
-          placeholder="Describe tu experiencia, especialidades, tipos de vehículos que atiendes..."
+          placeholder="Describe tu experiencia, tipos de vehículos que atiendes..."
           placeholderTextColor="#95a5a6"
           multiline
           numberOfLines={3}
@@ -281,10 +391,11 @@ export default function InformacionBasicaScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.contentWrapper}>
-        <ScrollView 
-          contentContainerStyle={styles.scrollContainer} 
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
           showsVerticalScrollIndicator={false}
           style={styles.scrollView}
+          keyboardShouldPersistTaps="handled"
         >
           <OnboardingHeader
             title={`Información de tu ${tipo === 'taller' ? 'taller' : 'servicio'}`}
@@ -300,27 +411,27 @@ export default function InformacionBasicaScreen() {
             <View style={styles.infoContainer}>
               <Ionicons name="information-circle" size={20} color="#4E4FEB" />
               <Text style={styles.infoText}>
-                Los campos marcados con * son obligatorios para la validación y activación de tu cuenta.
+                Los campos marcados con * son obligatorios. Validamos RUT y teléfono para evitar cuentas duplicadas.
               </Text>
             </View>
             {tipo === 'taller' ? renderTallerForm() : renderMecanicoForm()}
           </View>
         </ScrollView>
 
-        {/* Botón fijo en la parte inferior */}
         <SafeAreaView edges={['bottom']} style={styles.fixedButtonContainer}>
           <TouchableOpacity
-            style={[
-              styles.continuarButton,
-              !isFormValid() && styles.buttonDisabled
-            ]}
+            style={[styles.continuarButton, (!isFormValid() || verificando) && styles.buttonDisabled]}
             onPress={handleContinuar}
-            disabled={!isFormValid()}
+            disabled={!isFormValid() || verificando}
             activeOpacity={0.8}
           >
-            <Text style={styles.continuarButtonText}>
-              {isFormValid() ? 'Continuar' : 'Completa los campos requeridos'}
-            </Text>
+            {verificando ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.continuarButtonText}>
+                {isFormValid() ? 'Continuar' : 'Completa los campos requeridos'}
+              </Text>
+            )}
           </TouchableOpacity>
         </SafeAreaView>
       </View>
@@ -366,6 +477,11 @@ const styles = StyleSheet.create({
     color: '#000000',
     marginBottom: 8,
   },
+  hint: {
+    fontSize: 12,
+    color: '#888888',
+    marginBottom: 8,
+  },
   input: {
     borderWidth: 1,
     borderColor: '#EEEEEE',
@@ -373,6 +489,27 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     backgroundColor: '#F9F9F9',
+    color: '#000000',
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    borderRadius: 12,
+    backgroundColor: '#F9F9F9',
+    paddingHorizontal: 12,
+  },
+  phonePrefix: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333333',
+    marginRight: 4,
+  },
+  phoneInput: {
+    flex: 1,
+    paddingVertical: 16,
+    fontSize: 16,
     color: '#000000',
   },
   textArea: {
@@ -427,4 +564,4 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
-}); 
+});
