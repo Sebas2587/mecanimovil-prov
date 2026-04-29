@@ -269,10 +269,17 @@ export default function FinalizarBasicoScreen() {
   const getBackPath = () => {
     const params = new URLSearchParams();
     Object.entries(otherParams).forEach(([key, value]) => {
-      if (value) params.append(key, value as string);
+      if (value === undefined || value === null) return;
+      const v = Array.isArray(value) ? value[0] : value;
+      if (v !== undefined && v !== '') params.append(key, String(v));
     });
-    params.append('tipo', tipo as string);
-    return `/(onboarding)/marcas?${params.toString()}`;
+    const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
+    if (tipoStr) params.append('tipo', String(tipoStr));
+    const marcasVal = Array.isArray(marcas) ? marcas[0] : marcas;
+    if (marcasVal) params.append('marcas', String(marcasVal));
+    const espVal = Array.isArray(especialidades) ? especialidades[0] : especialidades;
+    if (espVal) params.append('especialidades', String(espVal));
+    return `/(onboarding)/catalogo-servicios-marcas?${params.toString()}`;
   };
 
   const finalizarOnboardingBasico = async () => {

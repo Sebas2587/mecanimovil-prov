@@ -137,9 +137,8 @@ export default function InformacionBasicaScreen() {
         }
       });
       
-      // Navegar a la siguiente pantalla pasando los datos
       router.push({
-        pathname: '/especialidades' as any,
+        pathname: '/(onboarding)/marcas' as any,
         params: paramsParaEnviar
       });
     } catch (error: any) {
@@ -291,7 +290,7 @@ export default function InformacionBasicaScreen() {
             title={`Información de tu ${tipo === 'taller' ? 'taller' : 'servicio'}`}
             subtitle="Completa la información básica para continuar"
             currentStep={2}
-            totalSteps={6}
+            totalSteps={5}
             canGoBack={true}
             backPath={getBackPath()}
             icon={tipo === 'taller' ? 'business-outline' : 'car-sport-outline'}

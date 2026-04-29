@@ -279,8 +279,11 @@ export const serviciosProveedorAPI = {
   calcularPreview: async (costoManoObra: number, costoRepuestos: number = 0): Promise<DesglosePrecios> => {
     try {
       const api = await getAPI();
+      const p = new URLSearchParams();
+      p.append('costo_mano_obra', String(costoManoObra));
+      p.append('costo_repuestos', String(costoRepuestos));
       const response = await api.get(
-        `/servicios/proveedor/mis-servicios/calcular_preview/?costo_mano_obra=${costoManoObra}&costo_repuestos=${costoRepuestos}`
+        `/servicios/proveedor/mis-servicios/calcular_preview/?${p.toString()}`
       );
       return response.data;
     } catch (error) {

@@ -364,22 +364,17 @@ const MisServiciosScreen = () => {
               <Text style={styles.sectionTitle}>
                 Servicios {searchText ? `(${serviciosFiltrados.length})` : `(${servicios.length})`}
               </Text>
-              <TouchableOpacity style={styles.sortButton}>
-                <Text style={styles.sortButtonText}>Sort by Latest</Text>
-                <MaterialIcons name="arrow-drop-down" size={16} color={safeColors?.text?.primary || '#000000'} />
-              </TouchableOpacity>
             </View>
 
             {servicios.length === 0 ? (
               <EmptyComponent />
             ) : serviciosFiltrados.length > 0 ? (
-              // Ordenar servicios por fecha más reciente (latest first)
               [...serviciosFiltrados]
-                .sort((a, b) => {
-                  const fechaA = new Date(a.fecha_creacion).getTime();
-                  const fechaB = new Date(b.fecha_creacion).getTime();
-                  return fechaB - fechaA; // Más reciente primero
-                })
+                .sort((a, b) =>
+                  (a.servicio_info?.nombre || '').localeCompare(b.servicio_info?.nombre || '', 'es', {
+                    sensitivity: 'base',
+                  })
+                )
                 .map((servicio) => (
                   <TouchableOpacity
                     key={servicio.id}
@@ -567,7 +562,7 @@ const createStyles = () => {
     },
     sectionHeader: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
+      justifyContent: 'flex-start',
       alignItems: 'center',
       marginBottom: spacingMd,
     },
@@ -575,16 +570,6 @@ const createStyles = () => {
       fontSize: fontSizeLg,
       fontWeight: fontWeightBold,
       color: textPrimary,
-    },
-    sortButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingXs,
-    },
-    sortButtonText: {
-      fontSize: fontSizeBase,
-      color: textPrimary,
-      fontWeight: fontWeightMedium,
     },
     // Service item - diseño mejorado con card usando sistema de diseño
     serviceItem: {

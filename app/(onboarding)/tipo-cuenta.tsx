@@ -256,7 +256,7 @@ export default function TipoCuentaScreen() {
             title="¿Qué tipo de servicio ofreces?"
             subtitle="Selecciona la opción que mejor describa tu negocio"
             currentStep={1}
-            totalSteps={6}
+            totalSteps={5}
             canGoBack={false}
             icon="business-outline"
           />

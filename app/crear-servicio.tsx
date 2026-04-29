@@ -20,6 +20,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import Header from '@/components/Header';
+import { parseMontoDecimal } from '@/utils/parseMontoDecimal';
 
 // Interfaces
 interface MarcaVehiculo {
@@ -467,8 +468,8 @@ const CrearServicioScreen = () => {
     repuestosSeleccionados.forEach((repuestoId) => {
       const precioStr = preciosMap.get(repuestoId);
       if (precioStr && precioStr !== '' && precioStr !== '0') {
-        const precio = parseFloat(precioStr);
-        if (!isNaN(precio) && precio > 0) {
+        const precio = parseMontoDecimal(precioStr);
+        if (precio > 0) {
           total += precio;
         }
       }
@@ -631,8 +632,8 @@ const CrearServicioScreen = () => {
   };
 
   const calcularPrecios = async () => {
-    const manoObra = parseFloat(costoManoObra) || 0;
-    const repuestos = parseFloat(costoRepuestos) || 0;
+    const manoObra = parseMontoDecimal(costoManoObra);
+    const repuestos = parseMontoDecimal(costoRepuestos || '0');
 
     try {
       console.log('💰 Calculando precios:', { manoObra, repuestos });
@@ -798,7 +799,7 @@ const CrearServicioScreen = () => {
   // Función para publicar o actualizar servicio
   const publicarServicio = async () => {
     // Validaciones
-    if (!costoManoObra || parseFloat(costoManoObra) <= 0) {
+    if (!costoManoObra || parseMontoDecimal(costoManoObra) <= 0) {
       Alert.alert('Error', 'Debes especificar un costo de mano de obra válido');
       return;
     }
@@ -817,8 +818,8 @@ const CrearServicioScreen = () => {
         if (!precioStr || precioStr.trim() === '' || precioStr === '0') {
           repuestosSinPrecio.push(id);
         } else {
-          const precio = parseFloat(precioStr);
-          if (isNaN(precio) || precio <= 0) {
+          const precio = parseMontoDecimal(precioStr);
+          if (precio <= 0) {
             repuestosSinPrecio.push(id);
           }
         }
@@ -868,8 +869,8 @@ const CrearServicioScreen = () => {
           // Solo usar el precio que el proveedor ingresó manualmente
           // NO usar precio_referencia como fallback - el proveedor debe ingresar el precio
           if (precioStr && precioStr.trim() !== '' && precioStr !== '0') {
-            const precioParsed = parseFloat(precioStr);
-            if (!isNaN(precioParsed) && precioParsed > 0) {
+            const precioParsed = parseMontoDecimal(precioStr);
+            if (precioParsed > 0) {
               precio = precioParsed;
             }
           }
@@ -898,8 +899,8 @@ const CrearServicioScreen = () => {
         tipo_servicio: tipoServicio,
         marca_vehiculo_seleccionada: marcaSeleccionada === 0 ? null : marcaSeleccionada,
         detalles_adicionales: descripcion.trim(),
-        costo_mano_de_obra_sin_iva: parseFloat(costoManoObra),
-        costo_repuestos_sin_iva: parseFloat(costoRepuestos) || 0,
+        costo_mano_de_obra_sin_iva: parseMontoDecimal(costoManoObra),
+        costo_repuestos_sin_iva: parseMontoDecimal(costoRepuestos || '0'),
         repuestos_seleccionados: repuestosArray,
         disponible: true,
       };
@@ -1264,7 +1265,7 @@ const CrearServicioScreen = () => {
           <View style={styles.noDataContainer}>
             <Ionicons name="information-circle-outline" size={24} color="#F59E0B" />
             <Text style={styles.noDataText}>
-              No hay servicios disponibles para esta marca según tus especialidades configuradas.
+              No hay servicios catalogados para esta marca. Si crees que falta alguno, contacta al administrador.
               Verifica tu configuración de servicios.
             </Text>
           </View>
@@ -1317,8 +1318,8 @@ const CrearServicioScreen = () => {
         return;
       }
 
-      const precioNum = parseFloat(precioStr);
-      if (isNaN(precioNum) || precioNum <= 0) {
+      const precioNum = parseMontoDecimal(precioStr);
+      if (precioNum <= 0) {
         Alert.alert('Precio inválido', 'Por favor ingrese un número válido mayor a 0');
         return;
       }
@@ -1442,7 +1443,7 @@ const CrearServicioScreen = () => {
               <View style={styles.repuestosTotalContainer}>
                 <Text style={styles.repuestosTotalLabel}>Total repuestos:</Text>
                 <Text style={styles.repuestosTotalValue}>
-                  ${(parseFloat(costoRepuestos) || 0).toLocaleString('es-CL')}
+                  ${parseMontoDecimal(costoRepuestos || '0').toLocaleString('es-CL')}
                 </Text>
               </View>
             )}
@@ -1530,15 +1531,15 @@ const CrearServicioScreen = () => {
         <View style={styles.calculoRow}>
           <Text style={styles.calculoLabel}>Precio mano de servicio:</Text>
           <Text style={styles.calculoValue}>
-            ${parseFloat(costoManoObra || '0').toLocaleString('es-CL')}
+            ${parseMontoDecimal(costoManoObra || '0').toLocaleString('es-CL')}
           </Text>
         </View>
 
-        {tipoServicio === 'con_repuestos' && parseFloat(costoRepuestos || '0') > 0 && (
+        {tipoServicio === 'con_repuestos' && parseMontoDecimal(costoRepuestos || '0') > 0 && (
           <View style={styles.calculoRow}>
             <Text style={styles.calculoLabel}>Precio repuestos:</Text>
             <Text style={styles.calculoValue}>
-              ${parseFloat(costoRepuestos || '0').toLocaleString('es-CL')}
+              ${parseMontoDecimal(costoRepuestos || '0').toLocaleString('es-CL')}
             </Text>
           </View>
         )}

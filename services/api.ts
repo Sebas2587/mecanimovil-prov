@@ -1660,13 +1660,21 @@ export const serviciosAPI = {
   cambiarDisponibilidad: (id: number, disponible: boolean) =>
     post(`/servicios/proveedor/mis-servicios/${id}/cambiar_disponibilidad/`, { disponible }),
   eliminarServicio: (id: number) => del(`/servicios/proveedor/mis-servicios/${id}/`),
-  calcularPreview: (costoManoObra: number, costoRepuestos: number = 0) =>
-    get(`/servicios/proveedor/mis-servicios/calcular_preview/?costo_mano_obra=${costoManoObra}&costo_repuestos=${costoRepuestos}`),
+  calcularPreview: (costoManoObra: number, costoRepuestos: number = 0) => {
+    const p = new URLSearchParams();
+    p.append('costo_mano_obra', String(costoManoObra));
+    p.append('costo_repuestos', String(costoRepuestos));
+    return get(`/servicios/proveedor/mis-servicios/calcular_preview/?${p.toString()}`);
+  },
 
   // Catálogos específicos para proveedores
   obtenerMisMarcas: () => get('/servicios/proveedor/mis-servicios/mis_marcas/'),
   obtenerServiciosPorMarca: (marcaId: number) =>
     get(`/servicios/proveedor/mis-servicios/servicios_por_marca/?marca_id=${marcaId}`),
+
+  /** Catálogo por marca (sin especialidades del proveedor); útil en onboarding */
+  obtenerCatalogoServiciosPorMarca: (marcaId: number) =>
+    get(`/servicios/servicios/catalogo_por_marca/?marca_id=${marcaId}`),
 
   // Catálogos generales (mantener para compatibilidad)
   obtenerMarcas: () => get('/vehiculos/marcas/'),

@@ -224,8 +224,7 @@ export default function MarcasScreen() {
         params.append('marcas', JSON.stringify([]));
       }
 
-      // Ir directamente a finalizar onboarding básico (sin documentos)
-      router.push(`/(onboarding)/finalizar-basico?${params.toString()}` as any);
+      router.push(`/(onboarding)/catalogo-servicios-marcas?${params.toString()}` as any);
     } catch (error: any) {
       console.error('Error en handleContinuar (marcas):', error);
       Alert.alert(
@@ -247,10 +246,10 @@ export default function MarcasScreen() {
       });
       const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
       if (tipoStr) params.append('tipo', String(tipoStr));
-      return `/(onboarding)/especialidades?${params.toString()}`;
+      return `/(onboarding)/informacion-basica?${params.toString()}`;
     } catch (error) {
       console.error('Error construyendo backPath:', error);
-      return `/(onboarding)/especialidades?tipo=${tipo || ''}`;
+      return `/(onboarding)/informacion-basica?tipo=${tipo || ''}`;
     }
   };
 
@@ -322,8 +321,8 @@ export default function MarcasScreen() {
           <OnboardingHeader
             title="Marcas de Vehículos"
             subtitle={`Selecciona las marcas de vehículos que atiende tu ${tipo === 'taller' ? 'taller' : 'servicio'}`}
-            currentStep={4}
-            totalSteps={6}
+            currentStep={3}
+            totalSteps={5}
             icon="car"
             backPath={getBackPath()}
           />

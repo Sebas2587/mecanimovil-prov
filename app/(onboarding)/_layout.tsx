@@ -31,6 +31,13 @@ export default function OnboardingLayout() {
           headerShown: false 
         }} 
       />
+      <Stack.Screen
+        name="catalogo-servicios-marcas"
+        options={{
+          title: 'Servicios por marca',
+          headerShown: false,
+        }}
+      />
       <Stack.Screen 
         name="documentacion" 
         options={{ 
