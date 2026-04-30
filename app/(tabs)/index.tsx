@@ -76,6 +76,26 @@ export default function HomeScreen() {
     enabled: Boolean(isAuthenticated && cuentaAprobadaPorAdmin && !isLoading),
     dias: 30,
   });
+
+  /** Misma lectura que el hero de `RendimientoKpisContent` (ventana 30 días en home). */
+  const rendimientoWidgetPeriod = useMemo(() => {
+    if (kpisResumen.data) {
+      const d = kpisResumen.data.ventana_dias;
+      return `Combina ofertas, reseñas, checklist y tiempos (últimos ${d} días con actividad).`;
+    }
+    if (kpisResumen.loading) {
+      return `Últimos ${kpisResumen.ventanaDiasMostrada} días con actividad · cargando…`;
+    }
+    if (kpisResumen.error) {
+      return 'No se pudo cargar. Entra para reintentar.';
+    }
+    return `Últimos ${kpisResumen.ventanaDiasMostrada} días · mismo índice que en detalle`;
+  }, [
+    kpisResumen.data,
+    kpisResumen.loading,
+    kpisResumen.error,
+    kpisResumen.ventanaDiasMostrada,
+  ]);
   const [ordenes, setOrdenes] = useState<OrdenConChecklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -975,6 +995,8 @@ export default function HomeScreen() {
             <PerformanceWidget
               progress={kpisResumen.progress}
               targetTierName={kpisResumen.targetTierName}
+              periodSubtitle={rendimientoWidgetPeriod}
+              isLoading={kpisResumen.loading && !kpisResumen.hasData}
               onPress={handlePerformanceWidgetPress}
             />
           </View>

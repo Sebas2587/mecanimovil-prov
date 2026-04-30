@@ -8,9 +8,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import {
   useProveedorKpisResumen,
   targetTierNameForScore,
@@ -18,8 +20,21 @@ import {
 
 const DIAS_OPCIONES = [7, 30, 90] as const;
 
-const padH = SPACING.container?.horizontal ?? SPACING.content?.horizontal ?? 20;
-const cardPad = SPACING.cardPadding ?? SPACING.md;
+/** Paleta y ritmo visual alineados a `app/(tabs)/index.tsx` (dashboard). */
+const D = {
+  ink: '#111827',
+  gray: '#6B7280',
+  grayLight: '#9CA3AF',
+  border: '#E5E7EB',
+  borderWhite: 'rgba(255,255,255,0.6)',
+  blue: '#2563EB',
+  blueBorder: '#DBEAFE',
+  track: '#E5E7EB',
+  fillBar: '#2563EB',
+  gradTop: '#F3F5F8',
+  gradMid: '#FAFBFC',
+  gradBottom: '#FFFFFF',
+} as const;
 
 function formatMinutos(v: number | null | undefined): string {
   if (v == null || Number.isNaN(v)) return '—';
@@ -44,45 +59,50 @@ function formatEstrellas(v: number | null | undefined): string {
   return `${v.toFixed(1)} / 5`;
 }
 
+function GlassCard({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={styles.glassOuter}>
+      <BlurView intensity={60} tint="light" style={styles.glassInner}>
+        {children}
+      </BlurView>
+    </View>
+  );
+}
+
+function SectionTitle({ children }: { children: string }) {
+  return (
+    <Text style={styles.sectionTitle} numberOfLines={1}>
+      {children}
+    </Text>
+  );
+}
+
 type DataRowProps = {
   label: string;
   value: string;
   hint?: string;
   isLast?: boolean;
-  labelColor: string;
-  valueColor: string;
-  hintColor: string;
-  borderColor: string;
 };
 
-function DataRow({
-  label,
-  value,
-  hint,
-  isLast,
-  labelColor,
-  valueColor,
-  hintColor,
-  borderColor,
-}: DataRowProps) {
+function DataRow({ label, value, hint, isLast }: DataRowProps) {
   return (
     <View
       style={[
         styles.dataRow,
-        !isLast && { borderBottomColor: borderColor, borderBottomWidth: StyleSheet.hairlineWidth },
+        !isLast && { borderBottomColor: D.border, borderBottomWidth: StyleSheet.hairlineWidth },
       ]}
     >
       <View style={styles.dataRowTextCol}>
-        <Text style={[styles.dataRowLabel, { color: labelColor }]} numberOfLines={2}>
+        <Text style={styles.dataRowLabel} numberOfLines={2}>
           {label}
         </Text>
         {hint ? (
-          <Text style={[styles.dataRowHint, { color: hintColor }]} numberOfLines={3}>
+          <Text style={styles.dataRowHint} numberOfLines={4}>
             {hint}
           </Text>
         ) : null}
       </View>
-      <Text style={[styles.dataRowValue, { color: valueColor }]}>{value}</Text>
+      <Text style={styles.dataRowValue}>{value}</Text>
     </View>
   );
 }
@@ -92,97 +112,69 @@ type ScoreBlockProps = {
   score: number | null;
   description: string;
   isLast?: boolean;
-  titleColor: string;
-  descColor: string;
-  badgeBg: string;
-  badgeText: string;
-  barFill: string;
-  trackBg: string;
-  borderColor: string;
 };
 
-function ScoreBlock({
-  title,
-  score,
-  description,
-  isLast,
-  titleColor,
-  descColor,
-  badgeBg,
-  badgeText,
-  barFill,
-  trackBg,
-  borderColor,
-}: ScoreBlockProps) {
+function ScoreBlock({ title, score, description, isLast }: ScoreBlockProps) {
   return (
     <View
       style={[
         styles.scoreWrap,
-        !isLast && { borderBottomColor: borderColor, borderBottomWidth: StyleSheet.hairlineWidth },
+        !isLast && { borderBottomColor: D.border, borderBottomWidth: StyleSheet.hairlineWidth },
       ]}
     >
       <View style={styles.scoreTop}>
-        <Text style={[styles.scoreTitle, { color: titleColor }]}>{title}</Text>
-        <View style={[styles.scoreBadge, { backgroundColor: badgeBg }]}>
-          <Text style={[styles.scoreBadgeText, { color: badgeText }]}>{formatScore(score)}</Text>
+        <Text style={styles.scoreTitle}>{title}</Text>
+        <View style={styles.scoreBadgePlan}>
+          <Text style={styles.scoreBadgePlanText}>{formatScore(score)}</Text>
         </View>
       </View>
-      <Text style={[styles.scoreDesc, { color: descColor }]}>{description}</Text>
+      <Text style={styles.scoreDesc}>{description}</Text>
       {score != null ? (
-        <View style={[styles.scoreBarTrack, { backgroundColor: trackBg }]}>
-          <View style={[styles.scoreBarFill, { width: `${score}%`, backgroundColor: barFill }]} />
+        <View style={[styles.scoreBarTrack, { backgroundColor: D.track }]}>
+          <View style={[styles.scoreBarFill, { width: `${score}%`, backgroundColor: D.fillBar }]} />
         </View>
       ) : null}
     </View>
   );
 }
 
-function SectionKicker({ children, color }: { children: string; color: string }) {
-  return (
-    <Text style={[styles.kicker, { color }]} numberOfLines={1}>
-      {children}
-    </Text>
-  );
-}
-
 export function RendimientoKpisContent() {
-  const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoading, estadoProveedor } = useAuth();
   const cuentaAprobadaPorAdmin = estadoProveedor?.estado_verificacion === 'aprobado';
   const [diasVentana, setDiasVentana] = useState<number>(30);
 
   const enabled = Boolean(isAuthenticated && cuentaAprobadaPorAdmin && !isLoading);
-  const { data, loading, error, refresh, progress } = useProveedorKpisResumen({
+  const { data, loading, error, refresh } = useProveedorKpisResumen({
     enabled,
     dias: diasVentana,
   });
 
-  const colors = theme?.colors || COLORS;
-  const bg = colors?.background?.default ?? COLORS.neutral?.gray?.[50] ?? '#F8FAFC';
-  const paper = colors?.background?.paper ?? COLORS.base?.white ?? '#fff';
-  const textPrimary = colors?.text?.primary ?? COLORS.base?.inkBlack ?? '#00171F';
-  const textSecondary = colors?.text?.secondary ?? COLORS.neutral?.gray?.[600] ?? '#4B5563';
-  const textMuted = COLORS.neutral?.gray?.[500] ?? '#6B7280';
-  const primary = (colors?.primary as { 500?: string })?.['500'] ?? COLORS.primary?.[500] ?? '#003459';
-  const primarySoft = COLORS.primary?.[50] ?? '#E6F2F7';
-  const primaryBold = COLORS.primary?.[600] ?? '#002A47';
-  const border = colors?.border?.light ?? COLORS.neutral?.gray?.[200] ?? '#E5E7EB';
-  const trackBar = COLORS.neutral?.gray?.[200] ?? '#E5E7EB';
-
-  const tierName = useMemo(() => targetTierNameForScore(progress), [progress]);
+  const tierName = useMemo(
+    () => (data != null ? targetTierNameForScore(data.score_rendimiento) : '—'),
+    [data]
+  );
 
   const onRefresh = useCallback(() => {
     refresh();
   }, [refresh]);
 
+  const bottomPad = insets.bottom + 40;
+
   if (!cuentaAprobadaPorAdmin && !isLoading) {
     return (
-      <View style={[styles.centered, { backgroundColor: bg, paddingHorizontal: padH }]}>
-        <Text style={[styles.emptyTitle, { color: textPrimary }]}>Rendimiento no disponible</Text>
-        <Text style={[styles.emptySub, { color: textSecondary }]}>
-          Tu cuenta debe estar aprobada para ver KPIs.
-        </Text>
-      </View>
+      <LinearGradient
+        style={styles.gradientRoot}
+        colors={[D.gradTop, D.gradMid, D.gradBottom]}
+        locations={[0, 0.35, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+      >
+        <View style={[styles.centered, { paddingHorizontal: 20 }]}>
+          <Text style={styles.emptyTitle}>Rendimiento no disponible</Text>
+          <Text style={styles.emptySub}>Tu cuenta debe estar aprobada para ver KPIs.</Text>
+        </View>
+      </LinearGradient>
     );
   }
 
@@ -192,317 +184,280 @@ export function RendimientoKpisContent() {
       : undefined;
 
   return (
-    <ScrollView
-      style={[styles.scroll, { backgroundColor: bg }]}
-      contentContainerStyle={[styles.scrollContent, { paddingHorizontal: padH }]}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} />}
-      showsVerticalScrollIndicator={false}
+    <LinearGradient
+      style={styles.gradientRoot}
+      colors={[D.gradTop, D.gradMid, D.gradBottom]}
+      locations={[0, 0.35, 1]}
+      start={{ x: 0.5, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
     >
-      <View style={[styles.periodBlock, { borderBottomColor: border }]}>
-        <SectionKicker color={textMuted}>PERIODO</SectionKicker>
-        <View style={styles.chipsRow}>
-          {DIAS_OPCIONES.map((d) => {
-            const active = diasVentana === d;
-            return (
-              <TouchableOpacity
-                key={d}
-                onPress={() => setDiasVentana(d)}
-                style={[
-                  styles.chip,
-                  {
-                    borderColor: active ? primary : border,
-                    backgroundColor: active ? primarySoft : paper,
-                  },
-                ]}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={`${d} dias`}
-              >
-                <Text
+      <ScrollView
+        style={styles.scrollTransparent}
+        contentContainerStyle={[styles.scrollInner, { paddingBottom: bottomPad }]}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.sectionWrap}>
+          <SectionTitle>PERIODO</SectionTitle>
+          <View style={styles.chipsRow}>
+            {DIAS_OPCIONES.map((d) => {
+              const active = diasVentana === d;
+              return (
+                <TouchableOpacity
+                  key={d}
+                  onPress={() => setDiasVentana(d)}
                   style={[
-                    styles.chipText,
-                    { color: active ? primary : textSecondary, fontWeight: active ? '700' : '600' },
+                    styles.chip,
+                    active ? styles.chipActive : styles.chipIdle,
                   ]}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={`${d} dias`}
                 >
-                  {d} días
-                </Text>
+                  <Text style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextIdle]}>
+                    {d} días
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {loading && !data ? (
+          <View style={styles.sectionWrap}>
+            <View style={styles.loaderWrap}>
+              <ActivityIndicator size="large" color={D.blue} />
+            </View>
+          </View>
+        ) : null}
+
+        {error && !data ? (
+          <View style={styles.sectionWrap}>
+            <GlassCard>
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity onPress={onRefresh} style={styles.retryBtn}>
+                <Text style={styles.retryText}>Reintentar</Text>
               </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {loading && !data ? (
-        <View style={styles.loaderWrap}>
-          <ActivityIndicator size="large" color={primary} />
-        </View>
-      ) : null}
-
-      {error && !data ? (
-        <View style={[styles.surface, { backgroundColor: paper, borderColor: border }, SHADOWS?.sm]}>
-          <Text style={[styles.errorText, { color: textPrimary }]}>{error}</Text>
-          <TouchableOpacity onPress={onRefresh} style={[styles.retryBtn, { borderColor: primary }]}>
-            <Text style={[styles.retryText, { color: primary }]}>Reintentar</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
-      {data ? (
-        <>
-          <SectionKicker color={textMuted}>RESUMEN</SectionKicker>
-          <View style={[styles.surface, { backgroundColor: paper, borderColor: border }, SHADOWS?.sm]}>
-            <Text style={[styles.heroLabel, { color: textSecondary }]}>Índice de rendimiento</Text>
-            <Text style={[styles.heroPct, { color: primary }]}>{data.score_rendimiento}%</Text>
-            <Text style={[styles.heroTier, { color: textPrimary }]}>Nivel: {tierName}</Text>
-            <Text style={[styles.heroFoot, { color: textSecondary }]}>
-              Combina respuesta en ofertas, reseñas de clientes, checklist y cumplimiento de tiempos estimados en
-              ofertas aceptadas (últimos {data.ventana_dias} días con actividad).
-            </Text>
+            </GlassCard>
           </View>
+        ) : null}
 
-          <View style={styles.sectionSpacer} />
-          <SectionKicker color={textMuted}>DESGLOSE DE PUNTAJES</SectionKicker>
-          <View style={[styles.surface, { backgroundColor: paper, borderColor: border }, SHADOWS?.sm]}>
-            <ScoreBlock
-              title="Tiempo de respuesta"
-              score={data.score_tiempo_respuesta}
-              description="Tiempo desde que la solicitud quedó publicada hasta que enviaste la oferta (dirigidas priorizadas)."
-              titleColor={textPrimary}
-              descColor={textSecondary}
-              badgeBg={primarySoft}
-              badgeText={primary}
-              barFill={primary}
-              trackBg={trackBar}
-              borderColor={border}
-            />
-            <ScoreBlock
-              title="Satisfacción del cliente"
-              score={data.score_calificacion_cliente}
-              description="Basado en reseñas del periodo; si no hay en el periodo, se usa tu promedio histórico."
-              titleColor={textPrimary}
-              descColor={textSecondary}
-              badgeBg={primarySoft}
-              badgeText={primary}
-              barFill={primary}
-              trackBg={trackBar}
-              borderColor={border}
-            />
-            <ScoreBlock
-              title="Checklist"
-              score={data.score_checklist}
-              description="Órdenes marketplace con checklist: % completados según actividad en el periodo."
-              titleColor={textPrimary}
-              descColor={textSecondary}
-              badgeBg={primarySoft}
-              badgeText={primary}
-              barFill={primary}
-              trackBg={trackBar}
-              borderColor={border}
-            />
-            <ScoreBlock
-              title="Tiempo vs estimado"
-              score={data.score_tiempo_ejecucion}
-              description="Relación tiempo real del checklist vs tiempo total estimado en la oferta (1,0 = cumple)."
-              titleColor={textPrimary}
-              descColor={textSecondary}
-              badgeBg={primarySoft}
-              badgeText={primary}
-              barFill={primary}
-              trackBg={trackBar}
-              borderColor={border}
-              isLast
-            />
-          </View>
+        {data ? (
+          <>
+            <View style={styles.sectionWrap}>
+              <SectionTitle>RESUMEN</SectionTitle>
+              <GlassCard>
+                <Text style={styles.heroLabel}>Índice de rendimiento</Text>
+                <Text style={styles.heroPct}>{data.score_rendimiento}%</Text>
+                <Text style={styles.heroTier}>Nivel: {tierName}</Text>
+                <Text style={styles.heroFoot}>
+                  Combina respuesta en ofertas, reseñas de clientes, checklist y cumplimiento de tiempos estimados en
+                  ofertas aceptadas (últimos {data.ventana_dias} días con actividad).
+                </Text>
+              </GlassCard>
+            </View>
 
-          <View style={styles.sectionSpacer} />
-          <SectionKicker color={textMuted}>DATOS EN ESTE PERIODO</SectionKicker>
-          <View style={[styles.surface, { backgroundColor: paper, borderColor: border }, SHADOWS?.sm]}>
-            <DataRow
-              label="Ofertas (total)"
-              value={`${data.ofertas_total_en_periodo}`}
-              hint="Envío o publicación de solicitud dentro del periodo."
-              labelColor={textPrimary}
-              valueColor={primaryBold}
-              hintColor={textMuted}
-              borderColor={border}
-            />
-            <DataRow
-              label="Ofertas dirigidas / globales"
-              value={`${data.ofertas_dirigidas_muestra} / ${data.ofertas_globales_muestra}`}
-              hint="Para tiempos de respuesta por tipo de solicitud."
-              labelColor={textPrimary}
-              valueColor={primaryBold}
-              hintColor={textMuted}
-              borderColor={border}
-            />
-            <DataRow
-              label="Respuesta media (dirigidas)"
-              value={formatMinutos(data.tiempo_respuesta_dirigida_media_minutos)}
-              labelColor={textPrimary}
-              valueColor={primaryBold}
-              hintColor={textMuted}
-              borderColor={border}
-            />
-            <DataRow
-              label="Respuesta media (globales)"
-              value={formatMinutos(data.tiempo_respuesta_global_media_minutos)}
-              labelColor={textPrimary}
-              valueColor={primaryBold}
-              hintColor={textMuted}
-              borderColor={border}
-            />
-            <DataRow
-              label="Órdenes con oferta (actividad)"
-              value={`${data.ordenes_mercado_en_periodo}`}
-              hint="Servicios originados en oferta con movimiento en el periodo."
-              labelColor={textPrimary}
-              valueColor={primaryBold}
-              hintColor={textMuted}
-              borderColor={border}
-            />
-            <DataRow
-              label="Órdenes completadas"
-              value={`${data.ordenes_mercado_completadas}`}
-              hint="Estado finalizado en el subconjunto con actividad reciente."
-              labelColor={textPrimary}
-              valueColor={primaryBold}
-              hintColor={textMuted}
-              borderColor={border}
-            />
-            <DataRow
-              label="Checklist: completados / con instancia"
-              value={`${data.checklist_completados} / ${data.ordenes_con_checklist}`}
-              hint={
-                data.checklist_cumplimiento_pct != null
-                  ? `Cumplimiento ${data.checklist_cumplimiento_pct}%`
-                  : 'Sin instancias de checklist en el periodo'
-              }
-              labelColor={textPrimary}
-              valueColor={primaryBold}
-              hintColor={textMuted}
-              borderColor={border}
-            />
-            <DataRow
-              label="Tiempo medio checklist"
-              value={formatMinutos(data.checklist_tiempo_promedio_minutos ?? null)}
-              hint="Solo checklists completados; si falta duración guardada, se usa inicio→fin."
-              labelColor={textPrimary}
-              valueColor={primaryBold}
-              hintColor={textMuted}
-              borderColor={border}
-            />
-            <DataRow
-              label="Ejecución vs estimado (promedio)"
-              value={formatRatio(data.tiempo_ejecucion_vs_estimado_promedio)}
-              hint={`${data.tiempo_ejecucion_vs_estimado_muestra} servicio(s) con checklist y oferta estimada. 1,0 = en tiempo.`}
-              labelColor={textPrimary}
-              valueColor={primaryBold}
-              hintColor={textMuted}
-              borderColor={border}
-            />
-            <DataRow
-              label="Calificación mostrada"
-              value={formatEstrellas(data.calificacion_cliente_promedio)}
-              hint={calificacionHint}
-              labelColor={textPrimary}
-              valueColor={primaryBold}
-              hintColor={textMuted}
-              borderColor={border}
-              isLast
-            />
-          </View>
+            <View style={styles.sectionWrap}>
+              <SectionTitle>DESGLOSE DE PUNTAJES</SectionTitle>
+              <GlassCard>
+                <ScoreBlock
+                  title="Tiempo de respuesta"
+                  score={data.score_tiempo_respuesta}
+                  description="Tiempo desde que la solicitud quedó publicada hasta que enviaste la oferta (dirigidas priorizadas)."
+                />
+                <ScoreBlock
+                  title="Satisfacción del cliente"
+                  score={data.score_calificacion_cliente}
+                  description="Basado en reseñas del periodo; si no hay en el periodo, se usa tu promedio histórico."
+                />
+                <ScoreBlock
+                  title="Checklist"
+                  score={data.score_checklist}
+                  description="Órdenes marketplace con checklist: % completados según actividad en el periodo."
+                />
+                <ScoreBlock
+                  title="Tiempo vs estimado"
+                  score={data.score_tiempo_ejecucion}
+                  description="Relación tiempo real del checklist vs tiempo total estimado en la oferta (1,0 = cumple)."
+                  isLast
+                />
+              </GlassCard>
+            </View>
 
-          <Text style={[styles.disclaimer, { color: textSecondary }]}>
-            Los datos se calculan en el servidor. “Actividad” incluye órdenes con checklist o reseña en el periodo, no
-            solo la fecha de creación.
-          </Text>
-        </>
-      ) : null}
-    </ScrollView>
+            <View style={styles.sectionWrap}>
+              <SectionTitle>DATOS EN ESTE PERIODO</SectionTitle>
+              <GlassCard>
+                <DataRow
+                  label="Ofertas (total)"
+                  value={`${data.ofertas_total_en_periodo}`}
+                  hint="Envío o publicación de solicitud dentro del periodo."
+                />
+                <DataRow
+                  label="Ofertas dirigidas / globales"
+                  value={`${data.ofertas_dirigidas_muestra} / ${data.ofertas_globales_muestra}`}
+                  hint="Para tiempos de respuesta por tipo de solicitud."
+                />
+                <DataRow label="Respuesta media (dirigidas)" value={formatMinutos(data.tiempo_respuesta_dirigida_media_minutos)} />
+                <DataRow label="Respuesta media (globales)" value={formatMinutos(data.tiempo_respuesta_global_media_minutos)} />
+                <DataRow
+                  label="Órdenes con oferta (actividad)"
+                  value={`${data.ordenes_mercado_en_periodo}`}
+                  hint="Servicios originados en oferta con movimiento en el periodo."
+                />
+                <DataRow
+                  label="Órdenes completadas"
+                  value={`${data.ordenes_mercado_completadas}`}
+                  hint="Estado finalizado en el subconjunto con actividad reciente."
+                />
+                <DataRow
+                  label="Checklist: completados / con instancia"
+                  value={`${data.checklist_completados} / ${data.ordenes_con_checklist}`}
+                  hint={
+                    data.checklist_cumplimiento_pct != null
+                      ? `Cumplimiento ${data.checklist_cumplimiento_pct}%`
+                      : 'Sin instancias de checklist en el periodo'
+                  }
+                />
+                <DataRow
+                  label="Tiempo medio checklist"
+                  value={formatMinutos(data.checklist_tiempo_promedio_minutos ?? null)}
+                  hint="Solo checklists completados; si falta duración guardada, se usa inicio→fin."
+                />
+                <DataRow
+                  label="Ejecución vs estimado (promedio)"
+                  value={formatRatio(data.tiempo_ejecucion_vs_estimado_promedio)}
+                  hint={`${data.tiempo_ejecucion_vs_estimado_muestra} servicio(s) con checklist y oferta estimada. 1,0 = en tiempo.`}
+                />
+                <DataRow
+                  label="Calificación mostrada"
+                  value={formatEstrellas(data.calificacion_cliente_promedio)}
+                  hint={calificacionHint}
+                  isLast
+                />
+              </GlassCard>
+            </View>
+
+            <View style={styles.sectionWrap}>
+              <Text style={styles.disclaimer}>
+                Los datos se calculan en el servidor. “Actividad” incluye órdenes con checklist o reseña en el periodo,
+                no solo la fecha de creación.
+              </Text>
+            </View>
+          </>
+        ) : null}
+      </ScrollView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  scrollContent: {
-    paddingBottom: SPACING['2xl'],
+  gradientRoot: { flex: 1 },
+  scrollTransparent: { flex: 1, backgroundColor: 'transparent' },
+  scrollInner: {
     paddingTop: SPACING.sm,
   },
-  kicker: {
-    fontSize: 11,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    letterSpacing: 1.2,
-    marginBottom: SPACING.sm,
-    marginTop: SPACING.xs,
+  sectionWrap: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
-  periodBlock: {
-    paddingBottom: SPACING.md,
-    marginBottom: SPACING.sm,
-    borderBottomWidth: BORDERS.width?.thin ?? 1,
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: D.gray,
+    letterSpacing: 1,
+    marginBottom: 14,
+  },
+  glassOuter: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: D.borderWhite,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  glassInner: {
+    padding: 20,
   },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   chip: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDERS.radius?.lg ?? 12,
-    borderWidth: BORDERS.width?.thin ?? 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
   },
-  chipText: { fontSize: TYPOGRAPHY.fontSize.sm },
+  chipActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: D.blueBorder,
+  },
+  chipIdle: {
+    backgroundColor: '#FFFFFF',
+    borderColor: D.border,
+  },
+  chipText: { fontSize: 13, fontWeight: '600' },
+  chipTextActive: { color: D.blue },
+  chipTextIdle: { color: D.gray },
   loaderWrap: { paddingVertical: SPACING.xl, alignItems: 'center' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: SPACING['2xl'] },
   emptyTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontSize: 18,
+    fontWeight: '800',
+    color: D.ink,
     textAlign: 'center',
     marginBottom: SPACING.sm,
   },
-  emptySub: { fontSize: TYPOGRAPHY.fontSize.sm, textAlign: 'center', lineHeight: 20 },
-  surface: {
-    borderRadius: BORDERS.radius?.['2xl'] ?? 20,
-    borderWidth: BORDERS.width?.thin ?? 1,
-    padding: cardPad,
-    marginBottom: SPACING.md,
-  },
-  sectionSpacer: { height: SPACING.xs },
-  heroLabel: { fontSize: TYPOGRAPHY.fontSize.sm, marginBottom: SPACING.xs },
+  emptySub: { fontSize: 14, color: D.gray, textAlign: 'center', lineHeight: 20 },
+  heroLabel: { fontSize: 12, color: D.gray, fontWeight: '500', marginBottom: 6 },
   heroPct: {
-    fontSize: TYPOGRAPHY.fontSize['4xl'] ?? 40,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontSize: 40,
+    fontWeight: '900',
+    color: D.ink,
     letterSpacing: TYPOGRAPHY.letterSpacing?.tight,
   },
   heroTier: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    marginTop: SPACING.xs,
+    fontSize: 16,
+    fontWeight: '700',
+    color: D.ink,
+    marginTop: 6,
   },
-  heroFoot: { fontSize: TYPOGRAPHY.fontSize.xs, marginTop: SPACING.sm, lineHeight: 18 },
-  scoreWrap: { paddingVertical: SPACING.md },
+  heroFoot: { fontSize: 12, color: D.gray, marginTop: 12, lineHeight: 18 },
+  scoreWrap: { paddingVertical: 14 },
   scoreTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.xs,
+    marginBottom: 6,
   },
   scoreTitle: {
     flex: 1,
     paddingRight: SPACING.sm,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontSize: 14,
+    fontWeight: '600',
+    color: D.ink,
   },
-  scoreBadge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius?.badge?.md ?? 8,
+  scoreBadgePlan: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: D.blueBorder,
   },
-  scoreBadgeText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  scoreBadgePlanText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: D.blue,
   },
   scoreDesc: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontSize: 12,
+    color: D.gray,
     lineHeight: 18,
-    marginBottom: SPACING.sm,
+    marginBottom: 10,
   },
   scoreBarTrack: {
     height: 6,
@@ -517,35 +472,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingVertical: SPACING.sm,
+    paddingVertical: 12,
     gap: SPACING.md,
   },
   dataRowTextCol: { flex: 1, minWidth: 0 },
   dataRowLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontSize: 14,
+    fontWeight: '600',
+    color: D.ink,
     lineHeight: 20,
   },
   dataRowHint: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontSize: 12,
+    color: D.grayLight,
     marginTop: 4,
     lineHeight: 17,
   },
   dataRowValue: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontSize: 16,
+    fontWeight: '900',
+    color: D.ink,
     textAlign: 'right',
-    maxWidth: '42%',
+    maxWidth: '44%',
     minWidth: 72,
   },
-  errorText: { fontSize: TYPOGRAPHY.fontSize.sm, marginBottom: SPACING.md },
+  errorText: { fontSize: 14, color: D.ink, marginBottom: SPACING.md },
   retryBtn: {
     alignSelf: 'flex-start',
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    borderRadius: BORDERS.radius?.lg ?? 12,
-    borderWidth: BORDERS.width?.thin ?? 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: D.blueBorder,
+    backgroundColor: '#FFFFFF',
   },
-  retryText: { fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: TYPOGRAPHY.fontWeight.semibold },
-  disclaimer: { fontSize: TYPOGRAPHY.fontSize.xs, lineHeight: 18, marginTop: SPACING.sm, marginBottom: SPACING.lg },
+  retryText: { fontSize: 13, fontWeight: '600', color: D.blue },
+  disclaimer: { fontSize: 12, color: D.gray, lineHeight: 18 },
 });

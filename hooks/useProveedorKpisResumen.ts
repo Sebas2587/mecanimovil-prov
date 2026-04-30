@@ -43,8 +43,19 @@ export function useProveedorKpisResumen({ enabled, dias = 30 }: Options) {
     load();
   }, [load]);
 
-  const progress = data?.score_rendimiento ?? 50;
-  const targetTierName = targetTierNameForScore(progress);
+  /** Mismo criterio que la pantalla de detalle: solo con respuesta API válida. */
+  const progress = data != null ? data.score_rendimiento : undefined;
+  const targetTierName =
+    data != null
+      ? targetTierNameForScore(data.score_rendimiento)
+      : loading
+        ? 'Cargando…'
+        : error != null
+          ? 'Sin datos'
+          : '—';
+
+  /** Ventana mostrada (del payload o el `dias` pedido mientras carga). */
+  const ventanaDiasMostrada = data?.ventana_dias ?? dias;
 
   return {
     data,
@@ -53,5 +64,7 @@ export function useProveedorKpisResumen({ enabled, dias = 30 }: Options) {
     refresh: load,
     progress,
     targetTierName,
+    ventanaDiasMostrada,
+    hasData: Boolean(data),
   };
 }
