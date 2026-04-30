@@ -6,17 +6,23 @@ export interface ProveedorKpisResumen {
   desde: string;
   ofertas_dirigidas_muestra: number;
   ofertas_globales_muestra: number;
+  ofertas_total_en_periodo: number;
   tiempo_respuesta_dirigida_media_minutos: number | null;
   tiempo_respuesta_global_media_minutos: number | null;
+  ordenes_mercado_en_periodo: number;
   ordenes_mercado_completadas: number;
   ordenes_con_checklist: number;
   checklist_completados: number;
   checklist_cumplimiento_pct: number | null;
   checklist_tiempo_promedio_minutos: number | null;
+  /** Tiempo real checklist / tiempo estimado oferta (1 = cumple, &gt;1 más lento). */
   tiempo_ejecucion_vs_estimado_promedio: number | null;
   tiempo_ejecucion_vs_estimado_muestra: number;
   resenas_muestra: number;
+  resenas_totales_proveedor: number;
+  /** Promedio en periodo si hay reseñas; si no, promedio global del proveedor. */
   calificacion_cliente_promedio: number | null;
+  calificacion_promedio_todas_resenas: number | null;
   score_tiempo_respuesta: number | null;
   score_calificacion_cliente: number | null;
   score_checklist: number | null;
@@ -38,7 +44,6 @@ class KpisProveedorService {
   async obtenerResumen(dias: number = 30): Promise<KpisServiceResponse<ProveedorKpisResumen>> {
     try {
       const d = Math.min(365, Math.max(1, Math.round(dias)));
-      // El wrapper `api.get` del proyecto solo acepta URL (no pasa `params` a axios); query en la URL.
       const url = `${BASE}?dias=${encodeURIComponent(String(d))}`;
       const response = await api.get<ProveedorKpisResumen>(url);
       return { success: true, data: response.data };
