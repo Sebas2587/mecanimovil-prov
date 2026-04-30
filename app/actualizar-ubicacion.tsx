@@ -16,6 +16,7 @@ import * as Location from 'expo-location';
 import { Stack, router } from 'expo-router';
 import Header from '@/components/Header';
 import { useAuth } from '@/context/AuthContext';
+import { mecanicoAPI } from '@/services/api';
 
 const COLORS = {
   primary: '#FF6B35',
@@ -129,7 +130,7 @@ export default function ActualizarUbicacionScreen() {
   };
 
   const actualizarUbicacion = async () => {
-    if (!direccion.trim() && (!coordenadas.lat || !coordenadas.lng)) {
+    if (!direccion.trim() && (coordenadas.lat == null || coordenadas.lng == null)) {
       Alert.alert(
         'Datos incompletos',
         'Ingresa una dirección o usa el GPS para obtener tu ubicación.'
@@ -140,21 +141,20 @@ export default function ActualizarUbicacionScreen() {
     try {
       setLoading(true);
 
-      const payload = {
-        direccion: direccion.trim(),
-        ...(coordenadas.lat && coordenadas.lng && {
-          latitud: coordenadas.lat,
-          longitud: coordenadas.lng,
-        }),
-      };
+      const payload: {
+        direccion?: string;
+        latitud?: number;
+        longitud?: number;
+      } = {};
+      if (direccion.trim()) {
+        payload.direccion = direccion.trim();
+      }
+      if (coordenadas.lat != null && coordenadas.lng != null) {
+        payload.latitud = coordenadas.lat;
+        payload.longitud = coordenadas.lng;
+      }
 
-      console.log('Actualizando ubicación con payload:', payload);
-
-      // Aquí harías la llamada a tu API
-      // const response = await api.patch('/usuarios/mecanicos-domicilio/actualizar_ubicacion_domicilio/', payload);
-
-      // Simulación de éxito por ahora
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await mecanicoAPI.actualizarUbicacionDomicilio(payload);
 
       Alert.alert(
         'Ubicación actualizada',
@@ -197,7 +197,8 @@ export default function ActualizarUbicacionScreen() {
             <Ionicons name="location" size={32} color={COLORS.primary} />
           </View>
           <Text style={styles.subtitle}>
-            Mantén actualizada tu ubicación para que los clientes puedan encontrarte fácilmente
+            Este punto es el que usa la app de clientes para ordenarte por distancia desde su dirección guardada.
+            Indica una dirección clara o usa el GPS.
           </Text>
         </View>
 

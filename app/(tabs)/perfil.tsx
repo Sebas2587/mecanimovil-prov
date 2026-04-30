@@ -104,7 +104,14 @@ export default function PerfilScreen() {
   ];
 
   if (esMecanicoDomicilio) {
-    settingsItems.push({ icon: <Map size={20} color="#10B981" />, title: 'Zonas', subtitle: 'Cobertura', onPress: () => router.push('/zonas-servicio'), iconBg: '#ECFDF5' });
+    settingsItems.push({
+      icon: <MapPin size={20} color="#0284C7" />,
+      title: 'Mi ubicación',
+      subtitle: 'Dirección y GPS para clientes cercanos',
+      onPress: () => router.push('/actualizar-ubicacion'),
+      iconBg: '#E0F2FE',
+    });
+    settingsItems.push({ icon: <Map size={20} color="#10B981" />, title: 'Zonas', subtitle: 'Cobertura por comunas', onPress: () => router.push('/zonas-servicio'), iconBg: '#ECFDF5' });
   } else if (esTaller) {
     settingsItems.push({ icon: <Building2 size={20} color="#3B82F6" />, title: 'Taller', subtitle: 'Gestionar info', onPress: () => router.push('/gestionar-taller'), iconBg: '#EFF6FF' });
   }

@@ -815,6 +815,20 @@ export default function ConfiguracionPerfilScreen() {
                     placeholder="Dirección de tu base de operaciones"
                     placeholderTextColor={textTertiary}
                   />
+                  <Text style={[styles.formHint, { color: textTertiary, marginTop: 6 }]}>
+                    Los clientes te buscan por distancia. Guarda el perfil y, además, define el punto en el mapa.
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.linkUbicacionBtn, { borderColor: primary500, backgroundColor: primaryLight }]}
+                    onPress={() => router.push('/actualizar-ubicacion')}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialIcons name="my-location" size={20} color={primary500} />
+                    <Text style={[styles.linkUbicacionText, { color: primary500 }]}>
+                      Mi ubicación en mapa (dirección o GPS)
+                    </Text>
+                    <MaterialIcons name="chevron-right" size={22} color={primary500} />
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -1334,6 +1348,21 @@ const createStyles = () => {
     formHint: {
       fontSize: fontSizeBase - 2,
       marginTop: spacingXs,
+    },
+    linkUbicacionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: spacingMd,
+      paddingVertical: spacingMd - 2,
+      paddingHorizontal: spacingMd,
+      borderRadius: radiusMd,
+      borderWidth: 1,
+    },
+    linkUbicacionText: {
+      flex: 1,
+      fontSize: fontSizeMd,
+      fontWeight: fontWeightSemibold,
     },
     saveContainer: {
       position: 'absolute',

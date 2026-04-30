@@ -20,7 +20,7 @@ import {
   Bell, Wallet, DollarSign, Radar, Briefcase, Calendar,
   ShieldCheck, Car, Clock,
   TrendingUp, TrendingDown, ChevronRight, Search,
-  Wrench, Settings, Map, AlertTriangle, CreditCard,
+  Wrench, Settings, Map, MapPin, AlertTriangle, CreditCard,
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { router, useFocusEffect } from 'expo-router';
@@ -1347,7 +1347,20 @@ export default function HomeScreen() {
               {esMecanicoDomicilio && (
                 <View style={styles.mgmtRow}>
                   <TouchableOpacity
-                    style={[styles.mgmtCard, styles.mgmtCardFull]}
+                    style={styles.mgmtCard}
+                    onPress={() => router.push('/actualizar-ubicacion')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.mgmtIconBox, { backgroundColor: '#E0F2FE' }]}>
+                      <MapPin size={22} color="#0284C7" />
+                    </View>
+                    <View style={styles.mgmtCardTextCol}>
+                      <Text style={styles.mgmtCardTitle}>Mi ubicación</Text>
+                      <Text style={styles.mgmtCardSub}>Dirección / GPS para mapa</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.mgmtCard}
                     onPress={() => router.push('/zonas-servicio')}
                     activeOpacity={0.7}
                   >
@@ -1356,7 +1369,7 @@ export default function HomeScreen() {
                     </View>
                     <View style={styles.mgmtCardTextCol}>
                       <Text style={styles.mgmtCardTitle}>Zonas</Text>
-                      <Text style={styles.mgmtCardSub}>Cobertura a domicilio</Text>
+                      <Text style={styles.mgmtCardSub}>Comunas de cobertura</Text>
                     </View>
                   </TouchableOpacity>
                 </View>

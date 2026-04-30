@@ -699,6 +699,20 @@ export const mecanicoAPI = {
     return response.data;
   },
 
+  /** Base para búsquedas "cerca" en app usuarios: geocodifica dirección o guarda lat/lng. */
+  actualizarUbicacionDomicilio: async (datos: {
+    direccion?: string;
+    latitud?: number;
+    longitud?: number;
+  }) => {
+    const api = await getAPI();
+    const response = await api.patch(
+      '/usuarios/mecanicos-domicilio/actualizar_ubicacion_domicilio/',
+      datos
+    );
+    return response.data;
+  },
+
   // Mantener compatibilidad con nombres antiguos
   actualizarPerfilExistente: async (datos: any) => {
     const api = await getAPI();
