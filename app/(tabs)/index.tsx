@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -47,6 +47,8 @@ import { AlertsPanel } from '@/components/alerts/AlertsPanel';
 import { useAlerts } from '@/context/AlertsContext';
 import suscripcionesService, { type SuscripcionProveedor, type SaludSuscripcion } from '@/services/suscripcionesService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { PerformanceWidget } from '@/components/dashboard/PerformanceWidget';
+import { useProveedorKpisResumen } from '@/hooks/useProveedorKpisResumen';
 
 interface OrdenConChecklist extends Orden {
   checklist_instance?: ChecklistInstance;
@@ -70,6 +72,10 @@ export default function HomeScreen() {
   const esMecanicoDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
   /** Habilitado por admin para operar (≠ sello "Verificado" en perfil). */
   const cuentaAprobadaPorAdmin = estadoProveedor?.estado_verificacion === 'aprobado';
+  const kpisResumen = useProveedorKpisResumen({
+    enabled: Boolean(isAuthenticated && cuentaAprobadaPorAdmin && !isLoading),
+    dias: 30,
+  });
   const [ordenes, setOrdenes] = useState<OrdenConChecklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -145,6 +151,9 @@ export default function HomeScreen() {
     return theme?.borders || BORDERS || {};
   }, [theme]);
 
+  const handlePerformanceWidgetPress = useCallback(() => {
+    router.push('/rendimiento-kpis');
+  }, []);
 
   // Redirigir al onboarding si el usuario no tiene perfil
   useEffect(() => {
@@ -179,8 +188,9 @@ export default function HomeScreen() {
         cargarSuscripcion();
         cargarOfertasMap();
         verificarYGenerarAlertas();
+        kpisResumen.refresh();
       }
-    }, [cuentaAprobadaPorAdmin])
+    }, [cuentaAprobadaPorAdmin, kpisResumen.refresh])
   );
 
   // Cargar saldo de créditos
@@ -647,7 +657,8 @@ export default function HomeScreen() {
       cargarCreditos(),
       cargarEstadisticasMP(),
       cargarSuscripcion(),
-      cargarOfertasMap()
+      cargarOfertasMap(),
+      kpisResumen.refresh(),
     ]);
     setRefreshing(false);
   };
@@ -959,6 +970,15 @@ export default function HomeScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
         >
+          {/* Rendimiento / progreso */}
+          <View style={styles.sectionWrap}>
+            <PerformanceWidget
+              progress={kpisResumen.progress}
+              targetTierName={kpisResumen.targetTierName}
+              onPress={handlePerformanceWidgetPress}
+            />
+          </View>
+
           {/* 2. RESUMEN FINANCIERO */}
           {saldoCreditos && (
             <View style={styles.sectionWrap}>

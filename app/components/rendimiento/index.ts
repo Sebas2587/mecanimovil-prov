@@ -1,0 +1,1 @@
+export { RendimientoKpisContent } from './RendimientoKpisContent';
