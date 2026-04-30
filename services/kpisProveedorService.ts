@@ -31,13 +31,16 @@ export interface KpisServiceResponse<T> {
   error?: string;
 }
 
-const BASE = '/ordenes/proveedor-ordenes/kpis-resumen';
+/** Barra final obligatoria: sin ella Django puede redirigir y axios pierde el header Authorization → 401. */
+const BASE = '/ordenes/proveedor-ordenes/kpis-resumen/';
 
 class KpisProveedorService {
   async obtenerResumen(dias: number = 30): Promise<KpisServiceResponse<ProveedorKpisResumen>> {
     try {
       const d = Math.min(365, Math.max(1, Math.round(dias)));
-      const response = await api.get<ProveedorKpisResumen>(BASE, { params: { dias: d } });
+      // El wrapper `api.get` del proyecto solo acepta URL (no pasa `params` a axios); query en la URL.
+      const url = `${BASE}?dias=${encodeURIComponent(String(d))}`;
+      const response = await api.get<ProveedorKpisResumen>(url);
       return { success: true, data: response.data };
     } catch (error: any) {
       if (__DEV__) {
