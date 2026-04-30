@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,484 +8,485 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
-  Platform
+  Platform,
+  Keyboard,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useFocusEffect } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { MapPin, Navigation, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { useAuth } from '@/context/AuthContext';
-import { mecanicoAPI } from '@/services/api';
+import { mecanicoAPI, type EstadoProveedor } from '@/services/api';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { searchChileAddresses, type ChileAddressHit } from '@/utils/chileNominatimSearch';
 
-const COLORS = {
-  primary: '#FF6B35',
-  secondary: '#004E89',
-  background: '#F8F9FA',
-  white: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#6B7280',
-  border: '#E5E7EB',
-  success: '#10B981',
-  error: '#EF4444',
-  warning: '#F59E0B',
-};
+type SearchUi = 'idle' | 'loading' | 'results' | 'empty' | 'error';
+
+const DEBOUNCE_MS = 480;
+const MIN_QUERY = 4;
 
 export default function ActualizarUbicacionScreen() {
-  const { estadoProveedor } = useAuth();
-  const [direccion, setDireccion] = useState<string>('');
-  const [coordenadas, setCoordenadas] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
-  const [loading, setLoading] = useState(false);
-  const [obteniendoGPS, setObteniendoGPS] = useState(false);
-  const [ubicacionActual, setUbicacionActual] = useState<{ direccion: string; lat: number; lng: number } | null>(null);
+  const insets = useSafeAreaInsets();
+  const { estadoProveedor, refrescarEstadoProveedor } = useAuth();
 
-  // Verificar que solo los mecánicos a domicilio puedan acceder
+  const hydrateFromEstado = useCallback((estado: EstadoProveedor | null) => {
+    if (estado?.tipo_proveedor !== 'mecanico') return;
+    const dp = estado.datos_proveedor as
+      | {
+          direccion?: string;
+          ubicacion_lat?: number;
+          ubicacion_lng?: number;
+        }
+      | undefined;
+    if (!dp) return;
+    skipDebounceRef.current = true;
+    setAddressLine(dp.direccion || '');
+    if (dp.ubicacion_lat != null && dp.ubicacion_lng != null) {
+      const lat = Number(dp.ubicacion_lat);
+      const lng = Number(dp.ubicacion_lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        setCoords({ lat, lng });
+      }
+    } else {
+      setCoords(null);
+    }
+  }, []);
+
+  const [addressLine, setAddressLine] = useState('');
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [suggestions, setSuggestions] = useState<ChileAddressHit[]>([]);
+  const [searchUi, setSearchUi] = useState<SearchUi>('idle');
+  const [saving, setSaving] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+
+  const skipDebounceRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
     if (estadoProveedor?.tipo_proveedor === 'taller') {
       Alert.alert(
-        'Acceso Restringido',
-        'Esta funcionalidad solo está disponible para mecánicos a domicilio. Los talleres tienen una ubicación fija.',
-        [
-          {
-            text: 'Entendido',
-            onPress: () => router.back()
-          }
-        ]
+        'Solo mecánicos a domicilio',
+        'Los talleres gestionan su ubicación en “Gestionar taller”.',
+        [{ text: 'Entendido', onPress: () => router.back() }]
       );
     }
-  }, [estadoProveedor]);
+  }, [estadoProveedor?.tipo_proveedor]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      (async () => {
+        try {
+          const estado = await refrescarEstadoProveedor();
+          if (alive && estado) hydrateFromEstado(estado);
+        } catch {
+          /* perfil aún no disponible */
+        }
+      })();
+      return () => {
+        alive = false;
+      };
+    }, [refrescarEstadoProveedor, hydrateFromEstado])
+  );
 
   useEffect(() => {
-    cargarUbicacionActual();
-  }, []);
-
-  const cargarUbicacionActual = async () => {
-    try {
-      // Aquí podrías cargar la ubicación actual del mecánico desde tu API
-      console.log('Cargando ubicación actual del mecánico...');
-    } catch (error) {
-      console.error('Error cargando ubicación actual:', error);
+    if (skipDebounceRef.current) {
+      skipDebounceRef.current = false;
+      setSuggestions([]);
+      setSearchUi('idle');
+      return;
     }
+
+    const q = addressLine.trim();
+    if (q.length < MIN_QUERY) {
+      setSuggestions([]);
+      setSearchUi('idle');
+      abortRef.current?.abort();
+      return;
+    }
+
+    const t = setTimeout(async () => {
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+      setSearchUi('loading');
+      try {
+        const hits = await searchChileAddresses(q, { limit: 8, signal: ac.signal });
+        if (ac.signal.aborted) return;
+        setSuggestions(hits);
+        setSearchUi(hits.length ? 'results' : 'empty');
+      } catch {
+        if (!ac.signal.aborted) setSearchUi('error');
+      }
+    }, DEBOUNCE_MS);
+
+    return () => clearTimeout(t);
+  }, [addressLine]);
+
+  const onPickSuggestion = (h: ChileAddressHit) => {
+    Keyboard.dismiss();
+    skipDebounceRef.current = true;
+    setAddressLine(h.display_name);
+    setCoords({ lat: h.lat, lng: h.lon });
+    setSuggestions([]);
+    setSearchUi('idle');
   };
 
-  const obtenerUbicacionGPS = async () => {
+  const usarGps = async () => {
     try {
-      setObteniendoGPS(true);
-
-      // Solicitar permisos de ubicación
+      setGpsLoading(true);
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Permisos requeridos',
-          'Se necesitan permisos de ubicación para obtener tu posición actual.'
-        );
+        Alert.alert('Permisos', 'Activa la ubicación para usar el GPS.');
         return;
       }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude, longitude } = loc.coords;
+      skipDebounceRef.current = true;
+      setCoords({ lat: latitude, lng: longitude });
 
-      // Obtener ubicación actual
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-
-      const { latitude, longitude } = location.coords;
-      setCoordenadas({ lat: latitude, lng: longitude });
-
-      // Geocodificación inversa para obtener dirección
       try {
-        const [address] = await Location.reverseGeocodeAsync({
-          latitude,
-          longitude,
-        });
-
-        if (address) {
-          const direccionCompleta = [
-            address.streetNumber,
-            address.street,
-            address.city,
-            address.region,
-            address.country
-          ].filter(Boolean).join(', ');
-
-          setDireccion(direccionCompleta || `${latitude}, ${longitude}`);
+        const [rev] = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (rev) {
+          const line = [rev.streetNumber, rev.street, rev.city, rev.region].filter(Boolean).join(', ');
+          setAddressLine(line || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+        } else {
+          setAddressLine(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
         }
-      } catch (geocodeError) {
-        console.warn('Error en geocodificación inversa:', geocodeError);
-        setDireccion(`${latitude}, ${longitude}`);
+      } catch {
+        setAddressLine(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
       }
-
-      Alert.alert(
-        'Ubicación obtenida',
-        `Coordenadas: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-      );
-
-    } catch (error) {
-      console.error('Error obteniendo ubicación GPS:', error);
-      Alert.alert(
-        'Error',
-        'No se pudo obtener la ubicación GPS. Verifica que tengas el GPS activado.'
-      );
+      setSuggestions([]);
+      setSearchUi('idle');
+    } catch {
+      Alert.alert('GPS', 'No se pudo obtener la posición.');
     } finally {
-      setObteniendoGPS(false);
+      setGpsLoading(false);
     }
   };
 
-  const actualizarUbicacion = async () => {
-    if (!direccion.trim() && (coordenadas.lat == null || coordenadas.lng == null)) {
-      Alert.alert(
-        'Datos incompletos',
-        'Ingresa una dirección o usa el GPS para obtener tu ubicación.'
-      );
+  const guardar = async () => {
+    const text = addressLine.trim();
+    if (!text && !coords) {
+      Alert.alert('Faltan datos', 'Escribe una dirección reconocida en Chile o usa el GPS.');
       return;
     }
 
     try {
-      setLoading(true);
-
-      const payload: {
-        direccion?: string;
-        latitud?: number;
-        longitud?: number;
-      } = {};
-      if (direccion.trim()) {
-        payload.direccion = direccion.trim();
+      setSaving(true);
+      const payload: { direccion?: string; latitud?: number; longitud?: number } = {};
+      if (text) payload.direccion = text;
+      if (coords) {
+        payload.latitud = coords.lat;
+        payload.longitud = coords.lng;
       }
-      if (coordenadas.lat != null && coordenadas.lng != null) {
-        payload.latitud = coordenadas.lat;
-        payload.longitud = coordenadas.lng;
-      }
-
       await mecanicoAPI.actualizarUbicacionDomicilio(payload);
-
-      Alert.alert(
-        'Ubicación actualizada',
-        'Tu ubicación de domicilio ha sido actualizada exitosamente.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setDireccion('');
-              setCoordenadas({ lat: null, lng: null });
-              cargarUbicacionActual();
-            },
-          },
-        ]
-      );
-
-    } catch (error) {
-      console.error('Error actualizando ubicación:', error);
-      Alert.alert(
-        'Error',
-        'No se pudo actualizar la ubicación. Intenta nuevamente.'
-      );
+      const estadoFresh = await refrescarEstadoProveedor();
+      if (estadoFresh) hydrateFromEstado(estadoFresh);
+      Alert.alert('Listo', 'Tu ubicación base quedó guardada. Los clientes te verán ordenados por distancia.');
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.error ||
+        e?.response?.data?.message ||
+        e?.message ||
+        'No se pudo guardar.';
+      Alert.alert('Error', String(msg));
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
+  const glassTint = Platform.OS === 'ios' ? ('light' as const) : ('dark' as const);
+  const blurIntensity = Platform.OS === 'ios' ? 42 : 28;
+
+  const hintSearch =
+    searchUi === 'loading'
+      ? 'Buscando direcciones…'
+      : searchUi === 'empty'
+        ? 'Sin coincidencias en Chile. Refina calle y número.'
+        : searchUi === 'error'
+          ? 'No pudimos consultar el mapa. Revisa la conexión.'
+          : addressLine.trim().length >= MIN_QUERY
+            ? 'Toca un resultado para fijar el punto en el mapa.'
+            : `Escribe al menos ${MIN_QUERY} caracteres para buscar.`;
+
+  if (estadoProveedor?.tipo_proveedor === 'taller') {
+    return null;
+  }
+
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <Header
-        title="Actualizar Ubicación"
-        showBack={true}
-        onBackPress={() => router.back()}
-      />
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Hero Section */}
-        <View style={styles.heroSection}>
-          <View style={styles.headerIcon}>
-            <Ionicons name="location" size={32} color={COLORS.primary} />
-          </View>
-          <Text style={styles.subtitle}>
-            Este punto es el que usa la app de clientes para ordenarte por distancia desde su dirección guardada.
-            Indica una dirección clara o usa el GPS.
-          </Text>
-        </View>
+    <View style={styles.root}>
+      <LinearGradient colors={['#F3F5F8', '#FAFBFC', '#FFFFFF']} style={StyleSheet.absoluteFill} />
+      <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Header title="Ubicación base" showBack onBackPress={() => router.back()} />
 
-        {/* Ubicación actual */}
-        {ubicacionActual && (
-          <View style={styles.currentLocationCard}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="home" size={20} color={COLORS.secondary} />
-              <Text style={styles.cardTitle}>Ubicación Actual</Text>
-            </View>
-            <Text style={styles.currentAddress}>{ubicacionActual.direccion}</Text>
-            <Text style={styles.currentCoords}>
-              {ubicacionActual.lat}, {ubicacionActual.lng}
-            </Text>
-          </View>
-        )}
-
-        {/* Formulario */}
-        <View style={styles.form}>
-          {/* Dirección manual */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Dirección de domicilio</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Ej: Los Leones 1200, Providencia, Santiago"
-              value={direccion}
-              onChangeText={setDireccion}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-            <Text style={styles.inputHelp}>
-              Ingresa tu dirección completa para mejor precisión
-            </Text>
-          </View>
-
-          {/* GPS Button */}
-          <TouchableOpacity
-            style={[styles.gpsButton, obteniendoGPS && styles.gpsButtonLoading]}
-            onPress={obtenerUbicacionGPS}
-            disabled={obteniendoGPS}
-          >
-            {obteniendoGPS ? (
-              <ActivityIndicator size="small" color={COLORS.white} />
-            ) : (
-              <Ionicons name="navigate" size={20} color={COLORS.white} />
-            )}
-            <Text style={styles.gpsButtonText}>
-              {obteniendoGPS ? 'Obteniendo ubicación...' : 'Usar mi ubicación actual (GPS)'}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Coordenadas (si existen) */}
-          {coordenadas.lat && coordenadas.lng && (
-            <View style={styles.coordsCard}>
-              <View style={styles.coordsHeader}>
-                <Ionicons name="pin" size={16} color={COLORS.success} />
-                <Text style={styles.coordsTitle}>Coordenadas GPS</Text>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={{
+            paddingHorizontal: SPACING.container?.horizontal ?? SPACING.md ?? 16,
+            paddingBottom: insets.bottom + 28,
+            paddingTop: 8,
+          }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.glassOuter}>
+            <BlurView intensity={blurIntensity} tint={glassTint} style={StyleSheet.absoluteFill} />
+            <View style={styles.glassInner}>
+              <View style={styles.heroRow}>
+                <View style={styles.heroIcon}>
+                  <MapPin size={22} color={COLORS.secondary?.[500] ?? '#007EA7'} />
+                </View>
+                <Text style={styles.heroText}>
+                  Este punto es el que usa la app de usuarios para calcular distancia desde su dirección guardada.
+                </Text>
               </View>
-              <Text style={styles.coordsText}>
-                Latitud: {coordenadas.lat.toFixed(6)}
-              </Text>
-              <Text style={styles.coordsText}>
-                Longitud: {coordenadas.lng.toFixed(6)}
-              </Text>
             </View>
-          )}
-
-          {/* Información importante */}
-          <View style={styles.infoCard}>
-            <View style={styles.infoHeader}>
-              <Ionicons name="information-circle" size={20} color={COLORS.warning} />
-              <Text style={styles.infoTitle}>Información importante</Text>
-            </View>
-            <Text style={styles.infoText}>
-              • Tu ubicación de domicilio determina desde dónde ofreces servicios a domicilio
-            </Text>
-            <Text style={styles.infoText}>
-              • Los clientes verán la distancia desde tu domicilio hasta su ubicación
-            </Text>
-            <Text style={styles.infoText}>
-              • Solo aparecerás para clientes dentro de tu radio de cobertura (10 km)
-            </Text>
           </View>
 
-          {/* Botón actualizar */}
+          <View style={[styles.glassOuter, { marginTop: 14 }]}>
+            <BlurView intensity={blurIntensity} tint={glassTint} style={StyleSheet.absoluteFill} />
+            <View style={styles.glassInner}>
+              <Text style={styles.label}>Buscar en Chile</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ej: Los Leones 1200, Providencia"
+                placeholderTextColor={COLORS.neutral?.gray?.[400] ?? '#9CA3AF'}
+                value={addressLine}
+                onChangeText={setAddressLine}
+                autoCorrect={false}
+                autoCapitalize="words"
+              />
+              <Text style={styles.hint}>{hintSearch}</Text>
+
+              {suggestions.length > 0 && (
+                <View style={styles.suggestionsBox}>
+                  {suggestions.map((item, idx) => (
+                    <TouchableOpacity
+                      key={`${item.lat}-${item.lon}-${idx}`}
+                      style={styles.suggestionRow}
+                      onPress={() => onPickSuggestion(item)}
+                      activeOpacity={0.7}
+                    >
+                      <MapPin size={16} color={COLORS.primary?.[500] ?? '#003459'} />
+                      <Text style={styles.suggestionText} numberOfLines={3}>
+                        {item.display_name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.btnSecondary, gpsLoading && styles.btnDisabled]}
+                onPress={usarGps}
+                disabled={gpsLoading}
+                activeOpacity={0.85}
+              >
+                {gpsLoading ? (
+                  <ActivityIndicator color={COLORS.primary?.[500] ?? '#003459'} />
+                ) : (
+                  <Navigation size={18} color={COLORS.primary?.[500] ?? '#003459'} />
+                )}
+                <Text style={styles.btnSecondaryText}>Usar mi ubicación actual (GPS)</Text>
+              </TouchableOpacity>
+
+              {coords && (
+                <View style={styles.coordsPill}>
+                  <CheckCircle2 size={16} color="#059669" />
+                  <Text style={styles.coordsPillText}>
+                    Punto listo · {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
+                  </Text>
+                </View>
+              )}
+
+              {!coords && addressLine.trim().length >= MIN_QUERY && (
+                <View style={styles.warnRow}>
+                  <AlertCircle size={16} color="#D97706" />
+                  <Text style={styles.warnText}>
+                    Si no eliges un resultado ni usas GPS, al guardar intentaremos ubicar el texto automáticamente.
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+
           <TouchableOpacity
-            style={[styles.updateButton, loading && styles.updateButtonLoading]}
-            onPress={actualizarUbicacion}
-            disabled={loading}
+            style={[styles.btnPrimary, saving && styles.btnDisabled]}
+            onPress={guardar}
+            disabled={saving}
+            activeOpacity={0.9}
           >
-            {loading ? (
-              <ActivityIndicator size="small" color={COLORS.white} />
+            {saving ? (
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Ionicons name="checkmark-circle" size={20} color={COLORS.white} />
+              <Text style={styles.btnPrimaryText}>Guardar ubicación base</Text>
             )}
-            <Text style={styles.updateButtonText}>
-              {loading ? 'Actualizando...' : 'Actualizar Ubicación'}
-            </Text>
           </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
+const radiusMd = BORDERS?.radius?.md ?? 12;
+const radiusLg = BORDERS?.radius?.lg ?? 16;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+  root: { flex: 1 },
+  safe: { flex: 1 },
+  scroll: { flex: 1 },
+  glassOuter: {
+    borderRadius: radiusLg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 52, 89, 0.08)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#00171F',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+      },
+      android: { elevation: 3 },
+    }),
   },
-  scrollView: {
-    flex: 1,
-    padding: 20,
+  glassInner: {
+    padding: SPACING.md ?? 16,
+    backgroundColor: 'rgba(255,255,255,0.52)',
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  heroSection: {
-    alignItems: 'center',
-    marginBottom: 30,
-    marginTop: 10,
-  },
-  headerIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: `${COLORS.primary}15`,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  currentLocationCard: {
-    backgroundColor: COLORS.white,
+  heroRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  heroIcon: {
+    width: 40,
+    height: 40,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardHeader: {
-    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 168, 232, 0.12)',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'center',
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginLeft: 8,
-  },
-  currentAddress: {
-    fontSize: 15,
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  currentCoords: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-  },
-  form: {
+  heroText: {
     flex: 1,
-  },
-  inputGroup: {
-    marginBottom: 20,
+    fontSize: (TYPOGRAPHY?.fontSize?.sm ?? 14) as number,
+    lineHeight: 20,
+    color: COLORS.text?.secondary ?? '#4B5563',
+    fontWeight: (TYPOGRAPHY?.fontWeight?.medium ?? '500') as any,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.text?.primary ?? '#111827',
     marginBottom: 8,
   },
-  textInput: {
-    backgroundColor: COLORS.white,
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    color: COLORS.text,
+  input: {
     borderWidth: 1,
-    borderColor: COLORS.border,
-    minHeight: 80,
+    borderColor: 'rgba(0, 52, 89, 0.12)',
+    borderRadius: radiusMd,
+    paddingHorizontal: 14,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
+    fontSize: 15,
+    color: COLORS.text?.primary ?? '#111827',
+    backgroundColor: 'rgba(255,255,255,0.85)',
   },
-  inputHelp: {
+  hint: {
+    marginTop: 8,
+    fontSize: 12,
+    color: COLORS.text?.tertiary ?? '#6B7280',
+    lineHeight: 17,
+  },
+  suggestionsBox: {
+    marginTop: 12,
+    maxHeight: 220,
+    borderRadius: radiusMd,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 52, 89, 0.08)',
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    overflow: 'hidden',
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
+  },
+  suggestionText: {
+    flex: 1,
     fontSize: 13,
-    color: COLORS.textSecondary,
-    marginTop: 4,
+    color: COLORS.text?.primary ?? '#1F2937',
+    lineHeight: 18,
   },
-  gpsButton: {
-    backgroundColor: COLORS.secondary,
-    borderRadius: 8,
-    padding: 16,
+  btnSecondary: {
+    marginTop: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
-  },
-  gpsButtonLoading: {
-    opacity: 0.7,
-  },
-  gpsButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  coordsCard: {
-    backgroundColor: `${COLORS.success}10`,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
+    gap: 10,
+    paddingVertical: 12,
+    borderRadius: radiusMd,
     borderWidth: 1,
-    borderColor: `${COLORS.success}30`,
+    borderColor: 'rgba(0, 52, 89, 0.18)',
+    backgroundColor: 'rgba(255,255,255,0.55)',
   },
-  coordsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  coordsTitle: {
+  btnSecondaryText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.success,
-    marginLeft: 4,
+    color: COLORS.primary?.[500] ?? '#003459',
   },
-  coordsText: {
-    fontSize: 13,
-    color: COLORS.success,
-    marginBottom: 2,
-  },
-  infoCard: {
-    backgroundColor: `${COLORS.warning}10`,
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: `${COLORS.warning}30`,
-  },
-  infoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.warning,
-    marginLeft: 8,
-  },
-  infoText: {
-    fontSize: 14,
-    color: COLORS.warning,
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  updateButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    padding: 16,
-    flexDirection: 'row',
+  btnPrimary: {
+    marginTop: 20,
+    borderRadius: radiusMd,
+    paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    backgroundColor: COLORS.secondary?.[500] ?? '#007EA7',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#007EA7',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.22,
+        shadowRadius: 12,
+      },
+      android: { elevation: 4 },
+    }),
   },
-  updateButtonLoading: {
-    opacity: 0.7,
-  },
-  updateButtonText: {
-    color: COLORS.white,
+  btnPrimaryText: {
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontWeight: '700',
   },
-}); 
+  btnDisabled: { opacity: 0.65 },
+  coordsPill: {
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+  },
+  coordsPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#047857',
+  },
+  warnRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  warnText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 17,
+  },
+});

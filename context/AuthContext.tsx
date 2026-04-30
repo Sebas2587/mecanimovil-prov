@@ -10,6 +10,7 @@ interface Usuario {
   first_name?: string;
   last_name?: string;
   telefono?: string;
+  direccion?: string;
   es_mecanico?: boolean;
   foto_perfil?: string;
 }
@@ -23,7 +24,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   registro: (datos: any) => Promise<void>;
   updateUser: (userData: Usuario) => void;
-  refrescarEstadoProveedor: () => Promise<void>;
+  refrescarEstadoProveedor: () => Promise<EstadoProveedor | null>;
   limpiarStorage: () => Promise<void>;
   // Función helper para obtener nombre del proveedor con fallbacks
   obtenerNombreProveedor: () => string;
@@ -106,7 +107,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         telefono: estadoProveedor?.datos_proveedor?.telefono || usuario?.telefono || '',
         email: usuario?.email || '',
         descripcion: estadoProveedor?.datos_proveedor?.descripcion || '',
-        direccion: estadoProveedor?.datos_proveedor?.direccion || '',
+        direccion:
+          estadoProveedor?.datos_proveedor?.direccion?.trim() ||
+          usuario?.direccion?.trim() ||
+          '',
       };
     } catch (error) {
       // Log solo en desarrollo
@@ -646,46 +650,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsAuthenticated(true); // Si hay datos de usuario, está autenticado
   };
 
-  const refrescarEstadoProveedor = async () => {
+  const refrescarEstadoProveedor = async (): Promise<EstadoProveedor | null> => {
     try {
       const estado = await authAPI.obtenerEstadoProveedor();
       setEstadoProveedor(estado);
-      
-      // También actualizar los datos del usuario (incluida la foto de perfil)
+
       try {
         const datosUsuario = await authAPI.obtenerDatosUsuario();
         setUsuario(datosUsuario);
-        
-        // Actualizar también los datos guardados en SecureStore
         await SecureStore.setItemAsync('userData', JSON.stringify(datosUsuario));
       } catch (userError) {
-        // Log solo en desarrollo
         if (__DEV__) {
           console.log('No se pudieron actualizar los datos del usuario (detalles solo en desarrollo):', userError);
         }
       }
-      
+
+      return estado;
     } catch (error: any) {
-      // Si el error es 403 o 404, el usuario aún no es proveedor (normal después del registro)
       if (error.response?.status === 403 || error.response?.status === 404) {
         if (__DEV__) {
           console.log('ℹ️ Usuario aún no tiene perfil de proveedor (normal después del registro)');
         }
-        // Establecer estado inicial para usuario sin perfil de proveedor
-        setEstadoProveedor({ 
+        const sinPerfil = {
           tiene_perfil: false,
           estado_verificacion: 'pendiente' as const,
           verificado: false,
           onboarding_iniciado: false,
           onboarding_completado: false,
           activo: false,
-          necesita_onboarding: true
-        });
-        return; // No lanzar error, es un estado válido
+          necesita_onboarding: true,
+        } as EstadoProveedor;
+        setEstadoProveedor(sinPerfil);
+        return null;
       }
-      
-      // Para otros errores, lanzar excepción
-      // Log solo en desarrollo
+
       if (__DEV__) {
         console.error('Error refrescando estado del proveedor (detalles solo en desarrollo):', error);
       }

@@ -320,6 +320,16 @@ export interface EstadoProveedor {
     descripcion?: string;
     telefono?: string;
     direccion?: string;
+    ubicacion_lat?: number;
+    ubicacion_lng?: number;
+    direccion_fisica?: {
+      direccion_completa?: string;
+      calle?: string;
+      numero?: string;
+      comuna?: string;
+      ciudad?: string;
+      region?: string;
+    };
     calificacion_promedio: number;
     numero_de_calificaciones: number;
   };
