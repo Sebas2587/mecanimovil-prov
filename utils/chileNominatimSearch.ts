@@ -3,6 +3,8 @@
  * Requiere User-Agent identificable según política de uso.
  */
 
+import { markNominatimComplete, waitNominatimSlot } from '@/utils/nominatimRateLimit';
+
 export type ChileAddressHit = {
   display_name: string;
   lat: number;
@@ -24,20 +26,25 @@ export async function searchChileAddresses(
     `&q=${encodeURIComponent(`${q}, Chile`)}` +
     `&countrycodes=cl&limit=${limit}&addressdetails=1&accept-language=es`;
 
-  const res = await fetch(url, {
-    headers: { 'User-Agent': UA },
-    signal: opts?.signal,
-  });
-  if (!res.ok) return [];
-  const data = (await res.json()) as Array<{ display_name?: string; lat?: string; lon?: string; address?: { country?: string } }>;
-  if (!Array.isArray(data)) return [];
+  await waitNominatimSlot();
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': UA },
+      signal: opts?.signal,
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as Array<{ display_name?: string; lat?: string; lon?: string; address?: { country?: string } }>;
+    if (!Array.isArray(data)) return [];
 
-  return data
-    .filter((item) => item.address?.country === 'Chile' && item.lat && item.lon)
-    .map((item) => ({
-      display_name: String(item.display_name || ''),
-      lat: parseFloat(item.lat as string),
-      lon: parseFloat(item.lon as string),
-    }))
-    .filter((h) => Number.isFinite(h.lat) && Number.isFinite(h.lon));
+    return data
+      .filter((item) => item.address?.country === 'Chile' && item.lat && item.lon)
+      .map((item) => ({
+        display_name: String(item.display_name || ''),
+        lat: parseFloat(item.lat as string),
+        lon: parseFloat(item.lon as string),
+      }))
+      .filter((h) => Number.isFinite(h.lat) && Number.isFinite(h.lon));
+  } finally {
+    markNominatimComplete();
+  }
 }

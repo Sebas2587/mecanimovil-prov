@@ -1,10 +1,15 @@
 /**
- * Misma idea que mecanimovil-usuarios/app/services/location.js (reverseGeocode):
- * Expo reverseGeocodeAsync primero; si falta número de calle o falla → Nominatim reverse.
- * Sin direcciones aleatorias de fallback (proveedor debe tener punto real).
+ * Geocodificación inversa para la app proveedores.
+ * - Usa siempre las coordenadas reales del GPS (no sustituir por Santiago: eso generaba direcciones falsas).
+ * - Prioriza Nominatim (OSM): en Chile suele acertar mejor calle/comuna que el reverse nativo de Expo.
+ * - Expo solo como respaldo si Nominatim falla.
+ * - Política Nominatim: máx. ~1 req/s; User-Agent identificable.
  */
 
 import * as Location from 'expo-location';
+import { markNominatimComplete, waitNominatimSlot } from '@/utils/nominatimRateLimit';
+
+const UA = 'MecaniMovil-Proveedores/1.0';
 
 export type ReverseGeocodeHit = {
   street?: string | null;
@@ -16,134 +21,167 @@ export type ReverseGeocodeHit = {
   formattedLine: string;
 };
 
-function isLocationInChile(latitude: number, longitude: number): boolean {
-  return (
-    latitude <= -17.5 &&
-    latitude >= -56 &&
-    longitude <= -66 &&
-    longitude >= -80
-  );
+type NominatimStructured = Omit<ReverseGeocodeHit, 'formattedLine'> & {
+  displayName?: string | null;
+};
+
+function isChileAddress(addr: Record<string, unknown>): boolean {
+  const cc = (addr.country_code as string | undefined)?.toLowerCase();
+  const country = (addr.country as string | undefined)?.toLowerCase();
+  return cc === 'cl' || country === 'chile';
 }
 
 async function reverseGeocodeWithNominatim(
   latitude: number,
   longitude: number
-): Promise<Omit<ReverseGeocodeHit, 'formattedLine'> | null> {
+): Promise<NominatimStructured | null> {
+  await waitNominatimSlot();
   try {
     const reverseUrl =
       `https://nominatim.openstreetmap.org/reverse?` +
       `lat=${latitude}&lon=${longitude}&format=json&addressdetails=1&accept-language=es&zoom=18`;
 
     const response = await fetch(reverseUrl, {
-      headers: { 'User-Agent': 'MecaniMovilProveedor/1.0' },
+      headers: { 'User-Agent': UA },
     });
 
     if (!response.ok) return null;
 
-    const data = await response.json();
-    if (!data?.address) return null;
-
+    const data = (await response.json()) as {
+      address?: Record<string, unknown>;
+      display_name?: string;
+      error?: string;
+    };
+    if (data.error || !data.address) return null;
     const addr = data.address;
+    if (!isChileAddress(addr)) return null;
+
+    const street =
+      (addr.road as string) ||
+      (addr.pedestrian as string) ||
+      (addr.path as string) ||
+      (addr.footway as string) ||
+      (addr.residential as string) ||
+      (addr.street as string) ||
+      null;
+
+    const streetNumber = (addr.house_number as string) || (addr.house as string) || null;
+
+    const district =
+      (addr.suburb as string) ||
+      (addr.neighbourhood as string) ||
+      (addr.city_district as string) ||
+      (addr.quarter as string) ||
+      (addr.borough as string) ||
+      null;
+
+    const city =
+      (addr.city as string) ||
+      (addr.town as string) ||
+      (addr.municipality as string) ||
+      (addr.county as string) ||
+      (addr.village as string) ||
+      (addr.hamlet as string) ||
+      null;
+
+    const region = (addr.state as string) || (addr.region as string) || null;
+
     return {
-      street: addr.road || addr.pedestrian || addr.path || addr.street || null,
-      streetNumber: addr.house_number || addr.house || null,
-      district:
-        addr.suburb || addr.city_district || addr.borough || addr.neighbourhood || null,
-      city: addr.city || addr.town || addr.municipality || null,
-      region: addr.state || addr.region || null,
+      street,
+      streetNumber,
+      district,
+      city,
+      region,
+      displayName: typeof data.display_name === 'string' ? data.display_name : null,
     };
   } catch {
     return null;
+  } finally {
+    markNominatimComplete();
   }
 }
 
-function formatLikeUserApp(hit: Omit<ReverseGeocodeHit, 'formattedLine'>): string {
+function formatStructured(hit: Omit<ReverseGeocodeHit, 'formattedLine'>): string {
   const parts: string[] = [];
   if (hit.street) {
     parts.push(`${hit.street} ${hit.streetNumber || ''}`.trim());
   }
   if (hit.district) parts.push(hit.district);
   if (hit.city && hit.city !== hit.district) parts.push(hit.city);
+  if (hit.region && hit.region !== hit.city && hit.region !== hit.district) {
+    parts.push(hit.region);
+  }
   return parts.filter(Boolean).join(', ');
 }
 
-function hasStreetNumber(expo: Location.LocationGeocodedAddress): boolean {
-  return !!(
-    expo.streetNumber ||
-    (expo as { number?: string }).number ||
-    (expo as { houseNumber?: string }).houseNumber ||
-    (expo.name && /\d+/.test(String(expo.name)))
-  );
+function finalizeLine(
+  structured: string,
+  displayName: string | null | undefined,
+  lat: number,
+  lng: number
+): string {
+  const s = structured.trim();
+  if (s.length > 0) return s;
+  if (displayName && displayName.trim()) return displayName.trim();
+  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
+
+function expoToStructured(expo: Location.LocationGeocodedAddress): Omit<ReverseGeocodeHit, 'formattedLine'> {
+  return {
+    street: expo.street || expo.name || null,
+    streetNumber: expo.streetNumber || null,
+    district: expo.district || expo.subregion || null,
+    city: expo.city || null,
+    region: expo.region || null,
+  };
 }
 
 /**
- * Geocodificación inversa alineada con la app usuarios (location.js).
+ * Geocodificación inversa: coordenadas reales, Nominatim primero (Chile), Expo de respaldo.
  */
 export async function reverseGeocodeProveedor(
   latitude: number,
   longitude: number
 ): Promise<ReverseGeocodeHit> {
-  let lat = latitude;
-  let lng = longitude;
+  const lat = latitude;
+  const lng = longitude;
 
-  if (!isLocationInChile(lat, lng)) {
-    lat = -33.4489;
-    lng = -70.6693;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { formattedLine: 'Coordenadas no válidas' };
+  }
+
+  const nom = await reverseGeocodeWithNominatim(lat, lng);
+  if (nom) {
+    const structured = formatStructured(nom);
+    return {
+      street: nom.street,
+      streetNumber: nom.streetNumber,
+      district: nom.district,
+      city: nom.city,
+      region: nom.region,
+      formattedLine: finalizeLine(structured, nom.displayName, lat, lng),
+    };
   }
 
   let expoResult: Location.LocationGeocodedAddress | null = null;
   try {
     const results = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-    const chile = results.filter(
-      (r) => r.isoCountryCode === 'CL' || r.country === 'Chile'
-    );
+    const chile = results.filter((r) => r.isoCountryCode === 'CL' || r.country === 'Chile');
     if (chile.length > 0) expoResult = chile[0];
   } catch {
     expoResult = null;
   }
 
-  let nominatim: Omit<ReverseGeocodeHit, 'formattedLine'> | null = null;
-  const expoOkNumber = expoResult && hasStreetNumber(expoResult);
-
-  if (!expoOkNumber || !expoResult) {
-    nominatim = await reverseGeocodeWithNominatim(lat, lng);
-    if (
-      nominatim &&
-      (nominatim.streetNumber || nominatim.street) &&
-      (!expoResult || !expoOkNumber)
-    ) {
-      const line = formatLikeUserApp(nominatim);
-      return {
-        ...nominatim,
-        formattedLine: line || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-      };
-    }
-  }
-
   if (expoResult) {
-    const hit: Omit<ReverseGeocodeHit, 'formattedLine'> = {
-      street: expoResult.street || expoResult.name || null,
-      streetNumber: expoResult.streetNumber || null,
-      district: expoResult.district || expoResult.subregion || null,
-      city: expoResult.city || null,
-      region: expoResult.region || null,
-    };
-    const line = formatLikeUserApp(hit);
+    const hit = expoToStructured(expoResult);
+    const line = formatStructured(hit);
     return {
       ...hit,
-      formattedLine: line || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-    };
-  }
-
-  if (nominatim) {
-    const line = formatLikeUserApp(nominatim);
-    return {
-      ...nominatim,
-      formattedLine: line || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+      formattedLine: finalizeLine(line, null, lat, lng),
     };
   }
 
   return {
-    formattedLine: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+    formattedLine: finalizeLine('', null, lat, lng),
   };
 }

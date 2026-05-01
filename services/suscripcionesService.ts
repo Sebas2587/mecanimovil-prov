@@ -259,7 +259,15 @@ const obtenerEstadoSalud = async (): Promise<{
         const response = await apiClient.get('/suscripciones/mi-suscripcion/estado-salud/');
         return { success: true, data: response.data };
     } catch (error: any) {
-        console.error('[suscripcionesService] Error obteniendo estado salud:', error?.response?.data || error);
+        const code = error?.response?.data?.code;
+        const status = error?.response?.status;
+        if (status === 503 && code === 'database_unavailable') {
+            if (__DEV__) {
+                console.warn('[suscripcionesService] API temporalmente no disponible (BD)');
+            }
+        } else {
+            console.error('[suscripcionesService] Error obteniendo estado salud:', error?.response?.data || error);
+        }
         return {
             success: false,
             data: null,
