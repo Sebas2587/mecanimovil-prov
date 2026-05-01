@@ -22,11 +22,80 @@ import { useAuth } from '@/context/AuthContext';
 import { mecanicoAPI, tallerAPI, type EstadoProveedor } from '@/services/api';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { searchChileAddresses, type ChileAddressHit } from '@/utils/chileNominatimSearch';
+import { reverseGeocodeProveedor } from '@/utils/providerReverseGeocode';
 
 type SearchUi = 'idle' | 'loading' | 'results' | 'empty' | 'error';
 
 const DEBOUNCE_MS = 480;
 const MIN_QUERY = 4;
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+function humanSaveError(e: unknown): string {
+  const ax = e as {
+    response?: { status?: number; data?: { error?: string; message?: string } };
+    message?: string;
+  };
+  const status = ax?.response?.status;
+  if (status === 502 || status === 503 || status === 500) {
+    return 'El servidor no está disponible por unos instantes (suele pasar si la base de datos reinicia en Render). Espera 30–60 s y pulsa Guardar de nuevo.';
+  }
+  const msg =
+    ax?.response?.data?.error ||
+    ax?.response?.data?.message ||
+    ax?.message ||
+    'No se pudo guardar.';
+  return String(msg);
+}
+
+async function guardarUbicacionConReintentos(
+  tipo: 'taller' | 'mecanico' | undefined,
+  payload: { direccion?: string; latitud?: number; longitud?: number },
+  maxAttempts = 4
+) {
+  let last: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      if (tipo === 'taller') {
+        return await tallerAPI.actualizarUbicacionDomicilio(payload);
+      }
+      return await mecanicoAPI.actualizarUbicacionDomicilio(payload);
+    } catch (e: unknown) {
+      last = e;
+      const ax = e as { response?: { status?: number }; code?: string; message?: string };
+      const status = ax?.response?.status;
+      const transient =
+        status === undefined ||
+        status >= 500 ||
+        status === 429 ||
+        ax?.code === 'ECONNABORTED' ||
+        (typeof ax?.message === 'string' && ax.message.toLowerCase().includes('network'));
+      if (!transient || attempt === maxAttempts) throw e;
+      await sleep(650 * attempt);
+    }
+  }
+  throw last;
+}
+
+async function refrescarEstadoConReintentos(
+  fn: () => Promise<EstadoProveedor | null>,
+  attempts = 3
+): Promise<EstadoProveedor | null> {
+  let last: unknown;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      last = e;
+      if (i === attempts) break;
+      await sleep(400 * i);
+    }
+  }
+  console.warn('refrescarEstadoProveedor tras guardar:', last);
+  return null;
+}
 
 export default function ActualizarUbicacionScreen() {
   const insets = useSafeAreaInsets();
@@ -43,6 +112,7 @@ export default function ActualizarUbicacionScreen() {
       (dp.direccion_fisica?.direccion_completa && String(dp.direccion_fisica.direccion_completa).trim()) ||
       '';
     setAddressLine(text);
+    setUbicacionDetectada(false);
     if (dp.ubicacion_lat != null && dp.ubicacion_lng != null) {
       const lat = Number(dp.ubicacion_lat);
       const lng = Number(dp.ubicacion_lng);
@@ -60,6 +130,8 @@ export default function ActualizarUbicacionScreen() {
   const [searchUi, setSearchUi] = useState<SearchUi>('idle');
   const [saving, setSaving] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
+  /** Flujo tipo app usuarios: tras GPS mostramos bloque “detectada / editable”. */
+  const [ubicacionDetectada, setUbicacionDetectada] = useState(false);
 
   const skipDebounceRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -120,6 +192,7 @@ export default function ActualizarUbicacionScreen() {
     skipDebounceRef.current = true;
     setAddressLine(h.display_name);
     setCoords({ lat: h.lat, lng: h.lon });
+    setUbicacionDetectada(true);
     setSuggestions([]);
     setSearchUi('idle');
   };
@@ -132,22 +205,16 @@ export default function ActualizarUbicacionScreen() {
         Alert.alert('Permisos', 'Activa la ubicación para usar el GPS.');
         return;
       }
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Highest,
+      });
       const { latitude, longitude } = loc.coords;
       skipDebounceRef.current = true;
       setCoords({ lat: latitude, lng: longitude });
 
-      try {
-        const [rev] = await Location.reverseGeocodeAsync({ latitude, longitude });
-        if (rev) {
-          const line = [rev.streetNumber, rev.street, rev.city, rev.region].filter(Boolean).join(', ');
-          setAddressLine(line || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-        } else {
-          setAddressLine(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-        }
-      } catch {
-        setAddressLine(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-      }
+      const rev = await reverseGeocodeProveedor(latitude, longitude);
+      setAddressLine(rev.formattedLine);
+      setUbicacionDetectada(true);
       setSuggestions([]);
       setSearchUi('idle');
     } catch {
@@ -173,13 +240,10 @@ export default function ActualizarUbicacionScreen() {
         payload.longitud = coords.lng;
       }
       const tipo = estadoProveedor?.tipo_proveedor;
-      if (tipo === 'taller') {
-        await tallerAPI.actualizarUbicacionDomicilio(payload);
-      } else {
-        await mecanicoAPI.actualizarUbicacionDomicilio(payload);
-      }
-      const estadoFresh = await refrescarEstadoProveedor();
+      await guardarUbicacionConReintentos(tipo, payload);
+      const estadoFresh = await refrescarEstadoConReintentos(() => refrescarEstadoProveedor());
       if (estadoFresh) hydrateFromEstado(estadoFresh);
+      setUbicacionDetectada(false);
       Alert.alert(
         'Listo',
         tipo === 'taller'
@@ -187,12 +251,7 @@ export default function ActualizarUbicacionScreen() {
           : 'Tu ubicación base quedó guardada. Los clientes te verán ordenados por distancia.'
       );
     } catch (e: any) {
-      const msg =
-        e?.response?.data?.error ||
-        e?.response?.data?.message ||
-        e?.message ||
-        'No se pudo guardar.';
-      Alert.alert('Error', String(msg));
+      Alert.alert('No se pudo guardar', humanSaveError(e));
     } finally {
       setSaving(false);
     }
@@ -281,6 +340,15 @@ export default function ActualizarUbicacionScreen() {
             <BlurView intensity={blurIntensity} tint={glassTint} style={StyleSheet.absoluteFill} />
             <View style={styles.glassInner}>
               <Text style={styles.label}>O busca una dirección en Chile</Text>
+              {ubicacionDetectada ? (
+                <View style={styles.detectedBanner}>
+                  <CheckCircle2 size={18} color="#059669" />
+                  <Text style={styles.detectedBannerText}>
+                    Ubicación detectada — revisa calle y número y corrige si hace falta (un solo registro, como
+                    guardar tu dirección en la app de usuarios).
+                  </Text>
+                </View>
+              ) : null}
               <TextInput
                 style={styles.input}
                 placeholder="Ej: Los Leones 1200, Providencia"
@@ -340,9 +408,11 @@ export default function ActualizarUbicacionScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.btnPrimaryText}>
-                {estadoProveedor?.tipo_proveedor === 'taller'
-                  ? 'Guardar ubicación del taller'
-                  : 'Guardar ubicación base'}
+                {ubicacionDetectada
+                  ? 'Confirmar y guardar'
+                  : estadoProveedor?.tipo_proveedor === 'taller'
+                    ? 'Guardar ubicación del taller'
+                    : 'Guardar ubicación base'}
               </Text>
             )}
           </TouchableOpacity>
@@ -419,6 +489,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.text?.tertiary ?? '#6B7280',
     lineHeight: 17,
+  },
+  detectedBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: radiusMd,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.28)',
+  },
+  detectedBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#047857',
+    lineHeight: 18,
+    fontWeight: '600',
   },
   label: {
     fontSize: 13,
