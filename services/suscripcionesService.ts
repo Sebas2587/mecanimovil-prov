@@ -107,7 +107,13 @@ const obtenerMiSuscripcion = async (): Promise<{
         const response = await apiClient.get('/suscripciones/mi-suscripcion/mi_suscripcion/');
         return { success: true, suscripcion: response.data?.suscripcion ?? null };
     } catch (error: any) {
-        console.error('[suscripcionesService] Error obteniendo suscripción:', error?.response?.data || error);
+        const code = error?.response?.data?.code;
+        const status = error?.response?.status;
+        if (status === 503 && code === 'database_unavailable') {
+            if (__DEV__) console.warn('[suscripcionesService] API temporalmente no disponible (BD)');
+        } else {
+            console.error('[suscripcionesService] Error obteniendo suscripción:', error?.response?.data || error);
+        }
         return {
             success: false,
             suscripcion: null,

@@ -49,6 +49,7 @@ import suscripcionesService, { type SuscripcionProveedor, type SaludSuscripcion 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { PerformanceWidget } from '@/components/dashboard/PerformanceWidget';
 import { useProveedorKpisResumen } from '@/hooks/useProveedorKpisResumen';
+import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 
 interface OrdenConChecklist extends Orden {
   checklist_instance?: ChecklistInstance;
@@ -72,6 +73,10 @@ export default function HomeScreen() {
   const esMecanicoDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
   /** Habilitado por admin para operar (≠ sello "Verificado" en perfil). */
   const cuentaAprobadaPorAdmin = estadoProveedor?.estado_verificacion === 'aprobado';
+  const perfilProveedorKey = useMemo(
+    () => estadoProveedorReloadKey(estadoProveedor ?? null),
+    [estadoProveedor]
+  );
   const kpisResumen = useProveedorKpisResumen({
     enabled: Boolean(isAuthenticated && cuentaAprobadaPorAdmin && !isLoading),
     dias: 30,
@@ -185,7 +190,7 @@ export default function HomeScreen() {
     }
   }, [isLoading, estadoProveedor]);
 
-  // Cargar órdenes cuando el componente se monta
+  // Cargar dashboard solo cuando cambia el perfil de verdad (no en cada refresco con misma data).
   useEffect(() => {
     if (cuentaAprobadaPorAdmin) {
       cargarOrdenes();
@@ -195,7 +200,7 @@ export default function HomeScreen() {
       cargarSuscripcion();
       cargarOfertasMap();
     }
-  }, [estadoProveedor]);
+  }, [perfilProveedorKey, cuentaAprobadaPorAdmin]);
 
   // Recargar órdenes cuando la pantalla recibe foco (cuando se regresa del detalle)
   useFocusEffect(

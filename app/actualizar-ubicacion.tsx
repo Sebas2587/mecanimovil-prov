@@ -140,21 +140,13 @@ export default function ActualizarUbicacionScreen() {
   const skipDebounceRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Solo hidratar desde el contexto al entrar. Un refrescarEstadoProveedor() aquí volvía a
+  // setear estado en Auth y los tabs montados (p. ej. home) tenían useEffect([estadoProveedor])
+  // que disparaba decenas de requests en paralelo y saturaba la BD.
   useFocusEffect(
     useCallback(() => {
-      let alive = true;
-      (async () => {
-        try {
-          const estado = await refrescarEstadoProveedor();
-          if (alive && estado) hydrateFromEstado(estado);
-        } catch {
-          /* perfil aún no disponible */
-        }
-      })();
-      return () => {
-        alive = false;
-      };
-    }, [refrescarEstadoProveedor, hydrateFromEstado])
+      if (estadoProveedor) hydrateFromEstado(estadoProveedor);
+    }, [estadoProveedor, hydrateFromEstado])
   );
 
   useEffect(() => {

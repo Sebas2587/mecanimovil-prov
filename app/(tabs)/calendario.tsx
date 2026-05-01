@@ -14,6 +14,7 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { ordenesProveedorService, type Orden, obtenerNombreSeguro } from '@/services/ordenesProveedor';
+import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
@@ -22,7 +23,11 @@ export default function CalendarioScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { estadoProveedor } = useAuth();
-  
+  const perfilKey = useMemo(
+    () => estadoProveedorReloadKey(estadoProveedor ?? null),
+    [estadoProveedor]
+  );
+
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,12 +40,11 @@ export default function CalendarioScreen() {
   const accentObj = safeColors?.accent as any;
   const primary500 = primaryObj?.['500'] || accentObj?.['500'] || '#003459';
 
-  // Cargar órdenes
   useEffect(() => {
     if (estadoProveedor?.estado_verificacion === 'aprobado') {
       cargarOrdenes();
     }
-  }, [estadoProveedor]);
+  }, [perfilKey]);
 
   const cargarOrdenes = async () => {
     setLoading(true);

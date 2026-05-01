@@ -67,7 +67,7 @@ export default function ZonasServicioScreen() {
         ]
       );
     }
-  }, [estadoProveedor]);
+  }, [estadoProveedor?.tipo_proveedor]);
 
   // Cargar zonas de servicio
   const loadServiceAreas = useCallback(async () => {
