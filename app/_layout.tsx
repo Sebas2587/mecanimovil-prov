@@ -1,6 +1,8 @@
 // CRÍTICO: Deshabilitar LogBox/RedBox/YellowBox COMPLETAMENTE
 // Esta configuración debe ejecutarse lo antes posible para evitar que errores aparezcan visualmente
-import { LogBox as RNLogBox } from 'react-native';
+import { useEffect } from 'react';
+import { ActivityIndicator, LogBox as RNLogBox, View } from 'react-native';
+import { COLORS } from '@/app/design-system/tokens';
 
 // CRÍTICO: Deshabilitar LogBox COMPLETAMENTE después de importar React Native
 // Esto debe ejecutarse INMEDIATAMENTE después de importar para que funcione correctamente
@@ -110,13 +112,33 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  if (!loaded) {
-    // Async font loading only occurs in development.
-    return null;
+  useEffect(() => {
+    if (fontError && __DEV__) {
+      console.warn(
+        '[RootLayout] No se pudo cargar SpaceMono; se usa la tipografía del sistema.',
+        fontError.message
+      );
+    }
+  }, [fontError]);
+
+  // Si loadAsync falla, `loaded` nunca pasa a true — sin este branch la app queda en pantalla en blanco.
+  if (!fontsLoaded && !fontError) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: COLORS.background.default,
+        }}
+      >
+        <ActivityIndicator size="large" color={COLORS.secondary[500]} />
+      </View>
+    );
   }
 
   return (
