@@ -133,6 +133,9 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
             {' '}al mes
           </Text>
         </View>
+        <Text style={[styles.planImpliedPs, { color: textSecondary }]}>
+          ~${Math.round(plan.precio / Math.max(1, plan.creditos_mensuales)).toLocaleString('es-CL')} CLP por crédito (en el plan)
+        </Text>
 
         <View style={[styles.separador, { backgroundColor: colors?.border?.main ?? '#E5E7EB' }]} />
 
@@ -254,6 +257,16 @@ export default function CreditosScreen() {
   const tabsVisibles: TabType[] = useMemo(
     () => ['saldo', 'suscripcion', 'tienda', 'historial'],
     []
+  );
+
+  const precioTopUpClp = useMemo(
+    () => Math.round(Number(estadisticas?.precio_credito_unitario_clp ?? 400)),
+    [estadisticas?.precio_credito_unitario_clp]
+  );
+
+  const planesOrdenadosComparativa = useMemo(
+    () => [...planes].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || a.precio - b.precio),
+    [planes]
   );
 
   // ── Carga de datos ────────────────────────────────────────
@@ -773,6 +786,64 @@ export default function CreditosScreen() {
         </View>
       )}
 
+      {/* Comparativa costo por crédito (orientativa) */}
+      {planesOrdenadosComparativa.length > 0 && (
+        <View style={[styles.comparativaCard, { backgroundColor: backgroundPaper, borderColor: borderMain }]}>
+          <Text style={[styles.comparativaTitle, { color: textPrimary }]}>Compará el costo por crédito</Text>
+          <Text style={[styles.comparativaSub, { color: textSecondary }]}>
+            Precio aproximado del crédito dentro del plan (P_s) vs compra suelta (P_t ~ ${precioTopUpClp.toLocaleString('es-CL')} según configuración vigente).
+          </Text>
+          {planesOrdenadosComparativa.map((pl) => {
+            const ps = Math.round(pl.precio / Math.max(1, pl.creditos_mensuales));
+            return (
+              <View key={pl.id} style={styles.comparativaRow}>
+                <Text style={[styles.comparativaPlanName, { color: textPrimary }]} numberOfLines={1}>
+                  {pl.nombre}
+                </Text>
+                <Text style={[styles.comparativaNums, { color: textSecondary }]}>
+                  {pl.creditos_mensuales} cr/mes · ~${ps.toLocaleString('es-CL')}/cr
+                </Text>
+              </View>
+            );
+          })}
+          <View style={[styles.comparativaRow, { marginTop: 6, paddingTop: 8, borderTopWidth: 1, borderTopColor: borderMain }]}>
+            <Text style={[styles.comparativaPlanName, { color: textPrimary }]}>Comprar créditos sueltos</Text>
+            <Text style={[styles.comparativaNums, { color: textSecondary }]}>~${precioTopUpClp.toLocaleString('es-CL')}/cr</Text>
+          </View>
+          <Text style={[styles.comparativaTableTitle, { color: textPrimary, marginTop: SPACING.md }]}>
+            Trabajos aproximados al mes (si cada postulación gasta r créditos)
+          </Text>
+          <View style={styles.comparativaTableHeader}>
+            <Text style={[styles.comparativaTh, { color: textSecondary }]}>Plan</Text>
+            <Text style={[styles.comparativaThNum, { color: textSecondary }]}>r=5</Text>
+            <Text style={[styles.comparativaThNum, { color: textSecondary }]}>r=7</Text>
+            <Text style={[styles.comparativaThNum, { color: textSecondary }]}>r=10</Text>
+          </View>
+          {planesOrdenadosComparativa.map((pl) => (
+            <View key={`tbl-${pl.id}`} style={styles.comparativaTableRow}>
+              <Text style={[styles.comparativaTd, { color: textPrimary }]} numberOfLines={1}>
+                {pl.nombre.replace(/^Plan\s+/, '')}
+              </Text>
+              <Text style={[styles.comparativaTdNum, { color: textSecondary }]}>
+                {Math.floor(pl.creditos_mensuales / 5)}
+              </Text>
+              <Text style={[styles.comparativaTdNum, { color: textSecondary }]}>
+                {Math.floor(pl.creditos_mensuales / 7)}
+              </Text>
+              <Text style={[styles.comparativaTdNum, { color: textSecondary }]}>
+                {Math.floor(pl.creditos_mensuales / 10)}
+              </Text>
+            </View>
+          ))}
+          <View style={[styles.notaContainer, { backgroundColor: backgroundDefault, borderColor: borderMain, marginTop: SPACING.sm }]}>
+            <MaterialIcons name="info-outline" size={14} color={textSecondary} />
+            <Text style={[styles.comparativaDisclaimer, { color: textSecondary }]}>
+              Cifras orientativas: el gasto real depende de los servicios a los que postulés (5, 7 u 10 créditos u otros valores que defina el sistema).
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Contenedor de Planes con espaciado superior consistente */}
       <View style={{ marginTop: suscripcion && ['activa', 'pendiente', 'pausada'].includes(suscripcion.estado) ? SPACING.sm : 0 }}>
         {/* Planes */}
@@ -807,7 +878,7 @@ export default function CreditosScreen() {
   );
 
   const renderTabTienda = () => {
-    const precioUnitario = Math.round(estadisticas?.precio_credito_unitario_clp ?? 300);
+    const precioUnitario = Math.round(estadisticas?.precio_credito_unitario_clp ?? 400);
     const PRECIO_TOTAL = cantidadComprar * precioUnitario;
     const precioFormateado = new Intl.NumberFormat('es-CL', {
       style: 'currency',
@@ -1198,6 +1269,26 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     marginTop: SPACING.sm,
   },
+  planImpliedPs: { fontSize: TYPOGRAPHY.fontSize.xs, marginTop: 4, marginBottom: 2 },
+  comparativaCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  comparativaTitle: { fontSize: TYPOGRAPHY.fontSize.md, fontWeight: '700', marginBottom: 4 },
+  comparativaSub: { fontSize: TYPOGRAPHY.fontSize.xs, lineHeight: 18, marginBottom: SPACING.sm },
+  comparativaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, gap: 8 },
+  comparativaPlanName: { flex: 1, fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '600' },
+  comparativaNums: { fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '500' },
+  comparativaTableTitle: { fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '700' },
+  comparativaTableHeader: { flexDirection: 'row', marginTop: 8, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  comparativaTh: { flex: 1, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
+  comparativaThNum: { width: 44, fontSize: 10, fontWeight: '700', textAlign: 'right' },
+  comparativaTableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
+  comparativaTd: { flex: 1, fontSize: TYPOGRAPHY.fontSize.xs },
+  comparativaTdNum: { width: 44, fontSize: TYPOGRAPHY.fontSize.xs, textAlign: 'right' },
+  comparativaDisclaimer: { fontSize: 11, flex: 1, lineHeight: 16 },
   notaTexto: { fontSize: TYPOGRAPHY.fontSize.xs, flex: 1, lineHeight: 18 },
   emptyContainer: { alignItems: 'center', paddingVertical: 40, gap: 12 },
   emptyText: { fontSize: TYPOGRAPHY.fontSize.md, textAlign: 'center' },
