@@ -84,6 +84,14 @@ export interface ConsumoCredito {
   fecha_consumo: string;
 }
 
+/** Fila de la tabla servicio ↔ créditos (postulación). */
+export interface ServicioCreditoTablaRow {
+  servicio_id: number;
+  nombre: string;
+  precio_referencia_clp: number;
+  creditos_requeridos: number;
+}
+
 export interface EstadisticasCreditos {
   saldo_actual: number;
   /** Precio unitario vigente (CLP) para compras a medida; alineado con `calcular_precio_credito` en backend. */
@@ -280,6 +288,67 @@ export const obtenerEstadisticas = async (): Promise<ApiResponse<EstadisticasCre
     return {
       success: false,
       error: error.response?.data?.error || error.message || 'Error al obtener estadísticas'
+    };
+  }
+};
+
+/** Extrae lista de filas desde distintas formas de respuesta del backend. */
+function extractServiciosTablaPayload(raw: unknown): unknown[] {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw !== 'object') return [];
+  const o = raw as Record<string, unknown>;
+  if (Array.isArray(o.servicios)) return o.servicios;
+  if (Array.isArray(o.results)) return o.results;
+  if (Array.isArray(o.data)) return o.data as unknown[];
+  return [];
+}
+
+/** Normaliza una fila (snake_case o camelCase). */
+function normalizeServicioCreditoRow(item: unknown): ServicioCreditoTablaRow | null {
+  if (item == null || typeof item !== 'object') return null;
+  const r = item as Record<string, unknown>;
+  const id = r.servicio_id ?? r.servicioId ?? r.id;
+  const nombre = r.nombre ?? r.name;
+  const precio = r.precio_referencia_clp ?? r.precioReferenciaClp ?? 0;
+  const creditos = r.creditos_requeridos ?? r.creditosRequeridos ?? 2;
+  const sid = Number(id);
+  if (!Number.isFinite(sid) || sid <= 0) return null;
+  return {
+    servicio_id: sid,
+    nombre: typeof nombre === 'string' ? nombre : String(nombre ?? ''),
+    precio_referencia_clp: Number(precio) || 0,
+    creditos_requeridos: Number(creditos) || 0,
+  };
+}
+
+/**
+ * Tabla de todos los servicios con precio de referencia y créditos por postulación.
+ * Ruta preferida (evita conflicto router mi-saldo/<pk>/).
+ */
+export const obtenerTablaServiciosCreditos = async (): Promise<ApiResponse<ServicioCreditoTablaRow[]>> => {
+  const parse = (response: { data: unknown }): ServicioCreditoTablaRow[] => {
+    const raw = response.data;
+    const list = extractServiciosTablaPayload(raw);
+    return list.map(normalizeServicioCreditoRow).filter((x): x is ServicioCreditoTablaRow => x != null);
+  };
+
+  try {
+    try {
+      const response = await api.get('/suscripciones/creditos/tabla-servicios-creditos/');
+      return { success: true, data: parse(response) };
+    } catch (first: any) {
+      if (first?.response?.status === 404) {
+        const response = await api.get('/suscripciones/creditos/mi-saldo/tabla-servicios-creditos/');
+        return { success: true, data: parse(response) };
+      }
+      throw first;
+    }
+  } catch (error: any) {
+    console.error('Error obteniendo tabla servicios-créditos:', error);
+    return {
+      success: false,
+      error: error.response?.data?.error || error.message || 'Error al obtener la tabla de servicios',
     };
   }
 };
@@ -483,6 +552,7 @@ const creditosService = {
   confirmarPago,
   cancelarCompra,
   obtenerEstadisticas,
+  obtenerTablaServiciosCreditos,
   obtenerHistorialConsumos,
   obtenerHistorialCompras,
   verificarCreditosOferta,

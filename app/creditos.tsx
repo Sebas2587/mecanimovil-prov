@@ -53,6 +53,7 @@ import {
   PaqueteCard,
   HistorialCompras,
   HistorialConsumos,
+  TablaServiciosCreditosModal,
 } from '@/components/creditos';
 import { InteractiveStatsChart } from '@/components/creditos/InteractiveStatsChart';
 import MercadoPagoWebViewModal from '@/components/creditos/MercadoPagoWebViewModal';
@@ -280,6 +281,7 @@ export default function CreditosScreen() {
   const backgroundDefault = colors?.background?.default ?? '#F5F5F5';
   const backgroundPaper = colors?.background?.paper ?? '#fff';
   const borderMain = colors?.border?.main ?? '#D0D0D0';
+  const borderGlassGuia = colors?.neutral?.gray?.[200] ?? 'rgba(255,255,255,0.5)';
   const errorColor = colors?.error?.main ?? '#EF4444';
   const successColor = colors?.success?.main ?? '#22C55E';
 
@@ -303,6 +305,7 @@ export default function CreditosScreen() {
     checkoutUrl: '',
     suscripcionId: 0,
   });
+  const [modalTablaServiciosVisible, setModalTablaServiciosVisible] = useState(false);
 
   // ── Datos ─────────────────────────────────────────────────
   const [mpConectado, setMpConectado] = useState<boolean | null>(null); // null = cargando
@@ -869,42 +872,30 @@ export default function CreditosScreen() {
         </View>
       )}
 
-      {/* Guía en lenguaje simple — glass */}
+      {/* Guía compacta — glass */}
       {planesOrdenadosComparativa.length > 0 && (
-        <View style={[styles.glassGuiaOuter, { borderColor: colors?.neutral?.gray?.[200] ?? 'rgba(255,255,255,0.5)' }]}>
-          <BlurView
-            intensity={Platform.OS === 'ios' ? 58 : 42}
-            tint="light"
-            style={styles.glassGuiaBlur}
-          >
-            <View style={styles.glassGuiaContent}>
-              <View style={styles.guiaHeaderRow}>
-                <MaterialCommunityIcons name="school-outline" size={22} color={primaryColor} />
-                <Text style={[styles.guiaTitulo, { color: textPrimary }]}>Cómo leer los planes</Text>
+        <View style={[styles.glassGuiaOuter, { borderColor: borderGlassGuia }]}>
+          <BlurView intensity={Platform.OS === 'ios' ? 58 : 42} tint="light" style={styles.glassGuiaBlur}>
+            <View style={styles.glassGuiaContentCompact}>
+              <View style={styles.guiaHeaderRowCompact}>
+                <MaterialCommunityIcons name="school-outline" size={20} color={primaryColor} />
+                <Text style={[styles.guiaTituloCompact, { color: textPrimary }]}>Cómo leer los planes</Text>
               </View>
-              <Text style={[styles.guiaLead, { color: textSecondary }]}>
-                Con un plan mensual pagás una cuota fija y recibís muchos créditos juntos. Por eso, al dividir el mes entre los créditos, suele salirte{' '}
-                <Text style={{ fontWeight: '700', color: textPrimary }}>más barato cada crédito</Text> que si comprás pocos de a uno en la Tienda (hoy unos{' '}
-                {formatCLP(precioTopUpClp)} por crédito, según la configuración vigente).
+              <Text style={[styles.guiaLeadCompact, { color: textSecondary }]}>
+                Cuota fija al mes con muchos créditos suele dejar cada crédito más barato que la Tienda (hoy ~{formatCLP(precioTopUpClp)} c/u). Las tarjetas comparan
+                con la Tienda y con el plan de abajo. Los créditos del mes se suman cuando Mercado Pago confirma el cobro.
               </Text>
-              <View style={styles.guiaBullet}>
-                <MaterialCommunityIcons name="numeric-1-circle-outline" size={20} color={colors?.accent?.['500'] ?? COLORS.accent[500]} />
-                <Text style={[styles.guiaBulletText, { color: textSecondary }]}>
-                  Cada trabajo puede pedir distinta cantidad de créditos para postularte (según el tipo de servicio). Los números de las tarjetas son aproximados.
-                </Text>
-              </View>
-              <View style={styles.guiaBullet}>
-                <MaterialCommunityIcons name="numeric-2-circle-outline" size={20} color={colors?.accent?.['500'] ?? COLORS.accent[500]} />
-                <Text style={[styles.guiaBulletText, { color: textSecondary }]}>
-                  En cada tarjeta vas a ver qué te conviene frente a la Tienda y, si aplica, frente al plan de abajo.
-                </Text>
-              </View>
-              <View style={styles.guiaBullet}>
-                <MaterialCommunityIcons name="numeric-3-circle-outline" size={20} color={colors?.accent?.['500'] ?? COLORS.accent[500]} />
-                <Text style={[styles.guiaBulletText, { color: textSecondary }]}>
-                  Los pagos van por Mercado Pago; los créditos del mes se suman cuando el cobro queda confirmado.
-                </Text>
-              </View>
+              <Text style={[styles.guiaHintCompact, { color: textSecondary }]}>
+                Cada servicio pide una cantidad distinta de créditos al postularte.
+              </Text>
+              <TouchableOpacity
+                style={[styles.guiaBotonTabla, { backgroundColor: primaryColor }]}
+                onPress={() => setModalTablaServiciosVisible(true)}
+                activeOpacity={0.85}
+              >
+                <MaterialIcons name="table-chart" size={18} color="#fff" />
+                <Text style={styles.guiaBotonTablaText}>Ver servicios y créditos</Text>
+              </TouchableOpacity>
             </View>
           </BlurView>
         </View>
@@ -1102,6 +1093,7 @@ export default function CreditosScreen() {
 
   // ── Render ────────────────────────────────────────────────
   return (
+    <>
     <SafeAreaView
       style={[styles.container, { backgroundColor: backgroundDefault }]}
       edges={['left', 'right', 'bottom']}
@@ -1162,6 +1154,16 @@ export default function CreditosScreen() {
         />
       )}
     </SafeAreaView>
+
+    <TablaServiciosCreditosModal
+      visible={modalTablaServiciosVisible}
+      onClose={() => setModalTablaServiciosVisible(false)}
+      primaryColor={primaryColor}
+      textPrimary={textPrimary}
+      textSecondary={textSecondary}
+      borderGlass={borderGlassGuia}
+    />
+    </>
   );
 }
 
@@ -1387,12 +1389,21 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   glassGuiaBlur: { borderRadius: 18, overflow: 'hidden' },
-  glassGuiaContent: { padding: SPACING.md },
-  guiaHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: SPACING.sm },
-  guiaTitulo: { fontSize: TYPOGRAPHY.fontSize.lg, fontWeight: '800', flex: 1 },
-  guiaLead: { fontSize: TYPOGRAPHY.fontSize.sm, lineHeight: 22, marginBottom: SPACING.md },
-  guiaBullet: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: SPACING.sm },
-  guiaBulletText: { flex: 1, fontSize: TYPOGRAPHY.fontSize.sm, lineHeight: 20 },
+  glassGuiaContentCompact: { paddingHorizontal: SPACING.sm, paddingVertical: SPACING.sm },
+  guiaHeaderRowCompact: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  guiaTituloCompact: { fontSize: TYPOGRAPHY.fontSize.md, fontWeight: '800', flex: 1, marginLeft: 8 },
+  guiaLeadCompact: { fontSize: TYPOGRAPHY.fontSize.xs, lineHeight: 17, marginBottom: 6 },
+  guiaHintCompact: { fontSize: TYPOGRAPHY.fontSize.xs, lineHeight: 16, marginBottom: SPACING.sm },
+  guiaBotonTabla: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: SPACING.md,
+  },
+  guiaBotonTablaText: { color: '#fff', fontWeight: '700', fontSize: TYPOGRAPHY.fontSize.sm },
   notaTexto: { fontSize: TYPOGRAPHY.fontSize.xs, flex: 1, lineHeight: 18 },
   emptyContainer: { alignItems: 'center', paddingVertical: 40, gap: 12 },
   emptyText: { fontSize: TYPOGRAPHY.fontSize.md, textAlign: 'center' },
