@@ -39,11 +39,15 @@ function humanSaveError(e: unknown): string {
     message?: string;
   };
   const status = ax?.response?.status;
+  const data = ax?.response?.data as { code?: string; error?: string } | undefined;
+  if (data?.code === 'database_unavailable' && typeof data?.error === 'string') {
+    return data.error;
+  }
   if (status === 502 || status === 503 || status === 500) {
     return 'El servidor no está disponible por unos instantes (suele pasar si la base de datos reinicia en Render). Espera 30–60 s y pulsa Guardar de nuevo.';
   }
   const msg =
-    ax?.response?.data?.error ||
+    data?.error ||
     ax?.response?.data?.message ||
     ax?.message ||
     'No se pudo guardar.';
