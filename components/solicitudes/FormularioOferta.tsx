@@ -25,6 +25,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAlerts } from '@/context/AlertsContext';
 import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
 import serviceAreasApi from '@/services/serviceAreasApi';
+import type { VerificacionCreditosOferta } from '@/services/creditosService';
 
 interface FormularioOfertaProps {
   solicitud: SolicitudPublica;
@@ -49,6 +50,10 @@ interface FormularioOfertaProps {
   loading?: boolean;
   bottomInset?: number;
   esOfertaSecundaria?: boolean; // Nueva prop para ofertas secundarias
+  /** Saldo vs créditos requeridos (solo oferta principal); se muestra como badge junto al título */
+  verificacionCreditos?: VerificacionCreditosOferta | null;
+  verificandoCreditos?: boolean;
+  onPressComprarCreditos?: () => void;
 }
 
 interface RepuestoEditable extends RepuestoDetallado {
@@ -67,6 +72,8 @@ interface ServicioOferta {
   repuestos: RepuestoEditable[];
   tipoServicio: 'con_repuestos' | 'sin_repuestos';
   loadingServicioConfigurado: boolean;
+  /** Si true, no se muestra el card "servicio configurado" (el usuario eligió crear manualmente). */
+  omitirSelectorServicioConfigurado?: boolean;
 }
 
 // Componente DatePicker moderno con modal personalizado
@@ -510,6 +517,9 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   loading = false,
   bottomInset = 16,
   esOfertaSecundaria = false,
+  verificacionCreditos = null,
+  verificandoCreditos = false,
+  onPressComprarCreditos,
 }) => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -525,7 +535,8 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   const [razonCambioFecha, setRazonCambioFecha] = useState('');
   // State variables removed - ModernDatePicker y ModernTimePicker manejan su propia visibilidad
   const [descripcionOferta, setDescripcionOferta] = useState('');
-  const [garantiaOfrecida, setGarantiaOfrecida] = useState('');
+  const [garantiaMeses, setGarantiaMeses] = useState('');
+  const [garantiaKm, setGarantiaKm] = useState('');
   const [costoGestionCompra, setCostoGestionCompra] = useState('');
 
   // Estados para ofertas secundarias
@@ -625,7 +636,8 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   useEffect(() => {
     if (!esOfertaSecundaria && solicitud.servicios_solicitados_detail) {
       // Si la solicitud no requiere repuestos, forzar tipoServicio a 'sin_repuestos'
-      const tipoServicioInicial: 'con_repuestos' | 'sin_repuestos' = solicitud.requiere_repuestos === false ? 'sin_repuestos' : 'con_repuestos';
+      const tipoServicioInicial: 'con_repuestos' | 'sin_repuestos' =
+        solicitud.requiere_repuestos === false ? 'sin_repuestos' : 'sin_repuestos';
       const servicios = solicitud.servicios_solicitados_detail.map(servicio => ({
         servicio,
         precio: '',
@@ -633,6 +645,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         notas: '',
         servicioConfigurado: null,
         usandoServicioConfigurado: false,
+        omitirSelectorServicioConfigurado: false,
         costoManoObra: '',
         repuestos: [],
         tipoServicio: tipoServicioInicial,
@@ -817,6 +830,17 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         nuevos[index].servicioConfigurado = servicioConfigurado;
         nuevos[index].loadingServicioConfigurado = false;
 
+        const tieneRepuestosConfigApi = !!(
+          servicioConfigurado &&
+          servicioConfigurado.tipo_servicio === 'con_repuestos' &&
+          servicioConfigurado.repuestos_info_detallado &&
+          servicioConfigurado.repuestos_info_detallado.length > 0
+        );
+        if (!esOfertaSecundaria && nuevos[index].tipoServicio === 'con_repuestos' && !tieneRepuestosConfigApi) {
+          nuevos[index].tipoServicio = 'sin_repuestos';
+          nuevos[index].repuestos = [];
+        }
+
         // NO activar automáticamente - dejar que el usuario decida
         // Si se encontró un servicio configurado, solo guardarlo pero no activarlo
         // El usuario puede elegir usarlo o crear manualmente
@@ -851,10 +875,14 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       nuevos[index].tipoServicio = 'sin_repuestos';
       nuevos[index].repuestos = [];
     } else {
-      nuevos[index].tipoServicio = configurado.tipo_servicio;
+      const configConRepuestosListos =
+        configurado.tipo_servicio === 'con_repuestos' &&
+        configurado.repuestos_info_detallado &&
+        configurado.repuestos_info_detallado.length > 0;
+      nuevos[index].tipoServicio = configConRepuestosListos ? 'con_repuestos' : 'sin_repuestos';
+      nuevos[index].repuestos = [];
 
-      // Pre-cargar repuestos solo si la solicitud requiere repuestos o es oferta secundaria
-      if (configurado.repuestos_info_detallado && configurado.repuestos_info_detallado.length > 0) {
+      if (configConRepuestosListos && configurado.repuestos_info_detallado) {
         nuevos[index].repuestos = configurado.repuestos_info_detallado.map(rep => ({
           ...rep,
           cantidad: rep.cantidad_estimada || 1,
@@ -897,14 +925,29 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     setServiciosOferta(nuevos);
   };
 
+  const itemTieneConfigConRepuestos = (item: ServicioOferta): boolean =>
+    !!(
+      item.servicioConfigurado &&
+      item.servicioConfigurado.tipo_servicio === 'con_repuestos' &&
+      item.servicioConfigurado.repuestos_info_detallado &&
+      item.servicioConfigurado.repuestos_info_detallado.length > 0
+    );
+
+  const puedeElegirConRepuestos = (item: ServicioOferta): boolean =>
+    esOfertaSecundaria || itemTieneConfigConRepuestos(item);
+
   // Función para cambiar a modo manual
   const cambiarAModoManual = (index: number) => {
     const nuevos = [...serviciosOferta];
     nuevos[index].usandoServicioConfigurado = false;
+    nuevos[index].omitirSelectorServicioConfigurado = true;
 
     // Si la solicitud no requiere repuestos, forzar tipoServicio a 'sin_repuestos' y limpiar repuestos
     // NOTA: Esta validación NO aplica para ofertas secundarias
     if (!esOfertaSecundaria && solicitud.requiere_repuestos === false) {
+      nuevos[index].tipoServicio = 'sin_repuestos';
+      nuevos[index].repuestos = [];
+    } else if (!esOfertaSecundaria && !itemTieneConfigConRepuestos(nuevos[index])) {
       nuevos[index].tipoServicio = 'sin_repuestos';
       nuevos[index].repuestos = [];
     }
@@ -1024,17 +1067,6 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     setServiciosOferta(nuevos);
   };
 
-  // Verificar si el proveedor tiene servicio configurado con repuestos
-  const tieneServicioConfiguradoConRepuestos = (index: number): boolean => {
-    const servicio = serviciosOferta[index];
-    return !!(
-      servicio.servicioConfigurado &&
-      servicio.servicioConfigurado.tipo_servicio === 'con_repuestos' &&
-      servicio.servicioConfigurado.repuestos_info_detallado &&
-      servicio.servicioConfigurado.repuestos_info_detallado.length > 0
-    );
-  };
-
   // Agregar servicio desde lista disponible (solo para ofertas secundarias)
   const agregarServicioDesdeLista = (servicio: { id: number; nombre: string; descripcion?: string }) => {
     // Verificar que no esté ya agregado
@@ -1055,6 +1087,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       notas: '',
       servicioConfigurado: null,
       usandoServicioConfigurado: false,
+      omitirSelectorServicioConfigurado: false,
       costoManoObra: '',
       repuestos: [],
       tipoServicio: 'con_repuestos', // Por defecto con repuestos, el usuario puede cambiar
@@ -1093,6 +1126,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
               notas: '',
               servicioConfigurado: null,
               usandoServicioConfigurado: false,
+              omitirSelectorServicioConfigurado: false,
               costoManoObra: '',
               repuestos: [],
               tipoServicio: 'con_repuestos',
@@ -1323,6 +1357,20 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     const precioTotalFinal = precioTotalCalculado + gestionCompraConIva;
 
     const usaFechaAlternativa = esOfertaSecundaria || !puedeFechaSolicitada;
+    const garantiaMesesDigits = garantiaMeses.replace(/\D/g, '');
+    const garantiaKmDigits = garantiaKm.replace(/\D/g, '');
+    const garantiaOfrecidaStr =
+      !garantiaMesesDigits && !garantiaKmDigits
+        ? undefined
+        : [
+            garantiaMesesDigits ? `${garantiaMesesDigits} mes(es)` : null,
+            garantiaKmDigits
+              ? `${parseInt(garantiaKmDigits, 10).toLocaleString('es-CL')} km`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' · ');
+
     onSubmit({
       servicios_ofertados: serviciosOferta.map(s => s.servicio.id),
       detalles_servicios: detallesServicios,
@@ -1330,7 +1378,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       incluye_repuestos: incluyeRepuestos,
       tiempo_estimado_total: tiempoEstimadoTotal,
       descripcion_oferta: descripcionOferta,
-      garantia_ofrecida: garantiaOfrecida || undefined,
+      garantia_ofrecida: garantiaOfrecidaStr,
       fecha_disponible: fechaFormateada,
       hora_disponible: horaFormateada,
       es_fecha_alternativa: usaFechaAlternativa,
@@ -1361,15 +1409,59 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header minimalista */}
+        {/* Header: título + badge de créditos (oferta principal) */}
         <View style={styles.headerCard}>
           <View style={styles.headerRow}>
             <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>
-                Nueva Oferta
-              </Text>
+              <View style={styles.headerTitleLine}>
+                <Text style={styles.headerTitle} numberOfLines={1}>
+                  {esOfertaSecundaria ? 'Oferta adicional' : 'Nueva Oferta'}
+                </Text>
+                {!esOfertaSecundaria && (verificandoCreditos || verificacionCreditos) ? (
+                  verificandoCreditos ? (
+                    <View style={[styles.creditosBadge, styles.creditosBadgeNeutral]}>
+                      <ActivityIndicator size="small" color={primaryColor} />
+                    </View>
+                  ) : verificacionCreditos ? (
+                    <TouchableOpacity
+                      activeOpacity={verificacionCreditos.puede_ofertar ? 1 : 0.75}
+                      onPress={
+                        !verificacionCreditos.puede_ofertar && onPressComprarCreditos
+                          ? onPressComprarCreditos
+                          : undefined
+                      }
+                      disabled={verificacionCreditos.puede_ofertar}
+                      style={[
+                        styles.creditosBadge,
+                        verificacionCreditos.puede_ofertar
+                          ? styles.creditosBadgeOk
+                          : styles.creditosBadgeWarn,
+                      ]}
+                    >
+                      <MaterialIcons
+                        name="account-balance-wallet"
+                        size={14}
+                        color={verificacionCreditos.puede_ofertar ? '#047857' : '#B45309'}
+                      />
+                      <Text
+                        style={[
+                          styles.creditosBadgeText,
+                          { color: verificacionCreditos.puede_ofertar ? '#047857' : '#92400E' },
+                        ]}
+                      >
+                        {verificacionCreditos.saldo_actual}/{verificacionCreditos.creditos_necesarios}
+                      </Text>
+                      {!verificacionCreditos.puede_ofertar && (
+                        <MaterialIcons name="chevron-right" size={16} color="#B45309" />
+                      )}
+                    </TouchableOpacity>
+                  ) : null
+                ) : null}
+              </View>
               <Text style={styles.headerSubtitle}>
-                Completa la información para enviar tu oferta
+                {esOfertaSecundaria
+                  ? 'Completa la información del servicio adicional'
+                  : 'Completa la información para enviar tu oferta'}
               </Text>
             </View>
           </View>
@@ -1518,20 +1610,25 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                   </View>
 
                   {/* Selector de servicio configurado - Solo para ofertas originales, no para secundarias */}
-                  {!esOfertaSecundaria && !item.usandoServicioConfigurado && (
+                  {!esOfertaSecundaria &&
+                    !item.usandoServicioConfigurado &&
+                    !item.omitirSelectorServicioConfigurado && (
                     <View style={styles.selectorContainer}>
                       <ServicioConfiguradoSelector
                         servicioConfigurado={item.servicioConfigurado}
                         loading={item.loadingServicioConfigurado}
                         onUsarServicioConfigurado={() => usarServicioConfigurado(index)}
                         onCrearManual={() => {
-                          // Cambiar a modo manual: permitir edición directa del precio
                           const nuevos = [...serviciosOferta];
                           nuevos[index].usandoServicioConfigurado = false;
+                          nuevos[index].omitirSelectorServicioConfigurado = true;
                           nuevos[index].precio = '';
                           nuevos[index].tiempo_estimado = '';
                           nuevos[index].costoManoObra = '';
                           nuevos[index].repuestos = [];
+                          if (!esOfertaSecundaria && !itemTieneConfigConRepuestos(nuevos[index])) {
+                            nuevos[index].tipoServicio = 'sin_repuestos';
+                          }
                           setServiciosOferta(nuevos);
                         }}
                         usandoServicioConfigurado={item.usandoServicioConfigurado}
@@ -1562,21 +1659,38 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                             style={[
                               styles.tipoServicioButton,
                               item.tipoServicio === 'con_repuestos' && styles.tipoServicioButtonSelected,
-                              !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioButtonDisabled
+                              (!esOfertaSecundaria && solicitud.requiere_repuestos === false) ||
+                                (!esOfertaSecundaria && !puedeElegirConRepuestos(item))
+                                ? styles.tipoServicioButtonDisabled
+                                : null,
                             ]}
                             onPress={() => {
                               if (!esOfertaSecundaria && solicitud.requiere_repuestos === false) return;
+                              if (!esOfertaSecundaria && !puedeElegirConRepuestos(item)) {
+                                Alert.alert(
+                                  'Configuración requerida',
+                                  'Para ofertar con repuestos debes tener este servicio configurado con repuestos para la marca del cliente (Menú Servicios).'
+                                );
+                                return;
+                              }
                               const nuevos = [...serviciosOferta];
                               nuevos[index].tipoServicio = 'con_repuestos';
                               setServiciosOferta(nuevos);
                             }}
-                            disabled={!esOfertaSecundaria && solicitud.requiere_repuestos === false}
+                            disabled={
+                              (!esOfertaSecundaria && solicitud.requiere_repuestos === false) ||
+                              (!esOfertaSecundaria && !puedeElegirConRepuestos(item))
+                            }
                           >
-                            <Text style={[
-                              styles.tipoServicioText,
-                              item.tipoServicio === 'con_repuestos' && styles.tipoServicioTextSelected,
-                              !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioTextDisabled
-                            ]}>
+                            <Text
+                              style={[
+                                styles.tipoServicioText,
+                                item.tipoServicio === 'con_repuestos' && styles.tipoServicioTextSelected,
+                                ((!esOfertaSecundaria && solicitud.requiere_repuestos === false) ||
+                                  (!esOfertaSecundaria && !puedeElegirConRepuestos(item))) &&
+                                  styles.tipoServicioTextDisabled,
+                              ]}
+                            >
                               Con Repuestos
                             </Text>
                           </TouchableOpacity>
@@ -1605,30 +1719,61 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                             </Text>
                           </TouchableOpacity>
                         </View>
+                        {!esOfertaSecundaria &&
+                          solicitud.requiere_repuestos !== false &&
+                          !puedeElegirConRepuestos(item) && (
+                            <Text style={styles.tipoServicioHint}>
+                              Configura el servicio con repuestos en el menú Servicios para habilitar la opción con repuestos.
+                            </Text>
+                          )}
                       </View>
 
-                      {/* Costo de mano de obra */}
-                      <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>
-                          Costo Mano de Obra (sin IVA)
-                        </Text>
-                        <View style={styles.inputContainer}>
-                          <Text style={styles.currencySymbol}>$</Text>
-                          <TextInput
-                            style={styles.input}
-                            placeholder="0"
-                            placeholderTextColor="#999"
-                            value={item.costoManoObra}
-                            onChangeText={(text) => actualizarCostoManoObra(index, text)}
-                            keyboardType="decimal-pad"
-                          />
-                        </View>
-                      </View>
+                      <View style={styles.preciosGroup}>
+                        <Text style={styles.groupTitle}>Precios</Text>
 
-                      {/* Lista de repuestos - Solo si está configurado o es oferta secundaria */}
-                      {item.tipoServicio === 'con_repuestos' && (esOfertaSecundaria || solicitud.requiere_repuestos !== false) && (
                         <View style={styles.inputGroup}>
-                          {tieneServicioConfiguradoConRepuestos(index) || esOfertaSecundaria ? (
+                          <Text style={styles.inputLabel}>
+                            Costo Mano de Obra (sin IVA)
+                          </Text>
+                          <View style={styles.inputContainer}>
+                            <Text style={styles.currencySymbol}>$</Text>
+                            <TextInput
+                              style={styles.input}
+                              placeholder="0"
+                              placeholderTextColor="#999"
+                              value={item.costoManoObra}
+                              onChangeText={(text) => actualizarCostoManoObra(index, text)}
+                              keyboardType="decimal-pad"
+                            />
+                          </View>
+                        </View>
+
+                        {item.tipoServicio === 'con_repuestos' &&
+                          (esOfertaSecundaria || solicitud.requiere_repuestos !== false) && (
+                          <View style={styles.inputGroup}>
+                            <View style={styles.gestionCompraRowEnPrecios}>
+                              <MaterialIcons name="local-shipping" size={18} color="#FF9800" />
+                              <Text style={styles.inputLabel}>Gestión de compra (sin IVA)</Text>
+                            </View>
+                            <Text style={styles.gestionCompraHintEnPrecios}>
+                              Traslado para comprar repuestos. Se suma antes del IVA.
+                            </Text>
+                            <View style={styles.inputContainer}>
+                              <Text style={styles.currencySymbol}>$</Text>
+                              <TextInput
+                                style={[styles.input, { flex: 1 }]}
+                                placeholder="Ej: 15000"
+                                placeholderTextColor="#999"
+                                value={costoGestionCompra}
+                                onChangeText={setCostoGestionCompra}
+                                keyboardType="decimal-pad"
+                              />
+                            </View>
+                          </View>
+                        )}
+
+                        {item.tipoServicio === 'con_repuestos' && (esOfertaSecundaria || solicitud.requiere_repuestos !== false) && (
+                          <View style={styles.inputGroup}>
                             <RepuestosLista
                               repuestos={item.repuestos}
                               onRepuestosChange={(repuestos) => actualizarRepuestos(index, repuestos)}
@@ -1636,56 +1781,33 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                               mostrarTotal={true}
                               servicioId={esOfertaSecundaria ? item.servicio.id : undefined}
                             />
-                          ) : (
-                            <View style={styles.warningContainer}>
-                              <MaterialIcons name="warning" size={40} color="#FFA000" />
-                              <Text style={styles.warningTitle}>
-                                Servicio sin repuestos configurados
-                              </Text>
-                              <Text style={styles.warningText}>
-                                El cliente solicitó este servicio con repuestos, pero no tienes un servicio configurado con repuestos para {item.servicio.nombre}.
-                              </Text>
-                              <Text style={styles.warningSubtext}>
-                                Tus opciones:
-                              </Text>
-                              <View style={styles.optionsList}>
-                                <View style={styles.optionItem}>
-                                  <Text style={styles.optionNumber}>1.</Text>
-                                  <Text style={styles.optionText}>
-                                    Cambia el selector arriba a "Sin repuestos" si puedes realizar el servicio sin materiales
-                                  </Text>
-                                </View>
-                                <View style={styles.optionItem}>
-                                  <Text style={styles.optionNumber}>2.</Text>
-                                  <Text style={styles.optionText}>
-                                    Ve a la pantalla de Servicios y configura este servicio con repuestos antes de enviar esta oferta
-                                  </Text>
-                                </View>
-                              </View>
-                            </View>
-                          )}
-                        </View>
-                      )}
+                          </View>
+                        )}
 
-                      {/* Precio Total - Automático */}
-                      <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>
-                          Precio Total (con IVA)
-                        </Text>
-                        <View style={[styles.inputContainer, { backgroundColor: '#F5F5F5' }]}>
-                          <Text style={styles.currencySymbol}>$</Text>
-                          <TextInput
-                            style={[styles.input, { color: '#666' }]}
-                            placeholder="0"
-                            placeholderTextColor="#999"
-                            value={item.precio}
-                            editable={false}
-                            keyboardType="decimal-pad"
-                          />
+                        <View style={styles.precioTotalDestacadoWrap}>
+                          <Text style={[styles.precioTotalDestacadoLabel, { color: primaryColor }]}>
+                            Precio total (con IVA)
+                          </Text>
+                          <View
+                            style={[
+                              styles.precioTotalDestacadoBox,
+                              { borderColor: primaryColor },
+                            ]}
+                          >
+                            <Text style={[styles.precioTotalDestacadoSymbol, { color: primaryColor }]}>$</Text>
+                            <TextInput
+                              style={styles.precioTotalDestacadoInput}
+                              placeholder="0"
+                              placeholderTextColor="#94A3B8"
+                              value={item.precio}
+                              editable={false}
+                              keyboardType="decimal-pad"
+                            />
+                          </View>
+                          <Text style={styles.precioTotalDestacadoHint}>
+                            Resultado: mano de obra + repuestos + gestión de compra + IVA 19%
+                          </Text>
                         </View>
-                        <Text style={styles.precioInfo}>
-                          Calculado automáticamente (Mano de obra + Repuestos + Gestión de compra + IVA 19%)
-                        </Text>
                       </View>
 
                       {/* Tiempo estimado y Notas - En modo manual también */}
@@ -1766,21 +1888,38 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                             style={[
                               styles.tipoServicioButton,
                               item.tipoServicio === 'con_repuestos' && styles.tipoServicioButtonSelected,
-                              !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioButtonDisabled
+                              (!esOfertaSecundaria && solicitud.requiere_repuestos === false) ||
+                                (!esOfertaSecundaria && !puedeElegirConRepuestos(item))
+                                ? styles.tipoServicioButtonDisabled
+                                : null,
                             ]}
                             onPress={() => {
                               if (!esOfertaSecundaria && solicitud.requiere_repuestos === false) return;
+                              if (!esOfertaSecundaria && !puedeElegirConRepuestos(item)) {
+                                Alert.alert(
+                                  'Configuración requerida',
+                                  'Para ofertar con repuestos debes tener este servicio configurado con repuestos para la marca del cliente (Menú Servicios).'
+                                );
+                                return;
+                              }
                               const nuevos = [...serviciosOferta];
                               nuevos[index].tipoServicio = 'con_repuestos';
                               setServiciosOferta(nuevos);
                             }}
-                            disabled={!esOfertaSecundaria && solicitud.requiere_repuestos === false}
+                            disabled={
+                              (!esOfertaSecundaria && solicitud.requiere_repuestos === false) ||
+                              (!esOfertaSecundaria && !puedeElegirConRepuestos(item))
+                            }
                           >
-                            <Text style={[
-                              styles.tipoServicioText,
-                              item.tipoServicio === 'con_repuestos' && styles.tipoServicioTextSelected,
-                              !esOfertaSecundaria && solicitud.requiere_repuestos === false && styles.tipoServicioTextDisabled
-                            ]}>
+                            <Text
+                              style={[
+                                styles.tipoServicioText,
+                                item.tipoServicio === 'con_repuestos' && styles.tipoServicioTextSelected,
+                                ((!esOfertaSecundaria && solicitud.requiere_repuestos === false) ||
+                                  (!esOfertaSecundaria && !puedeElegirConRepuestos(item))) &&
+                                  styles.tipoServicioTextDisabled,
+                              ]}
+                            >
                               Con Repuestos
                             </Text>
                           </TouchableOpacity>
@@ -1809,6 +1948,13 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                             </Text>
                           </TouchableOpacity>
                         </View>
+                        {!esOfertaSecundaria &&
+                          solicitud.requiere_repuestos !== false &&
+                          !puedeElegirConRepuestos(item) && (
+                            <Text style={styles.tipoServicioHint}>
+                              Configura el servicio con repuestos en el menú Servicios para habilitar la opción con repuestos.
+                            </Text>
+                          )}
                       </View>
 
                       {/* Lista de repuestos - Libre en ofertas secundarias */}
@@ -1846,24 +1992,53 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                           </View>
                         </View>
 
+                        {item.tipoServicio === 'con_repuestos' &&
+                          (esOfertaSecundaria || solicitud.requiere_repuestos !== false) && (
+                          <View style={styles.inputGroup}>
+                            <View style={styles.gestionCompraRowEnPrecios}>
+                              <MaterialIcons name="local-shipping" size={18} color="#FF9800" />
+                              <Text style={styles.inputLabel}>Gestión de compra (sin IVA)</Text>
+                            </View>
+                            <Text style={styles.gestionCompraHintEnPrecios}>
+                              Traslado para comprar repuestos. Se suma antes del IVA.
+                            </Text>
+                            <View style={styles.inputContainer}>
+                              <Text style={styles.currencySymbol}>$</Text>
+                              <TextInput
+                                style={[styles.input, { flex: 1 }]}
+                                placeholder="Ej: 15000"
+                                placeholderTextColor="#999"
+                                value={costoGestionCompra}
+                                onChangeText={setCostoGestionCompra}
+                                keyboardType="decimal-pad"
+                              />
+                            </View>
+                          </View>
+                        )}
+
                         {/* Precio Total (calculado automáticamente) */}
-                        <View style={styles.inputGroup}>
-                          <Text style={styles.inputLabel}>
-                            Precio Total (con IVA)
+                        <View style={styles.precioTotalDestacadoWrap}>
+                          <Text style={[styles.precioTotalDestacadoLabel, { color: primaryColor }]}>
+                            Precio total (con IVA)
                           </Text>
-                          <View style={[styles.inputContainer, { backgroundColor: '#F5F5F5' }]}>
-                            <Text style={styles.currencySymbol}>$</Text>
+                          <View
+                            style={[
+                              styles.precioTotalDestacadoBox,
+                              { borderColor: primaryColor },
+                            ]}
+                          >
+                            <Text style={[styles.precioTotalDestacadoSymbol, { color: primaryColor }]}>$</Text>
                             <TextInput
-                              style={[styles.input, { color: '#666' }]}
+                              style={styles.precioTotalDestacadoInput}
                               placeholder="0"
-                              placeholderTextColor="#999"
+                              placeholderTextColor="#94A3B8"
                               value={item.precio}
                               editable={false}
                               keyboardType="decimal-pad"
                             />
                           </View>
-                          <Text style={styles.precioInfo}>
-                            Calculado automáticamente (Mano de obra + Repuestos + Gestión de compra + IVA 19%)
+                          <Text style={styles.precioTotalDestacadoHint}>
+                            Resultado: mano de obra + repuestos + gestión de compra + IVA 19%
                           </Text>
                         </View>
                       </View>
@@ -2059,48 +2234,33 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
               Garantía Ofrecida
             </Text>
             <Text style={styles.sectionSubtitle}>
-              Opcional - Agrega valor a tu oferta
+              Opcional — solo números (meses y kilómetros)
             </Text>
-            <View style={styles.inputContainer}>
-              <MaterialIcons name="shield" size={20} color="#666" />
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="Ej: 6 meses o 10,000 km"
-                placeholderTextColor="#999"
-                value={garantiaOfrecida}
-                onChangeText={setGarantiaOfrecida}
-              />
-            </View>
-          </View>
-
-          {/* Gestión de Compra de Repuestos - Solo visible cuando hay repuestos */}
-          {serviciosOferta.some(s => s.tipoServicio === 'con_repuestos') && (
-            <View style={styles.subsection}>
-              <View style={styles.gestionCompraHeader}>
-                <MaterialIcons name="local-shipping" size={22} color="#FF9800" />
-                <Text style={styles.subsectionTitle}>
-                  Gestión de Compra
-                </Text>
-              </View>
-              <Text style={styles.sectionSubtitle}>
-                Costo del traslado para comprar los repuestos. Ajústalo según la ubicación del cliente.
-              </Text>
-              <View style={styles.inputContainer}>
-                <Text style={styles.currencySymbol}>$</Text>
+            <View style={styles.garantiaRow}>
+              <View style={[styles.inputContainer, styles.garantiaInputHalf]}>
+                <MaterialIcons name="calendar-month" size={18} color="#666" />
                 <TextInput
                   style={[styles.input, { flex: 1 }]}
-                  placeholder="Ej: 15000"
+                  placeholder="Meses"
                   placeholderTextColor="#999"
-                  value={costoGestionCompra}
-                  onChangeText={setCostoGestionCompra}
-                  keyboardType="decimal-pad"
+                  value={garantiaMeses}
+                  onChangeText={(t) => setGarantiaMeses(t.replace(/\D/g, ''))}
+                  keyboardType="number-pad"
                 />
               </View>
-              <Text style={styles.gestionCompraInfo}>
-                💡 Este valor se suma al precio de los repuestos cuando el cliente paga por adelantado
-              </Text>
+              <View style={[styles.inputContainer, styles.garantiaInputHalf, { marginLeft: 10 }]}>
+                <MaterialIcons name="speed" size={18} color="#666" />
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="Km"
+                  placeholderTextColor="#999"
+                  value={garantiaKm}
+                  onChangeText={(t) => setGarantiaKm(t.replace(/\D/g, ''))}
+                  keyboardType="number-pad"
+                />
+              </View>
             </View>
-          )}
+          </View>
         </View>
 
         {/* Resumen con desglose */}
@@ -2259,11 +2419,48 @@ const styles = StyleSheet.create({
   headerTextContainer: {
     flex: 1,
   },
+  headerTitleLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 6,
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: '#000',
-    marginBottom: 6,
+    flexShrink: 1,
+    marginBottom: 0,
+  },
+  creditosBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    gap: 4,
+    flexShrink: 0,
+  },
+  creditosBadgeNeutral: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+    minWidth: 40,
+    justifyContent: 'center',
+  },
+  creditosBadgeOk: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  creditosBadgeWarn: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  creditosBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   headerSubtitle: {
     fontSize: 15,
@@ -2299,6 +2496,51 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#000',
     marginBottom: 12,
+  },
+  precioTotalDestacadoWrap: {
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 2,
+    borderTopColor: '#E2E8F0',
+  },
+  precioTotalDestacadoLabel: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 10,
+    letterSpacing: -0.3,
+  },
+  precioTotalDestacadoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    gap: 6,
+    backgroundColor: '#F0F7FC',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  precioTotalDestacadoSymbol: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  precioTotalDestacadoInput: {
+    flex: 1,
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
+    padding: 0,
+    letterSpacing: -0.5,
+  },
+  precioTotalDestacadoHint: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 8,
+    lineHeight: 17,
   },
   infoGroup: {
     marginTop: 16,
@@ -2419,6 +2661,18 @@ const styles = StyleSheet.create({
     color: '#FF9800',
     marginTop: 8,
     fontStyle: 'italic',
+    lineHeight: 16,
+  },
+  gestionCompraRowEnPrecios: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  gestionCompraHintEnPrecios: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 8,
     lineHeight: 16,
   },
 
@@ -2991,6 +3245,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     lineHeight: 20,
+  },
+  tipoServicioHint: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 8,
+    lineHeight: 18,
+  },
+  garantiaRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  garantiaInputHalf: {
+    flex: 1,
+    marginBottom: 0,
   },
 });
 

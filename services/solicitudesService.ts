@@ -246,6 +246,13 @@ export interface OfertaProveedor {
   estado_pago_repuestos?: 'no_aplica' | 'pendiente' | 'pagado';
   estado_pago_servicio?: 'pendiente' | 'pagado';
   proveedor_puede_recibir_pagos?: boolean;
+  /** ISO datetime — plazo para comprar créditos y confirmar adjudicación */
+  fecha_limite_confirmacion_creditos?: string | null;
+  /** Créditos requeridos para adjudicar (primer servicio de la oferta); solo proveedor en pendiente_creditos */
+  creditos_necesarios_adjudicacion?: number | null;
+  saldo_creditos_proveedor?: number | null;
+  /** Mínimo a comprar para alcanzar el requerido (max(0, necesarios − saldo)) */
+  creditos_faltantes_para_confirmar?: number | null;
 }
 
 export interface MensajeChat {

@@ -126,12 +126,21 @@ export default function OfertaDetalleScreen() {
         return { color: primaryColor, text: 'Vista por Cliente', icon: 'visibility' };
       case 'en_chat':
         return { color: accentColor, text: 'En Conversación', icon: 'chat' };
-      case 'pendiente_creditos':
+      case 'pendiente_creditos': {
+        const nec = oferta.creditos_necesarios_adjudicacion;
+        const falt = oferta.creditos_faltantes_para_confirmar;
+        const sufijo =
+          typeof nec === 'number' && nec > 0
+            ? typeof falt === 'number' && falt > 0
+              ? ` · comprá ${falt} crédito${falt !== 1 ? 's' : ''}`
+              : ` · ${nec} crédito${nec !== 1 ? 's' : ''} requerido${nec !== 1 ? 's' : ''}`
+            : '';
         return {
           color: warningColor,
-          text: 'Pendiente: comprar créditos',
+          text: `Pendiente: comprar créditos${sufijo}`,
           icon: 'account-balance-wallet',
         };
+      }
       case 'aceptada':
         return { color: successColor, text: '¡Aceptada!', icon: 'check-circle' };
       case 'pendiente_pago':
@@ -503,12 +512,68 @@ export default function OfertaDetalleScreen() {
 
         {/* Banner informativo según el estado */}
         {oferta.estado === 'pendiente_creditos' && (
-          <EstadoBanner
-            type="warning"
-            title="Te eligieron: confirma con créditos"
-            message="El cliente eligió tu oferta. Compra los créditos necesarios en la tienda antes del plazo para confirmar la adjudicación y continuar."
-            icon="account-balance-wallet"
-          />
+          <>
+            <EstadoBanner
+              type="warning"
+              title="Te eligieron: confirma con créditos"
+              message={
+                typeof oferta.creditos_necesarios_adjudicacion === 'number' &&
+                oferta.creditos_necesarios_adjudicacion > 0
+                  ? `Para confirmar esta adjudicación necesitás ${oferta.creditos_necesarios_adjudicacion} crédito${
+                      oferta.creditos_necesarios_adjudicacion !== 1 ? 's' : ''
+                    } (según el servicio principal de tu oferta).${
+                      typeof oferta.saldo_creditos_proveedor === 'number'
+                        ? ` Tu saldo actual: ${oferta.saldo_creditos_proveedor}.`
+                        : ''
+                    }${
+                      typeof oferta.creditos_faltantes_para_confirmar === 'number' &&
+                      oferta.creditos_faltantes_para_confirmar > 0
+                        ? ` Te faltan comprar al menos ${oferta.creditos_faltantes_para_confirmar} crédito${
+                            oferta.creditos_faltantes_para_confirmar !== 1 ? 's' : ''
+                          }.`
+                        : ''
+                    } Compralos en la tienda antes del plazo.`
+                  : 'El cliente eligió tu oferta. Comprá los créditos necesarios en la tienda antes del plazo para confirmar la adjudicación y continuar.'
+              }
+              icon="account-balance-wallet"
+            />
+            {(typeof oferta.creditos_necesarios_adjudicacion === 'number' ||
+              typeof oferta.creditos_faltantes_para_confirmar === 'number') && (
+              <View style={styles.creditosPendienteCard}>
+                <Text style={styles.creditosPendienteCardTitle}>Resumen de créditos</Text>
+                {typeof oferta.creditos_necesarios_adjudicacion === 'number' && (
+                  <View style={styles.creditosPendienteRow}>
+                    <Text style={styles.creditosPendienteLabel}>Requeridos para adjudicar</Text>
+                    <Text style={styles.creditosPendienteValue}>
+                      {oferta.creditos_necesarios_adjudicacion}
+                    </Text>
+                  </View>
+                )}
+                {typeof oferta.saldo_creditos_proveedor === 'number' && (
+                  <View style={styles.creditosPendienteRow}>
+                    <Text style={styles.creditosPendienteLabel}>Tu saldo ahora</Text>
+                    <Text style={styles.creditosPendienteValueMuted}>
+                      {oferta.saldo_creditos_proveedor}
+                    </Text>
+                  </View>
+                )}
+                {typeof oferta.creditos_faltantes_para_confirmar === 'number' &&
+                  oferta.creditos_faltantes_para_confirmar > 0 && (
+                  <View style={[styles.creditosPendienteRow, styles.creditosPendienteRowDestacado]}>
+                    <Text style={styles.creditosPendienteLabelStrong}>Comprá al menos</Text>
+                    <Text style={styles.creditosPendienteValueStrong}>
+                      {oferta.creditos_faltantes_para_confirmar}
+                    </Text>
+                  </View>
+                )}
+                {oferta.fecha_limite_confirmacion_creditos ? (
+                  <Text style={styles.creditosPendientePlazo}>
+                    Plazo: {formatearFechaCorta(oferta.fecha_limite_confirmacion_creditos)}
+                  </Text>
+                ) : null}
+              </View>
+            )}
+          </>
         )}
 
         {oferta.estado === 'aceptada' && (
@@ -969,7 +1034,17 @@ export default function OfertaDetalleScreen() {
         {oferta.estado === 'pendiente_creditos' && (
           <TouchableOpacity
             style={[styles.fixedActionButton, styles.fixedActionButtonPrimary]}
-            onPress={() => router.push('/creditos?tab=tienda&minCreditos=2')}
+            onPress={() => {
+              const falt = oferta.creditos_faltantes_para_confirmar;
+              const nec = oferta.creditos_necesarios_adjudicacion;
+              const minCompra =
+                typeof falt === 'number' && falt > 0
+                  ? falt
+                  : typeof nec === 'number' && nec > 0
+                    ? nec
+                    : 1;
+              router.push(`/creditos?tab=tienda&minCreditos=${minCompra}`);
+            }}
           >
             <MaterialIcons name="account-balance-wallet" size={20} color={white} />
             <Text style={styles.fixedActionButtonText}>Comprar créditos</Text>
@@ -1145,6 +1220,65 @@ const createStyles = () => {
     fechaBadgeText: {
       fontSize: fontSizeSm,
       color: textSecondary,
+    },
+
+    creditosPendienteCard: {
+      backgroundColor: warningLight,
+      borderRadius: radiusLg,
+      borderWidth: 1,
+      borderColor: warningBorder,
+      padding: spacingMd,
+      marginBottom: spacingMd,
+      gap: spacingSm,
+    },
+    creditosPendienteCardTitle: {
+      fontSize: fontSizeMd,
+      fontWeight: fontWeightBold,
+      color: textPrimary,
+      marginBottom: spacingXs,
+    },
+    creditosPendienteRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    creditosPendienteRowDestacado: {
+      marginTop: spacingXs,
+      paddingTop: spacingSm,
+      borderTopWidth: 1,
+      borderTopColor: warningBorder,
+    },
+    creditosPendienteLabel: {
+      fontSize: fontSizeBase,
+      color: textSecondary,
+      flex: 1,
+      paddingRight: spacingSm,
+    },
+    creditosPendienteLabelStrong: {
+      fontSize: fontSizeBase,
+      fontWeight: fontWeightBold,
+      color: textPrimary,
+      flex: 1,
+    },
+    creditosPendienteValue: {
+      fontSize: fontSizeLg,
+      fontWeight: fontWeightBold,
+      color: textPrimary,
+    },
+    creditosPendienteValueMuted: {
+      fontSize: fontSizeLg,
+      fontWeight: fontWeightSemibold,
+      color: textSecondary,
+    },
+    creditosPendienteValueStrong: {
+      fontSize: fontSize2xl,
+      fontWeight: fontWeightExtrabold,
+      color: accentColor,
+    },
+    creditosPendientePlazo: {
+      fontSize: fontSizeSm,
+      color: textSecondary,
+      marginTop: spacingXs,
     },
 
     // Secciones

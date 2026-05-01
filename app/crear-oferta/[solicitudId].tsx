@@ -7,7 +7,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -285,6 +284,7 @@ export default function CrearOfertaScreen() {
           options={{
             title: 'Crear Oferta',
             headerBackTitle: '',
+            headerBackTitleVisible: false,
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.text,
           }}
@@ -304,6 +304,7 @@ export default function CrearOfertaScreen() {
           options={{
             title: 'Crear Oferta',
             headerBackTitle: '',
+            headerBackTitleVisible: false,
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.text,
           }}
@@ -323,6 +324,7 @@ export default function CrearOfertaScreen() {
         options={{
           title: 'Crear Oferta',
           headerBackTitle: '',
+          headerBackTitleVisible: false,
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
         }}
@@ -332,31 +334,15 @@ export default function CrearOfertaScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {verificacionCreditos && !verificacionCreditos.puede_ofertar && (
-          <View
-            style={[
-              styles.bannerCreditos,
-              { backgroundColor: colors.tint + '18', borderColor: colors.tint },
-            ]}
-          >
-            <Text style={[styles.bannerTitle, { color: colors.text }]}>
-              Saldo de créditos bajo
-            </Text>
-            <Text style={[styles.bannerBody, { color: colors.text }]}>
-              Puedes ofertar igualmente. Si el cliente te elige, necesitarás al menos{' '}
-              {verificacionCreditos.creditos_necesarios} crédito(s) para confirmar la adjudicación.
-            </Text>
-            <TouchableOpacity onPress={handleIrAComprarCreditos} style={styles.bannerBtn}>
-              <Text style={[styles.bannerBtnText, { color: colors.tint }]}>Ir a comprar créditos</Text>
-            </TouchableOpacity>
-          </View>
-        )}
         <FormularioOferta
           solicitud={solicitud}
           onSubmit={handleSubmit}
           onCancel={() => router.back()}
           loading={enviando}
           bottomInset={insets.bottom}
+          verificacionCreditos={verificacionCreditos}
+          verificandoCreditos={verificandoCreditos}
+          onPressComprarCreditos={handleIrAComprarCreditos}
         />
       </KeyboardAvoidingView>
     </View>
@@ -387,31 +373,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
-  },
-  bannerCreditos: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  bannerTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  bannerBody: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 10,
-  },
-  bannerBtn: {
-    alignSelf: 'flex-start',
-  },
-  bannerBtnText: {
-    fontSize: 15,
     fontWeight: '600',
   },
 });

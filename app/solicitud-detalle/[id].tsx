@@ -220,6 +220,7 @@ export default function SolicitudDetalleScreen() {
           options={{
             title: 'Detalle de Solicitud',
             headerBackTitle: '',
+            headerBackTitleVisible: false,
             headerStyle: { backgroundColor: bgPaper },
             headerTintColor: textPrimary,
           }}
@@ -241,6 +242,7 @@ export default function SolicitudDetalleScreen() {
           options={{
             title: 'Detalle de Solicitud',
             headerBackTitle: '',
+            headerBackTitleVisible: false,
             headerStyle: { backgroundColor: bgPaper },
             headerTintColor: textPrimary,
           }}
@@ -260,6 +262,7 @@ export default function SolicitudDetalleScreen() {
         options={{
           title: 'Detalle de Solicitud',
           headerBackTitle: '',
+          headerBackTitleVisible: false,
           headerStyle: { backgroundColor: bgPaper },
           headerTintColor: textPrimary,
         }}
