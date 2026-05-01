@@ -22,7 +22,9 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/app/design-system/theme/useTheme';
@@ -55,6 +57,7 @@ import {
 import { InteractiveStatsChart } from '@/components/creditos/InteractiveStatsChart';
 import MercadoPagoWebViewModal from '@/components/creditos/MercadoPagoWebViewModal';
 import Header from '@/components/Header';
+import { FALLBACK_PRECIO_CREDITO_BRUTO_CLP } from '@/constants/mercadoPagoPricing';
 
 // ─────────────────────────────────────────────────────────────
 // Tipos
@@ -68,8 +71,20 @@ interface ModalSuscripcion {
   suscripcionId: number;
 }
 
+function planNombreCorto(nombre: string): string {
+  return nombre.replace(/^Plan\s+/i, '').trim();
+}
+
+function clpPorCreditoEnPlan(plan: PlanSuscripcion): number {
+  return Math.round(Number(plan.precio) / Math.max(1, plan.creditos_mensuales));
+}
+
+function formatCLP(n: number): string {
+  return `$${Math.round(n).toLocaleString('es-CL')}`;
+}
+
 // ─────────────────────────────────────────────────────────────
-// Componente PlanCard (suscripciones)
+// Componente PlanCard (suscripciones) — glass + beneficios comparativos
 // ─────────────────────────────────────────────────────────────
 interface PlanCardProps {
   plan: PlanSuscripcion;
@@ -77,13 +92,20 @@ interface PlanCardProps {
   onSuscribirse: (plan: PlanSuscripcion) => void;
   cargando: boolean;
   colors: any;
+  /** Misma lista ordenada (ej. por `orden`) para comparar con el plan de abajo */
+  planesOrdenados: PlanSuscripcion[];
+  precioRecargaPorCredito: number;
 }
 
 const PlanCard: React.FC<PlanCardProps> = React.memo(
-  ({ plan, suscripcionActual, onSuscribirse, cargando, colors }) => {
-    const primaryColor = colors?.primary?.['500'] ?? '#4E4FEB';
-    const textPrimary = colors?.text?.primary ?? '#111';
-    const textSecondary = colors?.text?.secondary ?? '#666';
+  ({ plan, suscripcionActual, onSuscribirse, cargando, colors, planesOrdenados, precioRecargaPorCredito }) => {
+    const primaryColor = colors?.primary?.['500'] ?? COLORS.primary[500];
+    const accentColor = colors?.accent?.['500'] ?? COLORS.accent[500];
+    const successColor = colors?.success?.main ?? COLORS.success.main;
+    const textPrimary = colors?.text?.primary ?? COLORS.neutral.gray[950];
+    const textSecondary = colors?.text?.secondary ?? COLORS.neutral.gray[600];
+    const borderGlass = 'rgba(255, 255, 255, 0.45)';
+    const blurIntensity = Platform.OS === 'ios' ? 55 : 45;
 
     const esPlanActual =
       suscripcionActual?.plan?.id === plan.id &&
@@ -93,92 +115,153 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
       suscripcionActual !== null &&
       ['activa', 'pendiente'].includes(suscripcionActual?.estado ?? '');
 
+    const idx = planesOrdenados.findIndex((p) => p.id === plan.id);
+    const planInferior = idx > 0 ? planesOrdenados[idx - 1] : null;
+    const precioCreditoPlan = clpPorCreditoEnPlan(plan);
+    const ahorroVsTienda = Math.round(precioRecargaPorCredito - precioCreditoPlan);
+
+    const filasBeneficio: { key: string; icon: string; text: string }[] = [];
+
+    if (ahorroVsTienda > 0) {
+      filasBeneficio.push({
+        key: 'tienda',
+        icon: 'account-balance-wallet',
+        text: `Respecto a comprar créditos de a uno en la Tienda (${formatCLP(precioRecargaPorCredito)} c/u), en este plan cada crédito te sale unos ${formatCLP(ahorroVsTienda)} menos (aprox. ${formatCLP(precioCreditoPlan)} c/u).`,
+      });
+    } else {
+      filasBeneficio.push({
+        key: 'tienda-neutral',
+        icon: 'shopping-cart',
+        text: `En la Tienda los créditos sueltos cuestan aprox. ${formatCLP(precioRecargaPorCredito)} c/u; en este plan quedan en aprox. ${formatCLP(precioCreditoPlan)} c/u mientras pagues el mes.`,
+      });
+    }
+
+    if (planInferior) {
+      const crAnt = planInferior.creditos_mensuales;
+      const crNuevo = plan.creditos_mensuales;
+      const deltaCr = crNuevo - crAnt;
+      if (deltaCr > 0) {
+        filasBeneficio.push({
+          key: 'vs-inferior-cr',
+          icon: 'trending-up',
+          text: `Recibís ${deltaCr} créditos más al mes que en ${planNombreCorto(planInferior.nombre)} (${crAnt} → ${crNuevo}).`,
+        });
+      }
+      const pcInf = clpPorCreditoEnPlan(planInferior);
+      if (precioCreditoPlan < pcInf) {
+        filasBeneficio.push({
+          key: 'vs-inferior-pc',
+          icon: 'trending-down',
+          text: `Cada crédito te sale más conveniente que en ${planNombreCorto(planInferior.nombre)} (aprox. ${formatCLP(precioCreditoPlan)} vs ${formatCLP(pcInf)}).`,
+        });
+      }
+    }
+
+    filasBeneficio.push(
+      {
+        key: 'mp',
+        icon: 'check-circle',
+        text: 'Los créditos del mes se suman a tu saldo cuando Mercado Pago confirma el cobro.',
+      },
+      {
+        key: 'mix',
+        icon: 'layers',
+        text: 'Podés combinar créditos del plan con los que compres aparte en la Tienda.',
+      },
+      {
+        key: 'cancel',
+        icon: 'event-available',
+        text: 'Cancelás la renovación cuando quieras desde esta misma pantalla.',
+      }
+    );
+
     return (
       <View
         style={[
-          styles.planCard,
+          styles.glassPlanOuter,
           {
-            backgroundColor: colors?.background?.paper ?? '#fff',
-            borderColor: plan.destacado ? primaryColor : (colors?.border?.main ?? '#E0E0E0'),
-            borderWidth: plan.destacado ? 2 : 1,
+            borderColor: plan.destacado ? (colors?.accent?.['400'] ?? COLORS.accent[400]) : borderGlass,
+            borderWidth: plan.destacado ? 1.5 : 1,
           },
         ]}
       >
-        {plan.destacado && (
-          <View style={[styles.badgeDestacado, { backgroundColor: primaryColor }]}>
-            <Text style={styles.badgeSmallText}>⭐ MÁS POPULAR</Text>
-          </View>
-        )}
-        {esPlanActual && (
-          <View style={[styles.badgeActual, { backgroundColor: '#22C55E' }]}>
-            <Text style={styles.badgeSmallText}>✓ TU PLAN ACTUAL</Text>
-          </View>
-        )}
+        <BlurView intensity={blurIntensity} tint="light" style={styles.glassPlanBlur}>
+          <View style={styles.glassPlanContent}>
+            {plan.destacado && (
+              <View style={[styles.badgeDestacado, { backgroundColor: primaryColor }]}>
+                <Text style={styles.badgeSmallText}>Recomendado</Text>
+              </View>
+            )}
+            {esPlanActual && (
+              <View style={[styles.badgeActual, { backgroundColor: successColor }]}>
+                <Text style={styles.badgeSmallText}>Tu plan</Text>
+              </View>
+            )}
 
-        <Text style={[styles.planNombre, { color: textPrimary }]}>{plan.nombre}</Text>
-        <Text style={[styles.planDescripcion, { color: textSecondary }]}>{plan.descripcion}</Text>
+            <Text style={[styles.planNombre, { color: textPrimary }]}>{plan.nombre}</Text>
+            <Text style={[styles.planDescripcion, { color: textSecondary }]}>{plan.descripcion}</Text>
 
-        <View style={styles.precioContainer}>
-          <Text style={[styles.precioCurrency, { color: primaryColor }]}>$</Text>
-          <Text style={[styles.precioValor, { color: primaryColor }]}>
-            {Math.round(plan.precio).toLocaleString('es-CL')}
-          </Text>
-          <Text style={[styles.precioPeriodo, { color: textSecondary }]}>/mes</Text>
-        </View>
-
-        <View style={styles.creditosRow}>
-          <MaterialCommunityIcons name="lightning-bolt" size={18} color="#F59E0B" />
-          <Text style={[styles.creditosTexto, { color: textPrimary }]}>
-            <Text style={{ fontWeight: '700' }}>{plan.creditos_mensuales} créditos</Text>
-            {' '}al mes
-          </Text>
-        </View>
-        <Text style={[styles.planImpliedPs, { color: textSecondary }]}>
-          ~${Math.round(plan.precio / Math.max(1, plan.creditos_mensuales)).toLocaleString('es-CL')} CLP por crédito (en el plan)
-        </Text>
-
-        <View style={[styles.separador, { backgroundColor: colors?.border?.main ?? '#E5E7EB' }]} />
-
-        {['Créditos automáticos cada mes', 'Cancela cuando quieras', 'Soporte prioritario'].map(
-          (b) => (
-            <View key={b} style={styles.beneficioRow}>
-              <MaterialIcons name="check-circle" size={16} color="#22C55E" />
-              <Text style={[styles.beneficioText, { color: textSecondary }]}>{b}</Text>
+            <View style={styles.precioContainer}>
+              <Text style={[styles.precioCurrency, { color: primaryColor }]}>$</Text>
+              <Text style={[styles.precioValor, { color: primaryColor }]}>
+                {Math.round(plan.precio).toLocaleString('es-CL')}
+              </Text>
+              <Text style={[styles.precioPeriodo, { color: textSecondary }]}>/mes</Text>
             </View>
-          )
-        )}
 
-        <TouchableOpacity
-          style={[
-            styles.botonSuscribirse,
-            {
-              backgroundColor: esPlanActual
-                ? (colors?.background?.default ?? '#F3F4F6')
-                : primaryColor,
-              opacity: cargando || (estaEnCualquierPlan && !esPlanActual) ? 0.6 : 1,
-            },
-          ]}
-          onPress={() => onSuscribirse(plan)}
-          disabled={cargando || esPlanActual || (estaEnCualquierPlan && !esPlanActual)}
-          activeOpacity={0.8}
-        >
-          {cargando ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text
+            <View style={[styles.planHighlightPill, { backgroundColor: colors?.primary?.['50'] ?? COLORS.primary[50] }]}>
+              <MaterialCommunityIcons name="lightning-bolt" size={18} color={accentColor} />
+              <Text style={[styles.planHighlightText, { color: textPrimary }]}>
+                <Text style={{ fontWeight: '800' }}>{plan.creditos_mensuales} créditos</Text>
+                {' al mes · aprox. '}
+                <Text style={{ fontWeight: '800', color: primaryColor }}>{formatCLP(precioCreditoPlan)}</Text>
+                {' por crédito'}
+              </Text>
+            </View>
+
+            <View style={[styles.separador, { backgroundColor: colors?.neutral?.gray?.[200] ?? '#D7DFE3' }]} />
+
+            <Text style={[styles.beneficiosTitulo, { color: textPrimary }]}>Qué ganás con este plan</Text>
+            {filasBeneficio.map((row) => (
+              <View key={row.key} style={styles.beneficioRow}>
+                <MaterialIcons name={row.icon as React.ComponentProps<typeof MaterialIcons>['name']} size={18} color={accentColor} style={styles.beneficioIcon} />
+                <Text style={[styles.beneficioText, { color: textSecondary }]}>{row.text}</Text>
+              </View>
+            ))}
+
+            <TouchableOpacity
               style={[
-                styles.botonSuscribirseTexto,
-                { color: esPlanActual ? (textSecondary) : '#fff' },
+                styles.botonSuscribirse,
+                {
+                  backgroundColor: esPlanActual
+                    ? (colors?.neutral?.gray?.[100] ?? '#EBEFF1')
+                    : primaryColor,
+                  opacity: cargando || (estaEnCualquierPlan && !esPlanActual) ? 0.6 : 1,
+                },
               ]}
+              onPress={() => onSuscribirse(plan)}
+              disabled={cargando || esPlanActual || (estaEnCualquierPlan && !esPlanActual)}
+              activeOpacity={0.8}
             >
-              {esPlanActual
-                ? 'Plan Activo'
-                : estaEnCualquierPlan
-                  ? 'Cancela tu plan actual primero'
-                  : 'Suscribirme'}
-            </Text>
-          )}
-        </TouchableOpacity>
+              {cargando ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text
+                  style={[
+                    styles.botonSuscribirseTexto,
+                    { color: esPlanActual ? textSecondary : '#fff' },
+                  ]}
+                >
+                  {esPlanActual
+                    ? 'Plan activo'
+                    : estaEnCualquierPlan
+                      ? 'Cancelá tu plan actual para cambiar'
+                      : 'Suscribirme'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </BlurView>
       </View>
     );
   }
@@ -260,7 +343,7 @@ export default function CreditosScreen() {
   );
 
   const precioTopUpClp = useMemo(
-    () => Math.round(Number(estadisticas?.precio_credito_unitario_clp ?? 400)),
+    () => Math.round(Number(estadisticas?.precio_credito_unitario_clp ?? FALLBACK_PRECIO_CREDITO_BRUTO_CLP)),
     [estadisticas?.precio_credito_unitario_clp]
   );
 
@@ -786,61 +869,44 @@ export default function CreditosScreen() {
         </View>
       )}
 
-      {/* Comparativa costo por crédito (orientativa) */}
+      {/* Guía en lenguaje simple — glass */}
       {planesOrdenadosComparativa.length > 0 && (
-        <View style={[styles.comparativaCard, { backgroundColor: backgroundPaper, borderColor: borderMain }]}>
-          <Text style={[styles.comparativaTitle, { color: textPrimary }]}>Compará el costo por crédito</Text>
-          <Text style={[styles.comparativaSub, { color: textSecondary }]}>
-            Precio aproximado del crédito dentro del plan (P_s) vs compra suelta (P_t ~ ${precioTopUpClp.toLocaleString('es-CL')} según configuración vigente).
-          </Text>
-          {planesOrdenadosComparativa.map((pl) => {
-            const ps = Math.round(pl.precio / Math.max(1, pl.creditos_mensuales));
-            return (
-              <View key={pl.id} style={styles.comparativaRow}>
-                <Text style={[styles.comparativaPlanName, { color: textPrimary }]} numberOfLines={1}>
-                  {pl.nombre}
-                </Text>
-                <Text style={[styles.comparativaNums, { color: textSecondary }]}>
-                  {pl.creditos_mensuales} cr/mes · ~${ps.toLocaleString('es-CL')}/cr
+        <View style={[styles.glassGuiaOuter, { borderColor: colors?.neutral?.gray?.[200] ?? 'rgba(255,255,255,0.5)' }]}>
+          <BlurView
+            intensity={Platform.OS === 'ios' ? 58 : 42}
+            tint="light"
+            style={styles.glassGuiaBlur}
+          >
+            <View style={styles.glassGuiaContent}>
+              <View style={styles.guiaHeaderRow}>
+                <MaterialCommunityIcons name="school-outline" size={22} color={primaryColor} />
+                <Text style={[styles.guiaTitulo, { color: textPrimary }]}>Cómo leer los planes</Text>
+              </View>
+              <Text style={[styles.guiaLead, { color: textSecondary }]}>
+                Con un plan mensual pagás una cuota fija y recibís muchos créditos juntos. Por eso, al dividir el mes entre los créditos, suele salirte{' '}
+                <Text style={{ fontWeight: '700', color: textPrimary }}>más barato cada crédito</Text> que si comprás pocos de a uno en la Tienda (hoy unos{' '}
+                {formatCLP(precioTopUpClp)} por crédito, según la configuración vigente).
+              </Text>
+              <View style={styles.guiaBullet}>
+                <MaterialCommunityIcons name="numeric-1-circle-outline" size={20} color={colors?.accent?.['500'] ?? COLORS.accent[500]} />
+                <Text style={[styles.guiaBulletText, { color: textSecondary }]}>
+                  Cada trabajo puede pedir distinta cantidad de créditos para postularte (según el tipo de servicio). Los números de las tarjetas son aproximados.
                 </Text>
               </View>
-            );
-          })}
-          <View style={[styles.comparativaRow, { marginTop: 6, paddingTop: 8, borderTopWidth: 1, borderTopColor: borderMain }]}>
-            <Text style={[styles.comparativaPlanName, { color: textPrimary }]}>Comprar créditos sueltos</Text>
-            <Text style={[styles.comparativaNums, { color: textSecondary }]}>~${precioTopUpClp.toLocaleString('es-CL')}/cr</Text>
-          </View>
-          <Text style={[styles.comparativaTableTitle, { color: textPrimary, marginTop: SPACING.md }]}>
-            Trabajos aproximados al mes (si cada postulación gasta r créditos)
-          </Text>
-          <View style={styles.comparativaTableHeader}>
-            <Text style={[styles.comparativaTh, { color: textSecondary }]}>Plan</Text>
-            <Text style={[styles.comparativaThNum, { color: textSecondary }]}>r=5</Text>
-            <Text style={[styles.comparativaThNum, { color: textSecondary }]}>r=7</Text>
-            <Text style={[styles.comparativaThNum, { color: textSecondary }]}>r=10</Text>
-          </View>
-          {planesOrdenadosComparativa.map((pl) => (
-            <View key={`tbl-${pl.id}`} style={styles.comparativaTableRow}>
-              <Text style={[styles.comparativaTd, { color: textPrimary }]} numberOfLines={1}>
-                {pl.nombre.replace(/^Plan\s+/, '')}
-              </Text>
-              <Text style={[styles.comparativaTdNum, { color: textSecondary }]}>
-                {Math.floor(pl.creditos_mensuales / 5)}
-              </Text>
-              <Text style={[styles.comparativaTdNum, { color: textSecondary }]}>
-                {Math.floor(pl.creditos_mensuales / 7)}
-              </Text>
-              <Text style={[styles.comparativaTdNum, { color: textSecondary }]}>
-                {Math.floor(pl.creditos_mensuales / 10)}
-              </Text>
+              <View style={styles.guiaBullet}>
+                <MaterialCommunityIcons name="numeric-2-circle-outline" size={20} color={colors?.accent?.['500'] ?? COLORS.accent[500]} />
+                <Text style={[styles.guiaBulletText, { color: textSecondary }]}>
+                  En cada tarjeta vas a ver qué te conviene frente a la Tienda y, si aplica, frente al plan de abajo.
+                </Text>
+              </View>
+              <View style={styles.guiaBullet}>
+                <MaterialCommunityIcons name="numeric-3-circle-outline" size={20} color={colors?.accent?.['500'] ?? COLORS.accent[500]} />
+                <Text style={[styles.guiaBulletText, { color: textSecondary }]}>
+                  Los pagos van por Mercado Pago; los créditos del mes se suman cuando el cobro queda confirmado.
+                </Text>
+              </View>
             </View>
-          ))}
-          <View style={[styles.notaContainer, { backgroundColor: backgroundDefault, borderColor: borderMain, marginTop: SPACING.sm }]}>
-            <MaterialIcons name="info-outline" size={14} color={textSecondary} />
-            <Text style={[styles.comparativaDisclaimer, { color: textSecondary }]}>
-              Cifras orientativas: el gasto real depende de los servicios a los que postulés (5, 7 u 10 créditos u otros valores que defina el sistema).
-            </Text>
-          </View>
+          </BlurView>
         </View>
       )}
 
@@ -855,7 +921,7 @@ export default function CreditosScreen() {
             </Text>
           </View>
         ) : (
-          planes.map((plan) => (
+          planesOrdenadosComparativa.map((plan) => (
             <PlanCard
               key={plan.id}
               plan={plan}
@@ -863,6 +929,8 @@ export default function CreditosScreen() {
               onSuscribirse={handleSuscribirse}
               cargando={cargandoSuscripcion}
               colors={colors}
+              planesOrdenados={planesOrdenadosComparativa}
+              precioRecargaPorCredito={precioTopUpClp}
             />
           ))
         )}
@@ -878,7 +946,7 @@ export default function CreditosScreen() {
   );
 
   const renderTabTienda = () => {
-    const precioUnitario = Math.round(estadisticas?.precio_credito_unitario_clp ?? 400);
+    const precioUnitario = Math.round(estadisticas?.precio_credito_unitario_clp ?? FALLBACK_PRECIO_CREDITO_BRUTO_CLP);
     const PRECIO_TOTAL = cantidadComprar * precioUnitario;
     const precioFormateado = new Intl.NumberFormat('es-CL', {
       style: 'currency',
@@ -1224,7 +1292,45 @@ const styles = StyleSheet.create({
   botonCancelarTexto: { fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '600' },
 
 
-  // ─── PlanCard ─────────────────────────────────────────────
+  // ─── PlanCard glass ───────────────────────────────────────
+  glassPlanOuter: {
+    borderRadius: 20,
+    marginBottom: SPACING.md,
+    overflow: 'hidden',
+    shadowColor: COLORS.neutral.inkBlack,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  glassPlanBlur: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  glassPlanContent: {
+    padding: SPACING.lg,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  planHighlightPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 14,
+  },
+  planHighlightText: { flex: 1, fontSize: TYPOGRAPHY.fontSize.sm, lineHeight: 20 },
+  beneficiosTitulo: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    marginBottom: SPACING.sm,
+  },
+  beneficioIcon: { marginTop: 2 },
+  // ─── PlanCard (tienda / fallback sólido) ─────────────────
   planCard: {
     borderRadius: 20,
     padding: SPACING.lg,
@@ -1245,7 +1351,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 5, borderBottomRightRadius: 12,
   },
   badgeSmallText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  planNombre: { fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: '800', marginTop: SPACING.sm },
+  planNombre: { fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: '800', marginTop: SPACING.md },
   planDescripcion: { fontSize: TYPOGRAPHY.fontSize.sm, marginTop: 4, lineHeight: 20 },
   precioContainer: { flexDirection: 'row', alignItems: 'flex-end', marginTop: SPACING.md, gap: 2 },
   precioCurrency: { fontSize: 22, fontWeight: '700', paddingBottom: 4 },
@@ -1254,8 +1360,8 @@ const styles = StyleSheet.create({
   creditosRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, marginBottom: SPACING.md },
   creditosTexto: { fontSize: TYPOGRAPHY.fontSize.md },
   separador: { height: 1, marginVertical: SPACING.sm },
-  beneficioRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  beneficioText: { fontSize: TYPOGRAPHY.fontSize.sm, flex: 1 },
+  beneficioRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: SPACING.sm },
+  beneficioText: { fontSize: TYPOGRAPHY.fontSize.sm, flex: 1, lineHeight: 20 },
   botonSuscribirse: { marginTop: SPACING.md, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   botonSuscribirseTexto: { fontSize: TYPOGRAPHY.fontSize.md, fontWeight: '700' },
 
@@ -1269,26 +1375,24 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     marginTop: SPACING.sm,
   },
-  planImpliedPs: { fontSize: TYPOGRAPHY.fontSize.xs, marginTop: 4, marginBottom: 2 },
-  comparativaCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: SPACING.md,
+  glassGuiaOuter: {
+    borderRadius: 18,
     marginBottom: SPACING.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    shadowColor: COLORS.neutral.inkBlack,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  comparativaTitle: { fontSize: TYPOGRAPHY.fontSize.md, fontWeight: '700', marginBottom: 4 },
-  comparativaSub: { fontSize: TYPOGRAPHY.fontSize.xs, lineHeight: 18, marginBottom: SPACING.sm },
-  comparativaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, gap: 8 },
-  comparativaPlanName: { flex: 1, fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '600' },
-  comparativaNums: { fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '500' },
-  comparativaTableTitle: { fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '700' },
-  comparativaTableHeader: { flexDirection: 'row', marginTop: 8, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  comparativaTh: { flex: 1, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
-  comparativaThNum: { width: 44, fontSize: 10, fontWeight: '700', textAlign: 'right' },
-  comparativaTableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
-  comparativaTd: { flex: 1, fontSize: TYPOGRAPHY.fontSize.xs },
-  comparativaTdNum: { width: 44, fontSize: TYPOGRAPHY.fontSize.xs, textAlign: 'right' },
-  comparativaDisclaimer: { fontSize: 11, flex: 1, lineHeight: 16 },
+  glassGuiaBlur: { borderRadius: 18, overflow: 'hidden' },
+  glassGuiaContent: { padding: SPACING.md },
+  guiaHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: SPACING.sm },
+  guiaTitulo: { fontSize: TYPOGRAPHY.fontSize.lg, fontWeight: '800', flex: 1 },
+  guiaLead: { fontSize: TYPOGRAPHY.fontSize.sm, lineHeight: 22, marginBottom: SPACING.md },
+  guiaBullet: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: SPACING.sm },
+  guiaBulletText: { flex: 1, fontSize: TYPOGRAPHY.fontSize.sm, lineHeight: 20 },
   notaTexto: { fontSize: TYPOGRAPHY.fontSize.xs, flex: 1, lineHeight: 18 },
   emptyContainer: { alignItems: 'center', paddingVertical: 40, gap: 12 },
   emptyText: { fontSize: TYPOGRAPHY.fontSize.md, textAlign: 'center' },

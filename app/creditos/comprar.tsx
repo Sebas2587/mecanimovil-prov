@@ -20,6 +20,7 @@ import creditosService, {
 } from '@/services/creditosService';
 import MercadoPagoWebViewModal from '@/components/creditos/MercadoPagoWebViewModal';
 import Header from '@/components/Header';
+import { FALLBACK_PRECIO_CREDITO_BRUTO_CLP } from '@/constants/mercadoPagoPricing';
 
 const COMPRA_PENDIENTE_KEY = 'compra_creditos_pendiente';
 
@@ -30,7 +31,7 @@ export default function ComprarCreditosScreen() {
 
   const [cantidad, setCantidad] = useState<number | null>(null);
   const [precioTotal, setPrecioTotal] = useState<number>(0);
-  const [precioUnitarioClp, setPrecioUnitarioClp] = useState(300);
+  const [precioUnitarioClp, setPrecioUnitarioClp] = useState(FALLBACK_PRECIO_CREDITO_BRUTO_CLP);
 
   const [loading, setLoading] = useState(true);
   const [comprando, setComprando] = useState(false);
@@ -119,7 +120,7 @@ export default function ComprarCreditosScreen() {
   };
 
   const cargarDatos = async () => {
-    let unit = 300;
+    let unit = FALLBACK_PRECIO_CREDITO_BRUTO_CLP;
     try {
       const statsRes = await creditosService.obtenerEstadisticas();
       if (statsRes.success && statsRes.data?.precio_credito_unitario_clp != null) {
