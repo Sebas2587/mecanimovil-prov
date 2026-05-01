@@ -29,6 +29,23 @@ type SearchUi = 'idle' | 'loading' | 'results' | 'empty' | 'error';
 const DEBOUNCE_MS = 480;
 const MIN_QUERY = 4;
 
+/** Evita guardar solo "lat, lng" como dirección cuando ya hay texto legible (alineado con app usuarios). */
+function looksLikeCoordOnlyLine(s: string): boolean {
+  return /^-?\d{1,3}(?:\.\d+)?\s*,\s*-?\d{1,3}(?:\.\d+)?$/.test(s.trim());
+}
+
+function savedTextFromEstado(estado: EstadoProveedor | null): string {
+  const tipo = estado?.tipo_proveedor;
+  if (tipo !== 'mecanico' && tipo !== 'taller') return '';
+  const dp = estado?.datos_proveedor;
+  if (!dp) return '';
+  const fromUser =
+    (typeof dp.direccion === 'string' && dp.direccion.trim()) ||
+    (dp.direccion_fisica?.direccion_completa && String(dp.direccion_fisica.direccion_completa).trim()) ||
+    '';
+  return fromUser;
+}
+
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
@@ -111,25 +128,33 @@ export default function ActualizarUbicacionScreen() {
     const dp = estado?.datos_proveedor;
     if (!dp) return;
     skipDebounceRef.current = true;
-    const text =
-      (typeof dp.direccion === 'string' && dp.direccion.trim()) ||
-      (dp.direccion_fisica?.direccion_completa && String(dp.direccion_fisica.direccion_completa).trim()) ||
-      '';
-    setAddressLine(text);
+    setSavedAddress(savedTextFromEstado(estado));
+    setSearchQuery('');
+    setSelectedLine(null);
+    setSelectedCoords(null);
     setUbicacionDetectada(false);
     if (dp.ubicacion_lat != null && dp.ubicacion_lng != null) {
       const lat = Number(dp.ubicacion_lat);
       const lng = Number(dp.ubicacion_lng);
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        setCoords({ lat, lng });
+        setSavedCoords({ lat, lng });
+      } else {
+        setSavedCoords(null);
       }
     } else {
-      setCoords(null);
+      setSavedCoords(null);
     }
   }, []);
 
-  const [addressLine, setAddressLine] = useState('');
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  /** Texto que viene del servidor (solo lectura), mismo criterio que EstadoProveedor. */
+  const [savedAddress, setSavedAddress] = useState('');
+  /** Coordenadas guardadas en backend (solo lectura / referencia). */
+  const [savedCoords, setSavedCoords] = useState<{ lat: number; lng: number } | null>(null);
+  /** Campo de búsqueda Nominatim (no mezclar con dirección guardada). */
+  const [searchQuery, setSearchQuery] = useState('');
+  /** Línea elegida por GPS o sugerencia (formato tipo app usuarios: calle, comuna, ciudad). */
+  const [selectedLine, setSelectedLine] = useState<string | null>(null);
+  const [selectedCoords, setSelectedCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [suggestions, setSuggestions] = useState<ChileAddressHit[]>([]);
   const [searchUi, setSearchUi] = useState<SearchUi>('idle');
   const [saving, setSaving] = useState(false);
@@ -139,14 +164,15 @@ export default function ActualizarUbicacionScreen() {
 
   const skipDebounceRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+  const estadoRef = useRef(estadoProveedor);
+  estadoRef.current = estadoProveedor;
 
-  // Solo hidratar desde el contexto al entrar. Un refrescarEstadoProveedor() aquí volvía a
-  // setear estado en Auth y los tabs montados (p. ej. home) tenían useEffect([estadoProveedor])
-  // que disparaba decenas de requests en paralelo y saturaba la BD.
+  // Solo al enfocar la pantalla (no cuando cambia estado en contexto mientras editas).
   useFocusEffect(
     useCallback(() => {
-      if (estadoProveedor) hydrateFromEstado(estadoProveedor);
-    }, [estadoProveedor, hydrateFromEstado])
+      const e = estadoRef.current;
+      if (e) hydrateFromEstado(e);
+    }, [hydrateFromEstado])
   );
 
   useEffect(() => {
@@ -157,7 +183,7 @@ export default function ActualizarUbicacionScreen() {
       return;
     }
 
-    const q = addressLine.trim();
+    const q = searchQuery.trim();
     if (q.length < MIN_QUERY) {
       setSuggestions([]);
       setSearchUi('idle');
@@ -181,13 +207,14 @@ export default function ActualizarUbicacionScreen() {
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(t);
-  }, [addressLine]);
+  }, [searchQuery]);
 
   const onPickSuggestion = (h: ChileAddressHit) => {
     Keyboard.dismiss();
     skipDebounceRef.current = true;
-    setAddressLine(h.display_name);
-    setCoords({ lat: h.lat, lng: h.lon });
+    setSearchQuery('');
+    setSelectedLine(h.display_name);
+    setSelectedCoords({ lat: h.lat, lng: h.lon });
     setUbicacionDetectada(true);
     setSuggestions([]);
     setSearchUi('idle');
@@ -206,10 +233,10 @@ export default function ActualizarUbicacionScreen() {
       });
       const { latitude, longitude } = loc.coords;
       skipDebounceRef.current = true;
-      setCoords({ lat: latitude, lng: longitude });
-
+      setSearchQuery('');
       const rev = await reverseGeocodeProveedor(latitude, longitude);
-      setAddressLine(rev.formattedLine);
+      setSelectedLine(rev.formattedLine);
+      setSelectedCoords({ lat: latitude, lng: longitude });
       setUbicacionDetectada(true);
       setSuggestions([]);
       setSearchUi('idle');
@@ -221,19 +248,27 @@ export default function ActualizarUbicacionScreen() {
   };
 
   const guardar = async () => {
-    const text = addressLine.trim();
-    if (!text && !coords) {
-      Alert.alert('Faltan datos', 'Escribe una dirección reconocida en Chile o usa el GPS.');
+    const fromSelection = (selectedLine ?? '').trim();
+    const fromSearch = searchQuery.trim();
+    let direccionHumana = fromSelection || fromSearch;
+    if (direccionHumana && looksLikeCoordOnlyLine(direccionHumana) && selectedCoords) {
+      direccionHumana = '';
+    }
+    if (!direccionHumana && !selectedCoords) {
+      Alert.alert(
+        'Faltan datos',
+        'Usa el GPS, elige un resultado de búsqueda o escribe una dirección en Chile (como en la app de usuarios).'
+      );
       return;
     }
 
     try {
       setSaving(true);
       const payload: { direccion?: string; latitud?: number; longitud?: number } = {};
-      if (text) payload.direccion = text;
-      if (coords) {
-        payload.latitud = coords.lat;
-        payload.longitud = coords.lng;
+      if (direccionHumana) payload.direccion = direccionHumana;
+      if (selectedCoords) {
+        payload.latitud = selectedCoords.lat;
+        payload.longitud = selectedCoords.lng;
       }
       const tipo = estadoProveedor?.tipo_proveedor;
       await guardarUbicacionConReintentos(tipo, payload);
@@ -263,7 +298,7 @@ export default function ActualizarUbicacionScreen() {
         ? 'Sin coincidencias en Chile. Refina calle y número.'
         : searchUi === 'error'
           ? 'No pudimos consultar el mapa. Revisa la conexión.'
-          : addressLine.trim().length >= MIN_QUERY
+          : searchQuery.trim().length >= MIN_QUERY
             ? 'Toca un resultado para fijar el punto en el mapa.'
             : `Escribe al menos ${MIN_QUERY} caracteres para buscar.`;
 
@@ -295,9 +330,31 @@ export default function ActualizarUbicacionScreen() {
                   <MapPin size={22} color={COLORS.secondary?.[500] ?? '#007EA7'} />
                 </View>
                 <Text style={styles.heroText}>
-                  Igual que cuando un cliente guarda su dirección: aquí defines el punto que usa la app de usuarios
-                  para mostrarte en “Cerca de ti” y ordenar por distancia.
+                  Misma lógica que la app de usuarios: texto de dirección legible (calle, comuna, ciudad) más el punto
+                  GPS para “Cerca de ti” y emparejar con la dirección del cliente.
                 </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.glassOuter, { marginTop: 14 }]}>
+            <BlurView intensity={blurIntensity} tint={glassTint} style={StyleSheet.absoluteFill} />
+            <View style={styles.glassInner}>
+              <Text style={styles.sectionLabel}>Dirección guardada</Text>
+              <Text style={styles.savedHint}>
+                Lo que está registrado en el servidor (no es el campo de búsqueda).
+              </Text>
+              <View style={styles.savedBox}>
+                <Text style={styles.savedText}>
+                  {savedAddress
+                    ? savedAddress
+                    : 'Sin texto de dirección aún. Tras guardar con GPS o búsqueda, aquí verás la misma línea que usa la app de usuarios.'}
+                </Text>
+                {savedCoords ? (
+                  <Text style={styles.savedCoords}>
+                    Punto guardado · {savedCoords.lat.toFixed(5)}, {savedCoords.lng.toFixed(5)}
+                  </Text>
+                ) : null}
               </View>
             </View>
           </View>
@@ -335,13 +392,39 @@ export default function ActualizarUbicacionScreen() {
           <View style={[styles.glassOuter, { marginTop: 14 }]}>
             <BlurView intensity={blurIntensity} tint={glassTint} style={StyleSheet.absoluteFill} />
             <View style={styles.glassInner}>
-              <Text style={styles.label}>O busca una dirección en Chile</Text>
+              {(selectedLine || selectedCoords) && (
+                <View style={styles.pendingBlock}>
+                  <View style={styles.pendingHeader}>
+                    <Text style={styles.pendingTitle}>Cambio pendiente de guardar</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedLine(null);
+                        setSelectedCoords(null);
+                        setUbicacionDetectada(false);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={styles.pendingClear}>Limpiar</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {selectedLine ? (
+                    <Text style={styles.pendingLine}>{selectedLine}</Text>
+                  ) : null}
+                  {selectedCoords ? (
+                    <Text style={styles.pendingCoords}>
+                      GPS · {selectedCoords.lat.toFixed(5)}, {selectedCoords.lng.toFixed(5)}
+                    </Text>
+                  ) : null}
+                </View>
+              )}
+
+              <Text style={styles.label}>Buscar otra dirección en Chile</Text>
               {ubicacionDetectada ? (
                 <View style={styles.detectedBanner}>
                   <CheckCircle2 size={18} color="#059669" />
                   <Text style={styles.detectedBannerText}>
-                    Ubicación detectada — revisa calle y número y corrige si hace falta (un solo registro, como
-                    guardar tu dirección en la app de usuarios).
+                    Ubicación nueva lista — pulsa Guardar abajo para registrarla (mismo formato que en la app de
+                    usuarios).
                   </Text>
                 </View>
               ) : null}
@@ -349,8 +432,8 @@ export default function ActualizarUbicacionScreen() {
                 style={styles.input}
                 placeholder="Ej: Los Leones 1200, Providencia"
                 placeholderTextColor={COLORS.neutral?.gray?.[400] ?? '#9CA3AF'}
-                value={addressLine}
-                onChangeText={setAddressLine}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
                 autoCorrect={false}
                 autoCapitalize="words"
               />
@@ -374,20 +457,12 @@ export default function ActualizarUbicacionScreen() {
                 </View>
               )}
 
-              {coords && (
-                <View style={styles.coordsPill}>
-                  <CheckCircle2 size={16} color="#059669" />
-                  <Text style={styles.coordsPillText}>
-                    Punto listo · {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
-                  </Text>
-                </View>
-              )}
-
-              {!coords && addressLine.trim().length >= MIN_QUERY && (
+              {!selectedCoords && searchQuery.trim().length >= MIN_QUERY && (
                 <View style={styles.warnRow}>
                   <AlertCircle size={16} color="#D97706" />
                   <Text style={styles.warnText}>
-                    Si no eliges un resultado ni usas GPS, al guardar intentaremos ubicar el texto automáticamente.
+                    Elige un resultado de la lista o usa GPS. Si solo escribes texto, al guardar el servidor intentará
+                    ubicarlo en el mapa.
                   </Text>
                 </View>
               )}
@@ -404,7 +479,7 @@ export default function ActualizarUbicacionScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.btnPrimaryText}>
-                {ubicacionDetectada
+                {selectedLine || selectedCoords || searchQuery.trim()
                   ? 'Confirmar y guardar'
                   : estadoProveedor?.tipo_proveedor === 'taller'
                     ? 'Guardar ubicación del taller'
@@ -504,6 +579,75 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '600',
   },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.text?.primary ?? '#111827',
+    marginBottom: 4,
+  },
+  savedHint: {
+    fontSize: 12,
+    color: COLORS.text?.tertiary ?? '#6B7280',
+    marginBottom: 10,
+    lineHeight: 17,
+  },
+  savedBox: {
+    borderRadius: radiusMd,
+    padding: 14,
+    backgroundColor: 'rgba(0, 52, 89, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 52, 89, 0.1)',
+  },
+  savedText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: COLORS.text?.primary ?? '#1F2937',
+    fontWeight: '600',
+  },
+  savedCoords: {
+    marginTop: 10,
+    fontSize: 12,
+    color: COLORS.text?.tertiary ?? '#6B7280',
+    fontWeight: '500',
+  },
+  pendingBlock: {
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: radiusMd,
+    backgroundColor: 'rgba(0, 168, 232, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 126, 167, 0.25)',
+  },
+  pendingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  pendingTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.secondary?.[600] ?? '#006586',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  pendingClear: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.secondary?.[500] ?? '#007EA7',
+  },
+  pendingLine: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: COLORS.text?.primary ?? '#111827',
+    fontWeight: '600',
+  },
+  pendingCoords: {
+    marginTop: 6,
+    fontSize: 12,
+    color: COLORS.text?.secondary ?? '#4B5563',
+    fontWeight: '500',
+  },
   label: {
     fontSize: 13,
     fontWeight: '700',
@@ -573,22 +717,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   btnDisabled: { opacity: 0.65 },
-  coordsPill: {
-    marginTop: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-  },
-  coordsPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#047857',
-  },
   warnRow: {
     marginTop: 12,
     flexDirection: 'row',
