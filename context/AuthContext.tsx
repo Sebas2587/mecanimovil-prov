@@ -55,6 +55,35 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+function isTransientEstadoProveedorError(error: any): boolean {
+  if (!error) return false;
+  const status = error.response?.status;
+  if (status === 401 || status === 403 || status === 404) return false;
+  const code = error.code as string | undefined;
+  if (code === 'ECONNABORTED' || code === 'ERR_NETWORK' || code === 'ETIMEDOUT') return true;
+  const msg = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+  if (msg.includes('timeout') || msg.includes('network')) return true;
+  if (!error.response || (typeof status === 'number' && (status >= 500 || status === 429))) return true;
+  return false;
+}
+
+/** Reintentos ante timeouts / 503 / red intermitente (Render lento). */
+async function obtenerEstadoProveedorWithRetries(): Promise<EstadoProveedor | null> {
+  const maxAttempts = 3;
+  let lastError: any;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await authAPI.obtenerEstadoProveedor();
+    } catch (error: any) {
+      lastError = error;
+      if (!isTransientEstadoProveedorError(error)) throw error;
+      if (attempt === maxAttempts) throw error;
+      await new Promise<void>((resolve) => setTimeout(resolve, 700 * attempt));
+    }
+  }
+  throw lastError;
+}
+
 // Provider del contexto
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
@@ -225,7 +254,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               setEstadoProveedor(null);
               // Continuar con el flujo, no retornar de la función completa
             } else {
-              const estado = await authAPI.obtenerEstadoProveedor();
+              const estado = await obtenerEstadoProveedorWithRetries();
               if (__DEV__) {
                 console.log('📊 Estado del proveedor obtenido:', estado);
               }
@@ -366,7 +395,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('🔍 Obteniendo estado del proveedor...');
       }
       try {
-        const estado = await authAPI.obtenerEstadoProveedor();
+        const estado = await obtenerEstadoProveedorWithRetries();
         if (__DEV__) {
           console.log('Estado obtenido del API:', estado);
         }
@@ -652,7 +681,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refrescarEstadoProveedor = async (): Promise<EstadoProveedor | null> => {
     try {
-      const estado = await authAPI.obtenerEstadoProveedor();
+      const estado = await obtenerEstadoProveedorWithRetries();
       setEstadoProveedor(estado);
 
       try {

@@ -61,37 +61,22 @@ export default function IndexScreen() {
         console.log('👤 Usuario autenticado existe, evaluando estado del proveedor...');
         console.log('EstadoProveedor completo:', estadoProveedor);
       }
-      
-      // CASO 3: EstadoProveedor es null - verificar si es por token expirado
-      // Si el usuario está autenticado pero estadoProveedor es null después de checkAuthStatus,
-      // es muy probable que el token esté expirado y no se limpió correctamente
+
+      if (estadoProveedor !== null) {
+        setMostrarErrorConectividad(false);
+      }
+
+      // CASO 3: EstadoProveedor es null (falló API tras reintentos o sin respuesta).
+      // Mostrar pantalla de conectividad en el mismo ciclo — no esperar SecureStore
+      // (si no, la UI se queda en el spinner "Cargando..." hasta que resuelve la promesa).
       if (estadoProveedor === null) {
         if (__DEV__) {
-          console.log('⚠️ EstadoProveedor es null - verificando token');
+          console.log('⚠️ EstadoProveedor es null — mostrando opción de reintentar / sesión');
         }
-        // Verificar si realmente hay un token válido (async dentro de useEffect)
+        setMostrarErrorConectividad(true);
         SecureStore.getItemAsync('authToken').then((token) => {
-          if (!token) {
-            // No hay token, redirigir al login inmediatamente
-            if (__DEV__) {
-              console.log('🔒 No hay token, redirigiendo al login');
-            }
-            router.replace('/(auth)/login');
-          } else {
-            // Hay token pero estadoProveedor es null - podría ser error de conectividad
-            // o token expirado que no se detectó. Mostrar error de conectividad
-            if (__DEV__) {
-              console.log('🔄 Token existe pero estadoProveedor es null - posible error de conectividad');
-            }
-            setMostrarErrorConectividad(true);
-          }
-        }).catch((error) => {
-          // Log solo en desarrollo
-          if (__DEV__) {
-            console.error('Error verificando token (detalles solo en desarrollo):', error);
-          }
-          router.replace('/(auth)/login');
-        });
+          if (!token) router.replace('/(auth)/login');
+        }).catch(() => router.replace('/(auth)/login'));
         return;
       }
 
