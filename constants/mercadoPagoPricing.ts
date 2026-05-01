@@ -14,8 +14,8 @@ export function montoBrutoParaNetoDeseado(neto: number): number {
   return Math.round(neto / (1 - r));
 }
 
-/** Objetivo neto histórico por crédito (negocio); el bruto cobrado sale del backend. */
-export const NETO_OBJETIVO_CREDITO_REF_CLP = 400;
+/** Objetivo neto por crédito (negocio, post-MP); alinear con backend / script 2026. */
+export const NETO_OBJETIVO_CREDITO_REF_CLP = 500;
 
 /** Fallback si la API no devuelve `precio_credito_unitario_clp` (debe coincidir con bruto backend). */
 export const FALLBACK_PRECIO_CREDITO_BRUTO_CLP = montoBrutoParaNetoDeseado(NETO_OBJETIVO_CREDITO_REF_CLP);
