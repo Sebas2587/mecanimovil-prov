@@ -2,15 +2,15 @@
  * Pantalla unificada de Suscripciones & Créditos — MecaniMovil Proveedores
  *
  * Tabs:
- *   1. Saldo      – balance actual + banner de suscripción + estadísticas del mes
- *   2. Suscripción – planes MP + suscripción activa
- *   3. Tienda     – paquetes extra (visible solo si hay suscripción activa)
- *   4. Historial  – compras y consumos
+ *   1. Saldo        – balance, estadísticas del mes, avisos de recarga / insignia KPI
+ *   2. Suscripción  – planes MP + suscripción activa
+ *   3. Tienda       – compra de créditos a medida (requiere MP conectado; no exige suscripción)
+ *   4. Historial    – compras y consumos
  *
  * Reglas de negocio:
- *  - Si el proveedor NO tiene cuenta MP conectada → pantalla de bloqueo
- *  - La tab Tienda sólo aparece si hay suscripción activa
- *  - Si saldo = 0 con suscripción activa → banner destacado de compra extra
+ *  - Sin Mercado Pago conectado → pantalla de bloqueo (pagos y postulación)
+ *  - Suscripción mensual → créditos recurrentes + elegibilidad de insignia KPI en app usuarios
+ *  - Créditos sueltos (Tienda) → postular según saldo sin necesidad de plan activo
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
@@ -45,6 +45,7 @@ import mercadoPagoProveedorService, {
   type EstadisticasPagosMP,
   type PagoRecibido,
 } from '@/services/mercadoPagoProveedorService';
+import { kpisProveedorService } from '@/services/kpisProveedorService';
 import {
   SaldoCreditos,
   PaqueteCard,
@@ -230,6 +231,10 @@ export default function CreditosScreen() {
   const [cantidadComprar, setCantidadComprar] = useState<number>(5);
   const [cobrosMP, setCobrosMP] = useState<CobroMP[]>([]);
   const [cargandoCobros, setCargandoCobros] = useState(false);
+  const [kpiSugerenciaInsignia, setKpiSugerenciaInsignia] = useState<{
+    mostrar: boolean;
+    mensaje: string | null;
+  }>({ mostrar: false, mensaje: null });
 
   // ── Computed ──────────────────────────────────────────────
   const tieneSuscripcionActiva = useMemo(
@@ -240,14 +245,15 @@ export default function CreditosScreen() {
     () => saldo !== null && saldo.saldo_creditos === 0,
     [saldo]
   );
+  const saldoBajo = useMemo(
+    () => saldo !== null && saldo.saldo_creditos > 0 && saldo.saldo_creditos <= 5,
+    [saldo]
+  );
+  const mostrarBannerComprarCreditos = saldoCero || saldoBajo;
 
-  // Tabs visibles: Tienda solo si tiene suscripción activa
   const tabsVisibles: TabType[] = useMemo(
-    () =>
-      tieneSuscripcionActiva
-        ? ['saldo', 'suscripcion', 'tienda', 'historial']
-        : ['saldo', 'suscripcion', 'historial'],
-    [tieneSuscripcionActiva]
+    () => ['saldo', 'suscripcion', 'tienda', 'historial'],
+    []
   );
 
   // ── Carga de datos ────────────────────────────────────────
@@ -273,6 +279,7 @@ export default function CreditosScreen() {
         estadisticasMPResult,
         historialPagosResult,
         cobrosResult,
+        kpisResumenResult,
       ] = await Promise.all([
         creditosService.obtenerSaldo(),
         creditosService.obtenerEstadisticas(),
@@ -283,6 +290,7 @@ export default function CreditosScreen() {
         mercadoPagoProveedorService.obtenerEstadisticasPagos(),
         mercadoPagoProveedorService.obtenerHistorialPagos(),
         suscripcionesService.obtenerHistorialCobros(),
+        kpisProveedorService.obtenerResumen(30),
       ]);
 
       if (saldoResult.success && saldoResult.data) setSaldo(saldoResult.data);
@@ -299,6 +307,14 @@ export default function CreditosScreen() {
       }
       if (cobrosResult?.success) {
         setCobrosMP(cobrosResult.cobros);
+      }
+      if (kpisResumenResult.success && kpisResumenResult.data) {
+        setKpiSugerenciaInsignia({
+          mostrar: !!kpisResumenResult.data.sugerencia_suscripcion_para_insignia,
+          mensaje: kpisResumenResult.data.mensaje_sugerencia_suscripcion ?? null,
+        });
+      } else {
+        setKpiSugerenciaInsignia({ mostrar: false, mensaje: null });
       }
 
       // 3. (Eliminado: Paquetes ya no se utilizan)
@@ -499,8 +515,8 @@ export default function CreditosScreen() {
         consumos={consumos}
       />
 
-      {/* Banner saldo cero con suscripción activa → comprar extra */}
-      {saldoCero && tieneSuscripcionActiva && (
+      {/* Saldo en cero o bajo (sin plan) → Tienda / compra a medida */}
+      {mostrarBannerComprarCreditos && (
         <TouchableOpacity
           style={[styles.bannerAlerta, { backgroundColor: '#FFF3E0', borderColor: '#F59E0B' }]}
           onPress={() => setActiveTab('tienda')}
@@ -508,14 +524,33 @@ export default function CreditosScreen() {
         >
           <MaterialCommunityIcons name="lightning-bolt" size={22} color="#F59E0B" />
           <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={[styles.bannerTitulo, { color: '#B45309' }]}>¡Sin créditos disponibles!</Text>
+            <Text style={[styles.bannerTitulo, { color: '#B45309' }]}>
+              {saldoCero ? '¡Sin créditos disponibles!' : 'Te quedan pocos créditos'}
+            </Text>
             <Text style={[styles.bannerSubtitulo, { color: '#92400E' }]}>
-              Comprá un paquete extra para seguir postulando
+              {saldoCero
+                ? 'Comprá créditos en la pestaña Tienda para seguir postulando.'
+                : 'Recargá en la pestaña Tienda antes de quedarte sin saldo.'}
             </Text>
           </View>
           <MaterialIcons name="chevron-right" size={22} color="#F59E0B" />
         </TouchableOpacity>
       )}
+
+      {kpiSugerenciaInsignia.mostrar && kpiSugerenciaInsignia.mensaje ? (
+        <TouchableOpacity
+          style={[styles.bannerInfo, { backgroundColor: '#EFF6FF', borderColor: primaryColor }]}
+          onPress={() => setActiveTab('suscripcion')}
+          activeOpacity={0.85}
+        >
+          <MaterialCommunityIcons name="star-circle-outline" size={22} color={primaryColor} />
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={[styles.bannerTitulo, { color: textPrimary }]}>Destaca tu perfil</Text>
+            <Text style={[styles.bannerSubtitulo, { color: textSecondary }]}>{kpiSugerenciaInsignia.mensaje}</Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={22} color={primaryColor} />
+        </TouchableOpacity>
+      ) : null}
 
       {/* Estadísticas del mes */}
       {estadisticas && (
@@ -772,8 +807,8 @@ export default function CreditosScreen() {
   );
 
   const renderTabTienda = () => {
-    const PRECIO_BASE = 300;
-    const PRECIO_TOTAL = cantidadComprar * PRECIO_BASE;
+    const precioUnitario = Math.round(estadisticas?.precio_credito_unitario_clp ?? 300);
+    const PRECIO_TOTAL = cantidadComprar * precioUnitario;
     const precioFormateado = new Intl.NumberFormat('es-CL', {
       style: 'currency',
       currency: 'CLP',
@@ -820,7 +855,11 @@ export default function CreditosScreen() {
               Comprar Créditos
             </Text>
             <Text style={[styles.planDescripcion, { color: textSecondary, textAlign: 'center', marginBottom: SPACING.xl }]}>
-              Ingresa la cantidad exacta de créditos que necesitas. Cada crédito tiene un valor base de $300 CLP.
+              Ingresa la cantidad exacta de créditos que necesitas. Precio vigente:{' '}
+              {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(
+                precioUnitario
+              )}{' '}
+              por crédito.
             </Text>
 
             <View style={styles.counterContainer}>
@@ -1040,6 +1079,15 @@ const styles = StyleSheet.create({
 
   // ─── Banners ──────────────────────────────────────────────
   bannerAlerta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 12,
+    marginBottom: SPACING.md,
+  },
+  bannerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,

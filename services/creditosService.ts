@@ -86,6 +86,8 @@ export interface ConsumoCredito {
 
 export interface EstadisticasCreditos {
   saldo_actual: number;
+  /** Precio unitario vigente (CLP) para compras a medida; alineado con `calcular_precio_credito` en backend. */
+  precio_credito_unitario_clp?: number;
   creditos_consumidos_mes: number;
   creditos_comprados_mes: number;
   creditos_expirados: number;

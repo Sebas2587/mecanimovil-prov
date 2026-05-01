@@ -11,8 +11,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
-import { SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import {
   useProveedorKpisResumen,
   targetTierNameForScore,
@@ -258,6 +259,24 @@ export function RendimientoKpisContent() {
               </GlassCard>
             </View>
 
+            {data.sugerencia_suscripcion_para_insignia && data.mensaje_sugerencia_suscripcion ? (
+              <View style={styles.sectionWrap}>
+                <GlassCard>
+                  <Text style={styles.insigneTitle}>Insignia en la app de usuarios</Text>
+                  <Text style={styles.insigneBody}>{data.mensaje_sugerencia_suscripcion}</Text>
+                  <TouchableOpacity
+                    onPress={() => router.push('/creditos?tab=suscripcion')}
+                    style={styles.insigneCta}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Ir a suscripción para mostrar insignia a clientes"
+                  >
+                    <Text style={styles.insigneCtaText}>Ver suscripción mensual</Text>
+                  </TouchableOpacity>
+                </GlassCard>
+              </View>
+            ) : null}
+
             <View style={styles.sectionWrap}>
               <SectionTitle>DESGLOSE DE PUNTAJES</SectionTitle>
               <GlassCard>
@@ -424,6 +443,30 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   heroFoot: { fontSize: 12, color: D.gray, marginTop: 12, lineHeight: 18 },
+  insigneTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: D.ink,
+    marginBottom: 8,
+  },
+  insigneBody: {
+    fontSize: 13,
+    color: D.gray,
+    lineHeight: 19,
+    marginBottom: 14,
+  },
+  insigneCta: {
+    alignSelf: 'flex-start',
+    backgroundColor: D.blue,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  insigneCtaText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
   scoreWrap: { paddingVertical: 14 },
   scoreTop: {
     flexDirection: 'row',

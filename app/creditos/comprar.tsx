@@ -30,7 +30,7 @@ export default function ComprarCreditosScreen() {
 
   const [cantidad, setCantidad] = useState<number | null>(null);
   const [precioTotal, setPrecioTotal] = useState<number>(0);
-  const PRECIO_BASE = 300; // Constante local para el precio por crédito
+  const [precioUnitarioClp, setPrecioUnitarioClp] = useState(300);
 
   const [loading, setLoading] = useState(true);
   const [comprando, setComprando] = useState(false);
@@ -119,6 +119,17 @@ export default function ComprarCreditosScreen() {
   };
 
   const cargarDatos = async () => {
+    let unit = 300;
+    try {
+      const statsRes = await creditosService.obtenerEstadisticas();
+      if (statsRes.success && statsRes.data?.precio_credito_unitario_clp != null) {
+        unit = Math.round(Number(statsRes.data.precio_credito_unitario_clp));
+      }
+    } catch (e) {
+      if (__DEV__) console.warn('[ComprarCreditos] precio desde API:', e);
+    }
+    setPrecioUnitarioClp(unit);
+
     if (!cantidadCreditosParams || isNaN(cantidadCreditosParams) || cantidadCreditosParams <= 0) {
       Alert.alert('Error', 'Cantidad de créditos inválida');
       router.back();
@@ -126,7 +137,7 @@ export default function ComprarCreditosScreen() {
     }
 
     setCantidad(cantidadCreditosParams);
-    setPrecioTotal(cantidadCreditosParams * PRECIO_BASE);
+    setPrecioTotal(cantidadCreditosParams * unit);
     setLoading(false);
   };
 
@@ -323,7 +334,7 @@ export default function ComprarCreditosScreen() {
     style: 'currency',
     currency: 'CLP',
     minimumFractionDigits: 0,
-  }).format(PRECIO_BASE);
+  }).format(precioUnitarioClp);
 
   // Pantalla principal de compra
   return (

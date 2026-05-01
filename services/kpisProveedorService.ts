@@ -25,9 +25,17 @@ export interface ProveedorKpisResumen {
   calificacion_promedio_todas_resenas: number | null;
   score_tiempo_respuesta: number | null;
   score_calificacion_cliente: number | null;
+  score_calidad_servicio?: number | null;
   score_checklist: number | null;
   score_tiempo_ejecucion: number | null;
   score_rendimiento: number;
+  /** Misma regla que en app usuarios: solo `estado === 'activa'`. */
+  suscripcion_mensual_activa: boolean;
+  /** Si el cliente puede ver la insignia KPI (hoy: equivale a suscripción mensual activa). */
+  insignia_visible_a_clientes: boolean;
+  /** True si conviene mostrar aviso para suscribirse y destacar el perfil. */
+  sugerencia_suscripcion_para_insignia: boolean;
+  mensaje_sugerencia_suscripcion: string | null;
 }
 
 export interface KpisServiceResponse<T> {
@@ -45,8 +53,8 @@ class KpisProveedorService {
     try {
       const d = Math.min(365, Math.max(1, Math.round(dias)));
       const url = `${BASE}?dias=${encodeURIComponent(String(d))}`;
-      const response = await api.get<ProveedorKpisResumen>(url);
-      return { success: true, data: response.data };
+      const response = await api.get(url);
+      return { success: true, data: response.data as ProveedorKpisResumen };
     } catch (error: any) {
       if (__DEV__) {
         console.warn('KpisProveedorService.obtenerResumen:', error?.response?.data || error?.message);
