@@ -16,10 +16,10 @@ import * as Location from 'expo-location';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { MapPin, Navigation, CheckCircle2, AlertCircle } from 'lucide-react-native';
+import { MapPin, Navigation, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { useAuth } from '@/context/AuthContext';
-import { mecanicoAPI, type EstadoProveedor } from '@/services/api';
+import { mecanicoAPI, tallerAPI, type EstadoProveedor } from '@/services/api';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { searchChileAddresses, type ChileAddressHit } from '@/utils/chileNominatimSearch';
 
@@ -33,17 +33,16 @@ export default function ActualizarUbicacionScreen() {
   const { estadoProveedor, refrescarEstadoProveedor } = useAuth();
 
   const hydrateFromEstado = useCallback((estado: EstadoProveedor | null) => {
-    if (estado?.tipo_proveedor !== 'mecanico') return;
-    const dp = estado.datos_proveedor as
-      | {
-          direccion?: string;
-          ubicacion_lat?: number;
-          ubicacion_lng?: number;
-        }
-      | undefined;
+    const tipo = estado?.tipo_proveedor;
+    if (tipo !== 'mecanico' && tipo !== 'taller') return;
+    const dp = estado?.datos_proveedor;
     if (!dp) return;
     skipDebounceRef.current = true;
-    setAddressLine(dp.direccion || '');
+    const text =
+      (typeof dp.direccion === 'string' && dp.direccion.trim()) ||
+      (dp.direccion_fisica?.direccion_completa && String(dp.direccion_fisica.direccion_completa).trim()) ||
+      '';
+    setAddressLine(text);
     if (dp.ubicacion_lat != null && dp.ubicacion_lng != null) {
       const lat = Number(dp.ubicacion_lat);
       const lng = Number(dp.ubicacion_lng);
@@ -64,16 +63,6 @@ export default function ActualizarUbicacionScreen() {
 
   const skipDebounceRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    if (estadoProveedor?.tipo_proveedor === 'taller') {
-      Alert.alert(
-        'Solo mecánicos a domicilio',
-        'Los talleres gestionan su ubicación en “Gestionar taller”.',
-        [{ text: 'Entendido', onPress: () => router.back() }]
-      );
-    }
-  }, [estadoProveedor?.tipo_proveedor]);
 
   useFocusEffect(
     useCallback(() => {
@@ -183,10 +172,20 @@ export default function ActualizarUbicacionScreen() {
         payload.latitud = coords.lat;
         payload.longitud = coords.lng;
       }
-      await mecanicoAPI.actualizarUbicacionDomicilio(payload);
+      const tipo = estadoProveedor?.tipo_proveedor;
+      if (tipo === 'taller') {
+        await tallerAPI.actualizarUbicacionDomicilio(payload);
+      } else {
+        await mecanicoAPI.actualizarUbicacionDomicilio(payload);
+      }
       const estadoFresh = await refrescarEstadoProveedor();
       if (estadoFresh) hydrateFromEstado(estadoFresh);
-      Alert.alert('Listo', 'Tu ubicación base quedó guardada. Los clientes te verán ordenados por distancia.');
+      Alert.alert(
+        'Listo',
+        tipo === 'taller'
+          ? 'La ubicación de tu taller quedó guardada. Los clientes te verán según la distancia desde su dirección.'
+          : 'Tu ubicación base quedó guardada. Los clientes te verán ordenados por distancia.'
+      );
     } catch (e: any) {
       const msg =
         e?.response?.data?.error ||
@@ -213,16 +212,15 @@ export default function ActualizarUbicacionScreen() {
             ? 'Toca un resultado para fijar el punto en el mapa.'
             : `Escribe al menos ${MIN_QUERY} caracteres para buscar.`;
 
-  if (estadoProveedor?.tipo_proveedor === 'taller') {
-    return null;
-  }
+  const screenTitle =
+    estadoProveedor?.tipo_proveedor === 'taller' ? 'Ubicación del taller' : 'Ubicación base';
 
   return (
     <View style={styles.root}>
       <LinearGradient colors={['#F3F5F8', '#FAFBFC', '#FFFFFF']} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Header title="Ubicación base" showBack onBackPress={() => router.back()} />
+        <Header title={screenTitle} showBack onBackPress={() => router.back()} />
 
         <ScrollView
           style={styles.scroll}
@@ -242,16 +240,47 @@ export default function ActualizarUbicacionScreen() {
                   <MapPin size={22} color={COLORS.secondary?.[500] ?? '#007EA7'} />
                 </View>
                 <Text style={styles.heroText}>
-                  Este punto es el que usa la app de usuarios para calcular distancia desde su dirección guardada.
+                  Igual que cuando un cliente guarda su dirección: aquí defines el punto que usa la app de usuarios
+                  para mostrarte en “Cerca de ti” y ordenar por distancia.
                 </Text>
               </View>
+            </View>
+          </View>
+
+          {/* Paso 1 (como app usuarios): ubicación por GPS primero */}
+          <View style={[styles.glassOuter, { marginTop: 14 }]}>
+            <BlurView intensity={blurIntensity} tint={glassTint} style={StyleSheet.absoluteFill} />
+            <View style={styles.glassInner}>
+              <TouchableOpacity
+                style={[styles.heroGpsRow, gpsLoading && styles.btnDisabled]}
+                onPress={usarGps}
+                disabled={gpsLoading}
+                activeOpacity={0.85}
+              >
+                <View style={styles.heroGpsIconWrap}>
+                  {gpsLoading ? (
+                    <ActivityIndicator color={COLORS.secondary?.[500] ?? '#007EA7'} />
+                  ) : (
+                    <Navigation size={24} color={COLORS.secondary?.[500] ?? '#007EA7'} />
+                  )}
+                </View>
+                <View style={styles.heroGpsTextWrap}>
+                  <Text style={styles.heroGpsTitle}>
+                    {gpsLoading ? 'Obteniendo ubicación…' : 'Usar mi ubicación actual'}
+                  </Text>
+                  <Text style={styles.heroGpsSubtitle}>
+                    Recomendado: detectamos la dirección con GPS (como en la app de usuarios).
+                  </Text>
+                </View>
+                <ChevronRight size={20} color={COLORS.neutral?.gray?.[400] ?? '#9CA3AF'} />
+              </TouchableOpacity>
             </View>
           </View>
 
           <View style={[styles.glassOuter, { marginTop: 14 }]}>
             <BlurView intensity={blurIntensity} tint={glassTint} style={StyleSheet.absoluteFill} />
             <View style={styles.glassInner}>
-              <Text style={styles.label}>Buscar en Chile</Text>
+              <Text style={styles.label}>O busca una dirección en Chile</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Ej: Los Leones 1200, Providencia"
@@ -280,20 +309,6 @@ export default function ActualizarUbicacionScreen() {
                   ))}
                 </View>
               )}
-
-              <TouchableOpacity
-                style={[styles.btnSecondary, gpsLoading && styles.btnDisabled]}
-                onPress={usarGps}
-                disabled={gpsLoading}
-                activeOpacity={0.85}
-              >
-                {gpsLoading ? (
-                  <ActivityIndicator color={COLORS.primary?.[500] ?? '#003459'} />
-                ) : (
-                  <Navigation size={18} color={COLORS.primary?.[500] ?? '#003459'} />
-                )}
-                <Text style={styles.btnSecondaryText}>Usar mi ubicación actual (GPS)</Text>
-              </TouchableOpacity>
 
               {coords && (
                 <View style={styles.coordsPill}>
@@ -324,7 +339,11 @@ export default function ActualizarUbicacionScreen() {
             {saving ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.btnPrimaryText}>Guardar ubicación base</Text>
+              <Text style={styles.btnPrimaryText}>
+                {estadoProveedor?.tipo_proveedor === 'taller'
+                  ? 'Guardar ubicación del taller'
+                  : 'Guardar ubicación base'}
+              </Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -375,6 +394,32 @@ const styles = StyleSheet.create({
     color: COLORS.text?.secondary ?? '#4B5563',
     fontWeight: (TYPOGRAPHY?.fontWeight?.medium ?? '500') as any,
   },
+  heroGpsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  heroGpsIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 168, 232, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroGpsTextWrap: { flex: 1 },
+  heroGpsTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.text?.primary ?? '#111827',
+    marginBottom: 4,
+  },
+  heroGpsSubtitle: {
+    fontSize: 12,
+    color: COLORS.text?.tertiary ?? '#6B7280',
+    lineHeight: 17,
+  },
   label: {
     fontSize: 13,
     fontWeight: '700',
@@ -420,23 +465,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.text?.primary ?? '#1F2937',
     lineHeight: 18,
-  },
-  btnSecondary: {
-    marginTop: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 12,
-    borderRadius: radiusMd,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 52, 89, 0.18)',
-    backgroundColor: 'rgba(255,255,255,0.55)',
-  },
-  btnSecondaryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.primary?.[500] ?? '#003459',
   },
   btnPrimary: {
     marginTop: 20,

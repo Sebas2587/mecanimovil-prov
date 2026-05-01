@@ -684,6 +684,20 @@ export const tallerAPI = {
     });
     return response.data;
   },
+
+  /** Misma lógica que mecánicos: guarda Point en taller + usuario.direccion (geocode o GPS). */
+  actualizarUbicacionDomicilio: async (datos: {
+    direccion?: string;
+    latitud?: number;
+    longitud?: number;
+  }) => {
+    const api = await getAPI();
+    const response = await api.patch(
+      '/usuarios/talleres/actualizar_ubicacion_domicilio/',
+      datos
+    );
+    return response.data;
+  },
 };
 
 // Servicios para mecánicos

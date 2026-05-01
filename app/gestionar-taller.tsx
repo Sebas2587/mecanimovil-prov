@@ -820,6 +820,15 @@ export default function GestionarTallerScreen() {
           <Text style={styles.sectionSubtitle}>
             Ingresa la dirección exacta de tu taller. Solo se aceptan direcciones reales y existentes en Chile.
           </Text>
+          <TouchableOpacity
+            onPress={() => router.push('/actualizar-ubicacion')}
+            style={{ marginBottom: 12 }}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+          >
+            <Text style={{ fontSize: 14, color: '#007EA7', fontWeight: '600' }}>
+              O usar el asistente con GPS y mapa (como la app de usuarios)
+            </Text>
+          </TouchableOpacity>
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Dirección *</Text>
