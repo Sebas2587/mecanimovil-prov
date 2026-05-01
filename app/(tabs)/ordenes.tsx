@@ -34,7 +34,16 @@ import Header from '@/components/Header';
 
 type TabType = 'activas' | 'completadas' | 'rechazadas';
 
-const ESTADOS_ACTIVOS = ['enviada', 'vista', 'en_chat', 'aceptada', 'pendiente_pago', 'pagada', 'en_ejecucion'];
+const ESTADOS_ACTIVOS = [
+  'enviada',
+  'vista',
+  'en_chat',
+  'pendiente_creditos',
+  'aceptada',
+  'pendiente_pago',
+  'pagada',
+  'en_ejecucion',
+];
 /** Éxito: solo estos van al tab Completadas */
 const ESTADOS_COMPLETADOS_OK = ['completado', 'completada'];
 /** Rechazo / cancelación / expiración: tab Rechazadas */
@@ -58,6 +67,7 @@ const ESTADO_COLORS: Record<string, { bg: string; dot: string; text: string }> =
   enviada: { bg: '#EFF6FF', dot: '#3B82F6', text: '#1E40AF' },
   vista: { bg: '#F5F3FF', dot: '#8B5CF6', text: '#5B21B6' },
   en_chat: { bg: '#FFF7ED', dot: '#F59E0B', text: '#92400E' },
+  pendiente_creditos: { bg: '#FFF7ED', dot: '#D97706', text: '#92400E' },
   aceptada: { bg: '#ECFDF5', dot: '#10B981', text: '#065F46' },
   pendiente_pago: { bg: '#FFF7ED', dot: '#F59E0B', text: '#92400E' },
   pagada: { bg: '#ECFDF5', dot: '#10B981', text: '#065F46' },
@@ -72,6 +82,7 @@ const OFERTA_LABELS: Record<string, string> = {
   enviada: 'Oferta Enviada',
   vista: 'Vista por Cliente',
   en_chat: 'En Conversación',
+  pendiente_creditos: 'Pendiente créditos',
   aceptada: 'Aceptada',
   pendiente_pago: 'Pendiente de Pago',
   pagada: 'Pagada',

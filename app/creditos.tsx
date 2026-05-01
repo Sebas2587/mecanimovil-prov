@@ -286,7 +286,10 @@ export default function CreditosScreen() {
   const successColor = colors?.success?.main ?? '#22C55E';
 
   // ── Estado de UI ──────────────────────────────────────────
-  const { tab } = useLocalSearchParams<{ tab: TabType }>();
+  const { tab, minCreditos: minCreditosParam } = useLocalSearchParams<{
+    tab: TabType;
+    minCreditos?: string;
+  }>();
   const [activeTab, setActiveTab] = useState<TabType>('saldo');
   const [historialSubTab, setHistorialSubTab] = useState<HistorialSubTabType>('compras');
 
@@ -296,6 +299,17 @@ export default function CreditosScreen() {
       setActiveTab(tab as TabType);
     }
   }, [tab]);
+
+  const minCreditosDesdeRuta = useMemo(() => {
+    const n = parseInt(String(minCreditosParam ?? ''), 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [minCreditosParam]);
+
+  useEffect(() => {
+    if (minCreditosDesdeRuta != null) {
+      setCantidadComprar((prev) => Math.max(prev, minCreditosDesdeRuta));
+    }
+  }, [minCreditosDesdeRuta]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [cargandoSuscripcion, setCargandoSuscripcion] = useState(false);
@@ -962,6 +976,19 @@ export default function CreditosScreen() {
               <Text style={[styles.bannerTitulo, { color: '#B45309' }]}>Sin créditos disponibles</Text>
               <Text style={[styles.bannerSubtitulo, { color: '#92400E' }]}>
                 Comprá créditos para seguir postulando a los trabajos disponibles.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {minCreditosDesdeRuta != null && (
+          <View style={[styles.bannerAlerta, { backgroundColor: '#EFF6FF', borderColor: '#3B82F6', marginBottom: 12 }]}>
+            <MaterialIcons name="info-outline" size={20} color="#2563EB" />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[styles.bannerTitulo, { color: '#1E40AF' }]}>Mínimo sugerido</Text>
+              <Text style={[styles.bannerSubtitulo, { color: '#1E3A8A' }]}>
+                Para confirmar la adjudicación necesitás al menos {minCreditosDesdeRuta} crédito
+                {minCreditosDesdeRuta !== 1 ? 's' : ''}. Ajustamos la cantidad a comprar si hacía falta.
               </Text>
             </View>
           </View>

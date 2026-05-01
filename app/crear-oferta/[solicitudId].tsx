@@ -7,6 +7,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +16,6 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import solicitudesService, { type SolicitudPublica, type OfertaProveedorData, type DetalleServicioOferta } from '@/services/solicitudesService';
 import { FormularioOferta } from '@/components/solicitudes/FormularioOferta';
 import creditosService, { type VerificacionCreditosOferta } from '@/services/creditosService';
-import { ModalCreditosInsuficientes } from '@/components/creditos';
 import { useAuth } from '@/context/AuthContext';
 import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
 import serviceAreasApi from '@/services/serviceAreasApi';
@@ -36,7 +36,6 @@ export default function CrearOfertaScreen() {
   // Estados para verificación de créditos
   const [verificandoCreditos, setVerificandoCreditos] = useState(true);
   const [verificacionCreditos, setVerificacionCreditos] = useState<VerificacionCreditosOferta | null>(null);
-  const [mostrarModalCreditos, setMostrarModalCreditos] = useState(false);
 
   useEffect(() => {
     if (solicitudId) {
@@ -86,11 +85,6 @@ export default function CrearOfertaScreen() {
       
       if (result.success && result.data) {
         setVerificacionCreditos(result.data);
-        
-        // Si no puede ofertar, mostrar modal
-        if (!result.data.puede_ofertar) {
-          setMostrarModalCreditos(true);
-        }
       } else {
         console.error('Error verificando créditos:', result.error);
         // No bloquear si hay error en verificación, continuar
@@ -111,13 +105,12 @@ export default function CrearOfertaScreen() {
   };
   
   const handleIrAComprarCreditos = () => {
-    setMostrarModalCreditos(false);
-    router.push('/creditos?tab=tienda');
-  };
-  
-  const handleCerrarModalCreditos = () => {
-    setMostrarModalCreditos(false);
-    router.back();
+    const min = verificacionCreditos?.creditos_necesarios;
+    const q =
+      min != null && min > 0
+        ? `?tab=tienda&minCreditos=${encodeURIComponent(String(min))}`
+        : '?tab=tienda';
+    router.push(`/creditos${q}`);
   };
 
   const handleSubmit = async (datosOferta: {
@@ -285,7 +278,7 @@ export default function CrearOfertaScreen() {
     }
   };
 
-  if (loading || verificandoCreditos) {
+  if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <Stack.Screen
@@ -298,9 +291,7 @@ export default function CrearOfertaScreen() {
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.tint} />
-          <Text style={[styles.loadingText, { color: colors.text }]}>
-            {verificandoCreditos ? 'Verificando créditos disponibles...' : 'Cargando solicitud...'}
-          </Text>
+          <Text style={[styles.loadingText, { color: colors.text }]}>Cargando solicitud...</Text>
         </View>
       </View>
     );
@@ -341,6 +332,25 @@ export default function CrearOfertaScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
+        {verificacionCreditos && !verificacionCreditos.puede_ofertar && (
+          <View
+            style={[
+              styles.bannerCreditos,
+              { backgroundColor: colors.tint + '18', borderColor: colors.tint },
+            ]}
+          >
+            <Text style={[styles.bannerTitle, { color: colors.text }]}>
+              Saldo de créditos bajo
+            </Text>
+            <Text style={[styles.bannerBody, { color: colors.text }]}>
+              Puedes ofertar igualmente. Si el cliente te elige, necesitarás al menos{' '}
+              {verificacionCreditos.creditos_necesarios} crédito(s) para confirmar la adjudicación.
+            </Text>
+            <TouchableOpacity onPress={handleIrAComprarCreditos} style={styles.bannerBtn}>
+              <Text style={[styles.bannerBtnText, { color: colors.tint }]}>Ir a comprar créditos</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <FormularioOferta
           solicitud={solicitud}
           onSubmit={handleSubmit}
@@ -349,14 +359,6 @@ export default function CrearOfertaScreen() {
           bottomInset={insets.bottom}
         />
       </KeyboardAvoidingView>
-      
-      {/* Modal de créditos insuficientes */}
-      <ModalCreditosInsuficientes
-        visible={mostrarModalCreditos}
-        onClose={handleCerrarModalCreditos}
-        onComprarCreditos={handleIrAComprarCreditos}
-        verificacion={verificacionCreditos}
-      />
     </View>
   );
 }
@@ -385,6 +387,31 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
+    fontWeight: '600',
+  },
+  bannerCreditos: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  bannerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  bannerBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  bannerBtn: {
+    alignSelf: 'flex-start',
+  },
+  bannerBtnText: {
+    fontSize: 15,
     fontWeight: '600',
   },
 });

@@ -83,7 +83,17 @@ export interface SolicitudPublica {
   detalles_ubicacion?: string;
   fecha_preferida: string;
   hora_preferida?: string | null;
-  estado: 'creada' | 'seleccionando_servicios' | 'publicada' | 'con_ofertas' | 'adjudicada' | 'expirada' | 'cancelada';
+  estado:
+    | 'creada'
+    | 'seleccionando_servicios'
+    | 'publicada'
+    | 'con_ofertas'
+    | 'esperando_creditos_proveedor'
+    | 'adjudicada'
+    | 'pendiente_pago'
+    | 'expirada'
+    | 'cancelada';
+  fecha_limite_confirmacion_creditos?: string | null;
   fecha_creacion: string;
   fecha_publicacion?: string | null;
   fecha_expiracion: string;
@@ -147,7 +157,19 @@ export interface OfertaProveedorData {
 }
 
 export interface OfertaProveedor {
-  solicitud_estado?: 'creada' | 'seleccionando_servicios' | 'publicada' | 'con_ofertas' | 'adjudicada' | 'pendiente_pago' | 'pagada' | 'en_ejecucion' | 'completada' | 'expirada' | 'cancelada';
+  solicitud_estado?:
+    | 'creada'
+    | 'seleccionando_servicios'
+    | 'publicada'
+    | 'con_ofertas'
+    | 'esperando_creditos_proveedor'
+    | 'adjudicada'
+    | 'pendiente_pago'
+    | 'pagada'
+    | 'en_ejecucion'
+    | 'completada'
+    | 'expirada'
+    | 'cancelada';
   id: string;
   solicitud: string;
   solicitud_detail?: {
@@ -186,7 +208,19 @@ export interface OfertaProveedor {
   hora_disponible: string;
   es_fecha_alternativa?: boolean;
   motivo_fecha_alternativa?: string | null;
-  estado: 'enviada' | 'vista' | 'en_chat' | 'aceptada' | 'pendiente_pago' | 'pagada' | 'en_ejecucion' | 'completada' | 'rechazada' | 'retirada' | 'expirada';
+  estado:
+    | 'enviada'
+    | 'vista'
+    | 'en_chat'
+    | 'pendiente_creditos'
+    | 'aceptada'
+    | 'pendiente_pago'
+    | 'pagada'
+    | 'en_ejecucion'
+    | 'completada'
+    | 'rechazada'
+    | 'retirada'
+    | 'expirada';
   fecha_envio: string;
   nombre_proveedor?: string;
   rating_proveedor?: number;

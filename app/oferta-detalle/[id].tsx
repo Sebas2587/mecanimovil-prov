@@ -126,6 +126,12 @@ export default function OfertaDetalleScreen() {
         return { color: primaryColor, text: 'Vista por Cliente', icon: 'visibility' };
       case 'en_chat':
         return { color: accentColor, text: 'En Conversación', icon: 'chat' };
+      case 'pendiente_creditos':
+        return {
+          color: warningColor,
+          text: 'Pendiente: comprar créditos',
+          icon: 'account-balance-wallet',
+        };
       case 'aceptada':
         return { color: successColor, text: '¡Aceptada!', icon: 'check-circle' };
       case 'pendiente_pago':
@@ -408,7 +414,11 @@ export default function OfertaDetalleScreen() {
     }
 
     // Estado: en_chat o aceptada - 1 botón
-    if (oferta.estado === 'en_chat' || oferta.estado === 'aceptada') {
+    if (
+      oferta.estado === 'en_chat' ||
+      oferta.estado === 'aceptada' ||
+      oferta.estado === 'pendiente_creditos'
+    ) {
       altura += 52; // botón chat
       altura += 12; // marginBottom
     }
@@ -492,6 +502,15 @@ export default function OfertaDetalleScreen() {
         </View>
 
         {/* Banner informativo según el estado */}
+        {oferta.estado === 'pendiente_creditos' && (
+          <EstadoBanner
+            type="warning"
+            title="Te eligieron: confirma con créditos"
+            message="El cliente eligió tu oferta. Compra los créditos necesarios en la tienda antes del plazo para confirmar la adjudicación y continuar."
+            icon="account-balance-wallet"
+          />
+        )}
+
         {oferta.estado === 'aceptada' && (
           <EstadoBanner
             type="warning"
@@ -947,16 +966,28 @@ export default function OfertaDetalleScreen() {
           </>
         )}
 
-        {(oferta.estado === 'en_chat' || oferta.estado === 'aceptada') &&
+        {oferta.estado === 'pendiente_creditos' && (
+          <TouchableOpacity
+            style={[styles.fixedActionButton, styles.fixedActionButtonPrimary]}
+            onPress={() => router.push('/creditos?tab=tienda&minCreditos=2')}
+          >
+            <MaterialIcons name="account-balance-wallet" size={20} color={white} />
+            <Text style={styles.fixedActionButtonText}>Comprar créditos</Text>
+          </TouchableOpacity>
+        )}
+
+        {(oferta.estado === 'en_chat' ||
+          oferta.estado === 'aceptada' ||
+          oferta.estado === 'pendiente_creditos') &&
           oferta.solicitud_estado &&
           oferta.solicitud_estado !== 'cancelada' &&
           oferta.solicitud_estado !== 'expirada' && (
             <TouchableOpacity
-              style={[styles.fixedActionButton, styles.fixedActionButtonPrimary]}
+              style={[styles.fixedActionButton, styles.fixedActionButtonOutline]}
               onPress={() => router.push(`/chat-oferta/${oferta.id}`)}
             >
-              <MaterialIcons name="chat" size={20} color={white} />
-              <Text style={styles.fixedActionButtonText}>Abrir Chat</Text>
+              <MaterialIcons name="chat" size={20} color={primaryColor} />
+              <Text style={[styles.fixedActionButtonText, { color: primaryColor }]}>Abrir Chat</Text>
             </TouchableOpacity>
           )}
 
