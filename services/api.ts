@@ -187,6 +187,24 @@ const setupInterceptors = (api: any) => {
       return response;
     },
     async (error: any) => {
+      const cfg = error.config;
+      const st = error.response?.status;
+      const m = (cfg?.method || 'get').toString().toLowerCase();
+      // 503 por BD/Render suele ser transitorio; reintentar GET evita pantallas vacías
+      if (st === 503 && cfg && m === 'get') {
+        const k = '_retry503Attempts';
+        const n = (cfg[k] as number | undefined) || 0;
+        if (n < 2) {
+          cfg[k] = n + 1;
+          const delayMs = 400 * (n + 1);
+          if (__DEV__) {
+            console.log(`🔁 Reintento ${n + 1}/2 tras 503 (GET) ${cfg.url} — ${delayMs}ms`);
+          }
+          await new Promise<void>((r) => setTimeout(r, delayMs));
+          return api.request(cfg);
+        }
+      }
+
       if (error.response?.status === 401) {
         // Verificar si hay token - si no hay, es normal (no hay sesión)
         try {
