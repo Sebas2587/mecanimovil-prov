@@ -322,28 +322,10 @@ export default function ActualizarUbicacionScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.glassOuter}>
-            <BlurView intensity={blurIntensity} tint={glassTint} style={StyleSheet.absoluteFill} />
-            <View style={styles.glassInner}>
-              <View style={styles.heroRow}>
-                <View style={styles.heroIcon}>
-                  <MapPin size={22} color={COLORS.secondary?.[500] ?? '#007EA7'} />
-                </View>
-                <Text style={styles.heroText}>
-                  Misma lógica que la app de usuarios: texto de dirección legible (calle, comuna, ciudad) más el punto
-                  GPS para “Cerca de ti” y emparejar con la dirección del cliente.
-                </Text>
-              </View>
-            </View>
-          </View>
-
           <View style={[styles.glassOuter, { marginTop: 14 }]}>
             <BlurView intensity={blurIntensity} tint={glassTint} style={StyleSheet.absoluteFill} />
             <View style={styles.glassInner}>
               <Text style={styles.sectionLabel}>Dirección guardada</Text>
-              <Text style={styles.savedHint}>
-                Lo que está registrado en el servidor (no es el campo de búsqueda).
-              </Text>
               <View style={styles.savedBox}>
                 <Text style={styles.savedText}>
                   {savedAddress
@@ -379,9 +361,6 @@ export default function ActualizarUbicacionScreen() {
                 <View style={styles.heroGpsTextWrap}>
                   <Text style={styles.heroGpsTitle}>
                     {gpsLoading ? 'Obteniendo ubicación…' : 'Usar mi ubicación actual'}
-                  </Text>
-                  <Text style={styles.heroGpsSubtitle}>
-                    Recomendado: detectamos la dirección con GPS (como en la app de usuarios).
                   </Text>
                 </View>
                 <ChevronRight size={20} color={COLORS.neutral?.gray?.[400] ?? '#9CA3AF'} />

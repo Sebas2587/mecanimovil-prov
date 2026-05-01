@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   kpisProveedorService,
   type ProveedorKpisResumen,
 } from '@/services/kpisProveedorService';
 
+/** Clave estable para compartir KPIs entre pantallas (misma ventana = misma petición/caché). */
+export function proveedorKpisResumenQueryKey(dias: number) {
+  const d = Math.min(365, Math.max(1, Math.round(dias)));
+  return ['proveedor-kpis-resumen', d] as const;
+}
+
 /** Nivel mostrado en el widget según score compuesto (0–100). */
 export function targetTierNameForScore(score: number): string {
+  if (score === 0) return 'Sin actividad';
   if (score >= 90) return 'Elite';
   if (score >= 75) return 'Máster Pro';
   if (score >= 55) return 'Pro';
@@ -18,50 +25,48 @@ type Options = {
 };
 
 /**
- * Carga KPIs agregados del proveedor (backend). No afecta app usuarios.
+ * KPIs agregados del proveedor (backend). Usa React Query para que index y
+ * `RendimientoKpisContent` compartan caché y no muestren porcentajes distintos.
  */
 export function useProveedorKpisResumen({ enabled, dias = 30 }: Options) {
-  const [data, setData] = useState<ProveedorKpisResumen | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const diasClamped = Math.min(365, Math.max(1, Math.round(dias)));
 
-  const load = useCallback(async () => {
-    if (!enabled) return;
-    setLoading(true);
-    setError(null);
-    const result = await kpisProveedorService.obtenerResumen(dias);
-    setLoading(false);
-    if (result.success && result.data) {
-      setData(result.data);
-    } else {
-      setError(result.message ?? 'Error');
-      setData(null);
-    }
-  }, [enabled, dias]);
+  const { data, isFetching, error, refetch } = useQuery({
+    queryKey: proveedorKpisResumenQueryKey(diasClamped),
+    queryFn: async (): Promise<ProveedorKpisResumen> => {
+      const result = await kpisProveedorService.obtenerResumen(diasClamped);
+      if (!result.success || !result.data) {
+        throw new Error(result.message ?? 'No se pudieron cargar los KPIs');
+      }
+      return result.data;
+    },
+    enabled,
+    /** Más corto que el default global (5m) para alinear home y detalle tras actividad. */
+    staleTime: 30 * 1000,
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const errorMessage =
+    error instanceof Error ? error.message : error != null ? String(error) : null;
 
-  /** Mismo criterio que la pantalla de detalle: solo con respuesta API válida. */
+  const loading = isFetching;
+
   const progress = data != null ? data.score_rendimiento : undefined;
   const targetTierName =
     data != null
       ? targetTierNameForScore(data.score_rendimiento)
       : loading
         ? 'Cargando…'
-        : error != null
+        : errorMessage != null
           ? 'Sin datos'
           : '—';
 
-  /** Ventana mostrada (del payload o el `dias` pedido mientras carga). */
-  const ventanaDiasMostrada = data?.ventana_dias ?? dias;
+  const ventanaDiasMostrada = data?.ventana_dias ?? diasClamped;
 
   return {
     data,
     loading,
-    error,
-    refresh: load,
+    error: errorMessage,
+    refresh: refetch,
     progress,
     targetTierName,
     ventanaDiasMostrada,

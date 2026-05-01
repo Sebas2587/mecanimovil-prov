@@ -47,6 +47,7 @@ function clampPercent(value: number): number {
 }
 
 function motivationalLabel(percent: number): string {
+  if (percent <= 0) return 'Sin métricas en el periodo';
   if (percent >= 95) return '¡Casi listo!';
   if (percent >= 80) return '¡Excelente!';
   if (percent >= 50) return '¡Sigue así!';
