@@ -120,16 +120,16 @@ export default function ComprarCreditosScreen() {
   };
 
   const cargarDatos = async () => {
-    let unit = FALLBACK_PRECIO_CREDITO_BRUTO_CLP;
+    let unitBruto = Number(FALLBACK_PRECIO_CREDITO_BRUTO_CLP);
     try {
       const statsRes = await creditosService.obtenerEstadisticas();
       if (statsRes.success && statsRes.data?.precio_credito_unitario_clp != null) {
-        unit = Math.round(Number(statsRes.data.precio_credito_unitario_clp));
+        unitBruto = Number(statsRes.data.precio_credito_unitario_clp);
       }
     } catch (e) {
       if (__DEV__) console.warn('[ComprarCreditos] precio desde API:', e);
     }
-    setPrecioUnitarioClp(unit);
+    setPrecioUnitarioClp(unitBruto);
 
     if (!cantidadCreditosParams || isNaN(cantidadCreditosParams) || cantidadCreditosParams <= 0) {
       Alert.alert('Error', 'Cantidad de créditos inválida');
@@ -138,7 +138,7 @@ export default function ComprarCreditosScreen() {
     }
 
     setCantidad(cantidadCreditosParams);
-    setPrecioTotal(cantidadCreditosParams * unit);
+    setPrecioTotal(Math.round(cantidadCreditosParams * unitBruto));
     setLoading(false);
   };
 
@@ -334,6 +334,7 @@ export default function ComprarCreditosScreen() {
   const precioPorCreditoFormateado = new Intl.NumberFormat('es-CL', {
     style: 'currency',
     currency: 'CLP',
+    maximumFractionDigits: 2,
     minimumFractionDigits: 0,
   }).format(precioUnitarioClp);
 

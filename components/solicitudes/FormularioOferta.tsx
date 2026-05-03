@@ -1347,14 +1347,11 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       });
     }
 
-    // Obtener el costo de gestión de compra (solo aplica si incluye repuestos)
+    // precioTotalCalculado = suma de precios por servicio; cada línea con repuestos ya incluye
+    // (MO + repuestos + gestión) sin IVA y el IVA sobre ese subtotal (ver actualizarCostoManoObra / repuestos / gestión).
+    // No sumar gestión otra vez: antes se duplicaba y el total no coincidía con el desglose guardado.
+    const precioTotalFinal = precioTotalCalculado;
     const gestionCompra = incluyeRepuestos ? parseFloat(costoGestionCompra || '0') : 0;
-
-    // Calcular precio total final incluyendo gestión de compra
-    // precioTotalCalculado ya incluye IVA de (mano de obra + repuestos)
-    // Ahora agregamos gestión de compra con su IVA
-    const gestionCompraConIva = gestionCompra * 1.19;
-    const precioTotalFinal = precioTotalCalculado + gestionCompraConIva;
 
     const usaFechaAlternativa = esOfertaSecundaria || !puedeFechaSolicitada;
     const garantiaMesesDigits = garantiaMeses.replace(/\D/g, '');
@@ -1393,11 +1390,8 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   const precioTotalServicios = calcularPrecioTotal();
   const tiempoTotal = calcularTiempoTotal();
 
-  // Calcular precio total REAL incluyendo gestión de compra con IVA
-  const gestionCompraValor = parseFloat(costoGestionCompra || '0');
-  const tieneRepuestos = serviciosOferta.some(s => s.tipoServicio === 'con_repuestos');
-  const gestionCompraConIva = tieneRepuestos ? gestionCompraValor * 1.19 : 0;
-  const precioTotal = precioTotalServicios + gestionCompraConIva;
+  // Mismo criterio que al enviar: la gestión ya va dentro del precio de cada servicio con repuestos.
+  const precioTotal = precioTotalServicios;
 
   return (
     <View style={styles.wrapper}>

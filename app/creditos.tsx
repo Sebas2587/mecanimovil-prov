@@ -72,16 +72,28 @@ interface ModalSuscripcion {
   suscripcionId: number;
 }
 
-function planNombreCorto(nombre: string): string {
-  return nombre.replace(/^Plan\s+/i, '').trim();
-}
-
 function clpPorCreditoEnPlan(plan: PlanSuscripcion): number {
   return Math.round(Number(plan.precio) / Math.max(1, plan.creditos_mensuales));
 }
 
 function formatCLP(n: number): string {
   return `$${Math.round(n).toLocaleString('es-CL')}`;
+}
+
+/** Orientativo: en docs, cada postulación puede gastar ~5–10 créditos según el servicio. */
+function rangoPostulacionesAprox(creditosMensuales: number): { min: number; max: number } {
+  const max = Math.max(0, Math.floor(creditosMensuales / 5));
+  const min = Math.max(0, Math.floor(creditosMensuales / 10));
+  return { min, max };
+}
+
+function porcentajeAhorroVsTienda(
+  precioCreditoPlan: number,
+  precioTiendaPorCredito: number
+): number | null {
+  if (precioTiendaPorCredito <= 0) return null;
+  if (precioCreditoPlan >= precioTiendaPorCredito) return null;
+  return Math.min(99, Math.max(0, Math.round((1 - precioCreditoPlan / precioTiendaPorCredito) * 100)));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -93,13 +105,11 @@ interface PlanCardProps {
   onSuscribirse: (plan: PlanSuscripcion) => void;
   cargando: boolean;
   colors: any;
-  /** Misma lista ordenada (ej. por `orden`) para comparar con el plan de abajo */
-  planesOrdenados: PlanSuscripcion[];
   precioRecargaPorCredito: number;
 }
 
 const PlanCard: React.FC<PlanCardProps> = React.memo(
-  ({ plan, suscripcionActual, onSuscribirse, cargando, colors, planesOrdenados, precioRecargaPorCredito }) => {
+  ({ plan, suscripcionActual, onSuscribirse, cargando, colors, precioRecargaPorCredito }) => {
     const primaryColor = colors?.primary?.['500'] ?? COLORS.primary[500];
     const accentColor = colors?.accent?.['500'] ?? COLORS.accent[500];
     const successColor = colors?.success?.main ?? COLORS.success.main;
@@ -116,65 +126,34 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
       suscripcionActual !== null &&
       ['activa', 'pendiente'].includes(suscripcionActual?.estado ?? '');
 
-    const idx = planesOrdenados.findIndex((p) => p.id === plan.id);
-    const planInferior = idx > 0 ? planesOrdenados[idx - 1] : null;
     const precioCreditoPlan = clpPorCreditoEnPlan(plan);
-    const ahorroVsTienda = Math.round(precioRecargaPorCredito - precioCreditoPlan);
+    const pctAhorro = porcentajeAhorroVsTienda(precioCreditoPlan, precioRecargaPorCredito);
+    const { min: estMin, max: estMax } = rangoPostulacionesAprox(plan.creditos_mensuales);
 
-    const filasBeneficio: { key: string; icon: string; text: string }[] = [];
+    const textoEstimacionPostulaciones =
+      estMax <= 0
+        ? 'La cantidad de postulaciones depende del tipo de trabajo.'
+        : estMin <= 0
+          ? `Hasta ~${estMax} postulaciones/mes (aprox.)`
+          : `~${estMin}–${estMax} postulaciones/mes (aprox.)`;
 
-    if (ahorroVsTienda > 0) {
-      filasBeneficio.push({
-        key: 'tienda',
-        icon: 'account-balance-wallet',
-        text: `Respecto a comprar créditos de a uno en la Tienda (${formatCLP(precioRecargaPorCredito)} c/u), en este plan cada crédito te sale unos ${formatCLP(ahorroVsTienda)} menos (aprox. ${formatCLP(precioCreditoPlan)} c/u).`,
-      });
-    } else {
-      filasBeneficio.push({
-        key: 'tienda-neutral',
-        icon: 'shopping-cart',
-        text: `En la Tienda los créditos sueltos cuestan aprox. ${formatCLP(precioRecargaPorCredito)} c/u; en este plan quedan en aprox. ${formatCLP(precioCreditoPlan)} c/u mientras pagues el mes.`,
-      });
-    }
-
-    if (planInferior) {
-      const crAnt = planInferior.creditos_mensuales;
-      const crNuevo = plan.creditos_mensuales;
-      const deltaCr = crNuevo - crAnt;
-      if (deltaCr > 0) {
-        filasBeneficio.push({
-          key: 'vs-inferior-cr',
-          icon: 'trending-up',
-          text: `Recibís ${deltaCr} créditos más al mes que en ${planNombreCorto(planInferior.nombre)} (${crAnt} → ${crNuevo}).`,
-        });
-      }
-      const pcInf = clpPorCreditoEnPlan(planInferior);
-      if (precioCreditoPlan < pcInf) {
-        filasBeneficio.push({
-          key: 'vs-inferior-pc',
-          icon: 'trending-down',
-          text: `Cada crédito te sale más conveniente que en ${planNombreCorto(planInferior.nombre)} (aprox. ${formatCLP(precioCreditoPlan)} vs ${formatCLP(pcInf)}).`,
-        });
-      }
-    }
-
-    filasBeneficio.push(
+    const hechosPlan: { key: string; icon: React.ComponentProps<typeof MaterialIcons>['name']; text: string }[] = [
       {
-        key: 'mp',
-        icon: 'check-circle',
+        key: 'mp-cobros',
+        icon: 'account-balance-wallet',
+        text: 'Los pagos de tus clientes van directo a tu cuenta Mercado Pago.',
+      },
+      {
+        key: 'destacado',
+        icon: 'visibility',
+        text: 'Todos los planes permiten que tu taller pueda destacarse en la app de clientes.',
+      },
+      {
+        key: 'creditos-mes',
+        icon: 'verified',
         text: 'Los créditos del mes se suman a tu saldo cuando Mercado Pago confirma el cobro.',
       },
-      {
-        key: 'mix',
-        icon: 'layers',
-        text: 'Podés combinar créditos del plan con los que compres aparte en la Tienda.',
-      },
-      {
-        key: 'cancel',
-        icon: 'event-available',
-        text: 'Cancelás la renovación cuando quieras desde esta misma pantalla.',
-      }
-    );
+    ];
 
     return (
       <View
@@ -200,7 +179,6 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
             )}
 
             <Text style={[styles.planNombre, { color: textPrimary }]}>{plan.nombre}</Text>
-            <Text style={[styles.planDescripcion, { color: textSecondary }]}>{plan.descripcion}</Text>
 
             <View style={styles.precioContainer}>
               <Text style={[styles.precioCurrency, { color: primaryColor }]}>$</Text>
@@ -210,23 +188,39 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
               <Text style={[styles.precioPeriodo, { color: textSecondary }]}>/mes</Text>
             </View>
 
-            <View style={[styles.planHighlightPill, { backgroundColor: colors?.primary?.['50'] ?? COLORS.primary[50] }]}>
-              <MaterialCommunityIcons name="lightning-bolt" size={18} color={accentColor} />
-              <Text style={[styles.planHighlightText, { color: textPrimary }]}>
-                <Text style={{ fontWeight: '800' }}>{plan.creditos_mensuales} créditos</Text>
-                {' al mes · aprox. '}
-                <Text style={{ fontWeight: '800', color: primaryColor }}>{formatCLP(precioCreditoPlan)}</Text>
-                {' por crédito'}
-              </Text>
+            <Text style={[styles.planCreditosLead, { color: textPrimary }]}>
+              {plan.creditos_mensuales} créditos al mes
+            </Text>
+            <Text style={[styles.planMicroLine, { color: textSecondary }]}>
+              ≈ {formatCLP(precioCreditoPlan)} por crédito en el plan · Tienda ~{formatCLP(precioRecargaPorCredito)} c/u
+            </Text>
+
+            {pctAhorro != null && pctAhorro > 0 ? (
+              <View style={[styles.planAhorroChip, { backgroundColor: '#DCFCE7', borderColor: '#86EFAC' }]}>
+                <MaterialIcons name="savings" size={16} color="#15803D" />
+                <Text style={styles.planAhorroChipText}>
+                  ~{pctAhorro}% menos por crédito vs comprar en Tienda
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={[styles.planEstimacionBox, { backgroundColor: colors?.neutral?.gray?.[50] ?? '#F9FAFB', borderColor: colors?.neutral?.gray?.[200] ?? '#E5E7EB' }]}>
+              <MaterialCommunityIcons name="chart-timeline-variant" size={18} color={primaryColor} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.planEstimacionTitle, { color: textPrimary }]}>Postulaciones al mes</Text>
+                <Text style={[styles.planEstimacionBody, { color: textSecondary }]}>{textoEstimacionPostulaciones}</Text>
+                <Text style={[styles.planEstimacionHint, { color: textSecondary }]}>
+                  Orientativo: cada servicio consume distintos créditos (p. ej. 5 a 10).
+                </Text>
+              </View>
             </View>
 
             <View style={[styles.separador, { backgroundColor: colors?.neutral?.gray?.[200] ?? '#D7DFE3' }]} />
 
-            <Text style={[styles.beneficiosTitulo, { color: textPrimary }]}>Qué ganás con este plan</Text>
-            {filasBeneficio.map((row) => (
-              <View key={row.key} style={styles.beneficioRow}>
-                <MaterialIcons name={row.icon as React.ComponentProps<typeof MaterialIcons>['name']} size={18} color={accentColor} style={styles.beneficioIcon} />
-                <Text style={[styles.beneficioText, { color: textSecondary }]}>{row.text}</Text>
+            {hechosPlan.map((row) => (
+              <View key={row.key} style={styles.planFactRow}>
+                <MaterialIcons name={row.icon} size={18} color={accentColor} style={styles.planFactIcon} />
+                <Text style={[styles.planFactText, { color: textSecondary }]}>{row.text}</Text>
               </View>
             ))}
 
@@ -893,14 +887,14 @@ export default function CreditosScreen() {
             <View style={styles.glassGuiaContentCompact}>
               <View style={styles.guiaHeaderRowCompact}>
                 <MaterialCommunityIcons name="school-outline" size={20} color={primaryColor} />
-                <Text style={[styles.guiaTituloCompact, { color: textPrimary }]}>Cómo leer los planes</Text>
+                <Text style={[styles.guiaTituloCompact, { color: textPrimary }]}>Planes mensuales</Text>
               </View>
               <Text style={[styles.guiaLeadCompact, { color: textSecondary }]}>
-                Cuota fija al mes con muchos créditos suele dejar cada crédito más barato que la Tienda (hoy ~{formatCLP(precioTopUpClp)} c/u). Las tarjetas comparan
-                con la Tienda y con el plan de abajo. Los créditos del mes se suman cuando Mercado Pago confirma el cobro.
+                Pagás una cuota y recibís créditos cada mes (cuando Mercado Pago confirma el cobro). Suele salir más barato por crédito que la Tienda (~
+                {formatCLP(precioTopUpClp)} c/u).
               </Text>
               <Text style={[styles.guiaHintCompact, { color: textSecondary }]}>
-                Cada servicio pide una cantidad distinta de créditos al postularte.
+                Las postulaciones al mes son orientativas: depende de cuántos créditos gaste cada trabajo.
               </Text>
               <TouchableOpacity
                 style={[styles.guiaBotonTabla, { backgroundColor: primaryColor }]}
@@ -934,7 +928,6 @@ export default function CreditosScreen() {
               onSuscribirse={handleSuscribirse}
               cargando={cargandoSuscripcion}
               colors={colors}
-              planesOrdenados={planesOrdenadosComparativa}
               precioRecargaPorCredito={precioTopUpClp}
             />
           ))
@@ -951,8 +944,12 @@ export default function CreditosScreen() {
   );
 
   const renderTabTienda = () => {
-    const precioUnitario = Math.round(estadisticas?.precio_credito_unitario_clp ?? FALLBACK_PRECIO_CREDITO_BRUTO_CLP);
-    const PRECIO_TOTAL = cantidadComprar * precioUnitario;
+    // Mismo criterio que backend `comprar_creditos`: total = round(cantidad * precio_unitario_exacto).
+    // No redondear el unitario antes de multiplicar (evita 520×25 vs 519.72×25 en MP).
+    const precioUnitarioBruto = Number(
+      estadisticas?.precio_credito_unitario_clp ?? FALLBACK_PRECIO_CREDITO_BRUTO_CLP
+    );
+    const PRECIO_TOTAL = Math.round(cantidadComprar * precioUnitarioBruto);
     const precioFormateado = new Intl.NumberFormat('es-CL', {
       style: 'currency',
       currency: 'CLP',
@@ -1013,10 +1010,13 @@ export default function CreditosScreen() {
             </Text>
             <Text style={[styles.planDescripcion, { color: textSecondary, textAlign: 'center', marginBottom: SPACING.xl }]}>
               Ingresa la cantidad exacta de créditos que necesitas. Precio vigente:{' '}
-              {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(
-                precioUnitario
-              )}{' '}
-              por crédito.
+              {new Intl.NumberFormat('es-CL', {
+                style: 'currency',
+                currency: 'CLP',
+                maximumFractionDigits: 2,
+                minimumFractionDigits: 0,
+              }).format(precioUnitarioBruto)}{' '}
+              por crédito (total redondeado a peso, igual que en Mercado Pago).
             </Text>
 
             <View style={styles.counterContainer}>
@@ -1341,24 +1341,64 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  planHighlightPill: {
+  planCreditosLead: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: '800',
+    marginTop: SPACING.sm,
+  },
+  planMicroLine: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  planAhorroChip: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    marginTop: SPACING.sm,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  planAhorroChipText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: '800',
+    color: '#15803D',
+  },
+  planEstimacionBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 10,
     marginTop: SPACING.md,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 14,
+    padding: SPACING.sm,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  planHighlightText: { flex: 1, fontSize: TYPOGRAPHY.fontSize.sm, lineHeight: 20 },
-  beneficiosTitulo: {
+  planEstimacionTitle: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontWeight: '800',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
+  },
+  planEstimacionBody: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  planEstimacionHint: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    marginTop: 4,
+    lineHeight: 15,
+    fontStyle: 'italic',
+  },
+  planFactRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
     marginBottom: SPACING.sm,
   },
-  beneficioIcon: { marginTop: 2 },
+  planFactIcon: { marginTop: 1 },
+  planFactText: { flex: 1, fontSize: TYPOGRAPHY.fontSize.sm, lineHeight: 19 },
   // ─── PlanCard (tienda / fallback sólido) ─────────────────
   planCard: {
     borderRadius: 20,
@@ -1389,8 +1429,6 @@ const styles = StyleSheet.create({
   creditosRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, marginBottom: SPACING.md },
   creditosTexto: { fontSize: TYPOGRAPHY.fontSize.md },
   separador: { height: 1, marginVertical: SPACING.sm },
-  beneficioRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: SPACING.sm },
-  beneficioText: { fontSize: TYPOGRAPHY.fontSize.sm, flex: 1, lineHeight: 20 },
   botonSuscribirse: { marginTop: SPACING.md, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   botonSuscribirseTexto: { fontSize: TYPOGRAPHY.fontSize.md, fontWeight: '700' },
 

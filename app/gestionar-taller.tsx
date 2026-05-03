@@ -10,17 +10,19 @@ import {
   TextInput,
   Image,
   Modal,
-  Platform,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { perfilAPI } from '@/services/api';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Header from '@/components/Header';
+import { useTheme } from '@/app/design-system/theme/useTheme';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -55,6 +57,27 @@ interface DireccionResultado {
 
 export default function GestionarTallerScreen() {
   const { estadoProveedor, refrescarEstadoProveedor } = useAuth();
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  /** Mismo look que `app/(tabs)/index.tsx`: siempre claro (glass + gradiente), sin seguir system dark mode. */
+  const primary500 =
+    (theme?.colors?.primary as { '500'?: string } | undefined)?.['500'] ||
+    (theme?.colors?.accent as { '500'?: string } | undefined)?.['500'] ||
+    '#2563EB';
+  const gradientColors = ['#F3F5F8', '#FAFBFC', '#FFFFFF'] as const;
+  const gradientLocations = [0, 0.35, 1] as const;
+  const headerBg = '#F3F5F8';
+  const blurTint = 'light' as const;
+  const blurIntensity = 60;
+  const textPrimary = '#111827';
+  const textMuted = '#6B7280';
+  const textSubtle = '#9CA3AF';
+  const inputBg = 'rgba(255,255,255,0.82)';
+  const inputBorder = 'rgba(15, 23, 42, 0.08)';
+  const validBg = 'rgba(52, 199, 89, 0.1)';
+  const invalidBg = 'rgba(255, 59, 48, 0.08)';
+  const linkColor = primary500;
+  const saveDisabledBg = '#C7C7CC';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -753,178 +776,225 @@ export default function GestionarTallerScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-        <View style={styles.loadingContainer}>
-          <LoadingSpinner />
-          <Text style={styles.loadingText}>Cargando datos del taller...</Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.root}>
+        <LinearGradient
+          colors={[...gradientColors]}
+          locations={[...gradientLocations]}
+          style={StyleSheet.absoluteFillObject}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+        />
+        <SafeAreaView style={styles.safeTransparent} edges={['left', 'right', 'bottom']}>
+          <View style={styles.loadingContainer}>
+            <LoadingSpinner />
+            <Text style={[styles.loadingText, { color: textMuted }]}>Cargando datos del taller...</Text>
+          </View>
+        </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <Header
-        title="Gestionar Taller"
-        showBack={true}
-        onBackPress={() => router.back()}
-        rightComponent={
-          <TouchableOpacity
-            style={[styles.saveButton, (!hasChanges || saving) && styles.saveButtonDisabled]}
-            onPress={handleGuardar}
-            disabled={!hasChanges || saving}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.saveButtonText}>Guardar</Text>
-            )}
-          </TouchableOpacity>
-        }
+    <View style={styles.root}>
+      <LinearGradient
+        colors={[...gradientColors]}
+        locations={[...gradientLocations]}
+        style={StyleSheet.absoluteFillObject}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
       />
+      <SafeAreaView style={styles.safeTransparent} edges={['left', 'right', 'bottom']}>
+        <Header
+          title="Gestionar Taller"
+          showBack={true}
+          onBackPress={() => router.back()}
+          backgroundColor={headerBg}
+          style={{ borderBottomWidth: 0, shadowOpacity: 0, elevation: 0 }}
+        />
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Información del Taller */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información del Taller</Text>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingBottom: insets.bottom + 96,
+            paddingHorizontal: 20,
+            paddingTop: 8,
+          }}
+        >
+          {/* Información del Taller */}
+          <View style={styles.glassOuter}>
+            <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
+            <View style={styles.glassInner}>
+                <Text style={[styles.sectionTitle, { color: textPrimary }]}>Información del Taller</Text>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Nombre del Taller *</Text>
-            <TextInput
-              style={styles.textInput}
-              value={datosTaller.nombre}
-              onChangeText={(value) => handleInputChange('nombre', value)}
-              placeholder="Ingresa el nombre de tu taller"
-              placeholderTextColor="#8E8E93"
-            />
-          </View>
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: textPrimary }]}>Nombre del Taller *</Text>
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      {
+                        color: textPrimary,
+                        backgroundColor: inputBg,
+                        borderColor: inputBorder,
+                      },
+                    ]}
+                    value={datosTaller.nombre}
+                    onChangeText={(value) => handleInputChange('nombre', value)}
+                    placeholder="Ingresa el nombre de tu taller"
+                    placeholderTextColor={textSubtle}
+                  />
+                </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Descripción</Text>
-            <TextInput
-              style={[styles.textInput, styles.textArea]}
-              value={datosTaller.descripcion}
-              onChangeText={(value) => handleInputChange('descripcion', value)}
-              placeholder="Describe los servicios y especialidades de tu taller"
-              placeholderTextColor="#8E8E93"
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-        </View>
-
-        {/* Dirección del Taller */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ubicación del Taller</Text>
-          <Text style={styles.sectionSubtitle}>
-            Ingresa la dirección exacta de tu taller. Solo se aceptan direcciones reales y existentes en Chile.
-          </Text>
-          <TouchableOpacity
-            onPress={() => router.push('/actualizar-ubicacion')}
-            style={{ marginBottom: 12 }}
-            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-          >
-            <Text style={{ fontSize: 14, color: '#007EA7', fontWeight: '600' }}>
-              O usar el asistente con GPS y mapa (como la app de usuarios)
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Dirección *</Text>
-
-            {/* ✅ CAMPO DE BÚSQUEDA CON VALIDACIÓN EN TIEMPO REAL */}
-            <View style={styles.addressInputContainer}>
-              <TextInput
-                style={[
-                  styles.textInput,
-                  styles.addressInput,
-                  validationStatus === 'valid' ? styles.validInput : null,
-                  validationStatus === 'invalid' ? styles.invalidInput : null
-                ]}
-                value={searchQuery}
-                onChangeText={handleSearchQueryChange}
-                placeholder="Escribe dirección COMPLETA (ej: Manuel de Amat 2960)"
-                placeholderTextColor="#8E8E93"
-                returnKeyType="search"
-                onSubmitEditing={handleBuscarDireccion}
-              />
-
-              {/* ✅ INDICADOR DE ESTADO DE VALIDACIÓN */}
-              <View style={styles.validationIndicator}>
-                {validationStatus === 'validating' && (
-                  <ActivityIndicator size="small" color="#007AFF" />
-                )}
-                {validationStatus === 'valid' && (
-                  <MaterialIcons name="check-circle" size={20} color="#34C759" />
-                )}
-                {validationStatus === 'invalid' && searchQuery.length >= 8 && (
-                  <MaterialIcons name="error" size={20} color="#FF3B30" />
-                )}
-              </View>
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: textPrimary }]}>Descripción</Text>
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      styles.textArea,
+                      {
+                        color: textPrimary,
+                        backgroundColor: inputBg,
+                        borderColor: inputBorder,
+                      },
+                    ]}
+                    value={datosTaller.descripcion}
+                    onChangeText={(value) => handleInputChange('descripcion', value)}
+                    placeholder="Describe los servicios y especialidades de tu taller"
+                    placeholderTextColor={textSubtle}
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                  />
+                </View>
             </View>
+          </View>
 
-            {/* ✅ INSTRUCCIONES Y ESTADO DE VALIDACIÓN */}
-            <View style={styles.validationInfo}>
-              <Text style={styles.addressInstructions}>
-                💡 <Text style={styles.instructionBold}>IMPORTANTE:</Text> Debes incluir el número de la casa/edificio para que la dirección sea válida.
-              </Text>
-
-              {/* ✅ ESTADO DE VALIDACIÓN EN TIEMPO REAL */}
-              {validationStatus === 'validating' && (
-                <Text style={styles.validatingText}>
-                  🔍 Validando dirección...
+          {/* Dirección del Taller */}
+          <View style={styles.glassOuter}>
+            <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
+            <View style={styles.glassInner}>
+                <Text style={[styles.sectionTitle, { color: textPrimary }]}>Ubicación del Taller</Text>
+                <Text style={[styles.sectionSubtitle, { color: textMuted }]}>
+                  Ingresa la dirección exacta de tu taller. Solo se aceptan direcciones reales y existentes en Chile.
                 </Text>
-              )}
-              {validationStatus === 'valid' && searchResults.length > 0 && (
                 <TouchableOpacity
-                  style={styles.selectAddressButton}
-                  onPress={handleBuscarDireccion}
+                  onPress={() => router.push('/actualizar-ubicacion')}
+                  style={{ marginBottom: 12 }}
+                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
                 >
-                  <Text style={styles.selectAddressButtonText}>
-                    📍 Seleccionar dirección ({searchResults.length} opciones)
+                  <Text style={{ fontSize: 14, color: linkColor, fontWeight: '600' }}>
+                    O usar el asistente con GPS y mapa (como la app de usuarios)
                   </Text>
                 </TouchableOpacity>
-              )}
-              {validationStatus === 'invalid' && searchQuery.length >= 8 && (
-                <Text style={styles.invalidText}>
-                  ❌ No se encontraron direcciones válidas. Verifica que la dirección sea correcta.
-                </Text>
-              )}
+
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: textPrimary }]}>Dirección *</Text>
+
+                  <View style={styles.addressInputContainer}>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        styles.addressInput,
+                        {
+                          color: textPrimary,
+                          backgroundColor: inputBg,
+                          borderColor: inputBorder,
+                        },
+                        validationStatus === 'valid' && { borderColor: '#34C759', backgroundColor: validBg },
+                        validationStatus === 'invalid' && searchQuery.length >= 8 && {
+                          borderColor: '#FF3B30',
+                          backgroundColor: invalidBg,
+                        },
+                      ]}
+                      value={searchQuery}
+                      onChangeText={handleSearchQueryChange}
+                      placeholder="Escribe dirección COMPLETA (ej: Manuel de Amat 2960)"
+                      placeholderTextColor={textSubtle}
+                      returnKeyType="search"
+                      onSubmitEditing={handleBuscarDireccion}
+                    />
+
+                    <View style={styles.validationIndicator}>
+                      {validationStatus === 'validating' && (
+                        <ActivityIndicator size="small" color={primary500} />
+                      )}
+                      {validationStatus === 'valid' && (
+                        <MaterialIcons name="check-circle" size={20} color="#34C759" />
+                      )}
+                      {validationStatus === 'invalid' && searchQuery.length >= 8 && (
+                        <MaterialIcons name="error" size={20} color="#FF3B30" />
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.validationInfo}>
+                    <Text style={styles.addressInstructions}>
+                      💡{' '}
+                      <Text style={styles.instructionBold}>
+                        IMPORTANTE:
+                      </Text>{' '}
+                      Debes incluir el número de la casa/edificio para que la dirección sea válida.
+                    </Text>
+
+                    {validationStatus === 'validating' && (
+                      <Text style={[styles.validatingText, { color: primary500 }]}>
+                        🔍 Validando dirección...
+                      </Text>
+                    )}
+                    {validationStatus === 'valid' && searchResults.length > 0 && (
+                      <TouchableOpacity
+                        style={[styles.selectAddressButton, { backgroundColor: '#34C759' }]}
+                        onPress={handleBuscarDireccion}
+                      >
+                        <Text style={styles.selectAddressButtonText}>
+                          📍 Seleccionar dirección ({searchResults.length} opciones)
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {validationStatus === 'invalid' && searchQuery.length >= 8 && (
+                      <Text style={styles.invalidText}>
+                        ❌ No se encontraron direcciones válidas. Verifica que la dirección sea correcta.
+                      </Text>
+                    )}
+                  </View>
+
+                  {datosTaller.direccion && (
+                    <View style={styles.selectedAddress}>
+                      <MaterialIcons name="location-on" size={16} color="#22C55E" />
+                      <Text style={[styles.selectedAddressText, { color: '#15803D' }]}>
+                        {datosTaller.direccion}
+                      </Text>
+                    </View>
+                  )}
+
+                  {(datosTaller.comuna || datosTaller.ciudad || datosTaller.region) && (
+                    <View style={styles.locationInfo}>
+                      <Text style={[styles.locationInfoTitle, { color: textMuted }]}>
+                        Información de ubicación:
+                      </Text>
+                      {datosTaller.comuna && (
+                        <View style={styles.locationItem}>
+                          <Text style={[styles.locationLabel, { color: textSubtle }]}>Comuna:</Text>
+                          <Text style={[styles.locationValue, { color: textPrimary }]}>{datosTaller.comuna}</Text>
+                        </View>
+                      )}
+                      {datosTaller.ciudad && (
+                        <View style={styles.locationItem}>
+                          <Text style={[styles.locationLabel, { color: textSubtle }]}>Ciudad:</Text>
+                          <Text style={[styles.locationValue, { color: textPrimary }]}>{datosTaller.ciudad}</Text>
+                        </View>
+                      )}
+                      {datosTaller.region && (
+                        <View style={styles.locationItem}>
+                          <Text style={[styles.locationLabel, { color: textSubtle }]}>Región:</Text>
+                          <Text style={[styles.locationValue, { color: textPrimary }]}>{datosTaller.region}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
             </View>
-
-            {/* ✅ DIRECCIÓN SELECCIONADA - Ahora se muestra correctamente */}
-            {datosTaller.direccion && (
-              <View style={styles.selectedAddress}>
-                <MaterialIcons name="location-on" size={16} color="#28a745" />
-                <Text style={styles.selectedAddressText}>{datosTaller.direccion}</Text>
-              </View>
-            )}
-
-            {/* ✅ INFORMACIÓN DE UBICACIÓN EXTRAÍDA - Ahora se muestra correctamente */}
-            {(datosTaller.comuna || datosTaller.ciudad || datosTaller.region) && (
-              <View style={styles.locationInfo}>
-                <Text style={styles.locationInfoTitle}>Información de ubicación:</Text>
-                {datosTaller.comuna && (
-                  <View style={styles.locationItem}>
-                    <Text style={styles.locationLabel}>Comuna:</Text>
-                    <Text style={styles.locationValue}>{datosTaller.comuna}</Text>
-                  </View>
-                )}
-                {datosTaller.ciudad && (
-                  <View style={styles.locationItem}>
-                    <Text style={styles.locationLabel}>Ciudad:</Text>
-                    <Text style={styles.locationValue}>{datosTaller.ciudad}</Text>
-                  </View>
-                )}
-                {datosTaller.region && (
-                  <View style={styles.locationItem}>
-                    <Text style={styles.locationLabel}>Región:</Text>
-                    <Text style={styles.locationValue}>{datosTaller.region}</Text>
-                  </View>
-                )}
-              </View>
-            )}
+          </View>
 
             {/* Campo de dirección manual para casos especiales */}
             {/*<View style={styles.manualAddressContainer}>
@@ -955,40 +1025,72 @@ export default function GestionarTallerScreen() {
                 </TouchableOpacity>
               </View>
             </View>*/}
-          </View>
-        </View>
 
         {/* Fotos del Taller */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Fotos del Taller</Text>
-          <Text style={styles.sectionSubtitle}>
-            Agrega fotos de tu taller para que los clientes puedan conocer mejor tus instalaciones
-          </Text>
+        <View style={styles.glassOuter}>
+          <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
+          <View style={styles.glassInner}>
+              <Text style={[styles.sectionTitle, { color: textPrimary }]}>Fotos del Taller</Text>
+              <Text style={[styles.sectionSubtitle, { color: textMuted }]}>
+                Agrega fotos de tu taller para que los clientes puedan conocer mejor tus instalaciones
+              </Text>
 
-          <TouchableOpacity style={styles.addPhotoButton} onPress={handleSeleccionarFoto}>
-            <MaterialIcons name="add-photo-alternate" size={32} color="#007AFF" />
-            <Text style={styles.addPhotoText}>Agregar Foto</Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.addPhotoButton, { borderColor: primary500 }]}
+                onPress={handleSeleccionarFoto}
+              >
+                <MaterialIcons name="add-photo-alternate" size={32} color={primary500} />
+                <Text style={[styles.addPhotoText, { color: primary500 }]}>Agregar Foto</Text>
+              </TouchableOpacity>
 
-          {fotosLocales.length > 0 && (
-            <View style={styles.photosGrid}>
-              {fotosLocales.map((foto, index) => (
-                <View key={index} style={styles.photoContainer}>
-                  <Image source={{ uri: foto }} style={styles.photo} />
-                  <TouchableOpacity
-                    style={styles.removePhotoButton}
-                    onPress={() => handleEliminarFoto(index)}
-                  >
-                    <MaterialIcons name="close" size={20} color="#FFFFFF" />
-                  </TouchableOpacity>
+              {fotosLocales.length > 0 && (
+                <View style={styles.photosGrid}>
+                  {fotosLocales.map((foto, index) => (
+                    <View key={index} style={styles.photoContainer}>
+                      <Image source={{ uri: foto }} style={styles.photo} />
+                      <TouchableOpacity
+                        style={styles.removePhotoButton}
+                        onPress={() => handleEliminarFoto(index)}
+                      >
+                        <MaterialIcons name="close" size={20} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
-          )}
+              )}
+          </View>
         </View>
 
         {/* Espacio al final */}
       </ScrollView>
+
+        <View
+          style={[
+            styles.footerBar,
+            {
+              paddingBottom: Math.max(insets.bottom, 12),
+              backgroundColor: 'rgba(243,245,248,0.97)',
+              borderTopColor: 'rgba(15,23,42,0.08)',
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              styles.footerSaveButton,
+              (!hasChanges || saving) && [styles.saveButtonDisabled, { backgroundColor: saveDisabledBg }],
+              hasChanges && !saving && { backgroundColor: primary500 },
+            ]}
+            onPress={handleGuardar}
+            disabled={!hasChanges || saving}
+            activeOpacity={0.85}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.saveButtonText}>Guardar cambios</Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
       {/* Modal de búsqueda de direcciones */}
       <Modal
@@ -1040,14 +1142,18 @@ export default function GestionarTallerScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+  },
+  safeTransparent: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
   loadingContainer: {
     flex: 1,
@@ -1057,82 +1163,78 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#8E8E93',
   },
-  header: {
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  footerBar: {
+    borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    paddingTop: 12,
   },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 16,
+  footerSaveButton: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
   },
   saveButton: {
-    backgroundColor: '#007AFF',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 10,
+    minWidth: 76,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   saveButtonDisabled: {
-    backgroundColor: '#C7C7CC',
+    opacity: 1,
   },
   saveButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
   scrollView: {
     flex: 1,
   },
-  section: {
-    backgroundColor: '#FFFFFF',
-    marginTop: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+  glassOuter: {
+    position: 'relative',
+    marginBottom: 14,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.62)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  glassInner: {
+    padding: 18,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 16,
+    fontWeight: '700',
+    marginBottom: 14,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: '#8E8E93',
-    marginBottom: 16,
+    marginBottom: 14,
     lineHeight: 20,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 18,
   },
   inputLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#000000',
+    fontSize: 15,
+    fontWeight: '600',
     marginBottom: 8,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 8,
-    paddingHorizontal: 16,
+    borderRadius: 12,
+    paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#000000',
-    backgroundColor: '#FFFFFF',
   },
   textArea: {
     height: 100,
@@ -1159,29 +1261,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 12,
     padding: 12,
-    backgroundColor: '#F0F8FF',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E3F2FD',
+    borderColor: 'rgba(34, 197, 94, 0.35)',
   },
   selectedAddressText: {
     fontSize: 14,
-    color: '#28a745',
     marginLeft: 8,
     flex: 1,
   },
   locationInfo: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
+    marginTop: 14,
+    padding: 14,
+    backgroundColor: 'rgba(255,255,255,0.42)',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E9ECEF',
+    borderColor: 'rgba(15, 23, 42, 0.08)',
   },
   locationInfoTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#495057',
     marginBottom: 12,
   },
   locationItem: {
@@ -1245,14 +1345,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
     borderWidth: 2,
-    borderColor: '#007AFF',
     borderStyle: 'dashed',
-    borderRadius: 12,
-    backgroundColor: '#F0F8FF',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.38)',
   },
   addPhotoText: {
     fontSize: 16,
-    color: '#007AFF',
     fontWeight: '600',
     marginLeft: 8,
   },
@@ -1264,7 +1362,7 @@ const styles = StyleSheet.create({
   },
   photoContainer: {
     position: 'relative',
-    width: (screenWidth - 64) / 2,
+    width: (screenWidth - 76 - 12) / 2,
     height: 120,
   },
   photo: {
@@ -1290,10 +1388,12 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.97)',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
     maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.8)',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1346,15 +1446,6 @@ const styles = StyleSheet.create({
     color: '#000000',
     lineHeight: 22,
   },
-  // ✅ NUEVOS ESTILOS PARA VALIDACIÓN EN TIEMPO REAL
-  validInput: {
-    borderColor: '#34C759',
-    backgroundColor: '#F0FFF4',
-  },
-  invalidInput: {
-    borderColor: '#FF3B30',
-    backgroundColor: '#FFF5F5',
-  },
   validationIndicator: {
     position: 'absolute',
     right: 16,
@@ -1403,19 +1494,19 @@ const styles = StyleSheet.create({
   // ✅ NUEVOS ESTILOS PARA INSTRUCCIONES
   addressInstructions: {
     fontSize: 12,
-    color: '#FF6B35',
+    color: '#C2410C',
     marginTop: 8,
     marginBottom: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#FFF3E0',
-    borderRadius: 6,
+    backgroundColor: 'rgba(255, 237, 213, 0.85)',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#FFCC80',
+    borderColor: 'rgba(251, 146, 60, 0.45)',
     lineHeight: 16,
   },
   instructionBold: {
     fontWeight: '700',
-    color: '#E65100',
+    color: '#C2410C',
   },
 });

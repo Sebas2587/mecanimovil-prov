@@ -126,21 +126,12 @@ export default function OfertaDetalleScreen() {
         return { color: primaryColor, text: 'Vista por Cliente', icon: 'visibility' };
       case 'en_chat':
         return { color: accentColor, text: 'En Conversación', icon: 'chat' };
-      case 'pendiente_creditos': {
-        const nec = oferta.creditos_necesarios_adjudicacion;
-        const falt = oferta.creditos_faltantes_para_confirmar;
-        const sufijo =
-          typeof nec === 'number' && nec > 0
-            ? typeof falt === 'number' && falt > 0
-              ? ` · comprá ${falt} crédito${falt !== 1 ? 's' : ''}`
-              : ` · ${nec} crédito${nec !== 1 ? 's' : ''} requerido${nec !== 1 ? 's' : ''}`
-            : '';
+      case 'pendiente_creditos':
         return {
           color: warningColor,
-          text: `Pendiente: comprar créditos${sufijo}`,
+          text: 'Pendiente créditos',
           icon: 'account-balance-wallet',
         };
-      }
       case 'aceptada':
         return { color: successColor, text: '¡Aceptada!', icon: 'check-circle' };
       case 'pendiente_pago':
@@ -422,14 +413,13 @@ export default function OfertaDetalleScreen() {
       }
     }
 
-    // Estado: en_chat o aceptada - 1 botón
-    if (
-      oferta.estado === 'en_chat' ||
-      oferta.estado === 'aceptada' ||
-      oferta.estado === 'pendiente_creditos'
-    ) {
-      altura += 52; // botón chat
-      altura += 12; // marginBottom
+    // pendiente_creditos: fila con 2 botones (comprar + chat)
+    if (oferta.estado === 'pendiente_creditos') {
+      altura += 56; // fila única ~padding 14*2 + texto
+      altura += 12; // marginBottom del bloque
+    } else if (oferta.estado === 'en_chat' || oferta.estado === 'aceptada') {
+      altura += 52;
+      altura += 12;
     }
 
     // Estado: completada - botón para ver checklist si está disponible
@@ -452,8 +442,8 @@ export default function OfertaDetalleScreen() {
     // Agregar área segura inferior (SafeAreaView la maneja, pero necesitamos espacio en ScrollView)
     altura += insets.bottom;
 
-    // Agregar margen extra para seguridad
-    altura += 20;
+    // Margen extra para que la última card (precio) no quede tapada por el footer
+    altura += 36;
 
     return altura;
   };
@@ -470,6 +460,18 @@ export default function OfertaDetalleScreen() {
   }
 
   const alturaBotonesFijos = calcularAlturaBotonesFijos();
+  const scrollPaddingExtra = (designSpacing?.md ?? SPACING?.md ?? 16) as number;
+
+  const solicitudActivaParaChat =
+    !!oferta?.solicitud_estado &&
+    oferta.solicitud_estado !== 'cancelada' &&
+    oferta.solicitud_estado !== 'expirada';
+  const mostrarChatFijo =
+    !!oferta &&
+    (oferta.estado === 'en_chat' ||
+      oferta.estado === 'aceptada' ||
+      oferta.estado === 'pendiente_creditos') &&
+    solicitudActivaParaChat;
 
   return (
     <View style={[styles.container, { backgroundColor: bgDefault }]}>
@@ -486,7 +488,7 @@ export default function OfertaDetalleScreen() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: alturaBotonesFijos }
+          { paddingBottom: alturaBotonesFijos + scrollPaddingExtra },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -512,68 +514,46 @@ export default function OfertaDetalleScreen() {
 
         {/* Banner informativo según el estado */}
         {oferta.estado === 'pendiente_creditos' && (
-          <>
-            <EstadoBanner
-              type="warning"
-              title="Te eligieron: confirma con créditos"
-              message={
-                typeof oferta.creditos_necesarios_adjudicacion === 'number' &&
-                oferta.creditos_necesarios_adjudicacion > 0
-                  ? `Para confirmar esta adjudicación necesitás ${oferta.creditos_necesarios_adjudicacion} crédito${
-                      oferta.creditos_necesarios_adjudicacion !== 1 ? 's' : ''
-                    } (según el servicio principal de tu oferta).${
-                      typeof oferta.saldo_creditos_proveedor === 'number'
-                        ? ` Tu saldo actual: ${oferta.saldo_creditos_proveedor}.`
-                        : ''
-                    }${
-                      typeof oferta.creditos_faltantes_para_confirmar === 'number' &&
-                      oferta.creditos_faltantes_para_confirmar > 0
-                        ? ` Te faltan comprar al menos ${oferta.creditos_faltantes_para_confirmar} crédito${
-                            oferta.creditos_faltantes_para_confirmar !== 1 ? 's' : ''
-                          }.`
-                        : ''
-                    } Compralos en la tienda antes del plazo.`
-                  : 'El cliente eligió tu oferta. Comprá los créditos necesarios en la tienda antes del plazo para confirmar la adjudicación y continuar.'
+          <EstadoBanner
+            type="warning"
+            title="Confirmá con créditos"
+            message={(() => {
+              const nec = oferta.creditos_necesarios_adjudicacion;
+              const sal = oferta.saldo_creditos_proveedor;
+              const falt = oferta.creditos_faltantes_para_confirmar;
+              const plazo = oferta.fecha_limite_confirmacion_creditos;
+              const partes: string[] = [];
+              if (typeof nec === 'number' && nec > 0) {
+                partes.push(`Requeridos: ${nec}`);
               }
-              icon="account-balance-wallet"
-            />
-            {(typeof oferta.creditos_necesarios_adjudicacion === 'number' ||
-              typeof oferta.creditos_faltantes_para_confirmar === 'number') && (
-              <View style={styles.creditosPendienteCard}>
-                <Text style={styles.creditosPendienteCardTitle}>Resumen de créditos</Text>
-                {typeof oferta.creditos_necesarios_adjudicacion === 'number' && (
-                  <View style={styles.creditosPendienteRow}>
-                    <Text style={styles.creditosPendienteLabel}>Requeridos para adjudicar</Text>
-                    <Text style={styles.creditosPendienteValue}>
-                      {oferta.creditos_necesarios_adjudicacion}
-                    </Text>
-                  </View>
-                )}
-                {typeof oferta.saldo_creditos_proveedor === 'number' && (
-                  <View style={styles.creditosPendienteRow}>
-                    <Text style={styles.creditosPendienteLabel}>Tu saldo ahora</Text>
-                    <Text style={styles.creditosPendienteValueMuted}>
-                      {oferta.saldo_creditos_proveedor}
-                    </Text>
-                  </View>
-                )}
-                {typeof oferta.creditos_faltantes_para_confirmar === 'number' &&
-                  oferta.creditos_faltantes_para_confirmar > 0 && (
-                  <View style={[styles.creditosPendienteRow, styles.creditosPendienteRowDestacado]}>
-                    <Text style={styles.creditosPendienteLabelStrong}>Comprá al menos</Text>
-                    <Text style={styles.creditosPendienteValueStrong}>
-                      {oferta.creditos_faltantes_para_confirmar}
-                    </Text>
-                  </View>
-                )}
-                {oferta.fecha_limite_confirmacion_creditos ? (
-                  <Text style={styles.creditosPendientePlazo}>
-                    Plazo: {formatearFechaCorta(oferta.fecha_limite_confirmacion_creditos)}
-                  </Text>
-                ) : null}
-              </View>
-            )}
-          </>
+              if (typeof sal === 'number') {
+                partes.push(`Saldo: ${sal}`);
+              }
+              if (typeof falt === 'number' && falt > 0) {
+                partes.push(`Comprá ≥${falt}`);
+              }
+              let plazoTxt = '';
+              if (plazo) {
+                try {
+                  plazoTxt = new Date(plazo).toLocaleDateString('es-CL', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  });
+                } catch {
+                  plazoTxt = plazo;
+                }
+              }
+              const cuerpo =
+                partes.length > 0
+                  ? `${partes.join(' · ')}${plazoTxt ? ` · hasta ${plazoTxt}` : ''}.`
+                  : plazoTxt
+                    ? `Comprá en la tienda antes del ${plazoTxt}.`
+                    : 'Comprá en la tienda los créditos necesarios antes del plazo.';
+              return `${cuerpo} Usá el botón inferior.`;
+            })()}
+            icon="account-balance-wallet"
+          />
         )}
 
         {oferta.estado === 'aceptada' && (
@@ -835,17 +815,99 @@ export default function OfertaDetalleScreen() {
         {/* Precio de la Oferta */}
         <View style={styles.section}>
           <Text style={styles.sectionHeaderTitle}>Precio Total</Text>
-          <View style={styles.precioContainer}>
-            <Text style={styles.precioValue}>
-              {formatearPrecio(oferta.precio_total_ofrecido)}
-            </Text>
-            {oferta.incluye_repuestos && (
-              <View style={styles.repuestosBadge}>
-                <MaterialIcons name="build" size={16} color={successColor} />
-                <Text style={styles.repuestosText}>Incluye repuestos</Text>
+          {(() => {
+            const roundMoney = (n: number) => Math.round(n);
+            const mo = parseFloat(String(oferta.costo_mano_obra ?? '0')) || 0;
+            const rep = parseFloat(String(oferta.costo_repuestos ?? '0')) || 0;
+            const gest = parseFloat(String(oferta.costo_gestion_compra ?? '0')) || 0;
+            const tieneMontosProveedor = mo > 0 || rep > 0 || gest > 0;
+            const sumSinIva = mo + rep + gest;
+            const totalCliente = roundMoney(parseFloat(String(oferta.precio_total_ofrecido ?? '0')) || 0);
+            const totalDesdeLineas = roundMoney(sumSinIva * 1.19);
+            const TOL = 2;
+            const lineasCuadranConTotal =
+              sumSinIva > 0 && Math.abs(totalDesdeLineas - totalCliente) <= TOL;
+
+            let subSinIvaDisplay: number;
+            let ivaDisplay: number;
+            if (totalCliente <= 0) {
+              subSinIvaDisplay = 0;
+              ivaDisplay = 0;
+            } else if (lineasCuadranConTotal) {
+              subSinIvaDisplay = roundMoney(sumSinIva);
+              ivaDisplay = totalCliente - subSinIvaDisplay;
+            } else {
+              subSinIvaDisplay = roundMoney(totalCliente / 1.19);
+              ivaDisplay = totalCliente - subSinIvaDisplay;
+            }
+
+            const mostrarNotaReconciliacion =
+              tieneMontosProveedor && totalCliente > 0 && !lineasCuadranConTotal && sumSinIva > 0;
+
+            return (
+              <View style={styles.precioCard}>
+                {tieneMontosProveedor ? (
+                  <>
+                    {mo > 0 && (
+                      <View style={styles.precioDesgloseRow}>
+                        <Text style={styles.precioDesgloseLabel}>Mano de obra (sin IVA)</Text>
+                        <Text style={styles.precioDesgloseValue}>{formatearPrecio(String(Math.round(mo)))}</Text>
+                      </View>
+                    )}
+                    {rep > 0 && (
+                      <View style={styles.precioDesgloseRow}>
+                        <Text style={styles.precioDesgloseLabel}>Repuestos (sin IVA)</Text>
+                        <Text style={styles.precioDesgloseValue}>{formatearPrecio(String(Math.round(rep)))}</Text>
+                      </View>
+                    )}
+                    {(oferta.incluye_repuestos || gest > 0) && (
+                      <View style={styles.precioDesgloseRow}>
+                        <Text style={styles.precioDesgloseLabel}>Gestión de compra (sin IVA)</Text>
+                        <Text style={styles.precioDesgloseValue}>{formatearPrecio(String(Math.round(gest)))}</Text>
+                      </View>
+                    )}
+                    <View style={styles.precioDesgloseDivider} />
+                  </>
+                ) : null}
+                <View style={styles.precioDesgloseRow}>
+                  <Text style={styles.precioDesgloseLabelMuted}>Subtotal (sin IVA)</Text>
+                  <Text style={styles.precioDesgloseValueMuted}>
+                    {formatearPrecio(String(subSinIvaDisplay))}
+                  </Text>
+                </View>
+                <View style={styles.precioDesgloseRow}>
+                  <Text style={styles.precioDesgloseLabelMuted}>IVA (19%)</Text>
+                  <Text style={styles.precioDesgloseValueMuted}>
+                    {formatearPrecio(String(ivaDisplay))}
+                  </Text>
+                </View>
+                <View style={styles.precioDesgloseDivider} />
+                <View style={styles.precioTotalDestacadoRow}>
+                  <Text style={styles.precioTotalDestacadoLabel}>Total a pagar</Text>
+                  <Text style={styles.precioTotalDestacadoValue}>
+                    {formatearPrecio(oferta.precio_total_ofrecido)}
+                  </Text>
+                </View>
+                {mostrarNotaReconciliacion ? (
+                  <Text style={styles.precioDesgloseNota}>
+                    El total coincide con el precio de la oferta. Subtotal e IVA se reparten sobre ese monto; las
+                    líneas superiores son el desglose declarado.
+                  </Text>
+                ) : null}
+                {oferta.incluye_repuestos && (
+                  <View
+                    style={[
+                      styles.repuestosBadge,
+                      { alignSelf: 'center', marginTop: designSpacing?.sm ?? SPACING?.sm ?? 8 },
+                    ]}
+                  >
+                    <MaterialIcons name="build" size={16} color={successColor} />
+                    <Text style={styles.repuestosText}>Incluye repuestos</Text>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
+            );
+          })()}
 
           {/* Información de pago si es parcial */}
           {oferta.estado === 'pagada_parcialmente' && (
@@ -1031,7 +1093,48 @@ export default function OfertaDetalleScreen() {
           </>
         )}
 
-        {oferta.estado === 'pendiente_creditos' && (
+        {oferta.estado === 'pendiente_creditos' && mostrarChatFijo && (
+          <View style={styles.fixedActionsRow}>
+            <TouchableOpacity
+              style={[
+                styles.fixedActionButton,
+                styles.fixedActionButtonPrimary,
+                styles.fixedActionButtonPrimaryInRow,
+              ]}
+              onPress={() => {
+                const falt = oferta.creditos_faltantes_para_confirmar;
+                const nec = oferta.creditos_necesarios_adjudicacion;
+                const minCompra =
+                  typeof falt === 'number' && falt > 0
+                    ? falt
+                    : typeof nec === 'number' && nec > 0
+                      ? nec
+                      : 1;
+                router.push(`/creditos?tab=tienda&minCreditos=${minCompra}`);
+              }}
+            >
+              <MaterialIcons name="account-balance-wallet" size={20} color={white} />
+              <Text style={styles.fixedActionButtonText} numberOfLines={1}>
+                Comprar créditos
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.fixedActionButton,
+                styles.fixedActionButtonOutline,
+                styles.fixedActionButtonChatInRow,
+              ]}
+              onPress={() => router.push(`/chat-oferta/${oferta.id}`)}
+            >
+              <MaterialIcons name="chat" size={18} color={primaryColor} />
+              <Text style={[styles.fixedActionButtonTextCompact, { color: primaryColor }]} numberOfLines={1}>
+                Chat
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {oferta.estado === 'pendiente_creditos' && !mostrarChatFijo && (
           <TouchableOpacity
             style={[styles.fixedActionButton, styles.fixedActionButtonPrimary]}
             onPress={() => {
@@ -1051,20 +1154,15 @@ export default function OfertaDetalleScreen() {
           </TouchableOpacity>
         )}
 
-        {(oferta.estado === 'en_chat' ||
-          oferta.estado === 'aceptada' ||
-          oferta.estado === 'pendiente_creditos') &&
-          oferta.solicitud_estado &&
-          oferta.solicitud_estado !== 'cancelada' &&
-          oferta.solicitud_estado !== 'expirada' && (
-            <TouchableOpacity
-              style={[styles.fixedActionButton, styles.fixedActionButtonOutline]}
-              onPress={() => router.push(`/chat-oferta/${oferta.id}`)}
-            >
-              <MaterialIcons name="chat" size={20} color={primaryColor} />
-              <Text style={[styles.fixedActionButtonText, { color: primaryColor }]}>Abrir Chat</Text>
-            </TouchableOpacity>
-          )}
+        {mostrarChatFijo && oferta.estado !== 'pendiente_creditos' && (
+          <TouchableOpacity
+            style={[styles.fixedActionButton, styles.fixedActionButtonOutline]}
+            onPress={() => router.push(`/chat-oferta/${oferta.id}`)}
+          >
+            <MaterialIcons name="chat" size={20} color={primaryColor} />
+            <Text style={[styles.fixedActionButtonText, { color: primaryColor }]}>Abrir Chat</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Botón para ver checklist cuando la oferta está completada */}
         {oferta.estado === 'completada' && checklistInstance && (oferta as any).solicitud_servicio_id && (
@@ -1220,65 +1318,6 @@ const createStyles = () => {
     fechaBadgeText: {
       fontSize: fontSizeSm,
       color: textSecondary,
-    },
-
-    creditosPendienteCard: {
-      backgroundColor: warningLight,
-      borderRadius: radiusLg,
-      borderWidth: 1,
-      borderColor: warningBorder,
-      padding: spacingMd,
-      marginBottom: spacingMd,
-      gap: spacingSm,
-    },
-    creditosPendienteCardTitle: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      marginBottom: spacingXs,
-    },
-    creditosPendienteRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    creditosPendienteRowDestacado: {
-      marginTop: spacingXs,
-      paddingTop: spacingSm,
-      borderTopWidth: 1,
-      borderTopColor: warningBorder,
-    },
-    creditosPendienteLabel: {
-      fontSize: fontSizeBase,
-      color: textSecondary,
-      flex: 1,
-      paddingRight: spacingSm,
-    },
-    creditosPendienteLabelStrong: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      flex: 1,
-    },
-    creditosPendienteValue: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-    },
-    creditosPendienteValueMuted: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightSemibold,
-      color: textSecondary,
-    },
-    creditosPendienteValueStrong: {
-      fontSize: fontSize2xl,
-      fontWeight: fontWeightExtrabold,
-      color: accentColor,
-    },
-    creditosPendientePlazo: {
-      fontSize: fontSizeSm,
-      color: textSecondary,
-      marginTop: spacingXs,
     },
 
     // Secciones
@@ -1442,6 +1481,69 @@ const createStyles = () => {
       alignItems: 'center',
       paddingVertical: spacingSm,
     },
+    precioCard: {
+      alignSelf: 'stretch',
+      backgroundColor: bgPaper,
+      borderRadius: radiusLg,
+      padding: spacingMd,
+      borderWidth: 1,
+      borderColor: borderLight,
+      ...shadowMd,
+    },
+    precioDesgloseRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: spacingXs + 2,
+    },
+    precioDesgloseLabel: {
+      fontSize: fontSizeSm,
+      color: textSecondary,
+      flex: 1,
+      paddingRight: spacingSm,
+    },
+    precioDesgloseValue: {
+      fontSize: fontSizeSm,
+      fontWeight: fontWeightSemibold,
+      color: textPrimary,
+    },
+    precioDesgloseLabelMuted: {
+      fontSize: fontSizeSm,
+      color: textSecondary,
+    },
+    precioDesgloseValueMuted: {
+      fontSize: fontSizeSm,
+      fontWeight: fontWeightMedium,
+      color: textPrimary,
+    },
+    precioDesgloseDivider: {
+      height: 1,
+      backgroundColor: borderMain,
+      marginVertical: spacingSm,
+    },
+    precioTotalDestacadoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    precioTotalDestacadoLabel: {
+      fontSize: fontSizeBase,
+      fontWeight: fontWeightBold,
+      color: textPrimary,
+      flex: 1,
+      paddingRight: spacingSm,
+    },
+    precioTotalDestacadoValue: {
+      fontSize: fontSize2xl,
+      fontWeight: fontWeightExtrabold,
+      color: secondaryColor,
+    },
+    precioDesgloseNota: {
+      fontSize: fontSizeXs,
+      color: textTertiary,
+      marginTop: spacingSm,
+      lineHeight: fontSizeXs * 1.45,
+    },
     precioValue: {
       fontSize: fontSize2xl,
       fontWeight: fontWeightExtrabold,
@@ -1563,6 +1665,31 @@ const createStyles = () => {
       borderTopWidth: 1,
       borderTopColor: borderMain,
       ...shadowMd,
+    },
+    fixedActionsRow: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      gap: spacingSm,
+      marginBottom: spacingSm + spacingXs,
+    },
+    fixedActionButtonPrimaryInRow: {
+      flex: 2,
+      minWidth: 0,
+      marginBottom: 0,
+      marginTop: 0,
+    },
+    fixedActionButtonChatInRow: {
+      flex: 1,
+      minWidth: 0,
+      paddingVertical: spacingSm + spacingXs,
+      paddingHorizontal: spacingSm,
+      marginTop: 0,
+      marginBottom: 0,
+    },
+    fixedActionButtonTextCompact: {
+      fontSize: fontSizeSm,
+      fontWeight: fontWeightBold,
+      color: white,
     },
     fixedActionButton: {
       flexDirection: 'row',

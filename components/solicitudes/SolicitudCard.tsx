@@ -1,14 +1,11 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Colors } from '@/constants/Colors';
+import { BlurView } from 'expo-blur';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SolicitudPublica } from '@/services/solicitudesService';
+import { useTheme } from '@/app/design-system/theme/useTheme';
+import { COLORS } from '@/app/design-system/tokens';
 
 interface SolicitudCardProps {
   solicitud: SolicitudPublica;
@@ -22,163 +19,161 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   mostrarBadgeNuevo = false,
 }) => {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const theme = useTheme();
+  const isDark = colorScheme === 'dark';
 
-  // Formatear tiempo restante
+  const palette = useMemo(() => {
+    const ink = isDark ? '#F9FAFB' : '#111827';
+    const muted = isDark ? 'rgba(249,250,251,0.65)' : '#6B7280';
+    const subtle = isDark ? 'rgba(249,250,251,0.45)' : '#9CA3AF';
+    const border = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.55)';
+    const chipBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(37, 99, 235, 0.1)';
+    const chipText = isDark ? '#93C5FD' : '#1D4ED8';
+    return { ink, muted, subtle, border, chipBg, chipText };
+  }, [isDark]);
+
+  const blurTint = isDark ? ('dark' as const) : ('light' as const);
+  const blurIntensity = Platform.OS === 'ios' ? (isDark ? 42 : 56) : isDark ? 28 : 40;
+
+  const primary500 =
+    (theme?.colors?.primary as Record<string, string> | undefined)?.['500'] ||
+    (COLORS?.primary as Record<string, string> | undefined)?.['500'] ||
+    '#2563EB';
+
   const formatearTiempoRestante = (tiempoRestante?: string): string => {
     if (!tiempoRestante) return 'Tiempo no disponible';
-    
-    // El backend puede devolver en formato "X días, Y horas" o similar
-    if (tiempoRestante.includes('día')) {
-      return tiempoRestante;
-    }
-    
-    // Intentar parsear si viene en otro formato
+    if (tiempoRestante.includes('día')) return tiempoRestante;
     return tiempoRestante;
   };
 
-  // Obtener color de urgencia
-  const getUrgenciaColor = (): string => {
-    return solicitud.urgencia === 'urgente' ? '#FF3B30' : '#34C759';
-  };
-
-  // Obtener color de estado
-  const getEstadoColor = (): string => {
-    switch (solicitud.estado) {
+  const estadoPill = (estado: string): { bg: string; fg: string; label: string } => {
+    switch (estado) {
       case 'publicada':
-        return '#007AFF';
+        return { bg: 'rgba(37, 99, 235, 0.18)', fg: isDark ? '#BFDBFE' : '#1E40AF', label: 'Publicada' };
       case 'con_ofertas':
-        return '#FF9500';
+        return { bg: 'rgba(245, 158, 11, 0.2)', fg: isDark ? '#FDE68A' : '#B45309', label: 'Con ofertas' };
       case 'adjudicada':
-        return '#34C759';
+        return { bg: 'rgba(16, 185, 129, 0.18)', fg: isDark ? '#A7F3D0' : '#047857', label: 'Adjudicada' };
       case 'expirada':
-        return '#8E8E93';
+        return { bg: 'rgba(107, 114, 128, 0.2)', fg: isDark ? '#E5E7EB' : '#4B5563', label: 'Expirada' };
       case 'cancelada':
-        return '#FF3B30';
+        return { bg: 'rgba(239, 68, 68, 0.18)', fg: isDark ? '#FECACA' : '#B91C1C', label: 'Cancelada' };
       default:
-        return '#8E8E93';
+        return { bg: 'rgba(107, 114, 128, 0.15)', fg: palette.muted, label: solicitud.estado };
     }
   };
 
-  // Obtener texto de estado
-  const getEstadoTexto = (): string => {
-    switch (solicitud.estado) {
-      case 'publicada':
-        return 'Publicada';
-      case 'con_ofertas':
-        return 'Con Ofertas';
-      case 'adjudicada':
-        return 'Adjudicada';
-      case 'expirada':
-        return 'Expirada';
-      case 'cancelada':
-        return 'Cancelada';
-      default:
-        return solicitud.estado;
-    }
-  };
+  const urgencia = solicitud.urgencia === 'urgente';
+  const pill = estadoPill(solicitud.estado);
 
-  // Truncar descripción
-  const truncarDescripcion = (texto: string, maxLength: number = 100): string => {
+  const truncarDescripcion = (texto: string, maxLength: number = 110): string => {
     if (texto.length <= maxLength) return texto;
-    return texto.substring(0, maxLength) + '...';
+    return texto.substring(0, maxLength) + '…';
   };
 
   return (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.background }]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      {/* Header con badge nuevo si aplica */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor() }]}>
-            <Text style={styles.estadoTexto}>{getEstadoTexto()}</Text>
-          </View>
-          {mostrarBadgeNuevo && (
-            <View style={styles.nuevoBadge}>
-              <Text style={styles.nuevoTexto}>NUEVO</Text>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.88} style={styles.touch}>
+      <View style={[styles.glassOuter, isDark && styles.glassOuterDark]}>
+        <BlurView intensity={blurIntensity} tint={blurTint} style={styles.glassBlur}>
+          <View style={styles.glassContent}>
+            <View style={styles.header}>
+              <View style={styles.headerLeft}>
+                <View style={[styles.estadoBadge, { backgroundColor: pill.bg }]}>
+                  <Text style={[styles.estadoTexto, { color: pill.fg }]}>{pill.label}</Text>
+                </View>
+                {mostrarBadgeNuevo && (
+                  <View style={styles.nuevoBadge}>
+                    <Text style={styles.nuevoTexto}>NUEVO</Text>
+                  </View>
+                )}
+              </View>
+              {urgencia && (
+                <View style={styles.urgenciaBadge}>
+                  <MaterialIcons name="priority-high" size={14} color="#FFFFFF" />
+                  <Text style={styles.urgenciaTexto}>URGENTE</Text>
+                </View>
+              )}
             </View>
-          )}
-        </View>
-        {solicitud.urgencia === 'urgente' && (
-          <View style={[styles.urgenciaBadge, { backgroundColor: getUrgenciaColor() }]}>
-            <MaterialIcons name="priority-high" size={16} color="#FFFFFF" />
-            <Text style={styles.urgenciaTexto}>URGENTE</Text>
-          </View>
-        )}
-      </View>
 
-      {/* Información del vehículo */}
-      <View style={styles.vehiculoContainer}>
-        <MaterialIcons name="directions-car" size={20} color={colors.text} />
-        <Text style={[styles.vehiculoTexto, { color: colors.text }]}>
-          {solicitud.vehiculo_info.marca} {solicitud.vehiculo_info.modelo}
-          {solicitud.vehiculo_info.año && ` ${solicitud.vehiculo_info.año}`}
-        </Text>
-      </View>
-
-      {/* Descripción del problema */}
-      <Text style={[styles.descripcion, { color: colors.text }]}>
-        {truncarDescripcion(solicitud.descripcion_problema)}
-      </Text>
-
-      {/* Servicios solicitados */}
-      {solicitud.servicios_solicitados_detail && solicitud.servicios_solicitados_detail.length > 0 && (
-        <View style={styles.serviciosContainer}>
-          {solicitud.servicios_solicitados_detail.slice(0, 3).map((servicio, index) => (
-            <View key={servicio.id || index} style={[styles.servicioBadge, { backgroundColor: colors.tint + '20' }]}>
-              <Text style={[styles.servicioTexto, { color: colors.tint }]}>
-                {servicio.nombre}
+            <View style={styles.vehiculoContainer}>
+              <MaterialIcons name="directions-car" size={20} color={palette.muted} />
+              <Text style={[styles.vehiculoTexto, { color: palette.ink }]} numberOfLines={1}>
+                {solicitud.vehiculo_info.marca} {solicitud.vehiculo_info.modelo}
+                {solicitud.vehiculo_info.año && ` ${solicitud.vehiculo_info.año}`}
               </Text>
             </View>
-          ))}
-          {solicitud.servicios_solicitados_detail.length > 3 && (
-            <Text style={[styles.masServicios, { color: colors.text }]}>
-              +{solicitud.servicios_solicitados_detail.length - 3} más
-            </Text>
-          )}
-        </View>
-      )}
 
-      {/* Footer con información adicional */}
-      <View style={styles.footer}>
-        <View style={styles.footerLeft}>
-          <View style={styles.footerItem}>
-            <MaterialIcons name="access-time" size={16} color={colors.text} />
-            <Text style={[styles.footerTexto, { color: colors.text }]}>
-              {formatearTiempoRestante(solicitud.tiempo_restante)}
+            <Text style={[styles.descripcion, { color: palette.muted }]}>
+              {truncarDescripcion(solicitud.descripcion_problema)}
             </Text>
-          </View>
-          {solicitud.total_ofertas > 0 && (
-            <View style={styles.footerItem}>
-              <MaterialIcons name="local-offer" size={16} color={colors.tint} />
-              <Text style={[styles.footerTexto, { color: colors.tint }]}>
-                {solicitud.total_ofertas} oferta{solicitud.total_ofertas !== 1 ? 's' : ''}
-              </Text>
+
+            {solicitud.servicios_solicitados_detail && solicitud.servicios_solicitados_detail.length > 0 && (
+              <View style={styles.serviciosContainer}>
+                {solicitud.servicios_solicitados_detail.slice(0, 3).map((servicio, index) => (
+                  <View key={servicio.id || index} style={[styles.servicioBadge, { backgroundColor: palette.chipBg }]}>
+                    <Text style={[styles.servicioTexto, { color: palette.chipText }]} numberOfLines={1}>
+                      {servicio.nombre}
+                    </Text>
+                  </View>
+                ))}
+                {solicitud.servicios_solicitados_detail.length > 3 && (
+                  <Text style={[styles.masServicios, { color: palette.subtle }]}>
+                    +{solicitud.servicios_solicitados_detail.length - 3} más
+                  </Text>
+                )}
+              </View>
+            )}
+
+            <View style={[styles.footer, { borderTopColor: palette.border }]}>
+              <View style={styles.footerLeft}>
+                <View style={styles.footerItem}>
+                  <MaterialIcons name="access-time" size={16} color={palette.subtle} />
+                  <Text style={[styles.footerTexto, { color: palette.muted }]}>
+                    {formatearTiempoRestante(solicitud.tiempo_restante)}
+                  </Text>
+                </View>
+                {solicitud.total_ofertas > 0 && (
+                  <View style={styles.footerItem}>
+                    <MaterialIcons name="local-offer" size={16} color={primary500} />
+                    <Text style={[styles.footerTexto, { color: primary500 }]}>
+                      {solicitud.total_ofertas} oferta{solicitud.total_ofertas !== 1 ? 's' : ''}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color={palette.subtle} />
             </View>
-          )}
-        </View>
-        <MaterialIcons name="chevron-right" size={24} color={colors.text} />
+          </View>
+        </BlurView>
       </View>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+  touch: {
+    marginBottom: 14,
+  },
+  glassOuter: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.62)',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  glassOuterDark: {
+    borderColor: 'rgba(255,255,255,0.1)',
+    shadowOpacity: 0.2,
+  },
+  glassBlur: {
+    overflow: 'hidden',
+  },
+  glassContent: {
+    padding: 16,
   },
   header: {
     flexDirection: 'row',
@@ -190,19 +185,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
   },
   estadoBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 12,
   },
   estadoTexto: {
-    color: '#FFFFFF',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   nuevoBadge: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: 'rgba(239, 68, 68, 0.9)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
@@ -210,20 +206,21 @@ const styles = StyleSheet.create({
   nuevoTexto: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   urgenciaBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 10,
-    gap: 4,
+    gap: 3,
+    backgroundColor: 'rgba(220, 38, 38, 0.92)',
   },
   urgenciaTexto: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   vehiculoContainer: {
     flexDirection: 'row',
@@ -233,7 +230,8 @@ const styles = StyleSheet.create({
   },
   vehiculoTexto: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    flex: 1,
   },
   descripcion: {
     fontSize: 14,
@@ -249,12 +247,13 @@ const styles = StyleSheet.create({
   },
   servicioBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+    maxWidth: '100%',
   },
   servicioTexto: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   masServicios: {
     fontSize: 11,
@@ -265,21 +264,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   footerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
+    flex: 1,
   },
   footerItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   footerTexto: {
     fontSize: 12,
+    fontWeight: '500',
   },
 });
-

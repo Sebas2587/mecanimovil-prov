@@ -43,7 +43,6 @@ import mercadoPagoProveedorService, { type EstadisticasPagosMP } from '@/service
 import { SaldoCreditos } from '@/components/creditos';
 import { CountdownTimer } from '@/components/solicitudes/CountdownTimer';
 import AlertaPagoExpirado from '@/components/alerts/AlertaPagoExpirado';
-import { AlertsPanel } from '@/components/alerts/AlertsPanel';
 import { useAlerts } from '@/context/AlertsContext';
 import suscripcionesService, { type SuscripcionProveedor, type SaludSuscripcion } from '@/services/suscripcionesService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -60,7 +59,7 @@ export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { verificarYGenerarAlertas, saludSuscripcion } = useAlerts();
+  const { verificarYGenerarAlertas, saludSuscripcion, alertasNoLeidas } = useAlerts();
 
   const {
     isAuthenticated,
@@ -977,12 +976,12 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={styles.bellOuter}
               activeOpacity={0.7}
-              onPress={() => router.push('/solicitudes-disponibles')}
+              onPress={() => router.push('/notificaciones')}
             >
               <BlurView intensity={60} tint="light" style={styles.bellBlur}>
                 <Bell size={20} color="#374151" />
               </BlurView>
-              {nuevasSolicitudesIds.size > 0 && (
+              {(nuevasSolicitudesIds.size > 0 || alertasNoLeidas > 0) && (
                 <Animated.View style={[styles.bellDot, { transform: [{ scale: pulseAnim }] }]} />
               )}
             </TouchableOpacity>
@@ -1013,16 +1012,29 @@ export default function HomeScreen() {
                 <BlurView intensity={60} tint="light" style={styles.glassInner}>
                   <View style={styles.finHeader}>
                     <Text style={styles.finHeaderTitle}>FINANZAS DEL TALLER</Text>
-                    <TouchableOpacity
-                      style={styles.planBadge}
-                      onPress={() => router.push('/creditos?tab=suscripcion')}
-                      activeOpacity={0.7}
-                    >
-                      <ShieldCheck size={14} color="#2563EB" />
-                      <Text style={styles.planBadgeText}>
-                        {suscripcion?.plan?.nombre || 'Plan Básico'}
-                      </Text>
-                    </TouchableOpacity>
+                    {suscripcion?.esta_activa ? (
+                      <TouchableOpacity
+                        style={[
+                          styles.planBadge,
+                          suscripcion.plan?.destacado && styles.planBadgeDestacado,
+                        ]}
+                        onPress={() => router.push('/creditos?tab=suscripcion')}
+                        activeOpacity={0.7}
+                      >
+                        <ShieldCheck
+                          size={14}
+                          color={suscripcion.plan?.destacado ? '#B45309' : '#2563EB'}
+                        />
+                        <Text
+                          style={[
+                            styles.planBadgeText,
+                            suscripcion.plan?.destacado && styles.planBadgeTextDestacado,
+                          ]}
+                        >
+                          {suscripcion.plan?.nombre?.trim() || 'Plan activo'}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
 
                   <View style={styles.finBody}>
@@ -1543,6 +1555,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#2563EB',
+  },
+  planBadgeDestacado: {
+    borderColor: 'rgba(245, 158, 11, 0.45)',
+    backgroundColor: '#FFFBEB',
+  },
+  planBadgeTextDestacado: {
+    color: '#B45309',
   },
   finBody: {
     flexDirection: 'row',
