@@ -4,6 +4,7 @@ import { Platform, View, Text, StyleSheet } from 'react-native';
 import { Home, ClipboardList, MessageCircle, Settings } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
 import { useChats } from '@/context/ChatsContext';
 import websocketService from '../services/websocketService';
 import connectionService from '@/services/connectionService';
@@ -11,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const { isAuthenticated, isLoading } = useAuth();
+  const { radarOportunidadesActivo, radarPreferenciaCargada } = useRadarOportunidades();
   const { totalMensajesNoLeidos } = useChats();
   const insets = useSafeAreaInsets();
 
@@ -31,15 +33,23 @@ export default function TabLayout() {
       router.replace('/(auth)/login');
     }
 
-    // Si está autenticado, iniciar conexión WebSocket y monitoreo de conexión
-    if (!isLoading && isAuthenticated) {
-      if (__DEV__) {
-        console.log('🔗 TabLayout - Usuario autenticado, iniciando WebSocket y monitoreo de conexión');
+    // Si está autenticado y el radar está activo, iniciar WebSocket y marcar conexión en API
+    if (!isLoading && isAuthenticated && radarPreferenciaCargada) {
+      if (radarOportunidadesActivo) {
+        if (__DEV__) {
+          console.log('🔗 TabLayout - Radar activo: WebSocket y conexión proveedor');
+        }
+        websocketService.connect();
+        connectionService.startConnectionMonitoring();
+      } else {
+        if (__DEV__) {
+          console.log('⏸️ TabLayout - Radar inactivo: sin WebSocket ni conexión para oportunidades');
+        }
+        websocketService.disconnect();
+        connectionService.stopConnectionMonitoring();
       }
-      websocketService.connect();
-      connectionService.startConnectionMonitoring();
     }
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isLoading, radarOportunidadesActivo, radarPreferenciaCargada]);
 
   // Limpiar al desmontar
   useEffect(() => {

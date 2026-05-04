@@ -1,6 +1,8 @@
 import * as SecureStore from 'expo-secure-store';
 import { AppState, AppStateStatus } from 'react-native';
 import ServerConfig from '../../services/serverConfig';
+import { devLog } from '@/utils/devLog';
+import { isRadarOportunidadesActivo } from '@/utils/radarOportunidadesGate';
 
 // Función simple para obtener token
 const getAuthToken = async (): Promise<string | null> => {
@@ -8,7 +10,7 @@ const getAuthToken = async (): Promise<string | null> => {
     const token = await SecureStore.getItemAsync('authToken');
     return token;
   } catch (error) {
-    console.log('❌ Error obteniendo token:', error);
+    devLog('❌ Error obteniendo token:', error);
     return null;
   }
 };
@@ -101,19 +103,24 @@ class WebSocketService {
    * Inicializa la conexión WebSocket con autenticación JWT
    */
   async connect(): Promise<void> {
+    if (!isRadarOportunidadesActivo()) {
+      devLog('WebSocket: radar de oportunidades inactivo, no se conecta');
+      return;
+    }
+
     // Evitar múltiples conexiones simultáneas - PROTECCIÓN MEJORADA
     if (this.isConnecting) {
-      console.log('🔄 Conexión ya en progreso (isConnecting=true), ignorando...');
+      devLog('🔄 Conexión ya en progreso (isConnecting=true), ignorando...');
       return;
     }
 
     if (this.ws) {
       if (this.ws.readyState === WebSocket.CONNECTING) {
-        console.log('🔄 Conexión ya en progreso (WebSocket.CONNECTING), ignorando...');
+        devLog('🔄 Conexión ya en progreso (WebSocket.CONNECTING), ignorando...');
         return;
       }
       if (this.ws.readyState === WebSocket.OPEN && this.isConnected) {
-        console.log('✅ Ya conectado (WebSocket.OPEN), ignorando...');
+        devLog('✅ Ya conectado (WebSocket.OPEN), ignorando...');
         return;
       }
     }
@@ -125,19 +132,19 @@ class WebSocketService {
     }
 
     try {
-      console.log('🚀 INICIANDO CONEXIÓN WEBSOCKET - VERSIÓN CORREGIDA');
+      devLog('🚀 INICIANDO CONEXIÓN WEBSOCKET - VERSIÓN CORREGIDA');
 
       // Obtener token de autenticación
       const token = await getAuthToken();
       if (!token) {
-        console.log('❌ No hay token de autenticación');
+        devLog('❌ No hay token de autenticación');
         return;
       }
 
       // Obtener URL del servidor
       const serverUrl = await this.getServerUrl();
       if (!serverUrl) {
-        console.log('❌ No se pudo obtener la URL del servidor');
+        devLog('❌ No se pudo obtener la URL del servidor');
         return;
       }
 
@@ -151,7 +158,7 @@ class WebSocketService {
       const isProduction = serverUrl.startsWith('https://');
       const wsProtocol = isProduction ? 'wss' : 'ws';
       const wsUrl = serverUrl.replace(/^https?:\/\//, `${wsProtocol}://`) + '/ws/mechanic_status/?token=' + token;
-      console.log('🔗 Conectando WebSocket proveedor...');
+      devLog('🔗 Conectando WebSocket proveedor...');
 
       this.isConnecting = true;
 
@@ -168,7 +175,7 @@ class WebSocketService {
       }
 
     } catch (error) {
-      console.log('❌ Error conectando WebSocket:', error);
+      devLog('❌ Error conectando WebSocket:', error);
       this.isConnecting = false;
       this.scheduleReconnect();
     }
@@ -178,7 +185,7 @@ class WebSocketService {
    * Maneja la apertura de la conexión
    */
   private handleOpen(event: Event): void {
-    console.log('✅ WEBSOCKET CONECTADO EXITOSAMENTE');
+    devLog('✅ WEBSOCKET CONECTADO EXITOSAMENTE');
     this.isConnected = true;
     this.isConnecting = false;
     this.reconnectAttempts = 0;
@@ -193,78 +200,78 @@ class WebSocketService {
   private handleMessage(event: MessageEvent): void {
     try {
       const data: WebSocketMessage = JSON.parse(event.data);
-      console.log('📨 Mensaje WebSocket recibido:', data);
+      devLog('📨 Mensaje WebSocket recibido:', data);
 
       switch (data.type) {
         case 'connection_confirmed':
-          console.log('✅ Conexión confirmada:', data);
+          devLog('✅ Conexión confirmada:', data);
           break;
 
         case 'mechanic_status_update':
-          console.log('🔄 Actualización de estado:', data);
+          devLog('🔄 Actualización de estado:', data);
           break;
 
         case 'heartbeat':
-          console.log('💓 Heartbeat recibido:', data);
+          devLog('💓 Heartbeat recibido:', data);
           break;
 
         case 'connection_status_update':
-          console.log('🔄 Actualización de estado:', data);
+          devLog('🔄 Actualización de estado:', data);
           break;
 
         case 'nueva_solicitud':
-          console.log('📬 Nueva solicitud recibida:', data);
+          devLog('📬 Nueva solicitud recibida:', data);
           this.handleNuevaSolicitud(data as NuevaSolicitudEvent);
           break;
 
         case 'oferta_aceptada':
-          console.log('✅ Oferta aceptada:', data);
-          console.log('   📄 Solicitud ID:', data.solicitud_id);
-          console.log('   💰 Monto:', data.monto_total);
-          console.log('   📋 Estado:', data.estado_oferta);
-          console.log('   💬 Mensaje:', data.mensaje);
+          devLog('✅ Oferta aceptada:', data);
+          devLog('   📄 Solicitud ID:', data.solicitud_id);
+          devLog('   💰 Monto:', data.monto_total);
+          devLog('   📋 Estado:', data.estado_oferta);
+          devLog('   💬 Mensaje:', data.mensaje);
           // TODO: Mostrar notificación al proveedor
           // TODO: Actualizar lista de ofertas en tiempo real
           break;
 
         case 'pago_en_proceso':
-          console.log('💳 Cliente procesando pago:', data);
-          console.log('   📄 Solicitud ID:', data.solicitud_id);
-          console.log('   💵 Oferta ID:', data.oferta_id);
-          console.log('   💰 Monto:', data.monto_total);
-          console.log('   📋 Estado:', data.estado_oferta);
-          console.log('   💬 Mensaje:', data.mensaje);
+          devLog('💳 Cliente procesando pago:', data);
+          devLog('   📄 Solicitud ID:', data.solicitud_id);
+          devLog('   💵 Oferta ID:', data.oferta_id);
+          devLog('   💰 Monto:', data.monto_total);
+          devLog('   📋 Estado:', data.estado_oferta);
+          devLog('   💬 Mensaje:', data.mensaje);
           // TODO: Mostrar notificación "Cliente está pagando..."
           // TODO: Actualizar estado de oferta a 'pendiente_pago'
           break;
 
         case 'pago_completado':
-          console.log('💰 ¡Pago completado!:', data);
-          console.log('   📄 Solicitud ID:', data.solicitud_id);
-          console.log('   🔧 Solicitud Servicio ID:', data.solicitud_servicio_id);
-          console.log('   💵 Oferta ID:', data.oferta_id);
-          console.log('   💰 Monto:', data.monto_total);
-          console.log('   📅 Fecha servicio:', data.fecha_servicio);
-          console.log('   🕐 Hora servicio:', data.hora_servicio);
-          console.log('   📋 Estado:', data.estado_oferta);
-          console.log('   💬 Mensaje:', data.mensaje);
+          devLog('💰 ¡Pago completado!:', data);
+          devLog('   📄 Solicitud ID:', data.solicitud_id);
+          devLog('   🔧 Solicitud Servicio ID:', data.solicitud_servicio_id);
+          devLog('   💵 Oferta ID:', data.oferta_id);
+          devLog('   💰 Monto:', data.monto_total);
+          devLog('   📅 Fecha servicio:', data.fecha_servicio);
+          devLog('   🕐 Hora servicio:', data.hora_servicio);
+          devLog('   📋 Estado:', data.estado_oferta);
+          devLog('   💬 Mensaje:', data.mensaje);
           // TODO: Mostrar notificación "¡Pago completado! Servicio confirmado."
           // TODO: Actualizar estado de oferta a 'pagada'
           // TODO: Recargar órdenes activas
           break;
 
         case 'oferta_rechazada':
-          console.log('❌ Oferta rechazada:', data);
+          devLog('❌ Oferta rechazada:', data);
           // TODO: Manejar evento de oferta rechazada
           break;
 
         case 'solicitud_cancelada':
-          console.log('🚫 Solicitud cancelada:', data);
+          devLog('🚫 Solicitud cancelada:', data);
           // TODO: Manejar evento de solicitud cancelada
           break;
 
         case 'nuevo_mensaje_chat':
-          console.log('💬 Nuevo mensaje de chat recibido:', data);
+          devLog('💬 Nuevo mensaje de chat recibido:', data);
           // Normalize payload to match interface
           const chatEvent: NuevoMensajeChatEvent = {
             type: 'nuevo_mensaje_chat',
@@ -283,20 +290,20 @@ class WebSocketService {
           break;
 
         case 'pago_expirado':
-          console.log('⏰ Pago expirado recibido:', data);
+          devLog('⏰ Pago expirado recibido:', data);
           this.handlePagoExpirado(data as PagoExpiradoEvent);
           break;
 
         case 'solicitud_cancelada_cliente':
-          console.log('❌ Solicitud cancelada por cliente recibida:', data);
+          devLog('❌ Solicitud cancelada por cliente recibida:', data);
           this.handleSolicitudCanceladaCliente(data as SolicitudCanceladaClienteEvent);
           break;
 
         default:
-          console.log('📨 Mensaje no manejado:', data);
+          devLog('📨 Mensaje no manejado:', data);
       }
     } catch (error) {
-      console.log('❌ Error procesando mensaje WebSocket:', error);
+      devLog('❌ Error procesando mensaje WebSocket:', error);
     }
   }
 
@@ -304,7 +311,7 @@ class WebSocketService {
    * Maneja el cierre de la conexión
    */
   private handleClose(event: CloseEvent): void {
-    console.log('🔌 WebSocket desconectado:', event.code, event.reason);
+    devLog('🔌 WebSocket desconectado:', event.code, event.reason);
     this.isConnected = false;
     this.isConnecting = false;
     this.stopHeartbeat();
@@ -319,7 +326,7 @@ class WebSocketService {
    * Maneja errores de la conexión
    */
   private handleError(event: Event): void {
-    console.log('❌ Error en WebSocket:', event);
+    devLog('❌ Error en WebSocket:', event);
     this.isConnected = false;
     this.isConnecting = false;
   }
@@ -339,7 +346,7 @@ class WebSocketService {
     const jitter = Math.random() * 1000;
     const delay = exponential + jitter;
 
-    console.log(`🔄 Reconexión #${this.reconnectAttempts} en ${Math.round(delay)}ms`);
+    devLog(`🔄 Reconexión #${this.reconnectAttempts} en ${Math.round(delay)}ms`);
 
     this.reconnectTimeout = setTimeout(() => {
       this.connect();
@@ -359,13 +366,13 @@ class WebSocketService {
     this.heartbeatInterval = setInterval(async () => {
       // IMPORTANTE: Verificar estado antes de enviar
       if (!this.isConnected || !this.ws) {
-        console.log('⚠️ Heartbeat cancelado: No hay conexión activa');
+        devLog('⚠️ Heartbeat cancelado: No hay conexión activa');
         return;
       }
 
       // Verificar que el WebSocket esté en estado OPEN
       if (this.ws.readyState !== WebSocket.OPEN) {
-        console.log('⚠️ Heartbeat cancelado: WebSocket no está en estado OPEN (estado actual:', this.ws.readyState, ')');
+        devLog('⚠️ Heartbeat cancelado: WebSocket no está en estado OPEN (estado actual:', this.ws.readyState, ')');
         return;
       }
 
@@ -376,7 +383,7 @@ class WebSocketService {
         };
 
         this.ws.send(JSON.stringify(heartbeatMessage));
-        console.log('💓 Heartbeat enviado -', new Date().toISOString());
+        devLog('💓 Heartbeat enviado -', new Date().toISOString());
       } catch (error) {
         console.error('❌ Error enviando heartbeat:', error);
         // Si falla el envío, detener heartbeat y reconectar
@@ -393,11 +400,11 @@ class WebSocketService {
     try {
       const token = await getAuthToken();
       if (!token) {
-        console.log('❌ No hay token para actualizar estado');
+        devLog('❌ No hay token para actualizar estado');
         return;
       }
 
-      console.log('🔄 ACTUALIZANDO ESTADO DEL PROVEEDOR EN BACKEND...');
+      devLog('🔄 ACTUALIZANDO ESTADO DEL PROVEEDOR EN BACKEND...');
       const serverConfig = ServerConfig.getInstance();
       const baseURL = await serverConfig.getBaseURL();
       const response = await fetch(`${baseURL}/usuarios/proveedores/conectar/`, {
@@ -409,12 +416,12 @@ class WebSocketService {
       });
 
       if (response.ok) {
-        console.log('✅ ESTADO DEL PROVEEDOR ACTUALIZADO EN BACKEND - TIMESTAMP:', new Date().toISOString());
+        devLog('✅ ESTADO DEL PROVEEDOR ACTUALIZADO EN BACKEND - TIMESTAMP:', new Date().toISOString());
       } else {
-        console.log('❌ Error actualizando estado del proveedor:', response.status);
+        devLog('❌ Error actualizando estado del proveedor:', response.status);
       }
     } catch (error) {
-      console.log('❌ Error en updateProviderStatus:', error);
+      devLog('❌ Error en updateProviderStatus:', error);
     }
   }
 
@@ -436,7 +443,7 @@ class WebSocketService {
     const baseURL = await serverConfig.getBaseURL();
     // Convertir de /api a la URL base del servidor
     const serverUrl = baseURL.replace('/api', '');
-    console.log('🎯 URL del servidor detectada automáticamente:', serverUrl);
+    devLog('🎯 URL del servidor detectada automáticamente:', serverUrl);
     return serverUrl;
   }
 
@@ -458,7 +465,7 @@ class WebSocketService {
    * Desconecta el WebSocket
    */
   disconnect(): void {
-    console.log('🔌 Desconectando WebSocket...');
+    devLog('🔌 Desconectando WebSocket...');
 
     // Limpiar timeout de reconexión
     if (this.reconnectTimeout) {
@@ -488,12 +495,12 @@ class WebSocketService {
     if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
         this.ws.send(JSON.stringify(message));
-        console.log('📤 Mensaje enviado:', message);
+        devLog('📤 Mensaje enviado:', message);
       } catch (error) {
-        console.log('❌ Error enviando mensaje WebSocket:', error);
+        devLog('❌ Error enviando mensaje WebSocket:', error);
       }
     } else {
-      console.log('❌ WebSocket no conectado, no se puede enviar mensaje');
+      devLog('❌ WebSocket no conectado, no se puede enviar mensaje');
     }
   }
 
@@ -515,17 +522,17 @@ class WebSocketService {
    * Maneja cambios en el estado de la app
    */
   private handleAppStateChange(nextAppState: AppStateStatus): void {
-    console.log('📱 Estado de la app cambiado:', nextAppState);
+    devLog('📱 Estado de la app cambiado:', nextAppState);
 
     if (nextAppState === 'active') {
       // App vuelve a primer plano - reconectar si es necesario
-      if (!this.isConnected) {
-        console.log('🔄 App activa, reconectando WebSocket...');
+      if (!this.isConnected && isRadarOportunidadesActivo()) {
+        devLog('🔄 App activa, reconectando WebSocket...');
         this.connect();
       }
     } else if (nextAppState === 'background' || nextAppState === 'inactive') {
       // App va a segundo plano - desconectar para ahorrar batería
-      console.log('🔌 App en segundo plano, desconectando WebSocket...');
+      devLog('🔌 App en segundo plano, desconectando WebSocket...');
       this.disconnect();
     }
   }
@@ -540,9 +547,9 @@ class WebSocketService {
         type: 'status_update',
         status: newStatus
       });
-      console.log('🔄 Estado actualizado a:', newStatus);
+      devLog('🔄 Estado actualizado a:', newStatus);
     } else {
-      console.log('❌ No se puede actualizar estado - WebSocket no conectado');
+      devLog('❌ No se puede actualizar estado - WebSocket no conectado');
     }
   }
 

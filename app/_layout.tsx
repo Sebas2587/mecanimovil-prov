@@ -96,6 +96,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { AuthProvider } from '@/context/AuthContext';
+import { RadarOportunidadesProvider } from '@/context/RadarOportunidadesContext';
 import { ChatsProvider } from '@/context/ChatsContext';
 import { AlertsProvider } from '@/context/AlertsContext';
 import { DesignSystemThemeProvider } from '@/app/design-system/theme/DesignSystemThemeProvider';
@@ -146,6 +147,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <DesignSystemThemeProvider>
           <AuthProvider>
+            <RadarOportunidadesProvider>
             <AlertsProvider>
               <ChatsProvider>
                 <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -194,6 +196,7 @@ export default function RootLayout() {
                 </ThemeProvider>
               </ChatsProvider>
             </AlertsProvider>
+            </RadarOportunidadesProvider>
           </AuthProvider>
         </DesignSystemThemeProvider>
       </SafeAreaProvider>

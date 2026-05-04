@@ -1,6 +1,7 @@
 import api from './api';
 import { AppState, AppStateStatus } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import { isRadarOportunidadesActivo } from '@/utils/radarOportunidadesGate';
 
 export interface ConnectionStatus {
   esta_conectado: boolean;
@@ -20,6 +21,10 @@ class ConnectionService {
    * Marca al proveedor como conectado
    */
   async connect(): Promise<ConnectionStatus> {
+    if (!isRadarOportunidadesActivo()) {
+      this.isConnected = false;
+      throw new Error('Radar de oportunidades inactivo');
+    }
     try {
       console.log('🔗 Marcando proveedor como conectado...');
       console.log('📍 Usando endpoint: /usuarios/proveedores/conectar/');
@@ -97,6 +102,10 @@ class ConnectionService {
         this.disconnectTimeout = null;
         console.log('⏰ Timeout de desconexión cancelado');
       }
+
+      if (!isRadarOportunidadesActivo()) {
+        return;
+      }
       
       this.connect().catch(error => {
         console.log('⚠️ Error reconectando:', error);
@@ -119,6 +128,20 @@ class ConnectionService {
    * Inicia el monitoreo automático de conexión
    */
   startConnectionMonitoring(): void {
+    if (!isRadarOportunidadesActivo()) {
+      console.log('⏸️ Monitoreo de conexión: radar inactivo, no se inicia');
+      return;
+    }
+
+    if (this.connectionInterval) {
+      clearInterval(this.connectionInterval);
+      this.connectionInterval = null;
+    }
+    if (this.appStateListener) {
+      this.appStateListener.remove();
+      this.appStateListener = null;
+    }
+
     console.log('🔄 Iniciando monitoreo de conexión...');
     
     // Conectar inmediatamente
@@ -128,6 +151,9 @@ class ConnectionService {
 
     // Mantener conexión activa cada 60 segundos (más eficiente)
     this.connectionInterval = setInterval(async () => {
+      if (!isRadarOportunidadesActivo()) {
+        return;
+      }
       if (this.isConnected) {
         try {
           await this.connect();
