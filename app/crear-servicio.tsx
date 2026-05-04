@@ -16,11 +16,19 @@ import {
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 // import { Picker } from '@react-native-picker/picker'; // Ya no se usa - reemplazado por selectores visuales
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import Header from '@/components/Header';
 import { parseMontoDecimal } from '@/utils/parseMontoDecimal';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
+const hx = SPACING.container.horizontal;
+const lh = (fontSize: number, mult: number) => Math.round(fontSize * mult);
 
 // Interfaces
 interface MarcaVehiculo {
@@ -98,6 +106,7 @@ interface ServicioExistente {
 const { width: screenWidth } = Dimensions.get('window');
 
 const CrearServicioScreen = () => {
+  const insets = useSafeAreaInsets();
   // Parámetros de navegación para modo edición
   const params = useLocalSearchParams();
   const isEditMode = params.mode === 'edit';
@@ -305,6 +314,9 @@ const CrearServicioScreen = () => {
 
       // Probar cada marca hasta encontrar la que tiene el servicio
       for (const marca of marcas) {
+        if (marca.id === 0) {
+          continue;
+        }
         try {
           console.log(`🔍 Probando marca: ${marca.nombre} (ID: ${marca.id})`);
           const response = await serviciosAPI.obtenerServiciosPorMarca(marca.id);
@@ -1015,7 +1027,7 @@ const CrearServicioScreen = () => {
 
     return (
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>🔧 Tipo de Servicio</Text>
+        <Text style={styles.sectionTitle}>Tipo de servicio</Text>
         {isEditMode && (
           <Text style={styles.subtitle}>
             Editando servicio - puedes cambiar cualquier opción
@@ -1032,7 +1044,7 @@ const CrearServicioScreen = () => {
             <MaterialIcons
               name="build"
               size={24}
-              color={tipoServicio === 'con_repuestos' ? '#3B82F6' : '#6B7280'}
+              color={tipoServicio === 'con_repuestos' ? I.primary : I.muted}
             />
             <Text style={[
               styles.tipoServicioText,
@@ -1052,7 +1064,7 @@ const CrearServicioScreen = () => {
             <MaterialIcons
               name="handyman"
               size={24}
-              color={tipoServicio === 'sin_repuestos' ? '#3B82F6' : '#6B7280'}
+              color={tipoServicio === 'sin_repuestos' ? I.primary : I.muted}
             />
             <Text style={[
               styles.tipoServicioText,
@@ -1101,9 +1113,9 @@ const CrearServicioScreen = () => {
     if (marcas.length === 0) {
       return (
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>🚗 Marca del Vehículo</Text>
+          <Text style={styles.sectionTitle}>Marca del vehículo</Text>
           <View style={styles.noDataContainer}>
-            <Ionicons name="information-circle-outline" size={24} color="#F59E0B" />
+            <Ionicons name="information-circle-outline" size={24} color={I.accentYellow} />
             <Text style={styles.noDataText}>
               No se encontraron marcas. Verifica tu configuración de servicios.
             </Text>
@@ -1114,7 +1126,7 @@ const CrearServicioScreen = () => {
 
     return (
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>🚗 Marca del Vehículo</Text>
+        <Text style={styles.sectionTitle}>Marca del vehículo</Text>
         <Text style={styles.subtitle}>
           {isEditMode && (marcaSeleccionada === null || marcaSeleccionada === undefined) && servicioSeleccionado ?
             `Determinando marca del servicio... (${marcas.length} disponibles)` :
@@ -1125,7 +1137,7 @@ const CrearServicioScreen = () => {
         {/* Indicador de búsqueda en modo edición */}
         {isEditMode && (marcaSeleccionada === null || marcaSeleccionada === undefined) && servicioSeleccionado && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#3B82F6" />
+            <ActivityIndicator size="small" color={I.primary} />
             <Text style={styles.loadingText}>Buscando marca del servicio...</Text>
           </View>
         )}
@@ -1151,7 +1163,7 @@ const CrearServicioScreen = () => {
                   {marca.nombre}
                 </Text>
                 {marcaSeleccionada === marca.id && (
-                  <Ionicons name="checkmark-circle" size={24} color="#3B82F6" />
+                  <Ionicons name="checkmark-circle" size={24} color={I.primary} />
                 )}
               </View>
             </TouchableOpacity>
@@ -1160,7 +1172,7 @@ const CrearServicioScreen = () => {
 
         {marcaSeleccionadaObj && (
           <View style={styles.selectedIndicator}>
-            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+            <Ionicons name="checkmark-circle" size={20} color={I.semanticUp} />
             <Text style={styles.selectedText}>
               Marca seleccionada: {marcaSeleccionadaObj.nombre}
             </Text>
@@ -1202,7 +1214,7 @@ const CrearServicioScreen = () => {
 
     return (
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>⚙️ Tipo de Servicio</Text>
+        <Text style={styles.sectionTitle}>Servicio ofrecido</Text>
         <Text style={styles.subtitle}>
           {marcaObj ?
             `Servicios que ofreces para ${marcaObj.nombre} (${servicios.length} disponibles)` :
@@ -1213,7 +1225,7 @@ const CrearServicioScreen = () => {
 
         {loadingServicios ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#3B82F6" />
+            <ActivityIndicator size="small" color={I.primary} />
             <Text style={styles.loadingText}>Cargando servicios...</Text>
           </View>
         ) : servicios.length > 0 ? (
@@ -1245,7 +1257,7 @@ const CrearServicioScreen = () => {
                       )}
                     </View>
                     {servicioSeleccionado === servicio.id && (
-                      <Ionicons name="checkmark-circle" size={20} color="#3B82F6" />
+                      <Ionicons name="checkmark-circle" size={20} color={I.primary} />
                     )}
                   </View>
                 </TouchableOpacity>
@@ -1254,7 +1266,7 @@ const CrearServicioScreen = () => {
 
             {servicioSeleccionadoObj && (
               <View style={styles.selectedIndicator}>
-                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                <Ionicons name="checkmark-circle" size={20} color={I.semanticUp} />
                 <Text style={styles.selectedText}>
                   Servicio seleccionado: {servicioSeleccionadoObj.nombre}
                 </Text>
@@ -1263,7 +1275,7 @@ const CrearServicioScreen = () => {
           </>
         ) : (
           <View style={styles.noDataContainer}>
-            <Ionicons name="information-circle-outline" size={24} color="#F59E0B" />
+            <Ionicons name="information-circle-outline" size={24} color={I.accentYellow} />
             <Text style={styles.noDataText}>
               No hay servicios catalogados para esta marca. Si crees que falta alguno, contacta al administrador.
               Verifica tu configuración de servicios.
@@ -1338,7 +1350,8 @@ const CrearServicioScreen = () => {
     return (
       <View style={styles.repuestoPrecioInputContainer}>
         <Text style={styles.repuestoPrecioLabel}>
-          Precio del repuesto: {precioConfirmado && <Text style={{ color: '#10B981' }}>✓ Confirmado</Text>}
+          Precio del repuesto:{' '}
+          {precioConfirmado ? <Text style={styles.precioConfirmadoBadge}>✓ Confirmado</Text> : null}
         </Text>
         <View style={styles.repuestoPrecioRow}>
           <TextInput
@@ -1348,6 +1361,7 @@ const CrearServicioScreen = () => {
               precioConfirmado && styles.repuestoPrecioInputConfirmed
             ]}
             placeholder={`Ref: $${precioInicial.toLocaleString()}`}
+            placeholderTextColor={I.mutedSoft}
             value={localPrecio}
             onChangeText={handleChangeText}
             keyboardType="numeric"
@@ -1363,7 +1377,7 @@ const CrearServicioScreen = () => {
             <Ionicons
               name={precioConfirmado ? "checkmark-circle" : "checkmark"}
               size={20}
-              color="white"
+              color={I.onPrimary}
             />
             <Text style={styles.confirmarPrecioBtnText}>
               {precioConfirmado ? 'OK' : 'Confirmar'}
@@ -1385,7 +1399,7 @@ const CrearServicioScreen = () => {
 
     return (
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>🔩 Repuestos a Incluir</Text>
+        <Text style={styles.sectionTitle}>Repuestos a incluir</Text>
         {loadingRepuestos ? (
           <ActivityIndicator style={styles.loader} />
         ) : repuestos.length > 0 ? (
@@ -1422,7 +1436,7 @@ const CrearServicioScreen = () => {
                     </View>
                     <View style={styles.checkbox}>
                       {estaSeleccionado && (
-                        <Ionicons name="checkmark" size={20} color="#3B82F6" />
+                        <Ionicons name="checkmark" size={20} color={I.primary} />
                       )}
                     </View>
                   </TouchableOpacity>
@@ -1450,7 +1464,7 @@ const CrearServicioScreen = () => {
           </View>
         ) : (
           <View style={styles.emptyRepuestosContainer}>
-            <MaterialIcons name="info-outline" size={48} color="#3B82F6" />
+            <MaterialIcons name="info-outline" size={48} color={I.primary} />
             <Text style={styles.emptyRepuestosTitle}>
               No hay repuestos configurados
             </Text>
@@ -1458,9 +1472,7 @@ const CrearServicioScreen = () => {
               Este servicio aún no tiene repuestos asociados en el catálogo del sistema.
             </Text>
             <View style={styles.emptyRepuestosOptions}>
-              <Text style={styles.emptyRepuestosHint}>
-                💡 Tus opciones:
-              </Text>
+              <Text style={styles.emptyRepuestosHint}>Tus opciones</Text>
               <View style={styles.emptyOptionItem}>
                 <Text style={styles.emptyOptionBullet}>•</Text>
                 <Text style={styles.emptyOptionText}>
@@ -1483,7 +1495,7 @@ const CrearServicioScreen = () => {
   // Componente de selección de fotos
   const FotoSelector = () => (
     <View style={styles.sectionContainer}>
-      <Text style={styles.sectionTitle}>📸 Fotos del Servicio (Opcional)</Text>
+      <Text style={styles.sectionTitle}>Fotos del servicio (opcional)</Text>
       <Text style={styles.fotoSubtitle}>
         Agrega hasta 5 fotos que muestren tu trabajo o materiales
       </Text>
@@ -1502,7 +1514,7 @@ const CrearServicioScreen = () => {
                 style={styles.eliminarFotoBtn}
                 onPress={() => eliminarFoto(index)}
               >
-                <Ionicons name="close-circle" size={24} color="#DC2626" />
+                <Ionicons name="close-circle" size={24} color={I.semanticDown} />
               </TouchableOpacity>
             </View>
           )}
@@ -1511,7 +1523,7 @@ const CrearServicioScreen = () => {
 
       {fotos.length < 5 && (
         <TouchableOpacity style={styles.agregarFotoBtn} onPress={seleccionarFoto}>
-          <Ionicons name="camera-outline" size={32} color="#6B7280" />
+          <Ionicons name="camera-outline" size={32} color={I.muted} />
           <Text style={styles.agregarFotoText}>
             {fotos.length === 0 ? 'Agregar primera foto' : `Agregar foto (${fotos.length}/5)`}
           </Text>
@@ -1526,7 +1538,7 @@ const CrearServicioScreen = () => {
 
     return (
       <View style={styles.calculosContainer}>
-        <Text style={styles.calculosTitle}>💰 Desglose de Precios</Text>
+        <Text style={styles.calculosTitle}>Desglose de precios</Text>
 
         <View style={styles.calculoRow}>
           <Text style={styles.calculoLabel}>Precio mano de servicio:</Text>
@@ -1559,10 +1571,8 @@ const CrearServicioScreen = () => {
         </View>
 
         <View style={[styles.calculoRow, styles.calculoFinal]}>
-          <Text style={[styles.calculoLabel, { fontWeight: 'bold' }]}>
-            Precio al público:
-          </Text>
-          <Text style={[styles.calculoValue, { color: '#3B82F6', fontWeight: 'bold', fontSize: 18 }]}>
+          <Text style={[styles.calculoLabel, styles.calculoLabelBold]}>Precio al público</Text>
+          <Text style={styles.calculoPrecioPublico}>
             ${calculos.precio_final_cliente.toLocaleString('es-CL')}
           </Text>
         </View>
@@ -1571,16 +1581,18 @@ const CrearServicioScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <Stack.Screen
         options={{
           headerShown: false,
         }}
       />
       <Header
-        title={isEditMode ? 'Editar Servicio' : 'Crear Nuevo Servicio'}
+        title={isEditMode ? 'Editar servicio' : 'Crear servicio'}
         showBack
         onBackPress={() => router.back()}
+        backgroundColor={I.canvas}
+        titleColor={I.ink}
       />
 
       <KeyboardAvoidingView
@@ -1592,12 +1604,13 @@ const CrearServicioScreen = () => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="always"
           keyboardDismissMode="none"
+          contentContainerStyle={{ paddingBottom: insets.bottom + SPACING.fixed['2xl'] }}
         >
           <TipoServicioSelector />
 
           {loadingMarcas ? (
             <View style={styles.sectionContainer}>
-              <ActivityIndicator size="large" color="#3B82F6" style={styles.loader} />
+              <ActivityIndicator size="large" color={I.primary} style={styles.loader} />
               <Text style={styles.loadingText}>Cargando marcas de vehículos...</Text>
             </View>
           ) : (
@@ -1619,10 +1632,11 @@ const CrearServicioScreen = () => {
 
           {/* Descripción */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>📝 Descripción del Servicio</Text>
+            <Text style={styles.sectionTitle}>Descripción del servicio</Text>
             <TextInput
               style={styles.textArea}
               placeholder="Describe tu servicio, metodología, garantías, etc."
+              placeholderTextColor={I.mutedSoft}
               multiline
               numberOfLines={4}
               value={descripcion}
@@ -1633,13 +1647,14 @@ const CrearServicioScreen = () => {
 
           {/* Costos */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>💵 Costos (sin IVA)</Text>
+            <Text style={styles.sectionTitle}>Costos (sin IVA)</Text>
 
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Costo mano de obra *</Text>
               <TextInput
                 style={styles.numberInput}
                 placeholder="0"
+                placeholderTextColor={I.mutedSoft}
                 value={costoManoObra}
                 onChangeText={setCostoManoObra}
                 keyboardType="numeric"
@@ -1652,6 +1667,7 @@ const CrearServicioScreen = () => {
                 <TextInput
                   style={[styles.numberInput, styles.numberInputDisabled]}
                   placeholder="0"
+                  placeholderTextColor={I.mutedSoft}
                   value={costoRepuestos}
                   editable={false}
                   keyboardType="numeric"
@@ -1676,10 +1692,10 @@ const CrearServicioScreen = () => {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="white" />
+                <ActivityIndicator color={I.onPrimary} />
               ) : (
                 <>
-                  <Ionicons name={isEditMode ? "checkmark-circle" : "rocket"} size={20} color="white" />
+                  <Ionicons name={isEditMode ? "checkmark-circle" : "rocket"} size={20} color={I.onPrimary} />
                   <Text style={styles.publishButtonText}>
                     {isEditMode ? 'Actualizar Servicio' : 'Publicar Servicio'}
                   </Text>
@@ -1696,14 +1712,14 @@ const CrearServicioScreen = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: I.surfaceSoft,
   },
   flex: {
     flex: 1,
@@ -1712,191 +1728,178 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   loader: {
-    marginVertical: 20,
+    marginVertical: SPACING.fixed.lg,
   },
 
-  // Secciones
   sectionContainer: {
-    backgroundColor: 'white',
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: I.canvas,
+    marginHorizontal: hx,
+    marginVertical: SPACING.fixed.sm,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#111827',
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    marginBottom: SPACING.fixed.sm,
+    color: I.ink,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
   },
 
-  // Tipo de servicio
   tipoServicioContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: SPACING.fixed.xs,
   },
   tipoServicioOption: {
     flex: 1,
     alignItems: 'center',
-    padding: 16,
-    marginHorizontal: 4,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
   },
   tipoServicioSelected: {
-    borderColor: '#3B82F6',
-    backgroundColor: '#EFF6FF',
+    borderColor: I.primary,
+    backgroundColor: withOpacity(I.primary, 0.08),
   },
   tipoServicioText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#6B7280',
+    marginTop: SPACING.fixed.xs,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
     textAlign: 'center',
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
   },
   tipoServicioTextSelected: {
-    color: '#3B82F6',
-    fontWeight: '600',
+    color: I.primary,
+    fontFamily: FF.sansSemiBold,
   },
 
-  // Selectores visuales mejorados
   subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 12,
-    lineHeight: 18,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginBottom: SPACING.fixed.sm,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
   },
 
-  // Contenedor principal del selector
   selectorContainer: {
-    marginTop: 12,
-    gap: 8,
+    marginTop: SPACING.fixed.sm,
+    gap: SPACING.fixed.xs,
   },
 
-  // Cada opción del selector
   selectorOption: {
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: I.canvas,
+    paddingVertical: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.md,
+    ...SHADOWS.editorial,
   },
 
-  // Opción seleccionada
   selectorOptionSelected: {
-    borderColor: '#3B82F6',
-    backgroundColor: '#EFF6FF',
-    shadowColor: '#3B82F6',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: I.primary,
+    backgroundColor: withOpacity(I.primary, 0.06),
   },
 
-  // Contenido de cada opción
   selectorContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
 
-  // Emoji del selector
   selectorEmoji: {
-    fontSize: 24,
-    marginRight: 12,
+    fontSize: 22,
+    marginRight: SPACING.fixed.sm,
   },
 
-  // Contenedor de texto
   selectorTextContainer: {
     flex: 1,
   },
 
-  // Texto principal del selector
   selectorText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
   },
 
-  // Texto cuando está seleccionado
   selectorTextSelected: {
-    color: '#3B82F6',
+    color: I.primary,
   },
 
-  // Descripción del servicio
   selectorDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 4,
-    lineHeight: 18,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginTop: SPACING.fixed.xxs,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
   },
   selectedIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: '#ECFDF5',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#10B981',
+    marginTop: SPACING.fixed.sm,
+    padding: SPACING.fixed.sm,
+    backgroundColor: withOpacity(I.semanticUp, 0.1),
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.semanticUp, 0.35),
   },
   selectedText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#047857',
-    fontWeight: '600',
+    marginLeft: SPACING.fixed.xs,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.semanticUp,
   },
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: SPACING.fixed.lg,
   },
   loadingText: {
-    marginLeft: 12,
-    fontSize: 14,
-    color: '#6B7280',
+    marginLeft: SPACING.fixed.sm,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
   },
   noDataContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#FFFBEB',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FCD34D',
-    marginTop: 8,
+    padding: SPACING.fixed.lg,
+    backgroundColor: withOpacity(I.accentYellow, 0.12),
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.accentYellow, 0.4),
+    marginTop: SPACING.fixed.xs,
   },
   noDataText: {
-    marginLeft: 12,
-    fontSize: 14,
-    color: '#92400E',
+    marginLeft: SPACING.fixed.sm,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.body,
     textAlign: 'center',
     flex: 1,
-    lineHeight: 20,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.relaxed),
   },
 
-  // Repuestos
   repuestoItem: {
-    padding: 12,
-    marginBottom: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    padding: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.xs,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
   },
   repuestoSelected: {
-    borderColor: '#3B82F6',
-    backgroundColor: '#EFF6FF',
+    borderColor: I.primary,
+    backgroundColor: withOpacity(I.primary, 0.06),
   },
   repuestoInfoContainer: {
     flexDirection: 'row',
@@ -1906,337 +1909,382 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   repuestoNombre: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
   },
   repuestoMarca: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
     marginTop: 2,
   },
   repuestoPrecio: {
-    fontSize: 14,
-    color: '#059669',
-    fontWeight: '600',
-    marginTop: 4,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.monoMedium,
+    color: I.semanticUp,
+    marginTop: SPACING.fixed.xxs,
   },
   checkbox: {
     width: 24,
     height: 24,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    borderRadius: 4,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.sm,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: I.canvas,
   },
   repuestoPrecioInputContainer: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    marginTop: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.sm,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
   },
   repuestoPrecioLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 6,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    marginBottom: SPACING.fixed.xxs + 2,
+  },
+  precioConfirmadoBadge: {
+    fontFamily: FF.sansSemiBold,
+    color: I.semanticUp,
   },
   repuestoPrecioInput: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#FFFFFF',
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.sm,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.monoMedium,
+    color: I.ink,
+    backgroundColor: I.canvas,
   },
   repuestoPrecioRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.fixed.xs,
   },
   repuestoPrecioInputWithButton: {
     flex: 1,
   },
   repuestoPrecioInputConfirmed: {
-    borderColor: '#10B981',
-    backgroundColor: '#F0FDF4',
+    borderColor: I.semanticUp,
+    backgroundColor: withOpacity(I.semanticUp, 0.08),
   },
   confirmarPrecioBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#3B82F6',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 4,
+    backgroundColor: I.primary,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.md,
+    gap: SPACING.fixed.xxs,
   },
   confirmarPrecioBtnConfirmed: {
-    backgroundColor: '#10B981',
+    backgroundColor: I.semanticUp,
   },
   confirmarPrecioBtnText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
+    color: I.onPrimary,
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.base,
   },
   precioNoConfirmadoText: {
-    fontSize: 12,
-    color: '#F59E0B',
-    marginTop: 4,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.accentYellow,
+    marginTop: SPACING.fixed.xxs,
     fontStyle: 'italic',
   },
   repuestosTotalContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
+    marginTop: SPACING.fixed.md,
+    padding: SPACING.fixed.md,
+    backgroundColor: I.surfaceStrong,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   repuestosTotalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
   },
   repuestosTotalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#059669',
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: FF.monoMedium,
+    color: I.semanticUp,
   },
   noRepuestosText: {
     textAlign: 'center',
-    color: '#6B7280',
+    color: I.muted,
+    fontFamily: FF.sansRegular,
     fontStyle: 'italic',
-    padding: 20,
+    padding: SPACING.fixed.lg,
   },
 
-  // Inputs
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: SPACING.fixed.md,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 6,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    marginBottom: SPACING.fixed.xxs + 2,
   },
   numberInput: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#FFFFFF',
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.sm,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.monoMedium,
+    color: I.ink,
+    backgroundColor: I.canvas,
   },
   numberInputDisabled: {
-    backgroundColor: '#F3F4F6',
-    color: '#6B7280',
+    backgroundColor: I.surfaceStrong,
+    color: I.muted,
+    fontFamily: FF.monoMedium,
   },
   inputHelp: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginTop: SPACING.fixed.xxs,
     fontStyle: 'italic',
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.relaxed),
   },
   textArea: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#FFFFFF',
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.sm,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansRegular,
+    color: I.ink,
+    backgroundColor: I.canvas,
     minHeight: 100,
+    lineHeight: lh(TYPOGRAPHY.fontSize.md, TYPOGRAPHY.lineHeight.normal),
   },
 
-  // Cálculos
   calculosContainer: {
-    backgroundColor: '#F8FAFC',
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: I.canvas,
+    marginHorizontal: hx,
+    marginVertical: SPACING.fixed.sm,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
   },
   calculosTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#111827',
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    marginBottom: SPACING.fixed.sm,
+    color: I.ink,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
   },
   calculoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: SPACING.fixed.xs,
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.sm,
   },
   calculoDestacado: {
-    backgroundColor: '#EFF6FF',
-    padding: 8,
-    borderRadius: 6,
-    marginVertical: 4,
+    backgroundColor: I.surfaceStrong,
+    padding: SPACING.fixed.xs,
+    borderRadius: BORDERS.radius.sm,
+    marginVertical: SPACING.fixed.xxs,
   },
   calculoFinal: {
-    backgroundColor: '#ECFDF5',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
+    backgroundColor: withOpacity(I.primary, 0.1),
+    padding: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.md,
+    marginTop: SPACING.fixed.xs,
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.22),
   },
   calculoLabel: {
-    fontSize: 14,
-    color: '#374151',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+    flex: 1,
+  },
+  calculoLabelBold: {
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
   },
   calculoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.monoMedium,
+    color: I.ink,
+    textAlign: 'right',
+  },
+  calculoPrecioPublico: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: FF.monoMedium,
+    color: I.primary,
   },
   separador: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 8,
+    height: BORDERS.width.thin,
+    backgroundColor: I.hairline,
+    marginVertical: SPACING.fixed.xs,
   },
   montoTransferido: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: SPACING.fixed.xs,
     fontStyle: 'italic',
   },
 
-  // Publicar
   publishContainer: {
-    padding: 16,
-    paddingBottom: 32,
+    paddingHorizontal: hx,
+    paddingTop: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.xl,
   },
   publishButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: I.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginBottom: 8,
+    paddingVertical: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.pill,
+    marginBottom: SPACING.fixed.xs,
+    gap: SPACING.fixed.sm,
   },
   publishButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.55,
   },
   publishButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 8,
+    color: I.onPrimary,
+    fontSize: TS.button.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),
   },
   publishNote: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
   },
 
-  // Fotos
   fotoSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 12,
-    lineHeight: 18,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginBottom: SPACING.fixed.sm,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
   },
   fotosLista: {
-    marginBottom: 16,
+    marginBottom: SPACING.fixed.md,
   },
   fotoContainer: {
-    marginRight: 12,
+    marginRight: SPACING.fixed.sm,
     position: 'relative',
   },
   fotoPreview: {
     width: 100,
     height: 100,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.surfaceStrong,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   eliminarFotoBtn: {
     position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
+    top: -6,
+    right: -6,
+    backgroundColor: I.canvas,
+    borderRadius: 14,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
   },
   agregarFotoBtn: {
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
     borderStyle: 'dashed',
-    borderRadius: 12,
+    borderRadius: BORDERS.radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 32,
-    paddingHorizontal: 16,
-    backgroundColor: '#FAFAFA',
+    paddingVertical: SPACING.fixed.xl,
+    paddingHorizontal: SPACING.fixed.md,
+    backgroundColor: I.surfaceSoft,
   },
   agregarFotoText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#6B7280',
+    marginTop: SPACING.fixed.xs,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
     textAlign: 'center',
   },
 
-  // Empty states for Repuestos
   emptyRepuestosContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    marginTop: 16,
+    padding: SPACING.fixed.lg,
+    backgroundColor: I.surfaceStrong,
+    borderRadius: BORDERS.radius.lg,
+    marginTop: SPACING.fixed.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   emptyRepuestosTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginTop: 12,
-    marginBottom: 8,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    marginTop: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.xs,
     textAlign: 'center',
   },
   emptyRepuestosText: {
-    fontSize: 14,
-    color: '#4B5563',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.body,
     textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 20,
+    marginBottom: SPACING.fixed.md,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.relaxed),
   },
   emptyRepuestosOptions: {
     width: '100%',
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: I.canvas,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   emptyRepuestosHint: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    marginBottom: SPACING.fixed.xs,
   },
   emptyOptionItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: SPACING.fixed.xs,
   },
   emptyOptionBullet: {
-    fontSize: 16,
-    color: '#3B82F6',
-    marginRight: 8,
-    lineHeight: 20,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
+    marginRight: SPACING.fixed.xs,
+    lineHeight: lh(TYPOGRAPHY.fontSize.md, TYPOGRAPHY.lineHeight.normal),
   },
   emptyOptionText: {
     flex: 1,
-    fontSize: 13,
-    color: '#4B5563',
-    lineHeight: 18,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.relaxed),
   },
 });
 
