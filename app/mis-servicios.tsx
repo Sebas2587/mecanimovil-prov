@@ -21,6 +21,7 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/ap
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const hx = SPACING.container.horizontal;
+const TY = TYPOGRAPHY.styles;
 
 interface ServicioOferta {
   id: number;
@@ -99,6 +100,27 @@ function enriquecerOfertasConMarcas(
   });
 }
 
+function montoPrecioPublicoCLP(servicio: ServicioOferta): number | null {
+  const d = servicio.desglose_precios?.precio_final_cliente;
+  if (typeof d === 'number' && Number.isFinite(d) && d >= 0) {
+    return d;
+  }
+  const raw = String(servicio.precio_publicado_cliente ?? '').trim().replace(',', '.');
+  const p = parseFloat(raw);
+  if (!Number.isFinite(p) || p < 0) {
+    return null;
+  }
+  return p;
+}
+
+function formatearPrecioCLP(valor: number): string {
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    maximumFractionDigits: 0,
+  }).format(Math.round(valor));
+}
+
 const MisServiciosScreen = () => {
   const insets = useSafeAreaInsets();
   const [servicios, setServicios] = useState<ServicioOferta[]>([]);
@@ -166,10 +188,6 @@ const MisServiciosScreen = () => {
   useEffect(() => {
     aplicarFiltro(searchText, servicios);
   }, [searchText, servicios, aplicarFiltro]);
-
-  const getServicioIcon = (tipo: 'con_repuestos' | 'sin_repuestos') => {
-    return tipo === 'con_repuestos' ? 'build' : 'handyman';
-  };
 
   const formatearFecha = (fecha: string) => {
     return new Date(fecha).toLocaleDateString('es-CL', {
@@ -293,29 +311,33 @@ const MisServiciosScreen = () => {
                 onPress={() => verDetalleServicio(servicio)}
                 activeOpacity={0.88}
               >
-                <View style={styles.listCardIcon}>
-                  <MaterialIcons
-                    name={getServicioIcon(servicio.tipo_servicio) as any}
-                    size={22}
-                    color={I.primary}
-                  />
-                </View>
                 <View style={styles.listCardBody}>
-                  <Text style={styles.listCardTitle} numberOfLines={2}>
-                    {servicio.servicio_info.nombre}
-                  </Text>
-                  <MarcaBadge servicio={servicio} />
-                  <Text style={styles.listCardMeta}>{formatearFecha(servicio.fecha_creacion)}</Text>
-                </View>
-                <View
-                  style={[
-                    styles.statusPill,
-                    servicio.disponible ? styles.statusPillOn : styles.statusPillOff,
-                  ]}
-                >
-                  <Text style={[styles.statusPillText, servicio.disponible ? styles.statusPillTextOn : styles.statusPillTextOff]}>
-                    {servicio.disponible ? 'Activo' : 'Inactivo'}
-                  </Text>
+                  <View style={styles.listCardTopRow}>
+                    <View style={styles.listCardTitleWrap}>
+                      <Text style={styles.listCardTitle} numberOfLines={2}>
+                        {servicio.servicio_info.nombre}
+                      </Text>
+                    </View>
+                    <View style={styles.listCardPillsRow}>
+                      <View style={styles.marcaBadgeCell}>
+                        <MarcaBadge servicio={servicio} />
+                      </View>
+                      <View
+                        style={[
+                          styles.statusPill,
+                          servicio.disponible ? styles.statusPillOn : styles.statusPillOff,
+                        ]}
+                      >
+                        <Text style={[styles.statusPillText, servicio.disponible ? styles.statusPillTextOn : styles.statusPillTextOff]}>
+                          {servicio.disponible ? 'Activo' : 'Inactivo'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={styles.listCardBottomRow}>
+                    <Text style={styles.listCardMeta}>{formatearFecha(servicio.fecha_creacion)}</Text>
+                    <PrecioPublicoMonto servicio={servicio} />
+                  </View>
                 </View>
               </TouchableOpacity>
             ))
@@ -412,8 +434,8 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
   listCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    width: '100%',
+    flexDirection: 'column',
     backgroundColor: I.canvas,
     paddingVertical: SPACING.fixed.md,
     paddingHorizontal: SPACING.fixed.md,
@@ -421,22 +443,31 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    gap: SPACING.fixed.md,
     ...SHADOWS.editorial,
   },
-  listCardIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: COLORS.primary[50],
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
-  },
   listCardBody: {
+    width: '100%',
+    gap: SPACING.fixed.sm,
+  },
+  listCardTopRow: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: SPACING.fixed.sm,
+  },
+  listCardPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: SPACING.fixed.sm,
+  },
+  marcaBadgeCell: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
+    alignItems: 'flex-start',
+  },
+  listCardTitleWrap: {
+    width: '100%',
   },
   listCardTitle: {
     fontSize: TYPOGRAPHY.fontSize.md,
@@ -444,49 +475,81 @@ const styles = StyleSheet.create({
     color: I.ink,
     lineHeight: Math.round(TYPOGRAPHY.fontSize.md * 1.35),
   },
+  listCardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.sm,
+  },
   listCardMeta: {
+    flex: 1,
+    minWidth: 0,
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansRegular,
     color: I.muted,
-    marginTop: SPACING.fixed.xxs,
+  },
+  precioPublicoWrap: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
+    maxWidth: '52%',
+  },
+  precioPublicoMonto: {
+    fontSize: TY.numberDisplay.fontSize,
+    fontFamily: FF.monoMedium,
+    fontWeight: TY.numberDisplay.fontWeight,
+    lineHeight: Math.round(TY.numberDisplay.fontSize * Number(TY.numberDisplay.lineHeight)),
+    color: I.ink,
+    letterSpacing: TY.numberDisplay.letterSpacing,
+    textAlign: 'right',
+  },
+  precioPublicoMontoVacío: {
+    fontSize: TY.small.fontSize,
+    fontFamily: FF.sansRegular,
+    fontWeight: TY.small.fontWeight,
+    lineHeight: Math.round(TY.small.fontSize * Number(TY.small.lineHeight)),
+    color: I.muted,
+    textAlign: 'right',
   },
   marcaBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: SPACING.fixed.xxs + 2,
-    marginTop: SPACING.fixed.xs,
-    paddingHorizontal: SPACING.fixed.sm,
+    gap: SPACING.fixed.xxs,
+    paddingHorizontal: SPACING.fixed.xs + 2,
     paddingVertical: SPACING.fixed.xxs + 2,
     borderRadius: BORDERS.radius.pill,
     backgroundColor: withOpacity(I.primary, 0.08),
     borderWidth: BORDERS.width.thin,
     borderColor: withOpacity(I.primary, 0.22),
-    maxWidth: '100%',
+  },
+  /** Tope del texto del chip (~200): 4×`fixed.2xl` + `fixed.xs` (tokens), sin estirar el pill a todo el ancho. */
+  marcaBadgeTextCol: {
+    maxWidth: SPACING.fixed['2xl'] * 4 + SPACING.fixed.xs,
+    flexShrink: 1,
   },
   marcaBadgeGenerico: {
     backgroundColor: I.surfaceStrong,
     borderColor: I.hairline,
   },
   marcaBadgeLogo: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
+    width: 12,
+    height: 12,
+    borderRadius: 3,
   },
   marcaBadgeText: {
-    flexShrink: 1,
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansSemiBold,
     color: I.primary,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.xs * 1.35),
   },
   marcaBadgeTextGenerico: {
-    flexShrink: 1,
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansSemiBold,
     color: I.muted,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.xs * 1.35),
   },
   statusPill: {
-    paddingHorizontal: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.xs + 2,
     paddingVertical: SPACING.fixed.xxs + 2,
     borderRadius: BORDERS.radius.pill,
     flexShrink: 0,
@@ -500,6 +563,7 @@ const styles = StyleSheet.create({
   statusPillText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansSemiBold,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.xs * 1.35),
   },
   statusPillTextOn: {
     color: I.semanticUp,
@@ -587,6 +651,23 @@ const styles = StyleSheet.create({
   },
 });
 
+function PrecioPublicoMonto({ servicio }: { servicio: ServicioOferta }) {
+  const monto = montoPrecioPublicoCLP(servicio);
+  return (
+    <View style={styles.precioPublicoWrap}>
+      {monto != null ? (
+        <Text style={styles.precioPublicoMonto} numberOfLines={1}>
+          {formatearPrecioCLP(monto)}
+        </Text>
+      ) : (
+        <Text style={styles.precioPublicoMontoVacío} numberOfLines={1}>
+          —
+        </Text>
+      )}
+    </View>
+  );
+}
+
 function MarcaBadge({ servicio }: { servicio: ServicioOferta }) {
   const info = servicio.marca_vehiculo_info;
   const nombre = info?.nombre?.trim();
@@ -598,21 +679,25 @@ function MarcaBadge({ servicio }: { servicio: ServicioOferta }) {
         {logoUri ? (
           <Image source={{ uri: logoUri }} style={styles.marcaBadgeLogo} contentFit="contain" />
         ) : (
-          <Ionicons name="car-sport-outline" size={14} color={I.primary} />
+          <Ionicons name="car-sport-outline" size={11} color={I.primary} />
         )}
-        <Text style={styles.marcaBadgeText} numberOfLines={1}>
-          {nombre}
-        </Text>
+        <View style={styles.marcaBadgeTextCol}>
+          <Text style={styles.marcaBadgeText} numberOfLines={2}>
+            {nombre}
+          </Text>
+        </View>
       </View>
     );
   }
 
   return (
     <View style={[styles.marcaBadge, styles.marcaBadgeGenerico]}>
-      <Ionicons name="albums-outline" size={14} color={I.muted} />
-      <Text style={styles.marcaBadgeTextGenerico} numberOfLines={1}>
-        Cualquier marca
-      </Text>
+      <Ionicons name="albums-outline" size={11} color={I.muted} />
+      <View style={styles.marcaBadgeTextCol}>
+        <Text style={styles.marcaBadgeTextGenerico} numberOfLines={2}>
+          Cualquier marca
+        </Text>
+      </View>
     </View>
   );
 }

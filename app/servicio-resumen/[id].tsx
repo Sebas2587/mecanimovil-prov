@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,13 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import Header from '@/components/Header';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 
-// Interface para el servicio (mismo que en mis-servicios.tsx)
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+const hx = SPACING.container.horizontal;
+
 interface ServicioOferta {
   id: number;
   servicio: number;
@@ -60,782 +63,707 @@ interface ServicioOferta {
   fotos_urls: string[];
 }
 
+function parseServicioFromParams(raw?: string): ServicioOferta | null {
+  if (!raw || typeof raw !== 'string') return null;
+  try {
+    return JSON.parse(raw) as ServicioOferta;
+  } catch {
+    return null;
+  }
+}
+
+function fmtMoney(n: number | string | undefined): string {
+  const v = typeof n === 'string' ? parseFloat(n) || 0 : typeof n === 'number' ? n : 0;
+  return `$${v.toLocaleString('es-CL')}`;
+}
+
 export default function ServicioResumenScreen() {
-  const theme = useTheme();
   const insets = useSafeAreaInsets();
-  
-  // Obtener valores seguros del tema con fallbacks
-  const safeColors = useMemo(() => {
-    return theme?.colors || COLORS || {};
-  }, [theme]);
-
-  const safeSpacing = useMemo(() => {
-    return theme?.spacing || SPACING || {};
-  }, [theme]);
-
-  const safeTypography = useMemo(() => {
-    return theme?.typography || TYPOGRAPHY || {};
-  }, [theme]);
-
-  const safeShadows = useMemo(() => {
-    return theme?.shadows || SHADOWS || {};
-  }, [theme]);
-
-  const safeBorders = useMemo(() => {
-    return theme?.borders || BORDERS || {};
-  }, [theme]);
-
   const { id, servicioData } = useLocalSearchParams<{ id: string; servicioData?: string }>();
-  const [servicio, setServicio] = useState<ServicioOferta | null>(
-    servicioData ? JSON.parse(servicioData) : null
-  );
-  const [loading, setLoading] = useState(!servicioData);
+
+  const initial = useMemo(() => parseServicioFromParams(servicioData), [servicioData]);
+  const [servicio, setServicio] = useState<ServicioOferta | null>(initial);
+  const [loading, setLoading] = useState(!initial);
+  const [loadError, setLoadError] = useState(false);
   const [loadingFotos, setLoadingFotos] = useState(false);
 
-  // Cargar fotos del servicio desde el endpoint
+  useEffect(() => {
+    if (initial) {
+      setServicio(initial);
+      setLoading(false);
+      setLoadError(false);
+      return;
+    }
+    const sid = id ? Number(id) : NaN;
+    if (!Number.isFinite(sid) || sid <= 0) {
+      setLoading(false);
+      setLoadError(true);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
+    (async () => {
+      try {
+        const { serviciosProveedorAPI } = await import('@/services/serviciosApi');
+        const s = (await serviciosProveedorAPI.obtenerServicioPorId(sid)) as unknown as ServicioOferta;
+        if (!cancelled) {
+          setServicio(s);
+          setLoadError(false);
+        }
+      } catch (e) {
+        console.error('❌ Error cargando servicio por id:', e);
+        if (!cancelled) {
+          setServicio(null);
+          setLoadError(true);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, initial]);
+
   useEffect(() => {
     const cargarFotos = async () => {
-      if (!servicio || !servicio.id) return;
-      
-      // Si ya hay fotos en fotos_urls, no cargar de nuevo
-      if (servicio.fotos_urls && servicio.fotos_urls.length > 0) {
-        console.log('📸 Fotos ya disponibles en servicio:', servicio.fotos_urls.length);
-        return;
-      }
-      
+      if (!servicio?.id) return;
+
       try {
         setLoadingFotos(true);
-        console.log('📸 Cargando fotos del servicio:', servicio.id);
         const { fotosServiciosAPI } = await import('@/services/api');
         const fotosData = await fotosServiciosAPI.obtenerFotosOferta(servicio.id);
-        
-        // Extraer URLs de las fotos
+
         const fotosUrls: string[] = [];
         if (Array.isArray(fotosData)) {
           fotosData.forEach((foto: any) => {
-            if (foto.imagen_url) {
-              fotosUrls.push(foto.imagen_url);
-            } else if (foto.imagen) {
-              fotosUrls.push(foto.imagen);
-            }
+            if (foto.imagen_url) fotosUrls.push(foto.imagen_url);
+            else if (foto.imagen) fotosUrls.push(foto.imagen);
           });
-        } else if (fotosData.results && Array.isArray(fotosData.results)) {
+        } else if (fotosData?.results && Array.isArray(fotosData.results)) {
           fotosData.results.forEach((foto: any) => {
-            if (foto.imagen_url) {
-              fotosUrls.push(foto.imagen_url);
-            } else if (foto.imagen) {
-              fotosUrls.push(foto.imagen);
-            }
+            if (foto.imagen_url) fotosUrls.push(foto.imagen_url);
+            else if (foto.imagen) fotosUrls.push(foto.imagen);
           });
         }
-        
-        if (fotosUrls.length > 0) {
-          console.log('✅ Fotos cargadas:', fotosUrls.length);
-          setServicio({
-            ...servicio,
-            fotos_urls: fotosUrls
-          });
-        } else {
-          console.log('⚠️ No se encontraron fotos para el servicio');
-        }
+
+        setServicio((prev) => (prev ? { ...prev, fotos_urls: fotosUrls } : prev));
       } catch (error) {
         console.error('❌ Error cargando fotos del servicio:', error);
-        // No mostrar error al usuario, solo logear
       } finally {
         setLoadingFotos(false);
       }
     };
 
-    if (servicio && servicio.id) {
-      cargarFotos();
-    }
+    if (servicio?.id) cargarFotos();
   }, [servicio?.id]);
 
-  // Función para cambiar disponibilidad
   const toggleDisponibilidad = async () => {
     if (!servicio) return;
-
     try {
       const { serviciosAPI } = await import('@/services/api');
-      
-      console.log(`🔄 Cambiando disponibilidad del servicio ${servicio.id}`);
-      
       await serviciosAPI.cambiarDisponibilidad(servicio.id, !servicio.disponible);
-      
-      // Actualizar estado local
-      setServicio({
-        ...servicio,
-        disponible: !servicio.disponible
-      });
-      
-      console.log(`✅ Disponibilidad cambiada a: ${!servicio.disponible}`);
+      setServicio({ ...servicio, disponible: !servicio.disponible });
       Alert.alert('Éxito', `Servicio ${!servicio.disponible ? 'activado' : 'pausado'} correctamente`);
-      
     } catch (error) {
       console.error('❌ Error cambiando disponibilidad:', error);
       Alert.alert('Error', 'No se pudo cambiar la disponibilidad del servicio');
     }
   };
 
-  // Función para eliminar servicio
   const eliminarServicio = async () => {
     if (!servicio) return;
-
     Alert.alert(
-      '⚠️ Advertencia',
-      `¿Estás seguro de que deseas eliminar "${servicio.servicio_info.nombre}"?\n\nEsta acción no se puede deshacer y el servicio será eliminado permanentemente.`,
+      'Eliminar servicio',
+      `¿Eliminar "${servicio.servicio_info.nombre}"? Esta acción no se puede deshacer.`,
       [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
+        { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
             try {
               const { serviciosAPI } = await import('@/services/api');
-              
-              console.log(`🗑️ Eliminando servicio ${servicio.id}`);
-              
               await serviciosAPI.eliminarServicio(servicio.id);
-              
-              console.log(`✅ Servicio eliminado exitosamente`);
-              
-              Alert.alert(
-                'Éxito', 
-                'El servicio ha sido eliminado correctamente',
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => router.back()
-                  }
-                ]
-              );
-              
+              Alert.alert('Éxito', 'El servicio ha sido eliminado correctamente', [
+                { text: 'OK', onPress: () => router.back() },
+              ]);
             } catch (error) {
               console.error('❌ Error eliminando servicio:', error);
               Alert.alert('Error', 'No se pudo eliminar el servicio. Intenta nuevamente.');
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
 
-  // Función para editar servicio
-  const editarServicio = () => {
+  const editarServicio = useCallback(() => {
     if (!servicio) return;
-    
-    console.log('🔧 Navegando a editar servicio:', servicio.id);
-    
     router.push({
       pathname: '/crear-servicio',
       params: {
         mode: 'edit',
         servicioId: servicio.id.toString(),
-        servicioData: JSON.stringify(servicio)
-      }
+        servicioData: JSON.stringify(servicio),
+      },
     });
-  };
+  }, [servicio]);
 
-  // Función para formatear fecha
-  const formatearFecha = (fecha: string) => {
-    return new Date(fecha).toLocaleDateString('es-CL', {
+  const formatearFecha = (fecha: string) =>
+    new Date(fecha).toLocaleDateString('es-CL', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric'
+      year: 'numeric',
     });
-  };
 
-  // Obtener colores del sistema de diseño con nuevos fallbacks
-  const bgPaper = (safeColors?.background as any)?.paper || (safeColors?.base as any)?.white || '#FFFFFF';
-  const bgDefault = (safeColors?.background as any)?.default || '#EEEEEE';
-  const textPrimary = safeColors?.text?.primary || '#000000';
-  const textSecondary = safeColors?.text?.secondary || '#666666';
-  const textTertiary = safeColors?.text?.tertiary || '#999999';
-  const borderLight = (safeColors?.border as any)?.light || '#EEEEEE';
-  const borderMain = (safeColors?.border as any)?.main || '#D0D0D0';
-  const primaryObj = safeColors?.primary as any;
-  const accentObj = safeColors?.accent as any;
-  const successObj = safeColors?.success as any;
-  const errorObj = safeColors?.error as any;
-  const warningObj = safeColors?.warning as any;
-  const infoObj = safeColors?.info as any;
-  const primary500 = primaryObj?.['500'] || '#4E4FEB';
-  const success500 = successObj?.main || successObj?.['500'] || '#3DB6B1';
-  const error500 = errorObj?.main || errorObj?.['500'] || '#FF5555';
-  const warning500 = warningObj?.main || warningObj?.['500'] || '#FFB84D';
-  const primaryLight = primaryObj?.['50'] || primaryObj?.light || '#E6F2FF';
-  const successLight = successObj?.light || successObj?.['50'] || '#E6F7F4';
-  const errorLight = errorObj?.light || errorObj?.['50'] || '#FFEBEE';
-  const warningLight = warningObj?.light || warningObj?.['50'] || '#FFF8E6';
-  const infoLight = infoObj?.light || infoObj?.['50'] || '#E6F5F9';
-  const neutralGray50 = ((safeColors?.neutral as any)?.gray as any)?.['50'] || '#F9F9F9';
-  const neutralGray100 = ((safeColors?.neutral as any)?.gray as any)?.['100'] || '#F5F5F5';
-  const containerHorizontal = safeSpacing?.container?.horizontal || safeSpacing?.content?.horizontal || 18;
-  const spacingXs = safeSpacing?.xs || 4;
-  const spacingSm = safeSpacing?.sm || 8;
-  const spacingMd = safeSpacing?.md || 16;
-  const spacingLg = safeSpacing?.lg || 24;
-  const fontSizeBase = safeTypography?.fontSize?.base || 14;
-  const fontSizeMd = safeTypography?.fontSize?.md || 16;
-  const fontSizeLg = safeTypography?.fontSize?.lg || 18;
-  const fontSizeXl = safeTypography?.fontSize?.xl || 20;
-  const fontWeightMedium = safeTypography?.fontWeight?.medium || '500';
-  const fontWeightSemibold = safeTypography?.fontWeight?.semibold || '600';
-  const fontWeightBold = safeTypography?.fontWeight?.bold || '700';
-  const radiusMd = safeBorders?.radius?.md || 8;
-  const radiusLg = safeBorders?.radius?.lg || 12;
-  const radiusXl = safeBorders?.radius?.xl || 16;
-  const radius2xl = safeBorders?.radius?.['2xl'] || 20;
-  const shadowSm = safeShadows?.sm || { shadowColor: '#000000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-  const shadowMd = safeShadows?.md || { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
+  const desglose = servicio?.desglose_precios;
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: bgDefault }]}>
-        <SafeAreaView style={[styles.headerSafeArea, { backgroundColor: bgPaper }]} edges={['top']}>
-          <View style={[styles.header, { borderBottomColor: borderLight }]}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={24} color={textPrimary} />
-            </TouchableOpacity>
-            <View style={styles.titleContainer}>
-              <Text style={[styles.title, { color: textPrimary }]}>Cargando...</Text>
-            </View>
-            <View style={{ width: 24 }} />
-          </View>
-        </SafeAreaView>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={primary500} />
-          <Text style={[styles.loadingText, { color: textTertiary }]}>Cargando servicio...</Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (!servicio) {
-    return (
-      <View style={[styles.container, { backgroundColor: bgDefault }]}>
-        <SafeAreaView style={[styles.headerSafeArea, { backgroundColor: bgPaper }]} edges={['top']}>
-          <View style={[styles.header, { borderBottomColor: borderLight }]}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={24} color={textPrimary} />
-            </TouchableOpacity>
-            <View style={styles.titleContainer}>
-              <Text style={[styles.title, { color: textPrimary }]}>Error</Text>
-            </View>
-            <View style={{ width: 24 }} />
-          </View>
-        </SafeAreaView>
-        <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: error500 }]}>No se pudo cargar el servicio</Text>
-          <TouchableOpacity 
-            style={[styles.actionButton, { backgroundColor: primary500 }]} 
-            onPress={() => router.back()}
-          >
-            <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Volver</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.container, { backgroundColor: bgDefault }]}>
-      <Stack.Screen options={{ headerShown: false }} />
-      
-      {/* Header */}
-      <SafeAreaView style={[styles.headerSafeArea, { backgroundColor: bgPaper }]} edges={['top']}>
-        <View style={[styles.header, { borderBottomColor: borderLight }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={24} color={textPrimary} />
-          </TouchableOpacity>
-          <View style={styles.titleContainer}>
-            <Text style={[styles.title, { color: textPrimary }]}>Resumen del Servicio</Text>
-            <Text style={[styles.subtitle, { color: textTertiary }]}>Servicio #{servicio.id}</Text>
-          </View>
-          <View style={{ width: 24 }} />
+      <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Header
+          title="Resumen del servicio"
+          showBack
+          onBackPress={() => router.back()}
+          backgroundColor={I.canvas}
+          titleColor={I.ink}
+        />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={styles.mutedCenter}>Cargando servicio…</Text>
         </View>
       </SafeAreaView>
+    );
+  }
 
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]} 
+  if (!servicio || loadError) {
+    return (
+      <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Header
+          title="Resumen del servicio"
+          showBack
+          onBackPress={() => router.back()}
+          backgroundColor={I.canvas}
+          titleColor={I.ink}
+        />
+        <View style={styles.centered}>
+          <MaterialIcons name="error-outline" size={48} color={I.muted} />
+          <Text style={styles.errorTitle}>No se pudo cargar el servicio</Text>
+          <TouchableOpacity style={styles.primaryBtn} onPress={() => router.back()} activeOpacity={0.88}>
+            <Text style={styles.primaryBtnText}>Volver</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const repuestosLista =
+    servicio.repuestos_info?.length > 0
+      ? servicio.repuestos_info
+      : servicio.repuestos_seleccionados?.length > 0
+        ? servicio.repuestos_seleccionados
+        : [];
+
+  return (
+    <SafeAreaView style={styles.screen} edges={['left', 'right']}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <Header
+        title="Resumen del servicio"
+        showBack
+        onBackPress={() => router.back()}
+        backgroundColor={I.canvas}
+        titleColor={I.ink}
+      />
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={{
+          paddingHorizontal: hx,
+          paddingTop: SPACING.fixed.md,
+          paddingBottom: insets.bottom + 120,
+        }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Estado del servicio - UI Card */}
-        <View style={[styles.statusCard, { backgroundColor: bgPaper, borderColor: borderLight, ...shadowSm }]}>
+        <Text style={styles.heroSub}>Servicio #{servicio.id}</Text>
+
+        <View style={styles.card}>
           <View style={styles.statusRow}>
-            <View style={[
-              styles.statusBadge,
-              { backgroundColor: servicio.disponible ? success500 : error500 }
-            ]}>
-              <Text style={styles.statusBadgeText}>
+            <View style={[styles.statusPill, servicio.disponible ? styles.statusPillOn : styles.statusPillOff]}>
+              <Text style={[styles.statusPillText, servicio.disponible ? styles.statusPillTextOn : styles.statusPillTextOff]}>
                 {servicio.disponible ? 'Activo' : 'Pausado'}
               </Text>
             </View>
-            <Text style={[styles.statusDate, { color: textTertiary }]}>
-              Creado: {formatearFecha(servicio.fecha_creacion)}
-            </Text>
+            <Text style={styles.metaDate}>Creado {formatearFecha(servicio.fecha_creacion)}</Text>
           </View>
         </View>
 
-        {/* Información del servicio - UI Card */}
-        <View style={[styles.infoCard, { backgroundColor: bgPaper, borderColor: borderLight, ...shadowSm }]}>
-          <Text style={[styles.cardTitle, { color: textPrimary }]}>Información del Servicio</Text>
-          
-          {/* Nombre del servicio */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Información del servicio</Text>
+
           <View style={styles.infoRow}>
-            <MaterialIcons name="build" size={20} color={primary500} />
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: textTertiary }]}>Nombre del Servicio</Text>
-              <Text style={[styles.infoValue, { color: textPrimary }]}>{servicio.servicio_info.nombre}</Text>
+            <View style={styles.infoIcon}>
+              <MaterialIcons name="build" size={20} color={I.primary} />
+            </View>
+            <View style={styles.infoBody}>
+              <Text style={styles.label}>Nombre</Text>
+              <Text style={styles.value}>{servicio.servicio_info.nombre}</Text>
             </View>
           </View>
 
-          {/* Marca de vehículo */}
-          <View style={[styles.infoRow, styles.infoRowSecond]}>
-            <MaterialIcons name="directions-car" size={20} color={primary500} />
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: textTertiary }]}>Marca de Vehículo</Text>
-              {servicio.marca_vehiculo_info && servicio.marca_vehiculo_info.nombre ? (
-                <Text style={[styles.infoValue, { color: textPrimary }]}>{servicio.marca_vehiculo_info.nombre}</Text>
-              ) : (
-                <Text style={[styles.infoValue, { color: textTertiary }]}>No especificada</Text>
-              )}
+          <View style={[styles.infoRow, styles.infoRowDivider]}>
+            <View style={styles.infoIcon}>
+              <MaterialIcons name="directions-car" size={20} color={I.primary} />
+            </View>
+            <View style={styles.infoBody}>
+              <Text style={styles.label}>Marca de vehículo</Text>
+              <Text style={styles.value}>
+                {servicio.marca_vehiculo_info?.nombre?.trim() ? servicio.marca_vehiculo_info.nombre : 'No especificada'}
+              </Text>
             </View>
           </View>
 
-          {/* Repuestos */}
-          <View style={[styles.infoRow, styles.infoRowSecond]}>
-            <MaterialIcons name="settings" size={20} color={primary500} />
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: textTertiary }]}>Repuestos</Text>
+          <View style={[styles.infoRow, styles.infoRowDivider]}>
+            <View style={styles.infoIcon}>
+              <MaterialIcons name="settings" size={20} color={I.primary} />
+            </View>
+            <View style={styles.infoBody}>
+              <Text style={styles.label}>Repuestos</Text>
               {servicio.tipo_servicio === 'con_repuestos' ? (
-                (servicio.repuestos_info && Array.isArray(servicio.repuestos_info) && servicio.repuestos_info.length > 0) ||
-                (servicio.repuestos_seleccionados && Array.isArray(servicio.repuestos_seleccionados) && servicio.repuestos_seleccionados.length > 0) ? (
-                  <View style={styles.repuestosContainer}>
-                    {(servicio.repuestos_info && servicio.repuestos_info.length > 0 ? servicio.repuestos_info : servicio.repuestos_seleccionados || []).map((repuesto: any, index: number) => {
-                      const nombreRepuesto = repuesto.nombre || repuesto.descripcion || `Repuesto ${index + 1}`;
-                      const cantidad = repuesto.cantidad ? ` (x${repuesto.cantidad})` : '';
+                repuestosLista.length > 0 ? (
+                  <View style={styles.tagsWrap}>
+                    {repuestosLista.map((repuesto: any, index: number) => {
+                      const nombre = repuesto.nombre || repuesto.descripcion || `Repuesto ${index + 1}`;
+                      const cantidad = repuesto.cantidad ? ` ×${repuesto.cantidad}` : '';
                       return (
-                        <View key={repuesto.id || index} style={[styles.repuestoTag, { backgroundColor: primaryLight }]}>
-                          <Text style={[styles.repuestoText, { color: primary500 }]}>
-                            {nombreRepuesto}{cantidad}
+                        <View key={repuesto.id ?? index} style={styles.tag}>
+                          <Text style={styles.tagText}>
+                            {nombre}
+                            {cantidad}
                           </Text>
                         </View>
                       );
                     })}
                   </View>
                 ) : (
-                  <Text style={[styles.infoValue, { color: textTertiary }]}>Sin repuestos seleccionados</Text>
+                  <Text style={styles.valueMuted}>Sin repuestos seleccionados</Text>
                 )
               ) : (
-                <Text style={[styles.infoValue, { color: textTertiary }]}>Sin repuestos</Text>
+                <Text style={styles.valueMuted}>Sin repuestos</Text>
               )}
             </View>
           </View>
 
-          {/* Fotos en miniatura - Mostrar máximo 4 fotos */}
-          <View style={[styles.infoRow, styles.infoRowSecond]}>
-            <MaterialIcons name="photo-library" size={20} color={primary500} />
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: textTertiary }]}>Fotos del Servicio</Text>
+          <View style={[styles.infoRow, styles.infoRowDivider]}>
+            <View style={styles.infoIcon}>
+              <MaterialIcons name="photo-library" size={20} color={I.primary} />
+            </View>
+            <View style={styles.infoBody}>
+              <Text style={styles.label}>Fotos del servicio</Text>
               {loadingFotos ? (
-                <View style={styles.loadingFotosContainer}>
-                  <ActivityIndicator size="small" color={primary500} />
-                  <Text style={[styles.loadingFotosText, { color: textTertiary }]}>Cargando fotos...</Text>
+                <View style={styles.rowInline}>
+                  <ActivityIndicator size="small" color={I.primary} />
+                  <Text style={styles.valueMuted}>Cargando fotos…</Text>
                 </View>
-              ) : servicio.fotos_urls && Array.isArray(servicio.fotos_urls) && servicio.fotos_urls.length > 0 ? (
+              ) : servicio.fotos_urls?.length ? (
                 <>
-                  <View style={styles.photosMiniContainer}>
+                  <View style={styles.photosRow}>
                     {servicio.fotos_urls.slice(0, 4).map((foto, index) => (
-                      <Image
-                        key={index}
-                        source={{ uri: foto }}
-                        style={[styles.photoMini, { borderColor: borderLight }]}
-                        onError={() => console.log('Error cargando foto:', foto)}
-                      />
+                      <Image key={index} source={{ uri: foto }} style={styles.photoThumb} />
                     ))}
-                    {servicio.fotos_urls.length > 4 && (
-                      <View style={[styles.photoMini, styles.photoMiniMore, { backgroundColor: neutralGray100, borderColor: borderLight }]}>
-                        <Text style={[styles.photoMiniMoreText, { color: textTertiary }]}>
-                          +{servicio.fotos_urls.length - 4}
-                        </Text>
+                    {servicio.fotos_urls.length > 4 ? (
+                      <View style={[styles.photoThumb, styles.photoMore]}>
+                        <Text style={styles.photoMoreText}>+{servicio.fotos_urls.length - 4}</Text>
                       </View>
-                    )}
+                    ) : null}
                   </View>
-                  <Text style={[styles.photosCount, { color: textTertiary }]}>
+                  <Text style={styles.caption}>
                     {servicio.fotos_urls.length} foto{servicio.fotos_urls.length !== 1 ? 's' : ''}
                   </Text>
                 </>
               ) : (
-                <Text style={[styles.infoValue, { color: textTertiary }]}>No hay fotos disponibles</Text>
+                <Text style={styles.valueMuted}>No hay fotos disponibles</Text>
               )}
             </View>
           </View>
         </View>
 
-        {/* Desglose de precios - UI Card */}
-        <View style={[styles.priceCard, { backgroundColor: bgPaper, borderColor: borderLight, ...shadowSm }]}>
-          <Text style={[styles.cardTitle, { color: textPrimary }]}>💰 Desglose de Precios</Text>
-          
-          <View style={styles.desgloseContainer}>
-            {/* Sección: Costos Base */}
-            <View style={styles.desgloseSection}>
-              <View style={styles.desgloseRow}>
-                <Text style={[styles.desgloseLabel, { color: textTertiary }]}>Precio mano de servicio:</Text>
-                <Text style={[styles.desgloseValue, { color: textPrimary }]}>
-                  ${parseFloat(servicio.costo_mano_de_obra_sin_iva).toLocaleString('es-CL')}
-                </Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Desglose de precios</Text>
+
+          <View style={styles.priceBlock}>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>Precio mano de obra</Text>
+              <Text style={styles.priceValue}>{fmtMoney(servicio.costo_mano_de_obra_sin_iva)}</Text>
+            </View>
+            {servicio.tipo_servicio === 'con_repuestos' && parseFloat(String(servicio.costo_repuestos_sin_iva)) > 0 ? (
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Precio repuestos</Text>
+                <Text style={styles.priceValue}>{fmtMoney(servicio.costo_repuestos_sin_iva)}</Text>
               </View>
-              
-              {servicio.tipo_servicio === 'con_repuestos' && parseFloat(servicio.costo_repuestos_sin_iva) > 0 && (
-                <View style={styles.desgloseRow}>
-                  <Text style={[styles.desgloseLabel, { color: textTertiary }]}>Precio repuestos:</Text>
-                  <Text style={[styles.desgloseValue, { color: textPrimary }]}>
-                    ${parseFloat(servicio.costo_repuestos_sin_iva).toLocaleString('es-CL')}
-                  </Text>
+            ) : null}
+
+            {desglose ? (
+              <>
+                <View style={[styles.priceRow, styles.subtotalBox]}>
+                  <Text style={styles.subtotalLabel}>Costo total sin IVA</Text>
+                  <Text style={styles.subtotalValue}>{fmtMoney(desglose.costo_total_sin_iva)}</Text>
                 </View>
-              )}
-              
-              <View style={[styles.desgloseRow, styles.subtotalRow, { backgroundColor: neutralGray50 }]}>
-                <Text style={[styles.desgloseLabel, { color: textSecondary, fontWeight: fontWeightBold }]}>Costo total sin IVA:</Text>
-                <Text style={[styles.desgloseValue, { color: textPrimary, fontWeight: fontWeightBold }]}>
-                  ${servicio.desglose_precios.costo_total_sin_iva.toLocaleString('es-CL')}
-                </Text>
-              </View>
-            </View>
-            
-            {/* Sección: Precio al Cliente */}
-            <View style={styles.desgloseSection}>
-              <View style={styles.desgloseRow}>
-                <Text style={[styles.desgloseLabel, { color: textTertiary }]}>IVA 19%:</Text>
-                <Text style={[styles.desgloseValue, { color: textPrimary }]}>
-                  ${servicio.desglose_precios.iva_19_porciento.toLocaleString('es-CL')}
-                </Text>
-              </View>
-              
-              <View style={[styles.desgloseRow, styles.precioClienteRow, { backgroundColor: infoLight }]}>
-                <Text style={[styles.desgloseLabel, { color: textPrimary, fontWeight: fontWeightBold }]}>Precio al público:</Text>
-                <Text style={[styles.desgloseValue, { color: primary500, fontWeight: fontWeightBold, fontSize: fontSizeMd }]}>
-                  ${servicio.desglose_precios.precio_final_cliente.toLocaleString('es-CL')}
-                </Text>
-              </View>
-            </View>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>IVA 19%</Text>
+                  <Text style={styles.priceValue}>{fmtMoney(desglose.iva_19_porciento)}</Text>
+                </View>
+                <View style={[styles.priceRow, styles.highlightBox]}>
+                  <Text style={styles.highlightLabel}>Precio al público</Text>
+                  <Text style={styles.highlightValue}>{fmtMoney(desglose.precio_final_cliente)}</Text>
+                </View>
+              </>
+            ) : (
+              <Text style={styles.valueMuted}>Sin desglose numérico disponible.</Text>
+            )}
           </View>
         </View>
       </ScrollView>
 
-      {/* Botones de acción fijos */}
-      <SafeAreaView style={styles.actionsSafeArea} edges={['bottom']}>
-        <View style={[styles.actionsContainer, { backgroundColor: bgPaper, borderTopColor: borderLight }]}>
+      <SafeAreaView style={styles.footerSafe} edges={['bottom']}>
+        <View style={[styles.actionsBar, { paddingBottom: Math.max(insets.bottom, SPACING.fixed.sm) }]}>
           <TouchableOpacity
-            style={[styles.actionButton, {
-              backgroundColor: servicio.disponible 
-                ? warningLight
-                : successLight
-            }]}
+            style={[
+              styles.actionBtn,
+              servicio.disponible ? styles.actionPause : styles.actionPlay,
+            ]}
             onPress={toggleDisponibilidad}
+            activeOpacity={0.88}
           >
-            <MaterialIcons 
-              name={servicio.disponible ? 'pause' : 'play-arrow'} 
-              size={20} 
-              color={servicio.disponible ? warning500 : success500} 
+            <MaterialIcons
+              name={servicio.disponible ? 'pause' : 'play-arrow'}
+              size={20}
+              color={servicio.disponible ? I.accentYellow : I.semanticUp}
             />
-            <Text style={[styles.actionButtonText, {
-              color: servicio.disponible ? warning500 : success500
-            }]}>
+            <Text style={[styles.actionText, servicio.disponible ? styles.actionTextPause : styles.actionTextPlay]}>
               {servicio.disponible ? 'Pausar' : 'Activar'}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: primaryLight }]}
-            onPress={editarServicio}
-          >
-            <MaterialIcons name="edit" size={20} color={primary500} />
-            <Text style={[styles.actionButtonText, { color: primary500 }]}>Editar</Text>
+          <TouchableOpacity style={[styles.actionBtn, styles.actionEdit]} onPress={editarServicio} activeOpacity={0.88}>
+            <MaterialIcons name="edit" size={20} color={I.primary} />
+            <Text style={styles.actionTextEdit}>Editar</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: errorLight }]}
-            onPress={eliminarServicio}
-          >
-            <MaterialIcons name="delete" size={20} color={error500} />
-            <Text style={[styles.actionButtonText, { color: error500 }]}>Eliminar</Text>
+          <TouchableOpacity style={[styles.actionBtn, styles.actionDelete]} onPress={eliminarServicio} activeOpacity={0.88}>
+            <MaterialIcons name="delete-outline" size={20} color={I.semanticDown} />
+            <Text style={styles.actionTextDelete}>Eliminar</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
-    </View>
+    </SafeAreaView>
   );
 }
 
-// Función para crear estilos usando tokens del sistema de diseño
-const createStyles = () => {
-  const bgPaper = COLORS?.background?.paper || COLORS?.base?.white || '#FFFFFF';
-  const bgDefault = COLORS?.background?.default || '#EEEEEE';
-  const textPrimary = COLORS?.text?.primary || '#000000';
-  const textTertiary = COLORS?.text?.tertiary || '#999999';
-  const borderLight = COLORS?.border?.light || '#EEEEEE';
-  const spacingSm = SPACING?.sm || 8;
-  const spacingMd = SPACING?.md || 16;
-  const spacingLg = SPACING?.lg || 24;
-  const containerHorizontal = SPACING?.container?.horizontal || SPACING?.content?.horizontal || 18;
-  const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
-  const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
-  const fontWeightBold = TYPOGRAPHY?.fontWeight?.bold || '700';
-  const radiusMd = BORDERS?.radius?.md || 8;
-  const radiusLg = BORDERS?.radius?.lg || 12;
-  const radiusXl = BORDERS?.radius?.xl || 16;
-  const radius2xl = BORDERS?.radius?.['2xl'] || 20;
-  const shadowSm = SHADOWS?.sm || { shadowColor: '#000000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: bgDefault,
-    },
-    headerSafeArea: {
-      backgroundColor: bgPaper,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: containerHorizontal,
-      paddingVertical: spacingMd,
-      backgroundColor: bgPaper,
-      borderBottomWidth: 1,
-    },
-    backButton: {
-      padding: spacingSm,
-    },
-    titleContainer: {
-      flexDirection: 'column',
-      alignItems: 'center',
-      flex: 1,
-    },
-    title: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightBold,
-    },
-    subtitle: {
-      fontSize: fontSizeBase,
-      marginTop: spacingSm / 2,
-    },
-    scrollView: {
-      flex: 1,
-    },
-    content: {
-      padding: containerHorizontal,
-      paddingBottom: spacingLg * 4,
-    },
-    // Status card
-    statusCard: {
-      borderRadius: radiusXl,
-      padding: spacingMd,
-      marginBottom: spacingMd,
-      borderWidth: 1,
-    },
-    statusRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    statusBadge: {
-      paddingHorizontal: spacingMd,
-      paddingVertical: spacingSm / 2,
-      borderRadius: radius2xl,
-    },
-    statusBadgeText: {
-      fontSize: fontSizeBase - 2,
-      fontWeight: fontWeightBold,
-      color: '#FFFFFF',
-      textTransform: 'uppercase',
-    },
-    statusDate: {
-      fontSize: fontSizeBase,
-    },
-    // Info card
-    infoCard: {
-      borderRadius: radiusXl,
-      padding: spacingMd,
-      marginBottom: spacingMd,
-      borderWidth: 1,
-    },
-    cardTitle: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightBold,
-      marginBottom: spacingMd,
-    },
-    infoRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacingMd,
-    },
-    infoRowSecond: {
-      marginTop: spacingMd,
-      paddingTop: spacingMd,
-      borderTopWidth: 1,
-      borderTopColor: borderLight,
-    },
-    infoContent: {
-      flex: 1,
-    },
-    infoLabel: {
-      fontSize: fontSizeBase - 2,
-      marginBottom: spacingSm / 2,
-      fontWeight: '500',
-    },
-    infoValue: {
-      fontSize: fontSizeBase,
-      fontWeight: '500',
-    },
-    repuestosContainer: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacingSm,
-      marginTop: spacingSm / 2,
-    },
-    repuestoTag: {
-      paddingHorizontal: spacingMd,
-      paddingVertical: spacingSm / 2,
-      borderRadius: radiusLg,
-    },
-    repuestoText: {
-      fontSize: fontSizeBase - 2,
-      fontWeight: '500',
-    },
-    photosMiniContainer: {
-      flexDirection: 'row',
-      gap: spacingSm,
-      marginTop: spacingSm / 2,
-      marginBottom: spacingSm / 2,
-    },
-    photoMini: {
-      width: 48,
-      height: 48,
-      borderRadius: radiusMd,
-      borderWidth: 1,
-      backgroundColor: bgDefault,
-    },
-    photoMiniMore: {
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    photoMiniMoreText: {
-      fontSize: fontSizeBase - 2,
-      fontWeight: '600',
-    },
-    photosCount: {
-      fontSize: fontSizeBase - 2,
-      marginTop: spacingSm / 2,
-    },
-    loadingFotosContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingSm,
-      marginTop: spacingSm / 2,
-    },
-    loadingFotosText: {
-      fontSize: fontSizeBase - 2,
-    },
-    // Price card
-    priceCard: {
-      borderRadius: radiusXl,
-      padding: spacingMd,
-      marginBottom: spacingMd,
-      borderWidth: 1,
-    },
-    desgloseContainer: {
-      gap: spacingMd,
-    },
-    desgloseSection: {
-      gap: spacingSm,
-    },
-    desgloseSectionTitle: {
-      fontSize: fontSizeBase - 1,
-      fontWeight: '600',
-      marginBottom: spacingSm,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-    },
-    desgloseRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      marginBottom: spacingSm / 2,
-    },
-    desgloseLabel: {
-      fontSize: fontSizeBase,
-      flex: 1,
-      marginRight: spacingSm,
-    },
-    desgloseValue: {
-      fontSize: fontSizeBase,
-      fontWeight: '500',
-      textAlign: 'right',
-      flexShrink: 0,
-    },
-    subtotalRow: {
-      paddingHorizontal: spacingMd,
-      paddingVertical: spacingSm,
-      borderRadius: radiusMd,
-      marginVertical: spacingSm,
-      marginHorizontal: -spacingMd,
-    },
-    precioClienteRow: {
-      paddingHorizontal: spacingMd,
-      paddingVertical: spacingMd,
-      borderRadius: radiusLg,
-      marginVertical: spacingSm,
-      marginHorizontal: -spacingMd,
-    },
-    // Actions
-    actionsSafeArea: {
-      backgroundColor: bgPaper,
-    },
-    actionsContainer: {
-      flexDirection: 'row',
-      padding: spacingMd,
-      gap: spacingMd,
-      borderTopWidth: 1,
-    },
-    actionButton: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacingMd,
-      borderRadius: radiusLg,
-      gap: spacingSm,
-    },
-    actionButtonText: {
-      fontSize: fontSizeBase,
-      fontWeight: '600',
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    loadingText: {
-      marginTop: spacingMd,
-      fontSize: fontSizeBase,
-    },
-    errorContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacingLg,
-    },
-    errorText: {
-      fontSize: fontSizeBase,
-      marginBottom: spacingLg,
-    },
-  });
-};
-
-const styles = createStyles();
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: I.surfaceSoft,
+  },
+  scroll: {
+    flex: 1,
+  },
+  heroSub: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginBottom: SPACING.fixed.md,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.fixed.xl,
+  },
+  mutedCenter: {
+    marginTop: SPACING.fixed.md,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+  },
+  errorTitle: {
+    marginTop: SPACING.fixed.md,
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    textAlign: 'center',
+    marginBottom: SPACING.fixed.lg,
+  },
+  primaryBtn: {
+    backgroundColor: I.primary,
+    paddingHorizontal: SPACING.fixed.xl,
+    paddingVertical: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.pill,
+  },
+  primaryBtnText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.onPrimary,
+  },
+  card: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    padding: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.md,
+    ...SHADOWS.editorial,
+  },
+  cardTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    marginBottom: SPACING.fixed.md,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+  },
+  statusPill: {
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.xs,
+    borderRadius: BORDERS.radius.pill,
+  },
+  statusPillOn: {
+    backgroundColor: withOpacity(I.semanticUp, 0.14),
+  },
+  statusPillOff: {
+    backgroundColor: withOpacity(I.semanticDown, 0.1),
+  },
+  statusPillText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  statusPillTextOn: { color: I.semanticUp },
+  statusPillTextOff: { color: I.semanticDown },
+  metaDate: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.md,
+  },
+  infoRowDivider: {
+    marginTop: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.md,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+  },
+  infoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: COLORS.primary[50],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  label: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    color: I.muted,
+    marginBottom: SPACING.fixed.xxs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.35,
+  },
+  value: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.ink,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.base * (TYPOGRAPHY.lineHeight?.normal ?? 1.5)),
+  },
+  valueMuted: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+  },
+  tagsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.sm,
+    marginTop: SPACING.fixed.xxs,
+  },
+  tag: {
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xxs + 2,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: COLORS.primary[50],
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.2),
+  },
+  tagText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.primary,
+  },
+  rowInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    marginTop: SPACING.fixed.xxs,
+  },
+  photosRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.sm,
+    marginTop: SPACING.fixed.xxs,
+  },
+  photoThumb: {
+    width: 52,
+    height: 52,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.surfaceStrong,
+  },
+  photoMore: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: I.surfaceStrong,
+  },
+  photoMoreText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.monoMedium,
+    color: I.muted,
+  },
+  caption: {
+    marginTop: SPACING.fixed.xs,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+  },
+  priceBlock: {
+    gap: SPACING.fixed.sm,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.md,
+  },
+  priceLabel: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+  },
+  priceValue: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.monoMedium,
+    color: I.ink,
+    textAlign: 'right',
+  },
+  subtotalBox: {
+    marginTop: SPACING.fixed.xs,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.surfaceStrong,
+  },
+  subtotalLabel: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    flex: 1,
+  },
+  subtotalValue: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.monoMedium,
+    color: I.ink,
+  },
+  highlightBox: {
+    marginTop: SPACING.fixed.xs,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: withOpacity(I.primary, 0.08),
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.22),
+  },
+  highlightLabel: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    flex: 1,
+  },
+  highlightValue: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.monoMedium,
+    color: I.primary,
+    textAlign: 'right',
+  },
+  footerSafe: {
+    backgroundColor: I.canvas,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+  },
+  actionsBar: {
+    flexDirection: 'row',
+    paddingHorizontal: hx,
+    paddingTop: SPACING.fixed.md,
+    gap: SPACING.fixed.sm,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.lg,
+    gap: SPACING.fixed.xxs,
+  },
+  actionPause: {
+    backgroundColor: withOpacity(I.accentYellow, 0.16),
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.accentYellow, 0.35),
+  },
+  actionPlay: {
+    backgroundColor: withOpacity(I.semanticUp, 0.12),
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.semanticUp, 0.28),
+  },
+  actionText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+  },
+  actionTextPause: { color: I.ink },
+  actionTextPlay: { color: I.semanticUp },
+  actionEdit: {
+    backgroundColor: COLORS.primary[50],
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.25),
+  },
+  actionTextEdit: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
+  },
+  actionDelete: {
+    backgroundColor: withOpacity(I.semanticDown, 0.08),
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.semanticDown, 0.22),
+  },
+  actionTextDelete: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.semanticDown,
+  },
+});
