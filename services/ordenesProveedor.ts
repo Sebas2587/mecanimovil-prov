@@ -192,18 +192,13 @@ class OrdenesProveedorService {
   private extractDataFromResponse(responseData: any): Orden[] {
     // Si la respuesta tiene 'results', es una respuesta paginada de Django REST Framework
     if (responseData && typeof responseData === 'object' && Array.isArray(responseData.results)) {
-      console.log(`📄 Respuesta paginada detectada: ${responseData.results.length} elementos de ${responseData.count} total`);
       return responseData.results;
     }
-    
-    // Si la respuesta es directamente un array
+
     if (Array.isArray(responseData)) {
-      console.log(`📋 Respuesta directa: ${responseData.length} elementos`);
       return responseData;
     }
-    
-    // Si no es ninguno de los casos anteriores, devolver array vacío
-    console.log('⚠️ Formato de respuesta no reconocido, devolviendo array vacío');
+
     return [];
   }
 

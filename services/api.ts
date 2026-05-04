@@ -66,7 +66,9 @@ const getMediaBaseURL = async (): Promise<string> => {
 // Crear instancia de axios con configuración dinámica
 const createAPIInstance = async () => {
   const baseURL = await getBaseURL();
-  console.log(`🌐 Configurando API con URL: ${baseURL}`);
+  if (__DEV__) {
+    console.log(`🌐 Configurando API con URL: ${baseURL}`);
+  }
 
   return axios.create({
     baseURL,
@@ -105,11 +107,6 @@ const setupInterceptors = (api: any) => {
   // Interceptor para agregar token de autenticación - CORREGIDO
   api.interceptors.request.use(
     async (config: any) => {
-      // Log solo en desarrollo (__DEV__), nunca en producción (APK)
-      if (__DEV__) {
-        console.log(`🔍 Request interceptor - URL: ${config.url}, BaseURL: ${config.baseURL}`);
-      }
-
       // Agregar header de ngrok si es necesario (para evitar warning de ngrok-free.app)
       if (config.baseURL && (config.baseURL.includes('ngrok-free.app') || config.baseURL.includes('ngrok.io'))) {
         config.headers['ngrok-skip-browser-warning'] = 'true';
@@ -139,11 +136,6 @@ const setupInterceptors = (api: any) => {
       } else {
         // Para FormData, ELIMINAR cualquier Content-Type manual
         delete config.headers['Content-Type'];
-        // Log solo en desarrollo
-        if (__DEV__) {
-          console.log('📤 Enviando FormData a:', config.url);
-          console.log('📋 Headers limpiados para FormData - axios manejará automáticamente');
-        }
       }
 
       // Agregar token de autenticación
@@ -152,15 +144,6 @@ const setupInterceptors = (api: any) => {
           const token = await SecureStore.getItemAsync('authToken');
           if (token) {
             config.headers.Authorization = `Token ${token}`;
-            // Log solo en desarrollo
-            if (__DEV__) {
-              console.log('🔑 Token interceptor: Token encontrado (' + token.substring(0, 10) + '...)');
-            }
-          } else {
-            // Log solo en desarrollo
-            if (__DEV__) {
-              console.log('⚠️ No hay token para endpoint privado:', config.url);
-            }
           }
         } catch (error) {
           // Log solo en desarrollo

@@ -390,7 +390,7 @@ class WebSocketService {
         this.stopHeartbeat();
         this.scheduleReconnect();
       }
-    }, 30000) as any; // 30 segundos
+    }, 45000) as any; // 45s: equilibrio UX (sigue vivo) vs carga en Channels/BD
   }
 
   /**

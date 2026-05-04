@@ -211,21 +211,14 @@ export default function HomeScreen() {
     }
   }, [perfilProveedorKey, cuentaAprobadaPorAdmin, radarOportunidadesActivo, radarPreferenciaCargada]);
 
-  // Recargar órdenes cuando la pantalla recibe foco (cuando se regresa del detalle)
+  // Al volver al tab: alertas + KPIs ligeros. La carga pesada (stats, MP, suscripción, solicitudes)
+  // queda en useEffect arriba para no duplicar peticiones al montar (useEffect + useFocusEffect).
   useFocusEffect(
     React.useCallback(() => {
-      if (cuentaAprobadaPorAdmin) {
-        cargarEstadisticasSemanales();
-        if (radarPreferenciaCargada && radarOportunidadesActivo) {
-          cargarSolicitudesDisponibles();
-        }
-        cargarCreditos();
-        cargarEstadisticasMP();
-        cargarSuscripcion();
-        verificarYGenerarAlertas();
-        kpisResumen.refresh();
-      }
-    }, [cuentaAprobadaPorAdmin, kpisResumen.refresh, radarOportunidadesActivo, radarPreferenciaCargada])
+      if (!cuentaAprobadaPorAdmin) return;
+      verificarYGenerarAlertas();
+      kpisResumen.refresh();
+    }, [cuentaAprobadaPorAdmin, kpisResumen.refresh])
   );
 
   useEffect(() => {
@@ -850,7 +843,7 @@ export default function HomeScreen() {
                 <Wifi size={22} color="#2563EB" />
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.radarAvailabilityTitle}>Disponible para oportunidades</Text>
+                <Text style={styles.radarAvailabilityTitle}>Disponible para solicitudes</Text>
                 <Text style={styles.radarAvailabilitySub}>
                   Activa esta opción para conectarte al sistema.
                 </Text>
@@ -872,8 +865,8 @@ export default function HomeScreen() {
           {/* 3b. RADAR DE OPORTUNIDADES (listado) */}
           <View style={styles.sectionWrap}>
             <View style={styles.sectionTitleRow}>
-              <Radar size={20} color="#374151" />
-              <Text style={styles.sectionTitleText}>Radar de Oportunidades</Text>
+              
+              <Text style={styles.sectionTitleText}>Solicitudes disponibles</Text>
             </View>
 
             {!radarPreferenciaCargada ? (

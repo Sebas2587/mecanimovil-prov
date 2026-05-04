@@ -162,7 +162,7 @@ class ConnectionService {
           this.isConnected = false;
         }
       }
-    }, 60000) as any; // 60 segundos
+    }, 120000) as any; // 2 min: el WS + throttle HTTP ya mantienen “online” en el backend
 
     // Escuchar cambios de estado de la app
     this.appStateListener = AppState.addEventListener('change', this.handleAppStateChange);
