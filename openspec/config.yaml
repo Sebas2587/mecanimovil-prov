@@ -1,0 +1,24 @@
+schema: spec-driven
+
+context: |
+  Tech stack: React Native, Expo (managed workflow), Expo Router (file-based routing), TypeScript
+  Deploy: EAS Build → APK/IPA; distribución interna y stores
+  Domain: App Proveedores de Mecanimovil — proveedores gestionan su perfil, servicios, órdenes, solicitudes, ingresos y rendimiento
+  Backend: Django REST Framework en Render; WebSockets vía Django Channels
+  Design System: tokens en app/design-system/tokens/ (colors, spacing, typography, shadows, borders, animations); useTheme(); iconos Lucide (lucide-react-native)
+  Navegación: Expo Router file-based; tabs principales en app/(tabs)/
+  Estado: hooks locales (useState, useEffect, useMemo, useCallback); contextos en context/
+  Convenciones: PascalCase componentes, camelCase variables, lowercase-hyphenated directorios; nunca hardcodear colores hex si existe token; usar React.memo en listas
+
+rules:
+  proposal:
+    - Indicar qué pantallas/rutas se crean o modifican
+    - Especificar qué tokens de design system se usan
+    - Mencionar si requiere cambios en el backend (Django)
+  tasks:
+    - Máximo 3 horas por tarea
+    - Cada tarea debe indicar el archivo de componente o pantalla afectado
+    - Verificar que no se introduzcan colores hardcodeados ni íconos fuera de Lucide
+  spec:
+    - Describir el flujo completo del usuario (pasos en la UI)
+    - Incluir estados de loading, error y vacío en los escenarios
