@@ -8,8 +8,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export default function RevisionScreen() {
   const { tipo } = useLocalSearchParams();
@@ -26,7 +27,7 @@ export default function RevisionScreen() {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
           <View style={styles.iconContainer}>
-            <Ionicons name="checkmark-circle" size={80} color="#27ae60" />
+            <InstitutionalIcon name="checkmark-circle" size={80} color="#27ae60"  strokeWidth={ICON_STROKE_WIDTH} />
           </View>
           <Text style={styles.title}>¡Registro Completado!</Text>
           <Text style={styles.subtitle}>
@@ -36,7 +37,7 @@ export default function RevisionScreen() {
 
         <View style={styles.infoContainer}>
           <View style={styles.infoItem}>
-            <Ionicons name="time" size={24} color="#3498db" />
+            <InstitutionalIcon name="time" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
             <View style={styles.infoText}>
               <Text style={styles.infoTitle}>Tiempo de Revisión</Text>
               <Text style={styles.infoDescription}>
@@ -46,7 +47,7 @@ export default function RevisionScreen() {
           </View>
 
           <View style={styles.infoItem}>
-            <Ionicons name="document-text" size={24} color="#f39c12" />
+            <InstitutionalIcon name="document-text" size={24} color="#f39c12"  strokeWidth={ICON_STROKE_WIDTH} />
             <View style={styles.infoText}>
               <Text style={styles.infoTitle}>Verificación de Documentos</Text>
               <Text style={styles.infoDescription}>
@@ -56,7 +57,7 @@ export default function RevisionScreen() {
           </View>
 
           <View style={styles.infoItem}>
-            <Ionicons name="mail" size={24} color="#9b59b6" />
+            <InstitutionalIcon name="mail" size={24} color="#9b59b6"  strokeWidth={ICON_STROKE_WIDTH} />
             <View style={styles.infoText}>
               <Text style={styles.infoTitle}>Notificación por Email</Text>
               <Text style={styles.infoDescription}>
@@ -66,7 +67,7 @@ export default function RevisionScreen() {
           </View>
 
           <View style={styles.infoItem}>
-            <Ionicons name="shield-checkmark" size={24} color="#27ae60" />
+            <InstitutionalIcon name="shield-checkmark" size={24} color="#27ae60"  strokeWidth={ICON_STROKE_WIDTH} />
             <View style={styles.infoText}>
               <Text style={styles.infoTitle}>Activación de Cuenta</Text>
               <Text style={styles.infoDescription}>
@@ -108,7 +109,7 @@ export default function RevisionScreen() {
         </View>
 
         <View style={styles.contactContainer}>
-          <Ionicons name="help-circle" size={20} color="#3498db" />
+          <InstitutionalIcon name="help-circle" size={20} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.contactText}>
             ¿Tienes preguntas? Contáctanos en{' '}
             <Text style={styles.contactEmail}>soporte@mecanimovil.com</Text>

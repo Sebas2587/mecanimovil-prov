@@ -15,7 +15,6 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { ChecklistItemTemplate, ChecklistItemResponse, ChecklistInstance } from '@/services/checklistService';
 import { ChecklistSignatureModal, type SignatureMode } from './ChecklistSignatureModal';
@@ -26,6 +25,8 @@ import {
   getDisplayNameForCategoria,
   getDisplayNameForTipoPregunta
 } from '@/services/checklistService';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface ChecklistItemRendererProps {
   item: ChecklistItemTemplate;
@@ -550,7 +551,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           }}
         >
           {selected && (
-            <MaterialIcons name="check-circle" size={18} color="#ffffff" style={styles.optionCheckIcon} />
+            <InstitutionalIcon name="check-circle" size={18} color="#ffffff" style={styles.optionCheckIcon}  strokeWidth={ICON_STROKE_WIDTH} />
           )}
           <Text style={[
             styles.modernOptionText,
@@ -575,11 +576,11 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
             onPress={() => handleInputChange(star.toString())}
             style={styles.starButton}
           >
-            <MaterialIcons
+            <InstitutionalIcon
               name={star <= rating ? 'star' : 'star-border'}
               size={32}
               color={star <= rating ? '#ffc107' : '#dee2e6'}
-            />
+             strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
         ))}
         <Text style={styles.ratingText}>
@@ -613,11 +614,11 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                   />
                   {/* Badge de estado sincronización */}
                   <View style={[styles.photoSyncBadge, isSynced ? styles.photoSyncBadgeSynced : styles.photoSyncBadgePending]}>
-                    <MaterialIcons
+                    <InstitutionalIcon
                       name={isSynced ? 'cloud-done' : 'cloud-off'}
                       size={12}
                       color="#fff"
-                    />
+                     strokeWidth={ICON_STROKE_WIDTH} />
                   </View>
                   {/* Botón eliminar */}
                   <TouchableOpacity
@@ -625,7 +626,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                     onPress={() => handleDeletePhoto(photo, index)}
                     disabled={uploadingPhoto}
                   >
-                    <MaterialIcons name="delete" size={16} color="#fff" />
+                    <InstitutionalIcon name="delete" size={16} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.photoCardDesc} numberOfLines={2}>{desc}</Text>
@@ -779,7 +780,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                 onPress={handleTakePicture}
                 disabled={uploadingPhoto}
               >
-                <MaterialIcons name="camera-alt" size={22} color="#003459" />
+                <InstitutionalIcon name="camera-alt" size={22} color="#003459"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.modernPhotoButtonText}>Tomar Foto</Text>
               </TouchableOpacity>
 
@@ -788,7 +789,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                 onPress={handlePickFromGallery}
                 disabled={uploadingPhoto}
               >
-                <MaterialIcons name="photo-library" size={22} color="#003459" />
+                <InstitutionalIcon name="photo-library" size={22} color="#003459"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.modernPhotoButtonText}>Galería</Text>
               </TouchableOpacity>
             </View>
@@ -804,11 +805,11 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
             {/* Requisito de fotos mínimas */}
             {item.min_fotos != null && item.min_fotos > 0 && (
               <View style={styles.photoRequirementRow}>
-                <MaterialIcons
+                <InstitutionalIcon
                   name={photos.length >= item.min_fotos ? 'check-circle' : 'info'}
                   size={14}
                   color={photos.length >= item.min_fotos ? '#00C9A7' : '#6c757d'}
-                />
+                 strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[
                   styles.photoRequirement,
                   photos.length >= item.min_fotos && styles.photoRequirementMet,
@@ -892,7 +893,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                         <ActivityIndicator size="small" color="#fff" />
                       ) : (
                         <>
-                          <MaterialIcons name="cloud-upload" size={18} color="#fff" />
+                          <InstitutionalIcon name="cloud-upload" size={18} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
                           <Text style={styles.descriptionConfirmText}>Guardar foto</Text>
                         </>
                       )}
@@ -927,7 +928,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                   setShowSignatureModal(true);
                 }}
               >
-                <MaterialIcons name="gesture" size={22} color="#619FF0" />
+                <InstitutionalIcon name="gesture" size={22} color="#619FF0"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.modernSignatureButtonText}>
                   {signatureButtonLabel}
                 </Text>
@@ -952,11 +953,11 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
               handleInputChange(now);
             }}
           >
-            <MaterialIcons name="schedule" size={20} color="#6c757d" />
+            <InstitutionalIcon name="schedule" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modernSelectButtonText}>
               {inputValue ? new Date(inputValue).toLocaleString('es-ES') : 'Seleccionar fecha y hora'}
             </Text>
-            <MaterialIcons name="arrow-drop-down" size={20} color="#6c757d" />
+            <InstitutionalIcon name="arrow-drop-down" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
         );
 
@@ -972,7 +973,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
               handleInputChange({ lat: -34.6037, lng: -58.3816 });
             }}
           >
-            <MaterialIcons name="location-on" size={20} color="#6c757d" />
+            <InstitutionalIcon name="location-on" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modernSelectButtonText}>
               {inputValue ? 'Ubicación capturada ✓' : 'Obtener ubicación GPS'}
             </Text>
@@ -982,7 +983,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       case 'VEHICLE_DIAGRAM':
         return (
           <View style={styles.notImplementedContainer}>
-            <MaterialIcons name="directions-car" size={24} color="#ffc107" />
+            <InstitutionalIcon name="directions-car" size={24} color="#ffc107"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.notImplementedText}>
               Diagrama de vehículo - En desarrollo
             </Text>
@@ -1014,11 +1015,11 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
               ]}
               onPress={() => handleInputChange(true)}
             >
-              <MaterialIcons
+              <InstitutionalIcon
                 name="check-circle"
                 size={20}
                 color={inputValue === true ? '#fff' : '#28a745'}
-              />
+               strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={[
                 styles.modernBooleanButtonText,
                 inputValue === true && styles.modernBooleanButtonTextSelected,
@@ -1034,11 +1035,11 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
               ]}
               onPress={() => handleInputChange(false)}
             >
-              <MaterialIcons
+              <InstitutionalIcon
                 name="cancel"
                 size={20}
                 color={inputValue === false ? '#fff' : '#dc3545'}
-              />
+               strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={[
                 styles.modernBooleanButtonText,
                 inputValue === false && styles.modernBooleanButtonTextSelected,
@@ -1052,7 +1053,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       default:
         return (
           <View style={styles.unsupportedContainer}>
-            <MaterialIcons name="help" size={24} color="#6c757d" />
+            <InstitutionalIcon name="help" size={24} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
             <View>
               <Text style={styles.unsupportedText}>
                 Tipo: {item.tipo_pregunta}
@@ -1179,7 +1180,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         </View>
         {item.es_obligatorio_efectivo && (
           <View style={styles.requiredBadgeContainer}>
-            <MaterialIcons name="star" size={16} color="#dc3545" />
+            <InstitutionalIcon name="star" size={16} color="#dc3545"  strokeWidth={ICON_STROKE_WIDTH} />
           </View>
         )}
       </View>
@@ -1191,18 +1192,18 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         {/* FECHA Y HORA */}
         {item.tipo_pregunta === 'DATETIME' && (
           <TouchableOpacity style={styles.modernSelectButton}>
-            <MaterialIcons name="schedule" size={20} color="#619FF0" />
+            <InstitutionalIcon name="schedule" size={20} color="#619FF0"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modernSelectButtonText}>
               {inputValue ? new Date(inputValue).toLocaleString('es-ES') : 'Seleccionar fecha y hora'}
             </Text>
-            <MaterialIcons name="arrow-drop-down" size={20} color="#6c757d" />
+            <InstitutionalIcon name="arrow-drop-down" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
         )}
 
         {/* UBICACIÓN GPS */}
         {item.tipo_pregunta === 'LOCATION' && (
           <TouchableOpacity style={styles.modernSelectButton}>
-            <MaterialIcons name="location-on" size={20} color="#619FF0" />
+            <InstitutionalIcon name="location-on" size={20} color="#619FF0"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modernSelectButtonText}>
               {inputValue ? 'Ubicación capturada ✓' : 'Obtener ubicación GPS'}
             </Text>
@@ -1237,7 +1238,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           'SIGNATURE',
         ].includes(item.tipo_pregunta) && (
           <View style={styles.notImplementedContainer}>
-            <MaterialIcons name="warning" size={20} color="#ffc107" />
+            <InstitutionalIcon name="warning" size={20} color="#ffc107"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.notImplementedText}>
               Tipo de pregunta '{item.tipo_pregunta}' no implementado aún
             </Text>
@@ -1256,7 +1257,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>
-              <MaterialIcons name="save" size={18} color="#fff" />
+              <InstitutionalIcon name="save" size={18} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.modernSaveButtonText}>Guardar y Continuar</Text>
             </>
           )}
@@ -1266,7 +1267,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       {/* Indicador de completado */}
       {response?.completado && (
         <View style={styles.completedIndicator}>
-          <MaterialIcons name="check-circle" size={18} color="#28a745" />
+          <InstitutionalIcon name="check-circle" size={18} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.completedText}>Completado</Text>
         </View>
       )}

@@ -1,6 +1,7 @@
 /**
  * Modal: servicios del sistema y créditos por postulación (API).
- * Sin BlurView: evita altura 0 y capas invisibles en algunos dispositivos.
+ * Estética institucional / referencia Coinbase: canvas, hairline, radio xl, sombra editorial,
+ * números en mono, acento primario residual (spinner).
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -14,15 +15,14 @@ import {
   useWindowDimensions,
   Dimensions,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { SPACING, TYPOGRAPHY, COLORS } from '@/app/design-system/tokens';
+import { SPACING, TYPOGRAPHY, COLORS, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 import creditosService, { type ServicioCreditoTablaRow } from '@/services/creditosService';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+
+const I = COLORS.institutional;
 
 type Section = { title: string; data: ServicioCreditoTablaRow[] };
-
-const INK = '#00171F';
-const MUTED = '#5D6F75';
-const CARD_BG = '#FFFFFF';
 
 function buildSections(rows: ServicioCreditoTablaRow[]): Section[] {
   const byCr = new Map<number, ServicioCreditoTablaRow[]>();
@@ -50,29 +50,19 @@ function formatRef(clp: number): string {
 export interface TablaServiciosCreditosModalProps {
   visible: boolean;
   onClose: () => void;
-  primaryColor: string;
-  textPrimary: string;
-  textSecondary: string;
-  borderGlass: string;
 }
 
-export const TablaServiciosCreditosModal: React.FC<TablaServiciosCreditosModalProps> = ({
-  visible,
-  onClose,
-  primaryColor,
-  borderGlass,
-}) => {
+export const TablaServiciosCreditosModal: React.FC<TablaServiciosCreditosModalProps> = ({ visible, onClose }) => {
   const { height: winH } = useWindowDimensions();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filas, setFilas] = useState<ServicioCreditoTablaRow[]>([]);
 
-  const accent = primaryColor && primaryColor.length > 2 ? primaryColor : COLORS.primary?.[500] ?? '#003459';
   const sections = useMemo(() => buildSections(filas), [filas]);
 
   const screenH = winH > 120 ? winH : Dimensions.get('window').height;
   const maxH = Math.max(340, Math.min(screenH * 0.88, 620));
-  const listMaxH = Math.max(220, maxH - 180);
+  const listMaxH = Math.max(220, maxH - 200);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -96,17 +86,17 @@ export const TablaServiciosCreditosModal: React.FC<TablaServiciosCreditosModalPr
 
   const renderRow = useCallback(
     (item: ServicioCreditoTablaRow) => (
-      <View key={item.servicio_id} style={[styles.row, { borderBottomColor: borderGlass }]}>
-        <Text style={styles.nombre} numberOfLines={2}>
+      <View key={item.servicio_id} style={[styles.row, { borderBottomColor: I.hairline }]}>
+        <Text style={[styles.nombre, { color: I.ink }]} numberOfLines={2}>
           {item.nombre}
         </Text>
-        <Text style={styles.ref}>{formatRef(item.precio_referencia_clp)}</Text>
-        <View style={[styles.badge, { backgroundColor: accent + '22' }]}>
-          <Text style={[styles.badgeTxt, { color: accent }]}>{item.creditos_requeridos}</Text>
+        <Text style={[styles.ref, { color: I.body }]}>{formatRef(item.precio_referencia_clp)}</Text>
+        <View style={[styles.credPill, { backgroundColor: I.surfaceStrong }]}>
+          <Text style={[styles.credPillTxt, { color: I.ink }]}>{item.creditos_requeridos}</Text>
         </View>
       </View>
     ),
-    [accent, borderGlass]
+    []
   );
 
   return (
@@ -117,45 +107,58 @@ export const TablaServiciosCreditosModal: React.FC<TablaServiciosCreditosModalPr
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <View style={styles.backdrop}>
+      <View style={[styles.backdrop, { backgroundColor: withOpacity(I.ink, 0.48) }]}>
         <Pressable style={styles.dismissHit} onPress={onClose} accessibilityLabel="Cerrar" />
         <View style={[styles.sheetWrap, { maxHeight: maxH }]}>
           <View
             style={[
               styles.card,
               {
-                borderColor: borderGlass,
+                borderColor: I.hairline,
+                backgroundColor: I.canvas,
                 maxHeight: maxH,
                 minHeight: 280,
               },
+              SHADOWS.editorial,
             ]}
           >
             <View style={styles.inner}>
               <View style={styles.header}>
-                <Text style={styles.title}>Servicios y créditos</Text>
-                <Pressable onPress={onClose} hitSlop={14} style={styles.closeBtn}>
-                  <MaterialIcons name="close" size={26} color={MUTED} />
+                <View style={styles.headerTextCol}>
+                  <View style={[styles.kickerPill, { backgroundColor: I.surfaceStrong }]}>
+                    <Text style={[styles.kickerPillTxt, { color: I.muted }]}>REFERENCIA</Text>
+                  </View>
+                  <Text style={[styles.title, { color: I.ink }]}>Servicios y créditos</Text>
+                </View>
+                <Pressable
+                  onPress={onClose}
+                  hitSlop={12}
+                  style={[styles.closePlate, { backgroundColor: I.surfaceStrong }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cerrar"
+                >
+                  <InstitutionalIcon name="close" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
                 </Pressable>
               </View>
-              <Text style={styles.sub}>
-                Precio referencia es orientativo en el sistema. Al postular se descuentan los créditos indicados.
+              <Text style={[styles.sub, { color: I.body }]}>
+                El precio de referencia es orientativo. Al postular se descuentan los créditos indicados.
               </Text>
-              <View style={[styles.tableHead, { borderBottomColor: borderGlass }]}>
-                <Text style={[styles.th, { flex: 1 }]}>Servicio</Text>
-                <Text style={[styles.th, { width: 88 }]}>Ref.</Text>
-                <Text style={[styles.th, { width: 36, textAlign: 'right' }]}>Cr.</Text>
+              <View style={[styles.tableHead, { borderBottomColor: I.hairline }]}>
+                <Text style={[styles.th, { flex: 1, color: I.muted }]}>Servicio</Text>
+                <Text style={[styles.th, { width: 92, color: I.muted }]}>Ref. CLP</Text>
+                <Text style={[styles.th, { width: 40, textAlign: 'right', color: I.muted }]}>Cr.</Text>
               </View>
               {loading ? (
                 <View style={[styles.centerPad, { minHeight: listMaxH * 0.4 }]}>
-                  <ActivityIndicator size="large" color={accent} />
+                  <ActivityIndicator size="large" color={I.primary} />
                 </View>
               ) : error ? (
                 <View style={[styles.centerPad, { minHeight: listMaxH * 0.4 }]}>
-                  <Text style={styles.errorText}>{error}</Text>
+                  <Text style={[styles.errorText, { color: I.semanticDown }]}>{error}</Text>
                 </View>
               ) : filas.length === 0 ? (
                 <View style={[styles.centerPad, { minHeight: listMaxH * 0.4 }]}>
-                  <Text style={styles.empty}>No hay servicios cargados.</Text>
+                  <Text style={[styles.empty, { color: I.muted }]}>No hay servicios cargados.</Text>
                 </View>
               ) : (
                 <ScrollView
@@ -164,12 +167,23 @@ export const TablaServiciosCreditosModal: React.FC<TablaServiciosCreditosModalPr
                   showsVerticalScrollIndicator
                   keyboardShouldPersistTaps="handled"
                 >
-                  {sections.map((section) => (
+                  {sections.map((section, sIdx) => (
                     <View key={section.title}>
-                      <View style={styles.sectionHead}>
-                        <MaterialIcons name="layers" size={16} color={accent} style={styles.sectionHeadIcon} />
-                        <Text style={styles.sectionTitle}>{section.title}</Text>
-                        <Text style={styles.sectionCount}>({section.data.length})</Text>
+                      <View
+                        style={[
+                          styles.sectionHead,
+                          {
+                            backgroundColor: I.surfaceSoft,
+                            borderColor: I.hairline,
+                            marginTop: sIdx > 0 ? SPACING.sm : SPACING.xs,
+                          },
+                        ]}
+                      >
+                        <View style={[styles.sectionIconPlate, { backgroundColor: I.surfaceStrong }]}>
+                          <InstitutionalIcon name="layers" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                        </View>
+                        <Text style={[styles.sectionTitle, { color: I.ink }]}>{section.title}</Text>
+                        <Text style={[styles.sectionCount, { color: I.muted }]}>({section.data.length})</Text>
                       </View>
                       {section.data.map((item) => renderRow(item))}
                     </View>
@@ -187,7 +201,6 @@ export const TablaServiciosCreditosModal: React.FC<TablaServiciosCreditosModalPr
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 23, 31, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: SPACING.md,
@@ -200,66 +213,139 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 440,
     zIndex: 1,
-    elevation: 24,
+    elevation: 8,
   },
   card: {
     width: '100%',
-    borderRadius: 20,
-    backgroundColor: CARD_BG,
-    borderWidth: 1,
+    borderRadius: BORDERS.radius.xl,
+    borderWidth: BORDERS.width.thin,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 12,
+    elevation: 4,
   },
   inner: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.lg,
     width: '100%',
   },
-  scrollContent: { paddingBottom: SPACING.lg },
+  scrollContent: { paddingBottom: SPACING.md },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
+    gap: SPACING.sm,
   },
-  title: { fontSize: TYPOGRAPHY.fontSize.lg, fontWeight: '800', color: INK, flex: 1, paddingRight: 8 },
-  sub: { fontSize: TYPOGRAPHY.fontSize.xs, lineHeight: 18, color: MUTED, marginBottom: SPACING.sm },
-  closeBtn: { padding: 4 },
-  tableHead: { flexDirection: 'row', alignItems: 'center', paddingBottom: 8, borderBottomWidth: 1 },
-  th: { fontSize: 10, fontWeight: '700', color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 },
+  headerTextCol: { flex: 1, minWidth: 0 },
+  kickerPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+    marginBottom: SPACING.xs,
+  },
+  kickerPillTxt: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+  },
+  title: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    lineHeight: TYPOGRAPHY.fontSize.lg * 1.25,
+  },
+  sub: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: 20,
+    marginBottom: SPACING.md,
+  },
+  closePlate: {
+    width: 40,
+    height: 40,
+    borderRadius: BORDERS.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tableHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: SPACING.sm,
+    borderBottomWidth: BORDERS.width.thin,
+  },
+  th: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
+    textTransform: 'uppercase',
+  },
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    marginTop: 6,
-    backgroundColor: 'rgba(0, 52, 89, 0.06)',
-    borderRadius: 10,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    gap: SPACING.sm,
   },
-  sectionHeadIcon: { marginRight: 8 },
-  sectionTitle: { fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '800', color: INK, flex: 1 },
-  sectionCount: { fontSize: TYPOGRAPHY.fontSize.xs, fontWeight: '600', color: MUTED },
+  sectionIconPlate: {
+    width: 32,
+    height: 32,
+    borderRadius: BORDERS.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+  },
+  sectionCount: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: SPACING.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  nombre: { flex: 1, fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '500', color: INK, paddingRight: 8 },
-  ref: { width: 88, fontSize: TYPOGRAPHY.fontSize.xs, textAlign: 'right', color: MUTED },
-  badge: { width: 36, borderRadius: 10, paddingVertical: 4, alignItems: 'center' },
-  badgeTxt: { fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '800' },
+  nombre: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
+    paddingRight: SPACING.sm,
+  },
+  ref: {
+    width: 92,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    textAlign: 'right',
+  },
+  credPill: {
+    width: 40,
+    borderRadius: BORDERS.radius.pill,
+    paddingVertical: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  credPillTxt: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
+  },
   centerPad: { paddingVertical: SPACING.lg, alignItems: 'center', justifyContent: 'center' },
-  empty: { textAlign: 'center', fontSize: TYPOGRAPHY.fontSize.sm, color: MUTED },
+  empty: { textAlign: 'center', fontSize: TYPOGRAPHY.fontSize.sm },
   errorText: {
     textAlign: 'center',
-    color: COLORS.error?.main ?? '#E64A4A',
     paddingHorizontal: SPACING.sm,
     fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    lineHeight: 20,
   },
 });

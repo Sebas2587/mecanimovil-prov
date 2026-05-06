@@ -10,11 +10,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { onboardingAPI, tallerAPI, mecanicoAPI, documentosAPI, especialidadesAPI, authAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import { Buffer } from 'buffer';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export default function FinalizarOnboardingScreen() {
   const { tipo, especialidades, marcas, documentos, ...otherParams } = useLocalSearchParams();
@@ -796,7 +797,7 @@ export default function FinalizarOnboardingScreen() {
         </View>
 
         <View style={styles.infoContainer}>
-          <Ionicons name="information-circle" size={24} color="#3498db" />
+          <InstitutionalIcon name="information-circle" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
           <View style={styles.infoTexto}>
             <Text style={styles.infoTitle}>¿Qué sigue?</Text>
             <Text style={styles.infoDescription}>

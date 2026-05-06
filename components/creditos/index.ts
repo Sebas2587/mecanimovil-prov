@@ -1,4 +1,5 @@
 export { SaldoCreditos } from './SaldoCreditos';
+export { SaldoBenefitGrid } from './SaldoBenefitGrid';
 export { AlertaCreditosBajos } from './AlertaCreditosBajos';
 export { PaqueteCard } from './PaqueteCard';
 export { HistorialCompras } from './HistorialCompras';

@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useChecklist } from '@/hooks/useChecklist';
@@ -19,6 +18,8 @@ import { ChecklistSignatureModal } from '@/components/checklist/ChecklistSignatu
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface ChecklistContainerProps {
   ordenId: number;
@@ -300,7 +301,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <MaterialIcons name="error" size={64} color={COLORS.error.main} />
+          <InstitutionalIcon name="error" size={64} color={COLORS.error.main}  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.errorTitle}>Error</Text>
           <Text style={styles.errorMessage}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => onCancel?.()}>
@@ -315,7 +316,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <MaterialIcons name="assignment" size={64} color={COLORS.neutral.gray[400]} />
+          <InstitutionalIcon name="assignment" size={64} color={COLORS.neutral.gray[400]}  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.errorTitle}>No hay checklist disponible</Text>
           <Text style={styles.errorMessage}>
             Este servicio no tiene checklist configurado. Puedes continuar con el servicio normalmente.
@@ -337,7 +338,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleCancel} style={styles.closeButton}>
-          <MaterialIcons name="close" size={24} color={COLORS.neutral.white} />
+          <InstitutionalIcon name="close" size={24} color={COLORS.neutral.white}  strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
 
         <View style={styles.headerContent}>
@@ -371,11 +372,11 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
       {/* Offline/Sync Status */}
       {(isOffline || pendingSync) && (
         <View style={styles.statusBanner}>
-          <MaterialIcons
+          <InstitutionalIcon
             name={isOffline ? "cloud-off" : "sync"}
             size={16}
             color={COLORS.warning.dark}
-          />
+           strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.statusText}>
             {isOffline ? 'Modo offline' : 'Pendiente de sincronización'}
           </Text>
@@ -395,14 +396,14 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         {canStart && (
           <View style={styles.startCard}>
             <View style={styles.startIconContainer}>
-              <MaterialIcons name="play-arrow" size={40} color={COLORS.primary[500]} />
+              <InstitutionalIcon name="play-arrow" size={40} color={COLORS.primary[500]}  strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <Text style={styles.startTitle}>Listo para iniciar</Text>
             <Text style={styles.startDescription}>
               Presiona "Iniciar" para comenzar con el checklist de pre-servicio.
             </Text>
             <TouchableOpacity style={styles.startButton} onPress={handleStart}>
-              <MaterialIcons name="play-arrow" size={18} color={COLORS.neutral.white} />
+              <InstitutionalIcon name="play-arrow" size={18} color={COLORS.neutral.white}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.startButtonText}>Iniciar Checklist</Text>
             </TouchableOpacity>
           </View>
@@ -411,14 +412,14 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         {canResume && (
           <View style={styles.resumeCard}>
             <View style={styles.resumeIconContainer}>
-              <MaterialIcons name="play-arrow" size={40} color={COLORS.warning.dark} />
+              <InstitutionalIcon name="play-arrow" size={40} color={COLORS.warning.dark}  strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <Text style={styles.resumeTitle}>Checklist pausado</Text>
             <Text style={styles.resumeDescription}>
               Puedes continuar donde lo dejaste.
             </Text>
             <TouchableOpacity style={styles.resumeButton} onPress={handleResume}>
-              <MaterialIcons name="play-circle-filled" size={18} color={COLORS.text.onWarning} />
+              <InstitutionalIcon name="play-circle-filled" size={18} color={COLORS.text.onWarning}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.resumeButtonText}>Continuar</Text>
             </TouchableOpacity>
           </View>
@@ -452,7 +453,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                     {/* Checkbox */}
                     <View style={[styles.checkbox, isCompleted && styles.checkboxCompleted]}>
                       {isCompleted && (
-                        <MaterialIcons name="check" size={20} color={COLORS.neutral.white} />
+                        <InstitutionalIcon name="check" size={20} color={COLORS.neutral.white}  strokeWidth={ICON_STROKE_WIDTH} />
                       )}
                     </View>
 
@@ -471,12 +472,12 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                     {/* Badge obligatorio si aplica */}
                     {item.es_obligatorio_efectivo && (
                       <View style={styles.requiredBadge}>
-                        <MaterialIcons name="star" size={14} color={COLORS.error.main} />
+                        <InstitutionalIcon name="star" size={14} color={COLORS.error.main}  strokeWidth={ICON_STROKE_WIDTH} />
                       </View>
                     )}
 
                     {/* Icono de flecha */}
-                    <MaterialIcons name="chevron-right" size={24} color={COLORS.neutral.gray[400]} />
+                    <InstitutionalIcon name="chevron-right" size={24} color={COLORS.neutral.gray[400]}  strokeWidth={ICON_STROKE_WIDTH} />
                   </TouchableOpacity>
                 );
               })}
@@ -487,7 +488,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         {isCompleted && (
           <View style={styles.completedCard}>
             <View style={styles.completedIconContainer}>
-              <MaterialIcons name="check-circle" size={64} color={COLORS.success.main} />
+              <InstitutionalIcon name="check-circle" size={64} color={COLORS.success.main}  strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <Text style={styles.completedTitle}>Checklist Completado</Text>
             <Text style={styles.completedDescription}>
@@ -502,7 +503,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
               style={[styles.finalizeButton, styles.completedFinalizeButton]}
               onPress={() => setShowCompletedView(true)}
             >
-              <MaterialIcons name="visibility" size={20} color={COLORS.neutral.white} />
+              <InstitutionalIcon name="visibility" size={20} color={COLORS.neutral.white}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.finalizeButtonText}>Ver checklist completado</Text>
             </TouchableOpacity>
           </View>
@@ -522,7 +523,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
               <ActivityIndicator size="small" color={COLORS.neutral.white} />
             ) : (
               <>
-                <MaterialIcons name="done-all" size={20} color={COLORS.neutral.white} />
+                <InstitutionalIcon name="done-all" size={20} color={COLORS.neutral.white}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.finalizeButtonText}>Finalizar Checklist</Text>
               </>
             )}

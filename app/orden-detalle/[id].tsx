@@ -11,13 +11,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { ordenesProveedorService, type Orden } from '@/services/ordenesProveedor';
 import { checklistService, type ChecklistInstance } from '@/services/checklistService';
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export default function OrdenDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -452,7 +453,7 @@ export default function OrdenDetalleScreen() {
         <SafeAreaView style={styles.headerSafeArea}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={24} color="#2A4065" />
+              <InstitutionalIcon name="arrow-back" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>Cargando...</Text>
@@ -474,7 +475,7 @@ export default function OrdenDetalleScreen() {
         <SafeAreaView style={styles.headerSafeArea}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={24} color="#2A4065" />
+              <InstitutionalIcon name="arrow-back" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>Error</Text>
@@ -500,7 +501,7 @@ export default function OrdenDetalleScreen() {
       <SafeAreaView style={styles.headerSafeArea}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={24} color="#2A4065" />
+            <InstitutionalIcon name="arrow-back" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
           <View style={styles.titleContainer}>
             <Text style={styles.title}>
@@ -518,23 +519,23 @@ export default function OrdenDetalleScreen() {
         {/* Información del cliente */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="person" size={24} color="#2A4065" />
+            <InstitutionalIcon name="person" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.sectionTitle}>Información del Cliente</Text>
           </View>
           <View style={styles.infoRow}>
-            <MaterialIcons name="person" size={20} color="#6c757d" />
+            <InstitutionalIcon name="person" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.infoText}>
               {orden.cliente_detail.nombre} {orden.cliente_detail.apellido || ''}
             </Text>
           </View>
           <TouchableOpacity style={styles.infoRow} onPress={handleLlamarCliente}>
-            <MaterialIcons name="phone" size={20} color="#28a745" />
+            <InstitutionalIcon name="phone" size={20} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.infoText, styles.linkText]}>{orden.cliente_detail.telefono}</Text>
-            <MaterialIcons name="call" size={16} color="#28a745" />
+            <InstitutionalIcon name="call" size={16} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
           {orden.cliente_detail.email && (
             <View style={styles.infoRow}>
-              <MaterialIcons name="email" size={20} color="#6c757d" />
+              <InstitutionalIcon name="email" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>{orden.cliente_detail.email}</Text>
             </View>
           )}
@@ -543,7 +544,7 @@ export default function OrdenDetalleScreen() {
         {/* Información del vehículo */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="directions-car" size={24} color="#2A4065" />
+            <InstitutionalIcon name="directions-car" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.sectionTitle}>Vehículo del Cliente</Text>
           </View>
           <View style={styles.vehicleInfoContainer}>
@@ -586,11 +587,11 @@ export default function OrdenDetalleScreen() {
         {/* Ubicación del servicio */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons 
+            <InstitutionalIcon 
               name={orden.tipo_servicio === 'domicilio' ? 'home' : 'business'} 
               size={24} 
               color="#2A4065" 
-            />
+             strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.sectionTitle}>
               {orden.tipo_servicio === 'domicilio' ? 'Servicio a Domicilio' : 'Servicio en Taller'}
             </Text>
@@ -599,15 +600,15 @@ export default function OrdenDetalleScreen() {
           {orden.tipo_servicio === 'domicilio' && orden.ubicacion_servicio ? (
             <TouchableOpacity style={styles.addressContainer} onPress={handleAbrirMapa}>
               <View style={styles.infoRow}>
-                <MaterialIcons name="location-on" size={20} color="#dc3545" />
+                <InstitutionalIcon name="location-on" size={20} color="#dc3545"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[styles.infoText, styles.linkText]}>{orden.ubicacion_servicio}</Text>
-                <MaterialIcons name="open-in-new" size={16} color="#dc3545" />
+                <InstitutionalIcon name="open-in-new" size={16} color="#dc3545"  strokeWidth={ICON_STROKE_WIDTH} />
               </View>
               <Text style={styles.addressHint}>Toca para abrir en Google Maps</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.infoRow}>
-              <MaterialIcons name="business" size={20} color="#6c757d" />
+              <InstitutionalIcon name="business" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>
                 El cliente debe acudir a tu taller
               </Text>
@@ -618,7 +619,7 @@ export default function OrdenDetalleScreen() {
         {/* Servicios solicitados */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="build" size={24} color="#2A4065" />
+            <InstitutionalIcon name="build" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.sectionTitle}>Servicios Solicitados</Text>
           </View>
           {orden.lineas.map((linea, index) => (
@@ -641,12 +642,12 @@ export default function OrdenDetalleScreen() {
         {/* Fecha y hora del servicio */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="schedule" size={24} color="#2A4065" />
+            <InstitutionalIcon name="schedule" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.sectionTitle}>Programación del Servicio</Text>
           </View>
           <View style={styles.scheduleContainer}>
             <View style={styles.scheduleItem}>
-              <MaterialIcons name="event" size={20} color="#007bff" />
+              <InstitutionalIcon name="event" size={20} color="#007bff"  strokeWidth={ICON_STROKE_WIDTH} />
               <View>
                 <Text style={styles.scheduleLabel}>Fecha</Text>
                 <Text style={styles.scheduleValue}>
@@ -655,7 +656,7 @@ export default function OrdenDetalleScreen() {
               </View>
             </View>
             <View style={styles.scheduleItem}>
-              <MaterialIcons name="access-time" size={20} color="#007bff" />
+              <InstitutionalIcon name="access-time" size={20} color="#007bff"  strokeWidth={ICON_STROKE_WIDTH} />
               <View>
                 <Text style={styles.scheduleLabel}>Hora</Text>
                 <Text style={styles.scheduleValue}>
@@ -669,12 +670,12 @@ export default function OrdenDetalleScreen() {
         {/* Información de pago */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="payment" size={24} color="#2A4065" />
+            <InstitutionalIcon name="payment" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.sectionTitle}>Información de Pago</Text>
           </View>
           {orden.metodo_pago && (
             <View style={styles.infoRow}>
-              <MaterialIcons name="credit-card" size={20} color="#6c757d" />
+              <InstitutionalIcon name="credit-card" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>Método: {orden.metodo_pago}</Text>
             </View>
           )}
@@ -690,7 +691,7 @@ export default function OrdenDetalleScreen() {
         {orden.notas_cliente && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <MaterialIcons name="note" size={24} color="#2A4065" />
+              <InstitutionalIcon name="note" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.sectionTitle}>Notas del Cliente</Text>
             </View>
             <Text style={styles.notasText}>{orden.notas_cliente}</Text>
@@ -701,7 +702,7 @@ export default function OrdenDetalleScreen() {
         {orden.notas_proveedor && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <MaterialIcons name="note" size={24} color="#2A4065" />
+              <InstitutionalIcon name="note" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.sectionTitle}>Notas del Proveedor</Text>
             </View>
             <Text style={styles.notasText}>{orden.notas_proveedor}</Text>
@@ -712,7 +713,7 @@ export default function OrdenDetalleScreen() {
         {orden.motivo_rechazo && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <MaterialIcons name="error" size={24} color="#dc3545" />
+              <InstitutionalIcon name="error" size={24} color="#dc3545"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={[styles.sectionTitle, { color: '#dc3545' }]}>Motivo de Rechazo</Text>
             </View>
             <Text style={styles.motivoRechazo}>{orden.motivo_rechazo}</Text>
@@ -730,7 +731,7 @@ export default function OrdenDetalleScreen() {
                 onPress={handleRechazar}
                 disabled={procesando}
               >
-                <MaterialIcons name="close" size={20} color="#fff" />
+                <InstitutionalIcon name="close" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.actionButtonText}>Rechazar</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -738,7 +739,7 @@ export default function OrdenDetalleScreen() {
                 onPress={handleAceptar}
                 disabled={procesando}
               >
-                <MaterialIcons name="check" size={20} color="#fff" />
+                <InstitutionalIcon name="check" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.actionButtonText}>Aceptar</Text>
               </TouchableOpacity>
             </>
@@ -749,7 +750,7 @@ export default function OrdenDetalleScreen() {
               onPress={handleIniciarServicio}
               disabled={procesando}
             >
-              <MaterialIcons name="play-arrow" size={20} color="#fff" />
+              <InstitutionalIcon name="play-arrow" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.actionButtonText}>Iniciar Servicio</Text>
             </TouchableOpacity>
           )}
@@ -759,7 +760,7 @@ export default function OrdenDetalleScreen() {
               onPress={handleCompletarServicio}
               disabled={procesando}
             >
-              <MaterialIcons name="check-circle" size={20} color="#fff" />
+              <InstitutionalIcon name="check-circle" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.actionButtonText}>Completar Servicio</Text>
             </TouchableOpacity>
           )}
@@ -775,7 +776,7 @@ export default function OrdenDetalleScreen() {
                   onPress={botonChecklist.onPress}
                   disabled={procesando}
                 >
-                  <MaterialIcons name={botonChecklist.icon as any} size={20} color="#fff" />
+                  <InstitutionalIcon name={botonChecklist.icon as any} size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.actionButtonText}>{botonChecklist.texto}</Text>
                 </TouchableOpacity>
               );

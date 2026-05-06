@@ -1,41 +1,64 @@
-// Fallback for using MaterialIcons on Android and web.
-
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
-import { ComponentProps } from 'react';
-import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
-
-type IconMapping = Record<SymbolViewProps['name'], ComponentProps<typeof MaterialIcons>['name']>;
-type IconSymbolName = keyof typeof MAPPING;
-
 /**
- * Add your SF Symbols to Material Icons mappings here.
- * - see Material Icons in the [Icons Directory](https://icons.expo.fyi).
- * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
+ * Iconos de plantilla y SF-compat: **solo Lucide** (misma familia que el resto de la app).
+ * Nombres `name` conservan claves tipo SF Symbols por compatibilidad con llamadas existentes.
  */
+import {
+  AlertTriangle,
+  Building2,
+  CalendarDays,
+  Car,
+  Check,
+  ChevronRight,
+  Clock,
+  Code2,
+  Home,
+  Phone,
+  Send,
+  User,
+  X,
+} from 'lucide-react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+
 const MAPPING = {
-  'house.fill': 'home',
-  'paperplane.fill': 'send',
-  'chevron.left.forwardslash.chevron.right': 'code',
-  'chevron.right': 'chevron-right',
-} as IconMapping;
+  'house.fill': Home,
+  'paperplane.fill': Send,
+  'chevron.left.forwardslash.chevron.right': Code2,
+  'chevron.right': ChevronRight,
+  'exclamationmark.triangle.fill': AlertTriangle,
+  'person.fill': User,
+  'phone.fill': Phone,
+  'car.fill': Car,
+  calendar: CalendarDays,
+  clock: Clock,
+  xmark: X,
+  checkmark: Check,
+  'clock.fill': Clock,
+  'building.2.fill': Building2,
+} as const;
 
-/**
- * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
- * This ensures a consistent look across platforms, and optimal resource usage.
- * Icon `name`s are based on SF Symbols and require manual mapping to Material Icons.
- */
+export type IconSymbolName = keyof typeof MAPPING;
+
 export function IconSymbol({
   name,
   size = 24,
   color,
   style,
+  weight: _weight,
 }: {
   name: IconSymbolName;
   size?: number;
-  color: string | OpaqueColorValue;
-  style?: StyleProp<TextStyle>;
-  weight?: SymbolWeight;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+  weight?: string;
 }) {
-  return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
+  const Cmp = MAPPING[name];
+  return (
+    <Cmp
+      color={color}
+      size={size}
+      strokeWidth={ICON_STROKE_WIDTH}
+      style={style}
+    />
+  );
 }

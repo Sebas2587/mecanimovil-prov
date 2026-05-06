@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import connectionService from '@/services/connectionService';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface ConnectionStatusProps {
   showDetails?: boolean;
@@ -27,11 +28,11 @@ export default function ConnectionStatus({ showDetails = false }: ConnectionStat
   return (
     <View style={styles.container}>
       <View style={styles.statusContainer}>
-        <MaterialIcons
+        <InstitutionalIcon
           name={isConnected ? 'wifi' : 'wifi-off'}
           size={16}
           color={isConnected ? '#4CAF50' : '#F44336'}
-        />
+         strokeWidth={ICON_STROKE_WIDTH} />
         <Text style={[styles.statusText, { color: isConnected ? '#4CAF50' : '#F44336' }]}>
           {isConnected ? 'En línea' : 'Desconectado'}
         </Text>

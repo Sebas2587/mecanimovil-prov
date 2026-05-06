@@ -10,10 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { onboardingAPI, tallerAPI, mecanicoAPI, especialidadesAPI, authAPI, serviciosAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export default function FinalizarBasicoScreen() {
   const { tipo, especialidades, marcas, servicios_seleccionados, ...otherParams } = useLocalSearchParams();
@@ -635,11 +636,11 @@ export default function FinalizarBasicoScreen() {
         <View style={styles.resumenContainer}>
           <View style={styles.seccionResumen}>
             <View style={styles.seccionHeader}>
-              <Ionicons 
+              <InstitutionalIcon 
                 name={datosCompletos.tipo === 'taller' ? 'business' : 'person'} 
                 size={24} 
                 color="#3498db" 
-              />
+               strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.seccionTitulo}>
                 {datosCompletos.tipo === 'taller' ? 'Información del Taller' : 'Información del Mecánico'}
               </Text>
@@ -691,7 +692,7 @@ export default function FinalizarBasicoScreen() {
 
           <View style={styles.seccionResumen}>
             <View style={styles.seccionHeader}>
-              <Ionicons name="build" size={24} color="#27ae60" />
+              <InstitutionalIcon name="build" size={24} color="#27ae60"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.seccionTitulo}>Especialidades</Text>
             </View>
             <Text style={styles.estadisticaValor}>
@@ -701,7 +702,7 @@ export default function FinalizarBasicoScreen() {
 
           <View style={styles.seccionResumen}>
             <View style={styles.seccionHeader}>
-              <Ionicons name="car" size={24} color="#e74c3c" />
+              <InstitutionalIcon name="car" size={24} color="#e74c3c"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.seccionTitulo}>Marcas de Vehículos</Text>
             </View>
             <Text style={styles.estadisticaValor}>
@@ -711,7 +712,7 @@ export default function FinalizarBasicoScreen() {
         </View>
 
         <View style={styles.infoContainer}>
-          <Ionicons name="information-circle" size={24} color="#3498db" />
+          <InstitutionalIcon name="information-circle" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
           <View style={styles.infoTexto}>
             <Text style={styles.infoTitle}>¿Qué sigue?</Text>
             <Text style={styles.infoDescription}>

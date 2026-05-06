@@ -10,7 +10,6 @@ import {
   Platform,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +18,8 @@ import { SolicitudCard } from '@/components/solicitudes/SolicitudCard';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 type FiltroUrgencia = 'todos' | 'urgente' | 'normal';
 
@@ -163,11 +164,11 @@ export default function SolicitudesDisponiblesScreen() {
                   onPress={() => setFiltroUrgencia('urgente')}
                   activeOpacity={0.85}
                 >
-                  <MaterialIcons
+                  <InstitutionalIcon
                     name="priority-high"
                     size={16}
                     color={filtroUrgencia === 'urgente' ? '#FFFFFF' : textPrimary}
-                  />
+                   strokeWidth={ICON_STROKE_WIDTH} />
                   <Text
                     style={[
                       styles.filtroChipText,
@@ -238,7 +239,7 @@ export default function SolicitudesDisponiblesScreen() {
               <BlurView intensity={blurIntensity} tint={blurTint} style={styles.emptyGlassBlur}>
                 <View style={styles.emptyInner}>
                   <View style={[styles.emptyIconCircle, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.55)' }]}>
-                    <MaterialIcons name="inbox" size={40} color={textSubtle} />
+                    <InstitutionalIcon name="inbox" size={40} color={textSubtle}  strokeWidth={ICON_STROKE_WIDTH} />
                   </View>
                   <Text style={[styles.emptyTitle, { color: textPrimary }]}>Sin solicitudes</Text>
                   <Text style={[styles.emptySub, { color: textMuted }]}>
@@ -251,7 +252,7 @@ export default function SolicitudesDisponiblesScreen() {
                     onPress={onRefresh}
                     activeOpacity={0.88}
                   >
-                    <MaterialIcons name="refresh" size={20} color={primary500} />
+                    <InstitutionalIcon name="refresh" size={20} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
                     <Text style={[styles.refreshGlassBtnText, { color: primary500 }]}>Actualizar</Text>
                   </TouchableOpacity>
                 </View>

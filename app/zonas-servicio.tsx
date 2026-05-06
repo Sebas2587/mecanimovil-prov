@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,50 +8,30 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
-  Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { Stack, router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import serviceAreasApi, { ServiceArea, ServiceAreaStats } from '@/services/serviceAreasApi';
-import { useTheme } from '@/app/design-system/theme/useTheme';
+import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 // Interfaces TypeScript
 
 
 export default function ZonasServicioScreen() {
   const { estadoProveedor } = useAuth();
-  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([]);
   const [stats, setStats] = useState<ServiceAreaStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showStatsModal, setShowStatsModal] = useState(false);
 
-  // Obtener valores seguros del tema con fallbacks
-  const safeColors = useMemo(() => {
-    return theme?.colors || COLORS || {};
-  }, [theme]);
-
-  const safeSpacing = useMemo(() => {
-    return theme?.spacing || SPACING || {};
-  }, [theme]);
-
-  const safeTypography = useMemo(() => {
-    return theme?.typography || TYPOGRAPHY || {};
-  }, [theme]);
-
-  const safeShadows = useMemo(() => {
-    return theme?.shadows || SHADOWS || {};
-  }, [theme]);
-
-  const safeBorders = useMemo(() => {
-    return theme?.borders || BORDERS || {};
-  }, [theme]);
+  const I = COLORS.institutional;
 
   // Verificar que solo los mecánicos a domicilio puedan acceder
   useEffect(() => {
@@ -186,71 +166,40 @@ export default function ZonasServicioScreen() {
     setRefreshing(false);
   }, [loadServiceAreas, loadStats]);
 
-  // Obtener colores del sistema de diseño
-  const bgPaper = (safeColors?.background as any)?.paper || (safeColors?.base as any)?.white || '#FFFFFF';
-  const bgDefault = (safeColors?.background as any)?.default || '#F5F7F8';
-  const textPrimary = safeColors?.text?.primary || (safeColors?.neutral as any)?.inkBlack || '#00171F';
-  const textSecondary = safeColors?.text?.secondary || ((safeColors?.neutral as any)?.gray as any)?.[800] || '#3E4F53';
-  const textTertiary = safeColors?.text?.tertiary || ((safeColors?.neutral as any)?.gray as any)?.[700] || '#5D6F75';
-  const borderLight = (safeColors?.border as any)?.light || ((safeColors?.neutral as any)?.gray as any)?.[200] || '#D7DFE3';
-  const primaryObj = safeColors?.primary as any;
-  const successObj = safeColors?.success as any;
-  const errorObj = safeColors?.error as any;
-  const warningObj = safeColors?.warning as any;
-  const infoObj = safeColors?.info as any;
-  const accentObj = safeColors?.accent as any;
-  const primary500 = primaryObj?.['500'] || (safeColors?.accent as any)?.['500'] || '#003459';
-  const primaryLight = primaryObj?.['50'] || (safeColors?.accent as any)?.['50'] || '#E6F0F5';
-  const success500 = successObj?.main || successObj?.['500'] || '#00C9A7';
-  const successLight = successObj?.light || successObj?.['50'] || '#E6F7F4';
-  const error500 = errorObj?.main || errorObj?.['500'] || '#FF6B6B';
-  const errorLight = errorObj?.light || errorObj?.['50'] || '#FFEBEE';
-  const warning500 = warningObj?.main || warningObj?.['500'] || '#FFB84D';
-  const info500 = infoObj?.main || infoObj?.['500'] || accentObj?.['500'] || '#007EA7';
-  const infoLight = infoObj?.light || infoObj?.['50'] || primaryLight || '#E6F5F9';
-  const containerHorizontal = safeSpacing?.container?.horizontal || safeSpacing?.content?.horizontal || 18;
-  const spacingXs = safeSpacing?.xs || 4;
-  const spacingSm = safeSpacing?.sm || 8;
-  const spacingMd = safeSpacing?.md || 16;
-  const spacingLg = safeSpacing?.lg || 24;
-  const cardPadding = safeSpacing?.cardPadding || spacingMd;
-  const cardGap = safeSpacing?.cardGap || spacingSm + 4;
-  const radiusXl = safeBorders?.radius?.xl || 16;
-  const fontSizeBase = safeTypography?.fontSize?.base || 14;
-  const fontSizeSm = safeTypography?.fontSize?.sm || 12;
-  const fontSizeMd = safeTypography?.fontSize?.md || 16;
-  const fontSizeLg = safeTypography?.fontSize?.lg || 18;
-  const fontWeightMedium = safeTypography?.fontWeight?.medium || '500';
-  const fontWeightSemibold = safeTypography?.fontWeight?.semibold || '600';
-  const fontWeightBold = safeTypography?.fontWeight?.bold || '700';
-  const shadowSm = safeShadows?.sm || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-  const shadowMd = safeShadows?.md || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
+  const bgPaper = I.canvas;
+  const bgDefault = I.surfaceSoft;
+  const textPrimary = I.ink;
+  const textSecondary = I.body;
+  const textTertiary = I.muted;
+  const borderLight = I.hairline;
+  const primary500 = I.primary;
+  const success500 = I.semanticUp;
+  const error500 = I.semanticDown;
+  const warning500 = I.accentYellow;
 
   // Renderizar zona de servicio
   const renderServiceArea = (area: ServiceArea) => (
     <View key={area.id} style={styles.zoneCard}>
       <View style={styles.zoneHeader}>
         <View style={styles.zoneInfo}>
-          <Text style={[styles.zoneName, { color: textPrimary }]}>
+          <Text style={styles.zoneName}>
             {area.name || `Zona ${area.id.slice(-4)}`}
           </Text>
           <View style={styles.zoneStats}>
             <View style={styles.communeCount}>
-              <Ionicons name="location" size={14} color={textTertiary} />
-              <Text style={[styles.communeCountText, { color: textTertiary }]}>
+              <InstitutionalIcon name="location" size={14} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.communeCountText}>
                 {area.commune_count} comuna{area.commune_count !== 1 ? 's' : ''}
               </Text>
             </View>
-            <View style={[
-              styles.statusBadge,
-              area.is_active
-                ? { backgroundColor: successLight, borderColor: success500 }
-                : { backgroundColor: bgDefault, borderColor: borderLight }
-            ]}>
-              <Text style={[
-                styles.statusText,
-                { color: area.is_active ? success500 : textTertiary }
-              ]}>
+            <View style={styles.statusBadge}>
+              <InstitutionalIcon
+                name={area.is_active ? 'check-circle' : 'schedule'}
+                size={12}
+                color={area.is_active ? success500 : warning500}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+              <Text style={[styles.statusText, { color: area.is_active ? success500 : warning500 }]}>
                 {area.is_active ? 'Activa' : 'Inactiva'}
               </Text>
             </View>
@@ -261,25 +210,26 @@ export default function ZonasServicioScreen() {
           onPress={() => toggleZoneActive(area.id, area.is_active)}
           activeOpacity={0.7}
         >
-          <Ionicons
+          <InstitutionalIcon
             name={area.is_active ? "pause-circle" : "play-circle"}
             size={24}
             color={area.is_active ? warning500 : success500}
+            strokeWidth={ICON_STROKE_WIDTH}
           />
         </TouchableOpacity>
       </View>
 
       <View style={styles.communesList}>
-        <Text style={[styles.communesLabel, { color: textPrimary }]}>Comunas:</Text>
+        <Text style={styles.communesLabel}>Comunas</Text>
         <View style={styles.communesTags}>
           {area.commune_names.slice(0, 3).map((commune, index) => (
-            <View key={index} style={[styles.communeTag, { backgroundColor: infoLight, borderColor: borderLight }]}>
-              <Text style={[styles.communeTagText, { color: info500 }]}>{commune}</Text>
+            <View key={index} style={styles.communeTag}>
+              <Text style={styles.communeTagText}>{commune}</Text>
             </View>
           ))}
           {area.commune_names.length > 3 && (
-            <View style={[styles.communeTag, styles.moreTag, { backgroundColor: bgDefault, borderColor: borderLight }]}>
-              <Text style={[styles.moreTagText, { color: textTertiary }]}>+{area.commune_names.length - 3}</Text>
+            <View style={[styles.communeTag, styles.moreTag]}>
+              <Text style={styles.moreTagText}>+{area.commune_names.length - 3}</Text>
             </View>
           )}
         </View>
@@ -287,20 +237,20 @@ export default function ZonasServicioScreen() {
 
       <View style={styles.zoneActions}>
         <TouchableOpacity
-          style={[styles.actionButton, styles.editButton, { backgroundColor: infoLight }]}
+          style={[styles.actionButton, styles.actionButtonPrimary]}
           onPress={() => navigateToEditZone(area.id)}
-          activeOpacity={0.7}
+          activeOpacity={0.88}
         >
-          <Ionicons name="create" size={16} color={info500} />
-          <Text style={[styles.actionButtonText, { color: info500 }]}>Editar</Text>
+          <Text style={[styles.actionButtonText, styles.actionButtonPrimaryText]}>Editar</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton, { backgroundColor: errorLight }]}
+          style={styles.buttonTertiaryDanger}
           onPress={() => deleteZone(area.id, area.name)}
-          activeOpacity={0.7}
+          activeOpacity={0.65}
+          accessibilityRole="button"
+          accessibilityLabel="Eliminar zona"
         >
-          <Ionicons name="trash" size={16} color={error500} />
-          <Text style={[styles.actionButtonText, { color: error500 }]}>Eliminar</Text>
+          <Text style={styles.buttonTertiaryDangerLabel}>Eliminar</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -308,31 +258,48 @@ export default function ZonasServicioScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: bgDefault }]}>
+      <View style={styles.screenRoot}>
+        <LinearGradient
+          colors={BLANK_GLASS.gradient}
+          locations={BLANK_GLASS.gradientLocations}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
         <Header
           title="Zonas de Servicio"
           showBack
           onBackPress={() => router.back()}
           rightComponent={
             <TouchableOpacity
-              style={styles.addButtonHeader}
+              style={styles.buttonTertiaryText}
               onPress={navigateToCreateZone}
-              activeOpacity={0.7}
+              activeOpacity={0.65}
+              accessibilityRole="button"
+              accessibilityLabel="Crear zona de servicio"
             >
-              <MaterialIcons name="add" size={24} color={primary500} />
+              <Text style={[styles.buttonTertiaryTextLabel, { color: primary500 }]}>Crear</Text>
             </TouchableOpacity>
           }
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={primary500} />
-          <Text style={[styles.loadingText, { color: textTertiary }]}>Cargando zonas de servicio...</Text>
+          <Text style={styles.loadingText}>Cargando zonas de servicio…</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: bgDefault }]} edges={['left', 'right', 'bottom']}>
+    <View style={styles.screenRoot}>
+      <LinearGradient
+        colors={BLANK_GLASS.gradient}
+        locations={BLANK_GLASS.gradientLocations}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <Stack.Screen
         options={{
           title: 'Zonas de Servicio',
@@ -347,22 +314,13 @@ export default function ZonasServicioScreen() {
         rightComponent={
           <View style={styles.headerRightActions}>
             <TouchableOpacity
-              style={styles.statsButtonHeader}
-              onPress={() => setShowStatsModal(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="stats-chart" size={20} color={primary500} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.addButtonHeader, { backgroundColor: primary500, ...shadowMd }]}
+              style={styles.buttonTertiaryText}
               onPress={navigateToCreateZone}
-              activeOpacity={0.8}
+              activeOpacity={0.65}
+              accessibilityRole="button"
+              accessibilityLabel="Crear zona de servicio"
             >
-              <MaterialIcons
-                name="add"
-                size={24}
-                color={COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF'}
-              />
+              <Text style={[styles.buttonTertiaryTextLabel, { color: primary500 }]}>Crear</Text>
             </TouchableOpacity>
           </View>
         }
@@ -376,12 +334,14 @@ export default function ZonasServicioScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
       >
-        <View style={[styles.content, { paddingHorizontal: containerHorizontal }]}>
+        <View style={styles.content}>
           {/* Información contextual - UI Card */}
           <View style={styles.uiCard}>
             <View style={styles.infoCardContent}>
-              <Ionicons name="information-circle" size={20} color={primary500} />
-              <Text style={[styles.infoText, { color: textPrimary }]}>
+              <View style={styles.iconPlate}>
+                <InstitutionalIcon name="information-circle" size={18} color={textPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              </View>
+              <Text style={styles.infoText}>
                 Define las comunas donde ofreces servicios a domicilio. Los clientes podrán encontrarte cuando soliciten servicios en estas zonas.
               </Text>
             </View>
@@ -389,16 +349,20 @@ export default function ZonasServicioScreen() {
 
           {/* Estadísticas rápidas - UI Card */}
           {stats && (
-            <View style={styles.uiCard}>
-              <Text style={[styles.sectionTitle, { color: textPrimary }]}>📊 Resumen</Text>
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryPillRow}>
+                <View style={[styles.sectionPill, { backgroundColor: I.surfaceStrong }]}>
+                  <Text style={[styles.sectionPillText, { color: I.muted }]}>Resumen</Text>
+                </View>
+              </View>
               <View style={styles.quickStats}>
                 <View style={styles.statItem}>
-                  <Text style={[styles.statNumber, { color: primary500 }]}>{stats.active_zones}</Text>
-                  <Text style={[styles.statLabel, { color: textTertiary }]}>Zonas Activas</Text>
+                  <Text style={[styles.summaryStatNumber, { color: textPrimary }]}>{stats.active_zones}</Text>
+                  <Text style={styles.statLabel}>Zonas activas</Text>
                 </View>
                 <View style={styles.statItem}>
-                  <Text style={[styles.statNumber, { color: primary500 }]}>{stats.total_communes_covered}</Text>
-                  <Text style={[styles.statLabel, { color: textTertiary }]}>Comunas Cubiertas</Text>
+                  <Text style={[styles.summaryStatNumber, { color: textPrimary }]}>{stats.total_communes_covered}</Text>
+                  <Text style={styles.statLabel}>Comunas cubiertas</Text>
                 </View>
               </View>
             </View>
@@ -411,99 +375,51 @@ export default function ZonasServicioScreen() {
             </View>
           ) : (
             <View style={styles.emptyContainer}>
-              <Ionicons name="location-outline" size={64} color={textTertiary} />
-              <Text style={[styles.emptyTitle, { color: textPrimary }]}>No tienes zonas de servicio</Text>
-              <Text style={[styles.emptySubtitle, { color: textTertiary }]}>
+              <InstitutionalIcon name="location-outline" size={56} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.emptyTitle}>No tienes zonas de servicio</Text>
+              <Text style={styles.emptySubtitle}>
                 Crea tu primera zona para empezar a recibir solicitudes de servicio
               </Text>
             </View>
           )}
         </View>
       </ScrollView>
-
-      {/* Modal de estadísticas */}
-      <Modal
-        visible={showStatsModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowStatsModal(false)}
-      >
-        <SafeAreaView style={[styles.modalContainer, { backgroundColor: bgDefault }]}>
-          <View style={[styles.modalHeader, { backgroundColor: bgPaper, borderBottomColor: borderLight }]}>
-            <Text style={[styles.modalTitle, { color: textPrimary }]}>Estadísticas de Cobertura</Text>
-            <TouchableOpacity onPress={() => setShowStatsModal(false)} activeOpacity={0.7}>
-              <Ionicons name="close" size={24} color={textTertiary} />
-            </TouchableOpacity>
-          </View>
-
-          {stats && (
-            <ScrollView style={styles.statsContent} showsVerticalScrollIndicator={false}>
-              <View style={[styles.statCard, { backgroundColor: bgPaper, borderColor: borderLight, ...shadowSm }]}>
-                <Text style={[styles.statCardNumber, { color: primary500 }]}>{stats.total_zones}</Text>
-                <Text style={[styles.statCardLabel, { color: textTertiary }]}>Total de Zonas</Text>
-              </View>
-              <View style={[styles.statCard, { backgroundColor: bgPaper, borderColor: borderLight, ...shadowSm }]}>
-                <Text style={[styles.statCardNumber, { color: success500 }]}>{stats.active_zones}</Text>
-                <Text style={[styles.statCardLabel, { color: textTertiary }]}>Zonas Activas</Text>
-              </View>
-              <View style={[styles.statCard, { backgroundColor: bgPaper, borderColor: borderLight, ...shadowSm }]}>
-                <Text style={[styles.statCardNumber, { color: textTertiary }]}>{stats.inactive_zones}</Text>
-                <Text style={[styles.statCardLabel, { color: textTertiary }]}>Zonas Inactivas</Text>
-              </View>
-              <View style={[styles.statCard, { backgroundColor: bgPaper, borderColor: borderLight, ...shadowSm }]}>
-                <Text style={[styles.statCardNumber, { color: info500 }]}>{stats.total_communes_covered}</Text>
-                <Text style={[styles.statCardLabel, { color: textTertiary }]}>Comunas Cubiertas</Text>
-              </View>
-
-              <View style={[styles.summaryCard, { backgroundColor: bgPaper, borderColor: borderLight, ...shadowSm }]}>
-                <Text style={[styles.summaryText, { color: textPrimary }]}>{stats.coverage_summary}</Text>
-              </View>
-            </ScrollView>
-          )}
-        </SafeAreaView>
-      </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 // Función para crear estilos usando tokens del sistema de diseño
 const createStyles = () => {
-  const bgPaper = COLORS?.background?.paper || COLORS?.base?.white || '#FFFFFF';
-  const bgDefault = COLORS?.background?.default || '#F5F7F8';
-  const textPrimary = COLORS?.text?.primary || COLORS?.neutral?.inkBlack || '#00171F';
-  const textTertiary = COLORS?.text?.tertiary || ((COLORS?.neutral?.gray as any)?.[700]) || '#5D6F75';
-  const borderLight = COLORS?.border?.light || COLORS?.neutral?.gray?.[200] || '#D7DFE3';
-  const primaryObj = COLORS?.primary as any;
-  const accentObj = COLORS?.accent as any;
-  const primary500 = primaryObj?.['500'] || accentObj?.['500'] || '#003459';
+  const I = COLORS.institutional;
+  const bgPaper = I.canvas;
+  const bgDefault = I.surfaceSoft;
+  const textPrimary = I.ink;
+  const textSecondary = I.body;
+  const textTertiary = I.muted;
+  const borderLight = I.hairline;
+  const primary500 = I.primary;
   const spacingXs = SPACING?.xs || 4;
   const spacingSm = SPACING?.sm || 8;
   const spacingMd = SPACING?.md || 16;
   const spacingLg = SPACING?.lg || 24;
-  const containerHorizontal = SPACING?.container?.horizontal || SPACING?.content?.horizontal || 18;
-  const cardPadding = SPACING?.cardPadding || spacingMd;
-  const cardGap = SPACING?.cardGap || spacingSm + 4;
-  const radiusXl = BORDERS?.radius?.xl || 16;
   const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
   const fontSizeSm = TYPOGRAPHY?.fontSize?.sm || 12;
   const fontSizeMd = TYPOGRAPHY?.fontSize?.md || 16;
   const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
-  const fontWeightMedium = TYPOGRAPHY?.fontWeight?.medium || '500';
-  const fontWeightSemibold = TYPOGRAPHY?.fontWeight?.semibold || '600';
-  const fontWeightBold = TYPOGRAPHY?.fontWeight?.bold || '700';
-  const shadowSm = SHADOWS?.sm || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-  const shadowMd = SHADOWS?.md || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
 
   return StyleSheet.create({
+    screenRoot: { flex: 1 },
     container: {
       flex: 1,
-      backgroundColor: bgDefault,
+      backgroundColor: 'transparent',
     },
     scrollView: {
       flex: 1,
     },
     content: {
       paddingVertical: spacingMd,
+      paddingHorizontal: GLASS_INSET,
     },
     loadingContainer: {
       flex: 1,
@@ -513,90 +429,122 @@ const createStyles = () => {
     },
     loadingText: {
       marginTop: spacingMd,
-      fontSize: fontSizeBase,
+      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: textSecondary,
     },
     headerRightActions: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacingSm,
     },
-    statsButtonHeader: {
-      padding: spacingXs,
-      borderRadius: radiusXl / 2,
-    },
-    addButtonHeader: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: 'center',
+    /** Coinbase `button-tertiary-text` */
+    buttonTertiaryText: {
       justifyContent: 'center',
-      backgroundColor: primary500,
+      alignItems: 'flex-end',
+      minHeight: 44,
+      minWidth: 44,
+      paddingVertical: 10,
+      paddingHorizontal: SPACING.xs,
+    },
+    buttonTertiaryTextLabel: {
+      fontSize: TYPOGRAPHY.styles.button.fontSize,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.styles.button.fontWeight as '600',
+      lineHeight: Math.round(TYPOGRAPHY.styles.button.fontSize * TYPOGRAPHY.styles.button.lineHeight),
     },
     uiCard: {
       backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: cardPadding,
-      marginBottom: cardGap,
-      ...shadowSm,
-      borderWidth: 1,
+      borderRadius: BORDERS.radius.lg,
+      padding: spacingMd,
+      marginBottom: spacingMd,
+      borderWidth: BORDERS.width.thin,
       borderColor: borderLight,
+      ...SHADOWS.editorial,
     },
     infoCardContent: {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: spacingMd,
     },
+    iconPlate: {
+      width: 40,
+      height: 40,
+      borderRadius: BORDERS.radius.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: I.surfaceStrong,
+    },
     infoText: {
       flex: 1,
-      fontSize: fontSizeBase,
-      lineHeight: fontSizeBase + 6,
+      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: textSecondary,
+      lineHeight: TYPOGRAPHY.fontSize.sm * 1.45,
     },
-    sectionTitle: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightBold,
-      marginBottom: spacingMd,
+    summaryPillRow: {
+      marginBottom: spacingXs,
+    },
+    sectionPill: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: BORDERS.radius.pill,
+    },
+    sectionPillText: {
+      fontSize: 10,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+      textTransform: 'uppercase',
     },
     quickStats: {
       flexDirection: 'row',
       justifyContent: 'space-around',
-      paddingTop: spacingSm,
+      paddingTop: spacingXs,
     },
     statItem: {
       alignItems: 'center',
     },
-    statNumber: {
-      fontSize: fontSizeLg + 4,
-      fontWeight: fontWeightBold,
+    summaryStatNumber: {
+      fontSize: TYPOGRAPHY.fontSize.lg,
+      fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     },
     statLabel: {
-      fontSize: fontSizeSm,
+      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: textTertiary,
       marginTop: spacingXs,
-      fontWeight: fontWeightMedium,
     },
     zonesContainer: {
-      gap: cardGap,
+      gap: spacingSm,
     },
     zoneCard: {
       backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: cardPadding,
-      marginBottom: cardGap,
-      ...shadowSm,
-      borderWidth: 1,
+      borderRadius: BORDERS.radius.lg,
+      padding: spacingMd,
+      marginBottom: spacingMd,
+      borderWidth: BORDERS.width.thin,
       borderColor: borderLight,
+      ...SHADOWS.editorial,
+      gap: spacingSm,
     },
     zoneHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
-      marginBottom: spacingMd,
+      marginBottom: 0,
     },
     zoneInfo: {
       flex: 1,
+      minWidth: 0,
     },
     zoneName: {
-      fontSize: fontSizeMd + 1,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.fontSize.md,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: textPrimary,
       marginBottom: spacingSm,
     },
     zoneStats: {
@@ -610,27 +558,37 @@ const createStyles = () => {
       gap: spacingXs,
     },
     communeCountText: {
-      fontSize: fontSizeBase - 1,
+      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: textTertiary,
     },
     statusBadge: {
-      paddingHorizontal: spacingSm,
-      paddingVertical: spacingXs,
-      borderRadius: radiusXl / 2,
-      borderWidth: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: BORDERS.radius.pill,
+      backgroundColor: I.surfaceStrong,
     },
     statusText: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     },
     moreButton: {
       padding: spacingXs,
     },
     communesList: {
-      marginBottom: spacingMd,
+      marginBottom: spacingSm,
     },
     communesLabel: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightMedium,
+      fontSize: 10,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+      textTransform: 'uppercase',
+      color: textTertiary,
       marginBottom: spacingSm,
     },
     communesTags: {
@@ -639,115 +597,104 @@ const createStyles = () => {
       gap: spacingSm,
     },
     communeTag: {
-      paddingHorizontal: spacingSm + 2,
-      paddingVertical: spacingXs + 1,
-      borderRadius: radiusXl / 2,
-      borderWidth: 1,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: BORDERS.radius.pill,
+      backgroundColor: I.surfaceStrong,
     },
     communeTagText: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightMedium,
+      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: textPrimary,
     },
     moreTag: {
       // Estilos aplicados dinámicamente
     },
     moreTagText: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightMedium,
+      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: textTertiary,
     },
     zoneActions: {
       flexDirection: 'row',
       gap: spacingSm,
       paddingTop: spacingSm,
-      borderTopWidth: 1,
+      borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: borderLight,
+      alignItems: 'center',
     },
     actionButton: {
       flex: 1,
-      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: spacingSm + 2,
+      paddingVertical: 12,
       paddingHorizontal: spacingMd,
-      borderRadius: radiusXl / 2,
-      gap: spacingXs,
+      borderRadius: BORDERS.radius.pill,
+      minHeight: 44,
+      borderWidth: BORDERS.width.thin,
+      borderColor: borderLight,
     },
-    editButton: {
-      // backgroundColor aplicado dinámicamente
-    },
-    deleteButton: {
-      // backgroundColor aplicado dinámicamente
+    actionButtonPrimary: {
+      backgroundColor: I.primary,
+      borderColor: I.primary,
     },
     actionButtonText: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.styles.button.fontSize,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.styles.button.fontWeight as '600',
+      lineHeight: Math.round(TYPOGRAPHY.styles.button.fontSize * TYPOGRAPHY.styles.button.lineHeight),
+      color: textPrimary,
+    },
+    actionButtonPrimaryText: {
+      color: I.onPrimary,
+    },
+    /** Coinbase `button-tertiary-text` danger */
+    buttonTertiaryDanger: {
+      justifyContent: 'center',
+      alignItems: 'flex-end',
+      minHeight: 44,
+      paddingVertical: 10,
+      paddingHorizontal: 8,
+    },
+    buttonTertiaryDangerLabel: {
+      fontSize: TYPOGRAPHY.styles.button.fontSize,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.styles.button.fontWeight as '600',
+      lineHeight: Math.round(TYPOGRAPHY.styles.button.fontSize * TYPOGRAPHY.styles.button.lineHeight),
+      color: I.semanticDown,
+    },
+    /** Resumen compacto (misma densidad que cards en ordenes / documentos) */
+    summaryCard: {
+      backgroundColor: bgPaper,
+      borderRadius: BORDERS.radius.lg,
+      paddingVertical: spacingSm,
+      paddingHorizontal: spacingMd,
+      marginBottom: spacingMd,
+      borderWidth: BORDERS.width.thin,
+      borderColor: borderLight,
+      ...SHADOWS.editorial,
     },
     emptyContainer: {
       paddingVertical: spacingLg * 2,
       alignItems: 'center',
     },
     emptyTitle: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.fontSize.lg,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: textPrimary,
       marginTop: spacingMd,
       marginBottom: spacingSm,
     },
     emptySubtitle: {
-      fontSize: fontSizeBase,
+      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: textTertiary,
       textAlign: 'center',
-      lineHeight: fontSizeBase + 6,
+      lineHeight: TYPOGRAPHY.fontSize.sm * 1.45,
       paddingHorizontal: spacingLg,
-    },
-    modalContainer: {
-      flex: 1,
-      backgroundColor: bgDefault,
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: containerHorizontal,
-      paddingVertical: spacingMd,
-      borderBottomWidth: 1,
-      ...shadowSm,
-    },
-    modalTitle: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightBold,
-    },
-    statsContent: {
-      padding: containerHorizontal,
-      gap: cardGap,
-    },
-    statCard: {
-      backgroundColor: bgPaper,
-      padding: cardPadding,
-      borderRadius: radiusXl,
-      alignItems: 'center',
-      borderWidth: 1,
-      ...shadowSm,
-    },
-    statCardNumber: {
-      fontSize: fontSizeLg + 12,
-      fontWeight: fontWeightBold,
-    },
-    statCardLabel: {
-      fontSize: fontSizeBase,
-      marginTop: spacingXs,
-      fontWeight: fontWeightMedium,
-    },
-    summaryCard: {
-      backgroundColor: bgPaper,
-      padding: cardPadding,
-      borderRadius: radiusXl,
-      borderWidth: 1,
-      ...shadowSm,
-    },
-    summaryText: {
-      fontSize: fontSizeBase,
-      textAlign: 'center',
-      fontWeight: fontWeightMedium,
-      lineHeight: fontSizeBase + 6,
     },
   });
 };

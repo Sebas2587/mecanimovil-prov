@@ -10,8 +10,9 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import type { MotivoRechazo } from '@/services/solicitudesService';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface RechazarSolicitudModalProps {
   visible: boolean;
@@ -23,7 +24,7 @@ interface RechazarSolicitudModalProps {
 interface MotivoOption {
   value: MotivoRechazo;
   label: string;
-  icon: keyof typeof MaterialIcons.glyphMap;
+  icon: string;
 }
 
 const MOTIVOS_RECHAZO: MotivoOption[] = [
@@ -80,7 +81,7 @@ export const RechazarSolicitudModal: React.FC<RechazarSolicitudModalProps> = ({
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Rechazar Solicitud</Text>
             <TouchableOpacity onPress={handleClose} disabled={loading}>
-              <MaterialIcons name="close" size={24} color="#000" />
+              <InstitutionalIcon name="close" size={24} color="#000"  strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
           </View>
 
@@ -111,11 +112,11 @@ export const RechazarSolicitudModal: React.FC<RechazarSolicitudModalProps> = ({
                       <View style={styles.radioButtonInner} />
                     )}
                   </View>
-                  <MaterialIcons 
+                  <InstitutionalIcon 
                     name={motivo.icon} 
                     size={24} 
                     color={motivoSeleccionado === motivo.value ? '#DC3545' : '#666'} 
-                  />
+                   strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={[
                     styles.motivoText,
                     motivoSeleccionado === motivo.value && styles.motivoTextSelected

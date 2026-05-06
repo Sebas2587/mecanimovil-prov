@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { ChecklistItemTemplate } from '@/services/checklistService';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface ChecklistProgressBarProps {
   currentStep: number;
@@ -53,7 +54,7 @@ export const ChecklistProgressBar: React.FC<ChecklistProgressBarProps> = ({
                 ]}
               >
                 {isCompleted ? (
-                  <MaterialIcons name="check" size={12} color="#fff" />
+                  <InstitutionalIcon name="check" size={12} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
                 ) : (
                   <Text style={styles.stepNumber}>
                     {index + 1}
@@ -63,7 +64,7 @@ export const ChecklistProgressBar: React.FC<ChecklistProgressBarProps> = ({
               
               {item.es_obligatorio && (
                 <View style={styles.requiredIndicator}>
-                  <MaterialIcons name="star" size={8} color="#dc3545" />
+                  <InstitutionalIcon name="star" size={8} color="#dc3545"  strokeWidth={ICON_STROKE_WIDTH} />
                 </View>
               )}
             </View>

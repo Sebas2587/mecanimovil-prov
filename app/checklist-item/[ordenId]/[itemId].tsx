@@ -10,10 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
 import { useChecklist } from '@/hooks/useChecklist';
 import { ChecklistItemRenderer } from '@/components/checklist/ChecklistItemRenderer';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export default function ChecklistItemDetailScreen() {
   const { ordenId, itemId } = useLocalSearchParams<{ ordenId: string; itemId: string }>();
@@ -125,7 +126,7 @@ export default function ChecklistItemDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <MaterialIcons name="error" size={64} color="#dc3545" />
+          <InstitutionalIcon name="error" size={64} color="#dc3545"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.errorTitle}>Item no encontrado</Text>
           <Text style={styles.errorMessage}>
             No se pudo encontrar el item del checklist solicitado.
@@ -143,7 +144,7 @@ export default function ChecklistItemDetailScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleGoBack} style={styles.closeButton}>
-          <MaterialIcons name="arrow-back" size={24} color="#212529" />
+          <InstitutionalIcon name="arrow-back" size={24} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
         
         <View style={styles.headerContent}>

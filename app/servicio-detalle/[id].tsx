@@ -12,11 +12,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { ordenesProveedorService, obtenerNombreSeguro, obtenerTelefonoSeguro, esClienteCompleto, type ClienteCompleto } from '@/services/ordenesProveedor';
 import { checklistService, type ChecklistInstance } from '@/services/checklistService';
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export default function ServicioDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -408,7 +409,7 @@ export default function ServicioDetalleScreen() {
         <SafeAreaView style={styles.headerSafeArea}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={24} color="#2A4065" />
+              <InstitutionalIcon name="arrow-back" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>Cargando...</Text>
@@ -430,7 +431,7 @@ export default function ServicioDetalleScreen() {
         <SafeAreaView style={styles.headerSafeArea}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={24} color="#2A4065" />
+              <InstitutionalIcon name="arrow-back" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>Error</Text>
@@ -467,7 +468,7 @@ export default function ServicioDetalleScreen() {
       <SafeAreaView style={styles.headerSafeArea} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={24} color="#212529" />
+            <InstitutionalIcon name="arrow-back" size={24} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
           <View style={styles.titleContainer}>
             <Text style={styles.title}>Detalle de Orden</Text>
@@ -495,7 +496,7 @@ export default function ServicioDetalleScreen() {
               />
             ) : (
               <View style={styles.clientPhotoPlaceholder}>
-                <MaterialIcons name="person" size={32} color="#6c757d" />
+                <InstitutionalIcon name="person" size={32} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
               </View>
             )}
             <View style={styles.clientInfo}>
@@ -513,11 +514,11 @@ export default function ServicioDetalleScreen() {
                       onPress={orden.informacion_disponible?.puede_contactar ? handleLlamarCliente : undefined}
                       disabled={!orden.informacion_disponible?.puede_contactar}
                     >
-                      <MaterialIcons 
+                      <InstitutionalIcon 
                         name="phone" 
                         size={18} 
                         color={orden.informacion_disponible?.puede_contactar ? "#212529" : "#6c757d"} 
-                      />
+                       strokeWidth={ICON_STROKE_WIDTH} />
                       <Text style={[
                         styles.contactText,
                         !orden.informacion_disponible?.puede_contactar && styles.contactTextDisabled
@@ -525,13 +526,13 @@ export default function ServicioDetalleScreen() {
                         {obtenerTelefonoSeguro(orden.cliente_detail)}
                       </Text>
                       {!orden.informacion_disponible?.puede_contactar && (
-                        <MaterialIcons name="lock" size={14} color="#6c757d" />
+                        <InstitutionalIcon name="lock" size={14} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
                       )}
                     </TouchableOpacity>
                   )}
                   {orden.informacion_disponible?.nivel_acceso === 'parcial' && (
                     <View style={styles.infoRestrictionBadge}>
-                      <MaterialIcons name="info" size={14} color="#ffc107" />
+                      <InstitutionalIcon name="info" size={14} color="#ffc107"  strokeWidth={ICON_STROKE_WIDTH} />
                       <Text style={styles.infoRestrictionText}>
                         Información completa disponible después de aceptar
                       </Text>
@@ -546,7 +547,7 @@ export default function ServicioDetalleScreen() {
                       style={styles.contactRow}
                       onPress={handleLlamarCliente}
                     >
-                      <MaterialIcons name="phone" size={18} color="#212529" />
+                      <InstitutionalIcon name="phone" size={18} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
                       <Text style={styles.contactText}>
                         {obtenerTelefonoSeguro(orden.cliente_detail)}
                       </Text>
@@ -554,7 +555,7 @@ export default function ServicioDetalleScreen() {
                   )}
                   {esClienteCompleto(orden.cliente_detail) && (orden.cliente_detail as ClienteCompleto).email && (
                     <View style={styles.contactRow}>
-                      <MaterialIcons name="email" size={18} color="#212529" />
+                      <InstitutionalIcon name="email" size={18} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
                       <Text style={styles.contactText}>
                         {(orden.cliente_detail as ClienteCompleto).email}
                       </Text>
@@ -571,7 +572,7 @@ export default function ServicioDetalleScreen() {
           <View style={styles.vehicleCard}>
             <Text style={styles.vehicleLabel}>Vehículo</Text>
             <View style={styles.infoCardRow}>
-              <MaterialIcons name="directions-car" size={24} color="#212529" />
+              <InstitutionalIcon name="directions-car" size={24} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
               <View style={styles.infoCardContent}>
                 <Text style={styles.vehicleBrand}>
                   {orden.vehiculo_detail.marca || 'N/A'} {orden.vehiculo_detail.modelo || ''}
@@ -625,7 +626,7 @@ export default function ServicioDetalleScreen() {
                           
                           return (
                             <View key={repIndex} style={styles.repuestoTag}>
-                              <MaterialIcons name="build" size={14} color="#28a745" />
+                              <InstitutionalIcon name="build" size={14} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
                               <Text style={styles.repuestoTagText}>
                                 {nombreRepuesto}
                                 {cantidad > 1 ? ` (${cantidad})` : ''}
@@ -637,14 +638,14 @@ export default function ServicioDetalleScreen() {
                     ) : linea.con_repuestos ? (
                       <View style={styles.repuestosTagsContainer}>
                         <View style={styles.repuestoTag}>
-                          <MaterialIcons name="check-circle" size={14} color="#28a745" />
+                          <InstitutionalIcon name="check-circle" size={14} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
                           <Text style={styles.repuestoTagText}>Con repuestos</Text>
                         </View>
                       </View>
                     ) : (
                       <View style={styles.repuestosTagsContainer}>
                         <View style={[styles.repuestoTag, styles.repuestoTagDisabled]}>
-                          <MaterialIcons name="cancel" size={14} color="#6c757d" />
+                          <InstitutionalIcon name="cancel" size={14} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
                           <Text style={[styles.repuestoTagText, styles.repuestoTagTextDisabled]}>Sin repuestos</Text>
                         </View>
                       </View>
@@ -660,7 +661,7 @@ export default function ServicioDetalleScreen() {
         {orden.fecha_servicio && orden.hora_servicio && (
           <View style={styles.infoCard}>
             <View style={styles.infoCardRow}>
-              <MaterialIcons name="calendar-today" size={20} color="#212529" />
+              <InstitutionalIcon name="calendar-today" size={20} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
               <View style={styles.infoCardContent}>
                 <Text style={styles.infoLabel}>Fecha</Text>
                 <Text style={styles.infoValue}>
@@ -669,7 +670,7 @@ export default function ServicioDetalleScreen() {
               </View>
             </View>
             <View style={[styles.infoCardRow, styles.infoCardRowSecond]}>
-              <MaterialIcons name="schedule" size={20} color="#212529" />
+              <InstitutionalIcon name="schedule" size={20} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
               <View style={styles.infoCardContent}>
                 <Text style={styles.infoLabel}>Hora</Text>
                 <Text style={styles.infoValue}>
@@ -689,19 +690,19 @@ export default function ServicioDetalleScreen() {
                 style={styles.infoCardRow} 
                 onPress={handleAbrirMapa}
               >
-                <MaterialIcons name="location-on" size={20} color="#212529" />
+                <InstitutionalIcon name="location-on" size={20} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
                 <View style={styles.infoCardContent}>
                   <Text style={styles.infoLabel}>Dirección</Text>
                   <Text style={[styles.infoValue, styles.linkText]}>
                     {orden.ubicacion_servicio}
                   </Text>
                 </View>
-                <MaterialIcons name="open-in-new" size={16} color="#6c757d" />
+                <InstitutionalIcon name="open-in-new" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             ) : (
               // Orden pendiente - no mostrar dirección (dato sensible)
               <View style={styles.infoCardRow}>
-                <MaterialIcons name="location-on" size={20} color="#6c757d" />
+                <InstitutionalIcon name="location-on" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
                 <View style={styles.infoCardContent}>
                   <Text style={styles.infoLabel}>Dirección</Text>
                   <Text style={[styles.infoValue, styles.infoValueDisabled]}>
@@ -711,7 +712,7 @@ export default function ServicioDetalleScreen() {
                     La dirección se mostrará después de aceptar el servicio
                   </Text>
                 </View>
-                <MaterialIcons name="lock" size={16} color="#6c757d" />
+                <InstitutionalIcon name="lock" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
               </View>
             )}
           </View>
@@ -721,7 +722,7 @@ export default function ServicioDetalleScreen() {
         {orden.notas_cliente && (
           <View style={styles.infoCard}>
             <View style={styles.infoCardRow}>
-              <MaterialIcons name="note" size={20} color="#212529" />
+              <InstitutionalIcon name="note" size={20} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
               <View style={styles.infoCardContent}>
                 <Text style={styles.infoLabel}>Notas del Cliente</Text>
                 <Text style={styles.notasText}>{orden.notas_cliente}</Text>
@@ -834,7 +835,7 @@ export default function ServicioDetalleScreen() {
             onPress={handleRechazar}
             disabled={procesando}
           >
-            <MaterialIcons name="close" size={20} color="#fff" />
+            <InstitutionalIcon name="close" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.actionButtonText}>Rechazar</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -842,7 +843,7 @@ export default function ServicioDetalleScreen() {
             onPress={handleAceptar}
             disabled={procesando}
           >
-            <MaterialIcons name="check" size={20} color="#fff" />
+            <InstitutionalIcon name="check" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.actionButtonText}>Aceptar</Text>
           </TouchableOpacity>
         </View>
@@ -856,7 +857,7 @@ export default function ServicioDetalleScreen() {
             onPress={botonAccion.onPress}
             disabled={procesando || botonAccion.disabled}
           >
-            <MaterialIcons name={botonAccion.icon as any} size={20} color="#fff" />
+            <InstitutionalIcon name={botonAccion.icon as any} size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.actionButtonText}>{botonAccion.texto}</Text>
           </TouchableOpacity>
         </View>

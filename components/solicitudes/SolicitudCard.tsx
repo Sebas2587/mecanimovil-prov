@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SolicitudPublica } from '@/services/solicitudesService';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS } from '@/app/design-system/tokens';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface SolicitudCardProps {
   solicitud: SolicitudPublica;
@@ -89,14 +90,14 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
               </View>
               {urgencia && (
                 <View style={styles.urgenciaBadge}>
-                  <MaterialIcons name="priority-high" size={14} color="#FFFFFF" />
+                  <InstitutionalIcon name="priority-high" size={14} color="#FFFFFF"  strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.urgenciaTexto}>URGENTE</Text>
                 </View>
               )}
             </View>
 
             <View style={styles.vehiculoContainer}>
-              <MaterialIcons name="directions-car" size={20} color={palette.muted} />
+              <InstitutionalIcon name="directions-car" size={20} color={palette.muted}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={[styles.vehiculoTexto, { color: palette.ink }]} numberOfLines={1}>
                 {solicitud.vehiculo_info.marca} {solicitud.vehiculo_info.modelo}
                 {solicitud.vehiculo_info.año && ` ${solicitud.vehiculo_info.año}`}
@@ -127,21 +128,21 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             <View style={[styles.footer, { borderTopColor: palette.border }]}>
               <View style={styles.footerLeft}>
                 <View style={styles.footerItem}>
-                  <MaterialIcons name="access-time" size={16} color={palette.subtle} />
+                  <InstitutionalIcon name="access-time" size={16} color={palette.subtle}  strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={[styles.footerTexto, { color: palette.muted }]}>
                     {formatearTiempoRestante(solicitud.tiempo_restante)}
                   </Text>
                 </View>
                 {solicitud.total_ofertas > 0 && (
                   <View style={styles.footerItem}>
-                    <MaterialIcons name="local-offer" size={16} color={primary500} />
+                    <InstitutionalIcon name="local-offer" size={16} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
                     <Text style={[styles.footerTexto, { color: primary500 }]}>
                       {solicitud.total_ofertas} oferta{solicitud.total_ofertas !== 1 ? 's' : ''}
                     </Text>
                   </View>
                 )}
               </View>
-              <MaterialIcons name="chevron-right" size={22} color={palette.subtle} />
+              <InstitutionalIcon name="chevron-right" size={22} color={palette.subtle}  strokeWidth={ICON_STROKE_WIDTH} />
             </View>
           </View>
         </BlurView>

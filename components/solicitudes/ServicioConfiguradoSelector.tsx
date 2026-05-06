@@ -6,8 +6,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { ServicioConfiguradoParaOferta } from '@/services/serviciosApi';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface ServicioConfiguradoSelectorProps {
   servicioConfigurado: ServicioConfiguradoParaOferta | null;
@@ -36,7 +37,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
   if (!servicioConfigurado) {
     return (
       <View style={styles.infoCard}>
-        <MaterialIcons name="info-outline" size={20} color="#666" />
+        <InstitutionalIcon name="info-outline" size={20} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
         <Text style={styles.infoText}>
           No tienes un servicio configurado para esta marca. Puedes crear la oferta manualmente.
         </Text>
@@ -48,7 +49,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
     return (
       <View style={styles.activoCard}>
         <View style={styles.activoHeader}>
-          <MaterialIcons name="check-circle" size={20} color="#10B981" />
+          <InstitutionalIcon name="check-circle" size={20} color="#10B981"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.activoTitle}>Usando servicio configurado</Text>
         </View>
         <Text style={styles.activoSubtitle}>
@@ -71,7 +72,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <MaterialIcons name="auto-fix-high" size={24} color="#0061FF" />
+        <InstitutionalIcon name="auto-fix-high" size={24} color="#0061FF"  strokeWidth={ICON_STROKE_WIDTH} />
         <View style={styles.cardHeaderText}>
           <Text style={styles.cardTitle}>Servicio configurado disponible</Text>
           <Text style={styles.cardSubtitle}>
@@ -86,7 +87,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
         </Text>
         {servicioConfigurado.marca_vehiculo_info && (
           <View style={styles.marcaInfo}>
-            <MaterialIcons name="directions-car" size={16} color="#666" />
+            <InstitutionalIcon name="directions-car" size={16} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.marcaText}>
               {servicioConfigurado.marca_vehiculo_info.nombre}
             </Text>
@@ -94,7 +95,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
         )}
         <View style={styles.detallesRow}>
           <View style={styles.detalleItem}>
-            <MaterialIcons name="build" size={16} color="#666" />
+            <InstitutionalIcon name="build" size={16} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.detalleText}>
               {servicioConfigurado.tipo_servicio === 'con_repuestos'
                 ? 'Con repuestos'
@@ -104,7 +105,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
           {servicioConfigurado.repuestos_info_detallado &&
             servicioConfigurado.repuestos_info_detallado.length > 0 && (
               <View style={styles.detalleItem}>
-                <MaterialIcons name="inventory-2" size={16} color="#666" />
+                <InstitutionalIcon name="inventory-2" size={16} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.detalleText}>
                   {servicioConfigurado.repuestos_info_detallado.length} repuesto(s)
                 </Text>
@@ -119,7 +120,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
           onPress={onUsarServicioConfigurado}
           activeOpacity={0.8}
         >
-          <MaterialIcons name="auto-fix-high" size={20} color="#FFF" />
+          <InstitutionalIcon name="auto-fix-high" size={20} color="#FFF"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.usarButtonText}>Usar servicio configurado</Text>
         </TouchableOpacity>
 

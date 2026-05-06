@@ -14,13 +14,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useAuth } from '@/context/AuthContext';
 import { documentosAPI } from '@/services/api';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import { Buffer } from 'buffer';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface DocumentoInfo {
   nombre: string;
@@ -509,11 +510,11 @@ export default function SubirDocumentosScreen() {
       <View key={documentoInfo.tipo} style={styles.documentoContainer}>
         <View style={styles.documentoHeader}>
           <View style={styles.documentoIcono}>
-            <Ionicons 
+            <InstitutionalIcon 
               name={documentoInfo.icono as any} 
               size={24} 
               color={isObligatorio ? '#e74c3c' : '#3498db'} 
-            />
+             strokeWidth={ICON_STROKE_WIDTH} />
             {isObligatorio && (
               <View style={styles.obligatorioIndicador}>
                 <Text style={styles.obligatorioTexto}>*</Text>
@@ -537,12 +538,12 @@ export default function SubirDocumentosScreen() {
             </View>
           ) : documento?.subido ? (
             <View style={styles.subido}>
-              <Ionicons name="checkmark-circle" size={24} color="#27ae60" />
+              <InstitutionalIcon name="checkmark-circle" size={24} color="#27ae60"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.subidoTexto}>Subido</Text>
             </View>
           ) : documento?.error ? (
             <View style={styles.error}>
-              <Ionicons name="alert-circle" size={24} color="#e74c3c" />
+              <InstitutionalIcon name="alert-circle" size={24} color="#e74c3c"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.errorTexto}>Error</Text>
               <TouchableOpacity 
                 style={styles.reintentarButton}
@@ -556,7 +557,7 @@ export default function SubirDocumentosScreen() {
               style={[styles.subirButton, isObligatorio && styles.subirButtonObligatorio]}
               onPress={() => abrirSelectorDocumento(documentoInfo)}
             >
-              <Ionicons name="cloud-upload-outline" size={20} color="white" />
+              <InstitutionalIcon name="cloud-upload-outline" size={20} color="white"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.subirButtonTexto}>Subir</Text>
             </TouchableOpacity>
           )}
@@ -611,18 +612,18 @@ export default function SubirDocumentosScreen() {
           <Text style={styles.modalTitulo}>Seleccionar {tipoDocumentoActual?.nombre}</Text>
           
           <TouchableOpacity style={styles.modalOpcion} onPress={() => tipoDocumentoActual && tomarFoto(tipoDocumentoActual)}>
-            <Ionicons name="camera" size={24} color="#3498db" />
+            <InstitutionalIcon name="camera" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modalOpcionTexto}>Tomar Foto</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.modalOpcion} onPress={() => tipoDocumentoActual && seleccionarImagen(tipoDocumentoActual)}>
-            <Ionicons name="image" size={24} color="#3498db" />
+            <InstitutionalIcon name="image" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modalOpcionTexto}>Seleccionar de Galería</Text>
           </TouchableOpacity>
           
           {tipoDocumentoActual?.acepta.includes('PDF') && (
             <TouchableOpacity style={styles.modalOpcion} onPress={() => tipoDocumentoActual && seleccionarDocumento(tipoDocumentoActual)}>
-              <Ionicons name="document" size={24} color="#3498db" />
+              <InstitutionalIcon name="document" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.modalOpcionTexto}>Seleccionar PDF</Text>
             </TouchableOpacity>
           )}
@@ -657,7 +658,7 @@ export default function SubirDocumentosScreen() {
 
         <View style={styles.seccionContainer}>
           <View style={styles.seccionHeader}>
-            <Ionicons name="alert-circle" size={24} color="#e74c3c" />
+            <InstitutionalIcon name="alert-circle" size={24} color="#e74c3c"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.seccionTitulo}>Documentos Obligatorios</Text>
           </View>
           <Text style={styles.seccionDescripcion}>
@@ -668,7 +669,7 @@ export default function SubirDocumentosScreen() {
 
         <View style={styles.seccionContainer}>
           <View style={styles.seccionHeader}>
-            <Ionicons name="information-circle" size={24} color="#3498db" />
+            <InstitutionalIcon name="information-circle" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.seccionTitulo}>Documentos Opcionales</Text>
           </View>
           <Text style={styles.seccionDescripcion}>

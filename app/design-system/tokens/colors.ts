@@ -1,13 +1,7 @@
 /**
- * Sistema de Colores MecaniMóvil
- * Basado en paleta de transparencia, calma, confianza, profesionalismo y claridad
- * 
- * Paleta Base:
- * - White: #FFFFFF
- * - Ink Black: #00171F
- * - Deep Space Blue: #003459
- * - Cerulean: #007EA7
- * - Fresh Sky: #00A8E8
+ * Sistema de Colores MecaniMóvil — App Proveedores
+ * Alineado a DESIGN_PROVEEDORES_INSTITUCIONAL.md (adaptación RN).
+ * Roles semánticos: COLORS.institutional + escalas primary / semantic legacy.
  */
 
 /**
@@ -46,66 +40,89 @@ export const getColorWithOpacity = (path: string, opacity: number): string => {
 
 export const COLORS = {
   // ============================================
-  // COLORES BASE DE LA PALETA
+  // TOKENS INSTITUCIONALES (referencia única de marca RN)
+  // ============================================
+  institutional: {
+    canvas: '#ffffff',
+    surfaceSoft: '#f7f7f7',
+    surfaceStrong: '#eef0f3',
+    surfaceDark: '#0a0b0d',
+    surfaceDarkElevated: '#16181c',
+    ink: '#0a0b0d',
+    body: '#5b616e',
+    muted: '#7c828a',
+    mutedSoft: '#a8acb3',
+    hairline: '#dee1e6',
+    hairlineSoft: '#eef0f3',
+    primary: '#0052ff',
+    primaryActive: '#003ecc',
+    primaryDisabled: '#a8b8cc',
+    onPrimary: '#ffffff',
+    onDark: '#ffffff',
+    onDarkSoft: '#a8acb3',
+    semanticUp: '#05b169',
+    semanticDown: '#cf202f',
+    accentYellow: '#f4b000',
+  },
+
+  // ============================================
+  // COLORES BASE (compat / referencia histórica)
   // ============================================
 
   base: {
     white: '#FFFFFF',
-    inkBlack: '#00171F',      // Ultra-dark con hint de azul
-    deepSpaceBlue: '#003459', // Azul oscuro profundo, cosmos
-    cerulean: '#007EA7',      // Azul-verde vibrante, vida y libertad
-    freshSky: '#00A8E8',      // Cian brillante, optimismo y frescura
+    inkBlack: '#0a0b0d',
+    deepSpaceBlue: '#003459',
+    cerulean: '#007EA7',
+    freshSky: '#00A8E8',
   },
 
   // ============================================
-  // COLORES PRIMARIOS (Deep Space Blue)
-  // Inspiración: cosmos, ambición, misterio estrellado
+  // PRIMARIOS — azul institucional (#0052ff)
   // ============================================
   primary: {
-    50: '#E6F2F7',   // Muy claro, casi blanco con tinte azul
-    100: '#CCE5EF',
-    200: '#99CBE0',
-    300: '#66B1D0',
-    400: '#3397C1',
-    500: '#003459',  // Color principal - Deep Space Blue
-    600: '#002A47',
-    700: '#002035',
-    800: '#001524',
-    900: '#000B12',
+    50: '#EEF3FF',
+    100: '#DDE8FF',
+    200: '#B8CFFF',
+    300: '#7AA8FF',
+    400: '#3D7FFF',
+    500: '#0052ff',
+    600: '#003ecc',
+    700: '#0030a3',
+    800: '#002080',
+    900: '#001866',
   },
 
   // ============================================
-  // COLORES SECUNDARIOS (Cerulean)
-  // Inspiración: vida, libertad, conocimiento
+  // SECUNDARIOS — apoyo neutro frío (sin competir con primario)
   // ============================================
   secondary: {
-    50: '#E6F5F9',
-    100: '#CCEBF3',
-    200: '#99D7E7',
-    300: '#66C3DB',
-    400: '#33AFCF',
-    500: '#007EA7',  // Color secundario principal - Cerulean
-    600: '#006586',
-    700: '#004C65',
-    800: '#003344',
-    900: '#001A23',
+    50: '#F4F5F7',
+    100: '#E8EAEE',
+    200: '#D2D6DD',
+    300: '#AEB4BF',
+    400: '#8E96A3',
+    500: '#5b616e',
+    600: '#494e59',
+    700: '#383c44',
+    800: '#26292e',
+    900: '#141619',
   },
 
   // ============================================
-  // COLORES DE ACENTO (Fresh Sky)
-  // Inspiración: optimismo, frescura, cielos abiertos
+  // ACENTO — mismo voltaje que primario (enlaces / highlights)
   // ============================================
   accent: {
-    50: '#E6F7FC',
-    100: '#CCEFF9',
-    200: '#99DFF3',
-    300: '#66CFED',
-    400: '#33BFE7',
-    500: '#00A8E8',  // Color de acento principal - Fresh Sky
-    600: '#0086BA',
-    700: '#00648B',
-    800: '#00425D',
-    900: '#00212E',
+    50: '#EEF3FF',
+    100: '#DDE8FF',
+    200: '#B8CFFF',
+    300: '#7AA8FF',
+    400: '#3D7FFF',
+    500: '#0052ff',
+    600: '#003ecc',
+    700: '#0030a3',
+    800: '#002080',
+    900: '#001866',
   },
 
   // ============================================
@@ -113,19 +130,19 @@ export const COLORS = {
   // ============================================
   neutral: {
     white: '#FFFFFF',
-    inkBlack: '#00171F',
+    inkBlack: '#0a0b0d',
     gray: {
-      50: '#F5F7F8',   // Casi blanco con tinte azul muy sutil
-      100: '#EBEFF1',
-      200: '#D7DFE3',
-      300: '#C3CFD5',
-      400: '#AFBFC7',
-      500: '#9BAFB9',  // Gris medio
-      600: '#7C8F97',
-      700: '#5D6F75',
-      800: '#3E4F53',
-      900: '#1F2F31',
-      950: '#00171F',  // Ink Black
+      50: '#f7f7f7',
+      100: '#eef0f3',
+      200: '#dee1e6',
+      300: '#c8ccd4',
+      400: '#a8acb3',
+      500: '#7c828a',
+      600: '#5b616e',
+      700: '#454951',
+      800: '#2f3238',
+      900: '#0a0b0d',
+      950: '#0a0b0d',
     },
   },
 
@@ -134,24 +151,23 @@ export const COLORS = {
   // Diseñados para armonizar con la paleta base
   // ============================================
 
-  // SUCCESS - Verde esmeralda/turquesa que complementa los azules
+  // SUCCESS — alineado a semantic-up institucional (#05b169)
   success: {
-    light: '#E6F7F4',      // Fondo muy claro
-    main: '#00C9A7',       // Verde turquesa vibrante
-    dark: '#00997A',       // Verde más oscuro
-    darker: '#006B57',     // Verde muy oscuro
-    text: '#003D32',       // Texto sobre success
-    // Variaciones completas
-    50: '#E6F7F4',
-    100: '#CCEFE9',
-    200: '#99DFD3',
-    300: '#66CFBD',
-    400: '#33BFA7',
-    500: '#00C9A7',  // Principal
-    600: '#00A186',
-    700: '#007965',
-    800: '#005144',
-    900: '#002923',
+    light: '#E8F8F0',
+    main: '#05b169',
+    dark: '#048f56',
+    darker: '#036b41',
+    text: '#02422a',
+    50: '#E8F8F0',
+    100: '#D1F0E1',
+    200: '#A3E1C3',
+    300: '#75D2A5',
+    400: '#47C387',
+    500: '#05b169',
+    600: '#048f56',
+    700: '#036b41',
+    800: '#02482c',
+    900: '#012418',
   },
 
   // WARNING - Amarillo suave con tinte dorado que no rompe la armonía
@@ -174,56 +190,53 @@ export const COLORS = {
     900: '#995829',
   },
 
-  // ERROR - Rojo coral suave con toque azulado para armonía
+  // ERROR — alineado a semantic-down institucional (#cf202f)
   error: {
-    light: '#FFEBEE',      // Fondo muy claro
-    main: '#FF6B6B',       // Rojo coral suave
-    dark: '#E64A4A',       // Rojo más oscuro
-    darker: '#CC3939',     // Rojo muy oscuro
-    text: '#8B1A1A',       // Texto sobre error
-    // Variaciones completas
-    50: '#FFEBEE',
-    100: '#FFD7D7',
-    200: '#FFAFAF',
-    300: '#FF8787',
-    400: '#FF5F5F',
-    500: '#FF6B6B',  // Principal
-    600: '#E64A4A',
-    700: '#CC3939',
-    800: '#B32828',
-    900: '#991717',
+    light: '#FDECEC',
+    main: '#cf202f',
+    dark: '#a61a26',
+    darker: '#7d141d',
+    text: '#4a0b10',
+    50: '#FDECEC',
+    100: '#FBD5D8',
+    200: '#F7ABB1',
+    300: '#F3818A',
+    400: '#EF5763',
+    500: '#cf202f',
+    600: '#a61a26',
+    700: '#7d141d',
+    800: '#530e14',
+    900: '#2a070a',
   },
 
-  // INFO - Usa directamente Cerulean para consistencia
   info: {
-    light: '#E6F5F9',      // Fondo muy claro
-    main: '#007EA7',       // Cerulean - mismo que secondary
-    dark: '#006586',       // Cerulean oscuro
-    darker: '#004C65',     // Cerulean muy oscuro
-    text: '#003344',       // Texto sobre info
-    // Variaciones completas (igual que secondary)
-    50: '#E6F5F9',
-    100: '#CCEBF3',
-    200: '#99D7E7',
-    300: '#66C3DB',
-    400: '#33AFCF',
-    500: '#007EA7',  // Principal
-    600: '#006586',
-    700: '#004C65',
-    800: '#003344',
-    900: '#001A23',
+    light: '#EEF3FF',
+    main: '#0052ff',
+    dark: '#003ecc',
+    darker: '#0030a3',
+    text: '#001866',
+    50: '#EEF3FF',
+    100: '#DDE8FF',
+    200: '#B8CFFF',
+    300: '#7AA8FF',
+    400: '#3D7FFF',
+    500: '#0052ff',
+    600: '#003ecc',
+    700: '#0030a3',
+    800: '#002080',
+    900: '#001866',
   },
 
   // ============================================
   // COLORES DE TEXTO
   // ============================================
   text: {
-    primary: '#00171F',        // Ink Black - máximo contraste
-    secondary: '#3E4F53',      // Gris oscuro - neutral.gray[800]
-    tertiary: '#5D6F75',       // Gris medio - neutral.gray[700]
-    disabled: '#9BAFB9',      // Gris claro - neutral.gray[500]
-    inverse: '#FFFFFF',        // Blanco para fondos oscuros
-    hint: '#7C8F97',          // Gris para hints - neutral.gray[600]
+    primary: '#0a0b0d',
+    secondary: '#5b616e',
+    tertiary: '#7c828a',
+    disabled: '#a8acb3',
+    inverse: '#FFFFFF',
+    hint: '#7c828a',
     // Colores semánticos de texto
     onPrimary: '#FFFFFF',      // Texto sobre primary
     onSecondary: '#FFFFFF',     // Texto sobre secondary
@@ -238,29 +251,29 @@ export const COLORS = {
   // COLORES DE FONDO
   // ============================================
   background: {
-    default: '#F5F7F8',        // neutral.gray[50] - fondo principal
-    paper: '#FFFFFF',          // Blanco para cards y superficies
-    elevated: '#FFFFFF',       // Blanco para elementos elevados
-    overlay: 'rgba(0, 23, 31, 0.6)',  // Ink Black con opacidad
+    default: '#f7f7f7',
+    paper: '#FFFFFF',
+    elevated: '#FFFFFF',
+    overlay: 'rgba(10, 11, 13, 0.58)',
     glass: 'rgba(255, 255, 255, 0.7)', // Glassmorphism
-    glassDark: 'rgba(0, 52, 89, 0.7)', // Glassmorphism oscuro
+    glassDark: 'rgba(10, 11, 13, 0.72)',
     // Fondos semánticos
     success: '#E6F7F4',
     warning: '#FFF8E6',
     error: '#FFEBEE',
-    info: '#E6F5F9',
+    info: '#EEF3FF',
   },
 
   // ============================================
   // COLORES DE BORDE
   // ============================================
   border: {
-    light: '#D7DFE3',          // neutral.gray[200] - bordes sutiles
-    main: '#C3CFD5',          // neutral.gray[300] - bordes estándar
-    dark: '#9BAFB9',          // neutral.gray[500] - bordes destacados
-    focus: '#00A8E8',         // accent[500] - borde de foco
-    error: '#FF6B6B',         // error[500] - borde de error
-    success: '#00C9A7',       // success[500] - borde de éxito
+    light: '#eef0f3',
+    main: '#dee1e6',
+    dark: '#c8ccd4',
+    focus: '#0052ff',
+    error: '#cf202f',
+    success: '#05b169',
   },
 
   // ============================================
@@ -294,21 +307,19 @@ export const COLORS = {
     },
     // Glass oscuro (sobre fondos claros)
     dark: {
-      background: 'rgba(0, 52, 89, 0.7)',
-      border: 'rgba(0, 168, 232, 0.2)',
-      shadow: 'rgba(0, 23, 31, 0.2)',
+      background: 'rgba(10, 11, 13, 0.72)',
+      border: 'rgba(255, 255, 255, 0.12)',
+      shadow: 'rgba(10, 11, 13, 0.25)',
     },
-    // Glass con acento
     accent: {
-      background: 'rgba(0, 168, 232, 0.8)',
-      border: 'rgba(255, 255, 255, 0.3)',
-      shadow: 'rgba(0, 168, 232, 0.3)',
+      background: 'rgba(0, 82, 255, 0.78)',
+      border: 'rgba(255, 255, 255, 0.28)',
+      shadow: 'rgba(0, 82, 255, 0.22)',
     },
-    // Glass primary
     primary: {
-      background: 'rgba(0, 52, 89, 0.8)',
-      border: 'rgba(0, 168, 232, 0.3)',
-      shadow: 'rgba(0, 23, 31, 0.3)',
+      background: 'rgba(0, 62, 204, 0.82)',
+      border: 'rgba(255, 255, 255, 0.28)',
+      shadow: 'rgba(10, 11, 13, 0.28)',
     },
   },
 
@@ -317,13 +328,13 @@ export const COLORS = {
   // Para efectos visuales que mantienen la armonía
   // ============================================
   gradients: {
-    primary: ['#003459', '#007EA7'],           // Deep Space Blue → Cerulean
-    secondary: ['#007EA7', '#00A8E8'],          // Cerulean → Fresh Sky
-    accent: ['#00A8E8', '#00C9A7'],             // Fresh Sky → Success
-    ocean: ['#003459', '#007EA7', '#00A8E8'],   // Tríptico azul
-    sunset: ['#00A8E8', '#FFB84D'],             // Fresh Sky → Warning
-    calm: ['#E6F5F9', '#FFFFFF'],              // Fondo suave
-    dark: ['#00171F', '#003459'],               // Ink Black → Deep Space Blue
+    primary: ['#0052ff', '#003ecc'],
+    secondary: ['#eef0f3', '#ffffff'],
+    accent: ['#0052ff', '#05b169'],
+    ocean: ['#003ecc', '#0052ff', '#7AA8FF'],
+    sunset: ['#0052ff', '#f4b000'],
+    calm: ['#f7f7f7', '#ffffff'],
+    dark: ['#0a0b0d', '#16181c'],
   },
 
   // ============================================
@@ -331,23 +342,23 @@ export const COLORS = {
   // ============================================
   states: {
     hover: {
-      primary: '#002A47',      // primary[600]
-      secondary: '#006586',    // secondary[600]
-      accent: '#0086BA',      // accent[600]
+      primary: '#003ecc',
+      secondary: '#494e59',
+      accent: '#003ecc',
     },
     pressed: {
-      primary: '#002035',      // primary[700]
-      secondary: '#004C65',    // secondary[700]
-      accent: '#00648B',      // accent[700]
+      primary: '#0030a3',
+      secondary: '#383c44',
+      accent: '#0030a3',
     },
     disabled: {
-      background: '#EBEFF1',   // neutral.gray[100]
-      text: '#9BAFB9',        // neutral.gray[500]
-      border: '#D7DFE3',      // neutral.gray[200]
+      background: '#eef0f3',
+      text: '#a8acb3',
+      border: '#dee1e6',
     },
     focus: {
-      ring: '#00A8E8',        // accent[500]
-      ringOpacity: 0.3,
+      ring: '#0052ff',
+      ringOpacity: 0.28,
     },
   },
 } as const;

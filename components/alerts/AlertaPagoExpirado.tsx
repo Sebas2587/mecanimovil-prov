@@ -12,10 +12,11 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -155,12 +156,12 @@ export default function AlertaPagoExpirado({
           },
         ]}
       >
-        <Ionicons
+        <InstitutionalIcon
           name={iconName}
           size={24}
           color={textColor}
           style={styles.icon}
-        />
+         strokeWidth={ICON_STROKE_WIDTH} />
         <View style={styles.content}>
           <Text
             style={[
@@ -195,7 +196,7 @@ export default function AlertaPagoExpirado({
           onPress={handleDismiss}
           activeOpacity={0.7}
         >
-          <Ionicons name="close" size={20} color={textColor} />
+          <InstitutionalIcon name="close" size={20} color={textColor}  strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
       </View>
     </Animated.View>

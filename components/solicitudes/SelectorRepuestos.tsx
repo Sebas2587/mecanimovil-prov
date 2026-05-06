@@ -10,8 +10,9 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { catalogosAPI, Repuesto } from '@/services/serviciosApi';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface SelectorRepuestosProps {
   visible: boolean;
@@ -104,12 +105,12 @@ export const SelectorRepuestos: React.FC<SelectorRepuestosProps> = ({
         <View style={styles.header}>
           <Text style={styles.title}>Seleccionar Repuesto</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <MaterialIcons name="close" size={24} color="#000" />
+            <InstitutionalIcon name="close" size={24} color="#000"  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.searchContainer}>
-          <MaterialIcons name="search" size={20} color="#666" />
+          <InstitutionalIcon name="search" size={20} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar repuesto..."
@@ -120,7 +121,7 @@ export const SelectorRepuestos: React.FC<SelectorRepuestosProps> = ({
           />
           {busqueda.length > 0 && (
             <TouchableOpacity onPress={() => setBusqueda('')}>
-              <MaterialIcons name="clear" size={20} color="#666" />
+              <InstitutionalIcon name="clear" size={20} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
           )}
         </View>
@@ -132,7 +133,7 @@ export const SelectorRepuestos: React.FC<SelectorRepuestosProps> = ({
           </View>
         ) : repuestosFiltrados.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <MaterialIcons name="inventory-2" size={64} color="#CCC" />
+            <InstitutionalIcon name="inventory-2" size={64} color="#CCC"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.emptyText}>
               {busqueda ? 'No se encontraron repuestos' : 'No hay repuestos disponibles'}
             </Text>
@@ -163,7 +164,7 @@ export const SelectorRepuestos: React.FC<SelectorRepuestosProps> = ({
                     </Text>
                   </View>
                 </View>
-                <MaterialIcons name="add-circle" size={24} color="#0061FF" />
+                <InstitutionalIcon name="add-circle" size={24} color="#0061FF"  strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             )}
             contentContainerStyle={styles.listContent}

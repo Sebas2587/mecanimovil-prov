@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { type EstadisticasProveedor } from '@/services/ordenesProveedor';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface EstadisticasOrdenesProps {
   estadisticas: EstadisticasProveedor;
@@ -46,7 +47,7 @@ export const EstadisticasOrdenes: React.FC<EstadisticasOrdenesProps> = ({ estadi
       <View style={styles.statsGrid}>
         {estadisticasItems.map((item, index) => (
           <View key={index} style={styles.statItem}>
-            <MaterialIcons name={item.icon as any} size={20} color={item.color} />
+            <InstitutionalIcon name={item.icon as any} size={20} color={item.color}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.statValue}>{item.value}</Text>
             <Text style={styles.statLabel}>{item.label}</Text>
           </View>

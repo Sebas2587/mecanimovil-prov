@@ -9,6 +9,10 @@ import { useChats } from '@/context/ChatsContext';
 import websocketService from '../services/websocketService';
 import connectionService from '@/services/connectionService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS } from '@/app/design-system/tokens/colors';
+import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
+
+const I = COLORS.institutional;
 
 export default function TabLayout() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -63,37 +67,33 @@ export default function TabLayout() {
     };
   }, []);
 
-  const TAB_ACTIVE = '#2563EB';
-  const TAB_INACTIVE = '#9CA3AF';
-  /** Blur en la tab bar mezcla el contenido de detrás y en iOS se ve gris; mismo blanco en ambas plataformas */
-  const TAB_BAR_WHITE = '#FFFFFF';
   const tabH = Platform.OS === 'ios' ? 84 : 64;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: TAB_ACTIVE,
-        tabBarInactiveTintColor: TAB_INACTIVE,
+        tabBarActiveTintColor: I.primary,
+        tabBarInactiveTintColor: I.muted,
         headerShown: false,
         tabBarBackground: () => (
-          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: TAB_BAR_WHITE }]} />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: I.canvas }]} />
         ),
         tabBarStyle: {
-          backgroundColor: TAB_BAR_WHITE,
+          backgroundColor: I.canvas,
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: '#E8E8E8',
+          borderTopColor: I.hairline,
           height: tabH + insets.bottom,
           paddingBottom: insets.bottom,
           paddingTop: 6,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0.08,
-          shadowRadius: 4,
-          elevation: 12,
+          shadowOpacity: Platform.OS === 'ios' ? 0.04 : 0.06,
+          shadowRadius: 8,
+          elevation: 8,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '600',
+          fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
           marginTop: 2,
         },
         tabBarIconStyle: {
@@ -170,7 +170,7 @@ const tabStyles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: -10,
-    backgroundColor: '#EF4444',
+    backgroundColor: COLORS.institutional.semanticDown,
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -178,11 +178,11 @@ const tabStyles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: COLORS.institutional.canvas,
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: COLORS.institutional.onPrimary,
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
   },
 }); 

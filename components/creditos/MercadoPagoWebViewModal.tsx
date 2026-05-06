@@ -12,11 +12,12 @@ import {
   AppStateStatus,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import creditosService from '@/services/creditosService';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const DEEP_LINK_SCHEME = 'mecanimovilproveedores://';
 
@@ -436,7 +437,7 @@ const MercadoPagoWebViewModal: React.FC<MercadoPagoWebViewModalProps> = ({
             style={styles.closeButton}
             onPress={handleClose}
           >
-            <MaterialIcons name="close" size={24} color={textPrimary} />
+            <InstitutionalIcon name="close" size={24} color={textPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: textPrimary }]}>
             {verificando ? 'Verificando pago...' : 'Pagar con Mercado Pago'}

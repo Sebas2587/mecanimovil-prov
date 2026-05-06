@@ -88,6 +88,13 @@ if (typeof RNLogBox !== 'undefined') {
 
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
+import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -115,6 +122,11 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [fontsLoaded, fontError] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    JetBrainsMono_500Medium,
   });
 
   useEffect(() => {
@@ -137,7 +149,7 @@ export default function RootLayout() {
           backgroundColor: COLORS.background.default,
         }}
       >
-        <ActivityIndicator size="large" color={COLORS.secondary[500]} />
+        <ActivityIndicator size="large" color={COLORS.primary[500]} />
       </View>
     );
   }

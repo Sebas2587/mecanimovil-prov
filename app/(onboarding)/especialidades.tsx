@@ -11,10 +11,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { especialidadesAPI, type CategoriaServicio } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export default function EspecialidadesScreen() {
   const { tipo, ...otherParams } = useLocalSearchParams();
@@ -279,7 +280,7 @@ export default function EspecialidadesScreen() {
               </Text>
             )}
           </View>
-          <Ionicons 
+          <InstitutionalIcon 
             name={isSelected ? "checkmark-circle" : "ellipse-outline"} 
             size={24} 
             color={
@@ -287,7 +288,7 @@ export default function EspecialidadesScreen() {
               isDisabled ? "#e0e0e0" : 
               "#bdc3c7"
             } 
-          />
+           strokeWidth={ICON_STROKE_WIDTH} />
         </View>
       </TouchableOpacity>
     );
@@ -331,7 +332,7 @@ export default function EspecialidadesScreen() {
 
           {esOpcional && (
             <View style={styles.infoContainer}>
-              <Ionicons name="information-circle" size={20} color="#4E4FEB" />
+              <InstitutionalIcon name="information-circle" size={20} color="#4E4FEB"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>
                 Para talleres, las especialidades son opcionales. Puedes saltarte este paso.
               </Text>
@@ -340,7 +341,7 @@ export default function EspecialidadesScreen() {
 
           {tipo === 'mecanico' && (
             <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#666666" />
+              <InstitutionalIcon name="search" size={20} color="#666666"  strokeWidth={ICON_STROKE_WIDTH} />
               <TextInput
                 style={styles.searchInput}
                 value={busqueda}
@@ -377,7 +378,7 @@ export default function EspecialidadesScreen() {
 
           {especialidadesParaMostrar && especialidadesParaMostrar.length === 0 && busqueda.length > 0 && (
             <View style={styles.noResultsContainer}>
-              <Ionicons name="search" size={48} color="#B5B5B5" />
+              <InstitutionalIcon name="search" size={48} color="#B5B5B5"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.noResultsText}>
                 No se encontraron especialidades que coincidan con "{busqueda}"
               </Text>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,11 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
-  Image,
   Dimensions,
   RefreshControl,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { Stack, router } from 'expo-router';
 import {
@@ -23,71 +22,217 @@ import {
   modelosAPI,
   type CategoriaServicio,
   type MarcaVehiculo,
-  type ModeloVehiculo
+  type ModeloVehiculo,
 } from '@/services/api';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import Snackbar from '@/components/Snackbar';
+import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
-const { width: screenWidth } = Dimensions.get('window');
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
+
+const lh = (fontSize: number, ratio: number) => Math.round(fontSize * ratio);
+
+const hx = SPACING.container.horizontal;
+/** Padding horizontal de `panelBody` (debe coincidir con el estilo). */
+const PANEL_BODY_H_PAD = SPACING.fixed.sm;
+/** Hueco fijo entre las dos columnas. */
+const GRID_COL_GAP = SPACING.fixed.xs;
+
+function estimateGridSlotWidth(): number {
+  const w = Dimensions.get('window').width;
+  return Math.max(0, w - hx * 2 - PANEL_BODY_H_PAD * 2);
+}
+
+const EspecialidadCard = React.memo(function EspecialidadCard({
+  especialidad,
+  isSelected,
+  disabled,
+  cardWidth,
+  isLeftColumn,
+  onToggle,
+}: {
+  especialidad: CategoriaServicio;
+  isSelected: boolean;
+  disabled: boolean;
+  cardWidth: number;
+  isLeftColumn: boolean;
+  onToggle: (id: number) => void;
+}) {
+  const onPress = useCallback(() => onToggle(especialidad.id), [onToggle, especialidad.id]);
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.selectionCard,
+        {
+          width: cardWidth,
+          marginRight: isLeftColumn ? GRID_COL_GAP : 0,
+        },
+        isSelected && styles.selectionCardSelected,
+      ]}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.85}
+    >
+      <View
+        style={[
+          styles.checkbox,
+          isSelected && styles.checkboxSelected,
+        ]}
+      >
+        {isSelected ? <InstitutionalIcon name="checkmark" size={12} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} /> : null}
+      </View>
+
+      <View
+        style={[
+          styles.cardIconPlate,
+          isSelected ? styles.cardIconPlateSelected : styles.cardIconPlateIdle,
+        ]}
+      >
+        <InstitutionalIcon name="build" size={16} color={isSelected ? I.primary : I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
+      </View>
+
+      <View style={styles.cardTextBlock}>
+        <Text
+          style={[styles.cardTitle, isSelected && styles.cardTitleSelected]}
+          numberOfLines={2}
+        >
+          {especialidad.nombre}
+        </Text>
+        {especialidad.descripcion ? (
+          <Text
+            style={[styles.cardDescription, isSelected ? styles.cardDescriptionSelected : styles.cardDescriptionIdle]}
+            numberOfLines={2}
+          >
+            {especialidad.descripcion}
+          </Text>
+        ) : null}
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+const MarcaCard = React.memo(function MarcaCard({
+  marca,
+  modelosDeMarca,
+  isSelected,
+  disabled,
+  cardWidth,
+  isLeftColumn,
+  onToggle,
+}: {
+  marca: MarcaVehiculo;
+  modelosDeMarca: ModeloVehiculo[];
+  isSelected: boolean;
+  disabled: boolean;
+  cardWidth: number;
+  isLeftColumn: boolean;
+  onToggle: (id: number) => void;
+}) {
+  const onPress = useCallback(() => onToggle(marca.id), [onToggle, marca.id]);
+  const previewLine =
+    modelosDeMarca.length > 0
+      ? `${modelosDeMarca
+          .slice(0, 3)
+          .map((m) => m.nombre)
+          .join(', ')}${modelosDeMarca.length > 3 ? ` +${modelosDeMarca.length - 3} más` : ''}`
+      : '';
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.selectionCard,
+        {
+          width: cardWidth,
+          marginRight: isLeftColumn ? GRID_COL_GAP : 0,
+        },
+        isSelected && styles.selectionCardSelected,
+      ]}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.85}
+    >
+      <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+        {isSelected ? <InstitutionalIcon name="checkmark" size={12} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} /> : null}
+      </View>
+
+      <View
+        style={[
+          styles.cardIconPlate,
+          isSelected ? styles.cardIconPlateSelected : styles.cardIconPlateIdle,
+        ]}
+      >
+        <InstitutionalIcon name="directions-car" size={16} color={isSelected ? I.primary : I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
+      </View>
+
+      <View style={styles.cardTextBlock}>
+        <Text style={[styles.cardTitle, isSelected && styles.cardTitleSelected]} numberOfLines={2}>
+          {marca.nombre}
+        </Text>
+        <Text
+          style={[styles.cardMeta, isSelected ? styles.cardMetaSelected : styles.cardMetaIdle]}
+          numberOfLines={1}
+        >
+          {modelosDeMarca.length} {modelosDeMarca.length === 1 ? 'modelo' : 'modelos'}
+        </Text>
+        {isSelected && previewLine ? (
+          <View style={styles.modelosPreview}>
+            <Text style={styles.modelosPreviewText} numberOfLines={2}>
+              {previewLine}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 export default function EspecialidadesMarcasScreen() {
-  const { estadoProveedor, usuario, obtenerNombreProveedor } = useAuth();
-  const theme = useTheme();
+  const { estadoProveedor } = useAuth();
   const insets = useSafeAreaInsets();
 
-  // Obtener valores seguros del tema con fallbacks
-  const safeColors = useMemo(() => {
-    return theme?.colors || COLORS || {};
-  }, [theme]);
+  /** Ancho real del hueco del grid (panelBody); `onLayout` corrige el estimado por bordes / fuente. */
+  const [gridSlotWidth, setGridSlotWidth] = useState(estimateGridSlotWidth);
+  const onGridSlotLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width } = e.nativeEvent.layout;
+    if (width > 0) {
+      setGridSlotWidth((prev) => (Math.abs(prev - width) > 0.5 ? width : prev));
+    }
+  }, []);
 
-  const safeSpacing = useMemo(() => {
-    return theme?.spacing || SPACING || {};
-  }, [theme]);
+  const cardWidth = useMemo(
+    () => Math.max(96, Math.floor((gridSlotWidth - GRID_COL_GAP) / 2)),
+    [gridSlotWidth]
+  );
 
-  const safeTypography = useMemo(() => {
-    return theme?.typography || TYPOGRAPHY || {};
-  }, [theme]);
-
-  const safeShadows = useMemo(() => {
-    return theme?.shadows || SHADOWS || {};
-  }, [theme]);
-
-  const safeBorders = useMemo(() => {
-    return theme?.borders || BORDERS || {};
-  }, [theme]);
-
-  // Estados principales
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Estados para especialidades
   const [todasEspecialidades, setTodasEspecialidades] = useState<CategoriaServicio[]>([]);
   const [especialidadesActuales, setEspecialidadesActuales] = useState<CategoriaServicio[]>([]);
   const [especialidadesSeleccionadas, setEspecialidadesSeleccionadas] = useState<number[]>([]);
 
-  // Estados para marcas y modelos
   const [todasMarcas, setTodasMarcas] = useState<MarcaVehiculo[]>([]);
   const [marcasActuales, setMarcasActuales] = useState<MarcaVehiculo[]>([]);
   const [marcasSeleccionadas, setMarcasSeleccionadas] = useState<number[]>([]);
-  const [modelos, setModelos] = useState<ModeloVehiculo[]>([]);
   const [modelosPorMarca, setModelosPorMarca] = useState<{ [key: number]: ModeloVehiculo[] }>({});
 
-  // Estados para filtros y búsqueda
   const [busquedaEspecialidades, setBusquedaEspecialidades] = useState('');
   const [busquedaMarcas, setBusquedaMarcas] = useState('');
   const [tabActiva, setTabActiva] = useState<'especialidades' | 'marcas'>('especialidades');
   const [modoEdicion, setModoEdicion] = useState(false);
 
-  // Estados para Snackbar
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVariant, setSnackbarVariant] = useState<'success' | 'warning' | 'error' | 'info'>('warning');
 
-  // Constantes de límites
   const MAX_ESPECIALIDADES = 6;
   const MAX_MARCAS = 3;
 
@@ -108,19 +253,14 @@ export default function EspecialidadesMarcasScreen() {
     try {
       setLoading(true);
 
-      // Cargar todas las especialidades disponibles
       const especialidadesData = await especialidadesAPI.obtenerCategorias();
       setTodasEspecialidades(especialidadesData);
 
-      // Cargar todas las marcas disponibles
       const marcasData = await vehiculoAPI.obtenerMarcas();
       setTodasMarcas(marcasData);
 
-      // Cargar todos los modelos para poder filtrarlos dinámicamente
       const modelosData = await modelosAPI.obtenerTodosLosModelos();
-      setModelos(modelosData);
 
-      // Organizar modelos por marca
       const modelosAgrupados: { [key: number]: ModeloVehiculo[] } = {};
       modelosData.forEach((modelo: ModeloVehiculo) => {
         if (!modelosAgrupados[modelo.marca]) {
@@ -130,20 +270,18 @@ export default function EspecialidadesMarcasScreen() {
       });
       setModelosPorMarca(modelosAgrupados);
 
-      // Cargar datos actuales del proveedor
       try {
-        console.log('📊 Cargando datos actuales del proveedor...');
         const datosProveedor = await proveedorVerificadoAPI.obtenerDatosCompletos();
 
-        console.log('✅ Datos del proveedor obtenidos:', datosProveedor);
-
-        // Extraer especialidades actuales
         if (datosProveedor.data.especialidades && Array.isArray(datosProveedor.data.especialidades)) {
-          if (datosProveedor.data.especialidades.length > 0 && typeof datosProveedor.data.especialidades[0] === 'object') {
+          if (
+            datosProveedor.data.especialidades.length > 0 &&
+            typeof datosProveedor.data.especialidades[0] === 'object'
+          ) {
             setEspecialidadesActuales(datosProveedor.data.especialidades);
             setEspecialidadesSeleccionadas(datosProveedor.data.especialidades.map((esp: any) => esp.id));
           } else {
-            const especialidadesActualesObj = especialidadesData.filter(esp =>
+            const especialidadesActualesObj = especialidadesData.filter((esp) =>
               datosProveedor.data.especialidades.includes(esp.id)
             );
             setEspecialidadesActuales(especialidadesActualesObj);
@@ -154,9 +292,11 @@ export default function EspecialidadesMarcasScreen() {
           setEspecialidadesSeleccionadas([]);
         }
 
-        // Extraer marcas actuales
         if (datosProveedor.data.marcas_atendidas && Array.isArray(datosProveedor.data.marcas_atendidas)) {
-          if (datosProveedor.data.marcas_atendidas.length > 0 && typeof datosProveedor.data.marcas_atendidas[0] === 'object') {
+          if (
+            datosProveedor.data.marcas_atendidas.length > 0 &&
+            typeof datosProveedor.data.marcas_atendidas[0] === 'object'
+          ) {
             setMarcasActuales(datosProveedor.data.marcas_atendidas);
             setMarcasSeleccionadas(datosProveedor.data.marcas_atendidas.map((marca: any) => marca.id));
           } else {
@@ -170,7 +310,6 @@ export default function EspecialidadesMarcasScreen() {
           setMarcasActuales([]);
           setMarcasSeleccionadas([]);
         }
-
       } catch (error) {
         console.warn('⚠️ No se pudieron cargar datos actuales del proveedor:', error);
         setEspecialidadesActuales([]);
@@ -178,7 +317,6 @@ export default function EspecialidadesMarcasScreen() {
         setEspecialidadesSeleccionadas([]);
         setMarcasSeleccionadas([]);
       }
-
     } catch (error) {
       console.error('❌ Error cargando datos:', error);
       Alert.alert('Error', 'No se pudieron cargar los datos. Intenta nuevamente.');
@@ -193,73 +331,68 @@ export default function EspecialidadesMarcasScreen() {
     cargarDatos();
   };
 
-  const mostrarSnackbar = (message: string, variant: 'success' | 'warning' | 'error' | 'info' = 'warning') => {
-    setSnackbarMessage(message);
-    setSnackbarVariant(variant);
-    setSnackbarVisible(true);
-  };
+  const mostrarSnackbar = useCallback(
+    (message: string, variant: 'success' | 'warning' | 'error' | 'info' = 'warning') => {
+      setSnackbarMessage(message);
+      setSnackbarVariant(variant);
+      setSnackbarVisible(true);
+    },
+    []
+  );
 
-  const toggleEspecialidad = (especialidadId: number) => {
-    if (!modoEdicion) {
-      setModoEdicion(true);
-    }
+  const toggleEspecialidad = useCallback(
+    (especialidadId: number) => {
+      if (!modoEdicion) {
+        setModoEdicion(true);
+      }
 
-    const estaSeleccionada = especialidadesSeleccionadas.includes(especialidadId);
+      setEspecialidadesSeleccionadas((prev) => {
+        if (prev.includes(especialidadId)) {
+          setHasChanges(true);
+          return prev.filter((id) => id !== especialidadId);
+        }
+        if (prev.length >= MAX_ESPECIALIDADES) {
+          mostrarSnackbar(
+            `Has alcanzado el límite máximo de ${MAX_ESPECIALIDADES} especialidades. Deselecciona una para agregar otra.`,
+            'warning'
+          );
+          return prev;
+        }
+        setHasChanges(true);
+        return [...prev, especialidadId];
+      });
+    },
+    [modoEdicion, mostrarSnackbar]
+  );
 
-    // Si está deseleccionando, permitir siempre
-    if (estaSeleccionada) {
-      const nuevasSeleccionadas = especialidadesSeleccionadas.filter(id => id !== especialidadId);
-      setEspecialidadesSeleccionadas(nuevasSeleccionadas);
-      setHasChanges(true);
-      return;
-    }
+  const toggleMarca = useCallback(
+    (marcaId: number) => {
+      if (!modoEdicion) {
+        setModoEdicion(true);
+      }
 
-    // Si está seleccionando, verificar límite
-    if (especialidadesSeleccionadas.length >= MAX_ESPECIALIDADES) {
-      mostrarSnackbar(
-        `Has alcanzado el límite máximo de ${MAX_ESPECIALIDADES} especialidades. Deselecciona una para agregar otra.`,
-        'warning'
-      );
-      return;
-    }
-
-    const nuevasSeleccionadas = [...especialidadesSeleccionadas, especialidadId];
-    setEspecialidadesSeleccionadas(nuevasSeleccionadas);
-    setHasChanges(true);
-  };
-
-  const toggleMarca = (marcaId: number) => {
-    if (!modoEdicion) {
-      setModoEdicion(true);
-    }
-
-    const estaSeleccionada = marcasSeleccionadas.includes(marcaId);
-
-    // Si está deseleccionando, permitir siempre
-    if (estaSeleccionada) {
-      const nuevasSeleccionadas = marcasSeleccionadas.filter(id => id !== marcaId);
-      setMarcasSeleccionadas(nuevasSeleccionadas);
-      setHasChanges(true);
-      return;
-    }
-
-    // Si está seleccionando, verificar límite
-    if (marcasSeleccionadas.length >= MAX_MARCAS) {
-      mostrarSnackbar(
-        `Has alcanzado el límite máximo de ${MAX_MARCAS} marcas de vehículos. Deselecciona una para agregar otra.`,
-        'warning'
-      );
-      return;
-    }
-
-    const nuevasSeleccionadas = [...marcasSeleccionadas, marcaId];
-    setMarcasSeleccionadas(nuevasSeleccionadas);
-    setHasChanges(true);
-  };
+      setMarcasSeleccionadas((prev) => {
+        if (prev.includes(marcaId)) {
+          setHasChanges(true);
+          return prev.filter((id) => id !== marcaId);
+        }
+        if (prev.length >= MAX_MARCAS) {
+          mostrarSnackbar(
+            `Has alcanzado el límite máximo de ${MAX_MARCAS} marcas de vehículos. Deselecciona una para agregar otra.`,
+            'warning'
+          );
+          return prev;
+        }
+        setHasChanges(true);
+        return [...prev, marcaId];
+      });
+    },
+    [modoEdicion, mostrarSnackbar]
+  );
 
   const cancelarEdicion = () => {
-    setEspecialidadesSeleccionadas(especialidadesActuales.map(esp => esp.id));
-    setMarcasSeleccionadas(marcasActuales.map(marca => marca.id));
+    setEspecialidadesSeleccionadas(especialidadesActuales.map((esp) => esp.id));
+    setMarcasSeleccionadas(marcasActuales.map((marca) => marca.id));
     setModoEdicion(false);
     setHasChanges(false);
     setBusquedaEspecialidades('');
@@ -269,8 +402,6 @@ export default function EspecialidadesMarcasScreen() {
   const seleccionarTodasLasMarcas = () => {
     setModoEdicion(true);
     const todasLasMarcasIds = todasMarcas.map((m: MarcaVehiculo) => m.id);
-
-    // Limitar a MAX_MARCAS
     const marcasLimitadas = todasLasMarcasIds.slice(0, MAX_MARCAS);
     setMarcasSeleccionadas(marcasLimitadas);
     setHasChanges(true);
@@ -297,9 +428,7 @@ export default function EspecialidadesMarcasScreen() {
 
   const seleccionarTodasLasEspecialidades = () => {
     setModoEdicion(true);
-    const todasLasEspecialidadesIds = todasEspecialidades.map(e => e.id);
-
-    // Limitar a MAX_ESPECIALIDADES
+    const todasLasEspecialidadesIds = todasEspecialidades.map((e) => e.id);
     const especialidadesLimitadas = todasLasEspecialidadesIds.slice(0, MAX_ESPECIALIDADES);
     setEspecialidadesSeleccionadas(especialidadesLimitadas);
     setHasChanges(true);
@@ -316,7 +445,6 @@ export default function EspecialidadesMarcasScreen() {
     try {
       setSaving(true);
 
-      // Validar selecciones
       if (especialidadesSeleccionadas.length === 0) {
         Alert.alert('Error', 'Debes seleccionar al menos una especialidad.');
         setSaving(false);
@@ -339,18 +467,12 @@ export default function EspecialidadesMarcasScreen() {
       }
 
       if (marcasSeleccionadas.length > MAX_MARCAS) {
-        mostrarSnackbar(
-          `Has excedido el límite de ${MAX_MARCAS} marcas. Por favor, deselecciona algunas.`,
-          'error'
-        );
+        mostrarSnackbar(`Has excedido el límite de ${MAX_MARCAS} marcas. Por favor, deselecciona algunas.`, 'error');
         setSaving(false);
         return;
       }
 
-      // Guardar especialidades
       await especialidadesAPI.actualizarEspecialidades(especialidadesSeleccionadas);
-
-      // Guardar marcas según el tipo de proveedor
       await proveedorVerificadoAPI.actualizarMarcas(marcasSeleccionadas, estadoProveedor?.tipo_proveedor || '');
 
       Alert.alert(
@@ -363,10 +485,7 @@ export default function EspecialidadesMarcasScreen() {
       setModoEdicion(false);
       setBusquedaEspecialidades('');
       setBusquedaMarcas('');
-
-      // Recargar datos para obtener las configuraciones actualizadas
       await cargarDatos();
-
     } catch (error: any) {
       console.error('Error guardando configuración:', error);
       Alert.alert(
@@ -378,205 +497,36 @@ export default function EspecialidadesMarcasScreen() {
     }
   };
 
-  // Función para filtrar especialidades según modo de edición
-  const getEspecialidadesMostrar = () => {
-    const especialidades = modoEdicion ? todasEspecialidades : especialidadesActuales;
-    return especialidades.filter(esp =>
-      esp.nombre.toLowerCase().includes(busquedaEspecialidades.toLowerCase())
-    );
-  };
+  const especialidadesMostrar = useMemo(() => {
+    const list = modoEdicion ? todasEspecialidades : especialidadesActuales;
+    return list.filter((esp) => esp.nombre.toLowerCase().includes(busquedaEspecialidades.toLowerCase()));
+  }, [modoEdicion, todasEspecialidades, especialidadesActuales, busquedaEspecialidades]);
 
-  // Función para filtrar marcas según modo de edición
-  const getMarcasMostrar = () => {
-    const marcas = modoEdicion ? todasMarcas : marcasActuales;
-    return marcas.filter(marca =>
-      marca.nombre.toLowerCase().includes(busquedaMarcas.toLowerCase())
-    );
-  };
-
-  // Renderizar item de especialidad
-  const renderEspecialidadItem = (especialidad: CategoriaServicio) => {
-    const isSelected = especialidadesSeleccionadas.includes(especialidad.id);
-
-    // Obtener colores del sistema de diseño
-    const bgPaper = (safeColors?.background as any)?.paper || (safeColors?.base as any)?.white || '#FFFFFF';
-    const bgDefault = (safeColors?.background as any)?.default || '#F5F7F8';
-    const textPrimary = safeColors?.text?.primary || (safeColors?.neutral as any)?.inkBlack || '#00171F';
-    const textSecondary = safeColors?.text?.secondary || ((safeColors?.neutral as any)?.gray as any)?.[800] || '#3E4F53';
-    const textTertiary = safeColors?.text?.tertiary || ((safeColors?.neutral as any)?.gray as any)?.[700] || '#5D6F75';
-    const borderLight = (safeColors?.border as any)?.light || ((safeColors?.neutral as any)?.gray as any)?.[200] || '#D7DFE3';
-    const primaryObj = safeColors?.primary as any;
-    const primary500 = primaryObj?.['500'] || (safeColors?.accent as any)?.['500'] || '#003459';
-    const primaryLight = primaryObj?.['50'] || '#E6F0F5';
-    const spacingMd = safeSpacing?.md || 16;
-    const spacingSm = safeSpacing?.sm || 8;
-    const radiusLg = safeBorders?.radius?.lg || 12;
-    const shadowSm = safeShadows?.sm || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-
-    return (
-      <TouchableOpacity
-        key={especialidad.id}
-        style={[
-          styles.modernCard,
-          isSelected && {
-            backgroundColor: primaryLight
-          }
-        ]}
-        onPress={() => toggleEspecialidad(especialidad.id)}
-        disabled={!modoEdicion && !isSelected}
-        activeOpacity={0.8}
-      >
-        <View style={styles.cardContent}>
-          <View style={[styles.cardIcon, { backgroundColor: isSelected ? primaryLight : bgDefault }]}>
-            <MaterialIcons
-              name="build"
-              size={18}
-              color={isSelected ? primary500 : textTertiary}
-            />
-          </View>
-          <View style={styles.cardInfo}>
-            <Text style={[styles.cardTitle, { color: isSelected ? primary500 : textPrimary }]} numberOfLines={2}>
-              {especialidad.nombre}
-            </Text>
-            {especialidad.descripcion && (
-              <Text style={[styles.cardDescription, { color: isSelected ? textSecondary : textTertiary }]} numberOfLines={2}>
-                {especialidad.descripcion}
-              </Text>
-            )}
-          </View>
-          <View style={[
-            styles.modernCheckbox,
-            isSelected && { borderColor: primary500, backgroundColor: primary500 }
-          ]}>
-            {isSelected && <Ionicons name="checkmark" size={12} color="#FFFFFF" />}
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  // Renderizar item de marca
-  const renderMarcaItem = (marca: MarcaVehiculo) => {
-    const isSelected = marcasSeleccionadas.includes(marca.id);
-    const modelosDeMarca = modelosPorMarca[marca.id] || [];
-
-    // Obtener colores del sistema de diseño
-    const bgPaper = (safeColors?.background as any)?.paper || (safeColors?.base as any)?.white || '#FFFFFF';
-    const bgDefault = (safeColors?.background as any)?.default || '#F5F7F8';
-    const textPrimary = safeColors?.text?.primary || (safeColors?.neutral as any)?.inkBlack || '#00171F';
-    const textSecondary = safeColors?.text?.secondary || ((safeColors?.neutral as any)?.gray as any)?.[800] || '#3E4F53';
-    const textTertiary = safeColors?.text?.tertiary || ((safeColors?.neutral as any)?.gray as any)?.[700] || '#5D6F75';
-    const borderLight = (safeColors?.border as any)?.light || ((safeColors?.neutral as any)?.gray as any)?.[200] || '#D7DFE3';
-    const primaryObj = safeColors?.primary as any;
-    const primary500 = primaryObj?.['500'] || (safeColors?.accent as any)?.['500'] || '#003459';
-    const primaryLight = primaryObj?.['50'] || '#E6F0F5';
-    const primary100 = primaryObj?.['100'] || '#D0E0F0';
-    const infoObj = safeColors?.info as any;
-    const infoMain = infoObj?.main || infoObj?.['500'] || COLORS?.info?.main || '#068FFF';
-    const infoLight = infoObj?.light || COLORS?.info?.light || '#E6F5FF';
-    const infoDark = infoObj?.dark || COLORS?.info?.dark || '#0570CC';
-    const infoText = infoObj?.text || COLORS?.base?.white || '#FFFFFF';
-    const neutralGray200 = (safeColors?.neutral as any)?.gray?.[200] || '#EEEEEE';
-    const neutralGray700 = (safeColors?.neutral as any)?.gray?.[700] || '#666666';
-
-    return (
-      <TouchableOpacity
-        key={marca.id}
-        style={[
-          styles.modernCard,
-          isSelected && {
-            backgroundColor: primaryLight
-          }
-        ]}
-        onPress={() => toggleMarca(marca.id)}
-        disabled={!modoEdicion && !isSelected}
-        activeOpacity={0.8}
-      >
-        <View style={styles.cardContent}>
-          <View style={[styles.cardIcon, { backgroundColor: isSelected ? primaryLight : bgDefault }]}>
-            <MaterialIcons
-              name="directions-car"
-              size={18}
-              color={isSelected ? primary500 : textTertiary}
-            />
-          </View>
-          <View style={styles.cardInfo}>
-            <Text style={[styles.cardTitle, { color: isSelected ? primary500 : textPrimary }]} numberOfLines={2}>
-              {marca.nombre}
-            </Text>
-            <Text style={[styles.cardDescription, { color: isSelected ? textSecondary : textTertiary }]} numberOfLines={1}>
-              {modelosDeMarca.length} modelos
-            </Text>
-            {isSelected && modelosDeMarca.length > 0 && (
-              <View style={[styles.modelosPreview, { backgroundColor: infoLight, borderColor: infoMain }]}>
-                <Text style={[styles.modelosPreviewText, { color: infoDark }]} numberOfLines={2}>
-                  {modelosDeMarca.slice(0, 3).map(m => m.nombre).join(', ')}
-                  {modelosDeMarca.length > 3 && ` +${modelosDeMarca.length - 3} más`}
-                </Text>
-              </View>
-            )}
-          </View>
-          <View style={[
-            styles.modernCheckbox,
-            isSelected && { borderColor: primary500, backgroundColor: primary500 }
-          ]}>
-            {isSelected && <Ionicons name="checkmark" size={12} color="#FFFFFF" />}
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  // Obtener colores del sistema de diseño para estilos
-  const bgPaper = (safeColors?.background as any)?.paper || (safeColors?.base as any)?.white || '#FFFFFF';
-  const bgDefault = (safeColors?.background as any)?.default || '#F5F7F8';
-  const textPrimary = safeColors?.text?.primary || (safeColors?.neutral as any)?.inkBlack || '#00171F';
-  const textSecondary = safeColors?.text?.secondary || ((safeColors?.neutral as any)?.gray as any)?.[800] || '#3E4F53';
-  const textTertiary = safeColors?.text?.tertiary || ((safeColors?.neutral as any)?.gray as any)?.[700] || '#5D6F75';
-  const borderLight = (safeColors?.border as any)?.light || ((safeColors?.neutral as any)?.gray as any)?.[200] || '#D7DFE3';
-  const primaryObj = safeColors?.primary as any;
-  const successObj = safeColors?.success as any;
-  const errorObj = safeColors?.error as any;
-  const primary500 = primaryObj?.['500'] || (safeColors?.accent as any)?.['500'] || '#003459';
-  const success500 = successObj?.main || successObj?.['500'] || '#00C9A7';
-  const error500 = errorObj?.main || errorObj?.['500'] || '#FF6B6B';
-  const infoLight = (safeColors?.info as any)?.light || '#E6F5F9';
-  const infoText = (safeColors?.info as any)?.text || '#003D32';
-  const containerHorizontal = safeSpacing?.container?.horizontal || safeSpacing?.content?.horizontal || 18;
-  const spacingXs = safeSpacing?.xs || 4;
-  const spacingSm = safeSpacing?.sm || 8;
-  const spacingMd = safeSpacing?.md || 16;
-  const spacingLg = safeSpacing?.lg || 24;
-  const fontSizeBase = safeTypography?.fontSize?.base || 14;
-  const fontSizeMd = safeTypography?.fontSize?.md || 16;
-  const fontSizeLg = safeTypography?.fontSize?.lg || 18;
-  const fontWeightMedium = safeTypography?.fontWeight?.medium || '500';
-  const fontWeightSemibold = safeTypography?.fontWeight?.semibold || '600';
-  const fontWeightBold = safeTypography?.fontWeight?.bold || '700';
-  const radiusMd = safeBorders?.radius?.md || 8;
-  const radiusLg = safeBorders?.radius?.lg || 12;
-  const radiusXl = safeBorders?.radius?.xl || 16;
-  const shadowSm = safeShadows?.sm || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-  const shadowMd = safeShadows?.md || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
+  const marcasMostrar = useMemo(() => {
+    const list = modoEdicion ? todasMarcas : marcasActuales;
+    return list.filter((marca) => marca.nombre.toLowerCase().includes(busquedaMarcas.toLowerCase()));
+  }, [modoEdicion, todasMarcas, marcasActuales, busquedaMarcas]);
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: bgDefault }]}>
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <Header
           title="Especialidades y Marcas"
           showBack
           onBackPress={() => router.back()}
+          backgroundColor={I.canvas}
+          titleColor={I.ink}
         />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={primary500} />
-          <Text style={[styles.loadingText, { color: textTertiary }]}>Cargando configuración...</Text>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={styles.loadingText}>Cargando configuración...</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: bgDefault }]} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <Stack.Screen
         options={{
           title: 'Especialidades y Marcas',
@@ -586,257 +536,240 @@ export default function EspecialidadesMarcasScreen() {
 
       <Header
         title="Especialidades y Marcas"
-        showBack={true}
+        showBack
         onBackPress={() => router.back()}
+        backgroundColor={I.canvas}
+        titleColor={I.ink}
       />
 
       <ScrollView
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 88 }}
       >
-        <View style={[styles.content, { paddingHorizontal: containerHorizontal }]}>
-          {/* Información contextual - UI Card */}
-          <View style={styles.uiCard}>
+        <View style={[styles.content, { paddingHorizontal: hx }]}>
+          <View style={styles.infoNotice}>
             <View style={styles.infoCardContent}>
-              <Ionicons name="information-circle" size={20} color={primary500} />
-              <Text style={[styles.infoText, { color: textPrimary }]}>
+              <InstitutionalIcon name="information-circle" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.infoText}>
                 {modoEdicion
                   ? 'Selecciona las especialidades que ofreces y las marcas de vehículos que atiendes. Esto define tu perfil de servicios.'
-                  : 'Esta es tu configuración actual. Toca "Editar" para modificar tus especialidades y marcas.'
-                }
+                  : 'Esta es tu configuración actual. Toca «Configurar» abajo para modificar.'}
               </Text>
             </View>
           </View>
 
-          {/* Tabs modernos - UI Card */}
-          <View style={styles.uiCard}>
-            <View style={styles.modernTabsContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.modernTab,
-                  tabActiva === 'especialidades' && { backgroundColor: infoLight }
-                ]}
-                onPress={() => setTabActiva('especialidades')}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons
-                  name="build"
-                  size={20}
-                  color={tabActiva === 'especialidades' ? primary500 : textTertiary}
-                />
-                <Text style={[
-                  styles.modernTabText,
-                  { color: tabActiva === 'especialidades' ? primary500 : textTertiary }
-                ]}>
-                  Especialidades
-                </Text>
-              </TouchableOpacity>
+          <View style={styles.mainPanel}>
+            <InstitutionalScreenTabs
+              style={styles.tabsInPanel}
+              activeKey={tabActiva}
+              onChange={setTabActiva}
+              tabs={[
+                {
+                  key: 'especialidades',
+                  label: 'Especialidades',
+                  leading: (
+                    <InstitutionalIcon
+                      name="build"
+                      size={18}
+                      color={tabActiva === 'especialidades' ? I.onPrimary : I.muted}
+                     strokeWidth={ICON_STROKE_WIDTH} />
+                  ),
+                },
+                {
+                  key: 'marcas',
+                  label: 'Marcas',
+                  leading: (
+                    <InstitutionalIcon
+                      name="directions-car"
+                      size={18}
+                      color={tabActiva === 'marcas' ? I.onPrimary : I.muted}
+                     strokeWidth={ICON_STROKE_WIDTH} />
+                  ),
+                },
+              ]}
+            />
+            <View style={styles.panelDivider} />
+            <View style={styles.panelBody}>
+              {tabActiva === 'especialidades' && (
+                <>
+                  {modoEdicion && (
+                    <View style={styles.toolBlock}>
+                      <View style={styles.searchRow}>
+                        <InstitutionalIcon name="search" size={18} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
+                        <TextInput
+                          style={styles.searchInput}
+                          placeholder="Buscar especialidades…"
+                          value={busquedaEspecialidades}
+                          onChangeText={setBusquedaEspecialidades}
+                          placeholderTextColor={I.mutedSoft}
+                        />
+                        {busquedaEspecialidades.length > 0 ? (
+                          <TouchableOpacity onPress={() => setBusquedaEspecialidades('')} hitSlop={12}>
+                            <InstitutionalIcon name="close-circle" size={20} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                    </View>
+                  )}
 
-              <TouchableOpacity
-                style={[
-                  styles.modernTab,
-                  tabActiva === 'marcas' && { backgroundColor: infoLight }
-                ]}
-                onPress={() => setTabActiva('marcas')}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons
-                  name="directions-car"
-                  size={20}
-                  color={tabActiva === 'marcas' ? primary500 : textTertiary}
-                />
-                <Text style={[
-                  styles.modernTabText,
-                  { color: tabActiva === 'marcas' ? primary500 : textTertiary }
-                ]}>
-                  Marcas de Vehículos
-                </Text>
-              </TouchableOpacity>
+                  {modoEdicion && (
+                    <View style={[styles.toolBlock, styles.toolBlockNoTopPad]}>
+                      <View style={styles.quickActionsRow}>
+                        <TouchableOpacity
+                          style={styles.quickChip}
+                          onPress={seleccionarTodasLasEspecialidades}
+                          activeOpacity={0.85}
+                        >
+                          <InstitutionalIcon name="checkmark-done" size={16} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
+                          <Text style={styles.quickChipTextUp}>Seleccionar todas</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.quickChip}
+                          onPress={limpiarSeleccionEspecialidades}
+                          activeOpacity={0.85}
+                        >
+                          <InstitutionalIcon name="close" size={16} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
+                          <Text style={styles.quickChipTextDown}>Limpiar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={styles.counterRow}>
+                    <InstitutionalIcon name="list" size={18} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.counterLabel}>
+                      <Text style={styles.counterMono}>{especialidadesSeleccionadas.length}</Text>
+                      <Text style={styles.counterSlash}> / </Text>
+                      <Text style={styles.counterMono}>{MAX_ESPECIALIDADES}</Text>
+                      <Text style={styles.counterRest}> especialidades</Text>
+                    </Text>
+                  </View>
+
+                  <View style={styles.gridSlot} onLayout={onGridSlotLayout}>
+                    <View style={styles.itemsGrid}>
+                      {especialidadesMostrar.map((esp, index) => (
+                        <EspecialidadCard
+                          key={esp.id}
+                          especialidad={esp}
+                          isSelected={especialidadesSeleccionadas.includes(esp.id)}
+                          disabled={!modoEdicion && !especialidadesSeleccionadas.includes(esp.id)}
+                          cardWidth={cardWidth}
+                          isLeftColumn={index % 2 === 0}
+                          onToggle={toggleEspecialidad}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                </>
+              )}
+
+              {tabActiva === 'marcas' && (
+                <>
+                  {modoEdicion && (
+                    <View style={styles.toolBlock}>
+                      <View style={styles.searchRow}>
+                        <InstitutionalIcon name="search" size={18} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
+                        <TextInput
+                          style={styles.searchInput}
+                          placeholder="Buscar marcas…"
+                          value={busquedaMarcas}
+                          onChangeText={setBusquedaMarcas}
+                          placeholderTextColor={I.mutedSoft}
+                        />
+                        {busquedaMarcas.length > 0 ? (
+                          <TouchableOpacity onPress={() => setBusquedaMarcas('')} hitSlop={12}>
+                            <InstitutionalIcon name="close-circle" size={20} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                    </View>
+                  )}
+
+                  {modoEdicion && (
+                    <View style={[styles.toolBlock, styles.toolBlockNoTopPad]}>
+                      <View style={styles.quickActionsRow}>
+                        <TouchableOpacity style={styles.quickChip} onPress={seleccionarTodasLasMarcas} activeOpacity={0.85}>
+                          <InstitutionalIcon name="checkmark-done" size={16} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
+                          <Text style={styles.quickChipTextUp}>Seleccionar todas</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.quickChip} onPress={limpiarSeleccionMarcas} activeOpacity={0.85}>
+                          <InstitutionalIcon name="close" size={16} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
+                          <Text style={styles.quickChipTextDown}>Limpiar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={styles.counterRow}>
+                    <InstitutionalIcon name="directions-car" size={18} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.counterLabel}>
+                      <Text style={styles.counterMono}>{marcasSeleccionadas.length}</Text>
+                      <Text style={styles.counterSlash}> / </Text>
+                      <Text style={styles.counterMono}>{MAX_MARCAS}</Text>
+                      <Text style={styles.counterRest}> marcas</Text>
+                    </Text>
+                  </View>
+
+                  <View style={styles.gridSlot} onLayout={onGridSlotLayout}>
+                    <View style={styles.itemsGrid}>
+                      {marcasMostrar.map((marca, index) => (
+                        <MarcaCard
+                          key={marca.id}
+                          marca={marca}
+                          modelosDeMarca={modelosPorMarca[marca.id] || []}
+                          isSelected={marcasSeleccionadas.includes(marca.id)}
+                          disabled={!modoEdicion && !marcasSeleccionadas.includes(marca.id)}
+                          cardWidth={cardWidth}
+                          isLeftColumn={index % 2 === 0}
+                          onToggle={toggleMarca}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                </>
+              )}
             </View>
           </View>
-
-          {/* Contenido según tab activa */}
-          {tabActiva === 'especialidades' && (
-            <>
-              {/* Búsqueda - UI Card */}
-              {modoEdicion && (
-                <View style={[styles.uiCard, { backgroundColor: bgPaper, borderColor: borderLight, ...shadowSm }]}>
-                  <View style={styles.modernSearchContainer}>
-                    <Ionicons name="search" size={20} color={textTertiary} />
-                    <TextInput
-                      style={[styles.modernSearchInput, { color: textPrimary }]}
-                      placeholder="Buscar especialidades..."
-                      value={busquedaEspecialidades}
-                      onChangeText={setBusquedaEspecialidades}
-                      placeholderTextColor={textTertiary}
-                    />
-                    {busquedaEspecialidades.length > 0 && (
-                      <TouchableOpacity onPress={() => setBusquedaEspecialidades('')}>
-                        <Ionicons name="close-circle" size={20} color={textTertiary} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {/* Acciones rápidas para especialidades - UI Card */}
-              {modoEdicion && (
-                <View style={styles.uiCard}>
-                  <View style={styles.quickActionsContainer}>
-                    <TouchableOpacity
-                      style={styles.quickActionButton}
-                      onPress={seleccionarTodasLasEspecialidades}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="checkmark-done" size={16} color={success500} />
-                      <Text style={[styles.quickActionText, { color: success500 }]}>Seleccionar Todas</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.quickActionButton}
-                      onPress={limpiarSeleccionEspecialidades}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="close" size={16} color={error500} />
-                      <Text style={[styles.quickActionText, { color: error500 }]}>Limpiar Selección</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {/* Contador - UI Card */}
-              <View style={styles.uiCard}>
-                <View style={styles.counterCard}>
-                  <MaterialIcons name="list" size={20} color={primary500} />
-                  <Text style={[styles.counterText, { color: textPrimary }]}>
-                    {especialidadesSeleccionadas.length} / {MAX_ESPECIALIDADES} especialidades seleccionadas
-                  </Text>
-                </View>
-              </View>
-
-              {/* Grid de especialidades - 2 columnas */}
-              <View style={styles.itemsGrid}>
-                {getEspecialidadesMostrar().map(renderEspecialidadItem)}
-              </View>
-            </>
-          )}
-
-          {tabActiva === 'marcas' && (
-            <>
-              {/* Búsqueda - UI Card */}
-              {modoEdicion && (
-                <View style={[styles.uiCard, { backgroundColor: bgPaper, borderColor: borderLight, ...shadowSm }]}>
-                  <View style={styles.modernSearchContainer}>
-                    <Ionicons name="search" size={20} color={textTertiary} />
-                    <TextInput
-                      style={[styles.modernSearchInput, { color: textPrimary }]}
-                      placeholder="Buscar marcas..."
-                      value={busquedaMarcas}
-                      onChangeText={setBusquedaMarcas}
-                      placeholderTextColor={textTertiary}
-                    />
-                    {busquedaMarcas.length > 0 && (
-                      <TouchableOpacity onPress={() => setBusquedaMarcas('')}>
-                        <Ionicons name="close-circle" size={20} color={textTertiary} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {/* Acciones rápidas para marcas - UI Card */}
-              {modoEdicion && (
-                <View style={styles.uiCard}>
-                  <View style={styles.quickActionsContainer}>
-                    <TouchableOpacity
-                      style={styles.quickActionButton}
-                      onPress={seleccionarTodasLasMarcas}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="checkmark-done" size={16} color={success500} />
-                      <Text style={[styles.quickActionText, { color: success500 }]}>Seleccionar Todas</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.quickActionButton}
-                      onPress={limpiarSeleccionMarcas}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="close" size={16} color={error500} />
-                      <Text style={[styles.quickActionText, { color: error500 }]}>Limpiar Selección</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {/* Contador - UI Card */}
-              <View style={styles.uiCard}>
-                <View style={styles.counterCard}>
-                  <MaterialIcons name="directions-car" size={20} color={primary500} />
-                  <Text style={[styles.counterText, { color: textPrimary }]}>
-                    {marcasSeleccionadas.length} / {MAX_MARCAS} marcas seleccionadas
-                  </Text>
-                </View>
-              </View>
-
-              {/* Grid de marcas - 2 columnas */}
-              <View style={styles.itemsGrid}>
-                {getMarcasMostrar().map(renderMarcaItem)}
-              </View>
-            </>
-          )}
         </View>
       </ScrollView>
 
-      {/* Action Buttons Floating Footer */}
-      <View style={[styles.floatingBottomBar, { paddingBottom: Math.max(insets.bottom, SPACING?.md || 16) }]}>
+      <View style={[styles.floatingBottomBar, { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) }]}>
         {!modoEdicion ? (
           <TouchableOpacity
-            style={[styles.editButtonFloat, { backgroundColor: primary500, ...shadowMd }]}
+            style={styles.primaryCta}
             onPress={() => setModoEdicion(true)}
-            activeOpacity={0.8}
+            activeOpacity={0.88}
           >
-            <MaterialIcons name="edit" size={20} color="#FFFFFF" />
-            <Text style={styles.editButtonTextFloat}>Configurar mis especialidades</Text>
+            <InstitutionalIcon name="edit" size={20} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={styles.primaryCtaText}>Configurar especialidades y marcas</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.editingButtonsFloat}>
-            <TouchableOpacity
-              style={[styles.cancelButtonFloat, { backgroundColor: bgPaper, borderColor: borderLight, borderWidth: 1 }]}
-              onPress={cancelarEdicion}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.cancelButtonTextFloat, { color: textPrimary }]}>Cancelar</Text>
+            <TouchableOpacity style={styles.secondaryCta} onPress={cancelarEdicion} activeOpacity={0.88}>
+              <Text style={styles.secondaryCtaText}>Cancelar</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[
-                styles.saveButtonFloat,
-                { backgroundColor: hasChanges ? success500 : bgDefault },
-                saving && { opacity: 0.7 }
-              ]}
+              style={[styles.saveCta, (!hasChanges || saving) && styles.saveCtaDisabled]}
               onPress={guardarCambios}
               disabled={saving || !hasChanges}
-              activeOpacity={0.8}
+              activeOpacity={0.88}
             >
               {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={I.onPrimary} />
               ) : (
-                <Ionicons name="checkmark" size={20} color={hasChanges ? "#FFFFFF" : textTertiary} />
+                <InstitutionalIcon name="checkmark" size={20} color={hasChanges ? I.onPrimary : I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
               )}
-              <Text style={[styles.saveButtonTextFloat, { color: hasChanges ? "#FFFFFF" : textTertiary }]}>
-                {saving ? 'Guardando...' : 'Guardar Cambios'}
+              <Text style={[styles.saveCtaText, (!hasChanges || saving) && styles.saveCtaTextDisabled]}>
+                {saving ? 'Guardando…' : 'Guardar cambios'}
               </Text>
             </TouchableOpacity>
           </View>
         )}
       </View>
 
-      {/* Snackbar para alertas */}
       <Snackbar
         visible={snackbarVisible}
         message={snackbarMessage}
@@ -848,280 +781,332 @@ export default function EspecialidadesMarcasScreen() {
   );
 }
 
-// Función para crear estilos usando tokens del sistema de diseño
-const createStyles = () => {
-  const bgPaper = COLORS?.background?.paper || COLORS?.base?.white || '#FFFFFF';
-  const bgDefault = COLORS?.background?.default || '#F5F7F8';
-  const textPrimary = COLORS?.text?.primary || COLORS?.neutral?.inkBlack || '#00171F';
-  const textTertiary = COLORS?.text?.tertiary || ((COLORS?.neutral?.gray as any)?.[700]) || '#5D6F75';
-  const borderLight = COLORS?.border?.light || COLORS?.neutral?.gray?.[200] || '#D7DFE3';
-  const spacingXs = SPACING?.xs || 4;
-  const spacingSm = SPACING?.sm || 8;
-  const spacingMd = SPACING?.md || 16;
-  const spacingLg = SPACING?.lg || 24;
-  const containerHorizontal = SPACING?.container?.horizontal || SPACING?.content?.horizontal || 18;
-  const cardPadding = SPACING?.cardPadding || spacingMd;
-  const cardGap = SPACING?.cardGap || spacingSm + 4;
-  const cardRadius = BORDERS?.radius?.lg || 12;
-  const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
-  const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
-  const fontWeightMedium = TYPOGRAPHY?.fontWeight?.medium || '500';
-  const fontWeightBold = TYPOGRAPHY?.fontWeight?.bold || '700';
-  const radiusMd = BORDERS?.radius?.md || 8;
-  const radiusLg = BORDERS?.radius?.lg || 12;
-  const radiusXl = BORDERS?.radius?.xl || 16;
-  const shadowSm = SHADOWS?.sm || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-  const shadowMd = SHADOWS?.md || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
-
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: bgDefault,
-    },
-    scrollContainer: {
-      flex: 1,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: bgDefault,
-    },
-    loadingText: {
-      marginTop: spacingMd,
-      fontSize: fontSizeBase,
-    },
-    statsContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    statItem: {
-      alignItems: 'center',
-    },
-    statNumber: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightBold,
-    },
-    statLabel: {
-      fontSize: fontSizeBase - 4,
-      fontWeight: '500',
-      marginTop: spacingSm / 2,
-    },
-    content: {
-      paddingVertical: spacingMd,
-    },
-    uiCard: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: spacingMd,
-      marginBottom: spacingMd,
-      ...shadowSm,
-      borderWidth: 1,
-      borderColor: borderLight,
-    },
-    infoCardContent: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacingMd,
-    },
-    infoText: {
-      flex: 1,
-      fontSize: fontSizeBase,
-      lineHeight: fontSizeBase + 6,
-    },
-    modernTabsContainer: {
-      flexDirection: 'row',
-      gap: spacingXs || 4,
-    },
-    modernTab: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacingMd - 2,
-      paddingHorizontal: spacingMd,
-      borderRadius: radiusLg - 2,
-    },
-    modernTabText: {
-      fontSize: fontSizeBase,
-      marginLeft: spacingSm,
-      fontWeight: '500',
-    },
-    modernSearchContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingMd,
-    },
-    modernSearchInput: {
-      flex: 1,
-      marginLeft: spacingMd,
-      fontSize: fontSizeBase,
-      fontWeight: '400',
-    },
-    quickActionsContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      gap: spacingMd,
-    },
-    quickActionButton: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacingMd - 2,
-      paddingHorizontal: spacingMd,
-      borderRadius: radiusLg,
-      gap: spacingSm / 2,
-    },
-    quickActionText: {
-      fontSize: fontSizeBase,
-      fontWeight: '600',
-      marginLeft: spacingSm / 2,
-    },
-    counterCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacingSm,
-    },
-    counterText: {
-      fontSize: fontSizeBase,
-      fontWeight: '600',
-      marginLeft: spacingSm,
-    },
-    itemsList: {
-      gap: spacingSm,
-    },
-    itemsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'space-between',
-      gap: spacingSm,
-    },
-    modernCard: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusLg,
-      padding: spacingSm + 2,
-      marginBottom: spacingXs || 4,
-      ...shadowSm,
-      borderWidth: 1,
-      borderColor: borderLight,
-      width: '48%',
-      minHeight: 100,
-      position: 'relative',
-    },
-    cardContent: {
-      flexDirection: 'column',
-      alignItems: 'flex-start',
-      gap: spacingXs + 2,
-    },
-    cardIcon: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
-      alignSelf: 'flex-start',
-      marginBottom: spacingXs,
-    },
-    cardInfo: {
-      flex: 1,
-      width: '100%',
-    },
-    cardTitle: {
-      fontSize: fontSizeBase - 1,
-      fontWeight: '600',
-      marginBottom: 2,
-    },
-    cardDescription: {
-      fontSize: fontSizeBase - 3,
-      lineHeight: fontSizeBase,
-    },
-    modernCheckbox: {
-      width: 18,
-      height: 18,
-      borderRadius: 9,
-      borderWidth: 1.5,
-      borderColor: borderLight,
-      backgroundColor: bgPaper,
-      justifyContent: 'center',
-      alignItems: 'center',
-      position: 'absolute',
-      top: spacingSm + 2,
-      right: spacingSm + 2,
-    },
-    modelosPreview: {
-      marginTop: spacingSm,
-      paddingVertical: spacingSm,
-      paddingHorizontal: spacingMd,
-      borderRadius: radiusMd,
-      alignSelf: 'flex-start',
-      borderWidth: 1,
-      maxWidth: '100%',
-    },
-    modelosPreviewText: {
-      fontSize: fontSizeBase - 1,
-      fontWeight: '600',
-      lineHeight: (fontSizeBase - 1) * 1.4,
-      letterSpacing: 0.2,
-    },
-    floatingBottomBar: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      backgroundColor: bgPaper,
-      paddingTop: spacingMd,
-      paddingHorizontal: containerHorizontal,
-      borderTopWidth: 1,
-      borderColor: borderLight,
-      ...shadowMd,
-    },
-    editButtonFloat: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacingMd,
-      borderRadius: radiusLg,
-      gap: spacingSm,
-    },
-    editButtonTextFloat: {
-      color: '#FFFFFF',
-      fontSize: fontSizeBase + 1,
-      fontWeight: 'bold',
-    },
-    editingButtonsFloat: {
-      flexDirection: 'row',
-      gap: spacingMd,
-      justifyContent: 'space-between',
-    },
-    cancelButtonFloat: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacingMd - 2,
-      borderRadius: radiusLg,
-    },
-    cancelButtonTextFloat: {
-      fontSize: fontSizeBase,
-      fontWeight: '600',
-    },
-    saveButtonFloat: {
-      flex: 2,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacingMd - 2,
-      borderRadius: radiusLg,
-      gap: spacingXs,
-    },
-    saveButtonTextFloat: {
-      fontSize: fontSizeBase,
-      fontWeight: 'bold',
-    },
-  });
-};
-
-const styles = createStyles();
-
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: I.surfaceSoft,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: I.surfaceSoft,
+  },
+  loadingText: {
+    marginTop: SPACING.fixed.md,
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.muted,
+  },
+  content: {
+    paddingVertical: SPACING.fixed.sm,
+  },
+  infoNotice: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
+  },
+  mainPanel: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.card.xl,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
+    overflow: 'hidden',
+    marginBottom: SPACING.fixed.sm,
+  },
+  tabsInPanel: {
+    marginHorizontal: SPACING.fixed.sm,
+    marginTop: SPACING.fixed.sm,
+  },
+  panelDivider: {
+    height: BORDERS.width.thin,
+    backgroundColor: I.hairline,
+    marginTop: SPACING.fixed.sm,
+    marginHorizontal: SPACING.fixed.sm,
+  },
+  panelBody: {
+    paddingHorizontal: PANEL_BODY_H_PAD,
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.sm,
+  },
+  toolBlock: {
+    paddingBottom: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairlineSoft,
+  },
+  toolBlockNoTopPad: {
+    paddingTop: 0,
+  },
+  infoCardContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.xs + 2,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.body.lineHeight),
+    color: I.body,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.ink,
+    paddingVertical: SPACING.fixed.xxs,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.sm,
+  },
+  quickChip: {
+    flex: 1,
+    minWidth: 108,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.xxs,
+    paddingVertical: SPACING.fixed.xs,
+    paddingHorizontal: SPACING.fixed.xs,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.surfaceSoft,
+  },
+  quickChipTextUp: {
+    fontSize: TS.captionBold.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.captionBold.fontSize, TS.captionBold.lineHeight),
+    color: I.semanticUp,
+  },
+  quickChipTextDown: {
+    fontSize: TS.captionBold.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.captionBold.fontSize, TS.captionBold.lineHeight),
+    color: I.semanticDown,
+  },
+  counterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.xxs,
+  },
+  counterLabel: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
+  },
+  counterMono: {
+    fontSize: TS.numberDisplay.fontSize,
+    fontFamily: FF.monoMedium,
+    color: I.ink,
+  },
+  counterSlash: {
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+  },
+  counterRest: {
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
+    color: I.body,
+  },
+  gridSlot: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  itemsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: '100%',
+    rowGap: GRID_COL_GAP,
+    marginBottom: SPACING.fixed.sm,
+  },
+  selectionCard: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.md,
+    paddingHorizontal: SPACING.fixed.xs,
+    paddingTop: 28,
+    paddingBottom: SPACING.fixed.xs,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    flexShrink: 0,
+    overflow: 'hidden',
+  },
+  selectionCardSelected: {
+    backgroundColor: COLORS.primary[50],
+    borderColor: I.primary,
+  },
+  checkbox: {
+    position: 'absolute',
+    top: SPACING.fixed.xxs + 2,
+    right: SPACING.fixed.xxs + 2,
+    width: 20,
+    height: 20,
+    borderRadius: BORDERS.radius.full,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSelected: {
+    borderColor: I.primary,
+    backgroundColor: I.primary,
+  },
+  cardIconPlate: {
+    width: 28,
+    height: 28,
+    borderRadius: BORDERS.radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.fixed.xxs + 2,
+  },
+  cardIconPlateIdle: {
+    backgroundColor: I.surfaceStrong,
+  },
+  cardIconPlateSelected: {
+    backgroundColor: withOpacity(I.primary, 0.12),
+  },
+  cardTextBlock: {
+    width: '100%',
+    paddingRight: 24,
+  },
+  cardTitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, 1.35),
+    color: I.ink,
+    marginBottom: 2,
+  },
+  cardTitleSelected: {
+    color: I.primary,
+  },
+  cardDescription: {
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
+  },
+  cardDescriptionIdle: {
+    color: I.muted,
+  },
+  cardDescriptionSelected: {
+    color: I.body,
+  },
+  cardMeta: {
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
+  },
+  cardMetaIdle: {
+    color: I.muted,
+  },
+  cardMetaSelected: {
+    color: I.body,
+  },
+  modelosPreview: {
+    marginTop: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.xxs + 2,
+    paddingHorizontal: SPACING.fixed.xs,
+    borderRadius: BORDERS.radius.sm,
+    backgroundColor: I.canvas,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    alignSelf: 'stretch',
+  },
+  modelosPreviewText: {
+    fontSize: TS.small.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),
+    color: I.body,
+  },
+  floatingBottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: I.canvas,
+    paddingTop: SPACING.fixed.md,
+    paddingHorizontal: hx,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+    ...SHADOWS.editorial,
+  },
+  primaryCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.pill,
+    gap: SPACING.fixed.sm,
+    backgroundColor: I.primary,
+  },
+  primaryCtaText: {
+    fontSize: TS.button.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),
+    color: I.onPrimary,
+  },
+  editingButtonsFloat: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.sm,
+    justifyContent: 'space-between',
+  },
+  secondaryCta: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.fixed.md - 2,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.surfaceStrong,
+  },
+  secondaryCtaText: {
+    fontSize: TS.button.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  saveCta: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.fixed.md - 2,
+    borderRadius: BORDERS.radius.pill,
+    gap: SPACING.fixed.xs,
+    backgroundColor: I.primary,
+  },
+  saveCtaDisabled: {
+    backgroundColor: I.surfaceStrong,
+  },
+  saveCtaText: {
+    fontSize: TS.button.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.onPrimary,
+  },
+  saveCtaTextDisabled: {
+    color: I.muted,
+  },
+});

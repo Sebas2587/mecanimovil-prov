@@ -11,11 +11,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { documentosAPI, type TipoDocumento } from '@/services/api';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import { Buffer } from 'buffer';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface DocumentoLocal {
   uri: string;
@@ -262,13 +263,13 @@ export default function DocumentacionScreen() {
     return (
       <View key={tipoDoc.key} style={styles.documentoItem}>
         <View style={styles.documentoHeader}>
-          <Ionicons name={icono} size={24} color="#3498db" />
+          <InstitutionalIcon name={icono} size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
           <View style={styles.documentoInfo}>
             <Text style={styles.documentoNombre}>{tipoDoc.label}</Text>
             {esOpcional && <Text style={styles.opcionalText}>Opcional</Text>}
           </View>
           {documentoGuardado && (
-            <Ionicons name="checkmark-circle" size={20} color="#27ae60" />
+            <InstitutionalIcon name="checkmark-circle" size={20} color="#27ae60"  strokeWidth={ICON_STROKE_WIDTH} />
           )}
         </View>
 
@@ -280,14 +281,14 @@ export default function DocumentacionScreen() {
                 style={styles.botonCambiar}
                 onPress={() => seleccionarImagen(tipoDoc.key, tipoDoc.label)}
               >
-                <Ionicons name="refresh" size={16} color="#3498db" />
+                <InstitutionalIcon name="refresh" size={16} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.textoBotonCambiar}>Cambiar</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.botonEliminar}
                 onPress={() => eliminarDocumento(tipoDoc.key)}
               >
-                <Ionicons name="trash" size={16} color="#e74c3c" />
+                <InstitutionalIcon name="trash" size={16} color="#e74c3c"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.textoBotonEliminar}>Eliminar</Text>
               </TouchableOpacity>
             </View>
@@ -297,7 +298,7 @@ export default function DocumentacionScreen() {
             style={styles.botonSubir}
             onPress={() => seleccionarImagen(tipoDoc.key, tipoDoc.label)}
           >
-            <Ionicons name="cloud-upload" size={32} color="#7f8c8d" />
+            <InstitutionalIcon name="cloud-upload" size={32} color="#7f8c8d"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.textoSubir}>Seleccionar Documento</Text>
             <Text style={styles.textoSubirSecundario}>Toca para elegir imagen</Text>
           </TouchableOpacity>
@@ -334,7 +335,7 @@ export default function DocumentacionScreen() {
         </View>
 
         <View style={styles.infoContainer}>
-          <Ionicons name="information-circle" size={20} color="#f39c12" />
+          <InstitutionalIcon name="information-circle" size={20} color="#f39c12"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.infoText}>
             Las imágenes se subirán al completar el registro. Asegúrate de que sean claras y legibles.
           </Text>

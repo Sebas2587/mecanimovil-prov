@@ -34,12 +34,16 @@ export const SPACING = {
   // ESPACIADO FIJO (No responsivo)
   // ============================================
   fixed: {
-    xs: 4,
-    sm: 8,
+    xxs: 4,
+    xs: 8,
+    sm: 12,
     md: 16,
+    base: 16,
     lg: 24,
     xl: 32,
     '2xl': 48,
+    section: 48,
+    sectionWide: 96,
     '3xl': 64,
   },
 

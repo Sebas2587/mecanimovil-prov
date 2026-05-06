@@ -10,9 +10,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { serviciosAPI, vehiculoAPI, type MarcaVehiculo } from '@/services/api';
 import OnboardingHeader from '@/components/OnboardingHeader';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 type ServicioCatalogo = {
   id: number;
@@ -227,7 +228,7 @@ export default function CatalogoServiciosMarcasScreen() {
           />
 
           <View style={styles.infoBox}>
-            <Ionicons name="information-circle" size={22} color="#4E4FEB" />
+            <InstitutionalIcon name="information-circle" size={22} color="#4E4FEB"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.infoText}>
               Toca cada servicio para marcarlo. Usa el botón por marca para seleccionar/deseleccionar todos. Los precios los configuras al publicar cada servicio.
             </Text>
@@ -235,7 +236,7 @@ export default function CatalogoServiciosMarcasScreen() {
 
           {totalSeleccionados > 0 && (
             <View style={styles.resumenBox}>
-              <Ionicons name="checkmark-circle" size={18} color="#27AE60" />
+              <InstitutionalIcon name="checkmark-circle" size={18} color="#27AE60"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.resumenText}>
                 {totalSeleccionados} servicio{totalSeleccionados !== 1 ? 's' : ''} seleccionado{totalSeleccionados !== 1 ? 's' : ''}
               </Text>
@@ -272,11 +273,11 @@ export default function CatalogoServiciosMarcasScreen() {
                         ]}
                         activeOpacity={0.7}
                       >
-                        <Ionicons
+                        <InstitutionalIcon
                           name={todosSeleccionados ? 'checkbox' : algunoSeleccionado ? 'remove-circle-outline' : 'square-outline'}
                           size={16}
                           color={todosSeleccionados ? '#fff' : algunoSeleccionado ? '#4E4FEB' : '#555'}
-                        />
+                         strokeWidth={ICON_STROKE_WIDTH} />
                         <Text
                           style={[
                             styles.toggleTodoBtnText,
@@ -302,12 +303,12 @@ export default function CatalogoServiciosMarcasScreen() {
                           activeOpacity={0.7}
                         >
                           <View style={styles.servicioLeft}>
-                            <Ionicons
+                            <InstitutionalIcon
                               name={isSelected ? 'checkbox' : 'square-outline'}
                               size={22}
                               color={isSelected ? '#4E4FEB' : '#aaa'}
                               style={styles.checkIcon}
-                            />
+                             strokeWidth={ICON_STROKE_WIDTH} />
                             <View style={styles.servicioInfo}>
                               <Text style={[styles.servicioNombre, isSelected && styles.servicioNombreSelected]}>
                                 {s.nombre}

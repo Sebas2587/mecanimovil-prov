@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import solicitudesService, { 
@@ -24,6 +23,8 @@ import solicitudesService, {
 import { FormularioOferta } from '@/components/solicitudes/FormularioOferta';
 import creditosService, { type VerificacionCreditosOferta } from '@/services/creditosService';
 import { ModalCreditosInsuficientes } from '@/components/creditos';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export default function CrearOfertaSecundariaScreen() {
   const { solicitudId, ofertaOriginalId } = useLocalSearchParams<{ 
@@ -308,7 +309,7 @@ export default function CrearOfertaSecundariaScreen() {
           {/* Información de la oferta original */}
           <View style={styles.infoCard}>
             <View style={styles.infoHeader}>
-              <MaterialIcons name="info-outline" size={24} color="#0061FF" />
+              <InstitutionalIcon name="info-outline" size={24} color="#0061FF"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoTitle}>Oferta Original</Text>
             </View>
             <Text style={styles.infoText}>

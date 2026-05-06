@@ -10,9 +10,10 @@ import {
   Dimensions,
   ScrollView,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import SignatureScreen from 'react-native-signature-canvas';
 import * as Location from 'expo-location';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export type SignatureMode = 'both' | 'tecnico_only' | 'cliente_only';
 
@@ -368,7 +369,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
         {/* Header minimalista */}
         <View style={styles.header}>
           <TouchableOpacity onPress={cancelar} style={styles.cancelButton}>
-            <MaterialIcons name="arrow-back" size={24} color="#212529" />
+            <InstitutionalIcon name="arrow-back" size={24} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
           
           <View style={styles.headerCenter}>
@@ -388,7 +389,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
                 (currentStep === 'tecnico' ? styles.progressCircleCurrent : styles.progressCirclePending)
               ]}>
                 {signatures.tecnico ? (
-                  <MaterialIcons name="check" size={18} color="#fff" />
+                  <InstitutionalIcon name="check" size={18} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
                 ) : (
                   <Text style={[styles.progressNumber, currentStep === 'tecnico' && styles.progressNumberCurrent]}>1</Text>
                 )}
@@ -403,7 +404,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
                 (currentStep === 'cliente' ? styles.progressCircleCurrent : styles.progressCirclePending)
               ]}>
                 {signatures.cliente ? (
-                  <MaterialIcons name="check" size={18} color="#fff" />
+                  <InstitutionalIcon name="check" size={18} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
                 ) : (
                   <Text style={[styles.progressNumber, currentStep === 'cliente' && styles.progressNumberCurrent]}>2</Text>
                 )}
@@ -464,13 +465,13 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
           {/* Botones de control - minimalista */}
           <View style={styles.signatureControls}>
             <TouchableOpacity style={styles.clearButton} onPress={limpiarFirma}>
-              <MaterialIcons name="refresh" size={20} color="#6c757d" />
+              <InstitutionalIcon name="refresh" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.clearButtonText}>Limpiar</Text>
             </TouchableOpacity>
             
             {currentStep === 'cliente' && signatures.tecnico && (
               <TouchableOpacity style={styles.backButton} onPress={regresarPaso}>
-                <MaterialIcons name="arrow-back" size={20} color="#6c757d" />
+                <InstitutionalIcon name="arrow-back" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             )}
             
@@ -481,7 +482,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
                 onPress={() => signatureRef.current?.readSignature()}
               >
                 <Text style={styles.manualConfirmButtonText}>Confirmar</Text>
-                <MaterialIcons name="arrow-forward" size={20} color="#fff" />
+                <InstitutionalIcon name="arrow-forward" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             )}
           </View>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,22 +9,123 @@ import {
   ActivityIndicator,
   Switch,
   Modal,
-  TextInput,
-  Dimensions,
   RefreshControl,
-  Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { Stack, router } from 'expo-router';
 import { horariosAPI, type HorarioProveedor, type ConfiguracionSemanal } from '@/services/api';
-import { Platform } from 'react-native';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 
-const { width: screenWidth } = Dimensions.get('window');
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
+const hx = SPACING.container.horizontal;
+const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
+
+/** Bottom sheets de hora / número (misma piel que el resto de la app) */
+const pickerModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: withOpacity(I.surfaceDark, 0.45),
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: I.canvas,
+    borderTopLeftRadius: BORDERS.radius.xl,
+    borderTopRightRadius: BORDERS.radius.xl,
+    maxHeight: '75%',
+    overflow: 'hidden',
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: hx,
+    paddingTop: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.sm,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairline,
+    backgroundColor: I.canvas,
+  },
+  sheetTitle: {
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    letterSpacing: TS.h4.letterSpacing,
+    color: I.ink,
+    flex: 1,
+    marginRight: SPACING.fixed.sm,
+  },
+  sheetClose: {
+    width: 40,
+    height: 40,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheetScroll: {
+    maxHeight: 400,
+    backgroundColor: I.surfaceSoft,
+  },
+  sheetScrollContent: {
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: hx,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.fixed.sm + 4,
+    paddingHorizontal: SPACING.fixed.md,
+    marginVertical: 2,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.canvas,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  optionRowSelected: {
+    backgroundColor: I.primary,
+    borderColor: I.primary,
+  },
+  optionText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.numberDisplay.lineHeight),
+    color: I.ink,
+  },
+  optionTextSelected: {
+    fontFamily: FF.monoMedium,
+    color: I.onPrimary,
+  },
+  /** Valor mostrado en el campo (hora / minutos) — tabular mono (DESIGN_PROVEEDORES_INSTITUCIONAL) */
+  fieldTriggerValue: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.numberDisplay.lineHeight),
+    color: I.ink,
+    flex: 1,
+    marginHorizontal: SPACING.fixed.md,
+    textAlign: 'left',
+    minWidth: 60,
+  },
+  fieldTriggerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.sm + 2,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
+  },
+});
 
 interface HorarioDia extends HorarioProveedor {
   editado?: boolean;
@@ -36,29 +137,20 @@ interface ModalEditarDia {
   horario: HorarioDia | null;
 }
 
-// Componente TimePicker con selector de opciones - Diseño simple y legible
-const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
+// TimePicker — tokens institucionales (sin useTheme)
+const TimePicker = ({
+  value,
+  onTimeChange,
+  label: _label,
+  primaryColor = I.primary,
+}: {
   value: string;
   onTimeChange: (time: string) => void;
   label: string;
   primaryColor?: string;
 }) => {
+  const insets = useSafeAreaInsets();
   const [showModal, setShowModal] = useState(false);
-  const theme = useTheme();
-
-  // Obtener valores del sistema de diseño
-  const bgDefault = (theme?.colors?.background as any)?.default || COLORS?.background?.default || '#F5F7F8';
-  const textPrimary = theme?.colors?.text?.primary || COLORS?.text?.primary || '#00171F';
-  const textSecondary = theme?.colors?.text?.secondary || COLORS?.text?.secondary || '#666E7A';
-  const borderLight = (theme?.colors?.border as any)?.light || COLORS?.border?.light || '#D7DFE3';
-  const spacingMd = theme?.spacing?.md || SPACING?.md || 16;
-  const spacingSm = theme?.spacing?.sm || SPACING?.sm || 8;
-  const spacingLg = theme?.spacing?.lg || SPACING?.lg || 24;
-  const cardRadius = (theme?.borders?.radius as any)?.lg || BORDERS?.radius?.lg || 12;
-  const fontSizeBase = theme?.typography?.fontSize?.base || TYPOGRAPHY?.fontSize?.base || 14;
-  const fontSizeLg = theme?.typography?.fontSize?.lg || TYPOGRAPHY?.fontSize?.lg || 18;
-  const fontWeightSemibold = theme?.typography?.fontWeight?.semibold || TYPOGRAPHY?.fontWeight?.semibold || '600';
-  const fontWeightBold = theme?.typography?.fontWeight?.bold || TYPOGRAPHY?.fontWeight?.bold || '700';
 
   // Generar opciones de hora cada 15 minutos (00, 15, 30, 45)
   const generarOpcionesHora = (): string[] => {
@@ -105,136 +197,66 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
   const horaActual = formatDisplayTime(value || '08:00');
 
   return (
-    <View style={{ marginBottom: spacingMd }}>
+    <View style={{ marginBottom: SPACING.fixed.md }}>
       <TouchableOpacity
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: bgDefault,
-          borderRadius: cardRadius / 2,
-          padding: spacingMd - 2,
-          borderWidth: 1,
-          borderColor: borderLight,
-        }}
+        style={pickerModalStyles.fieldTriggerRow}
         onPress={() => setShowModal(true)}
-        activeOpacity={0.8}
+        activeOpacity={0.88}
       >
-        <Ionicons name="time" size={20} color={primaryColor} />
-        <Text
-          style={{
-            fontSize: fontSizeBase,
-            fontWeight: fontWeightSemibold,
-            color: textPrimary,
-            flex: 1,
-            marginHorizontal: spacingMd,
-            textAlign: 'left',
-            minWidth: 60,
-          }}
-          numberOfLines={1}
-        >
+        <InstitutionalIcon name="time" size={20} color={primaryColor} />
+        <Text style={pickerModalStyles.fieldTriggerValue} numberOfLines={1}>
           {horaActual}
         </Text>
-        <Ionicons name="chevron-down" size={20} color="#666E7A" />
+        <InstitutionalIcon name="chevron-down" size={20} color={I.muted} />
       </TouchableOpacity>
 
-      <Modal
-        visible={showModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowModal(false)}
-      >
-        <TouchableOpacity
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            justifyContent: 'flex-end',
-          }}
-          activeOpacity={1}
-          onPress={() => setShowModal(false)}
-        >
+      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
+        <TouchableOpacity style={pickerModalStyles.overlay} activeOpacity={1} onPress={() => setShowModal(false)}>
           <TouchableOpacity
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: bgDefault,
-              borderTopLeftRadius: cardRadius,
-              borderTopRightRadius: cardRadius,
-              maxHeight: '75%',
-            }}
+            style={[pickerModalStyles.sheet, { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) }]}
           >
-            {/* Header */}
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingHorizontal: spacingMd,
-              paddingTop: spacingMd,
-              paddingBottom: spacingSm,
-              borderBottomWidth: 1,
-              borderBottomColor: borderLight,
-            }}>
-              <Text style={{
-                fontSize: fontSizeLg,
-                fontWeight: fontWeightBold,
-                color: textPrimary,
-              }}>
-                Seleccionar Hora
-              </Text>
+            <View style={pickerModalStyles.sheetHeader}>
+              <Text style={pickerModalStyles.sheetTitle}>Seleccionar hora</Text>
               <TouchableOpacity
                 onPress={() => setShowModal(false)}
-                style={{
-                  padding: spacingSm,
-                }}
+                style={pickerModalStyles.sheetClose}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar"
               >
-                <Ionicons name="close" size={24} color={textSecondary} />
+                <InstitutionalIcon name="close" size={22} color={I.ink} />
               </TouchableOpacity>
             </View>
 
-            {/* Lista de opciones - Optimizada */}
             <ScrollView
-              style={{
-                maxHeight: 400,
-              }}
-              contentContainerStyle={{
-                paddingVertical: spacingSm,
-                paddingHorizontal: spacingMd,
-              }}
-              showsVerticalScrollIndicator={true}
+              style={pickerModalStyles.sheetScroll}
+              contentContainerStyle={pickerModalStyles.sheetScrollContent}
+              showsVerticalScrollIndicator
             >
               {opcionesHora.map((opcion) => {
                 const estaSeleccionada = opcion === horaActual;
                 return (
                   <TouchableOpacity
                     key={opcion}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      paddingVertical: spacingSm + 4,
-                      paddingHorizontal: spacingMd,
-                      marginVertical: 1,
-                      borderRadius: cardRadius / 2,
-                      backgroundColor: estaSeleccionada ? primaryColor : 'transparent',
-                      borderWidth: estaSeleccionada ? 0 : 1,
-                      borderColor: borderLight,
-                    }}
+                    style={[pickerModalStyles.optionRow, estaSeleccionada && pickerModalStyles.optionRowSelected]}
                     onPress={() => {
                       onTimeChange(opcion);
                       setShowModal(false);
                     }}
-                    activeOpacity={0.7}
+                    activeOpacity={0.75}
                   >
-                    <Text style={{
-                      fontSize: fontSizeBase,
-                      fontWeight: estaSeleccionada ? fontWeightBold : fontWeightSemibold,
-                      color: estaSeleccionada ? '#FFFFFF' : textPrimary,
-                    }}>
+                    <Text
+                      style={[
+                        pickerModalStyles.optionText,
+                        estaSeleccionada && pickerModalStyles.optionTextSelected,
+                      ]}
+                    >
                       {opcion}
                     </Text>
-                    {estaSeleccionada && (
-                      <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                    )}
+                    {estaSeleccionada ? (
+                      <InstitutionalIcon name="checkmark-circle" size={18} color={I.onPrimary} />
+                    ) : null}
                   </TouchableOpacity>
                 );
               })}
@@ -246,8 +268,14 @@ const TimePicker = ({ value, onTimeChange, label, primaryColor = '#003459' }: {
   );
 };
 
-// Componente NumberPicker moderno - Con modal igual que TimePicker
-const NumberPicker = ({ value, onValueChange, label, unit, options, primaryColor = '#003459' }: {
+const NumberPicker = ({
+  value,
+  onValueChange,
+  label,
+  unit,
+  options,
+  primaryColor = I.primary,
+}: {
   value: number;
   onValueChange: (value: number) => void;
   label: string;
@@ -255,153 +283,70 @@ const NumberPicker = ({ value, onValueChange, label, unit, options, primaryColor
   options: number[];
   primaryColor?: string;
 }) => {
+  const insets = useSafeAreaInsets();
   const [showModal, setShowModal] = useState(false);
-  const theme = useTheme();
-
-  // Obtener valores del sistema de diseño
-  const bgDefault = (theme?.colors?.background as any)?.default || COLORS?.background?.default || '#F5F7F8';
-  const textPrimary = theme?.colors?.text?.primary || COLORS?.text?.primary || '#00171F';
-  const textSecondary = theme?.colors?.text?.secondary || COLORS?.text?.secondary || '#666E7A';
-  const borderLight = (theme?.colors?.border as any)?.light || COLORS?.border?.light || '#D7DFE3';
-  const spacingMd = theme?.spacing?.md || SPACING?.md || 16;
-  const spacingSm = theme?.spacing?.sm || SPACING?.sm || 8;
-  const spacingLg = theme?.spacing?.lg || SPACING?.lg || 24;
-  const cardRadius = (theme?.borders?.radius as any)?.lg || BORDERS?.radius?.lg || 12;
-  const fontSizeBase = theme?.typography?.fontSize?.base || TYPOGRAPHY?.fontSize?.base || 14;
-  const fontSizeLg = theme?.typography?.fontSize?.lg || TYPOGRAPHY?.fontSize?.lg || 18;
-  const fontWeightSemibold = theme?.typography?.fontWeight?.semibold || TYPOGRAPHY?.fontWeight?.semibold || '600';
-  const fontWeightBold = theme?.typography?.fontWeight?.bold || TYPOGRAPHY?.fontWeight?.bold || '700';
 
   return (
-    <View style={{ marginBottom: spacingMd }}>
+    <View style={{ marginBottom: SPACING.fixed.md }}>
       <TouchableOpacity
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: bgDefault,
-          borderRadius: cardRadius / 2,
-          padding: spacingMd - 2,
-          borderWidth: 1,
-          borderColor: borderLight,
-        }}
+        style={pickerModalStyles.fieldTriggerRow}
         onPress={() => setShowModal(true)}
-        activeOpacity={0.8}
+        activeOpacity={0.88}
       >
-        <Ionicons name="timer" size={20} color={primaryColor} />
-        <Text style={{
-          fontSize: fontSizeBase,
-          fontWeight: fontWeightSemibold,
-          color: textPrimary,
-          flex: 1,
-          marginHorizontal: spacingMd,
-          textAlign: 'left',
-          minWidth: 60,
-        }}
-          numberOfLines={1}
-        >
+        <InstitutionalIcon name="timer" size={20} color={primaryColor} />
+        <Text style={pickerModalStyles.fieldTriggerValue} numberOfLines={1}>
           {value} {unit}
         </Text>
-        <Ionicons name="chevron-down" size={20} color="#666E7A" />
+        <InstitutionalIcon name="chevron-down" size={20} color={I.muted} />
       </TouchableOpacity>
 
-      <Modal
-        visible={showModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowModal(false)}
-      >
-        <TouchableOpacity
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            justifyContent: 'flex-end',
-          }}
-          activeOpacity={1}
-          onPress={() => setShowModal(false)}
-        >
+      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
+        <TouchableOpacity style={pickerModalStyles.overlay} activeOpacity={1} onPress={() => setShowModal(false)}>
           <TouchableOpacity
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: bgDefault,
-              borderTopLeftRadius: cardRadius,
-              borderTopRightRadius: cardRadius,
-              maxHeight: '75%',
-            }}
+            style={[pickerModalStyles.sheet, { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) }]}
           >
-            {/* Header */}
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingHorizontal: spacingMd,
-              paddingTop: spacingMd,
-              paddingBottom: spacingSm,
-              borderBottomWidth: 1,
-              borderBottomColor: borderLight,
-            }}>
-              <Text style={{
-                fontSize: fontSizeLg,
-                fontWeight: fontWeightBold,
-                color: textPrimary,
-              }}>
-                {label}
-              </Text>
+            <View style={pickerModalStyles.sheetHeader}>
+              <Text style={pickerModalStyles.sheetTitle}>{label}</Text>
               <TouchableOpacity
                 onPress={() => setShowModal(false)}
-                style={{
-                  padding: spacingSm,
-                }}
+                style={pickerModalStyles.sheetClose}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar"
               >
-                <Ionicons name="close" size={24} color={textSecondary} />
+                <InstitutionalIcon name="close" size={22} color={I.ink} />
               </TouchableOpacity>
             </View>
 
-            {/* Lista de opciones */}
             <ScrollView
-              style={{
-                maxHeight: 400,
-              }}
-              contentContainerStyle={{
-                paddingVertical: spacingSm,
-                paddingHorizontal: spacingMd,
-              }}
-              showsVerticalScrollIndicator={true}
+              style={pickerModalStyles.sheetScroll}
+              contentContainerStyle={pickerModalStyles.sheetScrollContent}
+              showsVerticalScrollIndicator
             >
               {options.map((option) => {
                 const estaSeleccionada = option === value;
                 return (
                   <TouchableOpacity
                     key={option}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      paddingVertical: spacingSm + 4,
-                      paddingHorizontal: spacingMd,
-                      marginVertical: 1,
-                      borderRadius: cardRadius / 2,
-                      backgroundColor: estaSeleccionada ? primaryColor : 'transparent',
-                      borderWidth: estaSeleccionada ? 0 : 1,
-                      borderColor: borderLight,
-                    }}
+                    style={[pickerModalStyles.optionRow, estaSeleccionada && pickerModalStyles.optionRowSelected]}
                     onPress={() => {
                       onValueChange(option);
                       setShowModal(false);
                     }}
-                    activeOpacity={0.7}
+                    activeOpacity={0.75}
                   >
-                    <Text style={{
-                      fontSize: fontSizeBase,
-                      fontWeight: estaSeleccionada ? fontWeightBold : fontWeightSemibold,
-                      color: estaSeleccionada ? '#FFFFFF' : textPrimary,
-                    }}>
+                    <Text
+                      style={[
+                        pickerModalStyles.optionText,
+                        estaSeleccionada && pickerModalStyles.optionTextSelected,
+                      ]}
+                    >
                       {option} {unit}
                     </Text>
-                    {estaSeleccionada && (
-                      <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                    )}
+                    {estaSeleccionada ? (
+                      <InstitutionalIcon name="checkmark-circle" size={18} color={I.onPrimary} />
+                    ) : null}
                   </TouchableOpacity>
                 );
               })}
@@ -414,30 +359,8 @@ const NumberPicker = ({ value, onValueChange, label, unit, options, primaryColor
 };
 
 export default function ConfiguracionHorariosScreen() {
-  const { estadoProveedor, usuario, obtenerNombreProveedor } = useAuth();
-  const theme = useTheme();
+  const { estadoProveedor } = useAuth();
   const insets = useSafeAreaInsets();
-
-  // Obtener valores seguros del tema con fallbacks
-  const safeColors = useMemo(() => {
-    return theme?.colors || COLORS || {};
-  }, [theme]);
-
-  const safeSpacing = useMemo(() => {
-    return theme?.spacing || SPACING || {};
-  }, [theme]);
-
-  const safeTypography = useMemo(() => {
-    return theme?.typography || TYPOGRAPHY || {};
-  }, [theme]);
-
-  const safeShadows = useMemo(() => {
-    return theme?.shadows || SHADOWS || {};
-  }, [theme]);
-
-  const safeBorders = useMemo(() => {
-    return theme?.borders || BORDERS || {};
-  }, [theme]);
 
   // Estados principales
   const [horarios, setHorarios] = useState<HorarioDia[]>([]);
@@ -460,13 +383,13 @@ export default function ConfiguracionHorariosScreen() {
   });
 
   const diasSemana = [
-    { id: 0, nombre: 'Lunes', corto: 'Lun', emoji: '📅' },
-    { id: 1, nombre: 'Martes', corto: 'Mar', emoji: '📅' },
-    { id: 2, nombre: 'Miércoles', corto: 'Mié', emoji: '📅' },
-    { id: 3, nombre: 'Jueves', corto: 'Jue', emoji: '📅' },
-    { id: 4, nombre: 'Viernes', corto: 'Vie', emoji: '📅' },
-    { id: 5, nombre: 'Sábado', corto: 'Sáb', emoji: '📅' },
-    { id: 6, nombre: 'Domingo', corto: 'Dom', emoji: '📅' },
+    { id: 0, nombre: 'Lunes', corto: 'Lun' },
+    { id: 1, nombre: 'Martes', corto: 'Mar' },
+    { id: 2, nombre: 'Miércoles', corto: 'Mié' },
+    { id: 3, nombre: 'Jueves', corto: 'Jue' },
+    { id: 4, nombre: 'Viernes', corto: 'Vie' },
+    { id: 5, nombre: 'Sábado', corto: 'Sáb' },
+    { id: 6, nombre: 'Domingo', corto: 'Dom' },
   ];
 
   const horariosPreset = {
@@ -695,7 +618,7 @@ export default function ConfiguracionHorariosScreen() {
       const resultado = await horariosAPI.configurarSemanaCompleta(configuracion);
 
       Alert.alert(
-        '✅ Horarios Guardados',
+        'Horarios guardados',
         `Tus horarios han sido actualizados correctamente. ${resultado.dias_activos} días activos configurados.`,
         [{ text: 'Perfecto', style: 'default' }]
       );
@@ -714,65 +637,24 @@ export default function ConfiguracionHorariosScreen() {
     }
   };
 
-  // Obtener colores del sistema de diseño
-  const bgPaper = (safeColors?.background as any)?.paper || (safeColors?.base as any)?.white || '#FFFFFF';
-  const bgDefault = (safeColors?.background as any)?.default || '#F5F7F8';
-  const textPrimary = safeColors?.text?.primary || (safeColors?.neutral as any)?.inkBlack || '#00171F';
-  const textSecondary = safeColors?.text?.secondary || ((safeColors?.neutral as any)?.gray as any)?.[800] || '#3E4F53';
-  const textTertiary = safeColors?.text?.tertiary || ((safeColors?.neutral as any)?.gray as any)?.[700] || '#5D6F75';
-  const borderLight = (safeColors?.border as any)?.light || ((safeColors?.neutral as any)?.gray as any)?.[200] || '#D7DFE3';
-  const primaryObj = safeColors?.primary as any;
-  const successObj = safeColors?.success as any;
-  const errorObj = safeColors?.error as any;
-  const primary500 = primaryObj?.['500'] || (safeColors?.accent as any)?.['500'] || '#003459';
-  const success500 = successObj?.main || successObj?.['500'] || '#00C9A7';
-  const error500 = errorObj?.main || errorObj?.['500'] || '#FF6B6B';
-  const containerHorizontal = safeSpacing?.container?.horizontal || safeSpacing?.content?.horizontal || 18;
-  const spacingXs = safeSpacing?.xs || 4;
-  const spacingSm = safeSpacing?.sm || 8;
-  const spacingMd = safeSpacing?.md || 16;
-  const spacingLg = safeSpacing?.lg || 24;
-  const cardPadding = safeSpacing?.cardPadding || spacingMd;
-  const cardGap = safeSpacing?.cardGap || spacingSm + 4;
-  const cardRadius = safeBorders?.radius?.lg || 12;
-  const fontSizeBase = safeTypography?.fontSize?.base || 14;
-  const fontSizeSm = safeTypography?.fontSize?.sm || 12;
-  const fontSizeMd = safeTypography?.fontSize?.md || 16;
-  const fontSizeLg = safeTypography?.fontSize?.lg || 18;
-  const fontWeightMedium = safeTypography?.fontWeight?.medium || '500';
-  const fontWeightSemibold = safeTypography?.fontWeight?.semibold || '600';
-  const fontWeightBold = safeTypography?.fontWeight?.bold || '700';
-  const shadowSm = safeShadows?.sm || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-  const shadowMd = safeShadows?.md || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
-
   const renderDiaConfig = (horario: HorarioDia, index: number) => {
     const dia = diasSemana[index];
 
     return (
       <TouchableOpacity
         key={dia.id}
-        style={[
-          styles.modernDiaCard,
-          horario.activo && {
-            backgroundColor: (primaryObj?.['50'] || '#E6F0F5')
-          }
-        ]}
+        style={[styles.modernDiaCard, horario.activo && styles.modernDiaCardActive]}
         onPress={() => horario.activo && abrirModalEditarDia(index)}
         disabled={!horario.activo}
-        activeOpacity={0.8}
+        activeOpacity={0.88}
       >
         <View style={styles.modernDiaHeader}>
           <View style={styles.modernDiaInfo}>
-            <View style={[styles.modernDiaIconContainer, { backgroundColor: horario.activo ? primary500 : bgDefault }]}>
-              <Text style={styles.modernDiaEmoji}>{dia.emoji}</Text>
+            <View style={[styles.modernDiaIconContainer, horario.activo ? styles.modernDiaIconOn : styles.modernDiaIconOff]}>
+              <InstitutionalIcon name="event" size={16} color={horario.activo ? I.onPrimary : I.body} />
             </View>
             <View style={styles.modernDiaTexto}>
-              <Text style={[
-                styles.modernDiaNombre,
-                { color: horario.activo ? primary500 : textPrimary }
-              ]}>
-                {dia.corto}
-              </Text>
+              <Text style={[styles.modernDiaNombre, horario.activo && styles.modernDiaNombreActive]}>{dia.corto}</Text>
             </View>
           </View>
 
@@ -780,153 +662,165 @@ export default function ConfiguracionHorariosScreen() {
             <Switch
               value={horario.activo}
               onValueChange={() => toggleDiaActivo(index)}
-              trackColor={{ false: borderLight, true: primary500 }}
-              thumbColor={horario.activo ? '#FFFFFF' : '#D1D5DB'}
+              trackColor={{ false: I.hairline, true: I.primary }}
+              thumbColor={I.canvas}
               style={styles.modernSwitch}
             />
           </View>
         </View>
 
-        {horario.activo && (
-          <View style={styles.modernHorariosConfig}>
-            <View style={styles.modernTiemposContainer}>
-              <View style={styles.modernTiempoCard}>
-                <Ionicons name="play" size={14} color={success500} />
-                <Text style={[styles.modernTiempoValue, { color: textPrimary }]}>{formatearHora(horario.hora_inicio)}</Text>
-              </View>
+        {!horario.activo ? (
+          <View style={styles.modernDiaInactiveBanner}>
+            <Text style={styles.modernDiaInactiveLabel}>Sin atención</Text>
+            <Text style={styles.modernDiaInactiveHint}>Horario guardado (si activas el día)</Text>
+          </View>
+        ) : null}
 
-              <Ionicons name="arrow-forward" size={12} color={textTertiary} />
-
-              <View style={styles.modernTiempoCard}>
-                <Ionicons name="stop" size={14} color={error500} />
-                <Text style={[styles.modernTiempoValue, { color: textPrimary }]}>{formatearHora(horario.hora_fin)}</Text>
-              </View>
+        <View style={styles.modernHorariosConfig}>
+          <View style={styles.modernTiemposContainer}>
+            <View style={[styles.modernTiempoCard, !horario.activo && styles.modernTiempoCardInactive]}>
+              <InstitutionalIcon name="play" size={14} color={horario.activo ? I.semanticUp : I.muted} />
+              <Text style={[styles.modernTiempoValue, !horario.activo && styles.modernTiempoValueInactive]}>
+                {formatearHora(horario.hora_inicio)}
+              </Text>
             </View>
 
-            <View style={styles.modernConfigSlots}>
-              <Text style={[styles.modernSlotInfo, { color: textTertiary }]}>
-                {horario.duracion_slot} min
-                {horario.tiempo_descanso > 0 && ` • ${horario.tiempo_descanso} min desc`}
+            <InstitutionalIcon name="arrow-forward" size={12} color={horario.activo ? I.muted : I.mutedSoft} />
+
+            <View style={[styles.modernTiempoCard, !horario.activo && styles.modernTiempoCardInactive]}>
+              <InstitutionalIcon name="stop" size={14} color={horario.activo ? I.semanticDown : I.muted} />
+              <Text style={[styles.modernTiempoValue, !horario.activo && styles.modernTiempoValueInactive]}>
+                {formatearHora(horario.hora_fin)}
               </Text>
             </View>
           </View>
-        )}
+
+          <View style={styles.modernConfigSlots}>
+            <Text style={[styles.modernSlotInfo, !horario.activo && styles.modernSlotInfoInactive]}>
+              {horario.duracion_slot} min
+              {horario.tiempo_descanso > 0 && ` • ${horario.tiempo_descanso} min desc`}
+            </Text>
+          </View>
+        </View>
       </TouchableOpacity>
     );
   };
 
   const renderModalEditarDia = () => (
-    <Modal
-      visible={modalEditarDia.visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-    >
-      <SafeAreaView style={[styles.modernModalContainer, { backgroundColor: bgDefault }]}>
-        <View style={[styles.modernModalHeader, { backgroundColor: bgPaper, borderBottomColor: borderLight }]}>
-          <TouchableOpacity onPress={cerrarModalEditarDia} activeOpacity={0.8}>
-            <Ionicons name="close" size={24} color={textTertiary} />
-          </TouchableOpacity>
-          <Text style={[styles.modernModalTitle, { color: textPrimary }]}>
-            Configurar {modalEditarDia.horario?.dia_nombre || ''}
-          </Text>
-          <TouchableOpacity
-            onPress={guardarCambiosDia}
-            style={[styles.modernModalSaveButton, { backgroundColor: primary500 }]}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.modernModalSaveText}>Guardar</Text>
-          </TouchableOpacity>
+    <Modal visible={modalEditarDia.visible} animationType="slide" presentationStyle="pageSheet">
+      <SafeAreaView style={styles.modernModalContainer} edges={['top', 'left', 'right', 'bottom']}>
+        <View style={styles.modernModalHeader}>
+          <View style={styles.modernModalHeaderSlot}>
+            <TouchableOpacity
+              onPress={cerrarModalEditarDia}
+              style={styles.modernModalClosePill}
+              activeOpacity={0.88}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar sin guardar"
+            >
+              <InstitutionalIcon name="close" size={22} color={I.ink} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.modernModalHeaderCenter}>
+            <Text style={styles.modernModalTitle} numberOfLines={2}>
+              {modalEditarDia.horario?.dia_nombre || 'Día'}
+            </Text>
+            <Text style={styles.modernModalSubtitle}>Ajusta horario y citas para este día</Text>
+          </View>
+          <View style={[styles.modernModalHeaderSlot, styles.modernModalHeaderSlotEnd]}>
+            <TouchableOpacity
+              onPress={guardarCambiosDia}
+              style={styles.modernModalSavePill}
+              activeOpacity={0.88}
+              accessibilityRole="button"
+              accessibilityLabel="Guardar cambios del día"
+            >
+              <Text style={styles.modernModalSavePillText}>Guardar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <ScrollView style={styles.modernModalContent} showsVerticalScrollIndicator={false}>
-          {/* Horarios */}
-          <View style={[styles.modernModalSection, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-            <Text style={[styles.modernModalSectionTitle, { color: textPrimary }]}>⏰ Horarios de Atención</Text>
-
+        <ScrollView
+          style={styles.modernModalScroll}
+          contentContainerStyle={[
+            styles.modernModalScrollContent,
+            { paddingBottom: insets.bottom + SPACING.fixed['2xl'] },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.modernModalSection}>
+            <Text style={styles.modernModalSectionTitle}>Horarios de atención</Text>
             <View style={styles.modernModalRow}>
               <View style={styles.modernModalCol}>
-                <Text style={[styles.modernModalLabel, { color: textSecondary }]}>Hora de Inicio</Text>
+                <Text style={styles.modernModalLabel}>Hora de inicio</Text>
                 <TimePicker
                   value={horariosTemp.hora_inicio || '08:00'}
                   onTimeChange={(time) => {
-                    console.log('🕐 Hora inicio cambiada:', time);
-                    setHorariosTemp(prev => ({ ...prev, hora_inicio: time }));
+                    setHorariosTemp((prev) => ({ ...prev, hora_inicio: time }));
                   }}
-                  label="Hora de Inicio"
-                  primaryColor={primary500}
+                  label="Hora de inicio"
                 />
               </View>
-
               <View style={styles.modernModalCol}>
-                <Text style={[styles.modernModalLabel, { color: textSecondary }]}>Hora de Fin</Text>
+                <Text style={styles.modernModalLabel}>Hora de fin</Text>
                 <TimePicker
                   value={horariosTemp.hora_fin || '18:00'}
                   onTimeChange={(time) => {
-                    console.log('🕐 Hora fin cambiada:', time);
-                    setHorariosTemp(prev => ({ ...prev, hora_fin: time }));
+                    setHorariosTemp((prev) => ({ ...prev, hora_fin: time }));
                   }}
-                  label="Hora de Fin"
-                  primaryColor={primary500}
+                  label="Hora de fin"
                 />
               </View>
             </View>
           </View>
 
-          {/* Configuración de Slots */}
-          <View style={[styles.modernModalSection, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-            <Text style={[styles.modernModalSectionTitle, { color: textPrimary }]}>🗓️ Configuración de Citas</Text>
-
+          <View style={styles.modernModalSection}>
+            <Text style={styles.modernModalSectionTitle}>Configuración de citas</Text>
             <View style={styles.modernModalRow}>
               <View style={styles.modernModalCol}>
-                <Text style={[styles.modernModalLabel, { color: textSecondary }]}>Duración por Cita</Text>
+                <Text style={styles.modernModalLabel}>Duración por cita</Text>
                 <NumberPicker
                   value={horariosTemp.duracion_slot}
-                  onValueChange={(value) => setHorariosTemp(prev => ({ ...prev, duracion_slot: value }))}
-                  label="Duración por Cita"
+                  onValueChange={(value) => setHorariosTemp((prev) => ({ ...prev, duracion_slot: value }))}
+                  label="Duración por cita"
                   unit="min"
                   options={[30, 45, 60, 90, 120]}
-                  primaryColor={primary500}
                 />
               </View>
-
               <View style={styles.modernModalCol}>
-                <Text style={[styles.modernModalLabel, { color: textSecondary }]}>Tiempo de Descanso</Text>
+                <Text style={styles.modernModalLabel}>Tiempo de descanso</Text>
                 <NumberPicker
                   value={horariosTemp.tiempo_descanso}
-                  onValueChange={(value) => setHorariosTemp(prev => ({ ...prev, tiempo_descanso: value }))}
-                  label="Tiempo de Descanso"
+                  onValueChange={(value) => setHorariosTemp((prev) => ({ ...prev, tiempo_descanso: value }))}
+                  label="Tiempo de descanso"
                   unit="min"
                   options={[0, 5, 10, 15, 20, 30]}
-                  primaryColor={primary500}
                 />
               </View>
             </View>
           </View>
 
-          {/* Vista previa */}
-          <View style={[styles.modernModalSection, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-            <Text style={[styles.modernModalSectionTitle, { color: textPrimary }]}>👁️ Vista Previa</Text>
-            <View style={[styles.modernPreviewContainer, { backgroundColor: bgDefault, borderColor: borderLight }]}>
+          <View style={styles.modernModalSection}>
+            <Text style={styles.modernModalSectionTitle}>Vista previa</Text>
+            <View style={styles.modernPreviewContainer}>
               <View style={styles.modernPreviewRow}>
-                <Ionicons name="time" size={18} color={primary500} />
-                <Text style={[styles.modernPreviewText, { color: textPrimary }]}>
+                <InstitutionalIcon name="time" size={18} color={I.primary} />
+                <Text style={styles.modernPreviewText}>
                   Horario: {formatearHora(horariosTemp.hora_inicio)} - {formatearHora(horariosTemp.hora_fin)}
                 </Text>
               </View>
               <View style={styles.modernPreviewRow}>
-                <Ionicons name="calendar" size={18} color={success500} />
-                <Text style={[styles.modernPreviewText, { color: textPrimary }]}>
-                  Duración por cita: {horariosTemp.duracion_slot} minutos
-                </Text>
+                <InstitutionalIcon name="calendar" size={18} color={I.semanticUp} />
+                <Text style={styles.modernPreviewText}>Duración por cita: {horariosTemp.duracion_slot} minutos</Text>
               </View>
-              {horariosTemp.tiempo_descanso > 0 && (
+              {horariosTemp.tiempo_descanso > 0 ? (
                 <View style={styles.modernPreviewRow}>
-                  <Ionicons name="pause" size={18} color={primary500} />
-                  <Text style={[styles.modernPreviewText, { color: textPrimary }]}>
+                  <InstitutionalIcon name="pause" size={18} color={I.primary} />
+                  <Text style={styles.modernPreviewText}>
                     Tiempo de descanso: {horariosTemp.tiempo_descanso} minutos
                   </Text>
                 </View>
-              )}
+              ) : null}
             </View>
           </View>
         </ScrollView>
@@ -936,115 +830,108 @@ export default function ConfiguracionHorariosScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: bgDefault }]}>
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+        <Stack.Screen options={{ title: 'Horarios de trabajo', headerShown: false }} />
         <Header
-          title="Horarios de Trabajo"
+          title="Horarios de trabajo"
           showBack
           onBackPress={() => router.back()}
+          backgroundColor={I.canvas}
+          titleColor={I.ink}
         />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={primary500} />
-          <Text style={[styles.loadingText, { color: textTertiary }]}>Cargando horarios...</Text>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={styles.loadingText}>Cargando horarios…</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: bgDefault }]} edges={['left', 'right', 'bottom']}>
-      <Stack.Screen
-        options={{
-          title: 'Horarios de Trabajo',
-          headerShown: false,
-        }}
-      />
-
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      <Stack.Screen options={{ title: 'Horarios de trabajo', headerShown: false }} />
       <Header
-        title="Horarios de Trabajo"
-        showBack={true}
+        title="Horarios de trabajo"
+        showBack
         onBackPress={() => router.back()}
+        backgroundColor={I.canvas}
+        titleColor={I.ink}
       />
 
       <ScrollView
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />}
         contentContainerStyle={{ paddingBottom: insets.bottom + (hasChanges ? 100 : 20) }}
       >
-        <View style={[styles.content, { paddingHorizontal: containerHorizontal }]}>
-          {/* Información contextual - UI Card */}
+        <View style={[styles.content, { paddingHorizontal: hx }]}>
           <View style={styles.uiCard}>
             <View style={styles.infoCardContent}>
-              <Ionicons name="information-circle" size={20} color={primary500} />
-              <Text style={[styles.infoText, { color: textPrimary }]}>
-                Define tus horarios de atención para cada día de la semana. Los clientes podrán agendar servicios en estos horarios.
+              <InstitutionalIcon name="information-circle" size={20} color={I.primary} />
+              <Text style={styles.infoText}>
+                Define tus horarios de atención para cada día de la semana. Los clientes podrán agendar servicios en
+                estos horarios.
               </Text>
             </View>
           </View>
 
-          {/* Configuraciones rápidas - UI Card */}
           <View style={styles.uiCard}>
-            <Text style={[styles.sectionTitle, { color: textPrimary }]}>⚡ Configuraciones Rápidas</Text>
+            <Text style={styles.sectionTitle}>Configuraciones rápidas</Text>
             <View style={styles.modernPresetsGrid}>
               <TouchableOpacity
                 style={styles.modernPresetCard}
                 onPress={() => aplicarPreset('comercial')}
-                activeOpacity={0.8}
+                activeOpacity={0.88}
               >
-                <Ionicons name="business" size={20} color={primary500} />
-                <Text style={[styles.modernPresetTitle, { color: textPrimary }]}>Comercial</Text>
-                <Text style={[styles.modernPresetSubtitle, { color: textTertiary }]}>Lun-Vie</Text>
-                <Text style={[styles.modernPresetTime, { color: primary500 }]}>8:00-18:00</Text>
+                <InstitutionalIcon name="business" size={20} color={I.primary} />
+                <Text style={styles.modernPresetTitle}>Comercial</Text>
+                <Text style={styles.modernPresetSubtitle}>Lun–Vie</Text>
+                <Text style={styles.modernPresetTimePrimary}>8:00–18:00</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.modernPresetCard}
                 onPress={() => aplicarPreset('extendido')}
-                activeOpacity={0.8}
+                activeOpacity={0.88}
               >
-                <Ionicons name="time" size={20} color={success500} />
-                <Text style={[styles.modernPresetTitle, { color: textPrimary }]}>Extendido</Text>
-                <Text style={[styles.modernPresetSubtitle, { color: textTertiary }]}>Lun-Sáb</Text>
-                <Text style={[styles.modernPresetTime, { color: success500 }]}>7:00-19:00</Text>
+                <InstitutionalIcon name="time" size={20} color={I.semanticUp} />
+                <Text style={styles.modernPresetTitle}>Extendido</Text>
+                <Text style={styles.modernPresetSubtitle}>Lun–Sáb</Text>
+                <Text style={styles.modernPresetTimeAccent}>7:00–19:00</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.modernPresetCard}
                 onPress={() => aplicarPreset('completo')}
-                activeOpacity={0.8}
+                activeOpacity={0.88}
               >
-                <Ionicons name="calendar" size={20} color={primary500} />
-                <Text style={[styles.modernPresetTitle, { color: textPrimary }]}>7 Días</Text>
-                <Text style={[styles.modernPresetSubtitle, { color: textTertiary }]}>Toda la semana</Text>
-                <Text style={[styles.modernPresetTime, { color: primary500 }]}>8:00-17:00</Text>
+                <InstitutionalIcon name="calendar" size={20} color={I.primary} />
+                <Text style={styles.modernPresetTitle}>7 días</Text>
+                <Text style={styles.modernPresetSubtitle}>Toda la semana</Text>
+                <Text style={styles.modernPresetTimePrimary}>8:00–17:00</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Configuración por días - UI Card */}
           <View style={styles.uiCard}>
-            <Text style={[styles.sectionTitle, { color: textPrimary }]}>📅 Configuración por Día</Text>
-            <View style={styles.modernDiasGrid}>
-              {horarios.map(renderDiaConfig)}
-            </View>
+            <Text style={styles.sectionTitle}>Configuración por día</Text>
+            <View style={styles.modernDiasGrid}>{horarios.map(renderDiaConfig)}</View>
           </View>
 
-          {/* Resumen - UI Card */}
           <View style={styles.uiCard}>
-            <Text style={[styles.sectionTitle, { color: textPrimary }]}>📊 Resumen</Text>
+            <Text style={styles.sectionTitle}>Resumen</Text>
             <View style={styles.modernResumenContent}>
               <View style={styles.modernResumenItem}>
-                <Ionicons name="checkmark-circle" size={18} color={success500} />
-                <Text style={[styles.modernResumenText, { color: textSecondary }]}>
-                  Días activos: {horarios.filter(h => h.activo).length}/7
+                <InstitutionalIcon name="checkmark-circle" size={18} color={I.semanticUp} />
+                <Text style={styles.modernResumenText}>
+                  Días activos: {horarios.filter((h) => h.activo).length}/7
                 </Text>
               </View>
               <View style={styles.modernResumenItem}>
-                <Ionicons name="time" size={18} color={primary500} />
-                <Text style={[styles.modernResumenText, { color: textSecondary }]}>
-                  Horario común: {horarios.find(h => h.activo)?.hora_inicio || '--'} - {horarios.find(h => h.activo)?.hora_fin || '--'}
+                <InstitutionalIcon name="time" size={18} color={I.primary} />
+                <Text style={styles.modernResumenText}>
+                  Horario común: {horarios.find((h) => h.activo)?.hora_inicio || '--'} -{' '}
+                  {horarios.find((h) => h.activo)?.hora_fin || '--'}
                 </Text>
               </View>
             </View>
@@ -1052,343 +939,440 @@ export default function ConfiguracionHorariosScreen() {
         </View>
       </ScrollView>
 
-      {/* Botón guardar flotante */}
-      {hasChanges && (
+      {hasChanges ? (
         <SafeAreaView style={styles.modernActionButtonsContainer} edges={['bottom']}>
           <TouchableOpacity
-            style={[
-              styles.modernSaveButton,
-              { backgroundColor: success500, ...shadowMd },
-              saving && { opacity: 0.6 }
-            ]}
+            style={[styles.modernSaveButton, saving && styles.modernSaveButtonDisabled]}
             onPress={guardarCambios}
             disabled={saving}
-            activeOpacity={0.8}
+            activeOpacity={0.88}
           >
             {saving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={I.onPrimary} />
             ) : (
-              <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+              <InstitutionalIcon name="checkmark" size={20} color={I.onPrimary} />
             )}
-            <Text style={styles.modernSaveButtonText}>
-              {saving ? 'Guardando...' : 'Guardar Cambios'}
-            </Text>
+            <Text style={styles.modernSaveButtonText}>{saving ? 'Guardando…' : 'Guardar cambios'}</Text>
           </TouchableOpacity>
         </SafeAreaView>
-      )}
+      ) : null}
 
-      {/* Modal de edición */}
       {renderModalEditarDia()}
     </SafeAreaView>
   );
 }
 
-// Función para crear estilos usando tokens del sistema de diseño
-const createStyles = () => {
-  const bgPaper = COLORS?.background?.paper || COLORS?.base?.white || '#FFFFFF';
-  const bgDefault = COLORS?.background?.default || '#F5F7F8';
-  const textPrimary = COLORS?.text?.primary || COLORS?.neutral?.inkBlack || '#00171F';
-  const textSecondary = COLORS?.text?.secondary || ((COLORS?.neutral?.gray as any)?.[800]) || '#3E4F53';
-  const textTertiary = COLORS?.text?.tertiary || ((COLORS?.neutral?.gray as any)?.[700]) || '#5D6F75';
-  const borderLight = COLORS?.border?.light || COLORS?.neutral?.gray?.[200] || '#D7DFE3';
-  const spacingXs = SPACING?.xs || 4;
-  const spacingSm = SPACING?.sm || 8;
-  const spacingMd = SPACING?.md || 16;
-  const spacingLg = SPACING?.lg || 24;
-  const containerHorizontal = SPACING?.container?.horizontal || SPACING?.content?.horizontal || 18;
-  const cardPadding = SPACING?.cardPadding || spacingMd;
-  const cardGap = SPACING?.cardGap || spacingSm + 4;
-  const cardRadius = BORDERS?.radius?.lg || 12;
-  const radiusXl = BORDERS?.radius?.xl || 16;
-  const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
-  const fontSizeSm = TYPOGRAPHY?.fontSize?.sm || 12;
-  const fontSizeMd = TYPOGRAPHY?.fontSize?.md || 16;
-  const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
-  const fontWeightMedium = TYPOGRAPHY?.fontWeight?.medium || '500';
-  const fontWeightSemibold = TYPOGRAPHY?.fontWeight?.semibold || '600';
-  const fontWeightBold = TYPOGRAPHY?.fontWeight?.bold || '700';
-  const shadowSm = SHADOWS?.sm || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-  const shadowMd = SHADOWS?.md || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: I.surfaceSoft,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  content: {
+    paddingVertical: SPACING.fixed.md,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: I.surfaceSoft,
+  },
+  loadingText: {
+    marginTop: SPACING.fixed.md,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+  },
+  uiCard: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.xl,
+    padding: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.md,
+    ...SHADOWS.editorial,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  infoCardContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.md,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.base * TYPOGRAPHY.lineHeight.normal),
+    color: I.body,
+  },
+  sectionTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: FF.sansSemiBold,
+    marginBottom: SPACING.fixed.md,
+    color: I.ink,
+  },
 
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: bgDefault,
-    },
-    scrollContainer: {
-      flex: 1,
-    },
-    content: {
-      paddingVertical: spacingMd,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: bgDefault,
-    },
-    loadingText: {
-      marginTop: spacingMd,
-      fontSize: fontSizeBase,
-    },
-    uiCard: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: spacingMd,
-      marginBottom: spacingMd,
-      ...shadowSm,
-      borderWidth: 1,
-      borderColor: borderLight,
-    },
-    infoCardContent: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacingMd,
-    },
-    infoText: {
-      flex: 1,
-      fontSize: fontSizeBase,
-      lineHeight: fontSizeBase + 6,
-    },
-    sectionTitle: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightBold,
-      marginBottom: spacingMd,
-    },
+  modernPresetsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.xs,
+  },
+  modernPresetCard: {
+    flex: 1,
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.fixed.md,
+    ...SHADOWS.editorial,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    alignItems: 'center',
+  },
+  modernPresetTitle: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    marginTop: SPACING.fixed.sm,
+    textAlign: 'center',
+    color: I.ink,
+  },
+  modernPresetSubtitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    marginTop: SPACING.fixed.xxs,
+    textAlign: 'center',
+    color: I.muted,
+  },
+  modernPresetTimePrimary: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.monoMedium,
+    marginTop: SPACING.fixed.xxs,
+    textAlign: 'center',
+    color: I.primary,
+  },
+  modernPresetTimeAccent: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.monoMedium,
+    marginTop: SPACING.fixed.xxs,
+    textAlign: 'center',
+    color: I.semanticUp,
+  },
 
-    modernPresetsGrid: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    modernPresetCard: {
-      flex: 1,
-      backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: spacingMd,
-      marginHorizontal: spacingXs,
-      ...shadowSm,
-      borderWidth: 1,
-      borderColor: borderLight,
-      alignItems: 'center',
-    },
-    modernPresetTitle: {
-      fontSize: fontSizeBase - 1,
-      fontWeight: fontWeightSemibold,
-      marginTop: spacingSm,
-      textAlign: 'center',
-    },
-    modernPresetSubtitle: {
-      fontSize: fontSizeSm - 1,
-      marginTop: spacingXs / 2,
-      textAlign: 'center',
-    },
-    modernPresetTime: {
-      fontSize: fontSizeSm - 1,
-      marginTop: spacingXs / 2,
-      fontWeight: fontWeightMedium,
-      textAlign: 'center',
-    },
-    modernDiasGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'space-between',
-    },
-    modernDiaCard: {
-      width: '48%',
-      backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: spacingMd,
-      marginBottom: spacingMd,
-      ...shadowSm,
-      borderWidth: 1,
-      borderColor: borderLight,
-      minHeight: 120,
-    },
-    modernDiaHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacingSm,
-    },
-    modernDiaInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-    },
-    modernDiaIconContainer: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: spacingSm,
-    },
-    modernDiaEmoji: {
-      fontSize: 16,
-    },
-    modernDiaTexto: {
-      flex: 1,
-    },
-    modernDiaNombre: {
-      fontSize: fontSizeBase - 1,
-      fontWeight: fontWeightSemibold,
-    },
-    modernSwitchContainer: {
-      alignItems: 'center',
-    },
-    modernSwitch: {
-      transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
-    },
-    modernHorariosConfig: {
-      borderTopWidth: 1,
-      borderTopColor: borderLight,
-      paddingTop: spacingSm,
-      marginTop: spacingSm,
-    },
-    modernTiemposContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: spacingSm,
-      gap: spacingXs,
-    },
-    modernTiempoCard: {
-      flex: 1,
-      backgroundColor: bgDefault,
-      borderRadius: cardRadius / 2,
-      padding: spacingSm,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: borderLight,
-      gap: spacingXs / 2,
-    },
-    modernTiempoValue: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightSemibold,
-    },
-    modernConfigSlots: {
-      alignItems: 'center',
-    },
-    modernSlotInfo: {
-      fontSize: fontSizeSm - 1,
-      textAlign: 'center',
-    },
+  modernDiasGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  modernDiaCard: {
+    width: '48%',
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.md,
+    ...SHADOWS.editorial,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    minHeight: 120,
+  },
+  modernDiaCardActive: {
+    backgroundColor: withOpacity(I.primary, 0.06),
+    borderColor: withOpacity(I.primary, 0.22),
+  },
+  modernDiaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.fixed.sm,
+  },
+  modernDiaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  modernDiaIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.fixed.sm,
+  },
+  modernDiaIconOn: {
+    backgroundColor: I.primary,
+  },
+  modernDiaIconOff: {
+    backgroundColor: I.surfaceStrong,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  modernDiaTexto: {
+    flex: 1,
+  },
+  modernDiaNombre: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.body,
+  },
+  modernDiaNombreActive: {
+    color: I.primary,
+  },
+  modernDiaInactiveBanner: {
+    backgroundColor: I.surfaceStrong,
+    borderRadius: BORDERS.radius.md,
+    paddingVertical: SPACING.fixed.xs + 2,
+    paddingHorizontal: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  modernDiaInactiveLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  modernDiaInactiveHint: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginTop: 2,
+  },
+  modernSwitchContainer: {
+    alignItems: 'center',
+  },
+  modernSwitch: {
+    transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
+  },
+  modernHorariosConfig: {
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+    paddingTop: SPACING.fixed.sm,
+    marginTop: SPACING.fixed.sm,
+  },
+  modernTiemposContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.fixed.sm,
+    gap: SPACING.xs,
+  },
+  modernTiempoCard: {
+    flex: 1,
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.sm,
+    alignItems: 'center',
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    gap: 2,
+  },
+  modernTiempoValue: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.monoMedium,
+    color: I.ink,
+  },
+  modernTiempoCardInactive: {
+    backgroundColor: I.surfaceStrong,
+    borderColor: I.hairline,
+  },
+  modernTiempoValueInactive: {
+    color: I.body,
+  },
+  modernConfigSlots: {
+    alignItems: 'center',
+  },
+  modernSlotInfo: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    textAlign: 'center',
+    color: I.muted,
+  },
+  modernSlotInfoInactive: {
+    color: I.body,
+  },
 
-    modernResumenContent: {
-      gap: spacingSm,
-    },
-    modernResumenItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingSm,
-    },
-    modernResumenText: {
-      fontSize: fontSizeBase,
-      flex: 1,
-    },
+  modernResumenContent: {
+    gap: SPACING.fixed.sm,
+  },
+  modernResumenItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+  },
+  modernResumenText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    flex: 1,
+    color: I.body,
+  },
 
-    modernActionButtonsContainer: {
-      position: 'absolute',
-      left: containerHorizontal,
-      right: containerHorizontal,
-      bottom: spacingMd,
-      zIndex: 1000,
-    },
-    modernSaveButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacingMd,
-      paddingHorizontal: spacingLg,
-      borderRadius: cardRadius,
-      gap: spacingSm,
-    },
-    modernSaveButtonText: {
-      color: '#FFFFFF',
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-    },
+  modernActionButtonsContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000,
+    backgroundColor: I.canvas,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+    paddingHorizontal: hx,
+    paddingTop: SPACING.fixed.md,
+    ...SHADOWS.editorial,
+  },
+  modernSaveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.lg,
+    borderRadius: BORDERS.radius.pill,
+    gap: SPACING.fixed.sm,
+    backgroundColor: I.primary,
+    ...SHADOWS.editorial,
+  },
+  modernSaveButtonDisabled: {
+    opacity: 0.55,
+  },
+  modernSaveButtonText: {
+    color: I.onPrimary,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+  },
 
-    modernModalContainer: {
-      flex: 1,
-      backgroundColor: bgDefault,
-    },
-    modernModalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: containerHorizontal,
-      paddingVertical: spacingMd,
-      backgroundColor: bgPaper,
-      borderBottomWidth: 1,
-      borderBottomColor: borderLight,
-      ...shadowSm,
-    },
-    modernModalTitle: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightBold,
-      flex: 1,
-      textAlign: 'center',
-    },
-    modernModalSaveButton: {
-      paddingVertical: spacingSm,
-      paddingHorizontal: spacingLg,
-      borderRadius: cardRadius,
-    },
-    modernModalSaveText: {
-      color: '#FFFFFF',
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-    },
-    modernModalContent: {
-      flex: 1,
-      padding: containerHorizontal,
-    },
-    modernModalSection: {
-      backgroundColor: bgPaper,
-      borderRadius: cardRadius,
-      padding: cardPadding,
-      marginBottom: cardGap,
-      borderWidth: 1,
-      borderColor: borderLight,
-      ...shadowSm,
-    },
-    modernModalSectionTitle: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightBold,
-      marginBottom: spacingMd,
-    },
-    modernModalRow: {
-      flexDirection: 'row',
-      gap: spacingMd,
-    },
-    modernModalCol: {
-      flex: 1,
-    },
-    modernModalLabel: {
-      fontSize: fontSizeBase,
-      marginBottom: spacingSm,
-      fontWeight: fontWeightMedium,
-    },
-    // Estilos de TimePicker y NumberPicker removidos - ahora se usan estilos inline con sistema de diseño
-    modernPreviewContainer: {
-      backgroundColor: bgDefault,
-      borderRadius: cardRadius / 2,
-      padding: spacingMd,
-      borderWidth: 1,
-      borderColor: borderLight,
-    },
-    modernPreviewRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: spacingSm,
-    },
-    modernPreviewText: {
-      fontSize: fontSizeBase,
-      marginLeft: spacingSm,
-      fontWeight: fontWeightMedium,
-    },
-  });
-};
-
-const styles = createStyles();
+  modernModalContainer: {
+    flex: 1,
+    backgroundColor: I.surfaceSoft,
+  },
+  modernModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: hx,
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.md,
+    backgroundColor: I.canvas,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairline,
+    ...SHADOWS.editorial,
+    gap: SPACING.fixed.xs,
+  },
+  modernModalHeaderSlot: {
+    flex: 1,
+    minWidth: 72,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+    paddingTop: SPACING.fixed.xxs,
+  },
+  modernModalHeaderSlotEnd: {
+    alignItems: 'flex-end',
+  },
+  modernModalHeaderCenter: {
+    flex: 2.2,
+    minWidth: 0,
+    alignItems: 'center',
+    paddingHorizontal: SPACING.fixed.xs,
+  },
+  modernModalTitle: {
+    fontSize: TS.h3.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h3.fontSize, TS.h3.lineHeight),
+    letterSpacing: TS.h3.letterSpacing,
+    color: I.ink,
+    textAlign: 'center',
+    width: '100%',
+  },
+  modernModalSubtitle: {
+    marginTop: SPACING.fixed.xxs,
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
+    letterSpacing: TS.caption.letterSpacing,
+    color: I.muted,
+    textAlign: 'center',
+    width: '100%',
+  },
+  modernModalClosePill: {
+    width: 40,
+    height: 40,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modernModalSavePill: {
+    paddingVertical: SPACING.fixed.xs + 2,
+    paddingHorizontal: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.primary,
+    ...SHADOWS.editorial,
+  },
+  modernModalSavePillText: {
+    color: I.onPrimary,
+    fontSize: TS.button.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),
+    letterSpacing: TS.button.letterSpacing,
+  },
+  modernModalScroll: {
+    flex: 1,
+    backgroundColor: I.surfaceSoft,
+  },
+  modernModalScrollContent: {
+    paddingHorizontal: hx,
+    paddingTop: SPACING.fixed.md,
+  },
+  modernModalSection: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
+  },
+  modernModalSectionTitle: {
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    letterSpacing: TS.h4.letterSpacing,
+    marginBottom: SPACING.fixed.md,
+    color: I.ink,
+  },
+  modernModalRow: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.md,
+  },
+  modernModalCol: {
+    flex: 1,
+  },
+  modernModalLabel: {
+    fontSize: TS.captionBold.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.captionBold.fontSize, TS.captionBold.lineHeight),
+    letterSpacing: TS.captionBold.letterSpacing,
+    marginBottom: SPACING.fixed.sm,
+    color: I.muted,
+    textTransform: 'uppercase',
+  },
+  modernPreviewContainer: {
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  modernPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.fixed.sm,
+  },
+  modernPreviewText: {
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    letterSpacing: TS.body.letterSpacing,
+    marginLeft: SPACING.fixed.sm,
+    color: I.ink,
+    flex: 1,
+  },
+});

@@ -23,6 +23,15 @@ export interface ProveedorKpisResumen {
   /** Promedio en periodo si hay reseñas; si no, promedio global del proveedor. */
   calificacion_cliente_promedio: number | null;
   calificacion_promedio_todas_resenas: number | null;
+  /**
+   * Promedio 1–5 desde reseñas ligadas a líneas de orden con OfertaServicio del proveedor.
+   * En periodo si hay líneas calificadas; si no, histórico de esas líneas.
+   */
+  calificacion_servicios_promedio?: number | null;
+  /** Líneas con oferta del proveedor y reseña en el periodo (muestra del promedio). */
+  calificacion_servicios_lineas_muestra?: number;
+  /** Total histórico de líneas con oferta del proveedor y reseña. */
+  calificacion_servicios_lineas_total?: number;
   score_tiempo_respuesta: number | null;
   score_calificacion_cliente: number | null;
   score_calidad_servicio?: number | null;

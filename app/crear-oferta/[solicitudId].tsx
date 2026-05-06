@@ -9,9 +9,8 @@ import {
   Platform,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import solicitudesService, { type SolicitudPublica, type OfertaProveedorData, type DetalleServicioOferta } from '@/services/solicitudesService';
 import { FormularioOferta } from '@/components/solicitudes/FormularioOferta';
 import creditosService, { type VerificacionCreditosOferta } from '@/services/creditosService';
@@ -20,10 +19,21 @@ import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
 import serviceAreasApi from '@/services/serviceAreasApi';
 import { useAlerts } from '@/context/AlertsContext';
 
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
+const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
+
+const stackScreenOptions = {
+  title: 'Crear Oferta',
+  headerBackTitle: '',
+  headerBackTitleVisible: false as const,
+  headerStyle: { backgroundColor: I.canvas },
+  headerTintColor: I.ink,
+};
+
 export default function CrearOfertaScreen() {
   const { solicitudId } = useLocalSearchParams<{ solicitudId: string }>();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const { estadoProveedor, usuario } = useAuth();
   const { agregarAlerta } = useAlerts();
@@ -279,56 +289,30 @@ export default function CrearOfertaScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Stack.Screen
-          options={{
-            title: 'Crear Oferta',
-            headerBackTitle: '',
-            headerBackTitleVisible: false,
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.text,
-          }}
-        />
+      <SafeAreaView style={styles.safeRoot} edges={['left', 'right', 'bottom']}>
+        <Stack.Screen options={stackScreenOptions} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.tint} />
-          <Text style={[styles.loadingText, { color: colors.text }]}>Cargando solicitud...</Text>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={styles.loadingText}>Cargando solicitud…</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!solicitud) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Stack.Screen
-          options={{
-            title: 'Crear Oferta',
-            headerBackTitle: '',
-            headerBackTitleVisible: false,
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.text,
-          }}
-        />
+      <SafeAreaView style={styles.safeRoot} edges={['left', 'right', 'bottom']}>
+        <Stack.Screen options={stackScreenOptions} />
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: colors.text }]}>
-            Solicitud no encontrada
-          </Text>
+          <Text style={styles.emptyText}>Solicitud no encontrada</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: '#F5F5F5' }]}>
-      <Stack.Screen
-        options={{
-          title: 'Crear Oferta',
-          headerBackTitle: '',
-          headerBackTitleVisible: false,
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
-        }}
-      />
+    <SafeAreaView style={styles.safeRoot} edges={['left', 'right', 'bottom']}>
+      <Stack.Screen options={stackScreenOptions} />
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -345,13 +329,14 @@ export default function CrearOfertaScreen() {
           onPressComprarCreditos={handleIrAComprarCreditos}
         />
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeRoot: {
     flex: 1,
+    backgroundColor: I.surfaceSoft,
   },
   keyboardView: {
     flex: 1,
@@ -362,18 +347,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
+    marginTop: SPACING.fixed.sm,
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.ink,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: SPACING.fixed.xl,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    color: I.ink,
+    textAlign: 'center',
   },
 });
 

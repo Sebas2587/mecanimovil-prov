@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import { authAPI } from '@/services/api';
@@ -26,6 +25,8 @@ import {
   telefonoMovilChileValido,
   extraerNueveDigitosDesdeGuardado,
 } from '@/utils/chilePhone';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const DEBOUNCE_MS = 500;
 
@@ -233,7 +234,7 @@ export default function InformacionBasicaScreen() {
     if (localMsg) {
       return (
         <View style={styles.feedbackRow}>
-          <Ionicons name="alert-circle-outline" size={16} color="#C0392B" />
+          <InstitutionalIcon name="alert-circle-outline" size={16} color="#C0392B"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.feedbackTextWarn}>{localMsg}</Text>
         </View>
       );
@@ -250,14 +251,14 @@ export default function InformacionBasicaScreen() {
     if (estado === 'free') {
       return (
         <View style={styles.feedbackRow}>
-          <Ionicons name="checkmark-circle" size={16} color="#27AE60" />
+          <InstitutionalIcon name="checkmark-circle" size={16} color="#27AE60"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.feedbackTextOk}>{mensaje}</Text>
         </View>
       );
     }
     return (
       <View style={styles.feedbackRow}>
-        <Ionicons name="close-circle" size={16} color="#C0392B" />
+        <InstitutionalIcon name="close-circle" size={16} color="#C0392B"  strokeWidth={ICON_STROKE_WIDTH} />
         <Text style={styles.feedbackTextErr}>{mensaje}</Text>
       </View>
     );
@@ -519,7 +520,7 @@ export default function InformacionBasicaScreen() {
 
           <View style={styles.form}>
             <View style={styles.infoContainer}>
-              <Ionicons name="information-circle" size={20} color="#4E4FEB" />
+              <InstitutionalIcon name="information-circle" size={20} color="#4E4FEB"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>
                 Los campos con * son obligatorios. RUT y teléfono se validan en tiempo real antes de continuar.
               </Text>

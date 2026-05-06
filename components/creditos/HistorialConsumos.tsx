@@ -1,9 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import React, { useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, ListRenderItem } from 'react-native';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { ConsumoCredito } from '@/services/creditosService';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+
+const I = COLORS.institutional;
 
 interface HistorialConsumosProps {
   consumos: ConsumoCredito[];
@@ -16,16 +18,6 @@ export const HistorialConsumos: React.FC<HistorialConsumosProps> = ({
   onRefresh,
   refreshing = false,
 }) => {
-  const theme = useTheme();
-  
-  // Obtener valores del sistema de diseño
-  const colors = theme?.colors || COLORS || {};
-  const textPrimary = colors?.text?.primary || '#000000';
-  const textSecondary = colors?.text?.secondary || '#666666';
-  const primaryColor = colors?.primary?.['500'] || '#4E4FEB';
-  const backgroundPaper = colors?.background?.paper || '#FFFFFF';
-  const borderMain = colors?.border?.main || '#D0D0D0';
-  
   const formatearFecha = (fecha: string) => {
     const date = new Date(fecha);
     return date.toLocaleDateString('es-CL', {
@@ -36,75 +28,109 @@ export const HistorialConsumos: React.FC<HistorialConsumosProps> = ({
       minute: '2-digit',
     });
   };
-  
-  const formatearPrecio = (precio: number) => {
-    return new Intl.NumberFormat('es-CL', {
+
+  const formatearPrecio = (precio: number) =>
+    new Intl.NumberFormat('es-CL', {
       style: 'currency',
       currency: 'CLP',
       minimumFractionDigits: 0,
     }).format(precio);
-  };
-  
-  const renderItem = ({ item }: { item: ConsumoCredito }) => (
-    <View style={[styles.item, { backgroundColor: backgroundPaper, borderColor: borderMain }]}>
-      <View style={styles.itemHeader}>
-        <View style={styles.itemHeaderLeft}>
-          <MaterialIcons 
-            name="receipt" 
-            size={20} 
-            color={primaryColor} 
-          />
-          <View style={styles.itemInfo}>
-            <Text style={[styles.itemServicio, { color: textPrimary }]}>
+
+  const renderItem: ListRenderItem<ConsumoCredito> = useCallback(
+    ({ item }) => (
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: I.canvas, borderColor: I.hairline },
+          SHADOWS.editorial,
+        ]}
+      >
+        <View style={styles.cardTop}>
+          <View style={[styles.iconPlate, { backgroundColor: I.surfaceStrong }]}>
+            <InstitutionalIcon name="receipt" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+          </View>
+          <View style={styles.cardTopText}>
+            <Text style={[styles.cardTitle, { color: I.ink }]} numberOfLines={2}>
               {item.servicio_nombre}
             </Text>
-            <Text style={[styles.itemFecha, { color: textSecondary }]}>
-              {formatearFecha(item.fecha_consumo)}
-            </Text>
+            <Text style={[styles.cardMeta, { color: I.muted }]}>{formatearFecha(item.fecha_consumo)}</Text>
+          </View>
+          <View style={[styles.credPill, { backgroundColor: I.surfaceStrong }]}>
+            <Text style={[styles.credPillText, { color: I.semanticDown }]}>−{item.creditos_consumidos}</Text>
           </View>
         </View>
-        <View style={styles.creditosContainer}>
-          <Text style={[styles.creditos, { color: primaryColor }]}>
-            -{item.creditos_consumidos}
-          </Text>
+
+        <View style={[styles.divider, { backgroundColor: I.hairline }]} />
+
+        <View style={styles.details}>
+          <View style={styles.detailRow}>
+            <Text style={[styles.detailLabel, { color: I.muted }]}>Precio por crédito</Text>
+            <Text style={[styles.detailValueMono, { color: I.ink }]}>{formatearPrecio(item.precio_credito)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={[styles.detailLabel, { color: I.muted }]}>Oferta</Text>
+            <Text style={[styles.detailValueMono, { color: I.body }]} numberOfLines={1}>
+              {item.oferta_id.length > 10 ? `${item.oferta_id.slice(0, 10)}…` : item.oferta_id}
+            </Text>
+          </View>
+          {item.oferta ? (
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: I.muted }]}>Detalle</Text>
+              <Text style={[styles.detailValue, { color: I.body }]} numberOfLines={2}>
+                {item.oferta}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
-      
-      <View style={styles.itemDetails}>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: textSecondary }]}>Precio crédito:</Text>
-          <Text style={[styles.detailValue, { color: textPrimary }]}>
-            {formatearPrecio(item.precio_credito)}
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: textSecondary }]}>Oferta ID:</Text>
-          <Text style={[styles.detailValue, { color: textPrimary }]}>
-            {item.oferta_id.substring(0, 8)}...
-          </Text>
-        </View>
-      </View>
-    </View>
+    ),
+    []
   );
-  
+
+  const ListHeader = useCallback(
+    () => (
+      <View style={styles.listHeader}>
+        <View style={styles.headerRow}>
+          <View style={[styles.sectionPill, { backgroundColor: I.surfaceStrong }]}>
+            <Text style={[styles.sectionPillText, { color: I.muted }]}>CONSUMOS</Text>
+          </View>
+          <Text style={[styles.headerCount, { color: I.body }]}>
+            {consumos.length} {consumos.length === 1 ? 'registro' : 'registros'}
+          </Text>
+        </View>
+        <Text style={[styles.headerHint, { color: I.body }]}>
+          Créditos descontados al postularte a trabajos. Los importes son referencia del momento del consumo.
+        </Text>
+      </View>
+    ),
+    [consumos.length]
+  );
+
   if (consumos.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <MaterialIcons name="receipt" size={48} color={textSecondary} />
-        <Text style={[styles.emptyText, { color: textSecondary }]}>
-          No hay consumos registrados
+        <View style={[styles.emptyIconPlate, { backgroundColor: I.surfaceSoft }]}>
+          <InstitutionalIcon name="receipt" size={32} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+        </View>
+        <View style={[styles.emptyPill, { backgroundColor: I.surfaceStrong }]}>
+          <Text style={[styles.emptyPillText, { color: I.muted }]}>CONSUMOS</Text>
+        </View>
+        <Text style={[styles.emptyTitle, { color: I.ink }]}>Sin consumos</Text>
+        <Text style={[styles.emptySub, { color: I.body }]}>
+          Cuando postules a ofertas, verás acá cada descuento de créditos.
         </Text>
       </View>
     );
   }
-  
+
   return (
     <FlatList
       data={consumos}
       renderItem={renderItem}
       keyExtractor={(item) => item.id.toString()}
-      contentContainerStyle={styles.list}
-      style={styles.flatList}
+      ListHeaderComponent={ListHeader}
+      contentContainerStyle={styles.listContent}
+      style={styles.list}
       onRefresh={onRefresh}
       refreshing={refreshing}
       showsVerticalScrollIndicator={false}
@@ -113,69 +139,111 @@ export const HistorialConsumos: React.FC<HistorialConsumosProps> = ({
 };
 
 const styles = StyleSheet.create({
-  flatList: {
-    flex: 1,
+  list: { flex: 1 },
+  listContent: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING['2xl'],
   },
-  list: {
-    padding: SPACING.md,
-  },
-  item: {
-    padding: SPACING.md,
-    borderRadius: 12,
+  listHeader: {
     marginBottom: SPACING.md,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
   },
-  itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: SPACING.sm,
-  },
-  itemHeaderLeft: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: SPACING.sm,
-    flex: 1,
   },
-  itemInfo: {
-    flex: 1,
+  sectionPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
   },
-  itemServicio: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    marginBottom: SPACING.xs / 2,
+  sectionPillText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
   },
-  itemFecha: {
+  headerCount: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+  },
+  headerHint: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.regular,
+    lineHeight: 20,
+    marginTop: 8,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
   },
-  creditosContainer: {
-    alignItems: 'flex-end',
+  card: {
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
   },
-  creditos: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
   },
-  itemDetails: {
-    gap: SPACING.xs / 2,
+  iconPlate: {
+    width: 40,
+    height: 40,
+    borderRadius: BORDERS.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  cardTopText: { flex: 1, minWidth: 0 },
+  cardTitle: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+  },
+  cardMeta: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    marginTop: 2,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+  },
+  credPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: BORDERS.radius.pill,
+    minWidth: 44,
+    alignItems: 'center',
+  },
+  credPillText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: SPACING.sm,
+  },
+  details: { gap: 8 },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
   },
   detailLabel: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.regular,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    flexShrink: 0,
   },
   detailValue: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    textAlign: 'right',
+    flex: 1,
+  },
+  detailValueMono: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
+    textAlign: 'right',
+    flexShrink: 1,
   },
   emptyContainer: {
     flex: 1,
@@ -183,11 +251,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: SPACING['2xl'],
   },
-  emptyText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.regular,
-    marginTop: SPACING.md,
+  emptyIconPlate: {
+    width: 64,
+    height: 64,
+    borderRadius: BORDERS.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.md,
+  },
+  emptyPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+    marginBottom: SPACING.sm,
+  },
+  emptyPillText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+  },
+  emptyTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     textAlign: 'center',
   },
+  emptySub: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: 20,
+    marginTop: SPACING.xs,
+    textAlign: 'center',
+    maxWidth: 280,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+  },
 });
-

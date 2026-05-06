@@ -10,8 +10,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface EstadisticasDocumentos {
   totalSubidos: number;
@@ -166,7 +167,7 @@ export default function CuentaEnRevisionScreen() {
     return (
       <View style={[styles.estadoCard, { borderLeftColor: color }]}>
         <View style={styles.estadoHeader}>
-          <Ionicons name={icono as any} size={32} color={color} />
+          <InstitutionalIcon name={icono as any} size={32} color={color}  strokeWidth={ICON_STROKE_WIDTH} />
           <View style={styles.estadoInfo}>
             <Text style={[styles.estadoTitulo, { color }]}>
               {obtenerEstadoTexto(estado)}
@@ -195,11 +196,11 @@ export default function CuentaEnRevisionScreen() {
     return (
       <View style={styles.infoCard}>
         <View style={styles.infoHeader}>
-          <Ionicons 
+          <InstitutionalIcon 
             name={tipoProveedor === 'taller' ? 'business-outline' : 'person-outline'} 
             size={24} 
             color="#3498db" 
-          />
+           strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.infoTitulo}>Información del Perfil</Text>
         </View>
         
@@ -233,20 +234,20 @@ export default function CuentaEnRevisionScreen() {
     return (
       <View style={styles.documentosCard}>
         <View style={styles.documentosHeader}>
-          <Ionicons 
+          <InstitutionalIcon 
             name="document-text-outline" 
             size={24} 
             color={documentosEnProceso ? '#27ae60' : '#f39c12'} 
-          />
+           strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.documentosTitulo}>Estado de Documentos</Text>
         </View>
         
         <View style={styles.documentosStatus}>
-          <Ionicons 
+          <InstitutionalIcon 
             name={documentosEnProceso ? 'checkmark-circle' : 'time'} 
             size={20} 
             color={documentosEnProceso ? '#27ae60' : '#f39c12'} 
-          />
+           strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={[
             styles.documentosTexto,
             { color: documentosEnProceso ? '#27ae60' : '#f39c12' }
@@ -260,7 +261,7 @@ export default function CuentaEnRevisionScreen() {
             style={styles.subirDocumentosButton}
             onPress={irASubirDocumentos}
           >
-            <Ionicons name="cloud-upload-outline" size={20} color="white" />
+            <InstitutionalIcon name="cloud-upload-outline" size={20} color="white"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.subirDocumentosTexto}>Subir Documentos</Text>
           </TouchableOpacity>
         )}
@@ -278,7 +279,7 @@ export default function CuentaEnRevisionScreen() {
             style={styles.accionPrimaria}
             onPress={irAInicio}
           >
-            <Ionicons name="home-outline" size={20} color="white" />
+            <InstitutionalIcon name="home-outline" size={20} color="white"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.accionPrimariaTexto}>Ir a la Aplicación</Text>
           </TouchableOpacity>
         ) : (
@@ -287,7 +288,7 @@ export default function CuentaEnRevisionScreen() {
               style={styles.accionSecundaria}
               onPress={onRefresh}
             >
-              <Ionicons name="refresh-outline" size={20} color="#3498db" />
+              <InstitutionalIcon name="refresh-outline" size={20} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.accionSecundariaTexto}>Actualizar Estado</Text>
             </TouchableOpacity>
             
@@ -295,7 +296,7 @@ export default function CuentaEnRevisionScreen() {
               style={styles.accionSecundaria}
               onPress={cerrarSesion}
             >
-              <Ionicons name="log-out-outline" size={20} color="#e74c3c" />
+              <InstitutionalIcon name="log-out-outline" size={20} color="#e74c3c"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={[styles.accionSecundariaTexto, { color: '#e74c3c' }]}>
                 Cerrar Sesión
               </Text>
@@ -325,7 +326,7 @@ export default function CuentaEnRevisionScreen() {
         }
       >
         <View style={styles.header}>
-          <Ionicons name="shield-checkmark-outline" size={64} color="#3498db" />
+          <InstitutionalIcon name="shield-checkmark-outline" size={64} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.headerTitulo}>Estado de tu Cuenta</Text>
           <Text style={styles.headerSubtitulo}>
             Verificación de Proveedor
@@ -338,7 +339,7 @@ export default function CuentaEnRevisionScreen() {
         {renderAcciones()}
 
         <View style={styles.ayudaContainer}>
-          <Ionicons name="help-circle-outline" size={24} color="#95a5a6" />
+          <InstitutionalIcon name="help-circle-outline" size={24} color="#95a5a6"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.ayudaTitulo}>¿Necesitas ayuda?</Text>
           <Text style={styles.ayudaTexto}>
             Si tienes preguntas sobre el proceso de verificación o necesitas actualizar tu información, 

@@ -17,27 +17,20 @@ import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
 import { SHADOWS } from '@/app/design-system/tokens/shadows';
 import { BORDERS } from '@/app/design-system/tokens/borders';
 
-/** Acento púrpura (no hay token en DS; uso exclusivo de este widget). */
-const PURPLE = {
-  glow: 'rgba(168, 85, 247, 0.2)',
-  glowSoft: 'rgba(168, 85, 247, 0.12)',
-  icon: '#c4b5fd',
-  badgeBg: 'rgba(168, 85, 247, 0.35)',
-  badgeText: '#f5f3ff',
+const I = COLORS.institutional;
+
+/** Acento decorativo azul (primario usado con mesura, patrón hero oscuro). */
+const ACCENT_GLOW = {
+  soft: 'rgba(0, 82, 255, 0.14)',
+  strong: 'rgba(0, 82, 255, 0.22)',
 } as const;
 
 export type PerformanceWidgetProps = {
-  /** Índice 0–100 desde API (`score_rendimiento`). `undefined` mientras carga o sin datos. */
   progress?: number | null;
-  /** Nivel derivado del índice (misma regla que pantalla de KPIs). */
   targetTierName: string;
-  /** Segunda línea: periodo y fuentes del índice (alineado a RendimientoKpisContent). */
   periodSubtitle?: string;
-  /** Muestra estado de carga cuando aún no hay `progress`. */
   isLoading?: boolean;
-  /** Acción al pulsar la tarjeta (p. ej. `() => router.push('/ruta')`). */
   onPress: () => void;
-  /** Estilo opcional del contenedor exterior (p. ej. márgenes). */
   style?: StyleProp<ViewStyle>;
 };
 
@@ -70,10 +63,8 @@ export function PerformanceWidget({
   );
   const badgeText = useMemo(() => (hasValue ? motivationalLabel(pct) : '…'), [hasValue, pct]);
 
-  const gradientColors = [
-    COLORS.neutral.gray[900],
-    COLORS.neutral.gray[800],
-  ] as const;
+  const gradientColors = [I.surfaceDark, I.surfaceDarkElevated] as const;
+  const ff = TYPOGRAPHY.fontFamily;
 
   return (
     <Pressable
@@ -86,7 +77,7 @@ export function PerformanceWidget({
       }
       style={({ pressed }) => [
         styles.outer,
-        SHADOWS.lg,
+        SHADOWS.editorial,
         pressed && styles.pressed,
         style,
       ]}
@@ -97,48 +88,47 @@ export function PerformanceWidget({
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
       >
-        {/* Luz decorativa tipo blur (capas suaves; RN no tiene blur-3xl sobre vistas arbitrarias). */}
         <View style={styles.decorWrap} pointerEvents="none">
-          <View style={styles.glowOuter} />
-          <View style={styles.glowInner} />
+          <View style={[styles.glowOuter, { backgroundColor: ACCENT_GLOW.soft }]} />
+          <View style={[styles.glowInner, { backgroundColor: ACCENT_GLOW.strong }]} />
         </View>
 
         <View style={styles.inner}>
           <View style={styles.headerRow}>
             <View style={styles.titleLeft}>
-              <Activity size={22} color={PURPLE.icon} strokeWidth={2.25} />
-              <Text style={styles.title}>Tu Rendimiento</Text>
+              <Activity size={22} color={COLORS.primary[300]} strokeWidth={2.25} />
+              <Text style={[styles.title, { fontFamily: ff.sansSemiBold }]}>Tu Rendimiento</Text>
             </View>
 
             <View style={styles.chevronCircle}>
-              <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
+              <BlurView intensity={32} tint="light" style={StyleSheet.absoluteFill} />
               <View style={styles.chevronIcon} pointerEvents="none">
-                <ChevronRight size={18} color={COLORS.neutral.white} strokeWidth={2.5} />
+                <ChevronRight size={18} color={I.onDark} strokeWidth={2.5} />
               </View>
             </View>
           </View>
 
-          <Text style={styles.subtitle} numberOfLines={1}>
+          <Text style={[styles.subtitle, { fontFamily: ff.sansMedium }]} numberOfLines={1}>
             Nivel: {targetTierName}
           </Text>
           {periodSubtitle ? (
-            <Text style={styles.periodLine} numberOfLines={2}>
+            <Text style={[styles.periodLine, { fontFamily: ff.sansRegular }]} numberOfLines={2}>
               {periodSubtitle}
             </Text>
           ) : null}
 
           <View style={styles.kpiRow}>
             {hasValue ? (
-              <Text style={styles.percent}>{pct}%</Text>
+              <Text style={[styles.percent, { fontFamily: ff.monoMedium }]}>{pct}%</Text>
             ) : isLoading ? (
               <View style={styles.percentRow}>
-                <ActivityIndicator color={COLORS.neutral.white} size="small" />
+                <ActivityIndicator color={I.onDark} size="small" />
               </View>
             ) : (
-              <Text style={styles.percentPlaceholder}>—</Text>
+              <Text style={[styles.percentPlaceholder, { fontFamily: ff.monoMedium }]}>—</Text>
             )}
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{badgeText}</Text>
+              <Text style={[styles.badgeText, { fontFamily: ff.sansSemiBold }]}>{badgeText}</Text>
             </View>
           </View>
         </View>
@@ -147,7 +137,7 @@ export function PerformanceWidget({
   );
 }
 
-const radius = BORDERS.radius['3xl'];
+const radius = BORDERS.radius.card.xl;
 
 const styles = StyleSheet.create({
   outer: {
@@ -155,7 +145,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   pressed: {
-    transform: [{ scale: 0.95 }],
+    opacity: 0.92,
+    transform: [{ scale: 0.985 }],
   },
   gradient: {
     borderRadius: radius,
@@ -175,7 +166,6 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: PURPLE.glowSoft,
   },
   glowInner: {
     position: 'absolute',
@@ -184,7 +174,6 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: PURPLE.glow,
   },
   inner: {
     zIndex: 1,
@@ -203,9 +192,8 @@ const styles = StyleSheet.create({
     paddingRight: SPACING.sm,
   },
   title: {
-    color: COLORS.text.inverse,
+    color: I.onDark,
     fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
   },
   chevronCircle: {
     width: 36,
@@ -214,7 +202,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   chevronIcon: {
     ...StyleSheet.absoluteFillObject,
@@ -223,15 +211,13 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   subtitle: {
-    color: COLORS.neutral.gray[300],
+    color: I.onDarkSoft,
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
     marginBottom: SPACING.xs,
   },
   periodLine: {
-    color: COLORS.neutral.gray[400],
+    color: I.mutedSoft,
     fontSize: TYPOGRAPHY.fontSize.xs,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
     marginBottom: SPACING.sm,
     lineHeight: 16,
   },
@@ -242,9 +228,8 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   percent: {
-    color: COLORS.text.inverse,
+    color: I.onDark,
     fontSize: TYPOGRAPHY.fontSize['4xl'],
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
     letterSpacing: TYPOGRAPHY.letterSpacing.tight,
   },
   percentRow: {
@@ -253,21 +238,19 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   percentPlaceholder: {
-    color: COLORS.neutral.gray[300],
+    color: I.onDarkSoft,
     fontSize: TYPOGRAPHY.fontSize['4xl'],
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
     letterSpacing: TYPOGRAPHY.letterSpacing.tight,
   },
   badge: {
-    backgroundColor: PURPLE.badgeBg,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
-    borderRadius: BORDERS.radius.badge.md,
+    borderRadius: BORDERS.radius.pill,
   },
   badgeText: {
-    color: PURPLE.badgeText,
+    color: I.onDark,
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
 });
 

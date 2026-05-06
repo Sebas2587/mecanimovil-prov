@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   Image,
   Keyboard,
@@ -17,15 +16,22 @@ import {
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import {
-  ArrowLeft, User, Send, Paperclip, X, MessageCircle, ImageIcon,
+  ArrowLeft, User, Send, X, MessageCircle,
 } from 'lucide-react-native';
 import solicitudesService, { type MensajeChat, type OfertaProveedor } from '@/services/solicitudesService';
 import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
 import websocketService, { type NuevoMensajeChatEvent } from '@/app/services/websocketService';
 import * as ImagePicker from 'expo-image-picker';
+import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
+import { COLORS, TYPOGRAPHY, SHADOWS, BORDERS, SPACING, withOpacity } from '@/app/design-system/tokens';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
+
+const I = COLORS.institutional;
+const T = TYPOGRAPHY.styles;
 
 export default function ChatOfertaScreen() {
   const { ofertaId } = useLocalSearchParams<{ ofertaId: string }>();
@@ -191,49 +197,80 @@ export default function ChatOfertaScreen() {
 
   const clienteNombre = oferta?.solicitud_detail?.cliente_nombre || 'Cliente';
   const clienteFoto = oferta?.solicitud_detail?.cliente_foto;
+  const vehiculoPillText = useMemo(
+    () => formatVehiculoPillLabel(oferta?.solicitud_detail?.vehiculo ?? null),
+    [oferta],
+  );
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <ArrowLeft size={22} color="#1F2937" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Chat</Text>
-          <View style={{ width: 36 }} />
-        </View>
-        <View style={styles.centeredState}>
-          <ActivityIndicator size="large" color="#3B82F6" />
-          <Text style={styles.centeredText}>Cargando chat...</Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.screenRoot}>
+        <LinearGradient
+          colors={BLANK_GLASS.gradient}
+          locations={BLANK_GLASS.gradientLocations}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          <Stack.Screen options={{ headerShown: false }} />
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <ArrowLeft size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitleCentered}>Chat</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+          <View style={styles.centeredState}>
+            <ActivityIndicator size="large" color={I.primary} />
+            <Text style={styles.loadingHint}>Cargando chat…</Text>
+          </View>
+        </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.screenRoot}>
+      <LinearGradient
+        colors={BLANK_GLASS.gradient}
+        locations={BLANK_GLASS.gradientLocations}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Glass Header */}
-      <BlurView intensity={50} tint="light" style={styles.header}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={22} color="#1F2937" />
+          <ArrowLeft size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          {clienteFoto ? (
-            <Image source={{ uri: clienteFoto }} style={styles.headerAvatar} />
-          ) : (
-            <View style={styles.headerAvatarPlaceholder}>
-              <User size={16} color="#FFFFFF" />
+          <View style={styles.headerNameRow}>
+            {clienteFoto ? (
+              <Image source={{ uri: clienteFoto }} style={styles.headerAvatar} />
+            ) : (
+              <View style={styles.headerAvatarPlaceholder}>
+                <User size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              </View>
+            )}
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {clienteNombre}
+            </Text>
+          </View>
+          {!!vehiculoPillText && (
+            <View style={styles.vehiclePill}>
+              <Text style={styles.vehiclePillText} numberOfLines={1}>
+                {vehiculoPillText}
+              </Text>
             </View>
           )}
-          <Text style={styles.headerTitle} numberOfLines={1}>{clienteNombre}</Text>
         </View>
-        <View style={{ width: 36 }} />
-      </BlurView>
+        <View style={styles.headerSpacer} />
+      </View>
 
-      <LinearGradient colors={['#F3F5F8', '#FAFBFC', '#FFFFFF']} locations={[0, 0.15, 1]} style={styles.chatArea}>
+      <View style={styles.chatArea}>
         {mensajes.length > 0 ? (
           <FlatList
             ref={flatListRef}
@@ -247,34 +284,38 @@ export default function ChatOfertaScreen() {
         ) : (
           <View style={styles.centeredState}>
             <View style={styles.emptyIconWrap}>
-              <MessageCircle size={40} color="#9CA3AF" />
+              <MessageCircle size={40} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <Text style={styles.emptyTitle}>Sin mensajes</Text>
-            <Text style={styles.centeredText}>Comienza la conversación enviando un mensaje</Text>
+            <Text style={styles.centeredTextMuted}>Comienza la conversación enviando un mensaje</Text>
           </View>
         )}
 
-        {/* Glass Input Bar */}
-        <BlurView intensity={60} tint="light" style={[
-          styles.inputBar,
-          { paddingBottom: Math.max(insets.bottom || 8, keyboardHeight > 0 ? 8 : insets.bottom || 8), bottom: keyboardHeight }
-        ]}>
+        <View
+          style={[
+            styles.inputBar,
+            {
+              paddingBottom: Math.max(insets.bottom || SPACING.sm, keyboardHeight > 0 ? SPACING.sm : insets.bottom || SPACING.sm),
+              bottom: keyboardHeight,
+            },
+          ]}
+        >
           {attachment && (
             <View style={styles.attachPreview}>
               <Image source={{ uri: attachment.uri }} style={styles.attachThumb} />
               <TouchableOpacity style={styles.attachRemove} onPress={() => setAttachment(null)}>
-                <X size={14} color="#EF4444" />
+                <X size={14} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             </View>
           )}
           <View style={styles.inputRow}>
-            <TouchableOpacity style={styles.attachBtn} onPress={handlePickAttachment}>
-              <ImageIcon size={22} color="#6B7280" />
+            <TouchableOpacity style={styles.attachBtn} onPress={handlePickAttachment} accessibilityLabel="Adjuntar imagen">
+              <InstitutionalIcon name="image" size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
             <TextInput
               style={styles.textInput}
-              placeholder="Escribe un mensaje..."
-              placeholderTextColor="#9CA3AF"
+              placeholder="Escribe un mensaje…"
+              placeholderTextColor={I.muted}
               value={nuevoMensaje}
               onChangeText={setNuevoMensaje}
               multiline
@@ -287,183 +328,261 @@ export default function ChatOfertaScreen() {
               disabled={(!nuevoMensaje.trim() && !attachment) || enviando}
             >
               {enviando ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={I.onPrimary} />
               ) : (
-                <Send size={18} color="#FFFFFF" />
+                <Send size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
               )}
             </TouchableOpacity>
           </View>
-        </BlurView>
-      </LinearGradient>
+        </View>
+      </View>
 
       <Modal visible={!!selectedImage} transparent animationType="fade" onRequestClose={() => setSelectedImage(null)}>
         <View style={styles.modalBg}>
           <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedImage(null)}>
-            <X size={28} color="#FFFFFF" />
+            <X size={28} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
           {selectedImage && (
             <Image source={{ uri: selectedImage }} style={styles.modalImage} resizeMode="contain" />
           )}
         </View>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screenRoot: {
     flex: 1,
-    backgroundColor: '#F3F5F8',
+    backgroundColor: I.canvas,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
+    paddingHorizontal: GLASS_INSET,
+    paddingVertical: SPACING.sm + 4,
+    backgroundColor: I.canvas,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+    ...SHADOWS.editorial,
   },
   backBtn: {
     padding: 4,
+    minWidth: 36,
+    alignItems: 'flex-start',
+  },
+  headerSpacer: {
+    width: 36,
   },
   headerCenter: {
     flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    marginHorizontal: SPACING.sm,
+  },
+  headerNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    marginHorizontal: 8,
+    gap: SPACING.sm + 2,
+    width: '100%',
+  },
+  vehiclePill: {
+    marginTop: SPACING.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+    maxWidth: '92%',
+  },
+  vehiclePillText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
+    color: I.muted,
+    textAlign: 'center',
   },
   headerAvatar: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: BORDERS.radius.full,
   },
   headerAvatarPlaceholder: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: '#3B82F6',
+    borderRadius: BORDERS.radius.full,
+    backgroundColor: I.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1F2937',
+    flex: 1,
+    flexShrink: 1,
+    textAlign: 'left',
+    fontSize: T.h4.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.h4.fontWeight as '600',
+    lineHeight: Math.round(T.h4.fontSize * T.h4.lineHeight),
+    color: I.ink,
+  },
+  headerTitleCentered: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: T.h4.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.h4.fontWeight as '600',
+    lineHeight: Math.round(T.h4.fontSize * T.h4.lineHeight),
+    color: I.ink,
   },
   chatArea: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   messagesList: {
-    paddingHorizontal: 8,
-    paddingTop: 12,
+    paddingHorizontal: GLASS_INSET,
+    paddingTop: SPACING.sm + 4,
     flexGrow: 1,
   },
   centeredState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: SPACING.lg,
   },
   centeredText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#6B7280',
+    marginTop: SPACING.sm,
+    fontSize: T.body.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.body.fontWeight as '400',
+    lineHeight: Math.round(T.body.fontSize * T.body.lineHeight),
+    color: I.body,
+    textAlign: 'center',
+  },
+  centeredTextMuted: {
+    marginTop: SPACING.sm,
+    fontSize: T.small.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.small.fontWeight as '400',
+    lineHeight: Math.round(T.small.fontSize * T.small.lineHeight),
+    color: I.muted,
+    textAlign: 'center',
+    paddingHorizontal: SPACING.md,
+  },
+  loadingHint: {
+    marginTop: SPACING.sm,
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.caption.fontWeight as '400',
+    lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
+    color: I.muted,
     textAlign: 'center',
   },
   emptyIconWrap: {
     width: 72,
     height: 72,
-    borderRadius: 36,
-    backgroundColor: '#F3F4F6',
+    borderRadius: BORDERS.radius.full,
+    backgroundColor: I.surfaceStrong,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: SPACING.sm + 4,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#374151',
+    fontSize: T.h3.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.h3.fontWeight as '600',
+    lineHeight: Math.round(T.h3.fontSize * T.h3.lineHeight),
+    color: I.ink,
+    marginBottom: SPACING.xs,
   },
 
-  // Input bar
   inputBar: {
     position: 'absolute',
     left: 0,
     right: 0,
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.06)',
+    paddingHorizontal: GLASS_INSET,
+    paddingTop: SPACING.sm + 2,
+    backgroundColor: I.canvas,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+    ...SHADOWS.editorial,
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.sm,
   },
   attachBtn: {
     padding: 6,
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 15,
-    maxHeight: 100,
-    color: '#1F2937',
+    backgroundColor: I.surfaceStrong,
+    borderRadius: BORDERS.radius.pill,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
+    fontSize: T.body.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.body.fontWeight as '400',
+    lineHeight: Math.round(T.body.fontSize * T.body.lineHeight),
+    maxHeight: 120,
+    color: I.ink,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
   },
   sendBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#3B82F6',
+    width: 40,
+    height: 40,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendBtnDisabled: {
-    opacity: 0.4,
+    backgroundColor: I.primaryDisabled,
+    opacity: 0.85,
   },
   attachPreview: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   attachThumb: {
     width: 60,
     height: 60,
-    borderRadius: 10,
-    backgroundColor: '#F3F4F6',
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.surfaceStrong,
   },
   attachRemove: {
-    marginLeft: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
+    marginLeft: SPACING.sm,
+    width: 28,
+    height: 28,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  // Modal
   modalBg: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    backgroundColor: withOpacity(I.surfaceDark, 0.94),
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalClose: {
     position: 'absolute',
     top: 56,
-    right: 20,
+    right: GLASS_INSET,
     zIndex: 1,
-    padding: 8,
+    padding: SPACING.sm,
   },
   modalImage: {
     width: '100%',

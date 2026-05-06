@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface AlertaCreditosBajosProps {
   saldo: number;
@@ -29,11 +30,11 @@ export const AlertaCreditosBajos: React.FC<AlertaCreditosBajosProps> = ({
       style={[styles.container, { backgroundColor: warningLight, borderColor: warningColor }]}
     >
       <View style={styles.content}>
-        <MaterialIcons 
+        <InstitutionalIcon 
           name="warning" 
           size={18} 
           color={warningText} 
-        />
+         strokeWidth={ICON_STROKE_WIDTH} />
         <View style={styles.textContainer}>
           <Text style={[styles.message, { color: warningText }]}>
             {saldo === 0 

@@ -11,9 +11,8 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import {
-  MessageCircle, RefreshCw, User, Car, Check, CheckCheck,
+  MessageCircle, User, Check, CheckCheck,
 } from 'lucide-react-native';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -23,6 +22,14 @@ import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
 import { useChats } from '@/context/ChatsContext';
 import { useAuth } from '@/context/AuthContext';
+import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
+
+const I = COLORS.institutional;
+/** Jerarquía tipo Coinbase / doc proveedores — tamaños desde `TYPOGRAPHY.styles`. */
+const T = TYPOGRAPHY.styles;
 
 export default function ChatsScreen() {
   const { totalMensajesNoLeidos, actualizarTotal, decrementarNoLeidos } = useChats();
@@ -124,6 +131,7 @@ export default function ChatsScreen() {
     const { oferta_id, otra_persona, vehiculo, ultimo_mensaje, mensajes_no_leidos } = item;
     const isHighlighted = chatHighlighted === oferta_id;
     const hasUnread = mensajes_no_leidos > 0;
+    const vehiculoPill = formatVehiculoPillLabel(vehiculo);
 
     const handleOpenChat = () => {
       if (hasUnread) {
@@ -144,7 +152,7 @@ export default function ChatsScreen() {
           <Image source={{ uri: otra_persona.foto }} style={styles.avatar} />
         ) : (
           <View style={styles.avatarPlaceholder}>
-            <User size={22} color="#FFFFFF" />
+            <User size={22} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
         )}
 
@@ -159,13 +167,10 @@ export default function ChatsScreen() {
             </Text>
           </View>
 
-          {vehiculo && (
-            <View style={styles.chatVehicleRow}>
-              <Car size={12} color="#9CA3AF" />
-              <Text style={styles.chatVehicle} numberOfLines={1}>
-                {vehiculo.marca} {vehiculo.modelo}
-                {vehiculo.year && ` '${vehiculo.year.toString().slice(-2)}`}
-                {vehiculo.patente && ` · ${vehiculo.patente}`}
+          {!!vehiculoPill && (
+            <View style={styles.vehiclePill}>
+              <Text style={styles.vehiclePillText} numberOfLines={1}>
+                {vehiculoPill}
               </Text>
             </View>
           )}
@@ -174,9 +179,9 @@ export default function ChatsScreen() {
             {ultimo_mensaje.es_propio && (
               <>
                 {ultimo_mensaje.leido ? (
-                  <CheckCheck size={14} color="#3B82F6" style={{ marginRight: 4 }} />
+                  <CheckCheck size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} style={{ marginRight: 4 }} />
                 ) : (
-                  <Check size={14} color="#9CA3AF" style={{ marginRight: 4 }} />
+                  <Check size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} style={{ marginRight: 4 }} />
                 )}
               </>
             )}
@@ -202,7 +207,7 @@ export default function ChatsScreen() {
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <View style={styles.emptyIconWrap}>
-        <MessageCircle size={48} color="#9CA3AF" />
+        <MessageCircle size={48} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
       <Text style={styles.emptyTitle}>Sin conversaciones</Text>
       <Text style={styles.emptySubtitle}>
@@ -213,21 +218,22 @@ export default function ChatsScreen() {
 
   return (
     <TabScreenWrapper>
-      <LinearGradient colors={['#F3F5F8', '#FAFBFC', '#FFFFFF']} locations={[0, 0.3, 1]} style={styles.gradient}>
+      <LinearGradient
+        colors={BLANK_GLASS.gradient}
+        locations={BLANK_GLASS.gradientLocations}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={styles.gradient}
+      >
         <Header
           title="Chats"
           badge={totalMensajesNoLeidos > 0 ? totalMensajesNoLeidos : undefined}
-          rightComponent={
-            <TouchableOpacity style={styles.refreshBtn} onPress={() => cargarChats()} activeOpacity={0.7}>
-              <RefreshCw size={20} color="#3B82F6" />
-            </TouchableOpacity>
-          }
         />
 
         {loading && chats.length === 0 ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#3B82F6" />
-            <Text style={styles.loadingText}>Cargando chats...</Text>
+            <ActivityIndicator size="large" color={I.primary} />
+            <Text style={styles.loadingText}>Cargando chats…</Text>
           </View>
         ) : (
           <FlatList
@@ -236,7 +242,7 @@ export default function ChatsScreen() {
             keyExtractor={(item) => item.oferta_id}
             contentContainerStyle={[styles.listContainer, chats.length === 0 && styles.listContainerEmpty]}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3B82F6" colors={['#3B82F6']} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} colors={[I.primary]} />
             }
             ListEmptyComponent={renderEmptyState}
             showsVerticalScrollIndicator={false}
@@ -252,74 +258,68 @@ const styles = StyleSheet.create({
   gradient: {
     flex: 1,
   },
-  refreshBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(59,130,246,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#6B7280',
+    marginTop: SPACING.sm,
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.caption.fontWeight as '400',
+    lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
+    color: I.muted,
   },
   listContainer: {
     flexGrow: 1,
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    paddingBottom: 20,
+    paddingHorizontal: GLASS_INSET,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.lg,
   },
   listContainerEmpty: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   separator: {
-    height: 8,
+    height: SPACING.sm,
   },
 
   // Chat card
   chatCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.8)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-    gap: 12,
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
+    gap: SPACING.sm + 4,
   },
   chatCardHighlighted: {
-    backgroundColor: 'rgba(59,130,246,0.08)',
-    borderColor: 'rgba(59,130,246,0.2)',
+    backgroundColor: I.surfaceStrong,
+    borderColor: I.primary,
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: BORDERS.radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
   },
   avatarPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#3B82F6',
+    width: 48,
+    height: 48,
+    borderRadius: BORDERS.radius.full,
+    backgroundColor: I.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chatContent: {
     flex: 1,
-    gap: 3,
+    gap: SPACING.xs,
   },
   chatTopRow: {
     flexDirection: 'row',
@@ -328,32 +328,47 @@ const styles = StyleSheet.create({
   },
   chatName: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginRight: 8,
+    fontSize: T.h4.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.h4.fontWeight as '600',
+    lineHeight: Math.round(T.h4.fontSize * T.h4.lineHeight),
+    color: I.ink,
+    marginRight: SPACING.sm,
   },
   chatNameUnread: {
-    fontWeight: '700',
-    color: '#111827',
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.h4.fontWeight as '600',
+    color: I.ink,
   },
   chatDate: {
-    fontSize: 12,
-    color: '#9CA3AF',
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.caption.fontWeight as '400',
+    lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
+    color: I.muted,
   },
   chatDateUnread: {
-    color: '#3B82F6',
-    fontWeight: '600',
+    color: I.primary,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.captionBold.fontWeight as '600',
   },
-  chatVehicleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+  /** Coinbase-style small uppercase pill (section label) */
+  vehiclePill: {
+    alignSelf: 'flex-start',
+    marginTop: SPACING.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+    maxWidth: '100%',
   },
-  chatVehicle: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    flex: 1,
+  vehiclePillText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
+    color: I.muted,
   },
   chatMessageRow: {
     flexDirection: 'row',
@@ -362,53 +377,62 @@ const styles = StyleSheet.create({
   },
   chatMessage: {
     flex: 1,
-    fontSize: 14,
-    color: '#9CA3AF',
+    fontSize: T.navLink.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.navLink.fontWeight as '400',
+    lineHeight: Math.round(T.navLink.fontSize * T.navLink.lineHeight),
+    color: I.muted,
   },
   chatMessageUnread: {
-    fontWeight: '600',
-    color: '#374151',
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.captionBold.fontWeight as '600',
+    color: I.body,
   },
   unreadBadge: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 10,
+    backgroundColor: I.primary,
+    borderRadius: BORDERS.radius.pill,
     paddingHorizontal: 7,
     paddingVertical: 2,
-    marginLeft: 8,
+    marginLeft: SPACING.sm,
     minWidth: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   unreadBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
+    color: I.onPrimary,
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
 
   // Empty state
   emptyContainer: {
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: SPACING.lg,
   },
   emptyIconWrap: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: I.surfaceStrong,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.md,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#374151',
-    marginBottom: 6,
+    fontSize: T.h3.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.h3.fontWeight as '600',
+    lineHeight: Math.round(T.h3.fontSize * T.h3.lineHeight),
+    color: I.ink,
+    marginBottom: SPACING.xs,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#9CA3AF',
+    fontSize: T.small.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.small.fontWeight as '400',
+    lineHeight: Math.round(T.small.fontSize * T.small.lineHeight),
+    color: I.muted,
     textAlign: 'center',
-    lineHeight: 20,
   },
 });

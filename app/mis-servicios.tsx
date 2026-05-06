@@ -11,12 +11,13 @@ import {
   TextInput,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -256,7 +257,7 @@ const MisServiciosScreen = () => {
         <View style={[styles.content, { paddingHorizontal: hx }]}>
           <View style={styles.searchRow}>
             <View style={styles.searchField}>
-              <Ionicons name="search" size={20} color={I.muted} />
+              <InstitutionalIcon name="search" size={20} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Buscar por nombre, marca o tipo…"
@@ -266,7 +267,7 @@ const MisServiciosScreen = () => {
               />
               {searchText.length > 0 ? (
                 <TouchableOpacity onPress={() => setSearchText('')} hitSlop={12}>
-                  <Ionicons name="close-circle" size={22} color={I.muted} />
+                  <InstitutionalIcon name="close-circle" size={22} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -276,7 +277,7 @@ const MisServiciosScreen = () => {
               activeOpacity={0.88}
               accessibilityLabel="Agregar servicio"
             >
-              <MaterialIcons name="add" size={20} color={I.ink} />
+              <InstitutionalIcon name="add" size={20} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.addButtonText}>Agregar</Text>
             </TouchableOpacity>
           </View>
@@ -288,7 +289,7 @@ const MisServiciosScreen = () => {
           {servicios.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconWrap}>
-                <Ionicons name="construct-outline" size={48} color={I.muted} />
+                <InstitutionalIcon name="construct-outline" size={48} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
               </View>
               <Text style={styles.emptyTitle}>No tienes servicios publicados</Text>
               <Text style={styles.emptySubtitle}>
@@ -299,7 +300,7 @@ const MisServiciosScreen = () => {
                 onPress={() => router.push('/crear-servicio')}
                 activeOpacity={0.88}
               >
-                <MaterialIcons name="add-circle-outline" size={22} color={I.onPrimary} />
+                <InstitutionalIcon name="add-circle-outline" size={22} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.primaryCtaText}>Crear mi primer servicio</Text>
               </TouchableOpacity>
             </View>
@@ -343,7 +344,7 @@ const MisServiciosScreen = () => {
             ))
           ) : (
             <View style={styles.noResults}>
-              <Ionicons name="search-outline" size={44} color={I.muted} />
+              <InstitutionalIcon name="search-outline" size={44} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.noResultsTitle}>Sin resultados</Text>
               <Text style={styles.noResultsSub}>Prueba otros términos de búsqueda.</Text>
               <TouchableOpacity style={styles.secondaryCta} onPress={() => setSearchText('')} activeOpacity={0.88}>
@@ -679,7 +680,7 @@ function MarcaBadge({ servicio }: { servicio: ServicioOferta }) {
         {logoUri ? (
           <Image source={{ uri: logoUri }} style={styles.marcaBadgeLogo} contentFit="contain" />
         ) : (
-          <Ionicons name="car-sport-outline" size={11} color={I.primary} />
+          <InstitutionalIcon name="car-sport-outline" size={11} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
         )}
         <View style={styles.marcaBadgeTextCol}>
           <Text style={styles.marcaBadgeText} numberOfLines={2}>
@@ -692,7 +693,7 @@ function MarcaBadge({ servicio }: { servicio: ServicioOferta }) {
 
   return (
     <View style={[styles.marcaBadge, styles.marcaBadgeGenerico]}>
-      <Ionicons name="albums-outline" size={11} color={I.muted} />
+      <InstitutionalIcon name="albums-outline" size={11} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
       <View style={styles.marcaBadgeTextCol}>
         <Text style={styles.marcaBadgeTextGenerico} numberOfLines={2}>
           Cualquier marca

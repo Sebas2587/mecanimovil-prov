@@ -5,16 +5,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Platform,
   Animated,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { Stack, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  ArrowLeft,
   Bell,
   BellOff,
   CreditCard,
@@ -24,50 +21,61 @@ import {
   Clock,
   AlertTriangle,
   Coins,
-  ClipboardList,
-  CheckCircle2,
   ChevronRight,
   Trash2,
   X,
 } from 'lucide-react-native';
 import { useAlerts, type Alerta, type TipoAlerta } from '@/context/AlertsContext';
+import Header from '@/components/Header';
+import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 
-const BLUE = '#2563EB';
-const BG = '#FAFAFA';
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
 
 const getAlertIcon = (tipo: TipoAlerta) => {
+  const plate = I.surfaceStrong;
+  const primary = I.primary;
+  const danger = I.semanticDown;
+  const warnBg = withOpacity(I.accentYellow, 0.22);
+  const dangerBg = withOpacity(danger, 0.12);
+
   switch (tipo) {
     case 'mercado_pago_no_configurado':
-      return { Icon: CreditCard, bg: '#DBEAFE', color: '#2563EB' };
+      return { Icon: CreditCard, bg: plate, color: primary };
     case 'zonas_cobertura_no_configuradas':
-      return { Icon: MapPin, bg: '#E0E7FF', color: '#4F46E5' };
+      return { Icon: MapPin, bg: plate, color: I.ink };
     case 'creditos_bajos':
-      return { Icon: Coins, bg: '#FEF3C7', color: '#D97706' };
+      return { Icon: Coins, bg: warnBg, color: COLORS.warning.text };
     case 'creditos_agotados':
-      return { Icon: Wallet, bg: '#FEE2E2', color: '#DC2626' };
+      return { Icon: Wallet, bg: dangerBg, color: danger };
     case 'pago_expirado':
-      return { Icon: Clock, bg: '#FEE2E2', color: '#DC2626' };
+      return { Icon: Clock, bg: dangerBg, color: danger };
     case 'suscripcion_por_vencer':
-      return { Icon: ShieldAlert, bg: '#FEF3C7', color: '#D97706' };
+      return { Icon: ShieldAlert, bg: withOpacity(I.accentYellow, 0.18), color: COLORS.warning.text };
     case 'suscripcion_vencida':
-      return { Icon: AlertTriangle, bg: '#FEE2E2', color: '#DC2626' };
     case 'suscripcion_pago_fallido':
-      return { Icon: AlertTriangle, bg: '#FEE2E2', color: '#DC2626' };
-    case 'ordenes_pendientes_sin_aceptar':
-      return { Icon: ClipboardList, bg: '#DBEAFE', color: '#2563EB' };
+      return { Icon: AlertTriangle, bg: dangerBg, color: danger };
     default:
-      return { Icon: Bell, bg: '#F3F4F6', color: '#6B7280' };
+      return { Icon: Bell, bg: plate, color: I.muted };
   }
 };
 
 const getPriorityStyle = (prioridad: 'alta' | 'media' | 'baja') => {
   switch (prioridad) {
     case 'alta':
-      return { label: 'Urgente', bg: '#FEE2E2', color: '#DC2626' };
+      return {
+        label: 'Urgente',
+        bg: withOpacity(I.semanticDown, 0.12),
+        color: I.semanticDown,
+      };
     case 'media':
-      return { label: 'Importante', bg: '#FEF3C7', color: '#D97706' };
+      return {
+        label: 'Importante',
+        bg: withOpacity(I.accentYellow, 0.22),
+        color: COLORS.warning.text,
+      };
     case 'baja':
-      return { label: 'Info', bg: '#DBEAFE', color: '#2563EB' };
+      return { label: 'Info', bg: COLORS.primary[50], color: I.primary };
   }
 };
 
@@ -114,9 +122,7 @@ const AlertCard = ({
 
           <View style={styles.cardFooter}>
             <View style={[styles.priorityBadge, { backgroundColor: priority.bg }]}>
-              <Text style={[styles.priorityText, { color: priority.color }]}>
-                {priority.label}
-              </Text>
+              <Text style={[styles.priorityText, { color: priority.color }]}>{priority.label}</Text>
             </View>
 
             <Text style={styles.cardDate}>
@@ -132,7 +138,7 @@ const AlertCard = ({
           {alerta.accion && (
             <View style={styles.actionRow}>
               <Text style={styles.actionText}>{alerta.accion.texto}</Text>
-              <ChevronRight size={14} color={BLUE} />
+              <ChevronRight size={14} color={I.primary} />
             </View>
           )}
         </View>
@@ -142,7 +148,7 @@ const AlertCard = ({
           onPress={onDelete}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <X size={16} color="#9CA3AF" />
+          <X size={16} color={I.muted} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -198,43 +204,34 @@ export default function NotificacionesScreen() {
   }, []);
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['left', 'right', 'bottom']}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Glass header */}
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
-        <BlurView intensity={80} tint="light" style={styles.headerBlur}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <ArrowLeft size={20} color="#374151" />
-          </TouchableOpacity>
-
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerSub}>CENTRO DE</Text>
-            <Text style={styles.headerTitle}>Notificaciones</Text>
-          </View>
-
-          {alertas.length > 0 ? (
+      <Header
+        title="Notificaciones"
+        showBack
+        onBackPress={() => router.back()}
+        backgroundColor={I.canvas}
+        titleColor={I.ink}
+        rightComponent={
+          alertas.length > 0 ? (
             <TouchableOpacity
-              style={styles.clearBtn}
               onPress={limpiarAlertas}
+              style={styles.headerIconHit}
               activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Trash2 size={18} color="#9CA3AF" />
+              <Trash2 size={20} color={I.muted} />
             </TouchableOpacity>
           ) : (
-            <View style={{ width: 36 }} />
-          )}
-        </BlurView>
-      </SafeAreaView>
+            <View style={styles.headerIconHit} />
+          )
+        }
+      />
 
-      {/* Summary pill */}
       <Animated.View style={[styles.summaryRow, { opacity: fadeAnim }]}>
         <View style={styles.summaryPill}>
-          <Bell size={14} color={BLUE} />
+          <Bell size={14} color={I.primary} />
           <Text style={styles.summaryText}>
             {alertasNoLeidas > 0
               ? `${alertasNoLeidas} alerta${alertasNoLeidas > 1 ? 's' : ''} sin leer`
@@ -243,29 +240,24 @@ export default function NotificacionesScreen() {
         </View>
       </Animated.View>
 
-      {/* Content */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BLUE} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />
         }
       >
         {alertasOrdenadas.length === 0 ? (
           <View style={styles.emptyWrap}>
             <View style={styles.emptyCircle}>
-              <BellOff size={40} color="#D1D5DB" />
+              <BellOff size={40} color={I.mutedSoft} />
             </View>
             <Text style={styles.emptyTitle}>Todo en orden</Text>
             <Text style={styles.emptySub}>
               No tienes alertas ni notificaciones pendientes.
             </Text>
-            <TouchableOpacity
-              style={styles.emptyBtn}
-              activeOpacity={0.7}
-              onPress={onFullRefresh}
-            >
+            <TouchableOpacity style={styles.emptyBtn} activeOpacity={0.7} onPress={onFullRefresh}>
               <Text style={styles.emptyBtnText}>Verificar ahora</Text>
             </TouchableOpacity>
           </View>
@@ -280,117 +272,61 @@ export default function NotificacionesScreen() {
           ))
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: I.surfaceSoft,
   },
-
-  /* ── Header ── */
-  headerSafe: {
-    zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.75)',
-  },
-  headerBlur: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(229,231,235,0.6)',
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4 },
-      android: { elevation: 2 },
-    }),
-  },
-  headerCenter: { alignItems: 'center' },
-  headerSub: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: BLUE,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#111827',
-    marginTop: 1,
-  },
-  clearBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
+  headerIconHit: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  /* ── Summary ── */
   summaryRow: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 4,
+    paddingHorizontal: SPACING.container.horizontal,
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.xxs,
   },
   summaryPill: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(219,234,254,0.5)',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    backgroundColor: COLORS.primary[50],
+    borderRadius: BORDERS.radius.pill,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xxs + 2,
     gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(191,219,254,0.6)',
+    borderWidth: BORDERS.width.thin,
+    borderColor: COLORS.primary[100],
   },
   summaryText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: BLUE,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
   },
-
-  /* ── Scroll ── */
   scroll: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 40,
+    paddingHorizontal: SPACING.container.horizontal,
+    paddingTop: SPACING.fixed.xs,
+    paddingBottom: SPACING.fixed['2xl'],
   },
-
-  /* ── Card ── */
   card: {
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(229,231,235,0.7)',
-    padding: 16,
-    marginBottom: 12,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 10 },
-      android: { elevation: 3 },
-    }),
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.card.xl,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    padding: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.sm,
+    ...SHADOWS.editorial,
   },
   cardRead: {
-    opacity: 0.6,
-    backgroundColor: 'rgba(249,250,251,0.85)',
+    opacity: 0.62,
+    backgroundColor: I.surfaceSoft,
   },
   cardRow: {
     flexDirection: 'row',
@@ -399,111 +335,112 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 44,
     height: 44,
-    borderRadius: 14,
+    borderRadius: BORDERS.radius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: SPACING.fixed.sm,
   },
   cardBody: { flex: 1 },
   cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: SPACING.fixed.xxs,
   },
   cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
     flex: 1,
   },
-  cardTitleRead: { color: '#6B7280' },
+  cardTitleRead: { color: I.muted },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: BLUE,
-    marginLeft: 8,
+    backgroundColor: I.primary,
+    marginLeft: SPACING.fixed.xs,
   },
   cardMsg: {
-    fontSize: 13,
-    color: '#4B5563',
-    lineHeight: 18,
-    marginBottom: 8,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.base * TYPOGRAPHY.lineHeight.normal),
+    marginBottom: SPACING.fixed.xs,
   },
-  cardMsgRead: { color: '#9CA3AF' },
+  cardMsgRead: { color: I.mutedSoft },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: SPACING.fixed.xs,
   },
   priorityBadge: {
-    borderRadius: 8,
-    paddingHorizontal: 8,
+    borderRadius: BORDERS.radius.sm,
+    paddingHorizontal: SPACING.fixed.xs,
     paddingVertical: 3,
   },
   priorityText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
   },
   cardDate: {
-    fontSize: 11,
-    color: '#9CA3AF',
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: SPACING.fixed.sm,
     gap: 4,
   },
   actionText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: BLUE,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
   },
   deleteBtn: {
-    padding: 4,
-    marginLeft: 4,
+    padding: SPACING.fixed.xxs,
+    marginLeft: SPACING.fixed.xxs,
   },
-
-  /* ── Empty ── */
   emptyWrap: {
     alignItems: 'center',
-    paddingTop: 80,
+    paddingTop: SPACING.fixed.section,
   },
   emptyCircle: {
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: 'rgba(243,244,246,0.9)',
+    backgroundColor: I.surfaceStrong,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(229,231,235,0.6)',
-    marginBottom: 20,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    marginBottom: SPACING.fixed.md,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: 6,
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    marginBottom: SPACING.fixed.xxs + 2,
   },
   emptySub: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.body,
     textAlign: 'center',
-    paddingHorizontal: 40,
-    lineHeight: 20,
-    marginBottom: 24,
+    paddingHorizontal: SPACING.fixed.xl,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.base * TYPOGRAPHY.lineHeight.normal),
+    marginBottom: SPACING.fixed.lg,
   },
   emptyBtn: {
-    backgroundColor: BLUE,
-    borderRadius: 14,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    backgroundColor: I.primary,
+    borderRadius: BORDERS.radius.lg,
+    paddingHorizontal: SPACING.fixed.lg,
+    paddingVertical: SPACING.fixed.sm,
   },
   emptyBtnText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '700',
+    color: I.onPrimary,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
   },
 });

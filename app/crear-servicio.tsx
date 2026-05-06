@@ -15,7 +15,6 @@ import {
   FlatList,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 // import { Picker } from '@react-native-picker/picker'; // Ya no se usa - reemplazado por selectores visuales
 import * as ImagePicker from 'expo-image-picker';
@@ -23,6 +22,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import Header from '@/components/Header';
 import { parseMontoDecimal } from '@/utils/parseMontoDecimal';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -1041,11 +1042,11 @@ const CrearServicioScreen = () => {
             ]}
             onPress={() => handleChangeTipoServicio('con_repuestos')}
           >
-            <MaterialIcons
+            <InstitutionalIcon
               name="build"
               size={24}
               color={tipoServicio === 'con_repuestos' ? I.primary : I.muted}
-            />
+             strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[
               styles.tipoServicioText,
               tipoServicio === 'con_repuestos' && styles.tipoServicioTextSelected
@@ -1061,11 +1062,11 @@ const CrearServicioScreen = () => {
             ]}
             onPress={() => handleChangeTipoServicio('sin_repuestos')}
           >
-            <MaterialIcons
+            <InstitutionalIcon
               name="handyman"
               size={24}
               color={tipoServicio === 'sin_repuestos' ? I.primary : I.muted}
-            />
+             strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[
               styles.tipoServicioText,
               tipoServicio === 'sin_repuestos' && styles.tipoServicioTextSelected
@@ -1115,7 +1116,7 @@ const CrearServicioScreen = () => {
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Marca del vehículo</Text>
           <View style={styles.noDataContainer}>
-            <Ionicons name="information-circle-outline" size={24} color={I.accentYellow} />
+            <InstitutionalIcon name="information-circle-outline" size={24} color={I.accentYellow}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.noDataText}>
               No se encontraron marcas. Verifica tu configuración de servicios.
             </Text>
@@ -1163,7 +1164,7 @@ const CrearServicioScreen = () => {
                   {marca.nombre}
                 </Text>
                 {marcaSeleccionada === marca.id && (
-                  <Ionicons name="checkmark-circle" size={24} color={I.primary} />
+                  <InstitutionalIcon name="checkmark-circle" size={24} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
                 )}
               </View>
             </TouchableOpacity>
@@ -1172,7 +1173,7 @@ const CrearServicioScreen = () => {
 
         {marcaSeleccionadaObj && (
           <View style={styles.selectedIndicator}>
-            <Ionicons name="checkmark-circle" size={20} color={I.semanticUp} />
+            <InstitutionalIcon name="checkmark-circle" size={20} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.selectedText}>
               Marca seleccionada: {marcaSeleccionadaObj.nombre}
             </Text>
@@ -1257,7 +1258,7 @@ const CrearServicioScreen = () => {
                       )}
                     </View>
                     {servicioSeleccionado === servicio.id && (
-                      <Ionicons name="checkmark-circle" size={20} color={I.primary} />
+                      <InstitutionalIcon name="checkmark-circle" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
                     )}
                   </View>
                 </TouchableOpacity>
@@ -1266,7 +1267,7 @@ const CrearServicioScreen = () => {
 
             {servicioSeleccionadoObj && (
               <View style={styles.selectedIndicator}>
-                <Ionicons name="checkmark-circle" size={20} color={I.semanticUp} />
+                <InstitutionalIcon name="checkmark-circle" size={20} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.selectedText}>
                   Servicio seleccionado: {servicioSeleccionadoObj.nombre}
                 </Text>
@@ -1275,7 +1276,7 @@ const CrearServicioScreen = () => {
           </>
         ) : (
           <View style={styles.noDataContainer}>
-            <Ionicons name="information-circle-outline" size={24} color={I.accentYellow} />
+            <InstitutionalIcon name="information-circle-outline" size={24} color={I.accentYellow}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.noDataText}>
               No hay servicios catalogados para esta marca. Si crees que falta alguno, contacta al administrador.
               Verifica tu configuración de servicios.
@@ -1374,11 +1375,11 @@ const CrearServicioScreen = () => {
             ]}
             onPress={confirmarPrecio}
           >
-            <Ionicons
+            <InstitutionalIcon
               name={precioConfirmado ? "checkmark-circle" : "checkmark"}
               size={20}
               color={I.onPrimary}
-            />
+             strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.confirmarPrecioBtnText}>
               {precioConfirmado ? 'OK' : 'Confirmar'}
             </Text>
@@ -1436,7 +1437,7 @@ const CrearServicioScreen = () => {
                     </View>
                     <View style={styles.checkbox}>
                       {estaSeleccionado && (
-                        <Ionicons name="checkmark" size={20} color={I.primary} />
+                        <InstitutionalIcon name="checkmark" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
                       )}
                     </View>
                   </TouchableOpacity>
@@ -1464,7 +1465,7 @@ const CrearServicioScreen = () => {
           </View>
         ) : (
           <View style={styles.emptyRepuestosContainer}>
-            <MaterialIcons name="info-outline" size={48} color={I.primary} />
+            <InstitutionalIcon name="info-outline" size={48} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.emptyRepuestosTitle}>
               No hay repuestos configurados
             </Text>
@@ -1514,7 +1515,7 @@ const CrearServicioScreen = () => {
                 style={styles.eliminarFotoBtn}
                 onPress={() => eliminarFoto(index)}
               >
-                <Ionicons name="close-circle" size={24} color={I.semanticDown} />
+                <InstitutionalIcon name="close-circle" size={24} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             </View>
           )}
@@ -1523,7 +1524,7 @@ const CrearServicioScreen = () => {
 
       {fotos.length < 5 && (
         <TouchableOpacity style={styles.agregarFotoBtn} onPress={seleccionarFoto}>
-          <Ionicons name="camera-outline" size={32} color={I.muted} />
+          <InstitutionalIcon name="camera-outline" size={32} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.agregarFotoText}>
             {fotos.length === 0 ? 'Agregar primera foto' : `Agregar foto (${fotos.length}/5)`}
           </Text>
@@ -1695,7 +1696,7 @@ const CrearServicioScreen = () => {
                 <ActivityIndicator color={I.onPrimary} />
               ) : (
                 <>
-                  <Ionicons name={isEditMode ? "checkmark-circle" : "rocket"} size={20} color={I.onPrimary} />
+                  <InstitutionalIcon name={isEditMode ? "checkmark-circle" : "rocket"} size={20} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.publishButtonText}>
                     {isEditMode ? 'Actualizar Servicio' : 'Publicar Servicio'}
                   </Text>

@@ -6,26 +6,31 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Platform,
   Alert,
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 // DateTimePicker removido - ahora usamos modales personalizados
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { SolicitudPublica, ServicioSolicitado, DetalleServicioOferta } from '@/services/solicitudesService';
 import { serviciosProveedorAPI, ServicioConfiguradoParaOferta, RepuestoDetallado } from '@/services/serviciosApi';
 import { ServicioConfiguradoSelector } from './ServicioConfiguradoSelector';
 import { RepuestosLista } from './RepuestosLista';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, withOpacity, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { useAuth } from '@/context/AuthContext';
 import { useAlerts } from '@/context/AlertsContext';
 import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
 import serviceAreasApi from '@/services/serviceAreasApi';
 import type { VerificacionCreditosOferta } from '@/services/creditosService';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
+const hx = SPACING.container.horizontal;
+const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
+const PLACEHOLDER_INPUT = I.mutedSoft;
 
 interface FormularioOfertaProps {
   solicitud: SolicitudPublica;
@@ -81,7 +86,7 @@ const ModernDatePicker = ({
   value,
   onDateChange,
   label,
-  primaryColor = '#003459'
+  primaryColor = I.primary
 }: {
   value: Date;
   onDateChange: (date: Date) => void;
@@ -89,19 +94,17 @@ const ModernDatePicker = ({
   primaryColor?: string;
 }) => {
   const [showModal, setShowModal] = useState(false);
-  const theme = useTheme();
-  const bgDefault = theme.colors?.background?.default || '#F5F7F8';
-  const textPrimary = theme.colors?.text?.primary || '#00171F';
-  const textSecondary = theme.colors?.text?.secondary || '#666E7A';
-  const borderLight = theme.colors?.border?.light || '#D7DFE3';
-  const spacingMd = theme.spacing?.md || 16;
-  const spacingSm = theme.spacing?.sm || 8;
-  const spacingLg = theme.spacing?.lg || 24;
-  const cardRadius = theme.borders?.radius?.lg || 12;
-  const fontSizeBase = theme.typography?.fontSize?.base || 14;
-  const fontSizeLg = theme.typography?.fontSize?.lg || 18;
-  const fontWeightSemibold = theme.typography?.fontWeight?.semibold || '600';
-  const fontWeightBold = theme.typography?.fontWeight?.bold || '700';
+  const bgDefault = I.surfaceSoft;
+  const textPrimary = I.ink;
+  const textSecondary = I.muted;
+  const borderLight = I.hairline;
+  const spacingMd = SPACING.fixed.md;
+  const spacingSm = SPACING.fixed.sm;
+  const cardRadius = BORDERS.radius.lg;
+  const fontSizeBase = TYPOGRAPHY.fontSize.base;
+  const fontSizeLg = TYPOGRAPHY.fontSize.lg;
+  const fontWeightSemibold = TYPOGRAPHY.fontWeight.semibold;
+  const fontWeightBold = TYPOGRAPHY.fontWeight.bold;
 
   // Generar opciones de fecha (próximos 60 días)
   const generarOpcionesFecha = (): Date[] => {
@@ -156,7 +159,7 @@ const ModernDatePicker = ({
         onPress={() => setShowModal(true)}
         activeOpacity={0.8}
       >
-        <Ionicons name="calendar" size={20} color={primaryColor} />
+        <InstitutionalIcon name="calendar" size={20} color={primaryColor}  strokeWidth={ICON_STROKE_WIDTH} />
         <Text style={{
           fontSize: fontSizeBase,
           fontWeight: fontWeightSemibold,
@@ -166,7 +169,7 @@ const ModernDatePicker = ({
         }}>
           {formatearFechaDisplay(value)}
         </Text>
-        <Ionicons name="chevron-down" size={20} color="#666E7A" />
+        <InstitutionalIcon name="chevron-down" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
       </TouchableOpacity>
 
       <Modal
@@ -220,7 +223,7 @@ const ModernDatePicker = ({
                   padding: spacingSm,
                 }}
               >
-                <Ionicons name="close" size={24} color={textSecondary} />
+                <InstitutionalIcon name="close" size={24} color={textSecondary}  strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             </View>
 
@@ -275,7 +278,7 @@ const ModernDatePicker = ({
                           <Text style={{
                             fontSize: 10,
                             fontWeight: fontWeightSemibold,
-                            color: estaSeleccionada ? '#FFFFFF' : textSecondary,
+                            color: estaSeleccionada ? I.onPrimary : textSecondary,
                             textTransform: 'uppercase',
                           }}>
                             {diaSemana}
@@ -284,13 +287,13 @@ const ModernDatePicker = ({
                         <Text style={{
                           fontSize: fontSizeBase,
                           fontWeight: estaSeleccionada ? fontWeightBold : fontWeightSemibold,
-                          color: estaSeleccionada ? '#FFFFFF' : textPrimary,
+                          color: estaSeleccionada ? I.onPrimary : textPrimary,
                         }}>
                           {fechaDisplay}
                         </Text>
                       </View>
                       {estaSeleccionada && (
-                        <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                        <InstitutionalIcon name="checkmark-circle" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                       )}
                     </TouchableOpacity>
                   );
@@ -309,7 +312,7 @@ const ModernTimePicker = ({
   value,
   onTimeChange,
   label,
-  primaryColor = '#003459'
+  primaryColor = I.primary
 }: {
   value: Date;
   onTimeChange: (date: Date) => void;
@@ -317,19 +320,17 @@ const ModernTimePicker = ({
   primaryColor?: string;
 }) => {
   const [showModal, setShowModal] = useState(false);
-  const theme = useTheme();
-  const bgDefault = theme.colors?.background?.default || '#F5F7F8';
-  const textPrimary = theme.colors?.text?.primary || '#00171F';
-  const textSecondary = theme.colors?.text?.secondary || '#666E7A';
-  const borderLight = theme.colors?.border?.light || '#D7DFE3';
-  const spacingMd = theme.spacing?.md || 16;
-  const spacingSm = theme.spacing?.sm || 8;
-  const spacingLg = theme.spacing?.lg || 24;
-  const cardRadius = theme.borders?.radius?.lg || 12;
-  const fontSizeBase = theme.typography?.fontSize?.base || 14;
-  const fontSizeLg = theme.typography?.fontSize?.lg || 18;
-  const fontWeightSemibold = theme.typography?.fontWeight?.semibold || '600';
-  const fontWeightBold = theme.typography?.fontWeight?.bold || '700';
+  const bgDefault = I.surfaceSoft;
+  const textPrimary = I.ink;
+  const textSecondary = I.muted;
+  const borderLight = I.hairline;
+  const spacingMd = SPACING.fixed.md;
+  const spacingSm = SPACING.fixed.sm;
+  const cardRadius = BORDERS.radius.lg;
+  const fontSizeBase = TYPOGRAPHY.fontSize.base;
+  const fontSizeLg = TYPOGRAPHY.fontSize.lg;
+  const fontWeightSemibold = TYPOGRAPHY.fontWeight.semibold;
+  const fontWeightBold = TYPOGRAPHY.fontWeight.bold;
 
   // Generar opciones de hora cada 15 minutos (00, 15, 30, 45)
   const generarOpcionesHora = (): string[] => {
@@ -379,7 +380,7 @@ const ModernTimePicker = ({
         onPress={() => setShowModal(true)}
         activeOpacity={0.8}
       >
-        <Ionicons name="time" size={20} color={primaryColor} />
+        <InstitutionalIcon name="time" size={20} color={primaryColor}  strokeWidth={ICON_STROKE_WIDTH} />
         <Text style={{
           fontSize: fontSizeBase,
           fontWeight: fontWeightSemibold,
@@ -393,7 +394,7 @@ const ModernTimePicker = ({
         >
           {horaActual}
         </Text>
-        <Ionicons name="chevron-down" size={20} color="#666E7A" />
+        <InstitutionalIcon name="chevron-down" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
       </TouchableOpacity>
 
       <Modal
@@ -447,7 +448,7 @@ const ModernTimePicker = ({
                   padding: spacingSm,
                 }}
               >
-                <Ionicons name="close" size={24} color={textSecondary} />
+                <InstitutionalIcon name="close" size={24} color={textSecondary}  strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             </View>
 
@@ -491,12 +492,12 @@ const ModernTimePicker = ({
                       <Text style={{
                         fontSize: fontSizeBase,
                         fontWeight: estaSeleccionada ? fontWeightBold : fontWeightSemibold,
-                        color: estaSeleccionada ? '#FFFFFF' : textPrimary,
+                        color: estaSeleccionada ? I.onPrimary : textPrimary,
                       }}>
                         {opcion}
                       </Text>
                       {estaSeleccionada && (
-                        <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                        <InstitutionalIcon name="checkmark-circle" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                       )}
                     </TouchableOpacity>
                   );
@@ -521,10 +522,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   verificandoCreditos = false,
   onPressComprarCreditos,
 }) => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const theme = useTheme();
-  const primaryColor = theme.colors?.primary?.[500] || '#003459';
+  const primaryColor = I.primary;
   const { estadoProveedor } = useAuth();
   const { agregarAlerta } = useAlerts();
 
@@ -1399,7 +1397,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         style={styles.container}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: 75 + bottomInset }
+          { paddingBottom: 100 + bottomInset },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -1414,7 +1412,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                 {!esOfertaSecundaria && (verificandoCreditos || verificacionCreditos) ? (
                   verificandoCreditos ? (
                     <View style={[styles.creditosBadge, styles.creditosBadgeNeutral]}>
-                      <ActivityIndicator size="small" color={primaryColor} />
+                      <ActivityIndicator size="small" color={I.primary} />
                     </View>
                   ) : verificacionCreditos ? (
                     <TouchableOpacity
@@ -1432,21 +1430,24 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                           : styles.creditosBadgeWarn,
                       ]}
                     >
-                      <MaterialIcons
+                      <InstitutionalIcon
                         name="account-balance-wallet"
                         size={14}
-                        color={verificacionCreditos.puede_ofertar ? '#047857' : '#B45309'}
+                        color={verificacionCreditos.puede_ofertar ? I.semanticUp : I.accentYellow}
+                        strokeWidth={ICON_STROKE_WIDTH}
                       />
                       <Text
                         style={[
                           styles.creditosBadgeText,
-                          { color: verificacionCreditos.puede_ofertar ? '#047857' : '#92400E' },
+                          {
+                            color: verificacionCreditos.puede_ofertar ? I.semanticUp : I.body,
+                          },
                         ]}
                       >
                         {verificacionCreditos.saldo_actual}/{verificacionCreditos.creditos_necesarios}
                       </Text>
                       {!verificacionCreditos.puede_ofertar && (
-                        <MaterialIcons name="chevron-right" size={16} color="#B45309" />
+                        <InstitutionalIcon name="chevron-right" size={16} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
                       )}
                     </TouchableOpacity>
                   ) : null
@@ -1482,22 +1483,22 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                   style={styles.agregarServicioButton}
                   onPress={() => setMostrarSelectorServicios(!mostrarSelectorServicios)}
                 >
-                  <MaterialIcons name="add-circle" size={20} color="#0061FF" />
+                  <InstitutionalIcon name="add-circle" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.agregarServicioButtonText}>
                     Agregar Servicio
                   </Text>
-                  <MaterialIcons
+                  <InstitutionalIcon
                     name={mostrarSelectorServicios ? "expand-less" : "expand-more"}
                     size={20}
-                    color="#0061FF"
-                  />
+                    color={I.primary}
+                   strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
 
                 {mostrarSelectorServicios && (
                   <View style={styles.selectorServiciosContainer}>
                     {cargandoServicios ? (
                       <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="small" color="#0061FF" />
+                        <ActivityIndicator size="small" color={I.primary} />
                         <Text style={styles.loadingText}>Cargando servicios...</Text>
                       </View>
                     ) : serviciosDisponibles.length > 0 ? (
@@ -1521,11 +1522,11 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                                 <View style={styles.servicioCardSelectorContent}>
                                   {yaAgregado ? (
                                     <View style={styles.servicioCardSelectorCheck}>
-                                      <MaterialIcons name="check-circle" size={24} color="#10B981" />
+                                      <InstitutionalIcon name="check-circle" size={24} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
                                     </View>
                                   ) : (
                                     <View style={styles.servicioCardSelectorIcon}>
-                                      <MaterialIcons name="build" size={24} color="#0061FF" />
+                                      <InstitutionalIcon name="build" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                                     </View>
                                   )}
                                   <Text
@@ -1567,7 +1568,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                 style={styles.agregarManualButtonOuter}
                 onPress={agregarServicioManual}
               >
-                <MaterialIcons name="edit" size={20} color="#666" />
+                <InstitutionalIcon name="edit" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.agregarManualButtonTextOuter}>
                   Agregar Servicio Manualmente
                 </Text>
@@ -1577,7 +1578,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
 
           {serviciosOferta.length === 0 && esOfertaSecundaria ? (
             <View style={styles.emptyServiciosMessage}>
-              <MaterialIcons name="info-outline" size={24} color="#666" />
+              <InstitutionalIcon name="info-outline" size={24} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.emptyServiciosMessageText}>
                 Agrega al menos un servicio para continuar
               </Text>
@@ -1598,7 +1599,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                         onPress={() => eliminarServicio(index)}
                         style={styles.eliminarServicioButton}
                       >
-                        <MaterialIcons name="delete-outline" size={20} color="#DC3545" />
+                        <InstitutionalIcon name="delete-outline" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -1636,7 +1637,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                       {/* Mensaje informativo si la solicitud no requiere repuestos (solo para ofertas originales) */}
                       {!esOfertaSecundaria && solicitud.requiere_repuestos === false && (
                         <View style={styles.infoBox}>
-                          <MaterialIcons name="info-outline" size={20} color="#FF9800" />
+                          <InstitutionalIcon name="info-outline" size={20} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
                           <Text style={styles.infoBoxText}>
                             Esta solicitud solo requiere mano de obra. No se pueden agregar repuestos.
                           </Text>
@@ -1734,7 +1735,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                             <TextInput
                               style={styles.input}
                               placeholder="0"
-                              placeholderTextColor="#999"
+                              placeholderTextColor={PLACEHOLDER_INPUT}
                               value={item.costoManoObra}
                               onChangeText={(text) => actualizarCostoManoObra(index, text)}
                               keyboardType="decimal-pad"
@@ -1746,7 +1747,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                           (esOfertaSecundaria || solicitud.requiere_repuestos !== false) && (
                           <View style={styles.inputGroup}>
                             <View style={styles.gestionCompraRowEnPrecios}>
-                              <MaterialIcons name="local-shipping" size={18} color="#FF9800" />
+                              <InstitutionalIcon name="local-shipping" size={18} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
                               <Text style={styles.inputLabel}>Gestión de compra (sin IVA)</Text>
                             </View>
                             <Text style={styles.gestionCompraHintEnPrecios}>
@@ -1757,7 +1758,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                               <TextInput
                                 style={[styles.input, { flex: 1 }]}
                                 placeholder="Ej: 15000"
-                                placeholderTextColor="#999"
+                                placeholderTextColor={PLACEHOLDER_INPUT}
                                 value={costoGestionCompra}
                                 onChangeText={setCostoGestionCompra}
                                 keyboardType="decimal-pad"
@@ -1792,7 +1793,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                             <TextInput
                               style={styles.precioTotalDestacadoInput}
                               placeholder="0"
-                              placeholderTextColor="#94A3B8"
+                              placeholderTextColor={PLACEHOLDER_INPUT}
                               value={item.precio}
                               editable={false}
                               keyboardType="decimal-pad"
@@ -1815,7 +1816,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                             <TextInput
                               style={styles.input}
                               placeholder="Ej: 2.5"
-                              placeholderTextColor="#999"
+                              placeholderTextColor={PLACEHOLDER_INPUT}
                               value={item.tiempo_estimado}
                               onChangeText={(text) => actualizarTiempoEstimado(index, text)}
                               keyboardType="decimal-pad"
@@ -1832,7 +1833,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                           <TextInput
                             style={styles.textArea}
                             placeholder="Detalles o aclaraciones sobre este servicio..."
-                            placeholderTextColor="#999"
+                            placeholderTextColor={PLACEHOLDER_INPUT}
                             value={item.notas}
                             onChangeText={(text) => actualizarNotas(index, text)}
                             multiline
@@ -1846,7 +1847,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                   {/* Indicador cuando se usa servicio configurado */}
                   {item.usandoServicioConfigurado && (
                     <View style={styles.configuradoBadge}>
-                      <MaterialIcons name="check-circle" size={16} color="#10B981" />
+                      <InstitutionalIcon name="check-circle" size={16} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
                       <Text style={styles.configuradoText}>
                         Usando servicio configurado
                       </Text>
@@ -1865,7 +1866,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                       {/* Mensaje informativo si la solicitud no requiere repuestos (solo para ofertas originales) */}
                       {!esOfertaSecundaria && solicitud.requiere_repuestos === false && (
                         <View style={styles.infoBox}>
-                          <MaterialIcons name="info-outline" size={20} color="#FF9800" />
+                          <InstitutionalIcon name="info-outline" size={20} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
                           <Text style={styles.infoBoxText}>
                             Esta solicitud solo requiere mano de obra. No se pueden agregar repuestos.
                           </Text>
@@ -1978,7 +1979,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                             <TextInput
                               style={styles.input}
                               placeholder="0"
-                              placeholderTextColor="#999"
+                              placeholderTextColor={PLACEHOLDER_INPUT}
                               value={item.costoManoObra}
                               onChangeText={(text) => actualizarCostoManoObra(index, text)}
                               keyboardType="decimal-pad"
@@ -1990,7 +1991,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                           (esOfertaSecundaria || solicitud.requiere_repuestos !== false) && (
                           <View style={styles.inputGroup}>
                             <View style={styles.gestionCompraRowEnPrecios}>
-                              <MaterialIcons name="local-shipping" size={18} color="#FF9800" />
+                              <InstitutionalIcon name="local-shipping" size={18} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
                               <Text style={styles.inputLabel}>Gestión de compra (sin IVA)</Text>
                             </View>
                             <Text style={styles.gestionCompraHintEnPrecios}>
@@ -2001,7 +2002,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                               <TextInput
                                 style={[styles.input, { flex: 1 }]}
                                 placeholder="Ej: 15000"
-                                placeholderTextColor="#999"
+                                placeholderTextColor={PLACEHOLDER_INPUT}
                                 value={costoGestionCompra}
                                 onChangeText={setCostoGestionCompra}
                                 keyboardType="decimal-pad"
@@ -2025,7 +2026,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                             <TextInput
                               style={styles.precioTotalDestacadoInput}
                               placeholder="0"
-                              placeholderTextColor="#94A3B8"
+                              placeholderTextColor={PLACEHOLDER_INPUT}
                               value={item.precio}
                               editable={false}
                               keyboardType="decimal-pad"
@@ -2048,7 +2049,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                             <TextInput
                               style={styles.input}
                               placeholder="Ej: 2.5"
-                              placeholderTextColor="#999"
+                              placeholderTextColor={PLACEHOLDER_INPUT}
                               value={item.tiempo_estimado}
                               onChangeText={(text) => actualizarTiempoEstimado(index, text)}
                               keyboardType="decimal-pad"
@@ -2065,7 +2066,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                           <TextInput
                             style={styles.textArea}
                             placeholder="Detalles o aclaraciones sobre este servicio..."
-                            placeholderTextColor="#999"
+                            placeholderTextColor={PLACEHOLDER_INPUT}
                             value={item.notas}
                             onChangeText={(text) => actualizarNotas(index, text)}
                             multiline
@@ -2186,7 +2187,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                     <TextInput
                       style={styles.textArea}
                       placeholder="Explica por qué no puedes en la fecha solicitada..."
-                      placeholderTextColor="#999"
+                      placeholderTextColor={PLACEHOLDER_INPUT}
                       value={razonCambioFecha}
                       onChangeText={setRazonCambioFecha}
                       multiline
@@ -2211,7 +2212,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
             <TextInput
               style={styles.textArea}
               placeholder="Describe tu propuesta en detalle..."
-              placeholderTextColor="#999"
+              placeholderTextColor={PLACEHOLDER_INPUT}
               value={descripcionOferta}
               onChangeText={setDescripcionOferta}
               multiline
@@ -2232,22 +2233,22 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
             </Text>
             <View style={styles.garantiaRow}>
               <View style={[styles.inputContainer, styles.garantiaInputHalf]}>
-                <MaterialIcons name="calendar-month" size={18} color="#666" />
+                <InstitutionalIcon name="calendar-month" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                 <TextInput
                   style={[styles.input, { flex: 1 }]}
                   placeholder="Meses"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={PLACEHOLDER_INPUT}
                   value={garantiaMeses}
                   onChangeText={(t) => setGarantiaMeses(t.replace(/\D/g, ''))}
                   keyboardType="number-pad"
                 />
               </View>
               <View style={[styles.inputContainer, styles.garantiaInputHalf, { marginLeft: 10 }]}>
-                <MaterialIcons name="speed" size={18} color="#666" />
+                <InstitutionalIcon name="speed" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                 <TextInput
                   style={[styles.input, { flex: 1 }]}
                   placeholder="Km"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={PLACEHOLDER_INPUT}
                   value={garantiaKm}
                   onChangeText={(t) => setGarantiaKm(t.replace(/\D/g, ''))}
                   keyboardType="number-pad"
@@ -2285,9 +2286,10 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
               {serviciosOferta.some(s => s.tipoServicio === 'con_repuestos' && s.repuestos.length > 0) && (
                 <>
                   <View style={styles.resumenDivider} />
-                  <Text style={styles.desgloseTitle}>
-                    <MaterialIcons name="receipt-long" size={16} color="#666" /> Desglose de Costos
-                  </Text>
+                  <View style={styles.desgloseTitleRow}>
+                    <InstitutionalIcon name="receipt-long" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.desgloseTitle}>Desglose de costos</Text>
+                  </View>
 
                   <View style={styles.resumenRow}>
                     <Text style={styles.resumenLabel}>📦 Repuestos (sin IVA)</Text>
@@ -2312,7 +2314,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                     </View>
                   )}
 
-                  <View style={[styles.resumenRow, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E0E0E0' }]}>
+                  <View style={[styles.resumenRow, styles.resumenRowDivider]}>
                     <Text style={[styles.resumenLabel, { fontWeight: '600' }]}>Subtotal (sin IVA)</Text>
                     <Text style={[styles.resumenValue, { fontWeight: '600' }]}>
                       ${(calcularCostoRepuestos() + calcularCostoManoObra() + gestionCompraValor).toLocaleString('es-CL')}
@@ -2327,7 +2329,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                   </View>
 
                   <View style={styles.infoBoxDesglose}>
-                    <MaterialIcons name="info-outline" size={16} color="#0061FF" />
+                    <InstitutionalIcon name="info-outline" size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                     <Text style={styles.infoBoxDesgloseText}>
                       El cliente podrá elegir pagar los repuestos por adelantado o pagar todo junto.
                     </Text>
@@ -2349,66 +2351,76 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
 
       </ScrollView>
 
-      {/* Botones Fijos */}
-      <View style={[styles.buttonsContainer, { paddingBottom: bottomInset }]}>
-        {onCancel && (
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={onCancel}
-            disabled={loading}
-            activeOpacity={0.7}
-          >
-            <MaterialIcons name="cancel" size={20} color="#DC3545" />
-            <Text style={styles.cancelButtonText}>
-              Cancelar
-            </Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={[
-            styles.submitButton,
-            (loading || precioTotal === 0) && styles.submitButtonDisabled
-          ]}
-          onPress={handleSubmit}
-          disabled={loading || precioTotal === 0}
-          activeOpacity={0.8}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <>
-              <MaterialIcons name="add-circle" size={24} color="#FFFFFF" />
-              <Text style={styles.submitButtonText}>
-                Enviar Oferta
+      {/* Botones fijos — SafeArea inferior + pills institucionales */}
+      <SafeAreaView edges={['bottom']} style={styles.buttonsSafe}>
+        <View style={styles.buttonsRow}>
+          {onCancel ? (
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={onCancel}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.cancelButtonText} numberOfLines={1}>
+                Cancelar
               </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              !onCancel && styles.submitButtonFullWidth,
+              (loading || precioTotal === 0) && styles.submitButtonDisabled,
+            ]}
+            onPress={handleSubmit}
+            disabled={loading || precioTotal === 0}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color={I.onPrimary} size="small" />
+            ) : (
+              <>
+                <InstitutionalIcon name="add-circle" size={22} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.submitButtonText} numberOfLines={1}>
+                  Enviar oferta
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     </View>
   );
+};
+
+const shadowFooter = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: -2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 8,
+  elevation: 8,
 };
 
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: I.surfaceSoft,
   },
   container: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    paddingTop: 12,
-    paddingBottom: 120, // Espacio para botones fijos + safe area
+    paddingHorizontal: hx,
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed['2xl'],
   },
 
-  // Header minimalista
   headerCard: {
-    marginBottom: 32,
+    marginBottom: SPACING.fixed.lg,
   },
   headerRow: {
-    marginBottom: 8,
+    marginBottom: SPACING.fixed.xs,
   },
   headerTextContainer: {
     flex: 1,
@@ -2417,363 +2429,386 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 10,
+    gap: SPACING.fixed.sm,
     marginBottom: 6,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#000',
+    fontSize: TS.h2.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.h2.fontSize, TS.h2.lineHeight),
+    letterSpacing: TS.h2.letterSpacing,
+    color: I.ink,
     flexShrink: 1,
     marginBottom: 0,
   },
   creditosBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: SPACING.fixed.sm,
     paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
     gap: 4,
     flexShrink: 0,
   },
   creditosBadgeNeutral: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#E5E7EB',
+    backgroundColor: I.surfaceStrong,
+    borderColor: I.hairline,
     minWidth: 40,
     justifyContent: 'center',
   },
   creditosBadgeOk: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    backgroundColor: withOpacity(I.semanticUp, 0.12),
+    borderColor: withOpacity(I.semanticUp, 0.28),
   },
   creditosBadgeWarn: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
+    backgroundColor: withOpacity(I.accentYellow, 0.16),
+    borderColor: withOpacity(I.accentYellow, 0.45),
   },
   creditosBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: -0.2,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
   },
   headerSubtitle: {
-    fontSize: 15,
-    color: '#666',
-    lineHeight: 22,
+    fontSize: TS.small.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),
+    color: I.body,
   },
 
-  // Secciones
   section: {
-    marginBottom: 24,
+    marginBottom: SPACING.fixed.md,
   },
   subsection: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    marginTop: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.md,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
   },
   subsectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#000',
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    color: I.ink,
     marginBottom: 6,
   },
   preciosGroup: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-    marginBottom: 16,
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.fixed.md,
+    marginTop: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   groupTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#000',
-    marginBottom: 12,
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    color: I.ink,
+    marginBottom: SPACING.fixed.sm,
   },
   precioTotalDestacadoWrap: {
-    marginTop: 8,
-    paddingTop: 16,
-    borderTopWidth: 2,
-    borderTopColor: '#E2E8F0',
+    marginTop: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.md,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
   },
   precioTotalDestacadoLabel: {
-    fontSize: 15,
-    fontWeight: '800',
-    marginBottom: 10,
-    letterSpacing: -0.3,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    marginBottom: SPACING.fixed.sm,
+    color: I.ink,
   },
   precioTotalDestacadoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 2,
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    borderWidth: BORDERS.width.thin,
+    borderRadius: BORDERS.radius.md,
+    paddingVertical: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.md,
     gap: 6,
-    backgroundColor: '#F0F7FC',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    backgroundColor: I.canvas,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
   },
   precioTotalDestacadoSymbol: {
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: TS.numberDisplay.fontSize,
+    fontFamily: FF.monoMedium,
+    color: I.primary,
   },
   precioTotalDestacadoInput: {
     flex: 1,
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: TS.numberDisplay.fontSize,
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TS.numberDisplay.fontSize, TS.numberDisplay.lineHeight),
+    color: I.ink,
     padding: 0,
-    letterSpacing: -0.5,
   },
   precioTotalDestacadoHint: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 8,
-    lineHeight: 17,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    marginTop: SPACING.fixed.sm,
   },
   infoGroup: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
-    gap: 12,
+    marginTop: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.md,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+    gap: SPACING.fixed.sm,
   },
   sectionHeaderContainer: {
-    marginBottom: 16,
+    marginBottom: SPACING.fixed.md,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000',
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    color: I.ink,
     marginBottom: 6,
   },
   sectionSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
-    lineHeight: 20,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
+    color: I.body,
+    marginBottom: SPACING.fixed.md,
   },
 
-  // Tarjetas de servicio minimalistas
   servicioCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
   },
   servicioHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.fixed.md,
   },
   servicioNombre: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#000',
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.md, TS.body.lineHeight),
+    color: I.ink,
     flex: 1,
-    marginRight: 8,
+    marginRight: SPACING.fixed.sm,
   },
   eliminarServicioButton: {
     padding: 4,
   },
   servicioDetalles: {
-    gap: 16,
+    gap: SPACING.fixed.md,
   },
 
-  // Inputs minimalistas
   inputGroup: {
-    marginBottom: 12,
+    marginBottom: SPACING.fixed.sm + 2,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 8,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
+    textTransform: 'uppercase',
+    color: I.muted,
+    marginBottom: SPACING.fixed.xs,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#FFF',
-    gap: 8,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.md,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: 14,
+    backgroundColor: I.surfaceSoft,
+    gap: SPACING.fixed.sm,
   },
   input: {
     flex: 1,
-    fontSize: 16,
-    color: '#000',
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.ink,
     padding: 0,
   },
   currencySymbol: {
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '500',
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.monoMedium,
+    color: I.muted,
   },
   unitText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
   },
   textArea: {
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
-    padding: 14,
-    fontSize: 15,
-    color: '#000',
-    minHeight: 80,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.md,
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.ink,
+    minHeight: 96,
     textAlignVertical: 'top',
-    lineHeight: 22,
-    backgroundColor: '#FFF',
+    backgroundColor: I.surfaceSoft,
   },
   characterCount: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 8,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginTop: SPACING.fixed.sm,
     textAlign: 'right',
   },
 
-  // Gestión de compra
   gestionCompraHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.fixed.sm,
     marginBottom: 4,
   },
   gestionCompraInfo: {
-    fontSize: 12,
-    color: '#FF9800',
-    marginTop: 8,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.accentYellow,
+    marginTop: SPACING.fixed.sm,
     fontStyle: 'italic',
-    lineHeight: 16,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
   },
   gestionCompraRowEnPrecios: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.fixed.sm,
     marginBottom: 4,
   },
   gestionCompraHintEnPrecios: {
-    fontSize: 12,
-    color: '#64748B',
-    marginBottom: 8,
-    lineHeight: 16,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginBottom: SPACING.fixed.sm,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
   },
 
-  // Card informativo
   infoCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    backgroundColor: '#F8F8F8',
-    padding: 14,
-    borderRadius: 8,
-    marginBottom: 32,
+    gap: SPACING.fixed.sm,
+    backgroundColor: I.surfaceSoft,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    marginBottom: SPACING.fixed.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   infoText: {
     flex: 1,
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
+    color: I.body,
   },
 
-  // Disponibilidad
   disponibilidadOptions: {
-    gap: 12,
-    marginTop: 16,
+    gap: SPACING.fixed.sm,
+    marginTop: SPACING.fixed.md,
   },
   disponibilidadButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    backgroundColor: '#FFF',
+    gap: SPACING.fixed.sm,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
   },
   disponibilidadButtonSelected: {
-    borderColor: '#000',
-    backgroundColor: '#FAFAFA',
+    borderColor: I.primary,
+    backgroundColor: withOpacity(I.primary, 0.06),
   },
   radioButton: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    borderWidth: 2,
-    borderColor: '#E5E5E5',
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioButtonSelected: {
-    borderColor: '#000',
+    borderColor: I.primary,
   },
   radioButtonInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#000',
+    backgroundColor: I.primary,
   },
   disponibilidadText: {
     flex: 1,
-    fontSize: 15,
-    color: '#000',
-    fontWeight: '500',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
+    color: I.ink,
   },
   fechaAlternativaContainer: {
-    marginTop: 20,
-    padding: 16,
-    backgroundColor: '#F8F8F8',
-    borderRadius: 8,
+    marginTop: SPACING.fixed.md,
+    padding: SPACING.fixed.md,
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    backgroundColor: '#FFF',
+    gap: SPACING.fixed.sm,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
   },
   datePickerText: {
     flex: 1,
-    fontSize: 15,
-    color: '#000',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.ink,
   },
 
-  // Resumen minimalista
   resumenCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 32,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
   },
   resumenTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000',
-    marginBottom: 16,
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    color: I.ink,
+    marginBottom: SPACING.fixed.md,
   },
   resumenDivider: {
-    height: 1,
-    backgroundColor: '#E5E5E5',
-    marginBottom: 16,
+    height: BORDERS.width.thin,
+    backgroundColor: I.hairline,
+    marginBottom: SPACING.fixed.md,
   },
   resumenContent: {
-    gap: 12,
+    gap: SPACING.fixed.sm,
   },
   resumenRow: {
     flexDirection: 'row',
@@ -2782,264 +2817,277 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   resumenLabel: {
-    fontSize: 15,
-    color: '#666',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.body,
   },
   resumenValue: {
-    fontSize: 15,
-    color: '#000',
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
   },
   resumenPrecioRow: {
-    marginTop: 8,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    marginTop: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.md,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
   },
   resumenPrecioLabel: {
-    fontSize: 16,
-    color: '#000',
-    fontWeight: '700',
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
   },
   resumenPrecioValue: {
-    fontSize: 32,
-    color: '#000',
-    fontWeight: '800',
+    fontSize: TYPOGRAPHY.fontSize['2xl'],
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize['2xl'], TS.numberDisplay.lineHeight),
+    color: I.primary,
   },
 
-  // Estilos para desglose de costos
+  desgloseTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+  },
   desgloseTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.muted,
+  },
+  resumenRowDivider: {
+    marginTop: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.sm,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
   },
   infoBoxDesglose: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
-    padding: 12,
-    backgroundColor: '#F0F7FF',
-    borderRadius: 8,
-    marginTop: 8,
+    gap: SPACING.fixed.sm,
+    padding: SPACING.fixed.sm,
+    backgroundColor: withOpacity(I.primary, 0.08),
+    borderRadius: BORDERS.radius.md,
+    marginTop: SPACING.fixed.sm,
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.22),
   },
   infoBoxDesgloseText: {
     flex: 1,
-    fontSize: 13,
-    color: '#0061FF',
-    lineHeight: 18,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.primary,
   },
 
-  // Botones minimalistas
-  // Botones inferiores (fijos)
-  buttonsContainer: {
+  buttonsSafe: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
+    backgroundColor: I.canvas,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+    paddingTop: SPACING.fixed.sm,
+    paddingHorizontal: hx,
+    ...shadowFooter,
+  },
+  buttonsRow: {
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    // paddingBottom se maneja dinámicamente con bottomInset
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    alignItems: 'stretch',
+    gap: SPACING.fixed.sm,
   },
   cancelButton: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DC3545',
-    backgroundColor: '#FFFFFF',
+    paddingVertical: SPACING.fixed.sm + 2,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.semanticDown,
+    backgroundColor: I.canvas,
     gap: 6,
   },
   cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#DC3545',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.semanticDown,
   },
   submitButton: {
-    flex: 1.5,
+    flex: 1.45,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    backgroundColor: '#0061FF',
-    gap: 8,
+    paddingVertical: SPACING.fixed.sm + 2,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.primary,
+    gap: SPACING.fixed.xs,
+    ...SHADOWS.editorial,
+  },
+  submitButtonFullWidth: {
+    flex: 1,
   },
   submitButtonDisabled: {
-    backgroundColor: '#CCCCCC',
-    opacity: 0.6,
+    backgroundColor: I.primaryDisabled,
+    opacity: 0.85,
   },
   submitButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: TS.button.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),
+    color: I.onPrimary,
   },
 
-  // Nuevos estilos para servicios configurados
   selectorContainer: {
-    marginBottom: 16,
+    marginBottom: SPACING.fixed.md,
   },
   configuradoBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    backgroundColor: '#F0FDF4',
-    borderRadius: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#10B981',
+    gap: SPACING.fixed.sm,
+    padding: SPACING.fixed.sm,
+    backgroundColor: withOpacity(I.semanticUp, 0.1),
+    borderRadius: BORDERS.radius.md,
+    marginBottom: SPACING.fixed.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.semanticUp, 0.35),
   },
   configuradoText: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#10B981',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.semanticUp,
   },
   cambiarLink: {
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: SPACING.fixed.sm,
   },
   cambiarLinkText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0061FF',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
     textDecorationLine: 'underline',
   },
   tipoServicioContainer: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
+    gap: SPACING.fixed.sm,
+    marginTop: SPACING.fixed.sm,
   },
   tipoServicioButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    backgroundColor: '#FFF',
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
     alignItems: 'center',
   },
   tipoServicioButtonSelected: {
-    borderColor: '#0061FF',
-    backgroundColor: '#F0F7FF',
+    borderColor: I.primary,
+    backgroundColor: withOpacity(I.primary, 0.08),
   },
   tipoServicioButtonDisabled: {
     opacity: 0.5,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: I.surfaceStrong,
   },
   tipoServicioText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.body,
   },
   tipoServicioTextSelected: {
-    color: '#0061FF',
+    color: I.primary,
   },
   tipoServicioTextDisabled: {
-    color: '#999',
+    color: I.mutedSoft,
   },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#FFF3E0',
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FF9800',
-    marginBottom: 16,
-    gap: 8,
+    padding: SPACING.fixed.sm,
+    backgroundColor: withOpacity(I.accentYellow, 0.14),
+    borderRadius: BORDERS.radius.md,
+    borderLeftWidth: 3,
+    borderLeftColor: I.accentYellow,
+    marginBottom: SPACING.fixed.md,
+    gap: SPACING.fixed.sm,
   },
   infoBoxText: {
     flex: 1,
-    fontSize: 13,
-    color: '#E65100',
-    fontWeight: '500',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.body,
   },
   precioInfo: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
     marginTop: 6,
     fontStyle: 'italic',
   },
-  // Estilos para ofertas secundarias
   agregarServiciosContainer: {
-    marginBottom: 16,
+    marginBottom: SPACING.fixed.md,
   },
   agregarServicioButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 14,
-    backgroundColor: '#E3F2FD',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#BBDEFB',
-    gap: 8,
+    padding: SPACING.fixed.md,
+    backgroundColor: withOpacity(I.primary, 0.08),
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.22),
+    gap: SPACING.fixed.sm,
   },
   agregarServicioButtonText: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#0061FF',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
   },
   selectorServiciosContainer: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
+    marginTop: SPACING.fixed.sm,
+    padding: SPACING.fixed.sm,
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   selectorServiciosTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    marginBottom: SPACING.fixed.sm,
   },
   serviciosGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: SPACING.fixed.sm,
   },
   servicioCardSelector: {
-    width: '48%', // 2 columnas con espacio entre ellas
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    padding: 12,
+    width: '48%',
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    padding: SPACING.fixed.sm,
     minHeight: 120,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...SHADOWS.editorial,
   },
   servicioCardSelectorDisabled: {
     opacity: 0.6,
-    backgroundColor: '#F5F5F5',
-    borderColor: '#D1D5DB',
+    backgroundColor: I.surfaceStrong,
+    borderColor: I.hairline,
   },
   servicioCardSelectorContent: {
     width: '100%',
@@ -3047,31 +3095,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   servicioCardSelectorIcon: {
-    marginBottom: 8,
-    padding: 8,
-    backgroundColor: '#E3F2FD',
+    marginBottom: SPACING.fixed.sm,
+    padding: SPACING.fixed.sm,
+    backgroundColor: withOpacity(I.primary, 0.1),
     borderRadius: 20,
   },
   servicioCardSelectorCheck: {
-    marginBottom: 8,
+    marginBottom: SPACING.fixed.sm,
   },
   servicioCardSelectorNombre: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
     textAlign: 'center',
     marginBottom: 4,
   },
   servicioCardSelectorNombreDisabled: {
-    color: '#999',
+    color: I.mutedSoft,
   },
   servicioCardSelectorDescripcion: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
     textAlign: 'center',
     marginTop: 4,
   },
-  // Estilos antiguos mantenidos para compatibilidad (no se usan en ofertas secundarias)
   serviciosLista: {
     maxHeight: 200,
   },
@@ -3079,172 +3127,178 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
+    padding: SPACING.fixed.sm,
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.md,
+    marginBottom: SPACING.fixed.sm,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   servicioItemDisabled: {
     opacity: 0.5,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: I.surfaceStrong,
   },
   servicioItemContent: {
     flex: 1,
-    marginRight: 12,
+    marginRight: SPACING.fixed.sm,
   },
   servicioItemNombre: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#000',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
     marginBottom: 4,
   },
   servicioItemNombreDisabled: {
-    color: '#999',
+    color: I.mutedSoft,
   },
   servicioItemDescripcion: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
   },
   divider: {
-    height: 1,
-    backgroundColor: '#E5E5E5',
-    marginVertical: 12,
+    height: BORDERS.width.thin,
+    backgroundColor: I.hairline,
+    marginVertical: SPACING.fixed.sm,
   },
   agregarManualButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
+    padding: SPACING.fixed.sm,
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
     borderStyle: 'dashed',
-    gap: 8,
+    gap: SPACING.fixed.sm,
   },
   agregarManualButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansMedium,
+    color: I.body,
   },
   agregarManualButtonOuter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
+    padding: SPACING.fixed.md,
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
     borderStyle: 'dashed',
-    marginTop: 12,
+    marginTop: SPACING.fixed.sm,
     gap: 10,
   },
   agregarManualButtonTextOuter: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#666',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansMedium,
+    color: I.body,
   },
   emptyServiciosContainer: {
-    padding: 20,
+    padding: SPACING.fixed.md,
     alignItems: 'center',
   },
   emptyServiciosText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginBottom: SPACING.fixed.md,
     textAlign: 'center',
   },
   emptyServiciosMessage: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#FFF7ED',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    gap: 12,
+    padding: SPACING.fixed.md,
+    backgroundColor: withOpacity(I.accentYellow, 0.12),
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.accentYellow, 0.4),
+    gap: SPACING.fixed.sm,
   },
   emptyServiciosMessageText: {
-    fontSize: 14,
-    color: '#F59E0B',
-    fontWeight: '500',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansMedium,
+    color: I.body,
   },
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
-    gap: 12,
+    padding: SPACING.fixed.md,
+    gap: SPACING.fixed.sm,
   },
   loadingText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
   },
-  // Estilos para mensajes de advertencia de repuestos
   warningContainer: {
-    backgroundColor: '#FFF3E0',
-    borderLeftWidth: 4,
-    borderLeftColor: '#FFA000',
-    borderRadius: 12,
-    padding: 20,
-    marginVertical: 12,
+    backgroundColor: withOpacity(I.accentYellow, 0.14),
+    borderLeftWidth: 3,
+    borderLeftColor: I.accentYellow,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.fixed.md,
+    marginVertical: SPACING.fixed.sm,
     alignItems: 'center',
   },
   warningTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#E65100',
-    marginTop: 12,
-    marginBottom: 8,
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    color: I.body,
+    marginTop: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
     textAlign: 'center',
   },
   warningText: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 12,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    marginBottom: SPACING.fixed.sm,
     textAlign: 'center',
   },
   warningSubtext: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#000',
-    marginTop: 8,
-    marginBottom: 12,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    marginTop: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
     textAlign: 'center',
   },
   optionsList: {
     width: '100%',
-    marginTop: 8,
+    marginTop: SPACING.fixed.sm,
   },
   optionItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 12,
-    paddingHorizontal: 12,
+    marginBottom: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.sm,
   },
   optionNumber: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFA000',
-    marginRight: 8,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.accentYellow,
+    marginRight: SPACING.fixed.sm,
     marginTop: 2,
   },
   optionText: {
     flex: 1,
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
+    color: I.body,
   },
   tipoServicioHint: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 8,
-    lineHeight: 18,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginTop: SPACING.fixed.sm,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
   },
   garantiaRow: {
     flexDirection: 'row',

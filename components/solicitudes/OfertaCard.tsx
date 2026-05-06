@@ -6,8 +6,9 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { OfertaProveedor } from '@/services/solicitudesService';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface OfertaCardProps {
   oferta: OfertaProveedor;
@@ -168,7 +169,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
       {/* Badge para ofertas secundarias */}
       {oferta.es_oferta_secundaria && (
         <View style={styles.badgeSecundaria}>
-          <MaterialIcons name="add-circle" size={14} color="#FFFFFF" />
+          <InstitutionalIcon name="add-circle" size={14} color="#FFFFFF"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.badgeSecundariaText}>SERVICIO ADICIONAL</Text>
         </View>
       )}
@@ -176,11 +177,11 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={[styles.estadoBadge, { backgroundColor: `${estadoInfo.color}15` }]}>
-            <MaterialIcons 
+            <InstitutionalIcon 
               name={estadoInfo.icon as any} 
               size={14} 
               color={estadoInfo.color} 
-            />
+             strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.estadoText, { color: estadoInfo.color }]}>
               {estadoInfo.text}
             </Text>
@@ -208,11 +209,11 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
             borderLeftColor: estadoInfo.success ? '#059669' : '#F59E0B'
           }
         ]}>
-          <MaterialIcons 
+          <InstitutionalIcon 
             name={estadoInfo.success ? 'check-circle' : 'info'} 
             size={16} 
             color={estadoInfo.success ? '#059669' : '#F59E0B'} 
-          />
+           strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={[
             styles.infoBannerText,
             { color: estadoInfo.success ? '#059669' : '#F59E0B' }
@@ -228,7 +229,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
       {oferta.estado === 'pagada_parcialmente' && (
         <View style={[styles.pagoParcialCard, { backgroundColor: '#FFF3E0', borderColor: '#F59E0B' }]}>
           <View style={styles.pagoParcialHeader}>
-            <MaterialIcons name="payment" size={18} color="#F59E0B" />
+            <InstitutionalIcon name="payment" size={18} color="#F59E0B"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.pagoParcialTitulo, { color: '#F59E0B' }]}>
               Pago Parcial Realizado
             </Text>
@@ -271,7 +272,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
               />
             ) : (
               <View style={styles.clientAvatarPlaceholder}>
-                <MaterialIcons name="person" size={20} color="#FFF" />
+                <InstitutionalIcon name="person" size={20} color="#FFF"  strokeWidth={ICON_STROKE_WIDTH} />
               </View>
             )}
             <View style={styles.clientTextContainer}>
@@ -280,7 +281,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
               </Text>
               {oferta.solicitud_detail.vehiculo && (
                 <View style={styles.vehicleInfo}>
-                  <MaterialIcons name="directions-car" size={14} color="#666" />
+                  <InstitutionalIcon name="directions-car" size={14} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.vehicleText}>
                     {oferta.solicitud_detail.vehiculo.marca} {oferta.solicitud_detail.vehiculo.modelo}
                     {oferta.solicitud_detail.vehiculo.año && ` ${oferta.solicitud_detail.vehiculo.año}`}
@@ -318,7 +319,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
           )}
           {oferta.incluye_repuestos && (
             <View style={[styles.repuestosBadge, { backgroundColor: '#34C75915' }]}>
-              <MaterialIcons name="build" size={12} color="#34C759" />
+              <InstitutionalIcon name="build" size={12} color="#34C759"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={[styles.repuestosText, { color: '#34C759' }]}>
                 Incluye repuestos
               </Text>
@@ -338,7 +339,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
         <View style={styles.detalles}>
           {oferta.fecha_disponible && (
             <View style={styles.detalleItem}>
-              <MaterialIcons name="calendar-today" size={14} color="#6c757d" />
+              <InstitutionalIcon name="calendar-today" size={14} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.detalleText}>
                 {new Date(oferta.fecha_disponible).toLocaleDateString('es-ES', {
                   day: 'numeric',
@@ -351,7 +352,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
 
           {oferta.tiempo_estimado_total && (
             <View style={styles.detalleItem}>
-              <MaterialIcons name="schedule" size={14} color="#6c757d" />
+              <InstitutionalIcon name="schedule" size={14} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.detalleText}>
                 {oferta.tiempo_estimado_total}
               </Text>
@@ -360,7 +361,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
 
           {oferta.detalles_servicios_detail && oferta.detalles_servicios_detail.length > 0 && (
             <View style={styles.detalleItem}>
-              <MaterialIcons name="build" size={14} color="#6c757d" />
+              <InstitutionalIcon name="build" size={14} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.detalleText}>
                 {oferta.detalles_servicios_detail.length} servicio{oferta.detalles_servicios_detail.length !== 1 ? 's' : ''}
               </Text>
@@ -370,7 +371,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
       </View>
 
       <View style={styles.footer}>
-        <MaterialIcons name="chevron-right" size={20} color="#6c757d" />
+        <InstitutionalIcon name="chevron-right" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
       </View>
     </TouchableOpacity>
   );

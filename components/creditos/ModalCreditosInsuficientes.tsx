@@ -8,11 +8,12 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { BlurView } from 'expo-blur';
 import { VerificacionCreditosOferta } from '@/services/creditosService';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface ModalCreditosInsuficientesProps {
   visible: boolean;
@@ -109,9 +110,9 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
         >
           {/* Header con icono de error */}
           <View style={[styles.iconContainer, { backgroundColor: errorLight }]}>
-            <MaterialIcons name="account-balance-wallet" size={48} color={errorColor} />
+            <InstitutionalIcon name="account-balance-wallet" size={48} color={errorColor}  strokeWidth={ICON_STROKE_WIDTH} />
             <View style={styles.badgeContainer}>
-              <MaterialIcons name="error" size={24} color={errorColor} />
+              <InstitutionalIcon name="error" size={24} color={errorColor}  strokeWidth={ICON_STROKE_WIDTH} />
             </View>
           </View>
 
@@ -161,7 +162,7 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
               </Text>
               {verificacion.detalle_servicios.map((servicio, index) => (
                 <View key={index} style={styles.servicioRow}>
-                  <MaterialIcons name="build" size={14} color={textSecondary} />
+                  <InstitutionalIcon name="build" size={14} color={textSecondary}  strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={[styles.servicioNombre, { color: textPrimary }]} numberOfLines={1}>
                     {servicio.nombre}
                   </Text>
@@ -188,7 +189,7 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
               style={[styles.botonPrimario, { backgroundColor: primaryColor }]}
               onPress={onComprarCreditos}
             >
-              <MaterialIcons name="add-shopping-cart" size={18} color="#FFFFFF" />
+              <InstitutionalIcon name="add-shopping-cart" size={18} color="#FFFFFF"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.botonPrimarioText}>
                 Comprar Créditos
               </Text>

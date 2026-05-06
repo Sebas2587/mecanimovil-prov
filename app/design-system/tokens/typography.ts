@@ -1,17 +1,21 @@
 /**
- * Sistema de Tipografía MecaniMóvil - App Proveedores
- * Escala tipográfica consistente
- * 
- * IMPORTANTE: Este archivo NO debe tener ninguna lógica condicional
- * para evitar problemas con el motor Hermes de React Native
- * Todos los valores están definidos como constantes inmutables
+ * Tipografía — App Proveedores (DESIGN_PROVEEDORES_INSTITUCIONAL.md)
+ * Inter sustituto sans; JetBrains Mono para tabular.
+ * Carga real en app/_layout.tsx (@expo-google-fonts).
+ *
+ * IMPORTANTE: Sin lógica condicional (Hermes).
  */
 
 export const TYPOGRAPHY = {
   fontFamily: {
-    regular: 'System',
-    medium: 'System',
-    bold: 'System',
+    sansRegular: 'Inter_400Regular',
+    sansMedium: 'Inter_500Medium',
+    sansSemiBold: 'Inter_600SemiBold',
+    sansBold: 'Inter_700Bold',
+    monoMedium: 'JetBrainsMono_500Medium',
+    regular: 'Inter_400Regular',
+    medium: 'Inter_500Medium',
+    bold: 'Inter_700Bold',
   },
   fontSize: {
     xs: 10,
@@ -46,28 +50,34 @@ export const TYPOGRAPHY = {
     wider: 0.5,
   },
   styles: {
+    display: {
+      fontSize: 28,
+      fontWeight: '400',
+      lineHeight: 1.13,
+      letterSpacing: -0.35,
+    },
     h1: {
       fontSize: 28,
-      fontWeight: '700',
-      lineHeight: 1.2,
-      letterSpacing: -0.25,
+      fontWeight: '400',
+      lineHeight: 1.13,
+      letterSpacing: -0.35,
     },
     h2: {
       fontSize: 24,
-      fontWeight: '700',
-      lineHeight: 1.2,
-      letterSpacing: -0.25,
+      fontWeight: '400',
+      lineHeight: 1.15,
+      letterSpacing: -0.3,
     },
     h3: {
       fontSize: 20,
       fontWeight: '600',
-      lineHeight: 1.3,
-      letterSpacing: -0.25,
+      lineHeight: 1.33,
+      letterSpacing: 0,
     },
     h4: {
       fontSize: 18,
       fontWeight: '600',
-      lineHeight: 1.4,
+      lineHeight: 1.33,
       letterSpacing: 0,
     },
     body: {
@@ -83,7 +93,7 @@ export const TYPOGRAPHY = {
       letterSpacing: 0,
     },
     caption: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '400',
       lineHeight: 1.5,
       letterSpacing: 0,
@@ -103,8 +113,20 @@ export const TYPOGRAPHY = {
     button: {
       fontSize: 16,
       fontWeight: '600',
-      lineHeight: 1.2,
-      letterSpacing: 0.25,
+      lineHeight: 1.15,
+      letterSpacing: 0,
+    },
+    navLink: {
+      fontSize: 14,
+      fontWeight: '500',
+      lineHeight: 1.4,
+      letterSpacing: 0,
+    },
+    numberDisplay: {
+      fontSize: 18,
+      fontWeight: '500',
+      lineHeight: 1.4,
+      letterSpacing: 0,
     },
     label: {
       fontSize: 14,

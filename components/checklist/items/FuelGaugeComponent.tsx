@@ -5,8 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 interface FuelGaugeComponentProps {
   item: any;
   respuesta: any;
@@ -65,7 +65,7 @@ export const FuelGaugeComponent: React.FC<FuelGaugeComponentProps> = ({
       {/* Medidor visual simplificado */}
       <View style={styles.gaugeContainer}>
         <View style={styles.gaugeHeader}>
-          <MaterialIcons name="local-gas-station" size={24} color="#495057" />
+          <InstitutionalIcon name="local-gas-station" size={24} color="#495057"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.gaugeTitle}>Nivel de Combustible</Text>
         </View>
         
@@ -104,11 +104,11 @@ export const FuelGaugeComponent: React.FC<FuelGaugeComponentProps> = ({
         {/* Indicador de nivel seleccionado */}
         {selectedLevel && (
           <View style={styles.gaugeIndicator}>
-            <MaterialIcons 
+            <InstitutionalIcon 
               name={selectedFuelLevel?.icon as any || 'battery-unknown'} 
               size={20} 
               color={selectedFuelLevel?.color || '#28a745'} 
-            />
+             strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[
               styles.gaugeIndicatorText,
               { color: selectedFuelLevel?.color || '#28a745' }
@@ -125,7 +125,7 @@ export const FuelGaugeComponent: React.FC<FuelGaugeComponentProps> = ({
           styles.selectedValue,
           { backgroundColor: selectedFuelLevel?.color || '#28a745' }
         ]}>
-          <MaterialIcons name="speed" size={16} color="#fff" />
+          <InstitutionalIcon name="speed" size={16} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.selectedValueText}>
             {selectedFuelLevel?.label || selectedLevel}
           </Text>
@@ -146,11 +146,11 @@ export const FuelGaugeComponent: React.FC<FuelGaugeComponentProps> = ({
             onPress={() => handleLevelSelect(level.key)}
             disabled={disabled}
           >
-            <MaterialIcons 
+            <InstitutionalIcon 
               name={level.icon as any} 
               size={20} 
               color={selectedLevel === level.key ? '#fff' : level.color} 
-            />
+             strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[
               styles.levelButtonText,
               selectedLevel === level.key && styles.levelButtonTextSelected,
@@ -172,7 +172,7 @@ export const FuelGaugeComponent: React.FC<FuelGaugeComponentProps> = ({
       {/* Información adicional */}
       <View style={styles.infoContainer}>
         <View style={styles.infoItem}>
-          <MaterialIcons name="info" size={16} color="#6c757d" />
+          <InstitutionalIcon name="info" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.infoText}>
             Selecciona el nivel según el medidor del tablero del vehículo
           </Text>

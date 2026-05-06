@@ -1,6 +1,15 @@
 # Sistema de Diseño MecaniMóvil - App Proveedores
 
-Sistema de diseño completo y consistente para la aplicación MecaniMóvil Proveedores, basado en una paleta de colores que proyecta transparencia, calma, confianza, profesionalismo y claridad.
+**Documento canónico de diseño (tokens y reglas de trabajo):** [DESIGN_PROVEEDORES_INSTITUCIONAL.md](./DESIGN_PROVEEDORES_INSTITUCIONAL.md)
+
+Sistema de diseño completo y consistente para la aplicación MecaniMóvil Proveedores.
+
+### Iconografía (una sola familia)
+
+- **Canónico:** [Lucide](https://lucide.dev) (`lucide-react-native`) — trazo geométrico mínimo, coherente con la inspiración tipo Coinbase (`DESIGN-coinbase.md`: iconografía minimal).
+- **Constantes:** `app/design-system/iconography.ts` (`ICON_STROKE_WIDTH`, `ICON_SIZE`).
+- **Migración desde Material / Ionicons:** `components/ui/InstitutionalIcon.tsx` (mapa de nombres legacy → Lucide). En código nuevo, importar iconos concretos desde `lucide-react-native` y evitar `@expo/vector-icons`.
+- **Plantilla / tabs Expo:** `components/ui/IconSymbol.tsx` usa solo Lucide (sin variante iOS con SF Symbols en esta app). Los tokens en código siguen la guía institucional anterior (adaptación RN del perfil tipo Coinbase: lienzo claro, azul primario `#0052ff`, Inter + JetBrains Mono).
 
 ## Paleta de Colores
 

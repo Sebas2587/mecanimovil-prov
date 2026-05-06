@@ -13,64 +13,100 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { router, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import {
-  User, Mail, Phone, MapPin, ChevronRight, LogOut,
-  Clock, Wrench, CreditCard, Settings, ShieldCheck,
-  Building2, Map, Headphones, FileText, Edit3,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  ChevronRight,
+  LogOut,
+  CreditCard,
+  Wallet,
+  Headphones,
+  FileText,
+  type LucideIcon,
 } from 'lucide-react-native';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
+import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+
+const I = COLORS.institutional;
+
+function SectionKicker({ label }: { label: string }) {
+  return (
+    <View style={styles.sectionKickerWrap}>
+      <View style={[styles.sectionPill, { backgroundColor: I.surfaceStrong }]}>
+        <Text style={[styles.sectionPillText, { color: I.muted }]}>{label}</Text>
+      </View>
+    </View>
+  );
+}
 
 export default function PerfilScreen() {
   const {
-    isLoading, estadoProveedor, usuario, logout,
-    refrescarEstadoProveedor, obtenerNombreProveedor,
+    isLoading,
+    estadoProveedor,
+    usuario,
+    logout,
+    obtenerNombreProveedor,
   } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const fotoProveedor = useMemo(() => {
-    const fotoDesdeDatos = (estadoProveedor?.datos_proveedor as any)?.foto_perfil;
+    const fotoDesdeDatos = (estadoProveedor?.datos_proveedor as { foto_perfil?: string } | undefined)?.foto_perfil;
     if (fotoDesdeDatos) return fotoDesdeDatos;
     if (usuario?.foto_perfil) return usuario.foto_perfil;
     return null;
   }, [estadoProveedor?.datos_proveedor, usuario?.foto_perfil]);
 
-  const esTaller = estadoProveedor?.tipo_proveedor === 'taller';
-  const esMecanicoDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
-
   const handleContactarSoporte = () => {
     const phoneNumber = '+56995945258';
-    const message = 'Hola, soy proveedor de la app MecaniMóvil y tengo un problema con la aplicación, pagos o configuración.';
+    const message =
+      'Hola, soy proveedor de la app MecaniMóvil y tengo un problema con la aplicación, pagos o configuración.';
     const url = `https://wa.me/${phoneNumber.replace('+', '')}?text=${encodeURIComponent(message)}`;
-    Linking.canOpenURL(url).then((supported) => {
-      if (!supported) Alert.alert('Error', 'No se pudo abrir WhatsApp. Verifica que esté instalado.');
-      else return Linking.openURL(url);
-    }).catch(() => {});
+    Linking.canOpenURL(url)
+      .then((supported) => {
+        if (!supported) {
+          Alert.alert('Error', 'No se pudo abrir WhatsApp. Verificá que esté instalado.');
+        } else return Linking.openURL(url);
+      })
+      .catch(() => {});
   };
 
   const handleCerrarSesion = () => {
-    Alert.alert('Cerrar Sesión', '¿Estás seguro de que deseas cerrar sesión?', [
+    Alert.alert('Cerrar sesión', '¿Seguro que querés salir?', [
       { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Cerrar Sesión', style: 'destructive',
+        text: 'Cerrar sesión',
+        style: 'destructive',
         onPress: async () => {
-          try { setIsLoggingOut(true); await logout(); }
-          catch { Alert.alert('Error', 'Hubo un problema al cerrar sesión.'); }
-          finally { setIsLoggingOut(false); }
+          try {
+            setIsLoggingOut(true);
+            await logout();
+          } catch {
+            Alert.alert('Error', 'No se pudo cerrar la sesión.');
+          } finally {
+            setIsLoggingOut(false);
+          }
         },
       },
     ]);
   };
 
-  const getEstadoColor = () => {
-    if (estadoProveedor?.verificado) return '#10B981';
-    if (estadoProveedor?.estado_verificacion === 'aprobado' && !estadoProveedor?.verificado) return '#3B82F6';
+  const getEstadoInk = () => {
+    if (estadoProveedor?.verificado) return I.semanticUp;
+    if (estadoProveedor?.estado_verificacion === 'aprobado' && !estadoProveedor?.verificado) return I.primary;
     switch (estadoProveedor?.estado_verificacion) {
-      case 'pendiente': return '#F59E0B';
-      case 'en_revision': return '#3B82F6';
-      case 'rechazado': return '#EF4444';
-      default: return '#9CA3AF';
+      case 'pendiente':
+        return I.accentYellow;
+      case 'en_revision':
+        return I.primary;
+      case 'rechazado':
+        return I.semanticDown;
+      default:
+        return I.muted;
     }
   };
 
@@ -80,164 +116,226 @@ export default function PerfilScreen() {
       return 'Validando documentación';
     }
     switch (estadoProveedor?.estado_verificacion) {
-      case 'pendiente': return 'Pendiente de Revisión';
-      case 'en_revision': return 'En Revisión';
-      case 'rechazado': return 'Rechazado';
-      default: return 'Sin Estado';
+      case 'pendiente':
+        return 'Pendiente de revisión';
+      case 'en_revision':
+        return 'En revisión';
+      case 'rechazado':
+        return 'Rechazado';
+      default:
+        return 'Sin estado';
     }
   };
 
-  type SettingItem = {
-    icon: React.ReactNode;
+  type SettingRow = {
+    Icon: LucideIcon;
     title: string;
     subtitle: string;
     onPress: () => void;
-    iconBg: string;
   };
 
-  const settingsItems: SettingItem[] = [
-    { icon: <CreditCard size={20} color="#F59E0B" />, title: 'Suscripción', subtitle: 'Gestionar plan', onPress: () => router.push('/creditos'), iconBg: '#FFF7ED' },
-    { icon: <Clock size={20} color="#3B82F6" />, title: 'Horarios', subtitle: 'Disponibilidad', onPress: () => router.push('/configuracion-horarios'), iconBg: '#EFF6FF' },
-    { icon: <Wrench size={20} color="#8B5CF6" />, title: 'Especialidades', subtitle: 'Configurar marcas', onPress: () => router.push('/especialidades-marcas'), iconBg: '#F5F3FF' },
-    { icon: <Settings size={20} color="#06B6D4" />, title: 'Mis Servicios', subtitle: 'Gestionar ofertas', onPress: () => router.push('/mis-servicios'), iconBg: '#ECFEFF' },
-    { icon: <CreditCard size={20} color="#06B6D4" />, title: 'Mercado Pago', subtitle: 'Recibir pagos', onPress: () => router.push('/configuracion-mercadopago'), iconBg: '#ECFEFF' },
+  const settingsRows: SettingRow[] = [
+    { Icon: CreditCard, title: 'Suscripción', subtitle: 'Plan y créditos', onPress: () => router.push('/creditos') },
+    {
+      Icon: Wallet,
+      title: 'Mercado Pago',
+      subtitle: 'Cobros y cuenta',
+      onPress: () => router.push('/configuracion-mercadopago'),
+    },
+    {
+      Icon: Headphones,
+      title: 'Soporte',
+      subtitle: 'Ayuda por WhatsApp',
+      onPress: handleContactarSoporte,
+    },
   ];
 
-  if (esMecanicoDomicilio) {
-    settingsItems.push({
-      icon: <MapPin size={20} color="#0284C7" />,
-      title: 'Mi ubicación',
-      subtitle: 'Dirección y GPS para clientes cercanos',
-      onPress: () => router.push('/actualizar-ubicacion'),
-      iconBg: '#E0F2FE',
-    });
-    settingsItems.push({ icon: <Map size={20} color="#10B981" />, title: 'Zonas', subtitle: 'Cobertura por comunas', onPress: () => router.push('/zonas-servicio'), iconBg: '#ECFDF5' });
-  } else if (esTaller) {
-    settingsItems.push({ icon: <Building2 size={20} color="#3B82F6" />, title: 'Taller', subtitle: 'Gestionar info', onPress: () => router.push('/gestionar-taller'), iconBg: '#EFF6FF' });
-  }
-
-  settingsItems.push({ icon: <Headphones size={20} color="#F97316" />, title: 'Soporte', subtitle: 'Ayuda WhatsApp', onPress: handleContactarSoporte, iconBg: '#FFF7ED' });
+  const infoRows = useMemo(() => {
+    const rows: { Icon: LucideIcon; label: string; value: string }[] = [
+      { Icon: User, label: 'Usuario', value: usuario?.username ? `@${usuario.username}` : 'Sin usuario' },
+      { Icon: Mail, label: 'Email', value: usuario?.email || 'Sin email' },
+    ];
+    const tel = estadoProveedor?.datos_proveedor?.telefono;
+    if (tel) rows.push({ Icon: Phone, label: 'Teléfono', value: tel });
+    const datos = estadoProveedor?.datos_proveedor as
+      | { direccion_fisica?: { direccion_completa?: string }; direccion?: string }
+      | undefined;
+    const dir = datos?.direccion_fisica?.direccion_completa || datos?.direccion;
+    if (dir) rows.push({ Icon: MapPin, label: 'Dirección', value: dir });
+    return rows;
+  }, [estadoProveedor?.datos_proveedor, usuario?.email, usuario?.username]);
 
   if (isLoading) {
     return (
       <TabScreenWrapper>
-        <LinearGradient colors={['#F3F5F8', '#FAFBFC', '#FFFFFF']} locations={[0, 0.3, 1]} style={styles.gradient}>
+        <LinearGradient
+          style={styles.gradient}
+          colors={BLANK_GLASS.gradient}
+          locations={BLANK_GLASS.gradientLocations}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+        >
           <View style={styles.centeredContainer}>
-            <ActivityIndicator size="large" color="#3B82F6" />
-            <Text style={styles.loadingText}>Cargando configuración...</Text>
+            <ActivityIndicator size="large" color={I.primary} />
+            <Text style={[styles.loadingText, { color: I.body }]}>Cargando configuración…</Text>
           </View>
         </LinearGradient>
       </TabScreenWrapper>
     );
   }
 
-  const infoItems = [
-    { icon: <User size={18} color="#3B82F6" />, label: 'Usuario', value: usuario?.username ? `@${usuario.username}` : 'Sin usuario' },
-    { icon: <Mail size={18} color="#3B82F6" />, label: 'Email', value: usuario?.email || 'Sin email' },
-    ...(estadoProveedor?.datos_proveedor?.telefono ? [{ icon: <Phone size={18} color="#3B82F6" />, label: 'Teléfono', value: estadoProveedor.datos_proveedor.telefono }] : []),
-    ...((estadoProveedor?.datos_proveedor as any)?.direccion_fisica?.direccion_completa || (estadoProveedor?.datos_proveedor as any)?.direccion
-      ? [{ icon: <MapPin size={18} color="#3B82F6" />, label: 'Dirección', value: (estadoProveedor?.datos_proveedor as any)?.direccion_fisica?.direccion_completa || (estadoProveedor?.datos_proveedor as any)?.direccion }]
-      : []),
-  ];
+  const estadoInk = getEstadoInk();
 
   return (
     <TabScreenWrapper>
-      <LinearGradient colors={['#F3F5F8', '#FAFBFC', '#FFFFFF']} locations={[0, 0.3, 1]} style={styles.gradient}>
+      <LinearGradient
+        style={styles.gradient}
+        colors={BLANK_GLASS.gradient}
+        locations={BLANK_GLASS.gradientLocations}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+      >
         <Stack.Screen options={{ headerShown: false }} />
         <Header
           title="Configuración"
           rightComponent={
-            <TouchableOpacity onPress={() => router.push('/configuracion-perfil')} style={styles.editBtn} activeOpacity={0.7}>
-              <Edit3 size={20} color="#3B82F6" />
+            <TouchableOpacity
+              onPress={() => router.push('/configuracion-perfil')}
+              style={styles.buttonTertiaryText}
+              activeOpacity={0.65}
+              accessibilityRole="button"
+              accessibilityLabel="Gestionar perfil"
+            >
+              <Text style={[styles.buttonTertiaryTextLabel, { color: I.primary }]}>Gestionar perfil</Text>
             </TouchableOpacity>
           }
         />
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-          {/* Profile Card */}
-          <View style={styles.profileCardOuter}>
-            <BlurView intensity={50} tint="light" style={styles.profileCardInner}>
-              <View style={styles.avatarWrap}>
-                {fotoProveedor ? (
-                  <Image source={{ uri: fotoProveedor }} style={styles.avatar} />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <User size={36} color="#9CA3AF" />
-                  </View>
-                )}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: SPACING['2xl'] }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View
+            style={[
+              styles.profileCard,
+              { backgroundColor: I.canvas, borderColor: I.hairline },
+              SHADOWS.editorial,
+            ]}
+          >
+            <View style={styles.avatarWrap}>
+              {fotoProveedor ? (
+                <Image source={{ uri: fotoProveedor }} style={[styles.avatar, { borderColor: I.hairline }]} />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
+                  <User size={36} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                </View>
+              )}
+            </View>
+            <Text style={[styles.profileName, { color: I.ink }]}>{obtenerNombreProveedor() || 'Proveedor'}</Text>
+            <View style={[styles.statusPill, { backgroundColor: I.surfaceStrong }]}>
+              <View style={[styles.statusDot, { backgroundColor: estadoInk }]} />
+              <Text style={[styles.statusLabel, { color: estadoInk }]}>{getEstadoTexto()}</Text>
+            </View>
+            {estadoProveedor?.tipo_proveedor ? (
+              <View style={[styles.tipoProveedorPill, { backgroundColor: I.surfaceStrong }]}>
+                <Text style={[styles.tipoProveedorPillText, { color: I.muted }]}>
+                  {estadoProveedor.tipo_proveedor === 'taller'
+                    ? 'TALLER MECÁNICO'
+                    : 'MECÁNICO A DOMICILIO'}
+                </Text>
               </View>
-              <Text style={styles.profileName}>{obtenerNombreProveedor() || 'Proveedor'}</Text>
-              <View style={styles.statusRow}>
-                <View style={[styles.statusDot, { backgroundColor: getEstadoColor() }]} />
-                <Text style={styles.statusLabel}>{getEstadoTexto()}</Text>
-              </View>
-            </BlurView>
+            ) : null}
           </View>
 
-          {/* Información personal — una card glass por dato */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Información Personal</Text>
-            {infoItems.map((item, index) => (
-              <View key={index} style={styles.infoItemCardOuter}>
-                <BlurView intensity={50} tint="light" style={styles.infoItemCardInner}>
-                  <View style={styles.infoItemRow}>
-                    <View style={styles.infoIconWrap}>{item.icon}</View>
-                    <View style={styles.infoTextWrap}>
-                      <Text style={styles.infoLabel}>{item.label}</Text>
-                      <Text style={styles.infoValue} numberOfLines={4}>
-                        {item.value}
-                      </Text>
-                    </View>
+          <View style={{ paddingHorizontal: GLASS_INSET }}>
+            <SectionKicker label="CUENTA" />
+            <View
+              style={[
+                styles.groupCard,
+                { backgroundColor: I.canvas, borderColor: I.hairline },
+                SHADOWS.editorial,
+              ]}
+            >
+              {infoRows.map((item, index) => (
+                <View
+                  key={`${item.label}-${index}`}
+                  style={[
+                    styles.infoRow,
+                    index < infoRows.length - 1 && {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: I.hairline,
+                    },
+                  ]}
+                >
+                  <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceStrong }]}>
+                    <item.Icon size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                   </View>
-                </BlurView>
-              </View>
-            ))}
-          </View>
+                  <View style={styles.rowText}>
+                    <Text style={[styles.infoFieldLabel, { color: I.muted }]}>{item.label}</Text>
+                    <Text style={[styles.infoFieldValue, { color: I.ink }]} numberOfLines={4}>
+                      {item.value}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
 
-          {/* Settings Grid */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Configuración</Text>
-            <View style={styles.settingsGrid}>
-              {settingsItems.map((item, index) => (
-                <TouchableOpacity key={index} style={styles.settingCardOuter} onPress={item.onPress} activeOpacity={0.7}>
-                  <BlurView intensity={40} tint="light" style={styles.settingCardInner}>
-                    <View style={styles.settingCardRow}>
-                      <View style={[styles.settingIconWrap, { backgroundColor: item.iconBg }]}>
-                        {item.icon}
-                      </View>
-                      <View style={styles.settingTextWrap}>
-                        <Text style={styles.settingTitle}>{item.title}</Text>
-                        <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
-                      </View>
-                      <ChevronRight size={18} color="#D1D5DB" />
-                    </View>
-                  </BlurView>
+            <SectionKicker label="GESTIÓN" />
+            <View
+              style={[
+                styles.groupCard,
+                { backgroundColor: I.canvas, borderColor: I.hairline },
+                SHADOWS.editorial,
+              ]}
+            >
+              {settingsRows.map((item, index) => (
+                <TouchableOpacity
+                  key={`${item.title}-${index}`}
+                  style={[
+                    styles.settingRow,
+                    index < settingsRows.length - 1 && {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: I.hairline,
+                    },
+                  ]}
+                  onPress={item.onPress}
+                  activeOpacity={0.88}
+                >
+                  <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceStrong }]}>
+                    <item.Icon size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                  </View>
+                  <View style={styles.rowText}>
+                    <Text style={[styles.settingTitle, { color: I.ink }]}>{item.title}</Text>
+                    <Text style={[styles.settingSubtitle, { color: I.body }]}>{item.subtitle}</Text>
+                  </View>
+                  <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
               ))}
             </View>
+
+            <View style={[styles.footerBlock, { borderTopColor: I.hairline }]}>
+              <TouchableOpacity
+                style={[styles.logoutRow, { opacity: isLoggingOut ? 0.55 : 1 }]}
+                onPress={handleCerrarSesion}
+                disabled={isLoggingOut}
+                activeOpacity={0.88}
+              >
+                <LogOut size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={[styles.logoutText, { color: I.semanticDown }]}>
+                  {isLoggingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
+                </Text>
+                {isLoggingOut ? (
+                  <ActivityIndicator size="small" color={I.semanticDown} style={{ marginLeft: SPACING.sm }} />
+                ) : null}
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.privacyRow} onPress={handleContactarSoporte} activeOpacity={0.88}>
+                <FileText size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={[styles.privacyText, { color: I.muted }]}>Privacidad y política · contacto</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-
-          {/* Bottom Actions */}
-          <View style={styles.bottomActions}>
-            <TouchableOpacity
-              style={[styles.logoutBtn, isLoggingOut && { opacity: 0.5 }]}
-              onPress={handleCerrarSesion}
-              disabled={isLoggingOut}
-              activeOpacity={0.7}
-            >
-              <LogOut size={18} color="#EF4444" />
-              <Text style={styles.logoutText}>{isLoggingOut ? 'Cerrando...' : 'Cerrar Sesión'}</Text>
-              {isLoggingOut && <ActivityIndicator size="small" color="#EF4444" style={{ marginLeft: 8 }} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.privacyBtn} onPress={handleContactarSoporte}>
-              <FileText size={14} color="#9CA3AF" />
-              <Text style={styles.privacyText}>Privacidad y Política</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ height: 32 }} />
         </ScrollView>
       </LinearGradient>
     </TabScreenWrapper>
@@ -247,103 +345,181 @@ export default function PerfilScreen() {
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
   scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 20 },
-  centeredContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  loadingText: { marginTop: 12, fontSize: 14, color: '#6B7280' },
-  editBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(59,130,246,0.08)',
-    alignItems: 'center', justifyContent: 'center',
+  scrollContent: { paddingTop: SPACING.xs },
+  centeredContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl },
+  loadingText: {
+    marginTop: SPACING.sm,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
   },
-
-  // Profile Card
-  profileCardOuter: {
-    marginHorizontal: 18, marginTop: 8, marginBottom: 20,
-    borderRadius: 20, overflow: 'hidden',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
+  /**
+   * Coinbase-style `button-tertiary-text`: sin fill ni borde; copy en `primary`;
+   * tipografía CTA (`TYPOGRAPHY.styles.button`); área mínima 44pt (DESIGN_PROVEEDORES_INSTITUCIONAL).
+   */
+  buttonTertiaryText: {
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    minHeight: 44,
+    minWidth: 44,
+    paddingVertical: 10,
+    paddingHorizontal: SPACING.xs,
   },
-  profileCardInner: {
-    alignItems: 'center', paddingVertical: 28, paddingHorizontal: 20,
-    backgroundColor: 'rgba(255,255,255,0.55)',
+  buttonTertiaryTextLabel: {
+    fontSize: TYPOGRAPHY.styles.button.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.styles.button.fontWeight as '600',
+    lineHeight: Math.round(
+      TYPOGRAPHY.styles.button.fontSize * TYPOGRAPHY.styles.button.lineHeight
+    ),
   },
-  avatarWrap: { marginBottom: 14 },
+  sectionKickerWrap: {
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  sectionPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+  },
+  sectionPillText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+  },
+  profileCard: {
+    marginHorizontal: GLASS_INSET,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.md,
+    borderRadius: BORDERS.radius.xl,
+    borderWidth: BORDERS.width.thin,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.md,
+    alignItems: 'center',
+  },
+  avatarWrap: { marginBottom: SPACING.sm },
   avatar: {
-    width: 88, height: 88, borderRadius: 44,
-    borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: BORDERS.width.thin,
   },
   avatarPlaceholder: {
-    width: 88, height: 88, borderRadius: 44,
-    backgroundColor: '#F3F4F6', borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  profileName: { fontSize: 22, fontWeight: '700', color: '#1F2937', marginBottom: 6 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusLabel: { fontSize: 14, fontWeight: '500', color: '#6B7280' },
-
-  // Section
-  section: { marginBottom: 20, paddingHorizontal: 18 },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: '#1F2937', marginBottom: 12 },
-
-  infoItemCardOuter: {
-    marginBottom: 10,
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  infoItemCardInner: {
-    backgroundColor: 'rgba(255,255,255,0.55)',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  infoItemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
-  infoIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: 'rgba(59,130,246,0.1)',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: BORDERS.width.thin,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  infoTextWrap: { flex: 1, minWidth: 0 },
-  infoLabel: { fontSize: 11, fontWeight: '600', color: '#9CA3AF', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.4 },
-  infoValue: { fontSize: 15, fontWeight: '600', color: '#1F2937', lineHeight: 21 },
-
-  // Settings Grid
-  settingsGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 10,
+  profileName: {
+    fontSize: TYPOGRAPHY.fontSize['2xl'],
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    textAlign: 'center',
+    marginBottom: SPACING.sm,
   },
-  settingCardOuter: {
-    width: '48.5%', borderRadius: 14, overflow: 'hidden',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+    borderRadius: BORDERS.radius.pill,
   },
-  settingCardInner: {
-    paddingVertical: 14, paddingHorizontal: 12,
-    backgroundColor: 'rgba(255,255,255,0.55)',
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  statusLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
-  settingCardRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  settingIconWrap: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  settingTextWrap: { flex: 1 },
-  settingTitle: { fontSize: 13, fontWeight: '600', color: '#1F2937' },
-  settingSubtitle: { fontSize: 11, color: '#9CA3AF', marginTop: 1 },
-
-  // Bottom
-  bottomActions: {
-    paddingHorizontal: 18, paddingTop: 16,
-    borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)',
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+  /** Misma semántica que `sectionPill` / kicker: etiqueta pequeña mayúsculas */
+  tipoProveedorPill: {
+    marginTop: SPACING.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
   },
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  logoutText: { fontSize: 14, fontWeight: '500', color: '#EF4444' },
-  privacyBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  privacyText: { fontSize: 12, fontWeight: '500', color: '#9CA3AF' },
+  tipoProveedorPillText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
+  },
+  groupCard: {
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    overflow: 'hidden',
+    marginBottom: SPACING.xs,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+  },
+  rowIconPlate: {
+    width: 40,
+    height: 40,
+    borderRadius: BORDERS.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowText: { flex: 1, minWidth: 0 },
+  infoFieldLabel: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  infoFieldValue: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    lineHeight: 22,
+  },
+  settingTitle: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+  },
+  settingSubtitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  footerBlock: {
+    marginTop: SPACING.lg,
+    paddingTop: SPACING.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  logoutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  logoutText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+  },
+  privacyRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  privacyText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    flex: 1,
+  },
 });

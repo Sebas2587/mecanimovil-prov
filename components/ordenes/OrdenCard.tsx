@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
@@ -22,6 +21,8 @@ import {
 import { checklistService, type ChecklistInstance } from '@/services/checklistService';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface OrdenConChecklist extends Orden {
   checklist_instance?: ChecklistInstance;
@@ -351,7 +352,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
           </Text>
           {!clienteEsCompleto && (
             <View style={styles.protectedBadge}>
-              <MaterialIcons name="security" size={12} color="#ffc107" />
+              <InstitutionalIcon name="security" size={12} color="#ffc107" strokeWidth={ICON_STROKE_WIDTH} />
             </View>
           )}
           <IconSymbol name="phone.fill" size={14} color="#6c757d" />
@@ -366,7 +367,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
         {/* Mensaje de restricción de información */}
         {mensajeRestriccion && (
           <View style={styles.restriccionInfo}>
-            <MaterialIcons name="info" size={16} color="#17a2b8" />
+            <InstitutionalIcon name="info" size={16} color="#17a2b8" strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.restriccionTexto}>{mensajeRestriccion}</Text>
           </View>
         )}
@@ -397,7 +398,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
             </Text>
             {!clienteEsCompleto && orden.tipo_servicio === 'domicilio' && (
               <View style={styles.locationProtectedBadge}>
-                <MaterialIcons name="location-off" size={12} color="#dc3545" />
+                <InstitutionalIcon name="location-off" size={12} color="#dc3545" strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.protectedLocationText}>Dirección completa al aceptar</Text>
               </View>
             )}
@@ -413,10 +414,11 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
           ]}>
             <View style={styles.checklistHeader}>
               <View style={styles.checklistInfo}>
-                <MaterialIcons 
-                  name={estadoChecklist?.icon as any || 'assignment'} 
-                  size={18} 
-                  color={estadoChecklist?.color || '#6c757d'} 
+                <InstitutionalIcon
+                  name={(estadoChecklist?.icon as string) || 'assignment'}
+                  size={18}
+                  color={estadoChecklist?.color || '#6c757d'}
+                  strokeWidth={ICON_STROKE_WIDTH}
                 />
                 <Text style={[styles.checklistEstadoTexto, { color: estadoChecklist?.color || '#6c757d' }]}>
                   Checklist: {estadoChecklist?.texto || 'Requerido'}
@@ -425,7 +427,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
               
               {ordenConChecklist.checklist_instance?.estado === 'COMPLETADO' && (
                 <View style={styles.checklistCompletedBadge}>
-                  <MaterialIcons name="check-circle" size={12} color="#28a745" />
+                  <InstitutionalIcon name="check-circle" size={12} color="#28a745" strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.checklistCompletedText}>✓</Text>
                 </View>
               )}
@@ -434,7 +436,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
             {/* Alerta urgente si necesita checklist */}
             {necesitaChecklistUrgente && (
               <View style={styles.alertaUrgente}>
-                <MaterialIcons name="warning" size={14} color="#dc3545" />
+                <InstitutionalIcon name="warning" size={14} color="#dc3545" strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.alertaUrgenteTexto}>
                   Completar checklist para iniciar servicio
                 </Text>
@@ -523,7 +525,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
               ]}
               onPress={botonChecklist.onPress}
             >
-              <MaterialIcons name={botonChecklist.icon as any} size={16} color="#fff" />
+              <InstitutionalIcon name={botonChecklist.icon as string} size={16} color="#fff" strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.checklistButtonText}>{botonChecklist.texto}</Text>
             </TouchableOpacity>
           )}

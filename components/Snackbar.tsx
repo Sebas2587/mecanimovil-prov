@@ -7,10 +7,11 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -174,12 +175,12 @@ export default function Snackbar({
           },
         ]}
       >
-        <Ionicons
+        <InstitutionalIcon
           name={variantColors.icon}
           size={20}
           color={variantColors.textColor}
           style={styles.icon}
-        />
+         strokeWidth={ICON_STROKE_WIDTH} />
         <Text
           style={[
             styles.message,
@@ -221,7 +222,7 @@ export default function Snackbar({
           style={styles.closeButton}
           activeOpacity={0.7}
         >
-          <Ionicons name="close" size={18} color={variantColors.textColor} />
+          <InstitutionalIcon name="close" size={18} color={variantColors.textColor}  strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
       </View>
     </Animated.View>

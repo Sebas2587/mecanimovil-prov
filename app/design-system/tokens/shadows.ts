@@ -1,6 +1,5 @@
 /**
- * Sistema de Sombras y Elevaciones MecaniMóvil - App Proveedores
- * Sombras consistentes basadas en Ink Black
+ * Sombras — App Proveedores (elevación mínima; tier editorial suave)
  */
 
 export const SHADOWS = {
@@ -18,8 +17,17 @@ export const SHADOWS = {
   // ============================================
   // SOMBRA PEQUEÑA
   // ============================================
+  /** Preferencia institucional: una sombra suave tipo marketing */
+  editorial: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+
   sm: {
-    shadowColor: '#00171F',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -30,11 +38,11 @@ export const SHADOWS = {
   // SOMBRA MEDIANA
   // ============================================
   md: {
-    shadowColor: '#00171F',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
   },
 
   // ============================================
@@ -63,7 +71,7 @@ export const SHADOWS = {
   // SOMBRAS ESPECIALES
   // ============================================
   inputFocus: {
-    shadowColor: '#00A8E8',
+    shadowColor: '#0052ff',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 4,

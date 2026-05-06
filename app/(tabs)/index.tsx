@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   ActivityIndicator,
   RefreshControl,
@@ -12,8 +11,6 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Bell, Wallet, DollarSign, Radar, Calendar,
@@ -34,16 +31,15 @@ import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import creditosService, { type CreditoProveedor } from '@/services/creditosService';
 import mercadoPagoProveedorService, { type EstadisticasPagosMP } from '@/services/mercadoPagoProveedorService';
-import { SaldoCreditos } from '@/components/creditos';
 import { HomeRadarSolicitudItem } from '@/components/solicitudes/HomeRadarSolicitudItem';
 import AlertaPagoExpirado from '@/components/alerts/AlertaPagoExpirado';
 import { useAlerts } from '@/context/AlertsContext';
 import suscripcionesService, { type SuscripcionProveedor, type SaludSuscripcion } from '@/services/suscripcionesService';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { PerformanceWidget } from '@/components/dashboard/PerformanceWidget';
 import { useProveedorKpisResumen } from '@/hooks/useProveedorKpisResumen';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { devLog, devWarn } from '@/utils/devLog';
+import { createHomeScreenStyles, type HomeScreenFonts } from './homeScreenStyles';
 
 export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens
@@ -601,28 +597,53 @@ export default function HomeScreen() {
     return { texto: `${cambio >= 0 ? '+' : ''}${cambio.toFixed(1)}%`, positivo: cambio >= 0 };
   };
 
-  // Colores seguros para componentes - usando acceso seguro con type assertion
   const primaryObj = safeColors?.primary as any;
   const accentObj = safeColors?.accent as any;
-  const warningObj = safeColors?.warning as any;
-  const infoObj = safeColors?.info as any;
-  const successObj = safeColors?.success as any;
-  const errorObj = safeColors?.error as any;
-  const neutralGrayObj = safeColors?.neutral?.gray as any;
 
-  const primaryColor = primaryObj?.['500'] || accentObj?.['500'] || '#4E4FEB';
-  const loadingColor = primaryObj?.['500'] || accentObj?.['500'] || '#068FFF';
-  const warningColor = warningObj?.main || warningObj?.['500'] || '#FFB84D';
-  const infoColor = infoObj?.main || infoObj?.['500'] || accentObj?.['500'] || '#068FFF';
-  const successColor = successObj?.main || successObj?.['500'] || '#3DB6B1';
-  const errorColor = errorObj?.main || errorObj?.['500'] || '#FF5555';
+  const primaryColor = primaryObj?.['500'] || accentObj?.['500'] || COLORS.institutional.primary;
+  const loadingColor = primaryColor;
+
+  const palette = useMemo(() => {
+    const inst = (safeColors as any)?.institutional ?? COLORS.institutional;
+    const warn = (safeColors as any)?.warning ?? COLORS.warning;
+    return {
+      ...inst,
+      primary: primaryColor,
+      warningEmphasis: typeof warn?.text === 'string' ? warn.text : COLORS.warning.text,
+    };
+  }, [safeColors, primaryColor]);
+
+  const themedStyles = useMemo(() => {
+    const typo = safeTypography as any;
+    const ff = typo?.fontFamily ?? TYPOGRAPHY.fontFamily;
+    const fonts: HomeScreenFonts = {
+      sansRegular: ff.sansRegular ?? 'System',
+      sansMedium: ff.sansMedium ?? ff.sansRegular ?? 'System',
+      sansSemiBold: ff.sansSemiBold ?? 'System',
+      mono: ff.monoMedium ?? 'System',
+    };
+    const br = safeBorders?.radius ?? BORDERS.radius;
+    const hPad =
+      typeof safeSpacing?.container?.horizontal === 'number'
+        ? safeSpacing.container.horizontal
+        : 20;
+    const spFixed = safeSpacing?.fixed ?? SPACING.fixed;
+    return createHomeScreenStyles(palette, fonts, {
+      horizontalPadding: hPad,
+      sectionMarginBottom: typeof spFixed?.lg === 'number' ? spFixed.lg : SPACING.fixed.lg,
+      radiusCard: typeof br?.xl === 'number' ? br.xl : 24,
+      radiusMd: typeof br?.md === 'number' ? br.md : 12,
+      radiusSm: typeof br?.sm === 'number' ? br.sm : 8,
+      avatarSize: 48,
+    });
+  }, [palette, safeTypography, safeBorders, safeSpacing]);
 
   // Mostrar loading si aún se está cargando el estado
   if (isLoading || !estadoProveedor) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaView style={themedStyles.loadingContainer}>
         <ActivityIndicator size="large" color={loadingColor} />
-        <Text style={styles.loadingText}>Cargando...</Text>
+        <Text style={themedStyles.loadingText}>Cargando...</Text>
       </SafeAreaView>
     );
   }
@@ -630,9 +651,9 @@ export default function HomeScreen() {
   // Si no tiene perfil, no mostrar nada (se está redirigiendo)
   if (!estadoProveedor.tiene_perfil || estadoProveedor.necesita_onboarding) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaView style={themedStyles.loadingContainer}>
         <ActivityIndicator size="large" color={loadingColor} />
-        <Text style={styles.loadingText}>Redirigiendo al onboarding...</Text>
+        <Text style={themedStyles.loadingText}>Redirigiendo al onboarding...</Text>
       </SafeAreaView>
     );
   }
@@ -646,40 +667,40 @@ export default function HomeScreen() {
   return (
     <TabScreenWrapper>
       <LinearGradient
-        style={styles.screen}
-        colors={['#F3F5F8', '#FAFBFC', '#FFFFFF']}
-        locations={[0, 0.35, 1]}
+        style={themedStyles.screen}
+        colors={[palette.surfaceSoft, palette.canvas] as const}
+        locations={[0, 1] as const}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
       >
         {/* 1. HEADER */}
-        <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
+        <SafeAreaView edges={['top']} style={{ backgroundColor: palette.canvas }}>
+          <View style={themedStyles.header}>
+            <View style={themedStyles.headerLeft}>
               {(usuario as any)?.foto_perfil ? (
-                <Image source={{ uri: (usuario as any).foto_perfil }} style={styles.avatar} />
+                <Image source={{ uri: (usuario as any).foto_perfil }} style={themedStyles.avatar} />
               ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarInitial}>
+                <View style={themedStyles.avatarPlaceholder}>
+                  <Text style={themedStyles.avatarInitial}>
                     {(obtenerNombreProveedor() || 'T').charAt(0).toUpperCase()}
                   </Text>
                 </View>
               )}
               <View style={{ flex: 1 }}>
-                <Text style={styles.welcomeLabel}>Bienvenido</Text>
-                <Text style={styles.providerName} numberOfLines={1}>{obtenerNombreProveedor()}</Text>
+                <Text style={themedStyles.welcomeLabel}>Bienvenido</Text>
+                <Text style={themedStyles.providerName} numberOfLines={1}>{obtenerNombreProveedor()}</Text>
               </View>
             </View>
             <TouchableOpacity
-              style={styles.bellOuter}
+              style={themedStyles.bellOuter}
               activeOpacity={0.7}
               onPress={() => router.push('/notificaciones')}
             >
-              <BlurView intensity={60} tint="light" style={styles.bellBlur}>
-                <Bell size={20} color="#374151" />
-              </BlurView>
+              <View style={themedStyles.bellButton}>
+                <Bell size={20} color={palette.ink} />
+              </View>
               {(nuevasSolicitudesIds.size > 0 || alertasNoLeidas > 0) && (
-                <Animated.View style={[styles.bellDot, { transform: [{ scale: pulseAnim }] }]} />
+                <Animated.View style={[themedStyles.bellDot, { transform: [{ scale: pulseAnim }] }]} />
               )}
             </TouchableOpacity>
           </View>
@@ -689,10 +710,12 @@ export default function HomeScreen() {
           style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+          contentContainerStyle={{
+            paddingBottom: insets.bottom + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl),
+          }}
         >
           {/* Rendimiento / progreso */}
-          <View style={styles.sectionWrap}>
+          <View style={themedStyles.sectionWrap}>
             <PerformanceWidget
               progress={kpisResumen.progress}
               targetTierName={kpisResumen.targetTierName}
@@ -704,28 +727,30 @@ export default function HomeScreen() {
 
           {/* 2. RESUMEN FINANCIERO */}
           {saldoCreditos && (
-            <View style={styles.sectionWrap}>
-              <View style={styles.glassOuter}>
-                <BlurView intensity={60} tint="light" style={styles.glassInner}>
-                  <View style={styles.finHeader}>
-                    <Text style={styles.finHeaderTitle}>FINANZAS DEL TALLER</Text>
+            <View style={themedStyles.sectionWrap}>
+              <View style={themedStyles.cardOuter}>
+                <View style={themedStyles.cardInner}>
+                  <View style={themedStyles.finHeader}>
+                    <Text style={themedStyles.finHeaderTitle}>FINANZAS DEL TALLER</Text>
                     {suscripcion?.esta_activa ? (
                       <TouchableOpacity
                         style={[
-                          styles.planBadge,
-                          suscripcion.plan?.destacado && styles.planBadgeDestacado,
+                          themedStyles.planBadge,
+                          suscripcion.plan?.destacado && themedStyles.planBadgeDestacado,
                         ]}
                         onPress={() => router.push('/creditos?tab=suscripcion')}
                         activeOpacity={0.7}
                       >
                         <ShieldCheck
                           size={14}
-                          color={suscripcion.plan?.destacado ? '#B45309' : '#2563EB'}
+                          color={
+                            suscripcion.plan?.destacado ? palette.warningEmphasis : palette.primary
+                          }
                         />
                         <Text
                           style={[
-                            styles.planBadgeText,
-                            suscripcion.plan?.destacado && styles.planBadgeTextDestacado,
+                            themedStyles.planBadgeText,
+                            suscripcion.plan?.destacado && themedStyles.planBadgeTextDestacado,
                           ]}
                         >
                           {suscripcion.plan?.nombre?.trim() || 'Plan activo'}
@@ -734,40 +759,45 @@ export default function HomeScreen() {
                     ) : null}
                   </View>
 
-                  <View style={styles.finBody}>
+                  <View style={themedStyles.finBody}>
                     <TouchableOpacity
-                      style={styles.finCol}
+                      style={themedStyles.finCol}
                       onPress={() => router.push('/creditos')}
                       activeOpacity={0.7}
                     >
-                      <View style={styles.finIconAmber}>
-                        <Wallet size={20} color="#D97706" />
+                      <View style={themedStyles.finIconAmber}>
+                        <Wallet size={20} color={palette.accentYellow} />
                       </View>
-                      <Text style={styles.finLabel}>Créditos</Text>
-                      <Text style={styles.finCreditsVal}>{saldoCreditos.saldo_creditos}</Text>
-                      <Text style={styles.finBuyMore}>Comprar más +</Text>
+                      <Text style={themedStyles.finLabel}>Créditos</Text>
+                      <Text style={themedStyles.finCreditsVal}>{saldoCreditos.saldo_creditos}</Text>
+                      <Text style={themedStyles.finBuyMore}>Comprar más +</Text>
                     </TouchableOpacity>
 
-                    <View style={styles.finDivider} />
+                    <View style={themedStyles.finDivider} />
 
-                    <View style={styles.finCol}>
-                      <View style={styles.finIconGreen}>
-                        <DollarSign size={20} color="#059669" />
+                    <View style={themedStyles.finCol}>
+                      <View style={themedStyles.finIconGreen}>
+                        <DollarSign size={20} color={palette.semanticUp} />
                       </View>
-                      <Text style={styles.finLabel}>Ganancias</Text>
-                      <Text style={styles.finEarningsVal}>
+                      <Text style={themedStyles.finLabel}>Ganancias</Text>
+                      <Text style={themedStyles.finEarningsVal}>
                         ${(estadisticasMP?.total_recibido_mes || estadisticasSemanales.dinero || 0).toLocaleString('es-CL')}
                       </Text>
                       {(() => {
                         const cambio = calcularPorcentajeCambio();
                         return (
-                          <View style={styles.finGrowth}>
+                          <View style={themedStyles.finGrowth}>
                             {cambio.positivo ? (
-                              <TrendingUp size={12} color="#059669" />
+                              <TrendingUp size={12} color={palette.semanticUp} />
                             ) : (
-                              <TrendingDown size={12} color="#DC2626" />
+                              <TrendingDown size={12} color={palette.semanticDown} />
                             )}
-                            <Text style={[styles.finGrowthText, !cambio.positivo && { color: '#DC2626' }]}>
+                            <Text
+                              style={[
+                                themedStyles.finGrowthText,
+                                !cambio.positivo && { color: palette.semanticDown },
+                              ]}
+                            >
                               {cambio.texto} este mes
                             </Text>
                           </View>
@@ -775,21 +805,21 @@ export default function HomeScreen() {
                       })()}
                     </View>
                   </View>
-                </BlurView>
+                </View>
               </View>
             </View>
           )}
 
           {/* BANNER ESTADO SUSCRIPCIÓN */}
           {saludSuscripcion && saludSuscripcion.estado_salud !== 'ok' && (
-            <View style={styles.sectionWrap}>
+            <View style={themedStyles.sectionWrap}>
               <TouchableOpacity
                 style={[
-                  styles.suscBanner,
-                  saludSuscripcion.estado_salud === 'pago_fallido' && styles.suscBannerDanger,
-                  saludSuscripcion.estado_salud === 'vencida' && styles.suscBannerDanger,
-                  saludSuscripcion.estado_salud === 'sin_suscripcion' && styles.suscBannerDanger,
-                  saludSuscripcion.estado_salud === 'por_vencer' && styles.suscBannerWarning,
+                  themedStyles.suscBanner,
+                  saludSuscripcion.estado_salud === 'pago_fallido' && themedStyles.suscBannerDanger,
+                  saludSuscripcion.estado_salud === 'vencida' && themedStyles.suscBannerDanger,
+                  saludSuscripcion.estado_salud === 'sin_suscripcion' && themedStyles.suscBannerDanger,
+                  saludSuscripcion.estado_salud === 'por_vencer' && themedStyles.suscBannerWarning,
                 ]}
                 activeOpacity={0.7}
                 onPress={() => {
@@ -799,23 +829,23 @@ export default function HomeScreen() {
                 }}
               >
                 <View style={[
-                  styles.suscBannerIcon,
+                  themedStyles.suscBannerIcon,
                   saludSuscripcion.estado_salud === 'por_vencer'
-                    ? { backgroundColor: '#FEF3C7' }
-                    : { backgroundColor: '#FEE2E2' },
+                    ? { backgroundColor: `${palette.accentYellow}22` }
+                    : { backgroundColor: `${palette.semanticDown}18` },
                 ]}>
                   {saludSuscripcion.estado_salud === 'por_vencer' ? (
-                    <Clock size={18} color="#D97706" />
+                    <Clock size={18} color={palette.warningEmphasis} />
                   ) : saludSuscripcion.estado_salud === 'pago_fallido' ? (
-                    <CreditCard size={18} color="#DC2626" />
+                    <CreditCard size={18} color={palette.semanticDown} />
                   ) : (
-                    <AlertTriangle size={18} color="#DC2626" />
+                    <AlertTriangle size={18} color={palette.semanticDown} />
                   )}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[
-                    styles.suscBannerTitle,
-                    saludSuscripcion.estado_salud !== 'por_vencer' && { color: '#991B1B' },
+                    themedStyles.suscBannerTitle,
+                    saludSuscripcion.estado_salud !== 'por_vencer' && { color: palette.semanticDown },
                   ]}>
                     {saludSuscripcion.estado_salud === 'por_vencer'
                       ? 'Renovación próxima'
@@ -825,69 +855,72 @@ export default function HomeScreen() {
                           ? 'Sin suscripción'
                           : 'Suscripción vencida'}
                   </Text>
-                  <Text style={styles.suscBannerMsg} numberOfLines={2}>
+                  <Text style={themedStyles.suscBannerMsg} numberOfLines={2}>
                     {saludSuscripcion.mensaje}
                   </Text>
                 </View>
                 {saludSuscripcion.accion && (
-                  <ChevronRight size={18} color="#6B7280" />
+                  <ChevronRight size={18} color={palette.muted} />
                 )}
               </TouchableOpacity>
             </View>
           )}
 
           {/* 3a. Disponibilidad en la plataforma (conexión / visibilidad para clientes) */}
-          <View style={styles.sectionWrap}>
-            <View style={styles.radarAvailabilityCard}>
-              <View style={styles.radarAvailabilityIcon}>
-                <Wifi size={22} color="#2563EB" />
+          <View style={themedStyles.sectionWrap}>
+            <View style={themedStyles.radarAvailabilityCard}>
+              <View style={themedStyles.radarAvailabilityIcon}>
+                <Wifi size={22} color={palette.primary} />
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.radarAvailabilityTitle}>Disponible para solicitudes</Text>
-                <Text style={styles.radarAvailabilitySub}>
-                  Activa esta opción para conectarte al sistema.
+                <Text style={themedStyles.radarAvailabilityTitle}>Disponible para solicitudes</Text>
+                <Text style={themedStyles.radarAvailabilitySub}>
+                  Activa esta opción para conectarte.
                 </Text>
               </View>
               {radarSwitchLoading ? (
-                <ActivityIndicator size="small" color="#2563EB" />
+                <ActivityIndicator size="small" color={palette.primary} />
               ) : (
                 <Switch
                   value={radarOportunidadesActivo}
                   onValueChange={handleRadarOportunidadesToggle}
                   disabled={!radarPreferenciaCargada}
-                  trackColor={{ false: '#D1D5DB', true: '#93C5FD' }}
-                  thumbColor={radarOportunidadesActivo ? '#2563EB' : '#9CA3AF'}
+                  trackColor={{
+                    false: palette.hairlineSoft,
+                    true: COLORS.primary[100],
+                  }}
+                  thumbColor={radarOportunidadesActivo ? palette.primary : palette.mutedSoft}
                 />
               )}
             </View>
           </View>
 
           {/* 3b. RADAR DE OPORTUNIDADES (listado) */}
-          <View style={styles.sectionWrap}>
-            <View style={styles.sectionTitleRow}>
+          <View style={themedStyles.sectionWrap}>
+            <View style={themedStyles.sectionTitleRow}>
               
-              <Text style={styles.sectionTitleText}>Solicitudes disponibles</Text>
+              <Text style={themedStyles.sectionTitleText}>Solicitudes disponibles</Text>
             </View>
 
             {!radarPreferenciaCargada ? (
-              <View style={styles.radarSearching}>
-                <ActivityIndicator size="small" color="#2563EB" />
+              <View style={themedStyles.radarSearching}>
+                <ActivityIndicator size="small" color={palette.primary} />
               </View>
             ) : !radarOportunidadesActivo ? (
-              <View style={styles.radarInactiveBox}>
-                <Radar size={36} color="#D1D5DB" />
-                <Text style={styles.radarInactiveTitle}>Radar apagado</Text>
-                <Text style={styles.radarInactiveSub}>
-                  Activa «Disponible para oportunidades» arriba para ver solicitudes aquí y en la lista completa.
+              <View style={themedStyles.radarInactiveBox}>
+                <Radar size={36} color={palette.hairline} />
+                <Text style={themedStyles.radarInactiveTitle}>Radar apagado</Text>
+                <Text style={themedStyles.radarInactiveSub}>
+                  Activa «Disponible para oportunidades» arriba para ver solicitudes aquí.
                 </Text>
               </View>
             ) : (
-            <View style={styles.glassOuter}>
-              <BlurView intensity={60} tint="light" style={styles.glassInner}>
-                <View style={styles.radarBody}>
+            <View style={themedStyles.cardOuter}>
+                <View style={themedStyles.cardInner}>
+                <View style={themedStyles.radarBody}>
                   {loadingSolicitudes ? (
-                      <View style={styles.radarSearching}>
-                        <ActivityIndicator size="small" color="#2563EB" />
+                      <View style={themedStyles.radarSearching}>
+                        <ActivityIndicator size="small" color={palette.primary} />
                       </View>
                     ) : solicitudesDisponibles.length > 0 ? (
                       <>
@@ -900,121 +933,121 @@ export default function HomeScreen() {
                         ))}
                         {solicitudesDisponibles.length > 3 && (
                           <TouchableOpacity
-                            style={styles.seeAllBtn}
+                            style={themedStyles.seeAllBtn}
                             onPress={handleVerSolicitudesDisponibles}
                           >
-                            <Text style={styles.seeAllBtnText}>
+                            <Text style={themedStyles.seeAllBtnText}>
                               Ver todas ({solicitudesDisponibles.length})
                             </Text>
-                            <ChevronRight size={14} color="#2563EB" />
+                            <ChevronRight size={14} color={palette.primary} />
                           </TouchableOpacity>
                         )}
                       </>
                     ) : (
-                      <View style={styles.radarEmpty}>
-                        <Search size={36} color="#D1D5DB" />
-                        <Text style={styles.radarEmptyTitle}>No hay oportunidades</Text>
-                        <Text style={styles.radarEmptySub}>
+                      <View style={themedStyles.radarEmpty}>
+                        <Search size={36} color={palette.hairline} />
+                        <Text style={themedStyles.radarEmptyTitle}>No hay oportunidades</Text>
+                        <Text style={themedStyles.radarEmptySub}>
                           Revisa más tarde para encontrar nuevas oportunidades
                         </Text>
                       </View>
                     )}
                   </View>
-              </BlurView>
+                </View>
             </View>
             )}
           </View>
 
-          {/* 4. CATEGORÍAS DE GESTIÓN - Grid glass */}
-          <View style={styles.sectionWrap}>
-            <Text style={styles.mgmtTitle}>Gestión del Taller</Text>
-            <View style={styles.mgmtGrid}>
-              <View style={styles.mgmtRow}>
+          {/* 4. CATEGORÍAS DE GESTIÓN */}
+          <View style={themedStyles.sectionWrap}>
+            <Text style={themedStyles.mgmtTitle}>Gestión del Taller</Text>
+            <View style={themedStyles.mgmtGrid}>
+              <View style={themedStyles.mgmtRow}>
                 <TouchableOpacity
-                  style={styles.mgmtCard}
+                  style={themedStyles.mgmtCard}
                   onPress={() => router.push('/(tabs)/calendario')}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.mgmtIconBox, { backgroundColor: '#DBEAFE' }]}>
-                    <Calendar size={22} color="#2563EB" />
+                  <View style={themedStyles.mgmtIconBox}>
+                    <Calendar size={22} color={palette.primary} />
                   </View>
-                  <View style={styles.mgmtCardTextCol}>
-                    <Text style={styles.mgmtCardTitle}>Calendario</Text>
-                    <Text style={styles.mgmtCardSub}>Disponibilidad</Text>
+                  <View style={themedStyles.mgmtCardTextCol}>
+                    <Text style={themedStyles.mgmtCardTitle}>Calendario</Text>
+                    
                   </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.mgmtCard}
+                  style={themedStyles.mgmtCard}
                   onPress={() => router.push('/especialidades-marcas')}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.mgmtIconBox, { backgroundColor: '#F5F3FF' }]}>
-                    <Wrench size={22} color="#7C3AED" />
+                  <View style={themedStyles.mgmtIconBox}>
+                    <Wrench size={22} color={palette.ink} />
                   </View>
-                  <View style={styles.mgmtCardTextCol}>
-                    <Text style={styles.mgmtCardTitle}>Especialidades</Text>
-                    <Text style={styles.mgmtCardSub}>Marcas y rubros</Text>
+                  <View style={themedStyles.mgmtCardTextCol}>
+                    <Text style={themedStyles.mgmtCardTitle}>Especialidad</Text>
+                    
                   </View>
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.mgmtRow}>
+              <View style={themedStyles.mgmtRow}>
                 <TouchableOpacity
-                  style={styles.mgmtCard}
+                  style={themedStyles.mgmtCard}
                   onPress={() => router.push('/mis-servicios')}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.mgmtIconBox, { backgroundColor: '#ECFEFF' }]}>
-                    <Settings size={22} color="#0891B2" />
+                  <View style={themedStyles.mgmtIconBox}>
+                    <Settings size={22} color={palette.ink} />
                   </View>
-                  <View style={styles.mgmtCardTextCol}>
-                    <Text style={styles.mgmtCardTitle}>Mis servicios</Text>
-                    <Text style={styles.mgmtCardSub}>Gestionar ofertas</Text>
+                  <View style={themedStyles.mgmtCardTextCol}>
+                    <Text style={themedStyles.mgmtCardTitle}>Servicios</Text>
+                    
                   </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.mgmtCard}
+                  style={themedStyles.mgmtCard}
                   onPress={() => router.push('/configuracion-horarios')}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.mgmtIconBox, { backgroundColor: '#EFF6FF' }]}>
-                    <Clock size={22} color="#2563EB" />
+                  <View style={themedStyles.mgmtIconBox}>
+                    <Clock size={22} color={palette.ink} />
                   </View>
-                  <View style={styles.mgmtCardTextCol}>
-                    <Text style={styles.mgmtCardTitle}>Horarios</Text>
-                    <Text style={styles.mgmtCardSub}>Franjas de atención</Text>
+                  <View style={themedStyles.mgmtCardTextCol}>
+                    <Text style={themedStyles.mgmtCardTitle}>Horarios</Text>
+                    
                   </View>
                 </TouchableOpacity>
               </View>
 
               {esMecanicoDomicilio && (
-                <View style={styles.mgmtRow}>
+                <View style={themedStyles.mgmtRow}>
                   <TouchableOpacity
-                    style={styles.mgmtCard}
+                    style={themedStyles.mgmtCard}
                     onPress={() => router.push('/actualizar-ubicacion')}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.mgmtIconBox, { backgroundColor: '#E0F2FE' }]}>
-                      <MapPin size={22} color="#0284C7" />
+                    <View style={themedStyles.mgmtIconBox}>
+                      <MapPin size={22} color={palette.ink} />
                     </View>
-                    <View style={styles.mgmtCardTextCol}>
-                      <Text style={styles.mgmtCardTitle}>Mi ubicación</Text>
-                      <Text style={styles.mgmtCardSub}>Dirección / GPS para mapa</Text>
+                    <View style={themedStyles.mgmtCardTextCol}>
+                      <Text style={themedStyles.mgmtCardTitle}>Mi ubicación</Text>
+                      
                     </View>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.mgmtCard}
+                    style={themedStyles.mgmtCard}
                     onPress={() => router.push('/zonas-servicio')}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.mgmtIconBox, { backgroundColor: '#ECFDF5' }]}>
-                      <Map size={22} color="#059669" />
+                    <View style={themedStyles.mgmtIconBox}>
+                      <Map size={22} color={palette.ink} />
                     </View>
-                    <View style={styles.mgmtCardTextCol}>
-                      <Text style={styles.mgmtCardTitle}>Zonas</Text>
-                      <Text style={styles.mgmtCardSub}>Comunas de cobertura</Text>
+                    <View style={themedStyles.mgmtCardTextCol}>
+                      <Text style={themedStyles.mgmtCardTitle}>Zonas</Text>
+                      
                     </View>
                   </TouchableOpacity>
                 </View>
@@ -1046,443 +1079,3 @@ export default function HomeScreen() {
     </TabScreenWrapper>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: 'rgba(0,0,0,0.06)',
-  },
-  avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E0E7FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(0,0,0,0.06)',
-  },
-  avatarInitial: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#4F46E5',
-  },
-  welcomeLabel: {
-    fontSize: 10,
-    color: '#9CA3AF',
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  providerName: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  bellOuter: {
-    position: 'relative',
-  },
-  bellBlur: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
-  },
-  bellDot: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#EF4444',
-    borderWidth: 2,
-    borderColor: '#FAFAFA',
-  },
-  sectionWrap: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 14,
-  },
-  sectionTitleText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  radarAvailabilityCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 14,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  radarAvailabilityIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radarAvailabilityTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 6,
-  },
-  radarAvailabilitySub: {
-    fontSize: 13,
-    color: '#6B7280',
-    lineHeight: 19,
-  },
-  radarInactiveBox: {
-    alignItems: 'center',
-    paddingVertical: 28,
-    paddingHorizontal: 16,
-    gap: 8,
-    borderRadius: 16,
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  radarInactiveTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  radarInactiveSub: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    lineHeight: 19,
-  },
-  glassOuter: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.6)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  glassInner: {
-    padding: 20,
-  },
-  finHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  finHeaderTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#6B7280',
-    letterSpacing: 1,
-  },
-  planBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-  },
-  planBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#2563EB',
-  },
-  planBadgeDestacado: {
-    borderColor: 'rgba(245, 158, 11, 0.45)',
-    backgroundColor: '#FFFBEB',
-  },
-  planBadgeTextDestacado: {
-    color: '#B45309',
-  },
-  finBody: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  finCol: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  finDivider: {
-    width: 1,
-    backgroundColor: '#E5E7EB',
-    alignSelf: 'stretch',
-    marginHorizontal: 12,
-  },
-  finIconAmber: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#FEF3C7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  finIconGreen: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#D1FAE5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  finLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  finCreditsVal: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#111827',
-  },
-  finBuyMore: {
-    fontSize: 13,
-    color: '#2563EB',
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  finEarningsVal: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#059669',
-  },
-  finGrowth: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    marginTop: 2,
-  },
-  finGrowthText: {
-    fontSize: 11,
-    color: '#059669',
-    fontWeight: '600',
-  },
-  radarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  radarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  radarIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radarTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  radarSub: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 1,
-  },
-  radarBody: {
-    marginTop: 16,
-    gap: 12,
-  },
-  radarSearching: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
-    gap: 10,
-  },
-  radarSearchingText: {
-    fontSize: 14,
-    color: '#2563EB',
-    fontWeight: '500',
-  },
-  radarEmpty: {
-    alignItems: 'center',
-    paddingVertical: 28,
-    gap: 8,
-  },
-  radarEmptyTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  radarEmptySub: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    textAlign: 'center',
-  },
-  seeAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    gap: 4,
-  },
-  seeAllBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2563EB',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  mgmtTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 14,
-  },
-  mgmtGrid: {
-    gap: 12,
-  },
-  mgmtRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  mgmtCard: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.55)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-    overflow: 'hidden',
-  },
-  mgmtCardFull: {
-    flex: 1,
-  },
-  mgmtCardTextCol: {
-    flex: 1,
-    minWidth: 0,
-  },
-  mgmtIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mgmtCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  mgmtCardSub: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 1,
-  },
-  /* ── Banner suscripción ── */
-  suscBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFBEB',
-    borderRadius: 14,
-    padding: 14,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  suscBannerWarning: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
-  },
-  suscBannerDanger: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
-  },
-  suscBannerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  suscBannerTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#92400E',
-    marginBottom: 2,
-  },
-  suscBannerMsg: {
-    fontSize: 12,
-    color: '#6B7280',
-    lineHeight: 16,
-  },
-});
-

@@ -8,10 +8,11 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { EstadoProveedor, getAPI } from '@/services/api';
 import { useRouter } from 'expo-router';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface EstadoRevisionScreenProps {
   estadoProveedor: EstadoProveedor;
@@ -146,11 +147,11 @@ export default function EstadoRevisionScreen({ estadoProveedor }: EstadoRevision
           {/* Header con icono y estado */}
           <View style={styles.header}>
             <View style={[styles.iconContainer, { backgroundColor: getColorEstado() + '20' }]}>
-              <MaterialIcons
+              <InstitutionalIcon
                 name={getIconoEstado() as any}
                 size={50}
                 color={getColorEstado()}
-              />
+               strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <Text style={styles.titulo}>{getTituloEstado()}</Text>
             <Text style={styles.mensaje}>{getMensajeEstado()}</Text>
@@ -195,22 +196,22 @@ export default function EstadoRevisionScreen({ estadoProveedor }: EstadoRevision
           {/* Botones de acción */}
           <View style={styles.actionsSection}>
             <TouchableOpacity style={styles.actionButton} onPress={handleActualizarEstado}>
-              <MaterialIcons name="refresh" size={20} color="#007AFF" />
+              <InstitutionalIcon name="refresh" size={20} color="#007AFF"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.actionButtonText}>Actualizar Estado</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.actionButton} onPress={handleCompletarDocumentos}>
-              <MaterialIcons name="upload-file" size={20} color="#007AFF" />
+              <InstitutionalIcon name="upload-file" size={20} color="#007AFF"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.actionButtonText}>Completar Documentos</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.actionButton} onPress={handleContactarSoporte}>
-              <MaterialIcons name="support" size={20} color="#007AFF" />
+              <InstitutionalIcon name="support" size={20} color="#007AFF"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.actionButtonText}>Contactar Soporte</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.actionButton, styles.logoutButton]} onPress={handleCerrarSesion}>
-              <MaterialIcons name="logout" size={20} color="#FF3B30" />
+              <InstitutionalIcon name="logout" size={20} color="#FF3B30"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={[styles.actionButtonText, styles.logoutText]}>Cerrar Sesión</Text>
             </TouchableOpacity>
           </View>

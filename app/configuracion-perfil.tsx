@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,8 @@ import {
   Modal,
   Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,8 +26,13 @@ import {
 } from '@/services/api';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Header from '@/components/Header';
-import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
+import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+
+const I = COLORS.institutional;
 
 interface DocumentoLocal extends DocumentoOnboarding {
   esObligatorio: boolean;
@@ -43,7 +48,6 @@ interface ModalDocumento {
 }
 
 export default function ConfiguracionPerfilScreen() {
-  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const {
     estadoProveedor,
@@ -57,35 +61,24 @@ export default function ConfiguracionPerfilScreen() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Obtener valores del sistema de diseño
-  const safeColors = useMemo(() => theme?.colors || COLORS || {}, [theme]);
-  const safeSpacing = useMemo(() => theme?.spacing || SPACING || {}, [theme]);
-  const safeTypography = useMemo(() => theme?.typography || TYPOGRAPHY || {}, [theme]);
-  const safeShadows = useMemo(() => theme?.shadows || SHADOWS || {}, [theme]);
-  const safeBorders = useMemo(() => theme?.borders || BORDERS || {}, [theme]);
-
-  // Colores del sistema de diseño
-  const bgPaper = (safeColors?.background as any)?.paper || (safeColors?.base as any)?.white || '#FFFFFF';
-  const bgDefault = (safeColors?.background as any)?.default || '#EEEEEE';
-  const textPrimary = safeColors?.text?.primary || '#000000';
-  const textSecondary = safeColors?.text?.secondary || '#666666';
-  const textTertiary = safeColors?.text?.tertiary || '#999999';
-  const borderLight = (safeColors?.border as any)?.light || '#EEEEEE';
-  const borderMain = (safeColors?.border as any)?.main || '#D0D0D0';
-  const primary500 = (safeColors?.primary as any)?.['500'] || '#4E4FEB';
-  const spacingMd = safeSpacing?.md || 16;
-  const secondary500 = (safeColors?.secondary as any)?.['500'] || '#068FFF';
-  const success500 = (safeColors?.success as any)?.main || (safeColors?.success as any)?.['500'] || '#3DB6B1';
-  const error500 = (safeColors?.error as any)?.main || (safeColors?.error as any)?.['500'] || '#FF5555';
-  const warning500 = (safeColors?.warning as any)?.main || (safeColors?.warning as any)?.['500'] || '#FFB84D';
-  const info500 = (safeColors?.info as any)?.main || (safeColors?.info as any)?.['500'] || secondary500;
-  const primaryLight = (safeColors?.primary as any)?.['50'] || (safeColors?.primary as any)?.light || '#E6F2FF';
-  const successLight = (safeColors?.success as any)?.light || (safeColors?.success as any)?.['50'] || '#E6F7F4';
-  const errorLight = (safeColors?.error as any)?.light || (safeColors?.error as any)?.['50'] || '#FFEBEE';
-  const warningLight = (safeColors?.warning as any)?.light || (safeColors?.warning as any)?.['50'] || '#FFF8E6';
-  const infoLight = (safeColors?.info as any)?.light || (safeColors?.info as any)?.['50'] || '#E6F5F9';
-  const neutralGray100 = ((safeColors?.neutral as any)?.gray as any)?.['100'] || '#F5F5F5';
-  const neutralGray50 = ((safeColors?.neutral as any)?.gray as any)?.['50'] || '#F9F9F9';
+  const bgPaper = I.canvas;
+  const textPrimary = I.ink;
+  const textSecondary = I.body;
+  const textTertiary = I.muted;
+  const borderLight = I.hairline;
+  const borderMain = I.hairline;
+  const primary500 = I.primary;
+  const success500 = I.semanticUp;
+  const error500 = I.semanticDown;
+  const warning500 = I.accentYellow;
+  const info500 = I.primary;
+  const primaryLight = I.surfaceSoft;
+  const successLight = I.surfaceSoft;
+  const errorLight = I.surfaceSoft;
+  const warningLight = I.surfaceSoft;
+  const infoLight = I.surfaceSoft;
+  const neutralGray100 = I.surfaceSoft;
+  const neutralGray50 = I.surfaceSoft;
 
   // Estados para datos del perfil
   const [datosPersonales, setDatosPersonales] = useState({
@@ -506,7 +499,7 @@ export default function ConfiguracionPerfilScreen() {
   };
 
   const obtenerColorEstado = (verificado: boolean | undefined) => {
-    return verificado ? success500 : warning500;
+    return verificado ? I.semanticUp : I.accentYellow;
   };
 
   const obtenerTextoEstado = (verificado: boolean | undefined) => {
@@ -581,7 +574,7 @@ export default function ConfiguracionPerfilScreen() {
     <View key={documento.id} style={styles.documentCard}>
       <View style={styles.documentCardHeader}>
         <View style={styles.documentInfo}>
-          <MaterialIcons name={documento.icono as any} size={24} color="#2A4065" />
+          <InstitutionalIcon name={documento.icono as any} size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
           <View style={styles.documentTextContainer}>
             <Text style={styles.documentName}>{documento.nombre_amigable || documento.tipo_documento}</Text>
             <Text style={styles.documentDescription}>{documento.descripcion || ''}</Text>
@@ -602,7 +595,7 @@ export default function ConfiguracionPerfilScreen() {
           style={styles.actionButton}
           onPress={() => abrirGaleriaParaDocumento({ key: documento.tipo_documento, label: documento.nombre_amigable || documento.tipo_documento } as TipoDocumento)}
         >
-          <MaterialIcons name="edit" size={16} color="#2A4065" />
+          <InstitutionalIcon name="edit" size={16} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.actionButtonText}>
             Actualizar
           </Text>
@@ -611,7 +604,7 @@ export default function ConfiguracionPerfilScreen() {
 
       {documento.esObligatorio && !documento.verificado && (
         <View style={styles.verificationNotice}>
-          <MaterialIcons name="info" size={16} color="#f39c12" />
+          <InstitutionalIcon name="info" size={16} color="#f39c12"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.verificationNoticeText}>
             Documento en proceso de verificación por el administrador.
           </Text>
@@ -629,7 +622,7 @@ export default function ConfiguracionPerfilScreen() {
         style={styles.missingDocumentCard}
         onPress={() => abrirGaleriaParaDocumento({ key: tipoDocumento, label: info.nombre } as TipoDocumento)}
       >
-        <MaterialIcons name={info.icono as any} size={24} color="#95a5a6" />
+        <InstitutionalIcon name={info.icono as any} size={24} color="#95a5a6"  strokeWidth={ICON_STROKE_WIDTH} />
         <Text style={styles.missingDocumentTitle}>
           {info.nombre}
         </Text>
@@ -643,26 +636,33 @@ export default function ConfiguracionPerfilScreen() {
     );
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: bgPaper }]} edges={['left', 'right', 'bottom']}>
-        <Header
-          title="Gestionar Perfil"
-          showBack={true}
-          onBackPress={() => router.back()}
-        />
-        <LoadingSpinner />
+  const screenShell = (children: React.ReactNode) => (
+    <View style={styles.screenRoot}>
+      <LinearGradient
+        colors={BLANK_GLASS.gradient}
+        locations={BLANK_GLASS.gradientLocations}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['left', 'right', 'bottom']}>
+        {children}
       </SafeAreaView>
+    </View>
+  );
+
+  if (loading) {
+    return screenShell(
+      <>
+        <Header title="Gestionar perfil" showBack onBackPress={() => router.back()} />
+        <LoadingSpinner />
+      </>
     );
   }
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: bgPaper }]} edges={['left', 'right', 'bottom']}>
-      <Header
-        title="Gestionar Perfil"
-        showBack={true}
-        onBackPress={() => router.back()}
-      />
+  return screenShell(
+    <>
+      <Header title="Gestionar perfil" showBack onBackPress={() => router.back()} />
       <ScrollView
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
@@ -676,59 +676,59 @@ export default function ConfiguracionPerfilScreen() {
               <Image source={{ uri: fotoPerfilUri }} style={[styles.fotoPerfil, { borderColor: borderMain }]} />
             ) : (
               <View style={[styles.fotoPerfilPlaceholder, { backgroundColor: neutralGray100, borderColor: borderMain }]}>
-                <MaterialIcons name="person" size={50} color={textTertiary} />
+                <InstitutionalIcon name="person" size={50} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
               </View>
             )}
-            <View style={[styles.fotoPerfilOverlay, { backgroundColor: primary500 }]}>
+            <View style={[styles.fotoPerfilOverlay, { backgroundColor: I.primary }]}>
               {uploadingPhoto ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={I.onPrimary} />
               ) : (
-                <MaterialIcons name="camera-alt" size={20} color="#FFFFFF" />
+                <InstitutionalIcon name="camera-alt" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
               )}
             </View>
           </TouchableOpacity>
-          <Text style={[styles.fotoPerfilTexto, { color: textTertiary }]}>Toca para cambiar foto</Text>
+          <Text style={styles.fotoPerfilTexto}>Toca para cambiar foto</Text>
         </View>
 
-        {/* Tabs */}
-        <View style={[styles.tabsContainer, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-          <TouchableOpacity
-            style={[styles.tab, tabActiva === 'datos' && [styles.tabActive, { backgroundColor: neutralGray50 }]]}
-            onPress={() => setTabActiva('datos')}
-          >
-            <MaterialIcons
-              name="person"
-              size={20}
-              color={tabActiva === 'datos' ? primary500 : textTertiary}
-            />
-            <Text style={[styles.tabText, { color: tabActiva === 'datos' ? primary500 : textTertiary }, tabActiva === 'datos' && styles.tabTextActive]}>
-              Datos Personales
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tab, tabActiva === 'documentos' && [styles.tabActive, { backgroundColor: neutralGray50 }]]}
-            onPress={() => setTabActiva('documentos')}
-          >
-            <MaterialIcons
-              name="description"
-              size={20}
-              color={tabActiva === 'documentos' ? primary500 : textTertiary}
-            />
-            <Text style={[styles.tabText, { color: tabActiva === 'documentos' ? primary500 : textTertiary }, tabActiva === 'documentos' && styles.tabTextActive]}>
-              Documentos
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.tabsOuterInstitutional}>
+          <InstitutionalScreenTabs
+            activeKey={tabActiva}
+            onChange={setTabActiva}
+            tabs={[
+              {
+                key: 'datos',
+                label: 'Datos personales',
+                leading: (
+                  <InstitutionalIcon
+                    name="person"
+                    size={18}
+                    color={tabActiva === 'datos' ? I.onPrimary : I.muted}
+                   strokeWidth={ICON_STROKE_WIDTH} />
+                ),
+              },
+              {
+                key: 'documentos',
+                label: 'Documentos',
+                leading: (
+                  <InstitutionalIcon
+                    name="description"
+                    size={18}
+                    color={tabActiva === 'documentos' ? I.onPrimary : I.muted}
+                   strokeWidth={ICON_STROKE_WIDTH} />
+                ),
+              },
+            ]}
+          />
         </View>
 
         {/* Contenido según tab activa */}
         {tabActiva === 'datos' && (
           <View style={styles.contentContainer}>
-            <View style={[styles.formContainer, { backgroundColor: bgPaper, borderColor: borderLight }]}>
+            <View style={styles.formContainer}>
               <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: textPrimary }]}>Nombre Completo</Text>
+                <Text style={styles.formLabel}>Nombre Completo</Text>
                 <TextInput
-                  style={[styles.formInput, { backgroundColor: neutralGray50, borderColor: borderLight, color: textPrimary }]}
+                  style={styles.formInput}
                   value={datosPersonales.nombre}
                   onChangeText={(value) => {
                     setDatosPersonales(prev => ({ ...prev, nombre: value }));
@@ -740,9 +740,9 @@ export default function ConfiguracionPerfilScreen() {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: textPrimary }]}>Teléfono</Text>
+                <Text style={styles.formLabel}>Teléfono</Text>
                 <TextInput
-                  style={[styles.formInput, { backgroundColor: neutralGray50, borderColor: borderLight, color: textPrimary }]}
+                  style={styles.formInput}
                   value={datosPersonales.telefono}
                   onChangeText={(value) => {
                     setDatosPersonales(prev => ({ ...prev, telefono: value }));
@@ -755,25 +755,16 @@ export default function ConfiguracionPerfilScreen() {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: textPrimary }]}>Email</Text>
-                <View style={[
-                  styles.formInputReadOnly,
-                  {
-                    backgroundColor: neutralGray100 || '#F5F5F5',
-                    borderColor: borderLight,
-                  }
-                ]}>
-                  <MaterialIcons
+                <Text style={styles.formLabel}>Email</Text>
+                <View style={styles.formInputReadOnly}>
+                  <InstitutionalIcon
                     name="lock"
                     size={18}
                     color={textTertiary}
                     style={styles.lockIcon}
-                  />
+                   strokeWidth={ICON_STROKE_WIDTH} />
                   <Text
-                    style={[
-                      styles.formInputReadOnlyText,
-                      { color: textSecondary }
-                    ]}
+                    style={styles.formInputReadOnlyText}
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
@@ -786,9 +777,9 @@ export default function ConfiguracionPerfilScreen() {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: textPrimary }]}>Descripción</Text>
+                <Text style={styles.formLabel}>Descripción</Text>
                 <TextInput
-                  style={[styles.formInput, styles.formInputMultiline, { backgroundColor: neutralGray50, borderColor: borderLight, color: textPrimary }]}
+                  style={[styles.formInput, styles.formInputMultiline]}
                   value={datosPersonales.descripcion}
                   onChangeText={(value) => {
                     setDatosPersonales(prev => ({ ...prev, descripcion: value }));
@@ -804,9 +795,9 @@ export default function ConfiguracionPerfilScreen() {
               {/* Campo de dirección solo para mecánicos a domicilio */}
               {estadoProveedor?.tipo_proveedor === 'mecanico' && (
                 <View style={styles.formGroup}>
-                  <Text style={[styles.formLabel, { color: textPrimary }]}>Dirección</Text>
+                  <Text style={styles.formLabel}>Dirección</Text>
                   <TextInput
-                    style={[styles.formInput, { backgroundColor: neutralGray50, borderColor: borderLight, color: textPrimary }]}
+                    style={styles.formInput}
                     value={datosPersonales.direccion}
                     onChangeText={(value) => {
                       setDatosPersonales(prev => ({ ...prev, direccion: value }));
@@ -819,24 +810,24 @@ export default function ConfiguracionPerfilScreen() {
                     Los clientes te buscan por distancia. Guarda el perfil y, además, define el punto en el mapa.
                   </Text>
                   <TouchableOpacity
-                    style={[styles.linkUbicacionBtn, { borderColor: primary500, backgroundColor: primaryLight }]}
+                    style={styles.linkUbicacionBtn}
                     onPress={() => router.push('/actualizar-ubicacion')}
                     activeOpacity={0.8}
                   >
-                    <MaterialIcons name="my-location" size={20} color={primary500} />
-                    <Text style={[styles.linkUbicacionText, { color: primary500 }]}>
+                    <InstitutionalIcon name="my-location" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.linkUbicacionText}>
                       Mi ubicación en mapa (dirección o GPS)
                     </Text>
-                    <MaterialIcons name="chevron-right" size={22} color={primary500} />
+                    <InstitutionalIcon name="chevron-right" size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                   </TouchableOpacity>
                 </View>
               )}
 
               {/* Información para talleres */}
               {estadoProveedor?.tipo_proveedor === 'taller' && (
-                <View style={[styles.infoCard, { backgroundColor: infoLight, borderColor: info500 }]}>
-                  <MaterialIcons name="info" size={20} color={info500} />
-                  <Text style={[styles.infoText, { color: textPrimary }]}>
+                <View style={styles.infoCard}>
+                  <InstitutionalIcon name="info" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.infoText}>
                     Para gestionar la dirección de tu taller, ve a la sección "Servicios y Cobertura" → "Gestionar Taller"
                   </Text>
                 </View>
@@ -846,63 +837,29 @@ export default function ConfiguracionPerfilScreen() {
         )}
 
         {tabActiva === 'documentos' && (
-          <View>
-            {/* Header mejorado del tab de documentos */}
-            <View style={[styles.documentsHeader, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-              <View style={[styles.documentsHeaderIconContainer, { backgroundColor: primaryLight }]}>
-                <MaterialIcons name="folder" size={28} color={primary500} />
-              </View>
-              <View style={styles.documentsHeaderTextContainer}>
-                <Text style={[styles.documentsHeaderTitle, { color: textPrimary }]}>Documentos de Verificación</Text>
-                <Text style={[styles.documentsHeaderSubtitle, { color: textTertiary }]}>
-                  {estadoProveedor?.tipo_proveedor === 'taller'
-                    ? 'Gestiona los documentos de tu taller mecánico'
-                    : 'Gestiona los documentos de tu servicio móvil'
-                  }
-                </Text>
-              </View>
-            </View>
-
-            {/* Información del tipo de proveedor mejorada */}
-            <View style={[styles.providerTypeCard, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-              <View style={[styles.providerTypeIconContainer, { backgroundColor: primaryLight }]}>
-                <MaterialIcons
-                  name={estadoProveedor?.tipo_proveedor === 'taller' ? 'business' : 'engineering'}
-                  size={24}
-                  color={primary500}
-                />
-              </View>
-              <View style={styles.providerTypeTextContainer}>
-                <Text style={[styles.providerTypeTitle, { color: textPrimary }]}>
-                  {estadoProveedor?.tipo_proveedor === 'taller' ? 'Taller Mecánico' : 'Mecánico a Domicilio'}
-                </Text>
-                <Text style={[styles.providerTypeDescription, { color: textTertiary }]}>
-                  {estadoProveedor?.tipo_proveedor === 'taller'
-                    ? 'Documentos requeridos para talleres con ubicación física'
-                    : 'Documentos requeridos para servicios móviles y domiciliarios'
-                  }
-                </Text>
-              </View>
+          <View style={styles.documentsTabRoot}>
+            <View style={styles.documentsTabTitleWrap}>
+              <Text style={styles.documentsTabTitle}>Documentos de verificación</Text>
             </View>
 
             {/* Estadísticas de documentos */}
-            <View style={[styles.documentsStats, { backgroundColor: bgPaper, borderColor: borderLight }]}>
+            <View style={styles.documentsStats}>
               <View style={styles.statItem}>
-                <Text style={[styles.statNumber, { color: textPrimary }]}>{getDocumentosObligatorios().length}</Text>
-                <Text style={[styles.statLabel, { color: textTertiary }]}>Obligatorios</Text>
-                <MaterialIcons name="security" size={16} color={error500} />
+                <Text style={styles.statNumber}>{getDocumentosObligatorios().length}</Text>
+                <Text style={styles.statLabel}>Obligatorios</Text>
+                <InstitutionalIcon name="security" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               </View>
-              <View style={[styles.statDivider, { backgroundColor: borderLight }]} />
+              <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Text style={[styles.statNumber, { color: textPrimary }]}>{getDocumentosOpcionales().length}</Text>
-                <Text style={[styles.statLabel, { color: textTertiary }]}>Opcionales</Text>
-                <MaterialIcons name="star" size={16} color={info500} />
+                <Text style={styles.statNumber}>{getDocumentosOpcionales().length}</Text>
+                <Text style={styles.statLabel}>Opcionales</Text>
+                <InstitutionalIcon name="star" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               </View>
-              <View style={[styles.statDivider, { backgroundColor: borderLight }]} />
+              <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Text style={[styles.statNumber, { color: textPrimary }]}>{getTiposDocumentoFaltantesSegunTipo().length}</Text>
-                <Text style={[styles.statLabel, { color: textTertiary }]}>Disponibles</Text>
-                <MaterialIcons name="add-circle" size={16} color={success500} />
+                <Text style={styles.statNumber}>{getTiposDocumentoFaltantesSegunTipo().length}</Text>
+                <Text style={styles.statLabel}>Disponibles</Text>
+                <InstitutionalIcon name="add-circle" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               </View>
             </View>
 
@@ -910,52 +867,55 @@ export default function ConfiguracionPerfilScreen() {
             <View style={styles.documentsSection}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionHeaderLeft}>
-                  <MaterialIcons name="security" size={24} color={error500} />
-                  <Text style={[styles.sectionTitle, { color: textPrimary }]}>Documentos Obligatorios</Text>
+                  <InstitutionalIcon name="security" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.sectionTitle}>Documentos Obligatorios</Text>
                 </View>
                 <View style={styles.sectionHeaderRight}>
-                  <View style={[styles.sectionBadge, { backgroundColor: error500 }]}>
+                  <View style={styles.sectionBadge}>
                     <Text style={styles.sectionBadgeText}>Requeridos</Text>
                   </View>
                 </View>
               </View>
 
-              <Text style={[styles.sectionDescription, { color: textTertiary }]}>
+              <Text style={styles.sectionDescription}>
                 Estos documentos son necesarios para la verificación de tu cuenta y poder aparecer en la plataforma.
               </Text>
 
               {getDocumentosObligatorios().length > 0 ? (
                 <View style={styles.documentsGrid}>
                   {getDocumentosObligatorios().map(documento => (
-                    <View key={documento.id} style={[styles.documentCard, { backgroundColor: bgPaper, borderColor: error500 }]}>
-                      <View style={[styles.documentCardHeader, { borderBottomColor: borderLight }]}>
-                        <View style={[styles.documentIconContainer, { backgroundColor: primaryLight }]}>
-                          <MaterialIcons name={documento.icono as any} size={24} color={primary500} />
+                    <View key={documento.id} style={styles.documentCard}>
+                      <View style={styles.documentCardHeader}>
+                        <View style={styles.documentIconContainer}>
+                          <InstitutionalIcon name={documento.icono as any} size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
                         </View>
                         <View style={styles.documentCardStatus}>
-                          <View style={[
-                            styles.statusBadge,
-                            { backgroundColor: documento.verificado ? success500 : warning500 }
-                          ]}>
-                            <MaterialIcons
+                          <View style={styles.statusBadge}>
+                            <InstitutionalIcon
                               name={documento.verificado ? 'check-circle' : 'schedule'}
                               size={12}
-                              color="#FFFFFF"
+                              color={documento.verificado ? success500 : warning500}
+                              strokeWidth={ICON_STROKE_WIDTH}
                             />
-                            <Text style={styles.statusBadgeText}>
+                            <Text
+                              style={[
+                                styles.statusBadgeText,
+                                { color: documento.verificado ? success500 : warning500 },
+                              ]}
+                            >
                               {documento.verificado ? 'Verificado' : 'Pendiente'}
                             </Text>
                           </View>
                         </View>
                       </View>
 
-                      <View style={[styles.documentCardContent, { borderBottomColor: borderLight }]}>
-                        <Text style={[styles.documentName, { color: textPrimary }]}>{documento.nombre_amigable}</Text>
-                        <Text style={[styles.documentDescription, { color: textTertiary }]}>{documento.descripcion}</Text>
+                      <View style={styles.documentCardContent}>
+                        <Text style={styles.documentName}>{documento.nombre_amigable}</Text>
+                        <Text style={styles.documentDescription}>{documento.descripcion}</Text>
 
                         <View style={styles.documentMeta}>
-                          <MaterialIcons name="event" size={14} color={textTertiary} />
-                          <Text style={[styles.documentDate, { color: textTertiary }]}>
+                          <InstitutionalIcon name="event" size={14} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
+                          <Text style={styles.documentDate}>
                             {formatearFecha(documento.fecha_subida || '')}
                           </Text>
                         </View>
@@ -963,21 +923,21 @@ export default function ConfiguracionPerfilScreen() {
 
                       <View style={styles.documentCardActions}>
                         <TouchableOpacity
-                          style={[styles.actionButton, { backgroundColor: primary500, borderColor: primary500 }]}
+                          style={[styles.actionButton, styles.actionButtonPrimary]}
                           onPress={() => abrirGaleriaParaDocumento({
                             key: documento.tipo_documento,
                             label: documento.nombre_amigable
                           } as TipoDocumento)}
                         >
-                          <MaterialIcons name="camera-alt" size={16} color="#FFFFFF" />
-                          <Text style={styles.actionButtonText}>Actualizar</Text>
+                          <InstitutionalIcon name="camera-alt" size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                          <Text style={[styles.actionButtonText, styles.actionButtonPrimaryText]}>Actualizar</Text>
                         </TouchableOpacity>
                       </View>
 
                       {documento.esObligatorio && !documento.verificado && (
-                        <View style={[styles.verificationNotice, { backgroundColor: warningLight, borderColor: warning500 }]}>
-                          <MaterialIcons name="info" size={14} color={warning500} />
-                          <Text style={[styles.verificationNoticeText, { color: textPrimary }]}>
+                        <View style={styles.verificationNotice}>
+                          <InstitutionalIcon name="info" size={14} color={warning500} strokeWidth={ICON_STROKE_WIDTH} />
+                          <Text style={styles.verificationNoticeText}>
                             En proceso de verificación
                           </Text>
                         </View>
@@ -987,14 +947,14 @@ export default function ConfiguracionPerfilScreen() {
                 </View>
               ) : (
                 <View style={styles.emptyStateContainer}>
-                  <MaterialIcons name="warning" size={48} color={warning500} />
-                  <Text style={[styles.emptyStateTitle, { color: textPrimary }]}>Sin documentos obligatorios</Text>
-                  <Text style={[styles.emptyStateDescription, { color: textTertiary }]}>
+                  <InstitutionalIcon name="warning" size={48} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.emptyStateTitle}>Sin documentos obligatorios</Text>
+                  <Text style={styles.emptyStateDescription}>
                     Aún no has subido los documentos obligatorios para tu verificación.
                   </Text>
-                  <TouchableOpacity style={[styles.emptyStateAction, { backgroundColor: neutralGray50, borderColor: primary500 }]}>
-                    <MaterialIcons name="upload" size={16} color={primary500} />
-                    <Text style={[styles.emptyStateActionText, { color: primary500 }]}>Subir documentos</Text>
+                  <TouchableOpacity style={styles.emptyStateAction}>
+                    <InstitutionalIcon name="upload" size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.emptyStateActionText}>Subir documentos</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -1004,8 +964,8 @@ export default function ConfiguracionPerfilScreen() {
             <View style={styles.documentsSection}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionHeaderLeft}>
-                  <MaterialIcons name="star" size={24} color={info500} />
-                  <Text style={[styles.sectionTitle, { color: textPrimary }]}>
+                  <InstitutionalIcon name="star" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.sectionTitle}>
                     {estadoProveedor?.tipo_proveedor === 'taller'
                       ? 'Documentos del Establecimiento'
                       : 'Documentos del Vehículo'
@@ -1013,13 +973,13 @@ export default function ConfiguracionPerfilScreen() {
                   </Text>
                 </View>
                 <View style={styles.sectionHeaderRight}>
-                  <View style={[styles.sectionBadge, { backgroundColor: info500 }]}>
+                  <View style={styles.sectionBadge}>
                     <Text style={styles.sectionBadgeText}>Opcionales</Text>
                   </View>
                 </View>
               </View>
 
-              <Text style={[styles.sectionDescription, { color: textTertiary }]}>
+              <Text style={styles.sectionDescription}>
                 {estadoProveedor?.tipo_proveedor === 'taller'
                   ? 'Estas fotos ayudan a mostrar tu instalación y generar confianza en los clientes.'
                   : 'Estas fotos muestran tu vehículo de trabajo y generan confianza en los clientes.'
@@ -1029,26 +989,26 @@ export default function ConfiguracionPerfilScreen() {
               {getDocumentosOpcionales().length > 0 ? (
                 <View style={styles.documentsGrid}>
                   {getDocumentosOpcionales().map(documento => (
-                    <View key={documento.id} style={[styles.documentCard, { backgroundColor: bgPaper, borderColor: info500 }]}>
-                      <View style={[styles.documentCardHeader, { borderBottomColor: borderLight }]}>
-                        <View style={[styles.documentIconContainer, { backgroundColor: infoLight }]}>
-                          <MaterialIcons name={documento.icono as any} size={24} color={info500} />
+                    <View key={documento.id} style={styles.documentCard}>
+                      <View style={styles.documentCardHeader}>
+                        <View style={styles.documentIconContainer}>
+                          <InstitutionalIcon name={documento.icono as any} size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
                         </View>
                         <View style={styles.documentCardStatus}>
-                          <View style={[styles.statusBadge, { backgroundColor: info500 }]}>
-                            <MaterialIcons name="star" size={12} color="#FFFFFF" />
-                            <Text style={styles.statusBadgeText}>Opcional</Text>
+                          <View style={styles.statusBadge}>
+                            <InstitutionalIcon name="star" size={12} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                            <Text style={[styles.statusBadgeText, { color: I.muted }]}>Opcional</Text>
                           </View>
                         </View>
                       </View>
 
-                      <View style={[styles.documentCardContent, { borderBottomColor: borderLight }]}>
-                        <Text style={[styles.documentName, { color: textPrimary }]}>{documento.nombre_amigable}</Text>
-                        <Text style={[styles.documentDescription, { color: textTertiary }]}>{documento.descripcion}</Text>
+                      <View style={styles.documentCardContent}>
+                        <Text style={styles.documentName}>{documento.nombre_amigable}</Text>
+                        <Text style={styles.documentDescription}>{documento.descripcion}</Text>
 
                         <View style={styles.documentMeta}>
-                          <MaterialIcons name="event" size={14} color={textTertiary} />
-                          <Text style={[styles.documentDate, { color: textTertiary }]}>
+                          <InstitutionalIcon name="event" size={14} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
+                          <Text style={styles.documentDate}>
                             {formatearFecha(documento.fecha_subida || '')}
                           </Text>
                         </View>
@@ -1056,14 +1016,14 @@ export default function ConfiguracionPerfilScreen() {
 
                       <View style={styles.documentCardActions}>
                         <TouchableOpacity
-                          style={[styles.actionButton, { backgroundColor: bgPaper, borderColor: info500 }]}
+                          style={[styles.actionButton, styles.actionButtonSecondary]}
                           onPress={() => abrirGaleriaParaDocumento({
                             key: documento.tipo_documento,
                             label: documento.nombre_amigable
                           } as TipoDocumento)}
                         >
-                          <MaterialIcons name="camera-alt" size={16} color={info500} />
-                          <Text style={[styles.actionButtonText, { color: info500 }]}>
+                          <InstitutionalIcon name="camera-alt" size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                          <Text style={[styles.actionButtonText, styles.actionButtonSecondaryText]}>
                             Actualizar
                           </Text>
                         </TouchableOpacity>
@@ -1089,33 +1049,33 @@ export default function ConfiguracionPerfilScreen() {
                           return (
                             <TouchableOpacity
                               key={tipoDocumento}
-                              style={[styles.documentCard, { backgroundColor: bgPaper, borderColor: success500 }]}
+                              style={styles.documentCard}
                               onPress={() => abrirGaleriaParaDocumento({
                                 key: tipoDocumento,
                                 label: info.nombre
                               } as TipoDocumento)}
                             >
-                              <View style={[styles.documentCardHeader, { borderBottomColor: borderLight }]}>
-                                <View style={[styles.documentIconContainer, { backgroundColor: successLight }]}>
-                                  <MaterialIcons name={info.icono as any} size={24} color={success500} />
+                              <View style={styles.documentCardHeader}>
+                                <View style={styles.documentIconContainer}>
+                                  <InstitutionalIcon name={info.icono as any} size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
                                 </View>
                                 <View style={styles.documentCardStatus}>
-                                  <View style={[styles.statusBadge, { backgroundColor: success500 }]}>
-                                    <MaterialIcons name="add" size={12} color="#FFFFFF" />
-                                    <Text style={styles.statusBadgeText}>Agregar</Text>
+                                  <View style={styles.statusBadge}>
+                                    <InstitutionalIcon name="add" size={12} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                                    <Text style={[styles.statusBadgeText, { color: I.primary }]}>Agregar</Text>
                                   </View>
                                 </View>
                               </View>
 
                               <View style={styles.documentCardContent}>
-                                <Text style={[styles.documentName, { color: textPrimary }]}>{info.nombre}</Text>
-                                <Text style={[styles.documentDescription, { color: textTertiary }]}>{info.descripcion}</Text>
+                                <Text style={styles.documentName}>{info.nombre}</Text>
+                                <Text style={styles.documentDescription}>{info.descripcion}</Text>
                               </View>
 
                               <View style={styles.documentCardActions}>
-                                <View style={[styles.uploadPrompt, { backgroundColor: neutralGray50, borderColor: success500 }]}>
-                                  <MaterialIcons name="cloud-upload" size={16} color={success500} />
-                                  <Text style={[styles.uploadPromptText, { color: success500 }]}>Tocar para subir</Text>
+                                <View style={styles.uploadPrompt}>
+                                  <InstitutionalIcon name="cloud-upload" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                                  <Text style={styles.uploadPromptText}>Tocar para subir</Text>
                                 </View>
                               </View>
                             </TouchableOpacity>
@@ -1124,14 +1084,14 @@ export default function ConfiguracionPerfilScreen() {
                     </View>
                   ) : (
                     <View style={styles.emptyStateContainer}>
-                      <MaterialIcons name="add-photo-alternate" size={48} color={textTertiary} />
-                      <Text style={[styles.emptyStateTitle, { color: textPrimary }]}>
+                      <InstitutionalIcon name="add-photo-alternate" size={48} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
+                      <Text style={styles.emptyStateTitle}>
                         {estadoProveedor?.tipo_proveedor === 'taller'
                           ? 'Sin fotos del taller'
                           : 'Sin fotos del vehículo'
                         }
                       </Text>
-                      <Text style={[styles.emptyStateDescription, { color: textTertiary }]}>
+                      <Text style={styles.emptyStateDescription}>
                         Agrega fotos para generar más confianza en los clientes.
                       </Text>
                     </View>
@@ -1148,17 +1108,17 @@ export default function ConfiguracionPerfilScreen() {
                 <View style={styles.documentsSection}>
                   <View style={styles.sectionHeader}>
                     <View style={styles.sectionHeaderLeft}>
-                      <MaterialIcons name="add-circle" size={24} color={success500} />
-                      <Text style={[styles.sectionTitle, { color: textPrimary }]}>Documentos Disponibles</Text>
+                      <InstitutionalIcon name="add-circle" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                      <Text style={styles.sectionTitle}>Documentos Disponibles</Text>
                     </View>
                     <View style={styles.sectionHeaderRight}>
-                      <View style={[styles.sectionBadge, { backgroundColor: success500 }]}>
+                      <View style={styles.sectionBadge}>
                         <Text style={styles.sectionBadgeText}>Disponibles</Text>
                       </View>
                     </View>
                   </View>
 
-                  <Text style={[styles.sectionDescription, { color: textTertiary }]}>
+                  <Text style={styles.sectionDescription}>
                     Puedes subir estos documentos adicionales para completar tu perfil.
                   </Text>
 
@@ -1173,33 +1133,33 @@ export default function ConfiguracionPerfilScreen() {
                         return (
                           <TouchableOpacity
                             key={tipoDocumento}
-                            style={[styles.documentCard, { backgroundColor: bgPaper, borderColor: success500 }]}
+                            style={styles.documentCard}
                             onPress={() => abrirGaleriaParaDocumento({
                               key: tipoDocumento,
                               label: info.nombre
                             } as TipoDocumento)}
                           >
-                            <View style={[styles.documentCardHeader, { borderBottomColor: borderLight }]}>
-                              <View style={[styles.documentIconContainer, { backgroundColor: successLight }]}>
-                                <MaterialIcons name={info.icono as any} size={24} color={success500} />
+                            <View style={styles.documentCardHeader}>
+                              <View style={styles.documentIconContainer}>
+                                <InstitutionalIcon name={info.icono as any} size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
                               </View>
                               <View style={styles.documentCardStatus}>
-                                <View style={[styles.statusBadge, { backgroundColor: success500 }]}>
-                                  <MaterialIcons name="add" size={12} color="#FFFFFF" />
-                                  <Text style={styles.statusBadgeText}>Agregar</Text>
+                                <View style={styles.statusBadge}>
+                                  <InstitutionalIcon name="add" size={12} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                                  <Text style={[styles.statusBadgeText, { color: I.primary }]}>Agregar</Text>
                                 </View>
                               </View>
                             </View>
 
                             <View style={styles.documentCardContent}>
-                              <Text style={[styles.documentName, { color: textPrimary }]}>{info.nombre}</Text>
-                              <Text style={[styles.documentDescription, { color: textTertiary }]}>{info.descripcion}</Text>
+                              <Text style={styles.documentName}>{info.nombre}</Text>
+                              <Text style={styles.documentDescription}>{info.descripcion}</Text>
                             </View>
 
                             <View style={styles.documentCardActions}>
-                              <View style={[styles.uploadPrompt, { backgroundColor: neutralGray50, borderColor: success500 }]}>
-                                <MaterialIcons name="cloud-upload" size={16} color={success500} />
-                                <Text style={[styles.uploadPromptText, { color: success500 }]}>Tocar para subir</Text>
+                              <View style={styles.uploadPrompt}>
+                                <InstitutionalIcon name="cloud-upload" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                                <Text style={styles.uploadPromptText}>Tocar para subir</Text>
                               </View>
                             </View>
                           </TouchableOpacity>
@@ -1214,34 +1174,40 @@ export default function ConfiguracionPerfilScreen() {
 
       {/* Botón guardar datos personales */}
       {hasChanges && tabActiva === 'datos' && (
-        <View style={[styles.saveContainer, { paddingBottom: insets.bottom + spacingMd }]}>
+        <View style={[styles.saveContainer, { paddingBottom: insets.bottom + SPACING.md, borderTopColor: I.hairline }]}>
           <TouchableOpacity
-            style={[styles.saveButton, { backgroundColor: primary500 }, saving && styles.saveButtonDisabled]}
+            style={[
+              styles.saveButton,
+              { backgroundColor: I.primary },
+              saving && styles.saveButtonDisabled,
+            ]}
             onPress={guardarDatosPersonales}
             disabled={saving}
+            activeOpacity={0.88}
           >
             {saving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={I.onPrimary} />
             ) : (
-              <MaterialIcons name="save" size={20} color="#FFFFFF" />
+              <InstitutionalIcon name="save" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
             )}
-            <Text style={styles.saveButtonText}>
-              {saving ? 'Guardando...' : 'Guardar Cambios'}
+            <Text style={[styles.saveButtonText, { color: I.onPrimary }]}>
+              {saving ? 'Guardando…' : 'Guardar cambios'}
             </Text>
           </TouchableOpacity>
         </View>
       )}
-    </SafeAreaView>
+    </>
   );
 }
 
-// Crear estilos usando tokens del sistema de diseño
+// Estilos alineados a tokens institucionales / referencia Coinbase (cards, hairline, pills)
 const createStyles = () => {
+  const Ig = COLORS.institutional;
   const spacingXs = SPACING?.xs || 4;
   const spacingSm = SPACING?.sm || 8;
   const spacingMd = SPACING?.md || 16;
   const spacingLg = SPACING?.lg || 24;
-  const containerHorizontal = SPACING?.container?.horizontal || SPACING?.content?.horizontal || 18;
+  const containerHorizontal = GLASS_INSET;
   const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
   const fontSizeMd = TYPOGRAPHY?.fontSize?.md || 16;
   const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
@@ -1256,71 +1222,54 @@ const createStyles = () => {
   const shadowSm = SHADOWS?.sm || { shadowColor: '#000000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
   const shadowMd = SHADOWS?.md || { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
 
-  // Colores del sistema de diseño para usar en estilos
-  const bgPaper = (COLORS?.background as any)?.paper || (COLORS?.base as any)?.white || '#FFFFFF';
-  const borderLight = (COLORS?.border as any)?.light || '#EEEEEE';
-  const borderMain = (COLORS?.border as any)?.main || '#D0D0D0';
-  const primary500 = (COLORS?.primary as any)?.['500'] || '#4E4FEB';
-
   return StyleSheet.create({
+    screenRoot: {
+      flex: 1,
+    },
     container: {
       flex: 1,
     },
     scrollContainer: {
       flex: 1,
     },
-    tabsContainer: {
-      flexDirection: 'row',
+    tabsOuterInstitutional: {
       marginHorizontal: containerHorizontal,
       marginTop: spacingLg,
-      borderRadius: radiusXl,
-      padding: spacingXs,
-      borderWidth: 1,
-    },
-    tab: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacingSm + 4,
-      paddingHorizontal: spacingMd,
-      borderRadius: radiusLg,
-    },
-    tabActive: {
-      // backgroundColor se aplica dinámicamente
-    },
-    tabText: {
-      fontSize: fontSizeBase,
-      marginLeft: spacingSm,
-      fontWeight: fontWeightMedium,
-    },
-    tabTextActive: {
-      fontWeight: fontWeightSemibold,
     },
     contentContainer: {
       marginTop: spacingLg,
       paddingHorizontal: containerHorizontal,
     },
     formContainer: {
-      borderRadius: radiusXl,
+      borderRadius: BORDERS.radius.lg,
       padding: spacingLg,
-      borderWidth: 1,
-      ...shadowSm,
+      borderWidth: BORDERS.width.thin,
+      borderColor: Ig.hairline,
+      backgroundColor: Ig.canvas,
+      ...SHADOWS.editorial,
     },
     formGroup: {
       marginBottom: spacingLg,
     },
     formLabel: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      letterSpacing: TYPOGRAPHY.letterSpacing.wide,
+      textTransform: 'uppercase',
+      color: Ig.muted,
       marginBottom: spacingSm,
     },
     formInput: {
-      borderWidth: 1,
-      borderRadius: radiusXl,
+      borderWidth: BORDERS.width.thin,
+      borderRadius: BORDERS.radius.md,
       paddingHorizontal: spacingMd,
-      paddingVertical: spacingSm + 4,
-      fontSize: fontSizeBase,
+      paddingVertical: 14,
+      fontSize: TYPOGRAPHY.fontSize.md,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      backgroundColor: Ig.surfaceSoft,
+      borderColor: Ig.hairline,
+      color: Ig.ink,
     },
     formInputMultiline: {
       minHeight: 80,
@@ -1332,37 +1281,49 @@ const createStyles = () => {
     formInputReadOnly: {
       flexDirection: 'row',
       alignItems: 'center',
-      borderWidth: 1,
-      borderRadius: radiusMd,
+      borderWidth: BORDERS.width.thin,
+      borderRadius: BORDERS.radius.md,
       paddingHorizontal: spacingMd,
       paddingVertical: spacingSm + 2,
       minHeight: 48,
+      backgroundColor: Ig.surfaceSoft,
+      borderColor: Ig.hairline,
     },
     formInputReadOnlyText: {
       flex: 1,
-      fontSize: fontSizeBase,
+      fontSize: TYPOGRAPHY.fontSize.md,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: Ig.body,
     },
     lockIcon: {
       marginRight: spacingSm,
     },
     formHint: {
-      fontSize: fontSizeBase - 2,
+      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: Ig.muted,
       marginTop: spacingXs,
+      lineHeight: TYPOGRAPHY.fontSize.xs * 1.45,
     },
     linkUbicacionBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
       marginTop: spacingMd,
-      paddingVertical: spacingMd - 2,
+      paddingVertical: 12,
       paddingHorizontal: spacingMd,
-      borderRadius: radiusMd,
-      borderWidth: 1,
+      borderRadius: BORDERS.radius.pill,
+      borderWidth: BORDERS.width.thin,
+      borderColor: Ig.hairline,
+      backgroundColor: Ig.surfaceStrong,
+      minHeight: 44,
     },
     linkUbicacionText: {
       flex: 1,
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: Ig.ink,
     },
     saveContainer: {
       position: 'absolute',
@@ -1371,15 +1332,17 @@ const createStyles = () => {
       right: 0,
       paddingHorizontal: containerHorizontal,
       paddingTop: spacingMd,
-      backgroundColor: bgPaper,
-      ...shadowMd,
-      borderTopWidth: 1,
-      borderTopColor: borderLight,
+      backgroundColor: Ig.canvas,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: Ig.hairline,
+      ...SHADOWS.editorial,
     } as any,
     saveButton: {
       flexDirection: 'row',
-      borderRadius: radiusXl,
-      padding: spacingMd,
+      borderRadius: BORDERS.radius.pill,
+      paddingVertical: 12,
+      paddingHorizontal: spacingLg,
+      minHeight: 44,
       justifyContent: 'center',
       alignItems: 'center',
       gap: spacingSm,
@@ -1388,9 +1351,9 @@ const createStyles = () => {
       opacity: 0.6,
     },
     saveButtonText: {
-      color: '#FFFFFF',
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.fontSize.md,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     },
     fotoPerfilContainer: {
       alignItems: 'center',
@@ -1425,91 +1388,63 @@ const createStyles = () => {
       justifyContent: 'center',
       alignItems: 'center',
       borderWidth: 2,
-      borderColor: '#FFFFFF',
+      borderColor: Ig.canvas,
     },
     fotoPerfilTexto: {
-      fontSize: fontSizeBase - 2,
+      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: Ig.muted,
       textAlign: 'center',
     },
-    documentsHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginHorizontal: containerHorizontal,
-      marginTop: spacingLg,
-      marginBottom: spacingLg,
-      borderRadius: radiusXl,
-      padding: spacingMd,
-      borderWidth: 1,
+    documentsTabRoot: {
+      width: '100%',
+      overflow: 'hidden',
     },
-    documentsHeaderIconContainer: {
-      width: 50,
-      height: 50,
-      borderRadius: 25,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: spacingMd - 1,
+    documentsTabTitleWrap: {
+      paddingHorizontal: containerHorizontal,
+      marginTop: spacingMd,
+      marginBottom: spacingMd,
     },
-    documentsHeaderTextContainer: {
-      flex: 1,
-    },
-    documentsHeaderTitle: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightSemibold,
-      marginBottom: spacingXs,
-    },
-    documentsHeaderSubtitle: {
-      fontSize: fontSizeBase - 2,
-    },
-    providerTypeCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginHorizontal: containerHorizontal,
-      marginBottom: spacingLg,
-      borderRadius: radiusXl,
-      padding: spacingMd,
-      borderWidth: 1,
-    },
-    providerTypeIconContainer: {
-      width: 50,
-      height: 50,
-      borderRadius: 25,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: spacingMd - 1,
-    },
-    providerTypeTextContainer: {
-      flex: 1,
-    },
-    providerTypeTitle: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      marginBottom: spacingXs,
-    },
-    providerTypeDescription: {
-      fontSize: fontSizeBase - 2,
+    documentsTabTitle: {
+      fontSize: TYPOGRAPHY.fontSize.lg,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: Ig.ink,
     },
     documentsStats: {
       flexDirection: 'row',
       justifyContent: 'space-around',
+      alignItems: 'stretch',
       marginHorizontal: containerHorizontal,
-      marginBottom: spacingLg,
-      borderRadius: radiusXl,
-      padding: spacingMd,
-      borderWidth: 1,
+      marginBottom: spacingMd,
+      borderRadius: BORDERS.radius.lg,
+      paddingVertical: spacingMd,
+      paddingHorizontal: spacingSm,
+      borderWidth: BORDERS.width.thin,
+      borderColor: Ig.hairline,
+      backgroundColor: Ig.canvas,
+      ...SHADOWS.editorial,
     },
     statItem: {
       alignItems: 'center',
     },
     statNumber: {
-      fontSize: fontSizeXl + 4,
-      fontWeight: fontWeightBold,
+      fontSize: TYPOGRAPHY.fontSize.xl,
+      fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: Ig.ink,
       marginBottom: spacingXs,
     },
     statLabel: {
-      fontSize: fontSizeBase - 2,
+      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: Ig.muted,
+      textAlign: 'center',
     },
     statDivider: {
-      width: 1,
+      width: StyleSheet.hairlineWidth,
+      alignSelf: 'stretch',
+      backgroundColor: Ig.hairline,
       marginHorizontal: spacingSm + 2,
     },
     documentsSection: {
@@ -1521,32 +1456,44 @@ const createStyles = () => {
       alignItems: 'center',
       marginBottom: spacingSm + 2,
       paddingHorizontal: containerHorizontal,
+      maxWidth: '100%',
     },
     sectionHeaderLeft: {
       flexDirection: 'row',
       alignItems: 'center',
+      flex: 1,
+      minWidth: 0,
     },
     sectionTitle: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.fontSize.md,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: Ig.ink,
       marginLeft: spacingSm + 2,
+      flexShrink: 1,
     },
     sectionHeaderRight: {
       flexDirection: 'row',
       alignItems: 'center',
     },
     sectionBadge: {
-      paddingHorizontal: spacingSm,
-      paddingVertical: spacingXs,
-      borderRadius: radiusMd,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: BORDERS.radius.pill,
+      backgroundColor: Ig.surfaceStrong,
     },
     sectionBadgeText: {
-      fontSize: fontSizeBase - 2,
-      fontWeight: fontWeightSemibold,
-      color: '#FFFFFF',
+      fontSize: 10,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+      color: Ig.muted,
     },
     sectionDescription: {
-      fontSize: fontSizeBase - 2,
+      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: Ig.muted,
+      lineHeight: TYPOGRAPHY.fontSize.sm * 1.45,
       marginBottom: spacingMd - 2,
       paddingHorizontal: containerHorizontal,
     },
@@ -1555,28 +1502,36 @@ const createStyles = () => {
       flexWrap: 'wrap',
       justifyContent: 'space-between',
       paddingHorizontal: containerHorizontal,
-      gap: spacingSm,
+      rowGap: spacingMd,
+      columnGap: spacingSm,
+      maxWidth: '100%',
     },
     documentCard: {
-      width: '48%',
-      borderRadius: radiusXl,
-      marginBottom: spacingMd,
-      borderWidth: 2,
+      width: '47.5%',
+      maxWidth: '47.5%',
+      borderRadius: BORDERS.radius.lg,
+      marginBottom: 0,
+      borderWidth: BORDERS.width.thin,
+      borderColor: Ig.hairline,
+      backgroundColor: Ig.canvas,
       overflow: 'hidden',
+      ...SHADOWS.editorial,
     },
     documentCardHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: spacingSm + 4,
-      borderBottomWidth: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: Ig.hairline,
     },
     documentIconContainer: {
       width: 40,
       height: 40,
-      borderRadius: 20,
+      borderRadius: BORDERS.radius.full,
       justifyContent: 'center',
       alignItems: 'center',
+      backgroundColor: Ig.surfaceStrong,
     },
     documentCardStatus: {
       flexDirection: 'row',
@@ -1585,66 +1540,96 @@ const createStyles = () => {
     statusBadge: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: spacingSm,
-      paddingVertical: spacingXs,
-      borderRadius: radiusMd,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: BORDERS.radius.pill,
+      backgroundColor: Ig.surfaceStrong,
+      gap: 4,
     },
     statusBadgeText: {
-      fontSize: fontSizeBase - 2,
-      fontWeight: fontWeightSemibold,
-      color: '#FFFFFF',
-      marginLeft: spacingXs,
+      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     },
     documentCardContent: {
       padding: spacingSm + 4,
-      borderBottomWidth: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: Ig.hairline,
     },
     documentName: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: Ig.ink,
       marginBottom: spacingXs,
     },
     documentDescription: {
-      fontSize: fontSizeBase - 1,
+      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: Ig.muted,
       marginBottom: spacingSm,
+      lineHeight: TYPOGRAPHY.fontSize.xs * 1.45,
     },
     documentMeta: {
       flexDirection: 'row',
       alignItems: 'center',
     },
     documentDate: {
-      fontSize: fontSizeBase - 2,
+      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: Ig.muted,
       marginLeft: spacingSm,
     },
     documentCardActions: {
       padding: spacingSm + 4,
-      borderTopWidth: 1,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: Ig.hairline,
     },
     actionButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: spacingSm + 2,
-      paddingHorizontal: spacingMd - 1,
-      borderRadius: radiusLg,
-      borderWidth: 1,
+      paddingVertical: 12,
+      paddingHorizontal: spacingMd,
+      borderRadius: BORDERS.radius.pill,
+      borderWidth: BORDERS.width.thin,
       gap: spacingSm,
+      minHeight: 44,
     },
     actionButtonText: {
-      fontSize: fontSizeBase - 2,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    },
+    actionButtonPrimary: {
+      backgroundColor: Ig.primary,
+      borderColor: Ig.primary,
+    },
+    actionButtonPrimaryText: {
+      color: Ig.onPrimary,
+    },
+    actionButtonSecondary: {
+      backgroundColor: Ig.surfaceStrong,
+      borderColor: Ig.hairline,
+    },
+    actionButtonSecondaryText: {
+      color: Ig.ink,
     },
     verificationNotice: {
       flexDirection: 'row',
       alignItems: 'center',
-      borderRadius: radiusLg,
-      padding: spacingSm + 4,
-      marginTop: spacingSm + 4,
-      borderWidth: 1,
+      paddingVertical: spacingSm + 2,
+      paddingHorizontal: spacingSm + 4,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: Ig.hairline,
+      backgroundColor: Ig.surfaceSoft,
     },
     verificationNoticeText: {
-      fontSize: fontSizeBase - 1,
+      fontSize: TYPOGRAPHY.fontSize.xs,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: Ig.body,
       marginLeft: spacingSm,
+      flex: 1,
     },
     emptyStateContainer: {
       alignItems: 'center',
@@ -1652,56 +1637,76 @@ const createStyles = () => {
       paddingHorizontal: containerHorizontal,
     },
     emptyStateTitle: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.fontSize.lg,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: Ig.ink,
       marginTop: spacingSm + 2,
     },
     emptyStateDescription: {
-      fontSize: fontSizeBase - 2,
+      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: Ig.muted,
       marginTop: spacingXs,
       textAlign: 'center',
+      lineHeight: TYPOGRAPHY.fontSize.sm * 1.45,
     },
     emptyStateAction: {
       flexDirection: 'row',
       alignItems: 'center',
-      borderRadius: radiusLg,
-      paddingVertical: spacingSm + 4,
+      justifyContent: 'center',
+      borderRadius: BORDERS.radius.pill,
+      paddingVertical: 12,
       paddingHorizontal: spacingLg,
       marginTop: spacingLg,
-      borderWidth: 1,
+      borderWidth: BORDERS.width.thin,
+      borderColor: Ig.hairline,
+      backgroundColor: Ig.surfaceStrong,
       gap: spacingSm,
+      minHeight: 44,
     },
     emptyStateActionText: {
-      fontSize: fontSizeBase - 2,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: Ig.primary,
     },
     infoCard: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      borderRadius: radiusLg,
+      borderRadius: BORDERS.radius.md,
       padding: spacingMd,
       marginTop: spacingSm,
-      borderWidth: 1,
+      borderWidth: BORDERS.width.thin,
+      borderColor: Ig.hairline,
+      backgroundColor: Ig.surfaceSoft,
     },
     infoText: {
-      fontSize: fontSizeBase - 2,
+      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: Ig.body,
       marginLeft: spacingSm + 4,
       flex: 1,
-      lineHeight: fontSizeBase + 6,
+      lineHeight: TYPOGRAPHY.fontSize.sm * 1.45,
     },
     uploadPrompt: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: spacingSm + 2,
-      paddingHorizontal: spacingMd - 1,
-      borderRadius: radiusLg,
-      borderWidth: 1,
+      paddingVertical: 12,
+      paddingHorizontal: spacingMd,
+      borderRadius: BORDERS.radius.pill,
+      borderWidth: BORDERS.width.thin,
+      borderColor: Ig.hairline,
+      backgroundColor: Ig.surfaceSoft,
       gap: spacingSm,
+      minHeight: 44,
     },
     uploadPromptText: {
-      fontSize: fontSizeBase - 2,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: Ig.muted,
     },
     // Nuevos estilos para documentos
     documentInfo: {
@@ -1717,30 +1722,34 @@ const createStyles = () => {
       alignItems: 'center',
       justifyContent: 'center',
       padding: spacingLg,
-      borderRadius: radiusXl,
-      borderWidth: 1,
-      borderColor: borderMain,
+      borderRadius: BORDERS.radius.lg,
+      borderWidth: BORDERS.width.thin,
+      borderColor: Ig.hairline,
       borderStyle: 'dashed',
       marginBottom: spacingMd,
-      backgroundColor: (COLORS?.background as any)?.default || '#FAFAFA',
+      backgroundColor: Ig.surfaceSoft,
     },
     missingDocumentTitle: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
+      fontSize: TYPOGRAPHY.fontSize.md,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: Ig.ink,
       marginTop: spacingSm,
       textAlign: 'center',
     },
     missingDocumentSubtitle: {
-      fontSize: fontSizeBase - 2,
-      color: (COLORS?.text as any)?.tertiary || '#999999',
+      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+      color: Ig.muted,
       marginTop: spacingXs,
       textAlign: 'center',
       marginBottom: spacingMd,
     },
     uploadHint: {
-      fontSize: fontSizeBase - 2,
-      fontWeight: fontWeightSemibold,
-      color: primary500,
+      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      color: Ig.primary,
     },
   });
 };

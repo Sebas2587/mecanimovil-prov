@@ -10,11 +10,16 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { checklistService, ChecklistInstance, ChecklistItemResponse } from '@/services/checklistService';
-import { useTheme } from '@/app/design-system/theme/useTheme';
+import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+
+const I = COLORS.institutional;
+const T = TYPOGRAPHY.styles;
 
 interface ChecklistCompletedViewProps {
   visible: boolean;
@@ -27,34 +32,9 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
   onClose,
   ordenId,
 }) => {
-  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [instance, setInstance] = useState<ChecklistInstance | null>(null);
   const [loading, setLoading] = useState(false);
-
-  // Obtener valores del sistema de diseño con fallbacks
-  const colors = theme?.colors || COLORS || {};
-  const spacing = theme?.spacing || SPACING || {};
-  const typography = theme?.typography || TYPOGRAPHY || {};
-  const borders = theme?.borders || BORDERS || {};
-  const shadows = theme?.shadows || SHADOWS || {};
-  
-  // Valores específicos del sistema de diseño
-  const bgPaper = colors?.background?.paper || colors?.base?.white || '#FFFFFF';
-  const bgDefault = colors?.background?.default || '#EEEEEE';
-  const textPrimary = colors?.text?.primary || '#000000';
-  const textSecondary = colors?.text?.secondary || '#666666';
-  const textTertiary = colors?.text?.tertiary || '#999999';
-  const borderLight = colors?.border?.light || '#EEEEEE';
-  const borderMain = colors?.border?.main || '#D0D0D0';
-  const white = colors?.base?.white || '#FFFFFF';
-  
-  // Success color
-  const successObj = colors?.success as any;
-  const successColor = successObj?.main || successObj?.['500'] || '#3DB6B1';
-  
-  // Neutral gray para estados pendientes
-  const neutralGray700 = (colors?.neutral?.gray as any)?.[700] || '#666666';
 
   useEffect(() => {
     if (visible && ordenId) {
@@ -80,7 +60,7 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
   };
 
   const formatearFechaHora = (fechaHora: string) => {
-    return new Date(fechaHora).toLocaleString('es-ES', {
+    return new Date(fechaHora).toLocaleString('es-CL', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -91,9 +71,9 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
 
   const renderRespuesta = (response: ChecklistItemResponse) => {
     const { respuesta_texto, respuesta_numero, respuesta_booleana, respuesta_seleccion, fotos } = response;
-    
+
     let valorMostrar = '';
-    
+
     if (respuesta_texto) {
       valorMostrar = respuesta_texto;
     } else if (respuesta_numero !== undefined && respuesta_numero !== null) {
@@ -102,57 +82,61 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
       valorMostrar = respuesta_booleana ? 'Sí' : 'No';
     } else if (respuesta_seleccion) {
       if (Array.isArray(respuesta_seleccion)) {
-        valorMostrar = respuesta_seleccion.map(item => 
-          typeof item === 'string' ? item : item.name || 'Item'
-        ).join(', ');
+        valorMostrar = respuesta_seleccion
+          .map(item => (typeof item === 'string' ? item : item.name || 'Item'))
+          .join(', ');
       } else if (typeof respuesta_seleccion === 'object') {
         valorMostrar = JSON.stringify(respuesta_seleccion, null, 2);
       } else {
-        valorMostrar = respuesta_seleccion.toString();
+        valorMostrar = String(respuesta_seleccion);
       }
     }
 
     return (
-      <View key={response.id} style={styles.responseContainer}>
+      <View key={response.id} style={styles.responseCard}>
         <View style={styles.responseHeader}>
-          <Text style={styles.responseTitle}>
+          <Text style={styles.responseTitle} numberOfLines={4}>
             {response.item_info?.pregunta_texto || 'Pregunta'}
           </Text>
-          <View style={[
-            styles.statusBadge,
-            { backgroundColor: response.completado ? successColor : neutralGray700 }
-          ]}>
-            <MaterialIcons 
-              name={response.completado ? 'check-circle' : 'radio-button-unchecked'} 
-              size={12} 
-              color={white} 
+          <View
+            style={[
+              styles.itemStatusPill,
+              response.completado ? styles.itemStatusPillDone : styles.itemStatusPillPending,
+            ]}
+          >
+            <InstitutionalIcon
+              name={response.completado ? 'check-circle' : 'radio-button-unchecked'}
+              size={12}
+              color={response.completado ? I.semanticUp : I.muted}
+              strokeWidth={ICON_STROKE_WIDTH}
             />
-            <Text style={styles.statusText}>
-              {response.completado ? 'Completado' : 'Pendiente'}
+            <Text style={[styles.itemStatusText, response.completado ? styles.itemStatusTextDone : styles.itemStatusTextPending]}>
+              {response.completado ? 'Listo' : 'Pendiente'}
             </Text>
           </View>
         </View>
-        
-        {valorMostrar && (
-          <Text style={styles.responseValue}>{valorMostrar}</Text>
-        )}
-        
+
+        {!!valorMostrar && <Text style={styles.responseValue}>{valorMostrar}</Text>}
+
         {fotos && fotos.length > 0 && (
-          <View style={styles.photosContainer}>
-            <Text style={styles.photosTitle}>Fotos de evidencia ({fotos.length})</Text>
+          <View style={styles.photosBlock}>
+            <Text style={styles.photosLabel}>Evidencia ({fotos.length})</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {fotos.map((foto, index) => {
-                const uri = typeof foto.imagen_url === 'string' ? foto.imagen_url : (foto.imagen && typeof foto.imagen === 'string' ? foto.imagen : null);
+                const uri =
+                  typeof foto.imagen_url === 'string'
+                    ? foto.imagen_url
+                    : foto.imagen && typeof foto.imagen === 'string'
+                      ? foto.imagen
+                      : null;
                 if (!uri) return null;
                 return (
-                  <View key={foto.id ?? `foto-${response.id}-${index}`} style={styles.photoWrapper}>
-                    <Image
-                      source={{ uri }}
-                      style={styles.photoThumbnail}
-                      resizeMode="cover"
-                    />
+                  <View key={foto.id ?? `foto-${response.id}-${index}`} style={styles.photoCell}>
+                    <Image source={{ uri }} style={styles.photoThumb} resizeMode="cover" />
                     {foto.descripcion ? (
-                      <Text style={styles.photoCaption} numberOfLines={2}>{foto.descripcion}</Text>
+                      <Text style={styles.photoCaption} numberOfLines={2}>
+                        {foto.descripcion}
+                      </Text>
                     ) : null}
                   </View>
                 );
@@ -160,12 +144,10 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
             </ScrollView>
           </View>
         )}
-        
-        {response.fecha_respuesta && (
-          <Text style={styles.responseDate}>
-            Completado: {formatearFechaHora(response.fecha_respuesta)}
-          </Text>
-        )}
+
+        {response.fecha_respuesta ? (
+          <Text style={styles.responseMeta}>Registrado · {formatearFechaHora(response.fecha_respuesta)}</Text>
+        ) : null}
       </View>
     );
   };
@@ -173,394 +155,478 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
   if (!visible) return null;
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="formSheet"
-      onRequestClose={onClose}
-      transparent={false}
-    >
-      <SafeAreaView style={styles.container} edges={['top']}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <MaterialIcons name="close" size={24} color={textPrimary} />
-          </TouchableOpacity>
-          
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>Checklist Completado</Text>
-            <Text style={styles.subtitle}>Orden #{ordenId}</Text>
-          </View>
-          
-          <View style={styles.placeholderButton} />
-        </View>
-
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={successColor} />
-            <Text style={styles.loadingText}>Cargando checklist...</Text>
-          </View>
-        ) : instance ? (
-          <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-            {/* Info general */}
-            <View style={styles.infoSection}>
-              <Text style={styles.sectionTitle}>Información General</Text>
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Template:</Text>
-                <Text style={styles.infoValue}>{instance.checklist_template_info?.nombre}</Text>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={styles.screenRoot}>
+        <LinearGradient
+          colors={BLANK_GLASS.gradient}
+          locations={BLANK_GLASS.gradientLocations}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+          <View style={[styles.header, { paddingTop: Math.max(insets.top, SPACING.sm) }]}>
+            <TouchableOpacity onPress={onClose} style={styles.headerIconBtn} accessibilityRole="button" accessibilityLabel="Cerrar">
+              <InstitutionalIcon name="close" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            </TouchableOpacity>
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerTitle}>Checklist completado</Text>
+              <View style={styles.orderPill}>
+                <Text style={styles.orderPillText}>Orden #{ordenId}</Text>
               </View>
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Estado:</Text>
-                <View style={[styles.estadoBadge, { backgroundColor: successColor }]}>
-                  <MaterialIcons name="check-circle" size={16} color={white} />
-                  <Text style={styles.estadoText}>Completado</Text>
-                </View>
-              </View>
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Progreso:</Text>
-                <Text style={styles.infoValue}>{instance.progreso_porcentaje}%</Text>
-              </View>
-              
-              {instance.fecha_inicio && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Iniciado:</Text>
-                  <Text style={styles.infoValue}>
-                    {formatearFechaHora(instance.fecha_inicio)}
-                  </Text>
-                </View>
-              )}
-              
-              {instance.fecha_finalizacion && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Finalizado:</Text>
-                  <Text style={styles.infoValue}>
-                    {formatearFechaHora(instance.fecha_finalizacion)}
-                  </Text>
-                </View>
-              )}
-              
-              {instance.tiempo_total_minutos && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Duración:</Text>
-                  <Text style={styles.infoValue}>{instance.tiempo_total_minutos} minutos</Text>
-                </View>
-              )}
             </View>
+            <View style={styles.headerIconBtn} />
+          </View>
 
-            {/* Firmas */}
-            {(instance.firma_tecnico || instance.firma_cliente) && (
-              <View style={styles.signaturesSection}>
-                <Text style={styles.sectionTitle}>Firmas Digitales</Text>
-                
-                <View style={styles.signaturesRow}>
-                  {instance.firma_tecnico && (
-                    <View style={styles.signatureContainer}>
-                      <Text style={styles.signatureLabel}>Firma del Técnico</Text>
-                      <Image
-                        source={{ uri: `data:image/png;base64,${instance.firma_tecnico}` }}
-                        style={styles.signatureImage}
-                        resizeMode="contain"
-                      />
+          {loading ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="large" color={I.primary} />
+              <Text style={styles.loadingHint}>Cargando checklist…</Text>
+            </View>
+          ) : instance ? (
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + SPACING.lg }]}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.card}>
+                <View style={styles.sectionPillWrap}>
+                  <View style={styles.sectionPill}>
+                    <Text style={styles.sectionPillText}>Resumen</Text>
+                  </View>
+                </View>
+
+                <View style={styles.summaryGrid}>
+                  <View style={styles.summaryRow2}>
+                    <View style={styles.summaryCell}>
+                      <Text style={styles.fieldLabel}>Estado</Text>
+                      <View style={styles.doneBadge}>
+                        <InstitutionalIcon name="check-circle" size={14} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.doneBadgeText}>Completado</Text>
+                      </View>
+                    </View>
+                    <View style={styles.summaryCell}>
+                      <Text style={styles.fieldLabel}>Progreso</Text>
+                      <Text style={styles.fieldValueMono}>{instance.progreso_porcentaje}%</Text>
+                    </View>
+                  </View>
+
+                  {(instance.fecha_inicio || instance.fecha_finalizacion) && (
+                    <View style={styles.summaryRow2}>
+                      <View style={styles.summaryCell}>
+                        <Text style={styles.fieldLabel}>Inicio</Text>
+                        <Text style={styles.fieldValue}>
+                          {instance.fecha_inicio ? formatearFechaHora(instance.fecha_inicio) : '—'}
+                        </Text>
+                      </View>
+                      <View style={styles.summaryCell}>
+                        <Text style={styles.fieldLabel}>Cierre</Text>
+                        <Text style={styles.fieldValue}>
+                          {instance.fecha_finalizacion ? formatearFechaHora(instance.fecha_finalizacion) : '—'}
+                        </Text>
+                      </View>
                     </View>
                   )}
-                  
-                  {instance.firma_cliente && (
-                    <View style={styles.signatureContainer}>
-                      <Text style={styles.signatureLabel}>Firma del Cliente</Text>
-                      <Image
-                        source={{ uri: `data:image/png;base64,${instance.firma_cliente}` }}
-                        style={styles.signatureImage}
-                        resizeMode="contain"
-                      />
+
+                  {instance.tiempo_total_minutos != null && (
+                    <View style={styles.summaryRow2}>
+                      <View style={[styles.summaryCell, styles.summaryCellGrow]}>
+                        <Text style={styles.fieldLabel}>Duración</Text>
+                        <Text style={styles.fieldValueMono}>{instance.tiempo_total_minutos} min</Text>
+                      </View>
                     </View>
                   )}
                 </View>
               </View>
-            )}
 
-            {/* Respuestas */}
-            <View style={styles.responsesSection}>
-              <Text style={styles.sectionTitle}>
-                Respuestas ({instance.respuestas?.length || 0})
-              </Text>
-              
-              {instance.respuestas && instance.respuestas.length > 0 ? (
-                instance.respuestas
-                  .sort((a, b) => (a.item_template || 0) - (b.item_template || 0))
-                  .map(renderRespuesta)
-              ) : (
-                <Text style={styles.noResponsesText}>No hay respuestas registradas</Text>
+              {(instance.firma_tecnico || instance.firma_cliente) && (
+                <View style={styles.card}>
+                  <View style={styles.sectionPillWrap}>
+                    <View style={styles.sectionPill}>
+                      <Text style={styles.sectionPillText}>Firmas</Text>
+                    </View>
+                  </View>
+                  <View style={styles.signaturesRow2}>
+                    {instance.firma_tecnico ? (
+                      <View
+                        style={[
+                          styles.sigCell,
+                          !instance.firma_cliente ? styles.sigCellSingle : null,
+                        ]}
+                      >
+                        <Text style={styles.sigCaption}>Técnico</Text>
+                        <Image
+                          source={{ uri: `data:image/png;base64,${instance.firma_tecnico}` }}
+                          style={styles.sigImage}
+                          resizeMode="contain"
+                        />
+                      </View>
+                    ) : null}
+                    {instance.firma_cliente ? (
+                      <View
+                        style={[
+                          styles.sigCell,
+                          !instance.firma_tecnico ? styles.sigCellSingle : null,
+                        ]}
+                      >
+                        <Text style={styles.sigCaption}>Cliente</Text>
+                        <Image
+                          source={{ uri: `data:image/png;base64,${instance.firma_cliente}` }}
+                          style={styles.sigImage}
+                          resizeMode="contain"
+                        />
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
               )}
+
+              <View style={styles.card}>
+                <View style={styles.sectionPillWrap}>
+                  <View style={styles.sectionPill}>
+                    <Text style={styles.sectionPillText}>
+                      Ítems ({instance.respuestas?.length ?? 0})
+                    </Text>
+                  </View>
+                </View>
+
+                {instance.respuestas && instance.respuestas.length > 0 ? (
+                  instance.respuestas
+                    .sort((a, b) => (a.item_template || 0) - (b.item_template || 0))
+                    .map(renderRespuesta)
+                ) : (
+                  <Text style={styles.emptyItems}>No hay respuestas registradas</Text>
+                )}
+              </View>
+            </ScrollView>
+          ) : (
+            <View style={styles.loadingBox}>
+              <InstitutionalIcon name="error-outline" size={44} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.errorTitle}>Sin datos</Text>
+              <Text style={styles.errorHint}>No se pudo cargar el checklist para esta orden.</Text>
             </View>
-          </ScrollView>
-        ) : (
-          <View style={styles.errorContainer}>
-            <MaterialIcons name="error-outline" size={48} color={textTertiary} />
-            <Text style={styles.errorText}>No se pudo cargar el checklist</Text>
-          </View>
-        )}
-      </SafeAreaView>
+          )}
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 };
 
-// Crear estilos dinámicos usando los tokens del sistema de diseño
-const createStyles = () => {
-  const bgPaper = COLORS?.background?.paper || COLORS?.base?.white || '#FFFFFF';
-  const bgDefault = COLORS?.background?.default || '#EEEEEE';
-  const textPrimary = COLORS?.text?.primary || '#000000';
-  const textSecondary = COLORS?.text?.secondary || '#666666';
-  const textTertiary = COLORS?.text?.tertiary || '#999999';
-  const borderLight = COLORS?.border?.light || '#EEEEEE';
-  const borderMain = COLORS?.border?.main || '#D0D0D0';
-  const white = COLORS?.base?.white || '#FFFFFF';
-  
-  const spacingXs = SPACING?.xs || 4;
-  const spacingSm = SPACING?.sm || 8;
-  const spacingMd = SPACING?.md || 16;
-  const spacingXl = SPACING?.xl || 32;
-  
-  const fontSizeXs = TYPOGRAPHY?.fontSize?.xs || 10;
-  const fontSizeSm = TYPOGRAPHY?.fontSize?.sm || 12;
-  const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
-  const fontSizeMd = TYPOGRAPHY?.fontSize?.md || 16;
-  const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
-  
-  const fontWeightMedium = TYPOGRAPHY?.fontWeight?.medium || '500';
-  const fontWeightSemibold = TYPOGRAPHY?.fontWeight?.semibold || '600';
-  
-  const radiusMd = BORDERS?.radius?.md || 8;
-  const radiusLg = BORDERS?.radius?.lg || 12;
-  
-  const shadowSm = SHADOWS?.sm || {};
-
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: bgPaper,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacingMd,
-      paddingVertical: spacingSm,
-      backgroundColor: bgPaper,
-      borderBottomWidth: 1,
-      borderBottomColor: borderLight,
-    },
-    closeButton: {
-      padding: spacingXs,
-    },
-    titleContainer: {
-      flex: 1,
-      alignItems: 'center',
-    },
-    title: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-    },
-    subtitle: {
-      fontSize: fontSizeSm,
-      color: textTertiary,
-      marginTop: 2,
-    },
-    placeholderButton: {
-      width: 40,
-    },
-    content: {
-      flex: 1,
-      backgroundColor: bgDefault,
-    },
-    scrollContent: {
-      padding: spacingMd,
-      paddingBottom: spacingXl + 20,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    loadingText: {
-      fontSize: fontSizeBase,
-      color: textTertiary,
-      marginTop: spacingMd,
-    },
-    errorContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    errorText: {
-      fontSize: fontSizeBase,
-      color: textTertiary,
-      marginTop: spacingMd,
-    },
-    infoSection: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusLg,
-      padding: spacingMd,
-      marginBottom: spacingMd,
-      borderWidth: 1,
-      borderColor: borderLight,
-      ...shadowSm,
-    },
-    sectionTitle: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-      marginBottom: spacingSm,
-    },
-    infoRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: spacingXs,
-    },
-    infoLabel: {
-      fontSize: fontSizeSm,
-      color: textSecondary,
-      width: 100,
-    },
-    infoValue: {
-      fontSize: fontSizeBase,
-      color: textPrimary,
-      flex: 1,
-      fontWeight: fontWeightMedium,
-    },
-    estadoBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacingXs + 2,
-      paddingVertical: spacingXs / 2,
-      borderRadius: radiusLg,
-    },
-    estadoText: {
-      fontSize: fontSizeXs,
-      color: white,
-      marginLeft: spacingXs / 2,
-      fontWeight: fontWeightSemibold,
-    },
-    signaturesSection: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusLg,
-      padding: spacingMd,
-      marginBottom: spacingMd,
-      borderWidth: 1,
-      borderColor: borderLight,
-      ...shadowSm,
-    },
-    signaturesRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    signatureContainer: {
-      flex: 1,
-      marginHorizontal: spacingXs,
-    },
-    signatureLabel: {
-      fontSize: fontSizeXs,
-      color: textSecondary,
-      marginBottom: spacingXs,
-      textAlign: 'center',
-      fontWeight: fontWeightMedium,
-    },
-    signatureImage: {
-      width: '100%',
-      height: 80,
-      backgroundColor: bgDefault,
-      borderRadius: radiusMd,
-      borderWidth: 1,
-      borderColor: borderMain,
-    },
-    responsesSection: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusLg,
-      padding: spacingMd,
-      borderWidth: 1,
-      borderColor: borderLight,
-      ...shadowSm,
-    },
-    responseContainer: {
-      borderBottomWidth: 1,
-      borderBottomColor: borderLight,
-      paddingBottom: spacingMd,
-      marginBottom: spacingMd,
-    },
-    responseHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      marginBottom: spacingXs,
-    },
-    responseTitle: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-      flex: 1,
-      marginRight: spacingXs,
-    },
-    statusBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacingXs,
-      paddingVertical: 2,
-      borderRadius: radiusMd,
-    },
-    statusText: {
-      fontSize: fontSizeXs,
-      color: white,
-      marginLeft: spacingXs / 2,
-      fontWeight: fontWeightSemibold,
-    },
-    responseValue: {
-      fontSize: fontSizeBase,
-      color: textPrimary,
-      marginBottom: spacingXs,
-      lineHeight: 20,
-    },
-    photosContainer: {
-      marginBottom: spacingXs,
-    },
-    photosTitle: {
-      fontSize: fontSizeXs,
-      color: textSecondary,
-      marginBottom: spacingXs,
-      fontWeight: fontWeightMedium,
-    },
-    photoWrapper: {
-      marginRight: spacingXs,
-      alignItems: 'center',
-      maxWidth: 80,
-    },
-    photoThumbnail: {
-      width: 60,
-      height: 60,
-      borderRadius: radiusMd,
-      backgroundColor: bgDefault,
-      borderWidth: 1,
-      borderColor: borderLight,
-    },
-    photoCaption: {
-      fontSize: 10,
-      color: textTertiary,
-      marginTop: 4,
-      textAlign: 'center',
-    },
-    responseDate: {
-      fontSize: fontSizeXs,
-      color: textTertiary,
-      fontStyle: 'italic',
-    },
-    noResponsesText: {
-      fontSize: fontSizeBase,
-      color: textTertiary,
-      textAlign: 'center',
-      paddingVertical: spacingMd,
-    },
-  });
-};
-
-const styles = createStyles(); 
+const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+    backgroundColor: I.canvas,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: GLASS_INSET,
+    paddingBottom: SPACING.sm + 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+    backgroundColor: I.canvas,
+    ...SHADOWS.editorial,
+  },
+  headerIconBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    minWidth: 0,
+  },
+  headerTitle: {
+    fontSize: T.h3.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.h3.fontWeight as '600',
+    lineHeight: Math.round(T.h3.fontSize * T.h3.lineHeight),
+    color: I.ink,
+    textAlign: 'center',
+  },
+  orderPill: {
+    marginTop: SPACING.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+  },
+  orderPillText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
+    color: I.muted,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollInner: {
+    paddingHorizontal: GLASS_INSET,
+    paddingTop: SPACING.md,
+    gap: SPACING.md,
+  },
+  loadingBox: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: GLASS_INSET,
+  },
+  loadingHint: {
+    marginTop: SPACING.sm,
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.muted,
+  },
+  errorTitle: {
+    marginTop: SPACING.sm,
+    fontSize: T.h4.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    color: I.ink,
+  },
+  errorHint: {
+    marginTop: SPACING.xs,
+    fontSize: T.small.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.muted,
+    textAlign: 'center',
+  },
+  card: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    paddingVertical: SPACING.sm + 4,
+    paddingHorizontal: SPACING.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
+  },
+  sectionPillWrap: {
+    marginBottom: SPACING.sm,
+  },
+  sectionPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+  },
+  sectionPillText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
+    color: I.muted,
+  },
+  summaryGrid: {
+    gap: SPACING.sm,
+  },
+  summaryRow2: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    alignItems: 'stretch',
+  },
+  summaryCell: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+  },
+  summaryCellGrow: {
+    flexGrow: 1,
+    flexBasis: '100%',
+  },
+  fieldLabel: {
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
+    color: I.muted,
+    marginBottom: SPACING.xs,
+    textTransform: 'uppercase',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
+  },
+  fieldValue: {
+    fontSize: T.body.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.body.fontWeight as '400',
+    lineHeight: Math.round(T.body.fontSize * T.body.lineHeight),
+    color: I.ink,
+  },
+  fieldValueMono: {
+    fontSize: T.numberDisplay.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
+    color: I.ink,
+  },
+  doneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.canvas,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+  },
+  doneBadgeText: {
+    fontSize: T.captionBold.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.captionBold.fontWeight as '600',
+    color: I.semanticUp,
+  },
+  signaturesRow2: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    alignItems: 'stretch',
+  },
+  sigCell: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+  },
+  sigCellSingle: {
+    maxWidth: '100%',
+    flexGrow: 1,
+  },
+  sigCaption: {
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    color: I.muted,
+    marginBottom: SPACING.xs,
+    textAlign: 'center',
+  },
+  sigImage: {
+    width: '100%',
+    height: 88,
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+  },
+  responseCard: {
+    paddingVertical: SPACING.sm + 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+  },
+  responseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  /** Pregunta del ítem — jerarquía `h4` (doc proveedores / Coinbase). */
+  responseTitle: {
+    flex: 1,
+    fontSize: T.h4.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.h4.fontWeight as '600',
+    lineHeight: Math.round(T.h4.fontSize * T.h4.lineHeight),
+    color: I.ink,
+  },
+  itemStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  itemStatusPillDone: {
+    backgroundColor: I.surfaceStrong,
+    borderColor: I.hairline,
+  },
+  itemStatusPillPending: {
+    backgroundColor: I.surfaceSoft,
+    borderColor: I.hairline,
+  },
+  itemStatusText: {
+    fontSize: T.small.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
+    lineHeight: Math.round(T.small.fontSize * T.small.lineHeight),
+  },
+  itemStatusTextDone: {
+    color: I.semanticUp,
+  },
+  itemStatusTextPending: {
+    color: I.muted,
+  },
+  /** Respuesta / detalle — cuerpo estándar. */
+  responseValue: {
+    fontSize: T.body.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.body.fontWeight as '400',
+    lineHeight: Math.round(T.body.fontSize * T.body.lineHeight),
+    color: I.body,
+    marginBottom: SPACING.sm,
+  },
+  photosBlock: {
+    marginBottom: SPACING.sm,
+  },
+  photosLabel: {
+    fontSize: T.captionBold.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.captionBold.fontWeight as '600',
+    color: I.muted,
+    marginBottom: SPACING.xs,
+    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
+    textTransform: 'uppercase',
+  },
+  photoCell: {
+    marginRight: SPACING.sm,
+    alignItems: 'center',
+    maxWidth: 88,
+  },
+  photoThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+  },
+  photoCaption: {
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.caption.fontWeight as '400',
+    lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
+    color: I.muted,
+    marginTop: SPACING.xs,
+    textAlign: 'center',
+  },
+  responseMeta: {
+    fontSize: T.small.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.muted,
+    lineHeight: Math.round(T.small.fontSize * T.small.lineHeight),
+  },
+  emptyItems: {
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.muted,
+    textAlign: 'center',
+    paddingVertical: SPACING.md,
+    lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
+  },
+});

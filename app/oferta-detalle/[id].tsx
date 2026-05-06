@@ -11,32 +11,25 @@ import {
   Linking,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { obtenerDetalleOferta, iniciarServicio, terminarServicio, type OfertaProveedor } from '@/services/solicitudesService';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, withOpacity, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { Alert } from 'react-native';
 import { checklistService, type ChecklistInstance } from '@/services/checklistService';
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
+const hx = SPACING.container.horizontal;
+const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
 export default function OfertaDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const theme = useTheme();
   const insets = useSafeAreaInsets();
-
-  // Obtener valores del sistema de diseño
-  const designColors = theme?.colors || COLORS || {};
-  const designSpacing = theme?.spacing || SPACING || {};
-  const designTypography = theme?.typography || TYPOGRAPHY || {};
-  const designShadows = theme?.shadows || SHADOWS || {};
-  const designBorders = theme?.borders || BORDERS || {};
 
   const [oferta, setOferta] = useState<OfertaProveedor | null>(null);
   const [loading, setLoading] = useState(true);
@@ -104,52 +97,42 @@ export default function OfertaDetalleScreen() {
     setShowChecklistContainer(false);
   };
 
-  // Obtener información del estado usando tokens del sistema de diseño
   const getEstadoInfo = () => {
     if (!oferta) {
-      const neutralGray = (designColors?.neutral?.gray as any)?.[500] || '#999999';
-      return { color: neutralGray, text: 'Desconocido', icon: 'info' };
+      return { accent: I.muted, text: 'Desconocido', icon: 'info' as const };
     }
-
-    const primaryColor = designColors?.primary?.['500'] || '#4E4FEB';
-    const secondaryColor = designColors?.secondary?.['500'] || '#068FFF';
-    const accentColor = designColors?.accent?.['500'] || '#FF6B00';
-    const successColor = (designColors?.success as any)?.['500'] || designColors?.success?.main || '#3DB6B1';
-    const errorColor = (designColors?.error as any)?.['500'] || designColors?.error?.main || '#FF5555';
-    const warningColor = (designColors?.warning as any)?.['500'] || designColors?.warning?.main || '#FFB84D';
-    const neutralGray = (designColors?.neutral?.gray as any)?.[500] || '#999999';
 
     switch (oferta.estado) {
       case 'enviada':
-        return { color: secondaryColor, text: 'Enviada', icon: 'send' };
+        return { accent: I.primary, text: 'Enviada', icon: 'send' as const };
       case 'vista':
-        return { color: primaryColor, text: 'Vista por Cliente', icon: 'visibility' };
+        return { accent: I.primary, text: 'Vista por cliente', icon: 'visibility' as const };
       case 'en_chat':
-        return { color: accentColor, text: 'En Conversación', icon: 'chat' };
+        return { accent: I.primaryActive, text: 'En conversación', icon: 'chat' as const };
       case 'pendiente_creditos':
         return {
-          color: warningColor,
+          accent: I.accentYellow,
           text: 'Pendiente créditos',
-          icon: 'account-balance-wallet',
+          icon: 'account-balance-wallet' as const,
         };
       case 'aceptada':
-        return { color: successColor, text: '¡Aceptada!', icon: 'check-circle' };
+        return { accent: I.semanticUp, text: 'Aceptada', icon: 'check-circle' as const };
       case 'pendiente_pago':
-        return { color: warningColor, text: 'Cliente Pagando...', icon: 'payment' };
+        return { accent: I.accentYellow, text: 'Cliente pagando…', icon: 'payment' as const };
       case 'pagada':
-        return { color: successColor, text: '¡Pagada!', icon: 'paid' };
+        return { accent: I.semanticUp, text: 'Pagada', icon: 'paid' as const };
       case 'en_ejecucion':
-        return { color: secondaryColor, text: 'En Ejecución', icon: 'build' };
+        return { accent: I.primary, text: 'En ejecución', icon: 'build' as const };
       case 'completada':
-        return { color: successColor, text: 'Completada', icon: 'check-circle' };
+        return { accent: I.semanticUp, text: 'Completada', icon: 'check-circle' as const };
       case 'rechazada':
-        return { color: errorColor, text: 'Rechazada', icon: 'cancel' };
+        return { accent: I.semanticDown, text: 'Rechazada', icon: 'cancel' as const };
       case 'retirada':
-        return { color: neutralGray, text: 'Retirada', icon: 'undo' };
+        return { accent: I.muted, text: 'Retirada', icon: 'undo' as const };
       case 'expirada':
-        return { color: neutralGray, text: 'Expirada', icon: 'schedule' };
+        return { accent: I.muted, text: 'Expirada', icon: 'schedule' as const };
       default:
-        return { color: neutralGray, text: oferta.estado, icon: 'info' };
+        return { accent: I.body, text: oferta.estado, icon: 'info' as const };
     }
   };
 
@@ -320,33 +303,23 @@ export default function OfertaDetalleScreen() {
     );
   };
 
-  const bgDefault = designColors?.background?.default || '#EEEEEE';
-  const bgPaper = designColors?.background?.paper || designColors?.base?.white || '#FFFFFF';
-  const textPrimary = designColors?.text?.primary || '#000000';
-  const primaryColor = designColors?.primary?.['500'] || '#4E4FEB';
-  const secondaryColor = designColors?.secondary?.['500'] || '#068FFF';
-  const successColor = (designColors?.success as any)?.['500'] || designColors?.success?.main || '#3DB6B1';
-  const errorColor = (designColors?.error as any)?.['500'] || designColors?.error?.main || '#FF5555';
-  const warningColor = (designColors?.warning as any)?.['500'] || designColors?.warning?.main || '#FFB84D';
-  const white = designColors?.base?.white || '#FFFFFF';
-
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: bgDefault }]}>
+      <View style={styles.container}>
         <Stack.Screen
           options={{
             title: 'Detalle de Oferta',
             headerBackTitle: '',
             headerBackTitleVisible: false,
-            headerStyle: { backgroundColor: bgPaper },
-            headerTintColor: textPrimary,
+            headerStyle: { backgroundColor: I.canvas },
+            headerTintColor: I.ink,
           }}
         />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={primaryColor} />
-          <Text style={[styles.loadingText, { color: textPrimary }]}>
-            Cargando oferta...
-          </Text>
+        <View style={styles.screenRoot}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={I.primary} />
+            <Text style={styles.loadingText}>Cargando oferta…</Text>
+          </View>
         </View>
       </View>
     );
@@ -354,21 +327,21 @@ export default function OfertaDetalleScreen() {
 
   if (!oferta) {
     return (
-      <View style={[styles.container, { backgroundColor: bgDefault }]}>
+      <View style={styles.container}>
         <Stack.Screen
           options={{
             title: 'Detalle de Oferta',
             headerBackTitle: '',
             headerBackTitleVisible: false,
-            headerStyle: { backgroundColor: bgPaper },
-            headerTintColor: textPrimary,
+            headerStyle: { backgroundColor: I.canvas },
+            headerTintColor: I.ink,
           }}
         />
-        <View style={styles.emptyContainer}>
-          <MaterialIcons name="error-outline" size={64} color={textPrimary + '60'} />
-          <Text style={[styles.emptyText, { color: textPrimary }]}>
-            No se pudo cargar la oferta
-          </Text>
+        <View style={styles.screenRoot}>
+          <View style={styles.emptyContainer}>
+            <InstitutionalIcon name="error-outline" size={64} color={I.muted} />
+            <Text style={styles.emptyText}>No se pudo cargar la oferta</Text>
+          </View>
         </View>
       </View>
     );
@@ -460,7 +433,7 @@ export default function OfertaDetalleScreen() {
   }
 
   const alturaBotonesFijos = calcularAlturaBotonesFijos();
-  const scrollPaddingExtra = (designSpacing?.md ?? SPACING?.md ?? 16) as number;
+  const scrollPaddingExtra = SPACING.fixed.md;
 
   const solicitudActivaParaChat =
     !!oferta?.solicitud_estado &&
@@ -474,38 +447,35 @@ export default function OfertaDetalleScreen() {
     solicitudActivaParaChat;
 
   return (
-    <View style={[styles.container, { backgroundColor: bgDefault }]}>
+    <View style={styles.container}>
       <Stack.Screen
         options={{
           title: 'Detalle de Oferta',
           headerBackTitle: '',
           headerBackTitleVisible: false,
-          headerStyle: { backgroundColor: bgPaper },
-          headerTintColor: textPrimary,
+          headerStyle: { backgroundColor: I.canvas },
+          headerTintColor: I.ink,
         }}
       />
+      <View style={styles.screenRoot}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: alturaBotonesFijos + scrollPaddingExtra },
+          { paddingHorizontal: hx, paddingBottom: alturaBotonesFijos + scrollPaddingExtra },
         ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Badge de Estado y Fecha de Envío */}
         <View style={styles.badgesContainer}>
-          <View style={[styles.estadoBadge, { backgroundColor: `${estadoInfo.color}15` }]}>
-            <MaterialIcons
-              name={estadoInfo.icon as any}
-              size={18}
-              color={estadoInfo.color}
-            />
-            <Text style={[styles.estadoBadgeText, { color: estadoInfo.color }]}>
+          <View style={[styles.estadoBadge, { backgroundColor: withOpacity(estadoInfo.accent, 0.12) }]}>
+            <InstitutionalIcon name={estadoInfo.icon} size={18} color={estadoInfo.accent} />
+            <Text style={[styles.estadoBadgeText, { color: estadoInfo.accent }]}>
               {estadoInfo.text}
             </Text>
           </View>
           <View style={styles.fechaBadge}>
-            <MaterialIcons name="calendar-today" size={16} color={designColors?.text?.secondary || '#666666'} />
+            <InstitutionalIcon name="calendar-today" size={16} color={I.muted} />
             <Text style={styles.fechaBadgeText}>
               Enviada el {formatearFecha(oferta.fecha_envio)}
             </Text>
@@ -599,7 +569,7 @@ export default function OfertaDetalleScreen() {
         {oferta.estado === 'en_ejecucion' && (
           <EstadoBanner
             type="info"
-            title="🔧 Servicio en Progreso"
+            title="Servicio en progreso"
             message="El servicio está en ejecución. Completa el checklist asociado y luego podrás terminar el servicio."
             icon="build"
           />
@@ -626,7 +596,7 @@ export default function OfertaDetalleScreen() {
         {oferta.estado === 'en_chat' && (
           <EstadoBanner
             type="info"
-            title="💬 En Conversación con el Cliente"
+            title="En conversación con el cliente"
             message="Estás conversando con el cliente. Responde sus preguntas para que pueda tomar una decisión."
             icon="chat"
             action={{
@@ -672,7 +642,7 @@ export default function OfertaDetalleScreen() {
                   />
                 ) : (
                   <View style={styles.clientAvatarPlaceholder}>
-                    <MaterialIcons name="person" size={40} color={white} />
+                    <InstitutionalIcon name="person" size={40} color={I.primary} />
                   </View>
                 )}
                 <Text style={styles.clientName}>
@@ -683,7 +653,7 @@ export default function OfertaDetalleScreen() {
               {oferta.solicitud_detail.vehiculo && (
                 <View style={styles.vehicleCard}>
                   <View style={styles.vehicleCardHeader}>
-                    <MaterialIcons name="directions-car" size={20} color={textPrimary} />
+                    <InstitutionalIcon name="directions-car" size={20} color={I.ink} />
                     <Text style={styles.vehicleCardTitle}>Vehículo</Text>
                   </View>
                   <Text style={styles.vehicleText}>
@@ -712,10 +682,10 @@ export default function OfertaDetalleScreen() {
               oferta.estado === 'completada') &&
               oferta.solicitud_detail?.direccion_servicio_texto && (
                 <View style={styles.section}>
-                  <Text style={styles.sectionHeaderTitle}>📍 Dirección de Servicio</Text>
+                  <Text style={styles.sectionHeaderTitle}>Dirección de servicio</Text>
                   <View style={styles.addressCard}>
                     <View style={styles.addressHeader}>
-                      <MaterialIcons name="location-on" size={24} color={primaryColor} />
+                      <InstitutionalIcon name="location-on" size={24} color={I.primary} />
                       <View style={styles.addressContent}>
                         <Text style={styles.addressText}>
                           {oferta.solicitud_detail.direccion_servicio_texto}
@@ -732,7 +702,7 @@ export default function OfertaDetalleScreen() {
                       style={styles.mapsButton}
                       onPress={() => openInGoogleMaps(oferta.solicitud_detail!.direccion_servicio_texto)}
                     >
-                      <MaterialIcons name="map" size={20} color={white} />
+                      <InstitutionalIcon name="map" size={20} color={I.onPrimary} />
                       <Text style={styles.mapsButtonText}>Abrir en Google Maps</Text>
                     </TouchableOpacity>
                   </View>
@@ -767,14 +737,14 @@ export default function OfertaDetalleScreen() {
 
           <View style={styles.dateTimeContainer}>
             <View style={styles.dateTimeItem}>
-              <MaterialIcons name="calendar-today" size={20} color={primaryColor} />
+              <InstitutionalIcon name="calendar-today" size={20} color={I.primary} />
               <Text style={styles.dateTimeText}>
                 {formatearFechaCorta(oferta.fecha_disponible)}
               </Text>
             </View>
             {oferta.hora_disponible && (
               <View style={styles.dateTimeItem}>
-                <MaterialIcons name="access-time" size={20} color={primaryColor} />
+                <InstitutionalIcon name="access-time" size={20} color={I.primary} />
                 <Text style={styles.dateTimeText}>
                   {formatearHora(oferta.hora_disponible)}
                 </Text>
@@ -784,7 +754,7 @@ export default function OfertaDetalleScreen() {
 
           {oferta.tiempo_estimado_total && (
             <View style={styles.detailRow}>
-              <MaterialIcons name="timer" size={20} color={designColors?.text?.secondary || '#666666'} />
+              <InstitutionalIcon name="timer" size={20} color={I.muted} />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Tiempo Estimado</Text>
                 <Text style={styles.detailValue}>{oferta.tiempo_estimado_total}</Text>
@@ -794,7 +764,7 @@ export default function OfertaDetalleScreen() {
 
           {oferta.garantia_ofrecida && (
             <View style={styles.detailRow}>
-              <MaterialIcons name="verified" size={20} color={successColor} />
+              <InstitutionalIcon name="verified" size={20} color={I.semanticUp} />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Garantía Ofrecida</Text>
                 <Text style={styles.detailValue}>{oferta.garantia_ofrecida}</Text>
@@ -898,10 +868,10 @@ export default function OfertaDetalleScreen() {
                   <View
                     style={[
                       styles.repuestosBadge,
-                      { alignSelf: 'center', marginTop: designSpacing?.sm ?? SPACING?.sm ?? 8 },
+                      { alignSelf: 'center', marginTop: SPACING?.sm ?? 8 },
                     ]}
                   >
-                    <MaterialIcons name="build" size={16} color={successColor} />
+                    <InstitutionalIcon name="build" size={16} color={I.semanticUp} />
                     <Text style={styles.repuestosText}>Incluye repuestos</Text>
                   </View>
                 )}
@@ -913,14 +883,14 @@ export default function OfertaDetalleScreen() {
           {oferta.estado === 'pagada_parcialmente' && (
             <View style={styles.pagoParcialInfoCard}>
               <View style={styles.pagoParcialHeader}>
-                <MaterialIcons name="payment" size={20} color={warningColor} />
+                <InstitutionalIcon name="payment" size={20} color={I.accentYellow} />
                 <Text style={styles.pagoParcialTitulo}>Estado de Pago</Text>
               </View>
 
               {oferta.estado_pago_repuestos === 'pagado' && oferta.estado_pago_servicio === 'pendiente' && (
                 <>
                   <View style={styles.pagoParcialRow}>
-                    <Text style={styles.pagoParcialLabel}>✅ Repuestos y gestión de compra:</Text>
+                    <Text style={styles.pagoParcialLabel}>Repuestos y gestión de compra</Text>
                     <Text style={styles.pagoParcialMonto}>
                       {formatearPrecio((() => {
                         const costoRepuestos = parseFloat(oferta.costo_repuestos || '0');
@@ -932,8 +902,8 @@ export default function OfertaDetalleScreen() {
 
                   {oferta.costo_mano_obra && parseFloat(oferta.costo_mano_obra) > 0 && (
                     <View style={styles.pagoParcialRow}>
-                      <Text style={styles.pagoParcialLabel}>⏳ Pendiente (mano de obra):</Text>
-                      <Text style={[styles.pagoParcialMonto, { color: warningColor }]}>
+                      <Text style={styles.pagoParcialLabel}>Pendiente (mano de obra)</Text>
+                      <Text style={[styles.pagoParcialMonto, { color: I.accentYellow }]}>
                         {formatearPrecio(Math.round(parseFloat(oferta.costo_mano_obra) * 1.19))}
                       </Text>
                     </View>
@@ -959,7 +929,7 @@ export default function OfertaDetalleScreen() {
                   </View>
                   {detalle.tiempo_estimado && (
                     <View style={styles.desgloseDetalle}>
-                      <MaterialIcons name="schedule" size={14} color={designColors?.text?.secondary || '#666666'} />
+                      <InstitutionalIcon name="schedule" size={14} color={I.muted} />
                       <Text style={styles.desgloseTiempo}>
                         {detalle.tiempo_estimado}
                       </Text>
@@ -983,14 +953,14 @@ export default function OfertaDetalleScreen() {
                 style={styles.chatButton}
                 onPress={() => router.push(`/chat-oferta/${oferta.id}`)}
               >
-                <MaterialIcons name="chat" size={20} color={white} />
+                <InstitutionalIcon name="chat" size={20} color={I.onPrimary} />
                 <Text style={styles.chatButtonText}>Abrir Chat con Cliente</Text>
               </TouchableOpacity>
 
               {/* Estado del Checklist */}
               {loadingChecklist ? (
                 <View style={styles.checklistStatusCard}>
-                  <ActivityIndicator size="small" color={secondaryColor} />
+                  <ActivityIndicator size="small" color={I.primary} />
                   <Text style={styles.checklistStatusText}>Cargando checklist...</Text>
                 </View>
               ) : checklistInstance ? (
@@ -999,9 +969,9 @@ export default function OfertaDetalleScreen() {
                     style={[styles.checklistStatusCard, styles.checklistCompletedCard]}
                     onPress={() => setShowChecklistContainer(true)}
                   >
-                    <MaterialIcons name="check-circle" size={24} color={successColor} />
-                    <Text style={[styles.checklistStatusText, { color: successColor }]}>
-                      ✅ Checklist Completado
+                    <InstitutionalIcon name="check-circle" size={24} color={I.semanticUp} />
+                    <Text style={[styles.checklistStatusText, { color: I.semanticUp }]}>
+                      Checklist completado
                     </Text>
                   </TouchableOpacity>
                 ) : (
@@ -1009,7 +979,7 @@ export default function OfertaDetalleScreen() {
                     style={styles.checklistStatusCard}
                     onPress={() => setShowChecklistContainer(true)}
                   >
-                    <MaterialIcons name="assignment" size={24} color={secondaryColor} />
+                    <InstitutionalIcon name="assignment" size={24} color={I.primary} />
                     <Text style={styles.checklistStatusText}>
                       Checklist en progreso - Toca para continuar
                     </Text>
@@ -1034,7 +1004,7 @@ export default function OfertaDetalleScreen() {
               onPress={handleIniciarServicio}
               disabled={procesando}
             >
-              <MaterialIcons name="play-arrow" size={20} color={white} />
+              <InstitutionalIcon name="play-arrow" size={20} color={I.onPrimary} />
               <Text style={styles.fixedActionButtonText}>
                 {procesando ? 'Iniciando...' : 'Iniciar Servicio'}
               </Text>
@@ -1058,7 +1028,7 @@ export default function OfertaDetalleScreen() {
                     onPress={handleTerminarServicio}
                     disabled={procesando}
                   >
-                    <MaterialIcons name="check-circle" size={20} color={white} />
+                    <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} />
                     <Text style={styles.fixedActionButtonText}>
                       {procesando ? 'Terminando...' : 'Terminar Servicio'}
                     </Text>
@@ -1083,7 +1053,7 @@ export default function OfertaDetalleScreen() {
                   onPress={handleTerminarServicio}
                   disabled={procesando}
                 >
-                  <MaterialIcons name="check-circle" size={20} color={white} />
+                  <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} />
                   <Text style={styles.fixedActionButtonText}>
                     {procesando ? 'Terminando...' : 'Terminar Servicio'}
                   </Text>
@@ -1113,7 +1083,7 @@ export default function OfertaDetalleScreen() {
                 router.push(`/creditos?tab=tienda&minCreditos=${minCompra}`);
               }}
             >
-              <MaterialIcons name="account-balance-wallet" size={20} color={white} />
+              <InstitutionalIcon name="account-balance-wallet" size={20} color={I.onPrimary} />
               <Text style={styles.fixedActionButtonText} numberOfLines={1}>
                 Comprar créditos
               </Text>
@@ -1126,8 +1096,8 @@ export default function OfertaDetalleScreen() {
               ]}
               onPress={() => router.push(`/chat-oferta/${oferta.id}`)}
             >
-              <MaterialIcons name="chat" size={18} color={primaryColor} />
-              <Text style={[styles.fixedActionButtonTextCompact, { color: primaryColor }]} numberOfLines={1}>
+              <InstitutionalIcon name="chat" size={18} color={I.primary} />
+              <Text style={[styles.fixedActionButtonTextCompact, { color: I.primary }]} numberOfLines={1}>
                 Chat
               </Text>
             </TouchableOpacity>
@@ -1149,7 +1119,7 @@ export default function OfertaDetalleScreen() {
               router.push(`/creditos?tab=tienda&minCreditos=${minCompra}`);
             }}
           >
-            <MaterialIcons name="account-balance-wallet" size={20} color={white} />
+            <InstitutionalIcon name="account-balance-wallet" size={20} color={I.onPrimary} />
             <Text style={styles.fixedActionButtonText}>Comprar créditos</Text>
           </TouchableOpacity>
         )}
@@ -1159,8 +1129,8 @@ export default function OfertaDetalleScreen() {
             style={[styles.fixedActionButton, styles.fixedActionButtonOutline]}
             onPress={() => router.push(`/chat-oferta/${oferta.id}`)}
           >
-            <MaterialIcons name="chat" size={20} color={primaryColor} />
-            <Text style={[styles.fixedActionButtonText, { color: primaryColor }]}>Abrir Chat</Text>
+            <InstitutionalIcon name="chat" size={20} color={I.primary} />
+            <Text style={[styles.fixedActionButtonText, { color: I.primary }]}>Abrir Chat</Text>
           </TouchableOpacity>
         )}
 
@@ -1170,7 +1140,7 @@ export default function OfertaDetalleScreen() {
             style={[styles.fixedActionButton, styles.fixedActionButtonSuccess]}
             onPress={() => setShowCompletedChecklistModal(true)}
           >
-            <MaterialIcons name="assignment" size={20} color={white} />
+            <InstitutionalIcon name="assignment" size={20} color={I.onPrimary} />
             <Text style={styles.fixedActionButtonText}>Ver Checklist Realizado</Text>
           </TouchableOpacity>
         )}
@@ -1188,8 +1158,8 @@ export default function OfertaDetalleScreen() {
                 }
               }}
             >
-              <MaterialIcons name="add-circle" size={20} color={primaryColor} />
-              <Text style={[styles.fixedActionButtonText, { color: primaryColor }]}>Crear Oferta Secundaria</Text>
+              <InstitutionalIcon name="add-circle" size={20} color={I.primary} />
+              <Text style={[styles.fixedActionButtonText, { color: I.primary }]}>Crear Oferta Secundaria</Text>
             </TouchableOpacity>
           )}
       </SafeAreaView>
@@ -1202,666 +1172,670 @@ export default function OfertaDetalleScreen() {
           ordenId={(oferta as any).solicitud_servicio_id}
         />
       )}
+      </View>
     </View>
   );
 }
 
-// Crear estilos dinámicos usando los tokens del sistema de diseño
-const createStyles = () => {
-  const bgPaper = COLORS?.background?.paper || COLORS?.base?.white || '#FFFFFF';
-  const bgDefault = COLORS?.background?.default || '#EEEEEE';
-  const textPrimary = COLORS?.text?.primary || '#000000';
-  const textSecondary = COLORS?.text?.secondary || '#666666';
-  const textTertiary = COLORS?.text?.tertiary || '#999999';
-  const borderLight = COLORS?.border?.light || '#EEEEEE';
-  const borderMain = COLORS?.border?.main || '#D0D0D0';
-  const white = COLORS?.base?.white || '#FFFFFF';
-
-  const primaryColor = COLORS?.primary?.['500'] || '#4E4FEB';
-  const secondaryColor = COLORS?.secondary?.['500'] || '#068FFF';
-  const successColor = (COLORS?.success as any)?.['500'] || COLORS?.success?.main || '#3DB6B1';
-  const accentColor = COLORS?.accent?.['500'] || '#FF6B00';
-  const warningColor = (COLORS?.warning as any)?.['500'] || COLORS?.warning?.main || '#FFB84D';
-
-  const spacingXs = SPACING?.xs || 4;
-  const spacingSm = SPACING?.sm || 8;
-  const spacingMd = SPACING?.md || 16;
-  const spacingLg = SPACING?.lg || 24;
-  const spacingXl = SPACING?.xl || 32;
-
-  const fontSizeXs = TYPOGRAPHY?.fontSize?.xs || 10;
-  const fontSizeSm = TYPOGRAPHY?.fontSize?.sm || 12;
-  const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
-  const fontSizeMd = TYPOGRAPHY?.fontSize?.md || 16;
-  const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
-  const fontSizeXl = TYPOGRAPHY?.fontSize?.xl || 20;
-  const fontSize2xl = TYPOGRAPHY?.fontSize?.['2xl'] || 32;
-
-  const fontWeightMedium = TYPOGRAPHY?.fontWeight?.medium || '500';
-  const fontWeightSemibold = TYPOGRAPHY?.fontWeight?.semibold || '600';
-  const fontWeightBold = TYPOGRAPHY?.fontWeight?.bold || '700';
-  const fontWeightExtrabold = TYPOGRAPHY?.fontWeight?.extrabold || '800';
-
-  const radiusMd = BORDERS?.radius?.md || 8;
-  const radiusLg = BORDERS?.radius?.lg || 12;
-  const radiusXl = BORDERS?.radius?.xl || 16;
-  const radiusFull = BORDERS?.radius?.full || 9999;
-
-  const shadowSm = SHADOWS?.sm || {};
-  const shadowMd = SHADOWS?.md || {};
-
-  // Success light background (15% opacity)
-  const successLight = successColor + '15';
-  const warningLight = (COLORS?.warning as any)?.['50'] || '#FFF8E6';
-  const warningBorder = (COLORS?.warning as any)?.['200'] || '#FFE4B5';
-
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
-      padding: spacingMd,
-      paddingTop: spacingSm + spacingXs,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    loadingText: {
-      marginTop: spacingSm + spacingXs,
-      fontSize: fontSizeMd,
-    },
-    emptyContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacingXl,
-    },
-    emptyText: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightSemibold,
-      marginTop: spacingMd,
-    },
-
-    // Badges de estado
-    badgesContainer: {
-      flexDirection: 'row',
-      gap: spacingSm,
-      marginBottom: spacingMd,
-      flexWrap: 'wrap',
-    },
-    estadoBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: spacingSm + spacingXs,
-      paddingVertical: spacingSm,
-      borderRadius: radiusXl,
-    },
-    estadoBadgeText: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-    },
-    fechaBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: spacingSm + spacingXs,
-      paddingVertical: spacingSm,
-      borderRadius: radiusXl,
-      backgroundColor: borderLight,
-    },
-    fechaBadgeText: {
-      fontSize: fontSizeSm,
-      color: textSecondary,
-    },
-
-    // Secciones
-    section: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusLg,
-      padding: spacingMd,
-      marginBottom: spacingMd,
-      ...shadowSm,
-    },
-    sectionHeaderTitle: {
-      fontSize: fontSizeMd + 1,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      marginBottom: spacingSm + spacingXs,
-    },
-
-    // Servicios solicitados
-    serviciosBadgesContainer: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacingSm,
-    },
-    servicioBadge: {
-      backgroundColor: borderLight,
-      paddingHorizontal: spacingSm + spacingXs,
-      paddingVertical: 6,
-      borderRadius: radiusMd + radiusMd,
-    },
-    servicioBadgeText: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-    },
-    descriptionText: {
-      fontSize: fontSizeBase + 1,
-      color: textPrimary,
-      lineHeight: 22,
-    },
-
-    // Cliente info
-    clientInfoContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingSm + spacingXs,
-      marginBottom: spacingMd,
-    },
-    clientAvatar: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: borderMain,
-    },
-    clientAvatarPlaceholder: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: secondaryColor,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    clientName: {
-      fontSize: fontSizeLg,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-    },
-
-    // Vehículo card
-    vehicleCard: {
-      backgroundColor: borderLight,
-      borderRadius: 10,
-      padding: spacingSm + 6,
-      borderWidth: 1,
-      borderColor: borderMain,
-    },
-    vehicleCardHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingSm,
-      marginBottom: spacingSm,
-    },
-    vehicleCardTitle: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: textSecondary,
-    },
-    vehicleText: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-      marginBottom: 6,
-    },
-    vehicleHighlight: {
-      fontWeight: fontWeightBold,
-      color: secondaryColor,
-    },
-    vehicleDetailText: {
-      fontSize: fontSizeBase,
-      color: textSecondary,
-      marginBottom: 2,
-    },
-
-    // Fecha y hora
-    dateTimeContainer: {
-      gap: spacingSm + spacingXs,
-      marginBottom: spacingMd,
-    },
-    dateTimeItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-    },
-    dateTimeText: {
-      fontSize: fontSizeBase + 1,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-    },
-
-    // Detalles
-    detailRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 10,
-      marginBottom: spacingSm + spacingXs,
-    },
-    detailContent: {
-      flex: 1,
-    },
-    detailLabel: {
-      fontSize: fontSizeSm,
-      color: textSecondary,
-      marginBottom: 2,
-    },
-    detailValue: {
-      fontSize: fontSizeBase + 1,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-    },
-
-    // Descripción
-    descripcionContainer: {
-      marginTop: spacingMd,
-      paddingTop: spacingMd,
-      borderTopWidth: 1,
-      borderTopColor: borderMain,
-    },
-    descripcionLabel: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: textSecondary,
-      marginBottom: spacingSm,
-    },
-    descripcionText: {
-      fontSize: fontSizeBase + 1,
-      color: textPrimary,
-      lineHeight: 22,
-    },
-
-    // Precio
-    precioContainer: {
-      alignItems: 'center',
-      paddingVertical: spacingSm,
-    },
-    precioCard: {
-      alignSelf: 'stretch',
-      backgroundColor: bgPaper,
-      borderRadius: radiusLg,
-      padding: spacingMd,
-      borderWidth: 1,
-      borderColor: borderLight,
-      ...shadowMd,
-    },
-    precioDesgloseRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: spacingXs + 2,
-    },
-    precioDesgloseLabel: {
-      fontSize: fontSizeSm,
-      color: textSecondary,
-      flex: 1,
-      paddingRight: spacingSm,
-    },
-    precioDesgloseValue: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-    },
-    precioDesgloseLabelMuted: {
-      fontSize: fontSizeSm,
-      color: textSecondary,
-    },
-    precioDesgloseValueMuted: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightMedium,
-      color: textPrimary,
-    },
-    precioDesgloseDivider: {
-      height: 1,
-      backgroundColor: borderMain,
-      marginVertical: spacingSm,
-    },
-    precioTotalDestacadoRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    precioTotalDestacadoLabel: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      flex: 1,
-      paddingRight: spacingSm,
-    },
-    precioTotalDestacadoValue: {
-      fontSize: fontSize2xl,
-      fontWeight: fontWeightExtrabold,
-      color: secondaryColor,
-    },
-    precioDesgloseNota: {
-      fontSize: fontSizeXs,
-      color: textTertiary,
-      marginTop: spacingSm,
-      lineHeight: fontSizeXs * 1.45,
-    },
-    precioValue: {
-      fontSize: fontSize2xl,
-      fontWeight: fontWeightExtrabold,
-      color: secondaryColor,
-      marginBottom: spacingSm,
-    },
-    repuestosBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      backgroundColor: successLight,
-      paddingHorizontal: spacingSm + spacingXs,
-      paddingVertical: 6,
-      borderRadius: radiusMd + radiusMd,
-    },
-    repuestosText: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightSemibold,
-      color: successColor,
-    },
-    pagoParcialInfoCard: {
-      marginTop: spacingMd,
-      padding: spacingMd,
-      backgroundColor: warningLight,
-      borderRadius: radiusMd,
-      borderWidth: 1,
-      borderColor: warningColor,
-    },
-    pagoParcialHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacingXs,
-      marginBottom: spacingSm,
-    },
-    pagoParcialTitulo: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightBold,
-      color: warningColor,
-    },
-    pagoParcialRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginTop: spacingXs,
-    },
-    pagoParcialLabel: {
-      fontSize: fontSizeSm,
-      color: textSecondary,
-      fontWeight: fontWeightMedium,
-    },
-    pagoParcialMonto: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-    },
-
-    // Desglose
-    desgloseContainer: {
-      marginTop: spacingXl - spacingXs,
-      paddingTop: spacingXl - spacingXs,
-      borderTopWidth: 1,
-      borderTopColor: borderMain,
-    },
-    desgloseTitle: {
-      fontSize: fontSizeBase + 1,
-      fontWeight: fontWeightBold,
-      color: textPrimary,
-      marginBottom: spacingSm + spacingXs,
-    },
-    desgloseItem: {
-      backgroundColor: borderLight,
-      borderRadius: 10,
-      padding: spacingSm + spacingXs,
-      marginBottom: 10,
-    },
-    desgloseHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 6,
-    },
-    desgloseServicioNombre: {
-      fontSize: fontSizeBase + 1,
-      fontWeight: fontWeightSemibold,
-      color: textPrimary,
-      flex: 1,
-    },
-    desgloseServicioPrecio: {
-      fontSize: fontSizeBase + 1,
-      fontWeight: fontWeightBold,
-      color: secondaryColor,
-    },
-    desgloseDetalle: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginBottom: spacingXs,
-    },
-    desgloseTiempo: {
-      fontSize: fontSizeSm,
-      color: textSecondary,
-    },
-    desgloseNotas: {
-      fontSize: fontSizeSm,
-      color: textSecondary,
-      marginTop: spacingXs,
-      fontStyle: 'italic',
-    },
-
-    // Botones fijos en la parte inferior
-    fixedActionsContainer: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      backgroundColor: bgPaper,
-      paddingHorizontal: spacingMd,
-      paddingTop: spacingSm + spacingXs,
-      borderTopWidth: 1,
-      borderTopColor: borderMain,
-      ...shadowMd,
-    },
-    fixedActionsRow: {
-      flexDirection: 'row',
-      alignItems: 'stretch',
-      gap: spacingSm,
-      marginBottom: spacingSm + spacingXs,
-    },
-    fixedActionButtonPrimaryInRow: {
-      flex: 2,
-      minWidth: 0,
-      marginBottom: 0,
-      marginTop: 0,
-    },
-    fixedActionButtonChatInRow: {
-      flex: 1,
-      minWidth: 0,
-      paddingVertical: spacingSm + spacingXs,
-      paddingHorizontal: spacingSm,
-      marginTop: 0,
-      marginBottom: 0,
-    },
-    fixedActionButtonTextCompact: {
-      fontSize: fontSizeSm,
-      fontWeight: fontWeightBold,
-      color: white,
-    },
-    fixedActionButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacingSm,
-      paddingVertical: spacingMd,
-      borderRadius: radiusLg,
-      marginBottom: 0,
-    },
-    fixedActionButtonPrimary: {
-      backgroundColor: secondaryColor,
-      marginBottom: spacingSm + spacingXs,
-    },
-    fixedActionButtonSuccess: {
-      backgroundColor: successColor,
-      marginTop: spacingSm + spacingXs,
-      marginBottom: spacingSm + spacingXs,
-    },
-    fixedActionButtonSecondary: {
-      backgroundColor: bgPaper,
-      borderWidth: 1,
-      borderColor: secondaryColor,
-      marginBottom: spacingSm + spacingXs,
-    },
-    fixedActionButtonOutline: {
-      backgroundColor: 'transparent',
-      borderWidth: 1,
-      borderColor: primaryColor,
-      marginTop: spacingSm,
-      marginBottom: spacingSm + spacingXs,
-    },
-    fixedActionButtonText: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightBold,
-      color: white,
-    },
-    // Address card styles
-    addressCard: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusLg,
-      padding: spacingMd,
-      ...shadowMd,
-    },
-    addressHeader: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacingMd,
-      marginBottom: spacingMd,
-    },
-    addressContent: {
-      flex: 1,
-    },
-    addressText: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightMedium,
-      color: textPrimary,
-      lineHeight: fontSizeMd * 1.5,
-    },
-    addressDetailsText: {
-      fontSize: fontSizeSm,
-      color: textSecondary,
-      marginTop: spacingXs,
-      lineHeight: fontSizeSm * 1.4,
-    },
-    mapsButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacingSm,
-      backgroundColor: primaryColor,
-      borderRadius: radiusMd,
-      paddingVertical: spacingSm + spacingXs,
-      paddingHorizontal: spacingMd,
-      marginTop: spacingXs,
-    },
-    mapsButtonText: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: white,
-    },
-    checklistPendingContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacingSm,
-      paddingVertical: spacingMd,
-      paddingHorizontal: spacingMd,
-      backgroundColor: warningLight,
-      borderRadius: radiusLg,
-      marginTop: spacingSm + spacingXs,
-      marginBottom: spacingSm + spacingXs,
-      borderWidth: 1,
-      borderColor: warningBorder,
-    },
-    checklistPendingText: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightSemibold,
-      color: warningColor,
-      flex: 1,
-      textAlign: 'center',
-    },
-    secondaryActionsRow: {
-      flexDirection: 'row',
-      gap: spacingSm + spacingXs,
-      marginBottom: 0,
-    },
-    secondaryActionButton: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacingSm,
-      paddingVertical: spacingSm + 6,
-      borderRadius: radiusLg,
-      backgroundColor: bgPaper,
-      borderWidth: 2,
-      borderColor: secondaryColor,
-    },
-    secondaryActionButtonLeft: {
-      borderColor: secondaryColor,
-    },
-    secondaryActionButtonRight: {
-      borderColor: secondaryColor,
-    },
-    secondaryActionButtonText: {
-      fontSize: fontSizeBase + 1,
-      fontWeight: fontWeightSemibold,
-      color: secondaryColor,
-    },
-    // Nuevos estilos para servicio en ejecución
-    serviceActionsContainer: {
-      marginTop: spacingMd,
-      gap: spacingMd,
-    },
-    chatButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacingSm,
-      paddingVertical: spacingMd,
-      paddingHorizontal: spacingLg,
-      backgroundColor: primaryColor,
-      borderRadius: radiusLg,
-    },
-    chatButtonText: {
-      fontSize: fontSizeBase + 1,
-      fontWeight: fontWeightSemibold,
-      color: white,
-    },
-    checklistStatusCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacingSm,
-      paddingVertical: spacingMd,
-      paddingHorizontal: spacingLg,
-      backgroundColor: bgPaper,
-      borderRadius: radiusLg,
-      borderWidth: 2,
-      borderColor: secondaryColor,
-    },
-    checklistCompletedCard: {
-      borderColor: successColor,
-      backgroundColor: successLight,
-    },
-    checklistStatusText: {
-      fontSize: fontSizeBase,
-      fontWeight: fontWeightMedium,
-      color: textPrimary,
-    },
-  });
+const shadowFooterOferta = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: -2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 8,
+  elevation: 8,
 };
 
-const styles = createStyles();
+const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+    backgroundColor: I.surfaceSoft,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.md,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: SPACING.fixed.sm,
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.ink,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.fixed.xl,
+  },
+  emptyText: {
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    marginTop: SPACING.fixed.md,
+    color: I.ink,
+  },
+
+  badgesContainer: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.md,
+    flexWrap: 'wrap',
+  },
+  estadoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  estadoBadgeText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+  },
+  fechaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  fechaBadgeText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+  },
+
+  section: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    padding: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.md,
+    ...SHADOWS.editorial,
+  },
+  sectionHeaderTitle: {
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    letterSpacing: TS.h4.letterSpacing,
+    color: I.ink,
+    marginBottom: SPACING.fixed.sm,
+  },
+
+  serviciosBadgesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.sm,
+  },
+  servicioBadge: {
+    backgroundColor: I.surfaceStrong,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: 6,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  servicioBadgeText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.ink,
+  },
+  descriptionText: {
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.ink,
+  },
+
+  clientInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.md,
+  },
+  clientAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: I.surfaceStrong,
+  },
+  clientAvatarPlaceholder: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: withOpacity(I.primary, 0.12),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clientName: {
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    color: I.ink,
+  },
+
+  vehicleCard: {
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.sm + 2,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  vehicleCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+  },
+  vehicleCardTitle: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.muted,
+  },
+  vehicleText: {
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.ink,
+    marginBottom: 6,
+  },
+  vehicleHighlight: {
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
+  },
+  vehicleDetailText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
+    color: I.body,
+    marginBottom: 2,
+  },
+
+  dateTimeContainer: {
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.md,
+  },
+  dateTimeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dateTimeText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.ink,
+  },
+
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: SPACING.fixed.sm,
+  },
+  detailContent: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    marginBottom: 2,
+  },
+  detailValue: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.ink,
+  },
+
+  descripcionContainer: {
+    marginTop: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.md,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+  },
+  descripcionLabel: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.muted,
+    marginBottom: SPACING.fixed.sm,
+  },
+  descripcionText: {
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.ink,
+  },
+
+  precioCard: {
+    alignSelf: 'stretch',
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.fixed.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
+  },
+  precioDesgloseRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  precioDesgloseLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    flex: 1,
+    paddingRight: SPACING.fixed.sm,
+  },
+  precioDesgloseValue: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TS.numberDisplay.lineHeight),
+    color: I.ink,
+  },
+  precioDesgloseLabelMuted: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+  },
+  precioDesgloseValueMuted: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TS.numberDisplay.lineHeight),
+    color: I.ink,
+  },
+  precioDesgloseDivider: {
+    height: BORDERS.width.thin,
+    backgroundColor: I.hairline,
+    marginVertical: SPACING.fixed.sm,
+  },
+  precioTotalDestacadoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  precioTotalDestacadoLabel: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.ink,
+    flex: 1,
+    paddingRight: SPACING.fixed.sm,
+  },
+  precioTotalDestacadoValue: {
+    fontSize: TS.numberDisplay.fontSize,
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TS.numberDisplay.fontSize, TS.numberDisplay.lineHeight),
+    color: I.primary,
+  },
+  precioDesgloseNota: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    marginTop: SPACING.fixed.sm,
+  },
+  repuestosBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: withOpacity(I.semanticUp, 0.1),
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: 6,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.semanticUp, 0.25),
+  },
+  repuestosText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.semanticUp,
+  },
+  pagoParcialInfoCard: {
+    marginTop: SPACING.fixed.md,
+    padding: SPACING.fixed.md,
+    backgroundColor: withOpacity(I.accentYellow, 0.15),
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.accentYellow,
+  },
+  pagoParcialHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.sm,
+  },
+  pagoParcialTitulo: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.body,
+  },
+  pagoParcialRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: SPACING.fixed.xs,
+  },
+  pagoParcialLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.body,
+    flex: 1,
+    marginRight: SPACING.fixed.sm,
+  },
+  pagoParcialMonto: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TS.numberDisplay.lineHeight),
+    color: I.ink,
+  },
+
+  desgloseContainer: {
+    marginTop: SPACING.fixed.lg,
+    paddingTop: SPACING.fixed.lg,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+  },
+  desgloseTitle: {
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    color: I.ink,
+    marginBottom: SPACING.fixed.sm,
+  },
+  desgloseItem: {
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.sm,
+    marginBottom: 10,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  desgloseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  desgloseServicioNombre: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.ink,
+    flex: 1,
+  },
+  desgloseServicioPrecio: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.numberDisplay.lineHeight),
+    color: I.primary,
+  },
+  desgloseDetalle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: SPACING.fixed.xs,
+  },
+  desgloseTiempo: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+  },
+  desgloseNotas: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    fontStyle: 'italic',
+    color: I.muted,
+    marginTop: SPACING.fixed.xs,
+  },
+
+  fixedActionsContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: I.canvas,
+    paddingHorizontal: hx,
+    paddingTop: SPACING.fixed.sm,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+    ...shadowFooterOferta,
+  },
+  fixedActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+  },
+  fixedActionButtonPrimaryInRow: {
+    flex: 2,
+    minWidth: 0,
+    marginBottom: 0,
+    marginTop: 0,
+  },
+  fixedActionButtonChatInRow: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.sm,
+    marginTop: 0,
+    marginBottom: 0,
+  },
+  fixedActionButtonTextCompact: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.onPrimary,
+  },
+  fixedActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.pill,
+    marginBottom: 0,
+  },
+  fixedActionButtonPrimary: {
+    backgroundColor: I.primary,
+    marginBottom: SPACING.fixed.sm,
+    ...SHADOWS.editorial,
+  },
+  fixedActionButtonSuccess: {
+    backgroundColor: I.semanticUp,
+    marginTop: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+    ...SHADOWS.editorial,
+  },
+  fixedActionButtonOutline: {
+    backgroundColor: I.canvas,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    marginTop: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+  },
+  fixedActionButtonText: {
+    fontSize: TS.button.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),
+    color: I.onPrimary,
+  },
+
+  addressCard: {
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    padding: SPACING.fixed.md,
+    ...SHADOWS.sm,
+  },
+  addressHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.md,
+  },
+  addressContent: {
+    flex: 1,
+  },
+  addressText: {
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansMedium,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.ink,
+  },
+  addressDetailsText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    marginTop: SPACING.fixed.xs,
+  },
+  mapsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.sm,
+    backgroundColor: I.primary,
+    borderRadius: BORDERS.radius.pill,
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.md,
+    marginTop: SPACING.fixed.xs,
+    ...SHADOWS.editorial,
+  },
+  mapsButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.onPrimary,
+  },
+
+  checklistPendingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.md,
+    backgroundColor: withOpacity(I.accentYellow, 0.12),
+    borderRadius: BORDERS.radius.lg,
+    marginTop: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.accentYellow,
+  },
+  checklistPendingText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.body,
+    flex: 1,
+    textAlign: 'center',
+  },
+  secondaryActionsRow: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.sm,
+    marginBottom: 0,
+  },
+  secondaryActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.sm + 2,
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: I.canvas,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.primary,
+  },
+  secondaryActionButtonLeft: {
+    borderColor: I.primary,
+  },
+  secondaryActionButtonRight: {
+    borderColor: I.primary,
+  },
+  secondaryActionButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.primary,
+  },
+
+  serviceActionsContainer: {
+    marginTop: SPACING.fixed.md,
+    gap: SPACING.fixed.md,
+  },
+  chatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.lg,
+    backgroundColor: I.primary,
+    borderRadius: BORDERS.radius.pill,
+    ...SHADOWS.editorial,
+  },
+  chatButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.onPrimary,
+  },
+  checklistStatusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.lg,
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  checklistCompletedCard: {
+    borderColor: I.semanticUp,
+    backgroundColor: withOpacity(I.semanticUp, 0.08),
+  },
+  checklistStatusText: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
+    color: I.ink,
+  },
+});

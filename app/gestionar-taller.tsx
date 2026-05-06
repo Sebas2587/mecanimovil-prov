@@ -13,7 +13,6 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '@/context/AuthContext';
@@ -23,6 +22,8 @@ import { perfilAPI } from '@/services/api';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Header from '@/components/Header';
 import { useTheme } from '@/app/design-system/theme/useTheme';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -919,10 +920,10 @@ export default function GestionarTallerScreen() {
                         <ActivityIndicator size="small" color={primary500} />
                       )}
                       {validationStatus === 'valid' && (
-                        <MaterialIcons name="check-circle" size={20} color="#34C759" />
+                        <InstitutionalIcon name="check-circle" size={20} color="#34C759"  strokeWidth={ICON_STROKE_WIDTH} />
                       )}
                       {validationStatus === 'invalid' && searchQuery.length >= 8 && (
-                        <MaterialIcons name="error" size={20} color="#FF3B30" />
+                        <InstitutionalIcon name="error" size={20} color="#FF3B30"  strokeWidth={ICON_STROKE_WIDTH} />
                       )}
                     </View>
                   </View>
@@ -960,7 +961,7 @@ export default function GestionarTallerScreen() {
 
                   {datosTaller.direccion && (
                     <View style={styles.selectedAddress}>
-                      <MaterialIcons name="location-on" size={16} color="#22C55E" />
+                      <InstitutionalIcon name="location-on" size={16} color="#22C55E"  strokeWidth={ICON_STROKE_WIDTH} />
                       <Text style={[styles.selectedAddressText, { color: '#15803D' }]}>
                         {datosTaller.direccion}
                       </Text>
@@ -1039,7 +1040,7 @@ export default function GestionarTallerScreen() {
                 style={[styles.addPhotoButton, { borderColor: primary500 }]}
                 onPress={handleSeleccionarFoto}
               >
-                <MaterialIcons name="add-photo-alternate" size={32} color={primary500} />
+                <InstitutionalIcon name="add-photo-alternate" size={32} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[styles.addPhotoText, { color: primary500 }]}>Agregar Foto</Text>
               </TouchableOpacity>
 
@@ -1052,7 +1053,7 @@ export default function GestionarTallerScreen() {
                         style={styles.removePhotoButton}
                         onPress={() => handleEliminarFoto(index)}
                       >
-                        <MaterialIcons name="close" size={20} color="#FFFFFF" />
+                        <InstitutionalIcon name="close" size={20} color="#FFFFFF"  strokeWidth={ICON_STROKE_WIDTH} />
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -1104,14 +1105,14 @@ export default function GestionarTallerScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Seleccionar Dirección</Text>
               <TouchableOpacity onPress={() => setShowAddressModal(false)}>
-                <MaterialIcons name="close" size={24} color="#8E8E93" />
+                <InstitutionalIcon name="close" size={24} color="#8E8E93"  strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalScrollView}>
               {searchResults.length === 0 ? (
                 <View style={styles.noResultsContainer}>
-                  <MaterialIcons name="search-off" size={48} color="#8E8E93" />
+                  <InstitutionalIcon name="search-off" size={48} color="#8E8E93"  strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.noResultsText}>No se encontraron direcciones</Text>
                   <Text style={styles.noResultsSubtext}>
                     Intenta con una búsqueda más específica
@@ -1125,7 +1126,7 @@ export default function GestionarTallerScreen() {
                     onPress={() => handleSeleccionarDireccion(resultado)}
                   >
                     <View style={styles.addressResultIcon}>
-                      <MaterialIcons name="location-on" size={20} color="#007AFF" />
+                      <InstitutionalIcon name="location-on" size={20} color="#007AFF"  strokeWidth={ICON_STROKE_WIDTH} />
                     </View>
                     <View style={styles.addressResultContent}>
                       <Text style={styles.addressResultText}>{resultado.display_name}</Text>
@@ -1134,7 +1135,7 @@ export default function GestionarTallerScreen() {
                         {resultado.address.state}
                       </Text>
                     </View>
-                    <MaterialIcons name="chevron-right" size={20} color="#C7C7CC" />
+                    <InstitutionalIcon name="chevron-right" size={20} color="#C7C7CC"  strokeWidth={ICON_STROKE_WIDTH} />
                   </TouchableOpacity>
                 ))
               )}

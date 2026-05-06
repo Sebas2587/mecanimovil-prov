@@ -1,9 +1,20 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Linking } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import React, { useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SectionList,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Linking,
+} from 'react-native';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import creditosService, { CompraCreditos } from '@/services/creditosService';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+
+const I = COLORS.institutional;
 
 interface HistorialComprasProps {
   compras: CompraCreditos[];
@@ -11,24 +22,19 @@ interface HistorialComprasProps {
   refreshing?: boolean;
 }
 
+type CompraSection = {
+  kicker: string;
+  hint?: string;
+  data: CompraCreditos[];
+  sectionIndex: number;
+};
+
 export const HistorialCompras: React.FC<HistorialComprasProps> = ({
   compras,
   onRefresh,
   refreshing = false,
 }) => {
-  const theme = useTheme();
   const [procesando, setProcesando] = useState<number | null>(null);
-
-  // Obtener valores del sistema de diseño
-  const colors = theme?.colors || COLORS || {};
-  const textPrimary = colors?.text?.primary || '#000000';
-  const textSecondary = colors?.text?.secondary || '#666666';
-  const primaryColor = colors?.primary?.['500'] || '#4E4FEB';
-  const successColor = colors?.success?.main || '#3DB6B1';
-  const warningColor = colors?.warning?.main || '#FFB84D';
-  const errorColor = colors?.error?.main || '#FF5555';
-  const backgroundPaper = colors?.background?.paper || '#FFFFFF';
-  const borderMain = colors?.border?.main || '#D0D0D0';
 
   const formatearFecha = (fecha: string) => {
     const date = new Date(fecha);
@@ -49,40 +55,37 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
   };
 
   const getMetodoPagoDisplay = (item: CompraCreditos) => {
-    if (item.metodo_pago_display) {
-      return item.metodo_pago_display;
-    }
+    if (item.metodo_pago_display) return item.metodo_pago_display;
     switch (item.metodo_pago) {
       case 'mercadopago':
         return 'Mercado Pago';
       case 'transferencia':
-        return 'Transferencia Bancaria';
+        return 'Transferencia';
       case 'migracion':
-        return 'Migración de Suscripción';
+        return 'Migración';
       default:
-        return item.metodo_pago || 'No especificado';
+        return item.metodo_pago || '—';
     }
   };
 
-  const formatearPrecio = (precio: number) => {
-    return new Intl.NumberFormat('es-CL', {
+  const formatearPrecio = (precio: number) =>
+    new Intl.NumberFormat('es-CL', {
       style: 'currency',
       currency: 'CLP',
       minimumFractionDigits: 0,
     }).format(precio);
-  };
 
-  const getEstadoColor = (estado: string) => {
+  const getEstadoInk = (estado: string) => {
     switch (estado) {
       case 'completada':
-        return successColor;
+        return I.semanticUp;
       case 'pendiente':
-        return warningColor;
+        return I.accentYellow;
       case 'cancelada':
       case 'reembolsada':
-        return errorColor;
+        return I.semanticDown;
       default:
-        return textSecondary;
+        return I.muted;
     }
   };
 
@@ -99,20 +102,30 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
     }
   };
 
-  const getMetodoPagoColor = (metodo: string) => {
-    switch (metodo) {
-      case 'mercadopago':
-        return primaryColor;
-      case 'transferencia':
-        return successColor;
-      case 'migracion':
-        return textSecondary;
-      default:
-        return textSecondary;
+  const sections = useMemo((): CompraSection[] => {
+    const pend = compras.filter((c) => c.estado === 'pendiente');
+    const rest = compras.filter((c) => c.estado !== 'pendiente');
+    const out: CompraSection[] = [];
+    let idx = 0;
+    if (pend.length > 0) {
+      out.push({
+        kicker: 'PENDIENTES',
+        hint: 'Verificá el pago en Mercado Pago o cancelá si ya no aplica.',
+        data: pend,
+        sectionIndex: idx++,
+      });
     }
-  };
+    if (rest.length > 0) {
+      out.push({
+        kicker: 'REGISTRO',
+        hint: 'Compras completadas, canceladas o reembolsadas.',
+        data: rest,
+        sectionIndex: idx++,
+      });
+    }
+    return out;
+  }, [compras]);
 
-  // Verificar estado del pago
   const handleVerificarPago = async (compra: CompraCreditos) => {
     try {
       setProcesando(compra.id);
@@ -122,31 +135,22 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
         const { status, mensaje, creditos_acreditados } = result.data;
 
         if (creditos_acreditados) {
-          Alert.alert(
-            '¡Pago Confirmado!',
-            mensaje,
-            [{ text: 'Excelente', onPress: onRefresh }]
-          );
+          Alert.alert('¡Pago confirmado!', mensaje, [{ text: 'Listo', onPress: onRefresh }]);
         } else if (status === 'rejected' || status === 'cancelled') {
-          Alert.alert(
-            'Pago No Exitoso',
-            mensaje,
-            [{ text: 'Entendido', onPress: onRefresh }]
-          );
+          Alert.alert('Pago no exitoso', mensaje, [{ text: 'Entendido', onPress: onRefresh }]);
         } else {
-          Alert.alert('Estado del Pago', mensaje);
+          Alert.alert('Estado del pago', mensaje);
         }
       } else {
         Alert.alert('Error', result.error || 'No se pudo verificar el pago');
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'No se pudo verificar el estado del pago');
     } finally {
       setProcesando(null);
     }
   };
 
-  // Reintentar pago (genera nueva URL de MP)
   const handleReintentarPago = async (compra: CompraCreditos) => {
     try {
       setProcesando(compra.id);
@@ -157,31 +161,27 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
 
         if (urlPago) {
           const canOpen = await Linking.canOpenURL(urlPago);
-          if (canOpen) {
-            await Linking.openURL(urlPago);
-          } else {
-            Alert.alert('Error', 'No se pudo abrir Mercado Pago');
-          }
+          if (canOpen) await Linking.openURL(urlPago);
+          else Alert.alert('Error', 'No se pudo abrir Mercado Pago');
         }
       } else {
         Alert.alert('Error', result.error || 'No se pudo generar el link de pago');
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'No se pudo reintentar el pago');
     } finally {
       setProcesando(null);
     }
   };
 
-  // Cancelar compra pendiente
   const handleCancelarCompra = async (compra: CompraCreditos) => {
     Alert.alert(
-      'Cancelar Compra',
-      '¿Estás seguro de que deseas cancelar esta compra? Esta acción no se puede deshacer.',
+      'Cancelar compra',
+      '¿Seguro que querés cancelar esta compra? Esta acción no se puede deshacer.',
       [
         { text: 'No', style: 'cancel' },
         {
-          text: 'Sí, Cancelar',
+          text: 'Sí, cancelar',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -189,15 +189,11 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
               const result = await creditosService.cancelarCompra(compra.id);
 
               if (result.success) {
-                Alert.alert(
-                  'Compra Cancelada',
-                  'La compra ha sido cancelada exitosamente.',
-                  [{ text: 'OK', onPress: onRefresh }]
-                );
+                Alert.alert('Compra cancelada', 'Listo.', [{ text: 'OK', onPress: onRefresh }]);
               } else {
                 Alert.alert('Error', result.error || 'No se pudo cancelar la compra');
               }
-            } catch (error) {
+            } catch {
               Alert.alert('Error', 'No se pudo cancelar la compra');
             } finally {
               setProcesando(null);
@@ -208,280 +204,307 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
     );
   };
 
-  const renderItem = ({ item }: { item: CompraCreditos }) => {
-    const isPendiente = item.estado === 'pendiente';
-    const isMercadoPago = item.metodo_pago === 'mercadopago';
-    const isProcessing = procesando === item.id;
+  const renderSectionHeader = ({ section }: { section: CompraSection }) => (
+    <View
+      style={[
+        styles.sectionHeaderBlock,
+        { marginTop: section.sectionIndex === 0 ? 0 : SPACING.lg },
+      ]}
+    >
+      <View style={styles.sectionHeaderRow}>
+        <View style={[styles.sectionPill, { backgroundColor: I.surfaceStrong }]}>
+          <Text style={[styles.sectionPillText, { color: I.muted }]}>{section.kicker}</Text>
+        </View>
+        <Text style={[styles.sectionCount, { color: I.body }]}>
+          {section.data.length} {section.data.length === 1 ? 'ítem' : 'ítems'}
+        </Text>
+      </View>
+      {section.hint ? <Text style={[styles.sectionHint, { color: I.body }]}>{section.hint}</Text> : null}
+    </View>
+  );
 
-    return (
-      <View style={[styles.item, { backgroundColor: backgroundPaper, borderColor: borderMain }]}>
-        <View style={styles.itemHeader}>
-          <View style={styles.itemHeaderLeft}>
-            <MaterialIcons
-              name="shopping-cart"
-              size={20}
-              color={getEstadoColor(item.estado)}
-            />
-            <View style={styles.itemInfo}>
-              <Text style={[styles.itemNombre, { color: textPrimary }]}>
+  const renderItem = ({ item }: { item: CompraCreditos }) => {
+      const isPendiente = item.estado === 'pendiente';
+      const isMercadoPago = item.metodo_pago === 'mercadopago';
+      const isProcessing = procesando === item.id;
+      const estadoInk = getEstadoInk(item.estado);
+
+      return (
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: I.canvas, borderColor: I.hairline },
+            SHADOWS.editorial,
+          ]}
+        >
+          <View style={styles.cardTop}>
+            <View style={[styles.iconPlate, { backgroundColor: I.surfaceStrong }]}>
+              <InstitutionalIcon
+                name="shopping-cart"
+                size={20}
+                color={estadoInk}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+            </View>
+            <View style={styles.cardTopText}>
+              <Text style={[styles.cardTitle, { color: I.ink }]} numberOfLines={2}>
                 {item.paquete?.nombre || 'Recarga a medida'}
               </Text>
-              <Text style={[styles.itemFecha, { color: textSecondary }]}>
-                {formatearFecha(item.fecha_compra)}
-              </Text>
+              <Text style={[styles.cardMeta, { color: I.muted }]}>{formatearFecha(item.fecha_compra)}</Text>
+            </View>
+            <View style={[styles.estadoPill, { backgroundColor: I.surfaceStrong }]}>
+              <Text style={[styles.estadoPillText, { color: estadoInk }]}>{item.estado_display}</Text>
             </View>
           </View>
-          <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(item.estado) + '20' }]}>
-            <Text style={[styles.estadoText, { color: getEstadoColor(item.estado) }]}>
-              {item.estado_display}
-            </Text>
-          </View>
-        </View>
 
-        <View style={styles.itemDetails}>
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: textSecondary }]}>Créditos:</Text>
-            <Text style={[styles.detailValue, { color: textPrimary }]}>
-              {item.cantidad_creditos}
-            </Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: textSecondary }]}>Precio:</Text>
-            <Text style={[styles.detailValue, { color: textPrimary }]}>
-              {formatearPrecio(item.precio_total)}
-            </Text>
-          </View>
-          <View style={styles.detailRow}>
-            <View style={styles.detailRowLeft}>
-              <MaterialIcons
-                name={getMetodoPagoIcon(item.metodo_pago)}
-                size={16}
-                color={getMetodoPagoColor(item.metodo_pago)}
-              />
-              <Text style={[styles.detailLabel, { color: textSecondary, marginLeft: SPACING.xs / 2 }]}>Método:</Text>
+          <View style={[styles.divider, { backgroundColor: I.hairline }]} />
+
+          <View style={styles.details}>
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: I.muted }]}>Créditos</Text>
+              <Text style={[styles.detailValueMono, { color: I.ink }]}>{item.cantidad_creditos}</Text>
             </View>
-            <View style={[styles.metodoBadge, { backgroundColor: getMetodoPagoColor(item.metodo_pago) + '20' }]}>
-              <Text style={[styles.metodoText, { color: getMetodoPagoColor(item.metodo_pago) }]}>
-                {getMetodoPagoDisplay(item)}
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: I.muted }]}>Total</Text>
+              <Text style={[styles.detailValueMono, { color: I.ink }]}>
+                {formatearPrecio(item.precio_total)}
               </Text>
             </View>
-          </View>
-          {item.fecha_expiracion_creditos && item.estado === 'completada' && (
             <View style={styles.detailRow}>
               <View style={styles.detailRowLeft}>
-                <MaterialIcons
-                  name="event"
+                <InstitutionalIcon
+                  name={getMetodoPagoIcon(item.metodo_pago)}
                   size={16}
-                  color={warningColor}
+                  color={I.muted}
+                  strokeWidth={ICON_STROKE_WIDTH}
                 />
-                <Text style={[styles.detailLabel, { color: textSecondary, marginLeft: SPACING.xs / 2 }]}>Expira:</Text>
+                <Text style={[styles.detailLabel, { color: I.muted, marginLeft: 6 }]}>Método</Text>
               </View>
-              <Text style={[styles.detailValue, { color: textPrimary }]}>
-                {formatearFechaCompleta(item.fecha_expiracion_creditos)}
-              </Text>
+              <View style={[styles.metodoPill, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
+                <Text style={[styles.metodoPillText, { color: I.body }]}>{getMetodoPagoDisplay(item)}</Text>
+              </View>
             </View>
-          )}
-        </View>
-
-        {/* Acciones para compras pendientes */}
-        {isPendiente && (
-          <View style={styles.actionsContainer}>
-            {isProcessing ? (
-              <View style={styles.loadingActions}>
-                <ActivityIndicator size="small" color={primaryColor} />
-                <Text style={[styles.loadingText, { color: textSecondary }]}>Procesando...</Text>
+            {item.fecha_expiracion_creditos && item.estado === 'completada' ? (
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: I.muted }]}>Vencimiento créditos</Text>
+                <Text style={[styles.detailValue, { color: I.ink }]}>
+                  {formatearFechaCompleta(item.fecha_expiracion_creditos)}
+                </Text>
               </View>
-            ) : (
-              <>
-                {/* Mensaje según método de pago */}
-                <View style={[styles.pendingMessage, { backgroundColor: warningColor + '10' }]}>
-                  <MaterialIcons name="info-outline" size={16} color={warningColor} />
-                  <Text style={[styles.pendingMessageText, { color: textSecondary }]}>
-                    {isMercadoPago
-                      ? 'Pago pendiente. Verifica el estado o reintenta el pago.'
-                      : 'Esperando confirmación de transferencia.'}
-                  </Text>
-                </View>
-
-                <View style={styles.actionsButtons}>
-                  {isMercadoPago && (
-                    <>
-                      <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: primaryColor }]}
-                        onPress={() => handleVerificarPago(item)}
-                      >
-                        <MaterialIcons name="refresh" size={16} color="#FFFFFF" />
-                        <Text style={styles.actionButtonText}>Verificar Pago</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.actionButtonOutline, { borderColor: primaryColor }]}
-                        onPress={() => handleReintentarPago(item)}
-                      >
-                        <MaterialIcons name="payment" size={16} color={primaryColor} />
-                        <Text style={[styles.actionButtonTextOutline, { color: primaryColor }]}>
-                          Pagar
-                        </Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.actionButtonDanger, { borderColor: errorColor }]}
-                    onPress={() => handleCancelarCompra(item)}
-                  >
-                    <MaterialIcons name="close" size={16} color={errorColor} />
-                    <Text style={[styles.actionButtonTextOutline, { color: errorColor }]}>
-                      Cancelar
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
+            ) : null}
           </View>
-        )}
-      </View>
-    );
+
+          {isPendiente ? (
+            <View style={[styles.actionsBlock, { borderTopColor: I.hairline }]}>
+              {isProcessing ? (
+                <View style={styles.loadingActions}>
+                  <ActivityIndicator size="small" color={I.primary} />
+                  <Text style={[styles.loadingText, { color: I.muted }]}>Procesando…</Text>
+                </View>
+              ) : (
+                <>
+                  <View style={[styles.callout, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
+                    <InstitutionalIcon name="info-outline" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={[styles.calloutText, { color: I.body }]}>
+                      {isMercadoPago
+                        ? 'Pago pendiente. Podés verificar o abrir Mercado Pago de nuevo.'
+                        : 'Esperando confirmación de transferencia.'}
+                    </Text>
+                  </View>
+                  <View style={styles.actionsRow}>
+                    {isMercadoPago ? (
+                      <>
+                        <TouchableOpacity
+                          style={[styles.btnPrimary, { backgroundColor: I.primary }]}
+                          onPress={() => handleVerificarPago(item)}
+                          activeOpacity={0.88}
+                        >
+                          <InstitutionalIcon name="refresh" size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                          <Text style={[styles.btnPrimaryText, { color: I.onPrimary }]}>Verificar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.btnSecondary, { backgroundColor: I.surfaceStrong, borderColor: I.hairline }]}
+                          onPress={() => handleReintentarPago(item)}
+                          activeOpacity={0.88}
+                        >
+                          <InstitutionalIcon name="payment" size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                          <Text style={[styles.btnSecondaryText, { color: I.ink }]}>Pagar</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : null}
+                    <TouchableOpacity
+                      style={[styles.btnGhost, { borderColor: I.hairline }]}
+                      onPress={() => handleCancelarCompra(item)}
+                      activeOpacity={0.88}
+                    >
+                      <InstitutionalIcon name="close" size={16} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                      <Text style={[styles.btnGhostText, { color: I.semanticDown }]}>Cancelar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          ) : null}
+        </View>
+      );
   };
 
   if (compras.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <MaterialIcons name="shopping-cart" size={48} color={textSecondary} />
-        <Text style={[styles.emptyText, { color: textSecondary }]}>
-          No hay compras registradas
+        <View style={[styles.emptyIconPlate, { backgroundColor: I.surfaceSoft }]}>
+          <InstitutionalIcon name="shopping-cart" size={32} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+        </View>
+        <View style={[styles.emptyPill, { backgroundColor: I.surfaceStrong }]}>
+          <Text style={[styles.emptyPillText, { color: I.muted }]}>COMPRAS</Text>
+        </View>
+        <Text style={[styles.emptyTitle, { color: I.ink }]}>Sin movimientos</Text>
+        <Text style={[styles.emptySub, { color: I.body }]}>
+          Tus compras de créditos y recargas aparecerán acá.
         </Text>
       </View>
     );
   }
 
-  // Separar compras pendientes y completadas
-  const comprasPendientes = compras.filter(c => c.estado === 'pendiente');
-  const comprasOtras = compras.filter(c => c.estado !== 'pendiente');
-  const comprasOrdenadas = [...comprasPendientes, ...comprasOtras];
-
   return (
-    <FlatList
-      data={comprasOrdenadas}
-      renderItem={renderItem}
+    <SectionList
+      sections={sections}
       keyExtractor={(item) => item.id.toString()}
-      contentContainerStyle={styles.list}
-      style={styles.flatList}
+      renderItem={renderItem}
+      renderSectionHeader={renderSectionHeader}
+      contentContainerStyle={styles.listContent}
+      style={styles.list}
       onRefresh={onRefresh}
       refreshing={refreshing}
       showsVerticalScrollIndicator={false}
-      ListHeaderComponent={
-        comprasPendientes.length > 0 ? (
-          <View style={[styles.pendingBanner, { backgroundColor: warningColor + '20', borderColor: warningColor }]}>
-            <MaterialIcons name="pending-actions" size={20} color={warningColor} />
-            <Text style={[styles.pendingBannerText, { color: textPrimary }]}>
-              Tienes {comprasPendientes.length} compra{comprasPendientes.length > 1 ? 's' : ''} pendiente{comprasPendientes.length > 1 ? 's' : ''}
-            </Text>
-          </View>
-        ) : null
-      }
+      stickySectionHeadersEnabled={false}
+      SectionSeparatorComponent={() => null}
     />
   );
 };
 
 const styles = StyleSheet.create({
-  flatList: {
-    flex: 1,
+  list: { flex: 1 },
+  listContent: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING['2xl'],
   },
-  list: {
-    padding: SPACING.md,
-  },
-  item: {
-    padding: SPACING.md,
-    borderRadius: 12,
-    marginBottom: SPACING.md,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  sectionHeaderBlock: {
     marginBottom: SPACING.sm,
   },
-  itemHeaderLeft: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: SPACING.sm,
-    flex: 1,
   },
-  itemInfo: {
-    flex: 1,
+  sectionPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
   },
-  itemNombre: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as any,
-    marginBottom: SPACING.xs / 2,
+  sectionPillText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
   },
-  itemFecha: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as any,
-  },
-  estadoBadge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs / 2,
-    borderRadius: 8,
-  },
-  estadoText: {
+  sectionCount: {
     fontSize: TYPOGRAPHY.fontSize.xs,
-    fontWeight: TYPOGRAPHY.fontWeight.medium as any,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
   },
-  itemDetails: {
-    gap: SPACING.xs / 2,
+  sectionHint: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: 20,
+    marginTop: 6,
   },
+  card: {
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+  },
+  iconPlate: {
+    width: 40,
+    height: 40,
+    borderRadius: BORDERS.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTopText: { flex: 1, minWidth: 0 },
+  cardTitle: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+  },
+  cardMeta: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    marginTop: 2,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+  },
+  estadoPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BORDERS.radius.pill,
+    maxWidth: '42%',
+  },
+  estadoPillText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    textAlign: 'right',
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: SPACING.sm,
+  },
+  details: { gap: 8 },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: SPACING.sm,
   },
+  detailRowLeft: { flexDirection: 'row', alignItems: 'center' },
   detailLabel: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as any,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
   },
   detailValue: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.medium as any,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    textAlign: 'right',
+    flexShrink: 1,
   },
-  detailRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metodoBadge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs / 2,
-    borderRadius: 6,
-  },
-  metodoText: {
+  detailValueMono: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as any,
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
+    textAlign: 'right',
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING['2xl'],
+  metodoPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    maxWidth: '56%',
   },
-  emptyText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as any,
-    marginTop: SPACING.md,
-    textAlign: 'center',
+  metodoPillText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
+    textAlign: 'right',
   },
-  // Estilos para acciones de compras pendientes
-  actionsContainer: {
+  actionsBlock: {
     marginTop: SPACING.md,
     paddingTop: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   loadingActions: {
     flexDirection: 'row',
@@ -492,60 +515,111 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
   },
-  pendingMessage: {
+  callout: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
     padding: SPACING.sm,
-    borderRadius: 8,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
     marginBottom: SPACING.sm,
   },
-  pendingMessageText: {
+  calloutText: {
     flex: 1,
     fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: 20,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
   },
-  actionsButtons: {
+  actionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: SPACING.sm,
   },
-  actionButton: {
+  btnPrimary: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs / 2,
-    paddingVertical: SPACING.sm,
+    gap: 6,
+    paddingVertical: 12,
     paddingHorizontal: SPACING.md,
-    borderRadius: 8,
+    borderRadius: BORDERS.radius.pill,
+    minHeight: 44,
   },
-  actionButtonText: {
-    color: '#FFFFFF',
+  btnPrimaryText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as any,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
-  actionButtonOutline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-  },
-  actionButtonDanger: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-  },
-  actionButtonTextOutline: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as any,
-  },
-  pendingBanner: {
+  btnSecondary: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
-    padding: SPACING.md,
-    borderRadius: 12,
-    borderWidth: 1,
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.md,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    minHeight: 44,
+  },
+  btnSecondaryText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+  },
+  btnGhost: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.md,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    backgroundColor: 'transparent',
+    minHeight: 44,
+  },
+  btnGhostText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING['2xl'],
+  },
+  emptyIconPlate: {
+    width: 64,
+    height: 64,
+    borderRadius: BORDERS.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: SPACING.md,
   },
-  pendingBannerText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.medium as any,
+  emptyPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+    marginBottom: SPACING.sm,
+  },
+  emptyPillText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+  },
+  emptyTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    textAlign: 'center',
+  },
+  emptySub: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: 20,
+    marginTop: SPACING.xs,
+    textAlign: 'center',
+    maxWidth: 280,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
   },
 });

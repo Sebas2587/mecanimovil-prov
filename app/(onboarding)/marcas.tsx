@@ -11,10 +11,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { vehiculoAPI, type MarcaVehiculo } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export default function MarcasScreen() {
   const { tipo, ...otherParams } = useLocalSearchParams();
@@ -280,7 +281,7 @@ export default function MarcasScreen() {
               {marca.nombre}
             </Text>
           </View>
-          <Ionicons 
+          <InstitutionalIcon 
             name={isSelected ? "checkmark-circle" : "ellipse-outline"} 
             size={24} 
             color={
@@ -288,7 +289,7 @@ export default function MarcasScreen() {
               isDisabled ? "#e0e0e0" : 
               "#bdc3c7"
             } 
-          />
+           strokeWidth={ICON_STROKE_WIDTH} />
         </View>
       </TouchableOpacity>
     );
@@ -329,7 +330,7 @@ export default function MarcasScreen() {
 
           {/* Barra de búsqueda */}
           <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color="#666666" style={styles.searchIcon} />
+            <InstitutionalIcon name="search" size={20} color="#666666" style={styles.searchIcon}  strokeWidth={ICON_STROKE_WIDTH} />
             <TextInput
               style={styles.searchInput}
               placeholder="Buscar marca..."
@@ -342,11 +343,11 @@ export default function MarcasScreen() {
           {/* Botón para seleccionar/deseleccionar todas */}
           {marcasParaMostrar.length > 0 && (
             <TouchableOpacity style={styles.selectAllButton} onPress={seleccionarTodas} activeOpacity={0.7}>
-              <Ionicons 
+              <InstitutionalIcon 
                 name={todasSeleccionadas ? "checkmark-circle" : "ellipse-outline"} 
                 size={20} 
                 color="#4E4FEB" 
-              />
+               strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.selectAllText}>
                 {todasSeleccionadas ? 'Deseleccionar todas' : 'Seleccionar todas'}
               </Text>
@@ -367,7 +368,7 @@ export default function MarcasScreen() {
 
           {marcasParaMostrar.length === 0 && (
             <View style={styles.emptyContainer}>
-              <Ionicons name="search" size={48} color="#B5B5B5" />
+              <InstitutionalIcon name="search" size={48} color="#B5B5B5"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.emptyText}>No se encontraron marcas</Text>
               <Text style={styles.emptySubtext}>Intenta con otro término de búsqueda</Text>
             </View>

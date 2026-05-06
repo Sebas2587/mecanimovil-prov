@@ -8,8 +8,9 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
 import { ChecklistContainer } from '@/components/checklist';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export default function ChecklistDemoScreen() {
   const [showChecklist, setShowChecklist] = useState(false);
@@ -115,7 +116,7 @@ export default function ChecklistDemoScreen() {
       {/* Información del sistema */}
       <View style={styles.infoContainer}>
         <View style={styles.infoHeader}>
-          <MaterialIcons name="info" size={20} color="#2A4065" />
+          <InstitutionalIcon name="info" size={20} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.infoTitle}>Acerca del Sistema</Text>
         </View>
         <Text style={styles.infoText}>
@@ -144,15 +145,15 @@ export default function ChecklistDemoScreen() {
             
             <View style={styles.ordenInfo}>
               <View style={styles.ordenInfoRow}>
-                <MaterialIcons name="person" size={16} color="#6c757d" />
+                <InstitutionalIcon name="person" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.ordenInfoText}>{orden.cliente}</Text>
               </View>
               <View style={styles.ordenInfoRow}>
-                <MaterialIcons name="directions-car" size={16} color="#6c757d" />
+                <InstitutionalIcon name="directions-car" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.ordenInfoText}>{orden.vehiculo}</Text>
               </View>
               <View style={styles.ordenInfoRow}>
-                <MaterialIcons name="build" size={16} color="#6c757d" />
+                <InstitutionalIcon name="build" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.ordenInfoText}>{orden.servicio}</Text>
               </View>
             </View>
@@ -162,7 +163,7 @@ export default function ChecklistDemoScreen() {
                 style={styles.iniciarButton}
                 onPress={() => handleIniciarChecklist(orden.id)}
               >
-                <MaterialIcons name="play-arrow" size={20} color="#fff" />
+                <InstitutionalIcon name="play-arrow" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.iniciarButtonText}>Iniciar Checklist</Text>
               </TouchableOpacity>
             )}
@@ -172,14 +173,14 @@ export default function ChecklistDemoScreen() {
                 style={styles.continuarButton}
                 onPress={() => handleIniciarChecklist(orden.id)}
               >
-                <MaterialIcons name="play-arrow" size={20} color="#fff" />
+                <InstitutionalIcon name="play-arrow" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.continuarButtonText}>Continuar Checklist</Text>
               </TouchableOpacity>
             )}
 
             {orden.estado === 'checklist_completado' && (
               <View style={styles.completadoIndicator}>
-                <MaterialIcons name="check-circle" size={20} color="#28a745" />
+                <InstitutionalIcon name="check-circle" size={20} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.completadoText}>Checklist Completado</Text>
               </View>
             )}
@@ -192,19 +193,19 @@ export default function ChecklistDemoScreen() {
         <Text style={styles.footerTitle}>Características del Sistema:</Text>
         <View style={styles.featureList}>
           <View style={styles.featureItem}>
-            <MaterialIcons name="offline-bolt" size={16} color="#28a745" />
+            <InstitutionalIcon name="offline-bolt" size={16} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.featureText}>Funciona offline</Text>
           </View>
           <View style={styles.featureItem}>
-            <MaterialIcons name="photo-camera" size={16} color="#28a745" />
+            <InstitutionalIcon name="photo-camera" size={16} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.featureText}>Captura de fotos</Text>
           </View>
           <View style={styles.featureItem}>
-            <MaterialIcons name="edit" size={16} color="#28a745" />
+            <InstitutionalIcon name="edit" size={16} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.featureText}>Firmas digitales</Text>
           </View>
           <View style={styles.featureItem}>
-            <MaterialIcons name="location-on" size={16} color="#28a745" />
+            <InstitutionalIcon name="location-on" size={16} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.featureText}>Ubicación GPS</Text>
           </View>
         </View>

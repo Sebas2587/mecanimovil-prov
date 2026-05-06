@@ -9,8 +9,6 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   Briefcase, CheckCircle, Inbox, User, Car, Clock,
   Wrench, AlertTriangle, Shield, CreditCard,
@@ -31,6 +29,59 @@ import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import Header from '@/components/Header';
+import { COLORS, withOpacity, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '@/app/design-system/tokens';
+import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
+
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
+const hx = SPACING.container.horizontal;
+const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
+
+type EstadoBadgeVariant = 'success' | 'error' | 'warning' | 'info' | 'neutral';
+
+const ESTADO_VARIANT: Record<string, EstadoBadgeVariant> = {
+  pendiente_aceptacion_proveedor: 'warning',
+  aceptada_por_proveedor: 'success',
+  en_proceso: 'info',
+  checklist_en_progreso: 'info',
+  servicio_iniciado: 'info',
+  cancelado: 'error',
+  rechazada_por_proveedor: 'error',
+  completado: 'success',
+  enviada: 'info',
+  vista: 'info',
+  en_chat: 'warning',
+  pendiente_creditos: 'warning',
+  aceptada: 'success',
+  pendiente_pago: 'warning',
+  pagada: 'success',
+  en_ejecucion: 'info',
+  completada: 'success',
+  rechazada: 'error',
+  retirada: 'error',
+  expirada: 'neutral',
+};
+
+function getEstadoBadgeColors(variant: EstadoBadgeVariant) {
+  switch (variant) {
+    case 'success':
+      return { bg: withOpacity(I.semanticUp, 0.12), dot: I.semanticUp, text: I.semanticUp };
+    case 'error':
+      return { bg: withOpacity(I.semanticDown, 0.1), dot: I.semanticDown, text: I.semanticDown };
+    case 'warning':
+      return {
+        bg: withOpacity(I.accentYellow, 0.22),
+        dot: I.accentYellow,
+        text: I.body,
+      };
+    case 'info':
+      return { bg: withOpacity(I.primary, 0.1), dot: I.primary, text: I.primaryActive };
+    case 'neutral':
+    default:
+      return { bg: I.surfaceStrong, dot: I.muted, text: I.body };
+  }
+}
 
 type TabType = 'activas' | 'completadas' | 'rechazadas';
 
@@ -55,29 +106,6 @@ const ESTADOS_RECHAZADAS = [
   'retirada',
   'expirada',
 ];
-const ESTADO_COLORS: Record<string, { bg: string; dot: string; text: string }> = {
-  pendiente_aceptacion_proveedor: { bg: '#FFF7ED', dot: '#F59E0B', text: '#92400E' },
-  aceptada_por_proveedor: { bg: '#ECFDF5', dot: '#10B981', text: '#065F46' },
-  en_proceso: { bg: '#EFF6FF', dot: '#3B82F6', text: '#1E40AF' },
-  checklist_en_progreso: { bg: '#EFF6FF', dot: '#3B82F6', text: '#1E40AF' },
-  servicio_iniciado: { bg: '#EFF6FF', dot: '#3B82F6', text: '#1E40AF' },
-  cancelado: { bg: '#FEF2F2', dot: '#EF4444', text: '#991B1B' },
-  rechazada_por_proveedor: { bg: '#FEF2F2', dot: '#EF4444', text: '#991B1B' },
-  completado: { bg: '#ECFDF5', dot: '#10B981', text: '#065F46' },
-  enviada: { bg: '#EFF6FF', dot: '#3B82F6', text: '#1E40AF' },
-  vista: { bg: '#F5F3FF', dot: '#8B5CF6', text: '#5B21B6' },
-  en_chat: { bg: '#FFF7ED', dot: '#F59E0B', text: '#92400E' },
-  pendiente_creditos: { bg: '#FFF7ED', dot: '#D97706', text: '#92400E' },
-  aceptada: { bg: '#ECFDF5', dot: '#10B981', text: '#065F46' },
-  pendiente_pago: { bg: '#FFF7ED', dot: '#F59E0B', text: '#92400E' },
-  pagada: { bg: '#ECFDF5', dot: '#10B981', text: '#065F46' },
-  en_ejecucion: { bg: '#EFF6FF', dot: '#3B82F6', text: '#1E40AF' },
-  completada: { bg: '#ECFDF5', dot: '#10B981', text: '#065F46' },
-  rechazada: { bg: '#FEF2F2', dot: '#EF4444', text: '#991B1B' },
-  retirada: { bg: '#FEF2F2', dot: '#EF4444', text: '#991B1B' },
-  expirada: { bg: '#F3F4F6', dot: '#9CA3AF', text: '#374151' },
-};
-
 const OFERTA_LABELS: Record<string, string> = {
   enviada: 'Oferta Enviada',
   vista: 'Vista por Cliente',
@@ -92,8 +120,6 @@ const OFERTA_LABELS: Record<string, string> = {
   retirada: 'Retirada',
   expirada: 'Expirada',
 };
-
-const DEFAULT_STYLE = { bg: '#F3F4F6', dot: '#9CA3AF', text: '#374151' };
 
 async function fetchOrdenes(): Promise<Orden[]> {
   const [pendientesRes, activasRes, completadasRes, canceladasRes] = await Promise.all([
@@ -301,7 +327,7 @@ export default function OrdenesScreen() {
   };
 
   const renderOfertaCard = useCallback((oferta: OfertaProveedor) => {
-    const estadoStyle = ESTADO_COLORS[oferta.estado] || DEFAULT_STYLE;
+    const estadoStyle = getEstadoBadgeColors(ESTADO_VARIANT[oferta.estado] || 'neutral');
     const textoEstado = OFERTA_LABELS[oferta.estado] || oferta.estado;
     const clienteFoto = oferta.solicitud_detail?.cliente_foto;
     const nombreCliente = oferta.solicitud_detail?.cliente_nombre || 'Cliente';
@@ -318,11 +344,11 @@ export default function OrdenesScreen() {
     return (
       <TouchableOpacity
         key={`oferta-${oferta.id}`}
-        style={styles.glassCardOuter}
+        style={styles.listCardOuter}
         onPress={() => handleOfertaPress(oferta)}
-        activeOpacity={0.7}
+        activeOpacity={0.88}
       >
-        <BlurView intensity={50} tint="light" style={styles.glassCardInner}>
+        <View style={styles.listCardInner}>
           <View style={styles.cardTop}>
             <View style={[styles.statusBadge, { backgroundColor: estadoStyle.bg }]}>
               <View style={[styles.statusDot, { backgroundColor: estadoStyle.dot }]} />
@@ -330,8 +356,8 @@ export default function OrdenesScreen() {
             </View>
             {oferta.es_oferta_secundaria && (
               <View style={styles.additionalBadge}>
-                <PlusCircle size={10} color="#FFFFFF" />
-                <Text style={styles.additionalBadgeText}>ADICIONAL</Text>
+                <PlusCircle size={10} color={I.onPrimary} />
+                <Text style={styles.additionalBadgeText}>Adicional</Text>
               </View>
             )}
             <View style={{ flex: 1 }} />
@@ -341,7 +367,7 @@ export default function OrdenesScreen() {
           <Text style={styles.cardTitle} numberOfLines={2}>{nombreServicio}</Text>
 
           <View style={styles.cardMeta}>
-            <Clock size={13} color="#9CA3AF" />
+            <Clock size={13} color={I.muted} />
             <Text style={styles.cardMetaText}>
               {fechaDisponible || formatearFecha(oferta.fecha_envio)}
               {oferta.hora_disponible && ` · ${oferta.hora_disponible.substring(0, 5)}`}
@@ -356,14 +382,14 @@ export default function OrdenesScreen() {
                 <Image source={{ uri: clienteFoto }} style={styles.avatar} />
               ) : (
                 <View style={styles.avatarPlaceholder}>
-                  <User size={14} color="#FFFFFF" />
+                  <User size={14} color={I.onPrimary} />
                 </View>
               )}
               <View style={{ flex: 1 }}>
                 <Text style={styles.userName} numberOfLines={1}>{nombreCliente}</Text>
                 {vehiculo && (
                   <View style={styles.vehicleRow}>
-                    <Car size={12} color="#9CA3AF" />
+                    <Car size={12} color={I.muted} />
                     <Text style={styles.vehicleText} numberOfLines={1}>
                       {vehiculo.marca} {vehiculo.modelo}{vehiculo.año ? ` (${vehiculo.año})` : ''}
                     </Text>
@@ -373,19 +399,19 @@ export default function OrdenesScreen() {
             </View>
             {oferta.incluye_repuestos === true && (
               <View style={styles.repuestosBadge}>
-                <Package size={10} color="#059669" />
+                <Package size={10} color={I.semanticUp} />
                 <Text style={styles.repuestosText}>Repuestos</Text>
               </View>
             )}
           </View>
-        </BlurView>
+        </View>
       </TouchableOpacity>
     );
   }, [handleOfertaPress]);
 
   const renderOrdenCard = useCallback((orden: Orden) => {
     const estadoEfectivo = getEstadoEfectivo(orden);
-    const estadoStyle = ESTADO_COLORS[estadoEfectivo] || DEFAULT_STYLE;
+    const estadoStyle = getEstadoBadgeColors(ESTADO_VARIANT[estadoEfectivo] || 'neutral');
     const textoEstado = getTextoEstado(orden);
     const clienteFoto = (orden.cliente_detail as any)?.foto_perfil;
     const nombreCompleto2 = obtenerNombreCompleto(orden.cliente_detail);
@@ -401,11 +427,11 @@ export default function OrdenesScreen() {
     return (
       <TouchableOpacity
         key={`orden-${orden.id}`}
-        style={styles.glassCardOuter}
+        style={styles.listCardOuter}
         onPress={() => handleOrdenPress(orden)}
-        activeOpacity={0.7}
+        activeOpacity={0.88}
       >
-        <BlurView intensity={50} tint="light" style={styles.glassCardInner}>
+        <View style={styles.listCardInner}>
           <View style={styles.cardTop}>
             <View style={[styles.statusBadge, { backgroundColor: estadoStyle.bg }]}>
               <View style={[styles.statusDot, { backgroundColor: estadoStyle.dot }]} />
@@ -413,12 +439,12 @@ export default function OrdenesScreen() {
             </View>
             {urgencia && (
               <View style={styles.urgentBadge}>
-                <AlertTriangle size={10} color="#FFFFFF" />
+                <AlertTriangle size={10} color={I.onPrimary} />
               </View>
             )}
             {!esClienteCompletoFlag && (
               <View style={styles.protectedBadge}>
-                <Shield size={10} color="#F59E0B" />
+                <Shield size={10} color={I.accentYellow} />
               </View>
             )}
             <View style={{ flex: 1 }} />
@@ -428,7 +454,7 @@ export default function OrdenesScreen() {
           <Text style={styles.cardTitle} numberOfLines={2}>{nombreServicio}</Text>
 
           <View style={styles.cardMeta}>
-            <Clock size={13} color="#9CA3AF" />
+            <Clock size={13} color={I.muted} />
             <Text style={styles.cardMetaText}>
               {formatearFecha(orden.fecha_servicio || orden.fecha_hora_solicitud)}
               {orden.hora_servicio && ` · ${orden.hora_servicio.substring(0, 5)}`}
@@ -448,13 +474,13 @@ export default function OrdenesScreen() {
                 <Image source={{ uri: clienteFoto }} style={styles.avatar} />
               ) : (
                 <View style={styles.avatarPlaceholder}>
-                  <User size={14} color="#FFFFFF" />
+                  <User size={14} color={I.onPrimary} />
                 </View>
               )}
               <View style={{ flex: 1 }}>
                 <Text style={styles.userName} numberOfLines={1}>{nombreCompleto2}</Text>
                 <View style={styles.vehicleRow}>
-                  <Car size={12} color="#9CA3AF" />
+                  <Car size={12} color={I.muted} />
                   <Text style={styles.vehicleText} numberOfLines={1}>
                     {orden.vehiculo_detail?.marca} {orden.vehiculo_detail?.modelo}
                     {orden.vehiculo_detail?.año ? ` (${orden.vehiculo_detail.año})` : ''}
@@ -465,13 +491,13 @@ export default function OrdenesScreen() {
             <View style={styles.cardBadges}>
               {tieneRepuestos && (
                 <View style={styles.repuestosBadge}>
-                  <Package size={10} color="#059669" />
+                  <Package size={10} color={I.semanticUp} />
                   <Text style={styles.repuestosText}>Repuestos</Text>
                 </View>
               )}
               {orden.metodo_pago && (
                 <View style={styles.pagoBadge}>
-                  <CreditCard size={10} color="#6B7280" />
+                  <CreditCard size={10} color={I.muted} />
                   <Text style={styles.pagoText}>
                     {orden.metodo_pago === 'mercadopago' ? 'MP' :
                      orden.metodo_pago === 'transferencia' ? 'Transf.' :
@@ -481,7 +507,7 @@ export default function OrdenesScreen() {
               )}
             </View>
           </View>
-        </BlurView>
+        </View>
       </TouchableOpacity>
     );
   }, [getEstadoEfectivo, getTextoEstado, handleOrdenPress]);
@@ -489,95 +515,63 @@ export default function OrdenesScreen() {
   if (!isVerified) {
     return (
       <TabScreenWrapper>
-        <LinearGradient colors={['#F3F5F8', '#FAFBFC', '#FFFFFF']} locations={[0, 0.3, 1]} style={styles.gradient}>
-          <Header title="Órdenes y Ofertas" />
+        <View style={styles.screenRoot}>
+          <Header title="Órdenes y Ofertas" backgroundColor={I.canvas} titleColor={I.ink} />
           <View style={styles.centeredContainer}>
-            <Shield size={64} color="#9CA3AF" />
+            <Shield size={64} color={I.muted} />
             <Text style={styles.noVerificadoTitle}>Perfil en Verificación</Text>
             <Text style={styles.noVerificadoMessage}>
               Tu perfil de proveedor está siendo revisado. Una vez verificado podrás gestionar órdenes y ofertas.
             </Text>
           </View>
-        </LinearGradient>
+        </View>
       </TabScreenWrapper>
     );
   }
 
   return (
     <TabScreenWrapper>
-      <LinearGradient colors={['#F3F5F8', '#FAFBFC', '#FFFFFF']} locations={[0, 0.3, 1]} style={styles.gradient}>
-        <Header title="Órdenes y Ofertas" />
+      <View style={styles.screenRoot}>
+        <Header title="Órdenes y Ofertas" backgroundColor={I.canvas} titleColor={I.ink} />
 
-        {/* Glass Tabs */}
-        <View style={styles.tabsOuter}>
-          <BlurView intensity={40} tint="light" style={styles.tabsBlur}>
-            <TouchableOpacity
-              style={[styles.tabPill, tabActivo === 'activas' && styles.tabPillActive]}
-              onPress={() => setTabActivo('activas')}
-              activeOpacity={0.7}
-            >
-              <Briefcase size={14} color={tabActivo === 'activas' ? '#FFFFFF' : '#6B7280'} />
-              <Text style={[styles.tabPillText, tabActivo === 'activas' && styles.tabPillTextActive]} numberOfLines={1}>
-                Activas
-              </Text>
-              {activasCount > 0 && (
-                <View style={[styles.tabCount, tabActivo === 'activas' && styles.tabCountActive]}>
-                  <Text style={[styles.tabCountText, tabActivo === 'activas' && styles.tabCountTextActive]}>
-                    {activasCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tabPill, tabActivo === 'completadas' && styles.tabPillActive]}
-              onPress={() => setTabActivo('completadas')}
-              activeOpacity={0.7}
-            >
-              <CheckCircle size={14} color={tabActivo === 'completadas' ? '#FFFFFF' : '#6B7280'} />
-              <Text style={[styles.tabPillText, tabActivo === 'completadas' && styles.tabPillTextActive]} numberOfLines={1}>
-                Completadas
-              </Text>
-              {completadasCount > 0 && (
-                <View style={[styles.tabCount, tabActivo === 'completadas' && styles.tabCountActive]}>
-                  <Text style={[styles.tabCountText, tabActivo === 'completadas' && styles.tabCountTextActive]}>
-                    {completadasCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tabPill, tabActivo === 'rechazadas' && styles.tabPillActive]}
-              onPress={() => setTabActivo('rechazadas')}
-              activeOpacity={0.7}
-            >
-              <XCircle size={14} color={tabActivo === 'rechazadas' ? '#FFFFFF' : '#6B7280'} />
-              <Text style={[styles.tabPillText, tabActivo === 'rechazadas' && styles.tabPillTextActive]} numberOfLines={1}>
-                Rechazadas
-              </Text>
-              {rechazadasCount > 0 && (
-                <View style={[styles.tabCount, tabActivo === 'rechazadas' && styles.tabCountActive]}>
-                  <Text style={[styles.tabCountText, tabActivo === 'rechazadas' && styles.tabCountTextActive]}>
-                    {rechazadasCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </BlurView>
+        <View style={[styles.tabsOuter, { paddingHorizontal: hx }]}>
+          <InstitutionalScreenTabs
+            activeKey={tabActivo}
+            onChange={setTabActivo}
+            tabs={[
+              {
+                key: 'activas',
+                label: 'Activas',
+                leading: <Briefcase size={14} color={tabActivo === 'activas' ? I.onPrimary : I.muted} />,
+                badge: activasCount > 0 ? activasCount : undefined,
+              },
+              {
+                key: 'completadas',
+                label: 'Completadas',
+                leading: <CheckCircle size={14} color={tabActivo === 'completadas' ? I.onPrimary : I.muted} />,
+                badge: completadasCount > 0 ? completadasCount : undefined,
+              },
+              {
+                key: 'rechazadas',
+                label: 'Rechazadas',
+                leading: <XCircle size={14} color={tabActivo === 'rechazadas' ? I.onPrimary : I.muted} />,
+                badge: rechazadasCount > 0 ? rechazadasCount : undefined,
+              },
+            ]}
+          />
         </View>
 
         {/* Content */}
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingHorizontal: hx }]}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />}
         >
           {loading ? (
             <View style={styles.centeredContainer}>
-              <ActivityIndicator size="large" color="#3B82F6" />
-              <Text style={styles.loadingText}>Cargando...</Text>
+              <ActivityIndicator size="large" color={I.primary} />
+              <Text style={styles.loadingText}>Cargando…</Text>
             </View>
           ) : tieneDatos ? (
             <>
@@ -607,8 +601,8 @@ export default function OrdenesScreen() {
                   {ofertasMostrar.length > 0 && (
                     <View style={styles.section}>
                       <View style={styles.sectionHeader}>
-                        <Wrench size={18} color="#374151" />
-                        <Text style={styles.sectionTitle}>Ofertas Enviadas</Text>
+                        <Wrench size={18} color={I.ink} />
+                        <Text style={styles.sectionTitle}>Ofertas enviadas</Text>
                         <Text style={styles.sectionCount}>{ofertasMostrar.length}</Text>
                       </View>
                       {ofertasMostrar.map(renderOfertaCard)}
@@ -618,8 +612,8 @@ export default function OrdenesScreen() {
                   {ordenesMostrar.length > 0 && (
                     <View style={styles.section}>
                       <View style={styles.sectionHeader}>
-                        <Briefcase size={18} color="#374151" />
-                        <Text style={styles.sectionTitle}>Órdenes de Servicio</Text>
+                        <Briefcase size={18} color={I.ink} />
+                        <Text style={styles.sectionTitle}>Órdenes de servicio</Text>
                         <Text style={styles.sectionCount}>{ordenesMostrar.length}</Text>
                       </View>
                       {ordenesMostrar.map(renderOrdenCard)}
@@ -629,7 +623,7 @@ export default function OrdenesScreen() {
               ) : tabActivo === 'completadas' ? (
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
-                    <CheckCircle size={18} color="#374151" />
+                    <CheckCircle size={18} color={I.ink} />
                     <Text style={styles.sectionTitle}>Completadas</Text>
                     <Text style={styles.sectionCount}>{completadasCount}</Text>
                   </View>
@@ -639,7 +633,7 @@ export default function OrdenesScreen() {
               ) : (
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
-                    <XCircle size={18} color="#374151" />
+                    <XCircle size={18} color={I.ink} />
                     <Text style={styles.sectionTitle}>Rechazadas y canceladas</Text>
                     <Text style={styles.sectionCount}>{rechazadasCount}</Text>
                   </View>
@@ -652,11 +646,11 @@ export default function OrdenesScreen() {
             <View style={styles.centeredContainer}>
               <View style={styles.emptyIconWrap}>
                 {tabActivo === 'activas' ? (
-                  <Inbox size={48} color="#9CA3AF" />
+                  <Inbox size={48} color={I.muted} />
                 ) : tabActivo === 'completadas' ? (
-                  <CheckCircle size={48} color="#9CA3AF" />
+                  <CheckCircle size={48} color={I.muted} />
                 ) : (
-                  <XCircle size={48} color="#9CA3AF" />
+                  <XCircle size={48} color={I.muted} />
                 )}
               </View>
               <Text style={styles.emptyTitle}>
@@ -676,155 +670,97 @@ export default function OrdenesScreen() {
             </View>
           )}
         </ScrollView>
-      </LinearGradient>
+      </View>
     </TabScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
+  screenRoot: {
     flex: 1,
+    backgroundColor: I.surfaceSoft,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    paddingBottom: 32,
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.xl,
   },
   centeredContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    paddingHorizontal: 32,
+    paddingHorizontal: SPACING.fixed.lg,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#6B7280',
+    marginTop: SPACING.fixed.sm,
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.body,
   },
 
-  // Tabs
   tabsOuter: {
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.xs,
   },
-  tabsBlur: {
-    flexDirection: 'row',
-    borderRadius: 14,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    padding: 4,
-    gap: 4,
-  },
-  tabPill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: 4,
-    borderRadius: 11,
-    gap: 4,
-    minWidth: 0,
-  },
-  tabPillActive: {
-    backgroundColor: '#1F2937',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  tabPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-    flexShrink: 1,
-  },
-  tabPillTextActive: {
-    color: '#FFFFFF',
-  },
-  tabCount: {
-    backgroundColor: '#E5E7EB',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
-  tabCountActive: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  tabCountText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#374151',
-  },
-  tabCountTextActive: {
-    color: '#FFFFFF',
-  },
-
-  // Sections
   section: {
-    marginBottom: 20,
+    marginBottom: SPACING.fixed.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
   },
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    letterSpacing: TS.h4.letterSpacing,
+    color: I.ink,
     flex: 1,
   },
   sectionCount: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 8,
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
+    color: I.muted,
+    backgroundColor: I.surfaceStrong,
+    paddingHorizontal: SPACING.fixed.sm,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: BORDERS.radius.md,
     overflow: 'hidden',
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
 
-  // Glass Cards
-  glassCardOuter: {
-    marginBottom: 12,
-    borderRadius: 16,
+  listCardOuter: {
+    marginBottom: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.lg,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
+    ...SHADOWS.editorial,
   },
-  glassCardInner: {
-    padding: 16,
-    backgroundColor: 'rgba(255,255,255,0.55)',
+  listCardInner: {
+    padding: SPACING.fixed.md,
   },
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
+    gap: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.sm,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xxs,
+    borderRadius: BORDERS.radius.pill,
     gap: 5,
   },
   statusDot: {
@@ -833,47 +769,55 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
   },
   cardPrice: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
+    fontSize: TS.numberDisplay.fontSize,
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TS.numberDisplay.fontSize, TS.numberDisplay.lineHeight),
+    color: I.ink,
   },
   cardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 6,
-    lineHeight: 22,
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    letterSpacing: TS.h4.letterSpacing,
+    color: I.ink,
+    marginBottom: SPACING.fixed.xs,
   },
   cardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    marginBottom: 12,
+    marginBottom: SPACING.fixed.sm,
   },
   cardMetaText: {
-    fontSize: 13,
-    color: '#6B7280',
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
+    color: I.body,
     flex: 1,
   },
   serviceTypePill: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 8,
+    backgroundColor: I.surfaceStrong,
+    paddingHorizontal: SPACING.fixed.sm,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   serviceTypeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.normal),
+    color: I.body,
   },
   cardDivider: {
-    height: 1,
-    backgroundColor: 'rgba(0,0,0,0.06)',
-    marginBottom: 12,
+    height: BORDERS.width.thin,
+    backgroundColor: I.hairline,
+    marginBottom: SPACING.fixed.sm,
   },
   cardBottom: {
     flexDirection: 'row',
@@ -883,27 +827,28 @@ const styles = StyleSheet.create({
   cardUser: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: SPACING.fixed.sm,
     flex: 1,
   },
   avatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#E5E7EB',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: I.surfaceStrong,
   },
   avatarPlaceholder: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#3B82F6',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: I.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   userName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.ink,
   },
   vehicleRow: {
     flexDirection: 'row',
@@ -912,116 +857,130 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   vehicleText: {
-    fontSize: 12,
-    color: '#9CA3AF',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
     flex: 1,
   },
   cardBadges: {
     flexDirection: 'row',
-    gap: 6,
+    gap: SPACING.fixed.xs,
     flexShrink: 0,
   },
   repuestosBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 7,
+    backgroundColor: withOpacity(I.semanticUp, 0.1),
+    paddingHorizontal: SPACING.fixed.xs + 2,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: BORDERS.radius.md,
     gap: 3,
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.semanticUp, 0.25),
   },
   repuestosText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#059669',
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.normal),
+    color: I.semanticUp,
   },
   pagoBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 7,
+    backgroundColor: I.surfaceStrong,
+    paddingHorizontal: SPACING.fixed.xs + 2,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: BORDERS.radius.md,
     gap: 3,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   pagoText: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#6B7280',
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.normal),
+    color: I.body,
   },
   urgentBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#EF4444',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: I.semanticDown,
     alignItems: 'center',
     justifyContent: 'center',
   },
   protectedBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: withOpacity(I.accentYellow, 0.2),
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.accentYellow,
     alignItems: 'center',
     justifyContent: 'center',
   },
   additionalBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F97316',
-    paddingHorizontal: 6,
+    backgroundColor: I.primary,
+    paddingHorizontal: SPACING.fixed.xs + 2,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: BORDERS.radius.sm,
     gap: 3,
   },
   additionalBadgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.tight),
+    color: I.onPrimary,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   bannerWrap: {
-    marginBottom: 16,
-    gap: 8,
+    marginBottom: SPACING.fixed.md,
+    gap: SPACING.fixed.sm,
   },
 
-  // Empty state
   emptyIconWrap: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: I.surfaceStrong,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.fixed.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#374151',
-    marginBottom: 6,
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    color: I.ink,
+    marginBottom: SPACING.fixed.xs,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#9CA3AF',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
     textAlign: 'center',
-    lineHeight: 20,
   },
 
-  // Not verified
   noVerificadoTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 16,
-    marginBottom: 8,
+    fontSize: TS.h3.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h3.fontSize, TS.h3.lineHeight),
+    color: I.ink,
+    marginTop: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.sm,
   },
   noVerificadoMessage: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
+    color: I.body,
     textAlign: 'center',
-    lineHeight: 20,
   },
 });

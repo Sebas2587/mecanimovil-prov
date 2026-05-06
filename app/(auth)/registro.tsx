@@ -12,9 +12,10 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 // Mapeo de errores comunes del backend a mensajes amigables
 const ERROR_MESSAGES: { [key: string]: string } = {
@@ -240,13 +241,13 @@ export default function RegistroScreen() {
             {/* Banner de error */}
             {errorMessage && (
               <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle" size={20} color="#FFFFFF" />
+                <InstitutionalIcon name="alert-circle" size={20} color="#FFFFFF"  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.errorBannerText}>{errorMessage}</Text>
                 <TouchableOpacity 
                   onPress={() => setErrorMessage(null)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="close" size={18} color="#FFFFFF" />
+                  <InstitutionalIcon name="close" size={18} color="#FFFFFF"  strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
               </View>
             )}
@@ -303,11 +304,11 @@ export default function RegistroScreen() {
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   disabled={isLoading}
                 >
-                  <Ionicons
+                  <InstitutionalIcon
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={22}
                     color={showPassword ? '#4E4FEB' : '#666666'}
-                  />
+                   strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -335,11 +336,11 @@ export default function RegistroScreen() {
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   disabled={isLoading}
                 >
-                  <Ionicons
+                  <InstitutionalIcon
                     name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={22}
                     color={showConfirmPassword ? '#4E4FEB' : '#666666'}
-                  />
+                   strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
               </View>
             </View>

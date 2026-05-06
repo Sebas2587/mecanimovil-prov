@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
 import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -251,7 +252,7 @@ export default function ServicioResumenScreen() {
           titleColor={I.ink}
         />
         <View style={styles.centered}>
-          <MaterialIcons name="error-outline" size={48} color={I.muted} />
+          <InstitutionalIcon name="error-outline" size={48} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.errorTitle}>No se pudo cargar el servicio</Text>
           <TouchableOpacity style={styles.primaryBtn} onPress={() => router.back()} activeOpacity={0.88}>
             <Text style={styles.primaryBtnText}>Volver</Text>
@@ -306,7 +307,7 @@ export default function ServicioResumenScreen() {
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
-              <MaterialIcons name="build" size={20} color={I.primary} />
+              <InstitutionalIcon name="build" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <View style={styles.infoBody}>
               <Text style={styles.label}>Nombre</Text>
@@ -316,7 +317,7 @@ export default function ServicioResumenScreen() {
 
           <View style={[styles.infoRow, styles.infoRowDivider]}>
             <View style={styles.infoIcon}>
-              <MaterialIcons name="directions-car" size={20} color={I.primary} />
+              <InstitutionalIcon name="directions-car" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <View style={styles.infoBody}>
               <Text style={styles.label}>Marca de vehículo</Text>
@@ -328,7 +329,7 @@ export default function ServicioResumenScreen() {
 
           <View style={[styles.infoRow, styles.infoRowDivider]}>
             <View style={styles.infoIcon}>
-              <MaterialIcons name="settings" size={20} color={I.primary} />
+              <InstitutionalIcon name="settings" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <View style={styles.infoBody}>
               <Text style={styles.label}>Repuestos</Text>
@@ -359,7 +360,7 @@ export default function ServicioResumenScreen() {
 
           <View style={[styles.infoRow, styles.infoRowDivider]}>
             <View style={styles.infoIcon}>
-              <MaterialIcons name="photo-library" size={20} color={I.primary} />
+              <InstitutionalIcon name="photo-library" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <View style={styles.infoBody}>
               <Text style={styles.label}>Fotos del servicio</Text>
@@ -438,23 +439,23 @@ export default function ServicioResumenScreen() {
             onPress={toggleDisponibilidad}
             activeOpacity={0.88}
           >
-            <MaterialIcons
+            <InstitutionalIcon
               name={servicio.disponible ? 'pause' : 'play-arrow'}
               size={20}
               color={servicio.disponible ? I.accentYellow : I.semanticUp}
-            />
+             strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.actionText, servicio.disponible ? styles.actionTextPause : styles.actionTextPlay]}>
               {servicio.disponible ? 'Pausar' : 'Activar'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.actionBtn, styles.actionEdit]} onPress={editarServicio} activeOpacity={0.88}>
-            <MaterialIcons name="edit" size={20} color={I.primary} />
+            <InstitutionalIcon name="edit" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.actionTextEdit}>Editar</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.actionBtn, styles.actionDelete]} onPress={eliminarServicio} activeOpacity={0.88}>
-            <MaterialIcons name="delete-outline" size={20} color={I.semanticDown} />
+            <InstitutionalIcon name="delete-outline" size={20} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.actionTextDelete}>Eliminar</Text>
           </TouchableOpacity>
         </View>

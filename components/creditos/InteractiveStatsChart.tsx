@@ -1,262 +1,359 @@
+/**
+ * Actividad del mes — gráfico de créditos consumidos por día.
+ * Ingreso asociado: Σ (créditos × precio/cr. de cada postulación); fallback al precio tienda si falta.
+ */
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { LineChart } from 'react-native-gifted-charts';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
-import { useTheme } from '@/app/design-system/theme/useTheme';
+import { Info } from 'lucide-react-native';
+import { SPACING, TYPOGRAPHY, BORDERS, SHADOWS, COLORS } from '@/app/design-system/tokens';
+import { ICON_STROKE_WIDTH, ICON_SIZE } from '@/app/design-system/iconography';
 
-interface ChartDataPoint {
-    value: number;
-    label: string;
-    dataPointText?: string;
+const I = COLORS.institutional;
+
+interface ConsumoChartRow {
+  fecha_consumo: string;
+  creditos_consumidos?: number;
+  /** CLP por crédito registrado en la postulación; si falta, se usa el precio de referencia. */
+  precio_credito?: number;
 }
 
 interface InteractiveStatsChartProps {
-    ingresos: any[]; // Historial de pagos recibidos (ganancias)
-    consumos: any[]; // Historial de créditos consumidos
-    currentMonth?: number;
-    currentYear?: number;
+  consumos: ConsumoChartRow[];
+  /** Precio tienda/referencia vigente si algún consumo no trae `precio_credito`. */
+  precioCreditoReferenciaClp: number;
+  currentMonth?: number;
+  currentYear?: number;
+}
+
+function capitalizeEs(s: string) {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function formatCLP(n: number) {
+  return `$${Math.round(n).toLocaleString('es-CL')}`;
+}
+
+function buildConsumoSeries(
+  consumos: InteractiveStatsChartProps['consumos'],
+  precioReferencia: number,
+  currentMonth: number,
+  currentYear: number
+) {
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const dailyConsumos: Record<number, number> = {};
+  for (let i = 1; i <= daysInMonth; i++) {
+    dailyConsumos[i] = 0;
+  }
+  let ingresoAsociadoMes = 0;
+  consumos.forEach((item) => {
+    const date = new Date(item.fecha_consumo);
+    if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+      const day = date.getDate();
+      const c = item.creditos_consumidos || 0;
+      dailyConsumos[day] += c;
+      const pu =
+        item.precio_credito != null && item.precio_credito > 0
+          ? item.precio_credito
+          : precioReferencia;
+      ingresoAsociadoMes += c * pu;
+    }
+  });
+
+  const labelForDay = (d: number) =>
+    d % 5 === 0 || d === 1 || d === daysInMonth ? String(d) : '';
+
+  const lineData = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    lineData.push({ value: dailyConsumos[d], label: labelForDay(d) });
+  }
+
+  const sumConsumos = Object.values(dailyConsumos).reduce((a, b) => a + b, 0);
+  const maxC = Math.max(...Object.values(dailyConsumos), 0);
+  const padC = Math.max(1, Math.ceil(maxC * 0.2));
+  const maxValue = Math.max(maxC + padC, 1);
+
+  return {
+    lineData,
+    sumConsumos,
+    ingresoAsociadoMes: Math.round(ingresoAsociadoMes),
+    maxValue,
+    empty: sumConsumos === 0,
+  };
 }
 
 export const InteractiveStatsChart: React.FC<InteractiveStatsChartProps> = ({
-    ingresos = [],
-    consumos = [],
-    currentMonth = new Date().getMonth(),
-    currentYear = new Date().getFullYear(),
+  consumos = [],
+  precioCreditoReferenciaClp,
+  currentMonth = new Date().getMonth(),
+  currentYear = new Date().getFullYear(),
 }) => {
-    const theme = useTheme();
-    const colors = theme?.colors || {};
+  const { width: windowWidth } = useWindowDimensions();
 
-    const primaryColor = colors?.primary?.['500'] || '#4E4FEB';
-    const successColor = colors?.success?.main || '#22C55E';
-    const textSecondary = colors?.text?.secondary || '#666';
-    const backgroundPaper = colors?.background?.paper || '#fff';
+  const monthTitle = useMemo(() => {
+    const raw = new Date(currentYear, currentMonth).toLocaleDateString('es-CL', {
+      month: 'long',
+      year: 'numeric',
+    });
+    return capitalizeEs(raw);
+  }, [currentMonth, currentYear]);
 
-    // Procesar datos para la gráfica
-    const {
-        lineData1,
-        lineData2,
-        maxValue,
-        chartCalculatedWidth,
-        chartSpacing,
-        chartInitialSpacing
-    } = useMemo(() => {
-        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-        const dailyIngresos: Record<number, number> = {};
-        const dailyConsumos: Record<number, number> = {};
+  const precioSeguro = Math.max(0, Math.round(precioCreditoReferenciaClp));
 
-        // Inicializar con 0
-        for (let i = 1; i <= daysInMonth; i++) {
-            dailyIngresos[i] = 0;
-            dailyConsumos[i] = 0;
-        }
+  const series = useMemo(
+    () => buildConsumoSeries(consumos, precioSeguro, currentMonth, currentYear),
+    [consumos, precioSeguro, currentMonth, currentYear]
+  );
 
-        // Poblar ingresos
-        ingresos.forEach(item => {
-            const date = new Date(item.fecha);
-            if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
-                const day = date.getDate();
-                dailyIngresos[day] += item.monto || 0;
-            }
-        });
+  const chartInnerWidth = useMemo(() => {
+    const scrollPad = 40;
+    const cardPad = SPACING.md * 2;
+    const wellPad = SPACING.sm * 2;
+    const yAxis = 44;
+    const safety = 8;
+    return Math.max(200, windowWidth - scrollPad - cardPad - wellPad - yAxis - safety);
+  }, [windowWidth]);
 
-        // Poblar consumos
-        consumos.forEach(item => {
-            const date = new Date(item.fecha_consumo);
-            if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
-                const day = date.getDate();
-                dailyConsumos[day] += item.creditos_consumidos || 0;
-            }
-        });
+  const spacing = useMemo(() => {
+    const days = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const initial = 10;
+    if (days <= 1) return { initial, spacing: 0 };
+    return {
+      initial,
+      spacing: (chartInnerWidth - initial) / (days - 1),
+    };
+  }, [chartInnerWidth, currentYear, currentMonth]);
 
-        const data1: ChartDataPoint[] = []; // Ganancias
-        const data2: ChartDataPoint[] = []; // Créditos
+  return (
+    <View style={styles.card}>
+      <View style={styles.headerBlock}>
+        <Text style={styles.headline}>Actividad del mes</Text>
+        <Text style={styles.subhead} numberOfLines={1}>
+          {monthTitle}
+        </Text>
+      </View>
 
-        // Formatear para la gráfica (mostramos puntos cada 5 días para no saturar etiquetas)
-        for (let i = 1; i <= daysInMonth; i++) {
-            data1.push({
-                value: dailyIngresos[i],
-                label: i % 5 === 0 || i === 1 || i === daysInMonth ? i.toString() : '',
-            });
-            data2.push({
-                value: dailyConsumos[i] * 500, // Escalar créditos para que sean visibles comparados con $ (ajuste visual)
-                label: i % 5 === 0 || i === 1 || i === daysInMonth ? i.toString() : '',
-            });
-        }
-
-        const maxVal = Math.max(...Object.values(dailyIngresos), ...Object.values(dailyConsumos).map(v => v * 500), 1000);
-
-        // Cálculos dinámicos de espacio para evitar desbordamiento
-        const cardPadding = SPACING.md; // 16
-        const yAxisWidth = 45;
-        // Restar un poco más de espacio (35 en lugar de 25) para asegurar que no toque el borde derecho
-        const availableWidth = Dimensions.get('window').width - (cardPadding * 2) - yAxisWidth - 35;
-        const initialSpacing = 15;
-        const calculatedSpacing = (availableWidth - initialSpacing) / (daysInMonth - 1);
-
-        return {
-            lineData1: data1,
-            lineData2: data2,
-            maxValue: maxVal,
-            chartCalculatedWidth: availableWidth,
-            chartSpacing: calculatedSpacing,
-            chartInitialSpacing: initialSpacing
-        };
-    }, [ingresos, consumos, currentMonth, currentYear]);
-
-    return (
-        <View style={[styles.card, { backgroundColor: backgroundPaper }]}>
-            <View style={styles.header}>
-                <Text style={[styles.title, { color: colors?.text?.primary }]}>Rendimiento Diario</Text>
-                <View style={styles.legend}>
-                    <View style={styles.legendItem}>
-                        <View style={[styles.dot, { backgroundColor: successColor }]} />
-                        <Text style={[styles.legendText, { color: textSecondary }]}>Ganancias</Text>
-                    </View>
-                    <View style={styles.legendItem}>
-                        <View style={[styles.dot, { backgroundColor: primaryColor }]} />
-                        <Text style={[styles.legendText, { color: textSecondary }]}>Créditos (Consumo)</Text>
-                    </View>
-                </View>
-            </View>
-
-            <View style={styles.chartContainer}>
-                <LineChart
-                    data={lineData1}
-                    data2={lineData2}
-                    height={180}
-                    width={chartCalculatedWidth}
-                    initialSpacing={chartInitialSpacing}
-                    spacing={chartSpacing}
-                    color1={successColor}
-                    color2={primaryColor}
-                    thickness={1.5} // Línea más delgada y elegante
-                    hideDataPoints
-                    noOfSections={4}
-                    yAxisColor={'transparent'}
-                    yAxisThickness={0}
-                    xAxisColor={'transparent'}
-                    xAxisThickness={0} // Ocultar línea del eje X que suele desbordar
-                    yAxisTextStyle={{ color: textSecondary, fontSize: 10 }}
-                    xAxisLabelTextStyle={{ color: textSecondary, fontSize: 10 }}
-                    yAxisLabelWidth={45} // Ancho fijo para las etiquetas del eje Y para evitar recortes
-                    yAxisSide={0} // Izquierda
-                    maxValue={maxValue}
-                    hideRules
-                    showVerticalLines
-                    verticalLinesColor="rgba(0,0,0,0.05)"
-                    pointerConfig={{
-                        pointerStripUptoDataPoint: true,
-                        pointerStripColor: 'lightgray',
-                        pointerStripWidth: 2,
-                        strokeDashArray: [2, 5],
-                        radius: 4,
-                        shiftPointerLabelX: -50,
-                        shiftPointerLabelY: -10,
-                        pointerLabelComponent: (items: any) => {
-                            if (!items || items.length < 2) return null;
-                            return (
-                                <View style={[styles.pointerLabel, { backgroundColor: backgroundPaper, ...SHADOWS.md }]}>
-                                    <View style={styles.pointerHeader}>
-                                        <MaterialCommunityIcons name="calendar-today" size={10} color={textSecondary} />
-                                        <Text style={styles.pointerTextDay}>Día {items[0].label || '?'}</Text>
-                                    </View>
-                                    <Text style={[styles.pointerTextValue, { color: successColor }]}>
-                                        ${Math.round(items[0].value).toLocaleString('es-CL')}
-                                    </Text>
-                                    <Text style={[styles.pointerTextValue, { color: primaryColor }]}>
-                                        {Math.round(items[1].value / 500)} créditos
-                                    </Text>
-                                </View>
-                            );
-                        },
-                    }}
-                />
-            </View>
-
-            <View style={styles.footer}>
-                <MaterialCommunityIcons name="information-outline" size={14} color={textSecondary} />
-                <Text style={[styles.footerText, { color: textSecondary }]}>
-                    Ganancias vs Consumo de créditos aproximado por día.
-                </Text>
-            </View>
+      <View style={styles.summaryGrid}>
+        <View style={[styles.summaryCell, { backgroundColor: I.surfaceSoft }]}>
+          <Text style={styles.summaryLabel}>Créditos usados</Text>
+          <Text style={[styles.summaryValue, { color: I.semanticUp }]}>
+            {Math.round(series.sumConsumos).toLocaleString('es-CL')} cr.
+          </Text>
         </View>
-    );
+        <View style={[styles.summaryCell, { backgroundColor: I.surfaceSoft }]}>
+          <Text style={styles.summaryLabel}>Ingreso asociado</Text>
+          <Text style={[styles.summaryValue, { color: I.primary }]} numberOfLines={1}>
+            {formatCLP(series.ingresoAsociadoMes)}
+          </Text>
+          <Text style={styles.summaryHint} numberOfLines={2}>
+            {series.sumConsumos > 0
+              ? 'Suma de créditos consumidos valorizados con el precio/cr. de cada postulación.'
+              : 'Sin consumo este mes'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.legendRow}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: I.semanticUp }]} />
+          <Text style={styles.legendText}>Créditos consumidos por día</Text>
+        </View>
+      </View>
+
+      <View style={styles.chartWell}>
+        <View style={styles.chartWrap}>
+          {series.empty ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>Sin consumo este mes</Text>
+              <Text style={styles.emptyBody}>
+                Cuando postules y se consuman créditos, verás el uso diario y el ingreso asociado
+                estimado con el precio de referencia vigente.
+              </Text>
+            </View>
+          ) : (
+            <LineChart
+              data={series.lineData}
+              height={192}
+              width={chartInnerWidth}
+              initialSpacing={spacing.initial}
+              spacing={spacing.spacing}
+              color1={I.semanticUp}
+              thickness={2}
+              curved
+              areaChart
+              startFillColor={I.semanticUp}
+              endFillColor={I.semanticUp}
+              startOpacity={0.22}
+              endOpacity={0.04}
+              hideDataPoints
+              noOfSections={4}
+              maxValue={series.maxValue}
+              yAxisColor="transparent"
+              yAxisThickness={0}
+              xAxisColor={I.hairline}
+              xAxisThickness={StyleSheet.hairlineWidth}
+              rulesColor={I.hairlineSoft}
+              rulesType="solid"
+              yAxisTextStyle={styles.axisText}
+              xAxisLabelTextStyle={styles.axisText}
+              yAxisLabelWidth={44}
+              yAxisSide={0}
+              formatYLabel={(v) => String(Math.max(0, Math.round(Number(v))))}
+              focusEnabled={false}
+            />
+          )}
+        </View>
+      </View>
+
+      <View style={[styles.footer, { borderTopColor: I.hairline }]}>
+        <Info size={ICON_SIZE.sm} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+        <Text style={styles.footerText}>
+          El ingreso asociado suma cada consumo como créditos × precio por crédito guardado en esa
+          postulación (si falta, se usa el precio de referencia de tienda). No equivale al dinero
+          acreditado en Mercado Pago: ese total está en la card de saldo.
+        </Text>
+      </View>
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
-    card: {
-        padding: SPACING.md,
-        borderRadius: BORDERS.radius.lg,
-        marginBottom: SPACING.md,
-        ...SHADOWS.md,
-        overflow: 'hidden', // Evitar que la gráfica se salga de los bordes redondeados
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: SPACING.lg,
-    },
-    title: {
-        fontSize: TYPOGRAPHY.fontSize.md,
-        fontWeight: '700',
-    },
-    legend: {
-        flexDirection: 'column',
-        gap: 4,
-    },
-    legendItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-    },
-    legendText: {
-        fontSize: 10,
-        fontWeight: '500',
-    },
-    chartContainer: {
-        marginTop: 10,
-        alignItems: 'flex-start', // Alinear al inicio para que el eje Y esté pegado a la izquierda
-        paddingLeft: 0,
-    },
-    pointerLabel: {
-        padding: 8,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#eee',
-        minWidth: 110,
-    },
-    pointerHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        marginBottom: 4,
-    },
-    pointerTextDay: {
-        fontSize: 10,
-        fontWeight: 'bold',
-        color: '#000',
-    },
-    pointerTextValue: {
-        fontSize: 12,
-        fontWeight: '700',
-    },
-    footer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        marginTop: 16,
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
-    },
-    footerText: {
-        fontSize: 10,
-    },
+  card: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.xl,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    ...SHADOWS.editorial,
+  },
+  headerBlock: {
+    marginBottom: SPACING.sm,
+  },
+  headline: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    color: I.ink,
+    letterSpacing: -0.2,
+  },
+  subhead: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.muted,
+    marginTop: 2,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  summaryCell: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: BORDERS.radius.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+  },
+  summaryLabel: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    color: I.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.45,
+    marginBottom: 6,
+  },
+  summaryValue: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: '500',
+  },
+  summaryHint: {
+    marginTop: 4,
+    fontSize: 11,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.body,
+    lineHeight: 15,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.md,
+    marginBottom: SPACING.xs,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 12,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.body,
+  },
+  chartWell: {
+    width: '100%',
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: I.surfaceSoft,
+    overflow: 'hidden',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+  },
+  chartWrap: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    minHeight: 192,
+    width: '100%',
+    overflow: 'hidden',
+  },
+  emptyState: {
+    minHeight: 192,
+    width: '100%',
+    justifyContent: 'center',
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.sm,
+    backgroundColor: I.surfaceStrong,
+    borderRadius: BORDERS.radius.md,
+  },
+  emptyTitle: {
+    ...TYPOGRAPHY.styles.h4,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    color: I.ink,
+    textAlign: 'center',
+    marginBottom: SPACING.xs,
+  },
+  emptyBody: {
+    ...TYPOGRAPHY.styles.small,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.body,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  axisText: {
+    color: I.muted,
+    fontSize: 9,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  footerText: {
+    flex: 1,
+    ...TYPOGRAPHY.styles.small,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.body,
+    lineHeight: 18,
+  },
 });

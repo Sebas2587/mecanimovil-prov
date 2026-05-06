@@ -10,11 +10,12 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAlerts, Alerta } from '@/context/AlertsContext';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS } from '@/app/design-system/tokens';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface AlertsPanelProps {
   variant?: 'floating' | 'header';
@@ -114,7 +115,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
     <ScrollView style={styles.alertsList} showsVerticalScrollIndicator={false}>
       {alertasOrdenadas.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="checkmark-circle-outline" size={64} color="#CCCCCC" />
+          <InstitutionalIcon name="checkmark-circle-outline" size={64} color="#CCCCCC"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.emptyText}>No hay alertas</Text>
           <Text style={styles.emptySubtext}>
             Todo está configurado correctamente
@@ -136,7 +137,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
               activeOpacity={0.7}
             >
               <View style={[styles.alertaIconContainer, { backgroundColor: `${color}15` }]}>
-                <Ionicons name={icono as any} size={24} color={color} />
+                <InstitutionalIcon name={icono as any} size={24} color={color}  strokeWidth={ICON_STROKE_WIDTH} />
               </View>
               
               <View style={styles.alertaContent}>
@@ -153,7 +154,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
 
                 {alerta.accion && (
                   <View style={styles.alertaAccion}>
-                    <Ionicons name="arrow-forward-circle" size={16} color={color} />
+                    <InstitutionalIcon name="arrow-forward-circle" size={16} color={color}  strokeWidth={ICON_STROKE_WIDTH} />
                     <Text style={[styles.alertaAccionTexto, { color }]}>
                       {alerta.accion.texto}
                     </Text>
@@ -175,7 +176,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
                 onPress={() => handleEliminarAlerta(alerta.id)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="trash-outline" size={20} color="#999999" />
+                <InstitutionalIcon name="trash-outline" size={20} color="#999999"  strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             </TouchableOpacity>
           );
@@ -219,7 +220,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
                 style={styles.closeButton}
                 activeOpacity={0.7}
               >
-                <Ionicons name="close" size={24} color="#666666" />
+                <InstitutionalIcon name="close" size={24} color="#666666"  strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             </View>
 
@@ -243,7 +244,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
           onPress={handleAbrirPanel}
           activeOpacity={0.7}
         >
-          <Ionicons name="notifications-outline" size={24} color={textColor} />
+          <InstitutionalIcon name="notifications-outline" size={24} color={textColor}  strokeWidth={ICON_STROKE_WIDTH} />
           {alertasNoLeidas > 0 && (
             <View style={styles.headerBadge}>
               <Text style={styles.headerBadgeText}>
@@ -266,7 +267,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
         onPress={handleAbrirPanel}
         activeOpacity={0.8}
       >
-        <Ionicons name="notifications" size={24} color="#FFFFFF" />
+        <InstitutionalIcon name="notifications" size={24} color="#FFFFFF"  strokeWidth={ICON_STROKE_WIDTH} />
         {alertasNoLeidas > 0 && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>

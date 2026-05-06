@@ -3,6 +3,11 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } fr
 import { CheckCheck, Check } from 'lucide-react-native';
 import { MensajeChat } from '@/services/solicitudesService';
 import ServerConfig from '@/services/serverConfig';
+import { COLORS, TYPOGRAPHY, SHADOWS, BORDERS, SPACING, withOpacity } from '@/app/design-system/tokens';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+
+const I = COLORS.institutional;
+const T = TYPOGRAPHY.styles;
 
 interface ChatBubbleProps {
   mensaje: MensajeChat;
@@ -52,7 +57,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ mensaje, esPropio, onIma
               />
               {loadingImage && (
                 <View style={styles.loadingOverlay}>
-                  <ActivityIndicator size="small" color={esPropio ? '#FFFFFF' : '#3B82F6'} />
+                  <ActivityIndicator size="small" color={esPropio ? I.onPrimary : I.primary} />
                 </View>
               )}
             </TouchableOpacity>
@@ -71,9 +76,9 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ mensaje, esPropio, onIma
           </Text>
           {esPropio && (
             mensaje.leido ? (
-              <CheckCheck size={14} color="rgba(255,255,255,0.7)" />
+              <CheckCheck size={14} color={withOpacity(I.onPrimary, 0.72)} strokeWidth={ICON_STROKE_WIDTH} />
             ) : (
-              <Check size={14} color="rgba(255,255,255,0.5)" />
+              <Check size={14} color={withOpacity(I.onPrimary, 0.55)} strokeWidth={ICON_STROKE_WIDTH} />
             )
           )}
         </View>
@@ -85,7 +90,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ mensaje, esPropio, onIma
 const styles = StyleSheet.create({
   container: {
     marginVertical: 3,
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACING.md,
     maxWidth: '82%',
   },
   containerPropio: {
@@ -97,63 +102,59 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   bubble: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 18,
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.sm + 6,
+    borderRadius: BORDERS.radius.lg,
     maxWidth: '100%',
   },
   bubblePropio: {
-    backgroundColor: '#3B82F6',
-    borderBottomRightRadius: 6,
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: I.primary,
+    borderBottomRightRadius: 8,
+    ...SHADOWS.editorial,
   },
   bubbleOtro: {
-    backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    backgroundColor: I.canvas,
+    borderBottomLeftRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
   },
   senderName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#3B82F6',
-    marginBottom: 3,
+    fontSize: T.captionBold.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.captionBold.fontWeight as '600',
+    lineHeight: Math.round(T.captionBold.fontSize * T.captionBold.lineHeight),
+    color: I.primary,
+    marginBottom: SPACING.xs,
   },
   messageText: {
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: T.body.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.body.fontWeight as '400',
+    lineHeight: Math.round(T.body.fontSize * T.body.lineHeight),
   },
   textPropio: {
-    color: '#FFFFFF',
+    color: I.onPrimary,
   },
   textOtro: {
-    color: '#1F2937',
+    color: I.ink,
   },
   imageWrap: {
-    borderRadius: 12,
+    borderRadius: BORDERS.radius.md,
     overflow: 'hidden',
     marginBottom: 4,
-    backgroundColor: 'rgba(0,0,0,0.04)',
+    backgroundColor: I.surfaceStrong,
   },
   attachedImage: {
     width: 200,
     height: 150,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: I.surfaceStrong,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: withOpacity(I.ink, 0.06),
   },
   footer: {
     flexDirection: 'row',
@@ -163,12 +164,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   timestamp: {
-    fontSize: 11,
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.caption.fontWeight as '400',
+    lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
   },
   timestampPropio: {
-    color: 'rgba(255,255,255,0.7)',
+    color: withOpacity(I.onPrimary, 0.72),
   },
   timestampOtro: {
-    color: '#9CA3AF',
+    color: I.muted,
   },
 });

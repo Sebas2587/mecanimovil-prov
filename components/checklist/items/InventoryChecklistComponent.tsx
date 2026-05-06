@@ -7,8 +7,8 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 interface InventoryChecklistComponentProps {
   item: any;
   respuesta: any;
@@ -155,7 +155,7 @@ export const InventoryChecklistComponent: React.FC<InventoryChecklistComponentPr
           disabled={disabled}
         >
           {inventoryItem.checked && (
-            <MaterialIcons name="check" size={16} color="#fff" />
+            <InstitutionalIcon name="check" size={16} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
           )}
         </TouchableOpacity>
 
@@ -178,11 +178,11 @@ export const InventoryChecklistComponent: React.FC<InventoryChecklistComponentPr
               onPress={() => toggleCondition(index)}
               disabled={disabled}
             >
-              <MaterialIcons 
+              <InstitutionalIcon 
                 name={getConditionIcon(inventoryItem.condition || 'BUENO') as any} 
                 size={12} 
                 color="#fff" 
-              />
+               strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.conditionText}>
                 {inventoryItem.condition || 'BUENO'}
               </Text>
@@ -228,19 +228,19 @@ export const InventoryChecklistComponent: React.FC<InventoryChecklistComponentPr
         <Text style={styles.legendTitle}>Estados:</Text>
         <View style={styles.legendItems}>
           <View style={styles.legendItem}>
-            <MaterialIcons name="check-circle" size={16} color="#28a745" />
+            <InstitutionalIcon name="check-circle" size={16} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.legendText}>Bueno</Text>
           </View>
           <View style={styles.legendItem}>
-            <MaterialIcons name="warning" size={16} color="#ffc107" />
+            <InstitutionalIcon name="warning" size={16} color="#ffc107"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.legendText}>Regular</Text>
           </View>
           <View style={styles.legendItem}>
-            <MaterialIcons name="error" size={16} color="#dc3545" />
+            <InstitutionalIcon name="error" size={16} color="#dc3545"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.legendText}>Malo</Text>
           </View>
           <View style={styles.legendItem}>
-            <MaterialIcons name="remove-circle" size={16} color="#6c757d" />
+            <InstitutionalIcon name="remove-circle" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.legendText}>Faltante</Text>
           </View>
         </View>

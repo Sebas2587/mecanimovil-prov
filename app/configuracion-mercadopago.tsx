@@ -14,10 +14,8 @@ import {
   AppStateStatus,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import mercadoPagoProveedorService, {
@@ -26,13 +24,13 @@ import mercadoPagoProveedorService, {
   type EstadoCuentaMP,
   type PagoRecibido,
 } from '@/services/mercadoPagoProveedorService';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 // Necesario para que WebBrowser pueda completar la sesión de autenticación
 WebBrowser.maybeCompleteAuthSession();
 
 export default function ConfiguracionMercadoPagoScreen() {
-  const theme = useTheme();
-
   // Estados
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,24 +43,24 @@ export default function ConfiguracionMercadoPagoScreen() {
   const [estadisticas, setEstadisticas] = useState<EstadisticasPagosMP | null>(null);
   const [historialPagos, setHistorialPagos] = useState<PagoRecibido[]>([]);
 
-  // Obtener colores del sistema de diseño
-  const safeColors = useMemo(() => theme?.colors || COLORS || {}, [theme]);
-  const bgPaper = (safeColors?.background as any)?.paper || '#FFFFFF';
-  const bgDefault = (safeColors?.background as any)?.default || '#F5F5F5';
-  const textPrimary = safeColors?.text?.primary || '#000000';
-  const textSecondary = safeColors?.text?.secondary || '#666666';
-  const textTertiary = safeColors?.text?.tertiary || '#999999';
-  const primary500 = (safeColors?.primary as any)?.['500'] || '#4E4FEB';
-  const primaryLight = (safeColors?.primary as any)?.['50'] || '#E6F2FF';
-  const success500 = (safeColors?.success as any)?.main || '#3DB6B1';
-  const successLight = (safeColors?.success as any)?.light || '#E8F5E9';
-  const error500 = (safeColors?.error as any)?.main || '#FF5555';
-  const errorLight = (safeColors?.error as any)?.light || '#FFEBEE';
-  const warning500 = (safeColors?.warning as any)?.main || '#FFB84D';
-  const warningLight = (safeColors?.warning as any)?.light || '#FFF3E0';
-  const borderLight = (safeColors?.border as any)?.light || '#EEEEEE';
-  const borderMain = (safeColors?.border as any)?.main || '#D0D0D0';
-  const neutralGray100 = ((safeColors?.neutral as any)?.gray as any)?.['100'] || '#F5F5F5';
+  // Sistema de diseño institucional (Coinbase-like)
+  const I = COLORS.institutional;
+  const bgPaper = I.canvas;
+  const bgDefault = I.surfaceSoft;
+  const textPrimary = I.ink;
+  const textSecondary = I.body;
+  const textTertiary = I.muted;
+  const primary500 = I.primary;
+  const primaryLight = I.surfaceSoft;
+  const success500 = I.semanticUp;
+  const successLight = I.surfaceSoft;
+  const error500 = I.semanticDown;
+  const errorLight = I.surfaceSoft;
+  const warning500 = I.accentYellow;
+  const warningLight = I.surfaceSoft;
+  const borderLight = I.hairline;
+  const borderMain = I.hairline;
+  const neutralGray100 = I.surfaceSoft;
 
   // Color de Mercado Pago
   const mpBlue = '#009EE3';
@@ -350,35 +348,35 @@ export default function ConfiguracionMercadoPagoScreen() {
     switch (estado) {
       case 'conectada':
         return {
-          bgColor: successLight,
           textColor: success500,
           icon: 'check-circle' as const,
+          label: 'Conectada',
         };
       case 'pendiente':
         return {
-          bgColor: warningLight,
           textColor: warning500,
           icon: 'schedule' as const,
+          label: 'Pendiente',
         };
       case 'error':
       case 'suspendida':
         return {
-          bgColor: errorLight,
           textColor: error500,
           icon: 'error' as const,
+          label: 'Error',
         };
       case 'desconectada':
         return {
-          bgColor: neutralGray100,
           textColor: textTertiary,
           icon: 'link-off' as const,
+          label: 'Desconectada',
         };
       case 'no_configurada':
       default:
         return {
-          bgColor: mpBlueLight,
-          textColor: mpBlue,
+          textColor: primary500,
           icon: 'add-circle-outline' as const,
+          label: 'Sin configurar',
         };
     }
   };
@@ -390,14 +388,25 @@ export default function ConfiguracionMercadoPagoScreen() {
     const estadoStyles = getEstadoStyles(cuenta.estado);
 
     return (
-      <View style={[styles.card, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-        {/* Header del estado */}
-        <View style={[styles.estadoHeader, { backgroundColor: estadoStyles.bgColor }]}>
-          <MaterialIcons name={estadoStyles.icon} size={32} color={estadoStyles.textColor} />
+      <View style={[styles.card, { backgroundColor: bgPaper, borderColor: borderLight }, SHADOWS.editorial]}>
+        <View style={styles.estadoHeader}>
+          <View style={[styles.estadoIconPlate, { backgroundColor: I.surfaceStrong }]}>
+            <InstitutionalIcon
+              name={estadoStyles.icon}
+              size={22}
+              color={estadoStyles.textColor}
+              strokeWidth={ICON_STROKE_WIDTH}
+            />
+          </View>
           <View style={styles.estadoHeaderText}>
-            <Text style={[styles.estadoTitulo, { color: estadoStyles.textColor }]}>
-              {cuenta.estado_display || getEstadoDisplayText(cuenta.estado)}
-            </Text>
+            <View style={styles.estadoTitleRow}>
+              <Text style={[styles.estadoTitulo, { color: textPrimary }]}>
+                {cuenta.estado_display || getEstadoDisplayText(cuenta.estado)}
+              </Text>
+              <View style={[styles.estadoBadge, { backgroundColor: I.surfaceStrong }]}>
+                <Text style={[styles.estadoBadgeText, { color: estadoStyles.textColor }]}>{estadoStyles.label}</Text>
+              </View>
+            </View>
             <Text style={[styles.estadoSubtitulo, { color: textSecondary }]}>
               {cuenta.mensaje_estado}
             </Text>
@@ -408,14 +417,14 @@ export default function ConfiguracionMercadoPagoScreen() {
         {cuenta.estado === 'conectada' && cuenta.email_mp && (
           <View style={styles.cuentaInfo}>
             <View style={styles.infoRow}>
-              <MaterialIcons name="email" size={20} color={textSecondary} />
+              <InstitutionalIcon name="email" size={18} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={[styles.infoText, { color: textPrimary }]}>
                 {cuenta.email_mp}
               </Text>
             </View>
             {cuenta.nombre_cuenta && (
               <View style={styles.infoRow}>
-                <MaterialIcons name="person" size={20} color={textSecondary} />
+                <InstitutionalIcon name="person" size={18} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[styles.infoText, { color: textPrimary }]}>
                   {cuenta.nombre_cuenta}
                 </Text>
@@ -423,7 +432,7 @@ export default function ConfiguracionMercadoPagoScreen() {
             )}
             {cuenta.fecha_conexion && (
               <View style={styles.infoRow}>
-                <MaterialIcons name="event" size={20} color={textSecondary} />
+                <InstitutionalIcon name="event" size={18} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[styles.infoText, { color: textSecondary }]}>
                   Conectada desde: {new Date(cuenta.fecha_conexion).toLocaleDateString('es-CL')}
                 </Text>
@@ -436,17 +445,16 @@ export default function ConfiguracionMercadoPagoScreen() {
         <View style={styles.accionesContainer}>
           {cuenta.estado === 'no_configurada' || cuenta.estado === 'desconectada' ? (
             <TouchableOpacity
-              style={[styles.botonPrincipal, { backgroundColor: mpBlue }]}
+              style={[styles.botonPrincipal, { backgroundColor: primary500 }]}
               onPress={handleConectarCuenta}
               disabled={conectando}
               activeOpacity={0.8}
             >
               {conectando ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={I.onPrimary} />
               ) : (
                 <>
-                  <MaterialIcons name="link" size={20} color="#FFFFFF" />
-                  <Text style={styles.botonPrincipalTexto}>
+                  <Text style={[styles.botonPrincipalTexto, { color: I.onPrimary }]}>
                     {cuenta.estado === 'desconectada' ? 'Reconectar Cuenta' : 'Conectar Mercado Pago'}
                   </Text>
                 </>
@@ -455,24 +463,23 @@ export default function ConfiguracionMercadoPagoScreen() {
           ) : cuenta.estado === 'pendiente' || cuenta.estado === 'error' ? (
             <View style={styles.botonesMultiples}>
               <TouchableOpacity
-                style={[styles.botonPrincipal, { backgroundColor: mpBlue, flex: 1 }]}
+                style={[styles.botonPrincipal, { backgroundColor: primary500, flex: 1 }]}
                 onPress={handleConectarCuenta}
                 disabled={conectando}
                 activeOpacity={0.8}
               >
                 {conectando ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={I.onPrimary} />
                 ) : (
                   <>
-                    <MaterialIcons name="refresh" size={20} color="#FFFFFF" />
-                    <Text style={styles.botonPrincipalTexto}>
+                    <Text style={[styles.botonPrincipalTexto, { color: I.onPrimary }]}>
                       Reintentar Conexión
                     </Text>
                   </>
                 )}
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.botonSecundario, { borderColor: textSecondary }]}
+                style={[styles.botonSecundario, { borderColor: borderLight, backgroundColor: I.surfaceStrong }]}
                 onPress={handleCancelarConexion}
                 disabled={desconectando}
                 activeOpacity={0.8}
@@ -481,8 +488,7 @@ export default function ConfiguracionMercadoPagoScreen() {
                   <ActivityIndicator size="small" color={textSecondary} />
                 ) : (
                   <>
-                    <MaterialIcons name="close" size={20} color={textSecondary} />
-                    <Text style={[styles.botonSecundarioTexto, { color: textSecondary }]}>
+                    <Text style={[styles.botonSecundarioTexto, { color: textPrimary }]}>
                       Cancelar
                     </Text>
                   </>
@@ -491,7 +497,7 @@ export default function ConfiguracionMercadoPagoScreen() {
             </View>
           ) : cuenta.estado === 'conectada' ? (
             <TouchableOpacity
-              style={[styles.botonSecundario, { borderColor: error500 }]}
+              style={[styles.botonSecundario, { borderColor: borderLight, backgroundColor: I.surfaceStrong }]}
               onPress={handleDesconectarCuenta}
               disabled={desconectando}
               activeOpacity={0.8}
@@ -500,7 +506,6 @@ export default function ConfiguracionMercadoPagoScreen() {
                 <ActivityIndicator size="small" color={error500} />
               ) : (
                 <>
-                  <MaterialIcons name="link-off" size={20} color={error500} />
                   <Text style={[styles.botonSecundarioTexto, { color: error500 }]}>
                     Desconectar Cuenta
                   </Text>
@@ -528,13 +533,13 @@ export default function ConfiguracionMercadoPagoScreen() {
       return (
         <View style={[styles.card, { backgroundColor: bgPaper, borderColor: borderLight }]}>
           <View style={styles.cardHeader}>
-            <MaterialIcons name="bar-chart" size={24} color={primary500} />
+            <InstitutionalIcon name="bar-chart" size={24} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.cardTitle, { color: textPrimary }]}>
               Estadísticas de Pagos
             </Text>
           </View>
           <View style={styles.emptyHistorial}>
-            <MaterialIcons name="info" size={48} color={textTertiary} />
+            <InstitutionalIcon name="info" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.emptyHistorialTexto, { color: textSecondary }]}>
               Cargando estadísticas...
             </Text>
@@ -548,7 +553,7 @@ export default function ConfiguracionMercadoPagoScreen() {
     return (
       <View style={[styles.card, { backgroundColor: bgPaper, borderColor: borderLight }]}>
         <View style={styles.cardHeader}>
-          <MaterialIcons name="bar-chart" size={24} color={primary500} />
+          <InstitutionalIcon name="bar-chart" size={24} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={[styles.cardTitle, { color: textPrimary }]}>
             Estadísticas de Pagos
           </Text>
@@ -598,7 +603,7 @@ export default function ConfiguracionMercadoPagoScreen() {
 
         {estadisticas.ultima_transaccion && (
           <View style={[styles.ultimaTransaccion, { backgroundColor: neutralGray100 }]}>
-            <MaterialIcons name="access-time" size={16} color={textSecondary} />
+            <InstitutionalIcon name="access-time" size={16} color={textSecondary}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.ultimaTransaccionTexto, { color: textSecondary }]}>
               Última transacción: {new Date(estadisticas.ultima_transaccion).toLocaleDateString('es-CL')}
             </Text>
@@ -630,7 +635,7 @@ export default function ConfiguracionMercadoPagoScreen() {
       <>
         {/* Icono a la izquierda */}
         <View style={[styles.pagoListIcon, { backgroundColor: successLight, borderColor: borderLight }]}>
-          <MaterialIcons name="payments" size={20} color={success500} />
+          <InstitutionalIcon name="payments" size={20} color={success500}  strokeWidth={ICON_STROKE_WIDTH} />
         </View>
 
         {/* Información principal en el medio */}
@@ -642,7 +647,7 @@ export default function ConfiguracionMercadoPagoScreen() {
             {servicioBreve}
           </Text>
           <View style={styles.pagoListMeta}>
-            <MaterialIcons name="access-time" size={12} color={textTertiary} />
+            <InstitutionalIcon name="access-time" size={12} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.pagoListFecha, { color: textTertiary }]}>
               {fechaFormateada}
             </Text>
@@ -678,7 +683,7 @@ export default function ConfiguracionMercadoPagoScreen() {
     return (
       <View style={[styles.card, { backgroundColor: bgPaper, borderColor: borderLight }]}>
         <View style={styles.cardHeader}>
-          <MaterialIcons name="receipt-long" size={24} color={mpBlue} />
+          <InstitutionalIcon name="receipt-long" size={24} color={mpBlue}  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={[styles.cardTitle, { color: textPrimary }]}>
             Pagos Recibidos
           </Text>
@@ -693,7 +698,7 @@ export default function ConfiguracionMercadoPagoScreen() {
 
         {historialPagos.length === 0 ? (
           <View style={styles.emptyHistorial}>
-            <MaterialIcons name="inbox" size={48} color={textTertiary} />
+            <InstitutionalIcon name="inbox" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.emptyHistorialTexto, { color: textSecondary }]}>
               Aún no has recibido pagos
             </Text>
@@ -728,7 +733,7 @@ export default function ConfiguracionMercadoPagoScreen() {
                 <Text style={[styles.verMasTexto, { color: mpBlue }]}>
                   Ver más ({historialPagos.length - 10} restantes)
                 </Text>
-                <MaterialIcons name="chevron-right" size={20} color={mpBlue} />
+                <InstitutionalIcon name="chevron-right" size={20} color={mpBlue}  strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             )}
           </View>
@@ -741,7 +746,7 @@ export default function ConfiguracionMercadoPagoScreen() {
   const renderInfoMercadoPago = () => (
     <View style={[styles.card, { backgroundColor: bgPaper, borderColor: borderLight }]}>
       <View style={styles.cardHeader}>
-        <MaterialIcons name="info-outline" size={24} color={mpBlue} />
+        <InstitutionalIcon name="info-outline" size={24} color={mpBlue}  strokeWidth={ICON_STROKE_WIDTH} />
         <Text style={[styles.cardTitle, { color: textPrimary }]}>
           ¿Por qué conectar Mercado Pago?
         </Text>
@@ -750,7 +755,7 @@ export default function ConfiguracionMercadoPagoScreen() {
       <View style={styles.beneficiosList}>
         <View style={styles.beneficioItem}>
           <View style={[styles.beneficioIcon, { backgroundColor: successLight }]}>
-            <MaterialIcons name="payments" size={20} color={success500} />
+            <InstitutionalIcon name="payments" size={20} color={success500}  strokeWidth={ICON_STROKE_WIDTH} />
           </View>
           <View style={styles.beneficioTexto}>
             <Text style={[styles.beneficioTitulo, { color: textPrimary }]}>
@@ -764,7 +769,7 @@ export default function ConfiguracionMercadoPagoScreen() {
 
         <View style={styles.beneficioItem}>
           <View style={[styles.beneficioIcon, { backgroundColor: primaryLight }]}>
-            <MaterialIcons name="speed" size={20} color={primary500} />
+            <InstitutionalIcon name="speed" size={20} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
           </View>
           <View style={styles.beneficioTexto}>
             <Text style={[styles.beneficioTitulo, { color: textPrimary }]}>
@@ -778,7 +783,7 @@ export default function ConfiguracionMercadoPagoScreen() {
 
         <View style={styles.beneficioItem}>
           <View style={[styles.beneficioIcon, { backgroundColor: mpBlueLight }]}>
-            <MaterialIcons name="security" size={20} color={mpBlue} />
+            <InstitutionalIcon name="security" size={20} color={mpBlue}  strokeWidth={ICON_STROKE_WIDTH} />
           </View>
           <View style={styles.beneficioTexto}>
             <Text style={[styles.beneficioTitulo, { color: textPrimary }]}>
@@ -814,7 +819,7 @@ export default function ConfiguracionMercadoPagoScreen() {
           onBackPress={handleGoBack}
         />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={mpBlue} />
+          <ActivityIndicator size="large" color={primary500} />
           <Text style={[styles.loadingText, { color: textSecondary }]}>
             Cargando configuración...
           </Text>
@@ -839,18 +844,20 @@ export default function ConfiguracionMercadoPagoScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[mpBlue]}
-            tintColor={mpBlue}
+            colors={[primary500]}
+            tintColor={primary500}
           />
         }
         showsVerticalScrollIndicator={false}
       >
         {error && (
-          <View style={[styles.errorCard, { backgroundColor: errorLight, borderColor: error500 }]}>
-            <MaterialIcons name="error-outline" size={24} color={error500} />
-            <Text style={[styles.errorText, { color: error500 }]}>{error}</Text>
+          <View style={[styles.errorCard, { backgroundColor: I.surfaceSoft, borderColor: borderLight }]}>
+            <View style={[styles.errorIconPlate, { backgroundColor: I.surfaceStrong }]}>
+              <InstitutionalIcon name="error-outline" size={18} color={error500} strokeWidth={ICON_STROKE_WIDTH} />
+            </View>
+            <Text style={[styles.errorText, { color: textPrimary }]}>{error}</Text>
             <TouchableOpacity onPress={() => cargarDatos()}>
-              <Text style={[styles.errorRetry, { color: error500 }]}>Reintentar</Text>
+              <Text style={[styles.errorRetry, { color: primary500 }]}>Reintentar</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -893,7 +900,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: SPACING?.md || 16,
+    paddingHorizontal: 20,
+    paddingTop: SPACING?.md || 16,
+    paddingBottom: SPACING?.xl || 32,
     gap: SPACING?.md || 16,
   },
   loadingContainer: {
@@ -904,55 +913,79 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: TYPOGRAPHY?.fontSize?.md || 16,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
   },
   card: {
-    borderRadius: BORDERS?.radius?.xl || 16,
-    borderWidth: 1,
+    borderRadius: BORDERS?.radius?.lg || 12,
+    borderWidth: BORDERS?.width?.thin || 1,
     overflow: 'hidden',
-    ...((SHADOWS?.sm as object) || {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    }),
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING?.sm || 8,
     padding: SPACING?.md || 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   cardTitle: {
     fontSize: TYPOGRAPHY?.fontSize?.lg || 18,
     fontWeight: TYPOGRAPHY?.fontWeight?.semibold || '600',
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     flex: 1,
   },
   estadoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING?.md || 16,
-    padding: SPACING?.lg || 24,
+    padding: SPACING?.md || 16,
+  },
+  estadoIconPlate: {
+    width: 44,
+    height: 44,
+    borderRadius: BORDERS?.radius?.full || 9999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   estadoHeaderText: {
     flex: 1,
   },
+  estadoTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING?.sm || 8,
+  },
   estadoTitulo: {
-    fontSize: TYPOGRAPHY?.fontSize?.xl || 20,
-    fontWeight: TYPOGRAPHY?.fontWeight?.bold || '700',
-    marginBottom: SPACING?.xs || 4,
+    fontSize: TYPOGRAPHY?.fontSize?.lg || 18,
+    fontWeight: TYPOGRAPHY?.fontWeight?.semibold || '600',
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    flex: 1,
+    minWidth: 0,
+  },
+  estadoBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS?.radius?.pill || 9999,
+  },
+  estadoBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   estadoSubtitulo: {
+    marginTop: SPACING?.xs || 4,
     fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
     lineHeight: 20,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
   },
   cuentaInfo: {
     padding: SPACING?.md || 16,
     gap: SPACING?.sm || 8,
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   infoRow: {
     flexDirection: 'row',
@@ -961,41 +994,42 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: TYPOGRAPHY?.fontSize?.md || 16,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
     flex: 1,
   },
   accionesContainer: {
     padding: SPACING?.md || 16,
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   botonPrincipal: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: SPACING?.sm || 8,
-    paddingVertical: SPACING?.md || 16,
+    alignItems: 'center',
+    minHeight: 44,
+    paddingVertical: 12,
     paddingHorizontal: SPACING?.lg || 24,
-    borderRadius: BORDERS?.radius?.lg || 12,
+    borderRadius: BORDERS?.radius?.pill || 9999,
   },
   botonPrincipalTexto: {
-    color: '#FFFFFF',
-    fontSize: TYPOGRAPHY?.fontSize?.md || 16,
-    fontWeight: TYPOGRAPHY?.fontWeight?.semibold || '600',
+    fontSize: TYPOGRAPHY.styles.button.fontSize,
+    lineHeight: Math.round(TYPOGRAPHY.styles.button.fontSize * TYPOGRAPHY.styles.button.lineHeight),
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.styles.button.fontWeight as '600',
   },
   botonSecundario: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: SPACING?.sm || 8,
-    paddingVertical: SPACING?.md || 16,
+    alignItems: 'center',
+    minHeight: 44,
+    paddingVertical: 12,
     paddingHorizontal: SPACING?.lg || 24,
-    borderRadius: BORDERS?.radius?.lg || 12,
-    borderWidth: 1,
-    backgroundColor: 'transparent',
+    borderRadius: BORDERS?.radius?.pill || 9999,
+    borderWidth: BORDERS?.width?.thin || 1,
   },
   botonSecundarioTexto: {
-    fontSize: TYPOGRAPHY?.fontSize?.md || 16,
-    fontWeight: TYPOGRAPHY?.fontWeight?.semibold || '600',
+    fontSize: TYPOGRAPHY.styles.button.fontSize,
+    lineHeight: Math.round(TYPOGRAPHY.styles.button.fontSize * TYPOGRAPHY.styles.button.lineHeight),
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.styles.button.fontWeight as '600',
   },
   botonesMultiples: {
     gap: SPACING?.sm || 8,
@@ -1011,11 +1045,14 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: TYPOGRAPHY?.fontSize?.['2xl'] || 24,
-    fontWeight: TYPOGRAPHY?.fontWeight?.bold || '700',
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     marginBottom: SPACING?.xs || 4,
   },
   statLabel: {
     fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
     textAlign: 'center',
   },
   divider: {
@@ -1033,6 +1070,8 @@ const styles = StyleSheet.create({
   },
   ultimaTransaccionTexto: {
     fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
   },
   beneficiosList: {
     padding: SPACING?.md || 16,
@@ -1056,11 +1095,14 @@ const styles = StyleSheet.create({
   beneficioTitulo: {
     fontSize: TYPOGRAPHY?.fontSize?.md || 16,
     fontWeight: TYPOGRAPHY?.fontWeight?.semibold || '600',
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     marginBottom: SPACING?.xs || 4,
   },
   beneficioDescripcion: {
     fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
     lineHeight: 20,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
   },
   errorCard: {
     flexDirection: 'row',
@@ -1070,14 +1112,23 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS?.radius?.lg || 12,
     borderWidth: 1,
   },
+  errorIconPlate: {
+    width: 36,
+    height: 36,
+    borderRadius: BORDERS?.radius?.full || 9999,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   errorText: {
     flex: 1,
     fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
   },
   errorRetry: {
     fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
     fontWeight: TYPOGRAPHY?.fontWeight?.semibold || '600',
-    textDecorationLine: 'underline',
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
   },
   bottomSpacing: {
     height: SPACING?.xl || 32,
@@ -1092,7 +1143,8 @@ const styles = StyleSheet.create({
   },
   countBadgeText: {
     fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
-    fontWeight: TYPOGRAPHY?.fontWeight?.bold || '700',
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
   historialLista: {
     paddingHorizontal: 0, // Sin padding horizontal, el padding viene del card
@@ -1119,9 +1171,12 @@ const styles = StyleSheet.create({
   pagoListCliente: {
     fontSize: TYPOGRAPHY?.fontSize?.md || 16,
     fontWeight: TYPOGRAPHY?.fontWeight?.semibold || '600',
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
   },
   pagoListServicio: {
     fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
   },
   pagoListMeta: {
     flexDirection: 'row',
@@ -1131,6 +1186,8 @@ const styles = StyleSheet.create({
   },
   pagoListFecha: {
     fontSize: TYPOGRAPHY?.fontSize?.xs || 12,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
   },
   pagoListRight: {
     alignItems: 'flex-end',
@@ -1138,7 +1195,8 @@ const styles = StyleSheet.create({
   },
   pagoListMonto: {
     fontSize: TYPOGRAPHY?.fontSize?.lg || 18,
-    fontWeight: TYPOGRAPHY?.fontWeight?.bold || '700',
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
   pagoListBadge: {
     paddingHorizontal: SPACING?.sm || 8,
@@ -1147,7 +1205,8 @@ const styles = StyleSheet.create({
   },
   pagoListBadgeText: {
     fontSize: TYPOGRAPHY?.fontSize?.xs || 12,
-    fontWeight: TYPOGRAPHY?.fontWeight?.medium || '500',
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
   emptyHistorial: {
     alignItems: 'center',
@@ -1156,11 +1215,14 @@ const styles = StyleSheet.create({
   },
   emptyHistorialTexto: {
     fontSize: TYPOGRAPHY?.fontSize?.md || 16,
-    fontWeight: TYPOGRAPHY?.fontWeight?.medium || '500',
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
     textAlign: 'center',
   },
   emptyHistorialSubtexto: {
     fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
     textAlign: 'center',
   },
   verMasButton: {
@@ -1174,7 +1236,8 @@ const styles = StyleSheet.create({
   },
   verMasTexto: {
     fontSize: TYPOGRAPHY?.fontSize?.md || 16,
-    fontWeight: TYPOGRAPHY?.fontWeight?.medium || '500',
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
   },
 });
 

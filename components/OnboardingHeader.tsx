@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface OnboardingHeaderProps {
   title: string;
@@ -60,7 +61,7 @@ export default function OnboardingHeader({
             activeOpacity={0.7}
           >
             <View style={styles.backButtonContent}>
-              <Ionicons name="chevron-back" size={20} color="#4E4FEB" />
+              <InstitutionalIcon name="chevron-back" size={20} color="#4E4FEB"  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.backButtonText}>Anterior</Text>
             </View>
           </TouchableOpacity>
@@ -69,7 +70,7 @@ export default function OnboardingHeader({
         <View style={styles.titleContainer}>
           {icon && (
             <View style={styles.iconContainer}>
-              <Ionicons name={icon as any} size={32} color="#4E4FEB" />
+              <InstitutionalIcon name={icon as any} size={32} color="#4E4FEB"  strokeWidth={ICON_STROKE_WIDTH} />
             </View>
           )}
           <Text style={styles.title}>{title}</Text>

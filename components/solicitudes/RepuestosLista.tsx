@@ -8,9 +8,10 @@ import {
   FlatList,
   Alert,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { RepuestoDetallado, Repuesto } from '@/services/serviciosApi';
 import { SelectorRepuestos } from './SelectorRepuestos';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface RepuestoEditable extends RepuestoDetallado {
   cantidad: number;
@@ -134,7 +135,7 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
               onPress={() => eliminarRepuesto(index)}
               activeOpacity={0.7}
             >
-              <MaterialIcons name="close" size={18} color="#DC3545" />
+              <InstitutionalIcon name="close" size={18} color="#DC3545"  strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
           )}
         </View>
@@ -188,7 +189,7 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
             onPress={() => setMostrarSelector(true)}
             activeOpacity={0.7}
           >
-            <MaterialIcons name="add-circle" size={20} color="#0061FF" />
+            <InstitutionalIcon name="add-circle" size={20} color="#0061FF"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.agregarButtonText}>Agregar</Text>
           </TouchableOpacity>
         )}
@@ -204,7 +205,7 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
 
       {repuestosList.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <MaterialIcons name="inventory-2" size={48} color="#CCC" />
+          <InstitutionalIcon name="inventory-2" size={48} color="#CCC"  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.emptyText}>No hay repuestos agregados</Text>
           {editable && (
             <TouchableOpacity

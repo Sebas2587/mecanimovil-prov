@@ -6,7 +6,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { ArrowLeft } from 'lucide-react-native';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 
@@ -88,22 +89,8 @@ export default function Header({
           { paddingHorizontal: containerHorizontal },
         ]}
       >
-        {/* Componente izquierdo */}
-        <View style={styles.leftContainer}>
-          {leftComponent ||
-            (showBack ? (
-              <TouchableOpacity
-                onPress={onBackPress}
-                style={styles.iconButton}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="arrow-back" size={24} color={primaryColor} />
-              </TouchableOpacity>
-            ) : null)}
-        </View>
-
-        {/* Título centrado */}
-        <View style={styles.titleContainer}>
+        {/* Título centrado respecto al ancho del header (independiente del ancho del CTA derecho) */}
+        <View style={styles.titleAbsoluteLayer} pointerEvents="none">
           <Text
             style={[
               styles.title,
@@ -114,21 +101,38 @@ export default function Header({
               },
             ]}
             numberOfLines={1}
+            ellipsizeMode="tail"
           >
             {title}
           </Text>
         </View>
 
-        {/* Componente derecho */}
-        <View style={styles.rightContainer}>
-          {rightComponent}
-          {badge !== undefined && badge !== null && badge !== 0 && (
-            <View style={[styles.badgeContainer, { backgroundColor: errorColor }]}>
-              <Text style={styles.badgeText}>
-                {typeof badge === 'number' && badge > 99 ? '99+' : String(badge)}
-              </Text>
-            </View>
-          )}
+        <View style={styles.headerRow}>
+          <View style={styles.leftContainer}>
+            {leftComponent ||
+              (showBack ? (
+                <TouchableOpacity
+                  onPress={onBackPress}
+                  style={styles.iconButton}
+                  activeOpacity={0.7}
+                >
+                  <ArrowLeft size={24} color={primaryColor} strokeWidth={ICON_STROKE_WIDTH} />
+                </TouchableOpacity>
+              ) : null)}
+          </View>
+
+          <View style={styles.headerRowSpacer} />
+
+          <View style={styles.rightContainer}>
+            {rightComponent}
+            {badge !== undefined && badge !== null && badge !== 0 && (
+              <View style={[styles.badgeContainer, { backgroundColor: errorColor }]}>
+                <Text style={styles.badgeText}>
+                  {typeof badge === 'number' && badge > 99 ? '99+' : String(badge)}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
     </View>
@@ -140,9 +144,23 @@ const styles = StyleSheet.create({
     // Estilos aplicados dinámicamente
   },
   content: {
+    position: 'relative',
+    height: 56,
+    justifyContent: 'center',
+  },
+  /** Capa bajo los laterales: título ópticamente centrado en toda la barra */
+  titleAbsoluteLayer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: (SPACING?.md ?? 16) + 40,
+    zIndex: 0,
+  },
+  headerRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    height: 56,
+    zIndex: 1,
   },
   leftContainer: {
     width: 40,
@@ -155,17 +173,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  titleContainer: {
+  headerRowSpacer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: SPACING?.sm || 8,
+    minWidth: 0,
   },
   title: {
     textAlign: 'center',
+    maxWidth: '72%',
   },
+  /** Ancho mínimo para toque; sin `width` fijo para que CTAs con texto (p. ej. Gestionar perfil) no queden recortados */
   rightContainer: {
-    width: 40,
+    minWidth: 40,
+    flexShrink: 0,
     alignItems: 'flex-end',
     justifyContent: 'center',
     position: 'relative',

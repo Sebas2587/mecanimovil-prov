@@ -4,14 +4,17 @@
  */
 
 // Definir valores de radio base primero para evitar problemas de inicialización
+/** Radios alineados a DESIGN_PROVEEDORES_INSTITUCIONAL.md (card xl 24, inputs md 12, pill CTAs) */
 const RADIUS_BASE = {
   none: 0,
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
-  '2xl': 20,
-  '3xl': 24,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  '2xl': 24,
+  '3xl': 28,
+  pill: 9999,
   full: 9999,
 };
 
@@ -30,6 +33,7 @@ const radius = {
     md: 12,
     lg: 16,
     full: 9999,
+    pill: 9999,
   },
   input: {
     sm: 8,
@@ -40,7 +44,7 @@ const radius = {
     sm: 8,
     md: 12,
     lg: 16,
-    xl: 20,
+    xl: 24,
   },
   modal: {
     sm: 12,

@@ -15,12 +15,12 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Location from 'expo-location';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { MapPin, Navigation, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { useAuth } from '@/context/AuthContext';
 import { mecanicoAPI, tallerAPI, type EstadoProveedor } from '@/services/api';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { searchChileAddresses, type ChileAddressHit } from '@/utils/chileNominatimSearch';
 import { reverseGeocodeProveedor } from '@/utils/providerReverseGeocode';
 
@@ -121,6 +121,7 @@ async function refrescarEstadoConReintentos(
 export default function ActualizarUbicacionScreen() {
   const insets = useSafeAreaInsets();
   const { estadoProveedor, refrescarEstadoProveedor } = useAuth();
+  const I = COLORS.institutional;
 
   const hydrateFromEstado = useCallback((estado: EstadoProveedor | null) => {
     const tipo = estado?.tipo_proveedor;
@@ -288,9 +289,6 @@ export default function ActualizarUbicacionScreen() {
     }
   };
 
-  const glassTint = Platform.OS === 'ios' ? ('light' as const) : ('dark' as const);
-  const blurIntensity = Platform.OS === 'ios' ? 42 : 28;
-
   const hintSearch =
     searchUi === 'loading'
       ? 'Buscando direcciones…'
@@ -307,33 +305,40 @@ export default function ActualizarUbicacionScreen() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={['#F3F5F8', '#FAFBFC', '#FFFFFF']} style={StyleSheet.absoluteFill} />
-      <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+      <LinearGradient
+        colors={BLANK_GLASS.gradient}
+        locations={BLANK_GLASS.gradientLocations}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <SafeAreaView style={[styles.safe, { backgroundColor: 'transparent' }]} edges={['left', 'right', 'bottom']}>
         <Stack.Screen options={{ headerShown: false }} />
         <Header title={screenTitle} showBack onBackPress={() => router.back()} />
 
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={{
-            paddingHorizontal: SPACING.container?.horizontal ?? SPACING.md ?? 16,
+            paddingHorizontal: GLASS_INSET,
             paddingBottom: insets.bottom + 28,
             paddingTop: 8,
           }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={[styles.glassOuter, { marginTop: 14 }]}>
-            <BlurView intensity={blurIntensity} tint={glassTint} style={StyleSheet.absoluteFill} />
-            <View style={styles.glassInner}>
-              <Text style={styles.sectionLabel}>Dirección guardada</Text>
-              <View style={styles.savedBox}>
-                <Text style={styles.savedText}>
+          <View style={[styles.card, SHADOWS.editorial, { marginTop: 12, backgroundColor: I.canvas, borderColor: I.hairline }]}>
+            <View style={styles.cardInner}>
+              <View style={[styles.sectionPill, { backgroundColor: I.surfaceStrong }]}>
+                <Text style={[styles.sectionPillText, { color: I.muted }]}>Dirección guardada</Text>
+              </View>
+              <View style={[styles.savedBox, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
+                <Text style={[styles.savedText, { color: I.ink }]}>
                   {savedAddress
                     ? savedAddress
                     : 'Sin texto de dirección aún. Tras guardar con GPS o búsqueda, aquí verás la misma línea que usa la app de usuarios.'}
                 </Text>
                 {savedCoords ? (
-                  <Text style={styles.savedCoords}>
+                  <Text style={[styles.savedCoords, { color: I.muted }]}>
                     Punto guardado · {savedCoords.lat.toFixed(5)}, {savedCoords.lng.toFixed(5)}
                   </Text>
                 ) : null}
@@ -342,39 +347,37 @@ export default function ActualizarUbicacionScreen() {
           </View>
 
           {/* Paso 1 (como app usuarios): ubicación por GPS primero */}
-          <View style={[styles.glassOuter, { marginTop: 14 }]}>
-            <BlurView intensity={blurIntensity} tint={glassTint} style={StyleSheet.absoluteFill} />
-            <View style={styles.glassInner}>
+          <View style={[styles.card, SHADOWS.editorial, { marginTop: 12, backgroundColor: I.canvas, borderColor: I.hairline }]}>
+            <View style={styles.cardInner}>
               <TouchableOpacity
                 style={[styles.heroGpsRow, gpsLoading && styles.btnDisabled]}
                 onPress={usarGps}
                 disabled={gpsLoading}
                 activeOpacity={0.85}
               >
-                <View style={styles.heroGpsIconWrap}>
+                <View style={[styles.iconPlate, { backgroundColor: I.surfaceStrong }]}>
                   {gpsLoading ? (
-                    <ActivityIndicator color={COLORS.secondary?.[500] ?? '#007EA7'} />
+                    <ActivityIndicator color={I.primary} />
                   ) : (
-                    <Navigation size={24} color={COLORS.secondary?.[500] ?? '#007EA7'} />
+                    <Navigation size={22} color={I.ink} />
                   )}
                 </View>
                 <View style={styles.heroGpsTextWrap}>
-                  <Text style={styles.heroGpsTitle}>
+                  <Text style={[styles.rowTitle, { color: I.ink }]}>
                     {gpsLoading ? 'Obteniendo ubicación…' : 'Usar mi ubicación actual'}
                   </Text>
                 </View>
-                <ChevronRight size={20} color={COLORS.neutral?.gray?.[400] ?? '#9CA3AF'} />
+                <ChevronRight size={20} color={I.muted} />
               </TouchableOpacity>
             </View>
           </View>
 
-          <View style={[styles.glassOuter, { marginTop: 14 }]}>
-            <BlurView intensity={blurIntensity} tint={glassTint} style={StyleSheet.absoluteFill} />
-            <View style={styles.glassInner}>
+          <View style={[styles.card, SHADOWS.editorial, { marginTop: 12, backgroundColor: I.canvas, borderColor: I.hairline }]}>
+            <View style={styles.cardInner}>
               {(selectedLine || selectedCoords) && (
-                <View style={styles.pendingBlock}>
+                <View style={[styles.pendingBlock, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
                   <View style={styles.pendingHeader}>
-                    <Text style={styles.pendingTitle}>Cambio pendiente de guardar</Text>
+                    <Text style={[styles.pendingTitle, { color: I.muted }]}>Cambio pendiente de guardar</Text>
                     <TouchableOpacity
                       onPress={() => {
                         setSelectedLine(null);
@@ -383,43 +386,43 @@ export default function ActualizarUbicacionScreen() {
                       }}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Text style={styles.pendingClear}>Limpiar</Text>
+                      <Text style={[styles.pendingClear, { color: I.primary }]}>Limpiar</Text>
                     </TouchableOpacity>
                   </View>
                   {selectedLine ? (
-                    <Text style={styles.pendingLine}>{selectedLine}</Text>
+                    <Text style={[styles.pendingLine, { color: I.ink }]}>{selectedLine}</Text>
                   ) : null}
                   {selectedCoords ? (
-                    <Text style={styles.pendingCoords}>
+                    <Text style={[styles.pendingCoords, { color: I.body }]}>
                       GPS · {selectedCoords.lat.toFixed(5)}, {selectedCoords.lng.toFixed(5)}
                     </Text>
                   ) : null}
                 </View>
               )}
 
-              <Text style={styles.label}>Buscar otra dirección en Chile</Text>
+              <Text style={[styles.label, { color: I.ink }]}>Buscar otra dirección en Chile</Text>
               {ubicacionDetectada ? (
-                <View style={styles.detectedBanner}>
-                  <CheckCircle2 size={18} color="#059669" />
-                  <Text style={styles.detectedBannerText}>
+                <View style={[styles.detectedBanner, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
+                  <CheckCircle2 size={18} color={I.semanticUp} />
+                  <Text style={[styles.detectedBannerText, { color: I.body }]}>
                     Ubicación nueva lista — pulsa Guardar abajo para registrarla (mismo formato que en la app de
                     usuarios).
                   </Text>
                 </View>
               ) : null}
               <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: I.hairline, color: I.ink, backgroundColor: I.surfaceSoft }]}
                 placeholder="Ej: Los Leones 1200, Providencia"
-                placeholderTextColor={COLORS.neutral?.gray?.[400] ?? '#9CA3AF'}
+                placeholderTextColor={I.muted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 autoCorrect={false}
                 autoCapitalize="words"
               />
-              <Text style={styles.hint}>{hintSearch}</Text>
+              <Text style={[styles.hint, { color: I.muted }]}>{hintSearch}</Text>
 
               {suggestions.length > 0 && (
-                <View style={styles.suggestionsBox}>
+                <View style={[styles.suggestionsBox, { borderColor: I.hairline, backgroundColor: I.canvas }]}>
                   {suggestions.map((item, idx) => (
                     <TouchableOpacity
                       key={`${item.lat}-${item.lon}-${idx}`}
@@ -427,8 +430,8 @@ export default function ActualizarUbicacionScreen() {
                       onPress={() => onPickSuggestion(item)}
                       activeOpacity={0.7}
                     >
-                      <MapPin size={16} color={COLORS.primary?.[500] ?? '#003459'} />
-                      <Text style={styles.suggestionText} numberOfLines={3}>
+                      <MapPin size={16} color={I.primary} />
+                      <Text style={[styles.suggestionText, { color: I.ink }]} numberOfLines={3}>
                         {item.display_name}
                       </Text>
                     </TouchableOpacity>
@@ -438,8 +441,8 @@ export default function ActualizarUbicacionScreen() {
 
               {!selectedCoords && searchQuery.trim().length >= MIN_QUERY && (
                 <View style={styles.warnRow}>
-                  <AlertCircle size={16} color="#D97706" />
-                  <Text style={styles.warnText}>
+                  <AlertCircle size={16} color={I.accentYellow} />
+                  <Text style={[styles.warnText, { color: I.body }]}>
                     Elige un resultado de la lista o usa GPS. Si solo escribes texto, al guardar el servidor intentará
                     ubicarlo en el mapa.
                   </Text>
@@ -449,15 +452,19 @@ export default function ActualizarUbicacionScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.btnPrimary, saving && styles.btnDisabled]}
+            style={[
+              styles.btnPrimary,
+              { backgroundColor: I.primary },
+              saving && styles.btnDisabled,
+            ]}
             onPress={guardar}
             disabled={saving}
             activeOpacity={0.9}
           >
             {saving ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={I.onPrimary} />
             ) : (
-              <Text style={styles.btnPrimaryText}>
+              <Text style={[styles.btnPrimaryText, { color: I.onPrimary }]}>
                 {selectedLine || selectedCoords || searchQuery.trim()
                   ? 'Confirmar y guardar'
                   : estadoProveedor?.tipo_proveedor === 'taller'
@@ -479,40 +486,27 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
   scroll: { flex: 1 },
-  glassOuter: {
-    borderRadius: radiusLg,
+  card: {
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 52, 89, 0.08)',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#00171F',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 20,
-      },
-      android: { elevation: 3 },
-    }),
   },
-  glassInner: {
+  cardInner: {
     padding: SPACING.md ?? 16,
-    backgroundColor: 'rgba(255,255,255,0.52)',
   },
-  heroRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  heroIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 168, 232, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  sectionPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+    marginBottom: SPACING.sm ?? 8,
   },
-  heroText: {
-    flex: 1,
-    fontSize: (TYPOGRAPHY?.fontSize?.sm ?? 14) as number,
-    lineHeight: 20,
-    color: COLORS.text?.secondary ?? '#4B5563',
-    fontWeight: (TYPOGRAPHY?.fontWeight?.medium ?? '500') as any,
+  sectionPillText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
   },
   heroGpsRow: {
     flexDirection: 'row',
@@ -520,25 +514,18 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 4,
   },
-  heroGpsIconWrap: {
+  iconPlate: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 168, 232, 0.14)',
+    borderRadius: BORDERS.radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
   heroGpsTextWrap: { flex: 1 },
-  heroGpsTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.text?.primary ?? '#111827',
-    marginBottom: 4,
-  },
-  heroGpsSubtitle: {
-    fontSize: 12,
-    color: COLORS.text?.tertiary ?? '#6B7280',
-    lineHeight: 17,
+  rowTitle: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
   detectedBanner: {
     flexDirection: 'row',
@@ -547,55 +534,37 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 12,
     borderRadius: radiusMd,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.28)',
+    borderWidth: BORDERS.width.thin,
   },
   detectedBannerText: {
     flex: 1,
     fontSize: 13,
-    color: '#047857',
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
     lineHeight: 18,
-    fontWeight: '600',
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.text?.primary ?? '#111827',
-    marginBottom: 4,
-  },
-  savedHint: {
-    fontSize: 12,
-    color: COLORS.text?.tertiary ?? '#6B7280',
-    marginBottom: 10,
-    lineHeight: 17,
   },
   savedBox: {
     borderRadius: radiusMd,
     padding: 14,
-    backgroundColor: 'rgba(0, 52, 89, 0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 52, 89, 0.1)',
+    borderWidth: BORDERS.width.thin,
   },
   savedText: {
-    fontSize: 15,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     lineHeight: 22,
-    color: COLORS.text?.primary ?? '#1F2937',
-    fontWeight: '600',
   },
   savedCoords: {
     marginTop: 10,
-    fontSize: 12,
-    color: COLORS.text?.tertiary ?? '#6B7280',
-    fontWeight: '500',
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
   },
   pendingBlock: {
     marginBottom: 14,
     padding: 12,
     borderRadius: radiusMd,
-    backgroundColor: 'rgba(0, 168, 232, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 126, 167, 0.25)',
+    borderWidth: BORDERS.width.thin,
   },
   pendingHeader: {
     flexDirection: 'row',
@@ -604,49 +573,49 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pendingTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: COLORS.secondary?.[600] ?? '#006586',
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
   },
   pendingClear: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.secondary?.[500] ?? '#007EA7',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
   pendingLine: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     lineHeight: 20,
-    color: COLORS.text?.primary ?? '#111827',
-    fontWeight: '600',
   },
   pendingCoords: {
     marginTop: 6,
-    fontSize: 12,
-    color: COLORS.text?.secondary ?? '#4B5563',
-    fontWeight: '500',
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
   },
   label: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.text?.primary ?? '#111827',
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: 'rgba(0, 52, 89, 0.12)',
     borderRadius: radiusMd,
     paddingHorizontal: 14,
     paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     fontSize: 15,
-    color: COLORS.text?.primary ?? '#111827',
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
   },
   hint: {
     marginTop: 8,
     fontSize: 12,
-    color: COLORS.text?.tertiary ?? '#6B7280',
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     lineHeight: 17,
   },
   suggestionsBox: {
@@ -654,8 +623,6 @@ const styles = StyleSheet.create({
     maxHeight: 220,
     borderRadius: radiusMd,
     borderWidth: 1,
-    borderColor: 'rgba(0, 52, 89, 0.08)',
-    backgroundColor: 'rgba(255,255,255,0.65)',
     overflow: 'hidden',
   },
   suggestionRow: {
@@ -670,30 +637,23 @@ const styles = StyleSheet.create({
   suggestionText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.text?.primary ?? '#1F2937',
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     lineHeight: 18,
   },
   btnPrimary: {
     marginTop: 20,
-    borderRadius: radiusMd,
-    paddingVertical: 15,
+    borderRadius: BORDERS.radius.pill,
+    paddingVertical: 12,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.secondary?.[500] ?? '#007EA7',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#007EA7',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.22,
-        shadowRadius: 12,
-      },
-      android: { elevation: 4 },
-    }),
+    ...SHADOWS.editorial,
   },
   btnPrimaryText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: TYPOGRAPHY.styles.button.fontSize,
+    lineHeight: Math.round(TYPOGRAPHY.styles.button.fontSize * TYPOGRAPHY.styles.button.lineHeight),
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.styles.button.fontWeight as '600',
   },
   btnDisabled: { opacity: 0.65 },
   warnRow: {
@@ -705,7 +665,7 @@ const styles = StyleSheet.create({
   warnText: {
     flex: 1,
     fontSize: 12,
-    color: '#92400E',
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     lineHeight: 17,
   },
 });

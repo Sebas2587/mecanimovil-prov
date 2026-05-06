@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { PaqueteCreditos } from '@/services/creditosService';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface PaqueteCardProps {
   paquete: PaqueteCreditos;
@@ -64,7 +65,7 @@ export const PaqueteCard: React.FC<PaqueteCardProps> = ({
         </Text>
         {paquete.bonificacion_creditos > 0 && (
           <View style={[styles.bonificacion, { backgroundColor: successColor + '20' }]}>
-            <MaterialIcons name="card-giftcard" size={16} color={successColor} />
+            <InstitutionalIcon name="card-giftcard" size={16} color={successColor}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.bonificacionText, { color: successColor }]}>
               +{paquete.bonificacion_creditos} gratis
             </Text>

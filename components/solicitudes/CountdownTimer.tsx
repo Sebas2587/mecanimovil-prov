@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Text, View, StyleSheet } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, TYPOGRAPHY, SPACING } from '@/app/design-system/tokens';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 interface CountdownTimerProps {
     targetDate: string;
@@ -60,7 +61,7 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({ targetDate, onEx
     if (isExpired) {
         return (
             <View style={[styles.container, { backgroundColor: COLORS?.neutral?.gray?.[100] || '#F3F4F6' }]}>
-                <MaterialIcons name="timer-off" size={14} color={grayColor} />
+                <InstitutionalIcon name="timer-off" size={14} color={grayColor}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[styles.text, { color: grayColor }]}>Expirada</Text>
             </View>
         );
@@ -78,11 +79,11 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({ targetDate, onEx
                     : (COLORS?.info?.main || '#3B82F6')
             }
         ]}>
-            <MaterialIcons
+            <InstitutionalIcon
                 name="timer"
                 size={14}
                 color={isUrgent ? (COLORS?.error?.main || '#EF4444') : (COLORS?.info?.main || '#3B82F6')}
-            />
+             strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[
                 styles.text,
                 {

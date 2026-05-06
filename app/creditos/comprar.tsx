@@ -9,7 +9,6 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/app/design-system/theme/useTheme';
@@ -21,6 +20,8 @@ import creditosService, {
 import MercadoPagoWebViewModal from '@/components/creditos/MercadoPagoWebViewModal';
 import Header from '@/components/Header';
 import { FALLBACK_PRECIO_CREDITO_BRUTO_CLP } from '@/constants/mercadoPagoPricing';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const COMPRA_PENDIENTE_KEY = 'compra_creditos_pendiente';
 
@@ -316,7 +317,7 @@ export default function ComprarCreditosScreen() {
           onBackPress={handleGoBack}
         />
         <View style={styles.errorContainer}>
-          <MaterialIcons name="error-outline" size={48} color={colors?.error?.main || '#FF5555'} />
+          <InstitutionalIcon name="error-outline" size={48} color={colors?.error?.main || '#FF5555'}  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={[styles.errorText, { color: textPrimary }]}>
             Información de compra inválida
           </Text>
@@ -390,12 +391,12 @@ export default function ComprarCreditosScreen() {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <>
-              <MaterialIcons
+              <InstitutionalIcon
                 name="payment"
                 size={24}
                 color="#FFFFFF"
                 style={{ marginRight: 8 }}
-              />
+               strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.comprarButtonText}>
                 Pagar {precioFormateado} con Mercado Pago
               </Text>
@@ -405,7 +406,7 @@ export default function ComprarCreditosScreen() {
 
         {/* Información de seguridad */}
         <View style={styles.securityInfo}>
-          <MaterialIcons name="lock" size={16} color={textSecondary} />
+          <InstitutionalIcon name="lock" size={16} color={textSecondary}  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={[styles.securityText, { color: textSecondary }]}>
             Pago seguro procesado por Mercado Pago
           </Text>

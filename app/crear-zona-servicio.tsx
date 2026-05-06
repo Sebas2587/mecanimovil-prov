@@ -12,12 +12,13 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
 import serviceAreasApi, { Commune, Region } from '@/services/serviceAreasApi';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export default function CrearZonaServicioScreen() {
   const theme = useTheme();
@@ -242,7 +243,7 @@ export default function CrearZonaServicioScreen() {
           {item.province_name}, {item.region_name}
         </Text>
       </View>
-      <Ionicons name="add-circle" size={24} color={primary500} />
+      <InstitutionalIcon name="add-circle" size={24} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
     </TouchableOpacity>
   );
 
@@ -251,7 +252,7 @@ export default function CrearZonaServicioScreen() {
     <View key={commune.code} style={[styles.selectedCommuneTag, { backgroundColor: bgPaper, borderColor: borderLight, ...shadowSm }]}>
       <Text style={[styles.selectedCommuneText, { color: textPrimary }]}>{commune.name}</Text>
       <TouchableOpacity onPress={() => removeCommune(commune.code)} activeOpacity={0.7}>
-        <Ionicons name="close-circle" size={18} color={error500} />
+        <InstitutionalIcon name="close-circle" size={18} color={error500}  strokeWidth={ICON_STROKE_WIDTH} />
       </TouchableOpacity>
     </View>
   );
@@ -280,7 +281,7 @@ export default function CrearZonaServicioScreen() {
           {/* Información - UI Card */}
           <View style={[styles.uiCard, { backgroundColor: (infoObj?.light || '#E6F5F9'), borderColor: info500 }]}>
             <View style={styles.infoHeader}>
-              <Ionicons name="information-circle" size={20} color={info500} />
+              <InstitutionalIcon name="information-circle" size={20} color={info500}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={[styles.infoTitle, { color: info500 }]}>¿Qué son las zonas de servicio?</Text>
             </View>
             <Text style={[styles.infoText, { color: textPrimary }]}>
@@ -319,7 +320,7 @@ export default function CrearZonaServicioScreen() {
                 onPress={() => setShowCommuneSelector(true)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="add" size={16} color={primary500} />
+                <InstitutionalIcon name="add" size={16} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[styles.addCommuneText, { color: primary500 }]}>Agregar</Text>
               </TouchableOpacity>
             </View>
@@ -330,7 +331,7 @@ export default function CrearZonaServicioScreen() {
               </View>
             ) : (
               <View style={[styles.emptyCommunesContainer, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-                <Ionicons name="location-outline" size={48} color={textTertiary} />
+                <InstitutionalIcon name="location-outline" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[styles.emptyCommunesText, { color: textPrimary }]}>
                   No has seleccionado comunas
                 </Text>
@@ -371,7 +372,7 @@ export default function CrearZonaServicioScreen() {
           {loading ? (
             <ActivityIndicator size="small" color={COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF'} />
           ) : (
-            <Ionicons name="checkmark-circle" size={20} color={COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF'} />
+            <InstitutionalIcon name="checkmark-circle" size={20} color={COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF'}  strokeWidth={ICON_STROKE_WIDTH} />
           )}
           <Text style={[styles.saveButtonText, { color: COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF' }]}>
             {loading ? 'Guardando...' : 'Crear Zona de Servicio'}
@@ -390,7 +391,7 @@ export default function CrearZonaServicioScreen() {
           <View style={[styles.modalHeader, { backgroundColor: bgPaper, borderBottomColor: borderLight }]}>
             <Text style={[styles.modalTitle, { color: textPrimary }]}>Seleccionar Comunas</Text>
             <TouchableOpacity onPress={() => setShowCommuneSelector(false)} activeOpacity={0.7}>
-              <Ionicons name="close" size={24} color={textTertiary} />
+              <InstitutionalIcon name="close" size={24} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
           </View>
 
@@ -398,7 +399,7 @@ export default function CrearZonaServicioScreen() {
           <View style={[styles.filtersContainer, { backgroundColor: bgPaper, borderBottomColor: borderLight }]}>
             {/* Búsqueda */}
             <View style={[styles.searchContainer, { backgroundColor: bgDefault }]}>
-              <Ionicons name="search" size={20} color={textTertiary} />
+              <InstitutionalIcon name="search" size={20} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
               <TextInput
                 style={[styles.searchInput, { color: textPrimary }]}
                 placeholder="Buscar comuna..."
@@ -470,7 +471,7 @@ export default function CrearZonaServicioScreen() {
               ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: borderLight }]} />}
               ListEmptyComponent={() => (
                 <View style={styles.emptyListContainer}>
-                  <Ionicons name="search" size={48} color={textTertiary} />
+                  <InstitutionalIcon name="search" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={[styles.emptyListText, { color: textPrimary }]}>No se encontraron comunas</Text>
                   <Text style={[styles.emptyListSubtext, { color: textTertiary }]}>
                     Intenta cambiar los filtros o el texto de búsqueda

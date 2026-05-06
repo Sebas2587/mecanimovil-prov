@@ -12,16 +12,18 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import serviceAreasApi, { Commune, Region, ServiceArea } from '@/services/serviceAreasApi';
-import { useTheme } from '@/app/design-system/theme/useTheme';
+import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export default function EditarZonaServicioScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const theme = useTheme();
+  const params = useLocalSearchParams<{ id: string | string[] }>();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const insets = useSafeAreaInsets();
   
   const [serviceArea, setServiceArea] = useState<ServiceArea | null>(null);
@@ -32,119 +34,71 @@ export default function EditarZonaServicioScreen() {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [loadingData, setLoadingData] = useState(true);
+  /** Solo bloquea UI hasta tener la zona; comunas/regiones cargan en paralelo. */
+  const [loadingZone, setLoadingZone] = useState(() => Boolean(id));
   const [loadingCommunes, setLoadingCommunes] = useState(false);
   const [showCommuneSelector, setShowCommuneSelector] = useState(false);
 
-  // Obtener valores seguros del tema con fallbacks
-  const safeColors = useMemo(() => {
-    return theme?.colors || COLORS || {};
-  }, [theme]);
+  const I = COLORS.institutional;
 
-  const safeSpacing = useMemo(() => {
-    return theme?.spacing || SPACING || {};
-  }, [theme]);
-
-  const safeTypography = useMemo(() => {
-    return theme?.typography || TYPOGRAPHY || {};
-  }, [theme]);
-
-  const safeShadows = useMemo(() => {
-    return theme?.shadows || SHADOWS || {};
-  }, [theme]);
-
-  const safeBorders = useMemo(() => {
-    return theme?.borders || BORDERS || {};
-  }, [theme]);
-
-  // Cargar datos iniciales
+  // Cargar zona, regiones y comunas en paralelo (antes la zona iba después de comunas → doble sensación de carga).
   useEffect(() => {
     const loadInitialData = async () => {
+      if (!id) {
+        setLoadingZone(false);
+        return;
+      }
       try {
-        // Cargar regiones y comunas primero
-        await Promise.all([loadRegions(), loadAllCommunes()]);
-        
-        // Luego cargar los datos de la zona específica
-        if (id) {
-          await loadServiceAreaData();
-        }
+        await Promise.all([loadRegions(), loadAllCommunes(), loadServiceAreaData()]);
       } catch (error) {
         console.error('Error cargando datos iniciales:', error);
       }
     };
-    
+
     loadInitialData();
   }, [id]);
 
   // Efecto para mapear comunas cuando se cargan los datos de la zona
   useEffect(() => {
     if (serviceArea && availableCommunes.length > 0) {
-      console.log('🔄 Iniciando mapeo de comunas...');
-      console.log('📋 Zona de servicio:', serviceArea.name);
-      console.log('📍 Comunas en la zona:', serviceArea.commune_names);
-      console.log('🏙️ Comunas disponibles:', availableCommunes.length);
-      
-      // Mapear los nombres de comunas a objetos Commune completos
       if (serviceArea.commune_names && serviceArea.commune_names.length > 0) {
         const selectedCommunesObjects = serviceArea.commune_names
           .map(communeName => {
             const found = availableCommunes.find(commune => commune.name === communeName);
-            console.log(`🔍 Buscando "${communeName}": ${found ? '✅ Encontrada' : '❌ No encontrada'}`);
             return found;
           })
           .filter(commune => commune !== undefined) as Commune[];
-        
-        console.log('🔍 Mapeando comunas de la zona:', {
-          commune_names: serviceArea.commune_names,
-          mapeadas: selectedCommunesObjects.length,
-          total_disponibles: availableCommunes.length,
-          comunas_mapeadas: selectedCommunesObjects.map(c => c.name)
-        });
-        
+
         setSelectedCommunes(selectedCommunesObjects);
       } else {
-        console.log('⚠️ No se encontraron comunas en la zona');
         setSelectedCommunes([]);
       }
-    } else {
-      console.log('⏳ Esperando datos...', {
-        tiene_service_area: !!serviceArea,
-        comunas_disponibles: availableCommunes.length
-      });
     }
   }, [serviceArea, availableCommunes]);
 
   // Cargar datos de la zona de servicio a editar
   const loadServiceAreaData = async () => {
     try {
-      setLoadingData(true);
-      
-      // Obtener la zona específica desde la API
+      setLoadingZone(true);
+
       const serviceAreaData = await serviceAreasApi.getServiceAreas();
-      const area = serviceAreaData.find(area => area.id === id);
-      
+      const area = serviceAreaData.find(a => a.id === id);
+
       if (!area) {
         Alert.alert('Error', 'Zona de servicio no encontrada');
         router.back();
         return;
       }
-      
+
       setServiceArea(area);
       setZoneName(area.name || '');
-      
-      console.log('✅ Zona de servicio cargada:', {
-        id: area.id,
-        name: area.name,
-        commune_names: area.commune_names,
-        commune_count: area.commune_names?.length || 0
-      });
-      
+
     } catch (error) {
       console.error('Error cargando zona de servicio:', error);
       Alert.alert('Error', 'No se pudo cargar la zona de servicio');
       router.back();
     } finally {
-      setLoadingData(false);
+      setLoadingZone(false);
     }
   };
 
@@ -259,8 +213,6 @@ export default function EditarZonaServicioScreen() {
         commune_names: selectedCommunes.map(c => c.name),
       };
 
-      console.log('Actualizando zona de servicio:', updateData);
-
       // Llamada real a la API
       await serviceAreasApi.updateServiceArea(serviceArea.id, updateData);
 
@@ -324,41 +276,26 @@ export default function EditarZonaServicioScreen() {
     );
   };
 
-  // Obtener colores del sistema de diseño
-  const bgPaper = (safeColors?.background as any)?.paper || (safeColors?.base as any)?.white || '#FFFFFF';
-  const bgDefault = (safeColors?.background as any)?.default || '#F5F7F8';
-  const textPrimary = safeColors?.text?.primary || (safeColors?.neutral as any)?.inkBlack || '#00171F';
-  const textSecondary = safeColors?.text?.secondary || ((safeColors?.neutral as any)?.gray as any)?.[800] || '#3E4F53';
-  const textTertiary = safeColors?.text?.tertiary || ((safeColors?.neutral as any)?.gray as any)?.[700] || '#5D6F75';
-  const borderLight = (safeColors?.border as any)?.light || ((safeColors?.neutral as any)?.gray as any)?.[200] || '#D7DFE3';
-  const primaryObj = safeColors?.primary as any;
-  const successObj = safeColors?.success as any;
-  const errorObj = safeColors?.error as any;
-  const warningObj = safeColors?.warning as any;
-  const infoObj = safeColors?.info as any;
-  const accentObj = safeColors?.accent as any;
-  const primary500 = primaryObj?.['500'] || (safeColors?.accent as any)?.['500'] || '#003459';
-  const success500 = successObj?.main || successObj?.['500'] || '#00C9A7';
-  const error500 = errorObj?.main || errorObj?.['500'] || '#FF6B6B';
-  const warning500 = warningObj?.main || warningObj?.['500'] || '#FFB84D';
-  const info500 = infoObj?.main || infoObj?.['500'] || accentObj?.['500'] || '#007EA7';
-  const containerHorizontal = safeSpacing?.container?.horizontal || safeSpacing?.content?.horizontal || 18;
-  const spacingXs = safeSpacing?.xs || 4;
-  const spacingSm = safeSpacing?.sm || 8;
-  const spacingMd = safeSpacing?.md || 16;
-  const spacingLg = safeSpacing?.lg || 24;
-  const cardPadding = safeSpacing?.cardPadding || spacingMd;
-  const cardGap = safeSpacing?.cardGap || spacingSm + 4;
-  const radiusXl = safeBorders?.radius?.xl || 16;
-  const fontSizeBase = safeTypography?.fontSize?.base || 14;
-  const fontSizeSm = safeTypography?.fontSize?.sm || 12;
-  const fontSizeMd = safeTypography?.fontSize?.md || 16;
-  const fontSizeLg = safeTypography?.fontSize?.lg || 18;
-  const fontWeightMedium = safeTypography?.fontWeight?.medium || '500';
-  const fontWeightSemibold = safeTypography?.fontWeight?.semibold || '600';
-  const fontWeightBold = safeTypography?.fontWeight?.bold || '700';
-  const shadowSm = safeShadows?.sm || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-  const shadowMd = safeShadows?.md || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
+  const bgPaper = I.canvas;
+  const bgDefault = I.canvas;
+  const textPrimary = I.ink;
+  const textSecondary = I.body;
+  const textTertiary = I.muted;
+  const borderLight = I.hairline;
+  const primary500 = I.primary;
+  const primaryActive = I.primaryActive;
+  const success500 = I.semanticUp;
+  const error500 = I.semanticDown;
+  const warning500 = I.accentYellow;
+
+  const containerHorizontal = GLASS_INSET;
+  const spacingXs = SPACING.xs;
+  const spacingSm = SPACING.sm;
+  const spacingMd = SPACING.md;
+  const spacingLg = SPACING.lg;
+  const radiusLg = BORDERS.radius.lg;
+  const fontSizeSm = TYPOGRAPHY.fontSize.sm;
+  const fontSizeMd = TYPOGRAPHY.fontSize.md;
 
   // Renderizar comuna en la lista de selección
   const renderCommuneItem = ({ item }: { item: Commune }) => (
@@ -373,21 +310,27 @@ export default function EditarZonaServicioScreen() {
           {item.province_name}, {item.region_name}
         </Text>
       </View>
-      <Ionicons name="add-circle" size={24} color={primary500} />
+      <InstitutionalIcon name="add-circle" size={24} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
     </TouchableOpacity>
   );
 
+  /** Lista maestra aún cargando: la zona ya existe pero el mapeo a objetos Commune espera `getCommunes`. */
+  const communeListSyncing =
+    Boolean(serviceArea?.commune_names?.length) &&
+    loadingCommunes &&
+    selectedCommunes.length === 0;
+
   // Renderizar comuna seleccionada
   const renderSelectedCommune = (commune: Commune) => (
-    <View key={commune.code} style={[styles.selectedCommuneTag, { backgroundColor: bgPaper, borderColor: borderLight, ...shadowSm }]}>
+    <View key={commune.code} style={[styles.selectedCommuneTag, { backgroundColor: bgPaper, borderColor: borderLight }]}>
       <Text style={[styles.selectedCommuneText, { color: textPrimary }]}>{commune.name}</Text>
       <TouchableOpacity onPress={() => removeCommune(commune.code)} activeOpacity={0.7}>
-        <Ionicons name="close-circle" size={18} color={error500} />
+        <InstitutionalIcon name="close-circle" size={18} color={error500}  strokeWidth={ICON_STROKE_WIDTH} />
       </TouchableOpacity>
     </View>
   );
 
-  if (loadingData) {
+  if (loadingZone && !serviceArea) {
     return (
       <View style={[styles.container, { backgroundColor: bgDefault }]}>
         <Header 
@@ -412,14 +355,14 @@ export default function EditarZonaServicioScreen() {
           onBackPress={() => router.back()}
         />
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={64} color={error500} />
+          <InstitutionalIcon name="alert-circle" size={64} color={error500}  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={[styles.errorText, { color: error500 }]}>No se pudo cargar la zona de servicio</Text>
           <TouchableOpacity 
-            style={[styles.backButton, { backgroundColor: primary500, ...shadowMd }]} 
+            style={[styles.backButton, { backgroundColor: primary500 }]} 
             onPress={() => router.back()}
             activeOpacity={0.8}
           >
-            <Text style={[styles.backButtonText, { color: COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF' }]}>Volver</Text>
+            <Text style={[styles.backButtonText, { color: I.onPrimary }]}>Volver</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -427,7 +370,14 @@ export default function EditarZonaServicioScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: bgDefault }]}>
+    <View style={styles.screenRoot}>
+      <LinearGradient
+        colors={BLANK_GLASS.gradient}
+        locations={BLANK_GLASS.gradientLocations}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       <Stack.Screen
         options={{
           title: 'Editar Zona de Servicio',
@@ -435,6 +385,7 @@ export default function EditarZonaServicioScreen() {
         }}
       />
       
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <Header 
         title="Editar Zona de Servicio"
         showBack
@@ -445,7 +396,7 @@ export default function EditarZonaServicioScreen() {
             activeOpacity={0.7}
             style={styles.deleteButtonHeader}
           >
-            <Ionicons name="trash" size={20} color={error500} />
+            <InstitutionalIcon name="trash" size={20} color={error500}  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
         }
       />
@@ -455,12 +406,12 @@ export default function EditarZonaServicioScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
       >
-        <View style={[styles.content, { paddingHorizontal: containerHorizontal }]}>
+        <View style={styles.content}>
           {/* Información actual - UI Card */}
-          <View style={[styles.uiCard, { backgroundColor: (warningObj?.light || '#FFF4E6'), borderColor: warning500 }]}>
+          <View style={[styles.uiCard, { backgroundColor: I.surfaceStrong, borderColor: borderLight }]}>
             <View style={styles.infoHeader}>
-              <Ionicons name="information-circle" size={20} color={warning500} />
-              <Text style={[styles.infoTitle, { color: warning500 }]}>Editando zona existente</Text>
+              <InstitutionalIcon name="information-circle" size={20} color={warning500}  strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={[styles.infoTitle, { color: textPrimary }]}>Editando zona existente</Text>
             </View>
             <Text style={[styles.infoText, { color: textPrimary }]}>
               Modifica el nombre y las comunas de tu zona de servicio. Los cambios se aplicarán 
@@ -471,7 +422,7 @@ export default function EditarZonaServicioScreen() {
               <View style={[
                 styles.statusBadge,
                 { 
-                  backgroundColor: serviceArea.is_active ? (successObj?.light || '#E6F7F4') : bgDefault,
+                  backgroundColor: I.surfaceStrong,
                   borderColor: serviceArea.is_active ? success500 : borderLight,
                   borderWidth: 1
                 }
@@ -509,22 +460,34 @@ export default function EditarZonaServicioScreen() {
                 Comunas Seleccionadas ({selectedCommunes.length})
               </Text>
               <TouchableOpacity
-                style={[styles.addCommuneButton, { backgroundColor: (primaryObj?.['50'] || '#E6F0F5') }]}
+                style={[
+                  styles.addCommuneButton,
+                  { backgroundColor: COLORS.primary[50] },
+                  loadingCommunes && availableCommunes.length === 0 && styles.addCommuneButtonDisabled,
+                ]}
                 onPress={() => setShowCommuneSelector(true)}
                 activeOpacity={0.7}
+                disabled={loadingCommunes && availableCommunes.length === 0}
               >
-                <Ionicons name="add" size={16} color={primary500} />
+                <InstitutionalIcon name="add" size={16} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[styles.addCommuneText, { color: primary500 }]}>Agregar</Text>
               </TouchableOpacity>
             </View>
 
-            {selectedCommunes.length > 0 ? (
+            {communeListSyncing ? (
+              <View style={[styles.communesSyncingRow, { backgroundColor: bgPaper, borderColor: borderLight }]}>
+                <ActivityIndicator size="small" color={primary500} />
+                <Text style={[styles.communesSyncingText, { color: textSecondary }]}>
+                  Cargando comunas de la zona…
+                </Text>
+              </View>
+            ) : selectedCommunes.length > 0 ? (
               <View style={styles.selectedCommunesContainer}>
                 {selectedCommunes.map(renderSelectedCommune)}
               </View>
             ) : (
               <View style={[styles.emptyCommunesContainer, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-                <Ionicons name="location-outline" size={48} color={textTertiary} />
+                <InstitutionalIcon name="location-outline" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[styles.emptyCommunesText, { color: textPrimary }]}>
                   No hay comunas seleccionadas
                 </Text>
@@ -537,7 +500,7 @@ export default function EditarZonaServicioScreen() {
 
           {/* Resumen de cambios - UI Card */}
           {selectedCommunes.length > 0 && (
-            <View style={[styles.summaryCard, { backgroundColor: (successObj?.light || '#E6F7F4'), borderColor: success500 }]}>
+            <View style={[styles.summaryCard, { backgroundColor: I.surfaceStrong, borderColor: borderLight }]}>
               <Text style={[styles.summaryTitle, { color: textPrimary }]}>Resumen de Cambios</Text>
               <Text style={[styles.summaryText, { color: textPrimary }]}>
                 Nueva cobertura: {selectedCommunes.length} comuna{selectedCommunes.length !== 1 ? 's' : ''}
@@ -555,7 +518,7 @@ export default function EditarZonaServicioScreen() {
         <TouchableOpacity
           style={[
             styles.saveButton, 
-            { backgroundColor: primary500, ...shadowMd },
+            { backgroundColor: primary500 },
             loading && styles.saveButtonDisabled
           ]}
           onPress={saveServiceArea}
@@ -563,11 +526,11 @@ export default function EditarZonaServicioScreen() {
           activeOpacity={0.8}
         >
           {loading ? (
-            <ActivityIndicator size="small" color={COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF'} />
+            <ActivityIndicator size="small" color={I.onPrimary} />
           ) : (
-            <Ionicons name="checkmark-circle" size={20} color={COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF'} />
+            <InstitutionalIcon name="checkmark-circle" size={20} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
           )}
-          <Text style={[styles.saveButtonText, { color: COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF' }]}>
+          <Text style={[styles.saveButtonText, { color: I.onPrimary }]}>
             {loading ? 'Guardando...' : 'Guardar Cambios'}
           </Text>
         </TouchableOpacity>
@@ -584,7 +547,7 @@ export default function EditarZonaServicioScreen() {
           <View style={[styles.modalHeader, { backgroundColor: bgPaper, borderBottomColor: borderLight }]}>
             <Text style={[styles.modalTitle, { color: textPrimary }]}>Agregar Comunas</Text>
             <TouchableOpacity onPress={() => setShowCommuneSelector(false)} activeOpacity={0.7}>
-              <Ionicons name="close" size={24} color={textTertiary} />
+              <InstitutionalIcon name="close" size={24} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
           </View>
 
@@ -592,7 +555,7 @@ export default function EditarZonaServicioScreen() {
           <View style={[styles.filtersContainer, { backgroundColor: bgPaper, borderBottomColor: borderLight }]}>
             {/* Búsqueda */}
             <View style={[styles.searchContainer, { backgroundColor: bgDefault }]}>
-              <Ionicons name="search" size={20} color={textTertiary} />
+              <InstitutionalIcon name="search" size={20} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
               <TextInput
                 style={[styles.searchInput, { color: textPrimary }]}
                 placeholder="Buscar comuna..."
@@ -619,7 +582,7 @@ export default function EditarZonaServicioScreen() {
               >
                 <Text style={[
                   styles.regionChipText,
-                  { color: !selectedRegion ? (COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF') : textPrimary }
+                  { color: !selectedRegion ? I.onPrimary : textPrimary }
                 ]}>
                   Todas las regiones
                 </Text>
@@ -640,7 +603,7 @@ export default function EditarZonaServicioScreen() {
                 >
                   <Text style={[
                     styles.regionChipText,
-                    { color: selectedRegion === region.region_code ? (COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF') : textPrimary }
+                    { color: selectedRegion === region.region_code ? I.onPrimary : textPrimary }
                   ]}>
                     {region.region_name}
                   </Text>
@@ -664,7 +627,7 @@ export default function EditarZonaServicioScreen() {
               ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: borderLight }]} />}
               ListEmptyComponent={() => (
                 <View style={styles.emptyListContainer}>
-                  <Ionicons name="search" size={48} color={textTertiary} />
+                  <InstitutionalIcon name="search" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={[styles.emptyListText, { color: textPrimary }]}>No se encontraron comunas</Text>
                   <Text style={[styles.emptyListSubtext, { color: textTertiary }]}>
                     Intenta cambiar los filtros o el texto de búsqueda
@@ -675,36 +638,40 @@ export default function EditarZonaServicioScreen() {
           )}
         </SafeAreaView>
       </Modal>
+      </SafeAreaView>
     </View>
   );
 }
 
 // Función para crear estilos usando tokens del sistema de diseño
 const createStyles = () => {
-  const bgPaper = COLORS?.background?.paper || COLORS?.base?.white || '#FFFFFF';
-  const bgDefault = COLORS?.background?.default || '#F5F7F8';
-  const textPrimary = COLORS?.text?.primary || COLORS?.neutral?.inkBlack || '#00171F';
-  const textTertiary = COLORS?.text?.tertiary || ((COLORS?.neutral?.gray as any)?.[700]) || '#5D6F75';
-  const borderLight = COLORS?.border?.light || COLORS?.neutral?.gray?.[200] || '#D7DFE3';
-  const spacingXs = SPACING?.xs || 4;
-  const spacingSm = SPACING?.sm || 8;
-  const spacingMd = SPACING?.md || 16;
-  const spacingLg = SPACING?.lg || 24;
-  const containerHorizontal = SPACING?.container?.horizontal || SPACING?.content?.horizontal || 18;
-  const cardPadding = SPACING?.cardPadding || spacingMd;
-  const cardGap = SPACING?.cardGap || spacingSm + 4;
-  const radiusXl = BORDERS?.radius?.xl || 16;
-  const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
-  const fontSizeSm = TYPOGRAPHY?.fontSize?.sm || 12;
-  const fontSizeMd = TYPOGRAPHY?.fontSize?.md || 16;
-  const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
-  const fontWeightMedium = TYPOGRAPHY?.fontWeight?.medium || '500';
-  const fontWeightSemibold = TYPOGRAPHY?.fontWeight?.semibold || '600';
-  const fontWeightBold = TYPOGRAPHY?.fontWeight?.bold || '700';
-  const shadowSm = SHADOWS?.sm || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-  const shadowMd = SHADOWS?.md || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
+  const I = COLORS.institutional;
+  const bgPaper = I.canvas;
+  const bgDefault = I.canvas;
+  const textPrimary = I.ink;
+  const textTertiary = I.muted;
+  const borderLight = I.hairline;
+  const spacingXs = SPACING.xs;
+  const spacingSm = SPACING.sm;
+  const spacingMd = SPACING.md;
+  const spacingLg = SPACING.lg;
+  const containerHorizontal = GLASS_INSET;
+  const cardPadding = spacingMd;
+  const cardGap = spacingMd;
+  const radiusXl = BORDERS.radius.xl;
+  const fontSizeBase = TYPOGRAPHY.fontSize.base;
+  const fontSizeSm = TYPOGRAPHY.fontSize.sm;
+  const fontSizeMd = TYPOGRAPHY.fontSize.md;
+  const fontSizeLg = TYPOGRAPHY.fontSize.lg;
+  const fontWeightMedium = TYPOGRAPHY.fontWeight.medium;
+  const fontWeightSemibold = TYPOGRAPHY.fontWeight.semibold;
+  const fontWeightBold = TYPOGRAPHY.fontWeight.bold;
 
   return StyleSheet.create({
+    screenRoot: {
+      flex: 1,
+      backgroundColor: bgDefault,
+    },
     container: {
       flex: 1,
       backgroundColor: bgDefault,
@@ -714,6 +681,7 @@ const createStyles = () => {
     },
     content: {
       paddingVertical: spacingMd,
+      paddingHorizontal: containerHorizontal,
     },
     loadingContainer: {
       flex: 1,
@@ -755,7 +723,7 @@ const createStyles = () => {
       borderRadius: radiusXl,
       padding: cardPadding,
       marginBottom: cardGap,
-      ...shadowSm,
+      ...SHADOWS.editorial,
       borderWidth: 1,
       borderColor: borderLight,
     },
@@ -815,6 +783,23 @@ const createStyles = () => {
       fontSize: fontSizeBase,
       fontWeight: fontWeightSemibold,
     },
+    addCommuneButtonDisabled: {
+      opacity: 0.45,
+    },
+    communesSyncingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacingSm,
+      marginTop: spacingSm,
+      paddingVertical: spacingMd,
+      paddingHorizontal: spacingMd,
+      borderRadius: radiusXl / 2,
+      borderWidth: 1,
+    },
+    communesSyncingText: {
+      flex: 1,
+      fontSize: fontSizeBase,
+    },
     textInput: {
       borderRadius: radiusXl / 2,
       padding: spacingMd,
@@ -868,7 +853,7 @@ const createStyles = () => {
       borderRadius: radiusXl,
       padding: cardPadding,
       borderWidth: 1,
-      ...shadowSm,
+      ...SHADOWS.editorial,
     },
     summaryTitle: {
       fontSize: fontSizeMd,
@@ -887,7 +872,7 @@ const createStyles = () => {
       padding: containerHorizontal,
       paddingBottom: spacingLg + 14,
       borderTopWidth: 1,
-      ...shadowSm,
+      ...SHADOWS.editorial,
     },
     saveButton: {
       flexDirection: 'row',
@@ -915,7 +900,7 @@ const createStyles = () => {
       paddingHorizontal: containerHorizontal,
       paddingVertical: spacingMd,
       borderBottomWidth: 1,
-      ...shadowSm,
+      ...SHADOWS.editorial,
     },
     modalTitle: {
       fontSize: fontSizeLg,
@@ -924,7 +909,7 @@ const createStyles = () => {
     filtersContainer: {
       padding: containerHorizontal,
       borderBottomWidth: 1,
-      ...shadowSm,
+      ...SHADOWS.editorial,
     },
     searchContainer: {
       flexDirection: 'row',

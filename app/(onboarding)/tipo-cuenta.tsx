@@ -10,11 +10,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { authAPI, getAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import * as SecureStore from 'expo-secure-store';
 import OnboardingHeader from '@/components/OnboardingHeader';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export default function TipoCuentaScreen() {
   const [tipoSeleccionado, setTipoSeleccionado] = useState<'taller' | 'mecanico' | null>(null);
@@ -271,11 +272,11 @@ export default function TipoCuentaScreen() {
               activeOpacity={0.8}
             >
               <View style={styles.opcionHeader}>
-                <Ionicons 
+                <InstitutionalIcon 
                   name="business" 
                   size={32} 
                   color={tipoSeleccionado === 'taller' ? '#4E4FEB' : '#666666'} 
-                />
+                 strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[
                   styles.opcionTitulo,
                   tipoSeleccionado === 'taller' && styles.opcionTituloSeleccionado
@@ -297,11 +298,11 @@ export default function TipoCuentaScreen() {
               activeOpacity={0.8}
             >
               <View style={styles.opcionHeader}>
-                <Ionicons 
+                <InstitutionalIcon 
                   name="car-sport" 
                   size={32} 
                   color={tipoSeleccionado === 'mecanico' ? '#4E4FEB' : '#666666'} 
-                />
+                 strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[
                   styles.opcionTitulo,
                   tipoSeleccionado === 'mecanico' && styles.opcionTituloSeleccionado
