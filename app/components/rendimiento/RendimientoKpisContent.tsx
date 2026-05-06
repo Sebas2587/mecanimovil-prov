@@ -341,7 +341,8 @@ export function RendimientoKpisContent() {
             <View style={styles.sectionWrap}>
               <Text style={styles.disclaimer}>
                 Los datos se calculan en el servidor. “Actividad” incluye órdenes con checklist o reseña en el periodo,
-                no solo la fecha de creación.
+                no solo la fecha de creación. Las calificaciones se toman por orden en esa ventana (Resena y reseñas de la
+                app de usuarios); “servicios” repite esa nota por cada línea con tu OfertaServicio.
               </Text>
             </View>
           </>
