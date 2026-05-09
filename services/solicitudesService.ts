@@ -194,6 +194,11 @@ export interface OfertaProveedor {
     hora_preferida?: string | null;
     direccion_servicio_texto: string;
     detalles_ubicacion?: string;
+    fotos_necesidad?: Array<{
+      id: string;
+      imagen_url: string | null;
+      orden: number;
+    }>;
   };
   proveedor: number;
   tipo_proveedor: 'taller' | 'mecanico';

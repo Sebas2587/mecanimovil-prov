@@ -9,6 +9,8 @@ import {
   Image,
   Platform,
   Linking,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -20,6 +22,7 @@ import { checklistService, type ChecklistInstance } from '@/services/checklistSe
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { calcularDesgloseIvaOferta } from '@/utils/ofertaPrecioDesglose';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -38,6 +41,7 @@ export default function OfertaDetalleScreen() {
   const [showChecklistContainer, setShowChecklistContainer] = useState(false);
   const [showCompletedChecklistModal, setShowCompletedChecklistModal] = useState(false);
   const [loadingChecklist, setLoadingChecklist] = useState(false);
+  const [fotoAmpliadaUrl, setFotoAmpliadaUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -713,7 +717,7 @@ export default function OfertaDetalleScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionHeaderTitle}>Servicios Solicitados</Text>
               <View style={styles.serviciosBadgesContainer}>
-                {oferta.solicitud_detail.servicios_solicitados.map((servicio) => (
+                {(oferta.solicitud_detail.servicios_solicitados || []).map((servicio) => (
                   <View key={servicio.id} style={styles.servicioBadge}>
                     <Text style={styles.servicioBadgeText}>{servicio.nombre}</Text>
                   </View>
@@ -727,6 +731,33 @@ export default function OfertaDetalleScreen() {
                   </Text>
                 </>
               )}
+              {Array.isArray(oferta.solicitud_detail.fotos_necesidad) &&
+                oferta.solicitud_detail.fotos_necesidad.length > 0 && (
+                  <>
+                    <Text style={[styles.sectionHeaderTitle, { marginTop: 16 }]}>Fotos del cliente</Text>
+                    <Text style={styles.fotosClienteHint}>Toca una imagen para verla en grande antes de ofertar.</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.fotosClienteRow}
+                    >
+                      {oferta.solicitud_detail.fotos_necesidad.map((foto) => {
+                        const url = foto?.imagen_url;
+                        if (!url) return null;
+                        return (
+                          <TouchableOpacity
+                            key={foto.id || url}
+                            onPress={() => setFotoAmpliadaUrl(url)}
+                            activeOpacity={0.85}
+                            style={styles.fotosClienteThumbWrap}
+                          >
+                            <Image source={{ uri: url }} style={styles.fotosClienteThumb} resizeMode="cover" />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </>
+                )}
             </View>
           </>
         )}
@@ -786,33 +817,21 @@ export default function OfertaDetalleScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionHeaderTitle}>Precio Total</Text>
           {(() => {
-            const roundMoney = (n: number) => Math.round(n);
             const mo = parseFloat(String(oferta.costo_mano_obra ?? '0')) || 0;
             const rep = parseFloat(String(oferta.costo_repuestos ?? '0')) || 0;
             const gest = parseFloat(String(oferta.costo_gestion_compra ?? '0')) || 0;
             const tieneMontosProveedor = mo > 0 || rep > 0 || gest > 0;
-            const sumSinIva = mo + rep + gest;
-            const totalCliente = roundMoney(parseFloat(String(oferta.precio_total_ofrecido ?? '0')) || 0);
-            const totalDesdeLineas = roundMoney(sumSinIva * 1.19);
-            const TOL = 2;
-            const lineasCuadranConTotal =
-              sumSinIva > 0 && Math.abs(totalDesdeLineas - totalCliente) <= TOL;
-
-            let subSinIvaDisplay: number;
-            let ivaDisplay: number;
-            if (totalCliente <= 0) {
-              subSinIvaDisplay = 0;
-              ivaDisplay = 0;
-            } else if (lineasCuadranConTotal) {
-              subSinIvaDisplay = roundMoney(sumSinIva);
-              ivaDisplay = totalCliente - subSinIvaDisplay;
-            } else {
-              subSinIvaDisplay = roundMoney(totalCliente / 1.19);
-              ivaDisplay = totalCliente - subSinIvaDisplay;
-            }
-
-            const mostrarNotaReconciliacion =
-              tieneMontosProveedor && totalCliente > 0 && !lineasCuadranConTotal && sumSinIva > 0;
+            const {
+              subSinIvaDisplay,
+              ivaDisplay,
+              totalCliente,
+              mostrarNotaReconciliacion,
+            } = calcularDesgloseIvaOferta({
+              costoManoObra: oferta.costo_mano_obra,
+              costoRepuestos: oferta.costo_repuestos,
+              costoGestionCompra: oferta.costo_gestion_compra,
+              precioTotalOfrecido: oferta.precio_total_ofrecido,
+            });
 
             return (
               <View style={styles.precioCard}>
@@ -1172,6 +1191,14 @@ export default function OfertaDetalleScreen() {
           ordenId={(oferta as any).solicitud_servicio_id}
         />
       )}
+
+      <Modal visible={!!fotoAmpliadaUrl} transparent animationType="fade" onRequestClose={() => setFotoAmpliadaUrl(null)}>
+        <Pressable style={styles.fotoLightboxBackdrop} onPress={() => setFotoAmpliadaUrl(null)}>
+          {fotoAmpliadaUrl ? (
+            <Image source={{ uri: fotoAmpliadaUrl }} style={styles.fotoLightboxImage} resizeMode="contain" />
+          ) : null}
+        </Pressable>
+      </Modal>
       </View>
     </View>
   );
@@ -1308,6 +1335,40 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
     color: I.ink,
+  },
+  fotosClienteHint: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    marginBottom: SPACING.fixed.sm,
+  },
+  fotosClienteRow: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.sm,
+    paddingVertical: 4,
+  },
+  fotosClienteThumbWrap: {
+    borderRadius: BORDERS.radius.md,
+    overflow: 'hidden',
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  fotosClienteThumb: {
+    width: 96,
+    height: 96,
+  },
+  fotoLightboxBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.fixed.md,
+  },
+  fotoLightboxImage: {
+    width: '100%' as const,
+    height: '100%' as const,
+    maxHeight: 640,
   },
 
   clientInfoContainer: {
