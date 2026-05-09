@@ -82,6 +82,16 @@ export type NuevoMensajeChatCallback = (event: NuevoMensajeChatEvent) => void;
 export type PagoExpiradoCallback = (event: PagoExpiradoEvent) => void;
 export type SolicitudCanceladaClienteCallback = (event: SolicitudCanceladaClienteEvent) => void;
 
+export interface ServicioCerradoPorClienteEvent {
+  type: 'servicio_cerrado_por_cliente';
+  oferta_id?: string;
+  solicitud_publica_id?: string;
+  solicitud_servicio_id?: number;
+  timestamp?: string;
+}
+
+export type ServicioCerradoPorClienteCallback = (event: ServicioCerradoPorClienteEvent) => void;
+
 class WebSocketService {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
@@ -98,6 +108,7 @@ class WebSocketService {
   private nuevoMensajeChatCallbacks: Set<NuevoMensajeChatCallback> = new Set();
   private pagoExpiradoCallbacks: Set<PagoExpiradoCallback> = new Set();
   private solicitudCanceladaClienteCallbacks: Set<SolicitudCanceladaClienteCallback> = new Set();
+  private servicioCerradoPorClienteCallbacks: Set<ServicioCerradoPorClienteCallback> = new Set();
 
   /**
    * Inicializa la conexión WebSocket con autenticación JWT
@@ -297,6 +308,11 @@ class WebSocketService {
         case 'solicitud_cancelada_cliente':
           devLog('❌ Solicitud cancelada por cliente recibida:', data);
           this.handleSolicitudCanceladaCliente(data as SolicitudCanceladaClienteEvent);
+          break;
+
+        case 'servicio_cerrado_por_cliente':
+          devLog('✅ Servicio cerrado por firma del cliente:', data);
+          this.handleServicioCerradoPorCliente(data as ServicioCerradoPorClienteEvent);
           break;
 
         default:
@@ -664,6 +680,26 @@ class WebSocketService {
     };
   }
 
+  private handleServicioCerradoPorCliente(event: ServicioCerradoPorClienteEvent): void {
+    this.servicioCerradoPorClienteCallbacks.forEach(callback => {
+      try {
+        callback(event);
+      } catch (error) {
+        console.error('❌ Error en callback servicio_cerrado_por_cliente:', error);
+      }
+    });
+  }
+
+  /**
+   * Cliente firmó checklist — invalidar órdenes/ofertas en pantallas suscritas.
+   */
+  onServicioCerradoPorCliente(callback: ServicioCerradoPorClienteCallback): () => void {
+    this.servicioCerradoPorClienteCallbacks.add(callback);
+    return () => {
+      this.servicioCerradoPorClienteCallbacks.delete(callback);
+    };
+  }
+
   /**
    * Limpia los listeners al destruir el servicio
    */
@@ -676,6 +712,7 @@ class WebSocketService {
     this.nuevoMensajeChatCallbacks.clear();
     this.pagoExpiradoCallbacks.clear();
     this.solicitudCanceladaClienteCallbacks.clear();
+    this.servicioCerradoPorClienteCallbacks.clear();
     this.disconnect();
   }
 }

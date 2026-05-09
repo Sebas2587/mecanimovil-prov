@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -27,7 +27,8 @@ import { useAuth } from '@/context/AuthContext';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { useFocusEffect } from '@react-navigation/native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import websocketService from '@/app/services/websocketService';
 import Header from '@/components/Header';
 import { COLORS, withOpacity, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '@/app/design-system/tokens';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
@@ -161,6 +162,16 @@ export default function OrdenesScreen() {
   });
 
   const isVerified = estadoProveedor?.estado_verificacion === 'aprobado';
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!isVerified) return;
+    const unsub = websocketService.onServicioCerradoPorCliente(() => {
+      queryClient.invalidateQueries({ queryKey: ['ordenes-proveedor'] });
+      queryClient.invalidateQueries({ queryKey: ['ofertas-proveedor'] });
+    });
+    return unsub;
+  }, [isVerified, queryClient]);
 
   const {
     data: ordenesCompletas = [],
