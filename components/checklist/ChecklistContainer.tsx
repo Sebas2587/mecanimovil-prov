@@ -231,14 +231,25 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     setShowSignatureModal(true);
   };
 
-  const handleSignaturesComplete = async (firmaTecnico: string, firmaCliente: string, ubicacion: { lat: number; lng: number }) => {
-    console.log('🏁 Procesando finalización con firmas digitales...');
+  const handleSignaturesComplete = async (
+    firmaTecnico: string,
+    firmaCliente: string | null,
+    ubicacion: { lat: number; lng: number }
+  ) => {
+    // Firma diferida (change firma-cliente-diferida-checklist):
+    // por defecto el cliente firma desde su app. Si el técnico optó por
+    // capturar también la firma del cliente en sitio (modo legacy 'both'),
+    // `firmaCliente` viene como string y el backend cierra el flujo de
+    // inmediato.
+    console.log('🏁 Enviando firma del técnico al backend...', {
+      firmaCliente: firmaCliente ? 'presente (legacy 2 firmas)' : 'diferida (cliente firmará desde su app)',
+    });
     setShowSignatureModal(false);
 
     try {
       const result = await finalizeChecklist({
         firma_tecnico: firmaTecnico,
-        firma_cliente: firmaCliente,
+        firma_cliente: firmaCliente ?? null,
         ubicacion_lat: ubicacion.lat,
         ubicacion_lng: ubicacion.lng,
       });
@@ -246,19 +257,35 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
       console.log('🎊 Resultado de finalización:', result);
 
       if (result.success) {
-        Alert.alert(
-          '🎉 Checklist Completado',
-          'El checklist ha sido finalizado exitosamente. Las firmas digitales y la ubicación GPS han sido registradas.',
-          [
-            {
-              text: 'Excelente',
-              onPress: () => {
-                console.log('✅ Usuario confirmó finalización exitosa');
-                onComplete?.();
+        const requiereFirmaCliente = !firmaCliente;
+
+        if (requiereFirmaCliente) {
+          Alert.alert(
+            'Firma enviada',
+            'Tu firma quedó registrada. El cliente recibirá una notificación para firmar desde su app y cerrar el servicio.',
+            [
+              {
+                text: 'Entendido',
+                onPress: () => {
+                  onComplete?.();
+                },
               },
-            },
-          ]
-        );
+            ]
+          );
+        } else {
+          Alert.alert(
+            '🎉 Checklist Completado',
+            'El checklist ha sido finalizado exitosamente. Las firmas digitales y la ubicación GPS han sido registradas.',
+            [
+              {
+                text: 'Excelente',
+                onPress: () => {
+                  onComplete?.();
+                },
+              },
+            ]
+          );
+        }
       } else {
         console.error('❌ Error en finalización:', result.message);
         Alert.alert(
@@ -539,11 +566,12 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         </View>
       )}
 
-      {/* Modal de firmas */}
+      {/* Modal de firma del técnico (firma diferida del cliente) */}
       <ChecklistSignatureModal
         visible={showSignatureModal}
         onClose={() => setShowSignatureModal(false)}
         onComplete={handleSignaturesComplete}
+        signatureMode="tecnico_only"
         ordenInfo={{
           id: instance.orden,
           cliente: `Orden #${instance.orden}`,

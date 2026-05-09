@@ -187,7 +187,12 @@ export interface ChecklistPhoto {
 
 export interface ChecklistFinalizationData {
   firma_tecnico: string;
-  firma_cliente: string;
+  /**
+   * `null` cuando se finaliza con firma diferida del cliente
+   * (change firma-cliente-diferida-checklist). El cliente firmará
+   * después desde su propia app vía `firmar-cliente`.
+   */
+  firma_cliente: string | null;
   ubicacion_lat: number;
   ubicacion_lng: number;
 }
@@ -1242,25 +1247,30 @@ class ChecklistService {
   // ==================== FINALIZACIÓN CON FIRMAS ====================
 
   async finalizeChecklist(
-    instanceId: number, 
-    firmaTecnico: string, 
-    firmaCliente: string, 
+    instanceId: number,
+    firmaTecnico: string,
+    firmaCliente: string | null,
     ubicacion: { lat: number; lng: number }
   ): Promise<ServiceResponse<ChecklistInstance>> {
     try {
       console.log('🏁 Finalizando checklist con firmas digitales:', {
         instanceId,
         firmaTecnico: firmaTecnico.substring(0, 20) + '...',
-        firmaCliente: firmaCliente.substring(0, 20) + '...',
-        ubicacion
+        firmaCliente: firmaCliente
+          ? firmaCliente.substring(0, 20) + '...'
+          : 'null (firma diferida del cliente)',
+        ubicacion,
       });
 
-      const response = await api.post(`${this.baseUrl}/instances/${instanceId}/finalize/`, {
-        firma_tecnico: firmaTecnico,
-        firma_cliente: firmaCliente,
-        ubicacion_lat: ubicacion.lat,
-        ubicacion_lng: ubicacion.lng
-      });
+      const response = await api.post(
+        `${this.baseUrl}/instances/${instanceId}/finalize/`,
+        {
+          firma_tecnico: firmaTecnico,
+          firma_cliente: firmaCliente,
+          ubicacion_lat: ubicacion.lat,
+          ubicacion_lng: ubicacion.lng,
+        },
+      );
 
       console.log('✅ Respuesta del backend para finalización:', response.data);
 

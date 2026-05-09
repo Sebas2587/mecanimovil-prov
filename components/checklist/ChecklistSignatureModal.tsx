@@ -20,7 +20,17 @@ export type SignatureMode = 'both' | 'tecnico_only' | 'cliente_only';
 interface ChecklistSignatureModalProps {
   visible: boolean;
   onClose: () => void;
-  onComplete: (firmaTecnico: string, firmaCliente: string, ubicacion: { lat: number; lng: number }) => void;
+  /**
+   * - `firmaTecnico`: Base64 de la firma del técnico (siempre presente al
+   *   confirmar).
+   * - `firmaCliente`: Base64 de la firma del cliente o `null` cuando se
+   *   captura sólo la del técnico (firma diferida del cliente).
+   */
+  onComplete: (
+    firmaTecnico: string,
+    firmaCliente: string | null,
+    ubicacion: { lat: number; lng: number },
+  ) => void;
   ordenInfo: {
     id: number;
     cliente: string;
@@ -226,7 +236,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
       
       // Finalizar con ubicación (en modo única firma solo uno vendrá; en modo both ambos)
       const firmaTecnico = finalSignatures.tecnico || '';
-      const firmaCliente = finalSignatures.cliente || '';
+      const firmaCliente = finalSignatures.cliente || null;
       if (firmaTecnico || firmaCliente) {
         console.log('🏁 Finalizando con ubicación GPS');
         onComplete(firmaTecnico, firmaCliente, coords);
@@ -273,7 +283,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
   const finalizarSinUbicacion = (finalSignatures: SignatureData) => {
     console.log('📍 Finalizando sin ubicación GPS (usando coordenadas por defecto)');
     const firmaTecnico = finalSignatures.tecnico || '';
-    const firmaCliente = finalSignatures.cliente || '';
+    const firmaCliente = finalSignatures.cliente || null;
     if (firmaTecnico || firmaCliente) {
       onComplete(firmaTecnico, firmaCliente, { lat: 0, lng: 0 });
     }
@@ -318,7 +328,8 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
     if (signatureMode === 'tecnico_only') {
       return {
         title: 'Firma del Técnico Responsable',
-        subtitle: 'Firma como técnico responsable de este servicio',
+        subtitle:
+          'Firma para enviar el cierre del servicio. El cliente recibirá una notificación para confirmar con su firma desde su app.',
         icon: 'engineering',
         color: '#2A4065',
       };

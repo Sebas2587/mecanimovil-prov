@@ -83,8 +83,13 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
       setLoading(true);
       setError(null);
       try {
-        const data = await checklistService.getPreviewImpacto(instanceId);
-        setPreview(data);
+        const res = await checklistService.getPreviewImpacto(instanceId);
+        if (!res.success || res.data == null) {
+          setError(res.message || 'No se pudo calcular el impacto.');
+          setPreview(null);
+          return;
+        }
+        setPreview(res.data);
       } catch (e: any) {
         const msg = e?.response?.data?.detail || e?.message || 'No se pudo calcular el impacto.';
         console.warn('Error preview-impacto:', e);

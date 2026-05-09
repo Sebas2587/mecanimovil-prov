@@ -79,14 +79,18 @@ export default function ChecklistItemDetailScreen() {
         setSaludSnapshot(null);
         return;
       }
-      if (!item.componente_salud_asociado) {
-        setSaludSnapshot(null);
-        return;
-      }
+      // El snapshot solo incluye ítems con componente en BD; pedimos siempre
+      // para no depender de que el template en caché traiga `componente_salud_asociado`.
       try {
-        const snapshot = await checklistService.getSaludSnapshot(instance.id);
+        const res = await checklistService.getSaludSnapshot(instance.id);
+        if (!res.success || !res.data?.items) {
+          setSaludSnapshot(null);
+          return;
+        }
         const found =
-          snapshot.items?.find((s) => s.item_template_id === item.id) || null;
+          res.data.items.find(
+            (s) => Number(s.item_template_id) === Number(item.id),
+          ) || null;
         setSaludSnapshot(found);
       } catch (error) {
         console.warn('No se pudo cargar el snapshot de salud:', error);
