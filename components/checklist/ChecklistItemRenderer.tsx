@@ -16,7 +16,12 @@ import {
   Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { ChecklistItemTemplate, ChecklistItemResponse, ChecklistInstance } from '@/services/checklistService';
+import {
+  ChecklistItemTemplate,
+  ChecklistItemResponse,
+  ChecklistInstance,
+  ChecklistSaludSnapshotItem,
+} from '@/services/checklistService';
 import { ChecklistSignatureModal, type SignatureMode } from './ChecklistSignatureModal';
 import { InventoryChecklistComponent } from './items/InventoryChecklistComponent';
 import { FuelGaugeComponent } from './items/FuelGaugeComponent';
@@ -44,7 +49,354 @@ interface ChecklistItemRendererProps {
     descripcion?: string
   ) => Promise<any>;
   deletePhoto?: (photoId: number) => Promise<any>;
+  /** Snapshot de salud actual del componente vinculado (refactor 2026). */
+  saludSnapshot?: ChecklistSaludSnapshotItem | null;
 }
+
+// ── Helpers de salud ───────────────────────────────────────────────────────
+const SALUD_NIVEL_COLORS: Record<string, string> = {
+  OPTIMO: '#05b169',
+  ATENCION: '#f4b000',
+  URGENTE: '#fd7e14',
+  CRITICO: '#cf202f',
+};
+
+const SALUD_NIVEL_LABEL: Record<string, string> = {
+  OPTIMO: 'Óptimo',
+  ATENCION: 'Atención',
+  URGENTE: 'Urgente',
+  CRITICO: 'Crítico',
+};
+
+function nivelDesdePct(pct: number): keyof typeof SALUD_NIVEL_COLORS {
+  if (pct >= 80) return 'OPTIMO';
+  if (pct >= 60) return 'ATENCION';
+  if (pct >= 35) return 'URGENTE';
+  return 'CRITICO';
+}
+
+function diasDesde(iso?: string | null): string | null {
+  if (!iso) return null;
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return null;
+  const dias = Math.floor((Date.now() - dt.getTime()) / (1000 * 60 * 60 * 24));
+  if (dias <= 0) return 'hoy';
+  if (dias === 1) return 'ayer';
+  if (dias < 30) return `hace ${dias} días`;
+  if (dias < 365) return `hace ${Math.round(dias / 30)} meses`;
+  return `hace ${Math.round(dias / 365)} años`;
+}
+
+interface SaludActualBannerProps {
+  snapshot: ChecklistSaludSnapshotItem;
+}
+
+const SaludActualBanner: React.FC<SaludActualBannerProps> = ({ snapshot }) => {
+  const tieneDato = snapshot.salud_actual !== null;
+  const pct = snapshot.salud_actual ?? 0;
+  const nivel = snapshot.nivel_alerta_actual ?? (tieneDato ? nivelDesdePct(pct) : null);
+  const color = nivel ? SALUD_NIVEL_COLORS[nivel] : '#a8acb3';
+  const label = nivel ? SALUD_NIVEL_LABEL[nivel] : 'Sin datos';
+  const cuando = diasDesde(snapshot.fecha_ultimo_servicio);
+  const intencionLabel =
+    snapshot.tipo_actualizacion === 'REEMPLAZA' ? 'Será reemplazado'
+    : snapshot.tipo_actualizacion === 'INSPECCIONA' ? 'Solo inspección'
+    : 'Sin impacto en salud';
+
+  return (
+    <View style={saludStyles.container}>
+      <View style={saludStyles.headerRow}>
+        <View style={saludStyles.iconWrap}>
+          <InstitutionalIcon
+            name="favorite"
+            size={16}
+            color={color}
+            strokeWidth={ICON_STROKE_WIDTH}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={saludStyles.title}>{snapshot.componente.nombre}</Text>
+          <Text style={saludStyles.intencionTag}>{intencionLabel}</Text>
+        </View>
+        {tieneDato && (
+          <View style={[saludStyles.badge, { backgroundColor: color }]}>
+            <Text style={saludStyles.badgeText}>{Math.round(pct)}%</Text>
+          </View>
+        )}
+        {!tieneDato && (
+          <View style={[saludStyles.badge, { backgroundColor: '#a8acb3' }]}>
+            <Text style={saludStyles.badgeText}>S/D</Text>
+          </View>
+        )}
+      </View>
+      <View style={saludStyles.barTrack}>
+        <View
+          style={[
+            saludStyles.barFill,
+            {
+              width: `${Math.min(100, Math.max(0, pct))}%`,
+              backgroundColor: color,
+            },
+          ]}
+        />
+      </View>
+      <View style={saludStyles.metaRow}>
+        <Text style={saludStyles.metaText}>{label}</Text>
+        {cuando && (
+          <Text style={saludStyles.metaText}>· Última actualización {cuando}</Text>
+        )}
+      </View>
+    </View>
+  );
+};
+
+const saludStyles = StyleSheet.create({
+  container: {
+    backgroundColor: '#f7f7f7',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#dee1e6',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  iconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#eef0f3',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0a0b0d',
+  },
+  intencionTag: {
+    fontSize: 11,
+    color: '#7c828a',
+    marginTop: 2,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  barTrack: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: '#eef0f3',
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 6,
+  },
+  metaText: {
+    fontSize: 11,
+    color: '#7c828a',
+    marginRight: 4,
+  },
+});
+
+// ── Slider COMPONENT_HEALTH (sin dependencias nuevas) ───────────────────────
+interface ComponentHealthSliderProps {
+  value: number | null;
+  onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+}
+
+const PRESET_VALUES = [0, 25, 50, 75, 100];
+
+const ComponentHealthSlider: React.FC<ComponentHealthSliderProps> = ({
+  value,
+  onChange,
+  min = 0,
+  max = 100,
+}) => {
+  const current = value ?? 0;
+  const nivel = nivelDesdePct(current);
+  const color = SALUD_NIVEL_COLORS[nivel];
+  const clamp = (v: number) => Math.max(min, Math.min(max, v));
+
+  return (
+    <View style={sliderStyles.container}>
+      <View style={sliderStyles.valueRow}>
+        <Text style={[sliderStyles.valueText, { color }]}>
+          {value === null ? '—' : `${Math.round(current)}%`}
+        </Text>
+        <Text style={[sliderStyles.nivelText, { color }]}>
+          {SALUD_NIVEL_LABEL[nivel]}
+        </Text>
+      </View>
+
+      <View style={sliderStyles.barTrack}>
+        <View
+          style={[
+            sliderStyles.barFill,
+            {
+              width: `${Math.min(100, Math.max(0, current))}%`,
+              backgroundColor: color,
+            },
+          ]}
+        />
+      </View>
+
+      <View style={sliderStyles.stepRow}>
+        <TouchableOpacity
+          style={sliderStyles.stepButton}
+          onPress={() => onChange(clamp(current - 5))}
+          accessibilityRole="button"
+          accessibilityLabel="Disminuir 5%"
+        >
+          <Text style={sliderStyles.stepButtonText}>−5</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={sliderStyles.stepButton}
+          onPress={() => onChange(clamp(current - 1))}
+          accessibilityRole="button"
+          accessibilityLabel="Disminuir 1%"
+        >
+          <Text style={sliderStyles.stepButtonText}>−1</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={sliderStyles.stepButton}
+          onPress={() => onChange(clamp(current + 1))}
+          accessibilityRole="button"
+          accessibilityLabel="Aumentar 1%"
+        >
+          <Text style={sliderStyles.stepButtonText}>+1</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={sliderStyles.stepButton}
+          onPress={() => onChange(clamp(current + 5))}
+          accessibilityRole="button"
+          accessibilityLabel="Aumentar 5%"
+        >
+          <Text style={sliderStyles.stepButtonText}>+5</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={sliderStyles.presetRow}>
+        {PRESET_VALUES.map((preset) => {
+          const active = Math.round(current) === preset;
+          return (
+            <TouchableOpacity
+              key={preset}
+              style={[
+                sliderStyles.presetButton,
+                active && {
+                  borderColor: color,
+                  backgroundColor: '#eef0f3',
+                },
+              ]}
+              onPress={() => onChange(preset)}
+              accessibilityRole="button"
+              accessibilityLabel={`Vida útil ${preset}%`}
+            >
+              <Text
+                style={[
+                  sliderStyles.presetText,
+                  active && { color, fontWeight: '700' },
+                ]}
+              >
+                {preset}%
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+};
+
+const sliderStyles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 4,
+    paddingTop: 4,
+  },
+  valueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  valueText: {
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  nivelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  barTrack: {
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: '#eef0f3',
+    overflow: 'hidden',
+    marginBottom: 14,
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 12,
+  },
+  stepButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#0052ff',
+    alignItems: 'center',
+  },
+  stepButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  presetButton: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#dee1e6',
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+  },
+  presetText: {
+    fontSize: 13,
+    color: '#5b616e',
+  },
+});
 
 export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   item,
@@ -57,6 +409,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   pickFromGallery,
   uploadPhoto,
   deletePhoto,
+  saludSnapshot,
 }) => {
   const [inputValue, setInputValue] = useState<any>('');
   const [isModified, setIsModified] = useState(false);
@@ -136,6 +489,13 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           if (response.respuesta_numero !== null && response.respuesta_numero !== undefined) {
             setInputValue(response.respuesta_numero.toString());
             console.log('✅ Valor número cargado:', response.respuesta_numero);
+          }
+          break;
+
+        case 'COMPONENT_HEALTH':
+          if (response.respuesta_numero !== null && response.respuesta_numero !== undefined) {
+            setInputValue(Number(response.respuesta_numero));
+            console.log('✅ Vida útil cargada:', response.respuesta_numero);
           }
           break;
 
@@ -246,6 +606,13 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         } else {
           responseData.respuesta_numero = Number.isFinite(n) ? n : 0;
         }
+        break;
+      }
+      case 'COMPONENT_HEALTH': {
+        const n = typeof inputValue === 'number' ? inputValue : Number(inputValue);
+        responseData.respuesta_numero = Number.isFinite(n)
+          ? Math.max(0, Math.min(100, n))
+          : null;
         break;
       }
       case 'BOOLEAN':
@@ -770,6 +1137,25 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           />
         );
 
+      case 'COMPONENT_HEALTH': {
+        const numericValue =
+          inputValue === '' || inputValue === null || inputValue === undefined
+            ? null
+            : Number(inputValue);
+        const safeValue =
+          typeof numericValue === 'number' && Number.isFinite(numericValue)
+            ? numericValue
+            : null;
+        return (
+          <ComponentHealthSlider
+            value={safeValue}
+            onChange={(v) => handleInputChange(v)}
+            min={item.valor_minimo ?? 0}
+            max={item.valor_maximo ?? 100}
+          />
+        );
+      }
+
       case 'PHOTO':
         return (
           <View style={styles.modernPhotoContainer}>
@@ -1185,6 +1571,11 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         )}
       </View>
 
+      {/* Banner de salud actual del componente vinculado (refactor 2026) */}
+      {saludSnapshot && saludSnapshot.componente && (
+        <SaludActualBanner snapshot={saludSnapshot} />
+      )}
+
       {/* Campo de entrada según el tipo */}
       <View style={styles.inputContainer}>
         {renderItemComponent()}
@@ -1231,6 +1622,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           'FLUID_LEVEL',
           'INVENTORY_CHECKLIST',
           'FUEL_GAUGE',
+          'COMPONENT_HEALTH',
           'RATING',
           'PHOTO',
           'DATETIME',

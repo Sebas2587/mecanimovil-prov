@@ -20,6 +20,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { ChecklistDiffModal } from '@/components/checklist/ChecklistDiffModal';
 
 interface ChecklistContainerProps {
   ordenId: number;
@@ -101,6 +102,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
 
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [showCompletedView, setShowCompletedView] = useState(false);
+  const [showDiffModal, setShowDiffModal] = useState(false);
 
   // ==================== HANDLERS ====================
 
@@ -219,7 +221,13 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
       return;
     }
 
-    console.log('✅ Abriendo modal de firmas para finalización');
+    console.log('✅ Abriendo modal de impacto de salud antes de firmas');
+    setShowDiffModal(true);
+  };
+
+  const handleDiffConfirm = () => {
+    console.log('✅ Diff confirmado, abriendo modal de firmas');
+    setShowDiffModal(false);
     setShowSignatureModal(true);
   };
 
@@ -548,6 +556,15 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         visible={showCompletedView}
         onClose={() => setShowCompletedView(false)}
         ordenId={ordenId}
+      />
+
+      {/* Modal de diff de salud antes de finalizar */}
+      <ChecklistDiffModal
+        visible={showDiffModal}
+        instanceId={instance?.id ?? null}
+        onCancel={() => setShowDiffModal(false)}
+        onConfirm={handleDiffConfirm}
+        finalizing={finalizing}
       />
     </SafeAreaView>
   );

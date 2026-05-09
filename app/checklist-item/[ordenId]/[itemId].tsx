@@ -15,6 +15,10 @@ import { ChecklistItemRenderer } from '@/components/checklist/ChecklistItemRende
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import {
+  checklistService,
+  ChecklistSaludSnapshotItem,
+} from '@/services/checklistService';
 
 export default function ChecklistItemDetailScreen() {
   const { ordenId, itemId } = useLocalSearchParams<{ ordenId: string; itemId: string }>();
@@ -38,6 +42,7 @@ export default function ChecklistItemDetailScreen() {
 
   const [item, setItem] = useState<any>(null);
   const [response, setResponse] = useState<any>(null);
+  const [saludSnapshot, setSaludSnapshot] = useState<ChecklistSaludSnapshotItem | null>(null);
 
   // Recargar datos cuando la pantalla recibe foco
   useFocusEffect(
@@ -65,6 +70,32 @@ export default function ChecklistItemDetailScreen() {
       }
     }
   }, [template, instance, itemIdNum]);
+
+  // Cargar snapshot de salud para mostrar el estado actual del componente
+  // vinculado al item antes de que el técnico lo actualice.
+  useEffect(() => {
+    const loadSaludSnapshot = async () => {
+      if (!instance?.id || !item) {
+        setSaludSnapshot(null);
+        return;
+      }
+      if (!item.componente_salud_asociado) {
+        setSaludSnapshot(null);
+        return;
+      }
+      try {
+        const snapshot = await checklistService.getSaludSnapshot(instance.id);
+        const found =
+          snapshot.items?.find((s) => s.item_template_id === item.id) || null;
+        setSaludSnapshot(found);
+      } catch (error) {
+        console.warn('No se pudo cargar el snapshot de salud:', error);
+        setSaludSnapshot(null);
+      }
+    };
+
+    loadSaludSnapshot();
+  }, [instance?.id, item]);
 
   // Para items de tipo FOTO: asegurar que exista una respuesta en backend
   // antes de intentar subir fotos, de modo que se puedan asociar múltiples evidencias.
@@ -175,6 +206,7 @@ export default function ChecklistItemDetailScreen() {
             pickFromGallery={pickFromGallery}
             uploadPhoto={uploadPhoto}
             deletePhoto={deletePhoto}
+            saludSnapshot={saludSnapshot}
           />
         </View>
       </ScrollView>

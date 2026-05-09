@@ -3,12 +3,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ==================== TIPOS E INTERFACES ====================
 
+export type ChecklistIntencion = 'REPARACION' | 'INSPECCION' | 'PRECOMPRA' | 'MIXTO';
+export type ChecklistTipoActualizacion = 'REEMPLAZA' | 'INSPECCIONA' | 'INFORMATIVO';
+export type ChecklistNivelAlerta = 'OPTIMO' | 'ATENCION' | 'URGENTE' | 'CRITICO';
+
+export interface ComponenteSaludRef {
+  id: number;
+  nombre: string;
+  slug: string;
+  icono?: string;
+}
+
 export interface ChecklistTemplate {
   id: number;
   nombre: string;
   descripcion?: string;
   servicio: number;
   servicio_nombre: string;
+  tipo_intencion_default?: ChecklistIntencion;
   activo: boolean;
   version: string;
   total_items: number;
@@ -26,7 +38,7 @@ export interface ChecklistItemTemplate {
     | 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'SELECT' | 'MULTISELECT' 
     | 'PHOTO' | 'SIGNATURE' | 'LOCATION' | 'DATETIME' | 'RATING'
     // Tipos específicos automotrices
-    | 'KILOMETER_INPUT' | 'FUEL_GAUGE' | 'FLUID_LEVEL'
+    | 'KILOMETER_INPUT' | 'FUEL_GAUGE' | 'FLUID_LEVEL' | 'COMPONENT_HEALTH'
     // Tipos de inventario y verificación
     | 'INVENTORY_CHECKLIST' | 'SERVICE_SELECTION' | 'VEHICLE_CONDITION'
     // Tipos de inspección visual
@@ -49,6 +61,52 @@ export interface ChecklistItemTemplate {
   depende_de_item?: number;
   condicion_dependencia?: any;
   catalog_item?: any;
+  // Semántica de salud (refactor 2026 — checklist inteligente)
+  tipo_actualizacion?: ChecklistTipoActualizacion | null;
+  tipo_actualizacion_efectivo?: ChecklistTipoActualizacion;
+  componente_salud_asociado?: ComponenteSaludRef | null;
+}
+
+// Snapshot de salud actual por ítem (para mostrar el estado al técnico
+// antes de que actualice la métrica). Se obtiene de
+// GET /api/checklists/instances/{id}/salud-snapshot/.
+export interface ChecklistSaludSnapshotItem {
+  item_template_id: number;
+  orden_visual: number;
+  tipo_actualizacion: ChecklistTipoActualizacion;
+  componente: ComponenteSaludRef;
+  salud_actual: number | null;
+  nivel_alerta_actual: ChecklistNivelAlerta | null;
+  fuente_actual: string | null;
+  salud_anclada_pct: number | null;
+  fecha_ultimo_servicio: string | null;
+  km_ultimo_servicio: number | null;
+}
+
+export interface ChecklistSaludSnapshot {
+  vehiculo_id: number;
+  kilometraje_actual: number;
+  tipo_intencion_default: ChecklistIntencion;
+  items: ChecklistSaludSnapshotItem[];
+}
+
+// Diff antes/después al simular impacto del checklist sobre la salud
+// del vehículo. POST /api/checklists/instances/{id}/preview-impacto/.
+export interface ChecklistPreviewDiffItem {
+  componente: ComponenteSaludRef;
+  tipo_actualizacion: ChecklistTipoActualizacion;
+  salud_actual: number | null;
+  salud_nueva: number;
+  nivel_alerta_actual: ChecklistNivelAlerta | null;
+  nivel_alerta_nuevo: ChecklistNivelAlerta;
+  delta: number;
+}
+
+export interface ChecklistPreviewImpacto {
+  vehiculo_id: number;
+  salud_general_actual: number | null;
+  salud_general_estimada: number | null;
+  diff: ChecklistPreviewDiffItem[];
 }
 
 export interface ChecklistInstance {
@@ -292,6 +350,7 @@ export const TIPO_PREGUNTA_DISPLAY_NAMES: Record<string, string> = {
   'KILOMETER_INPUT': 'Kilometraje',
   'FUEL_GAUGE': 'Medidor de combustible',
   'FLUID_LEVEL': 'Nivel de fluidos',
+  'COMPONENT_HEALTH': 'Vida útil de componente',
   
   // Tipos de inventario y verificación
   'INVENTORY_CHECKLIST': 'Lista de inventario',
@@ -1242,6 +1301,45 @@ class ChecklistService {
     } catch (error: any) {
       console.error('❌ Error finalizando checklist:', error);
       return this.handleServiceError(error, 'finalizar checklist');
+    }
+  }
+
+  // ==================== SALUD INTELIGENTE (snapshot + preview) ====================
+
+  /**
+   * Salud actual por ítem — para mostrar al técnico el estado del
+   * componente antes de que ingrese la actualización.
+   * GET /api/checklists/instances/{id}/salud-snapshot/
+   */
+  async getSaludSnapshot(
+    instanceId: number,
+  ): Promise<ServiceResponse<ChecklistSaludSnapshot>> {
+    try {
+      const response = await api.get(
+        `${this.baseUrl}/instances/${instanceId}/salud-snapshot/`,
+      );
+      return { success: true, data: response.data };
+    } catch (error) {
+      return this.handleServiceError(error, 'obtener salud snapshot');
+    }
+  }
+
+  /**
+   * Diff antes/después al simular el impacto del checklist en curso.
+   * POST /api/checklists/instances/{id}/preview-impacto/
+   * Las respuestas ya guardadas en el backend definen el cálculo.
+   */
+  async getPreviewImpacto(
+    instanceId: number,
+  ): Promise<ServiceResponse<ChecklistPreviewImpacto>> {
+    try {
+      const response = await api.post(
+        `${this.baseUrl}/instances/${instanceId}/preview-impacto/`,
+        {},
+      );
+      return { success: true, data: response.data };
+    } catch (error) {
+      return this.handleServiceError(error, 'obtener preview de impacto');
     }
   }
 
