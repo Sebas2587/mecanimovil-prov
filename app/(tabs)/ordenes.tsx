@@ -98,6 +98,13 @@ const ESTADOS_ACTIVOS = [
 ];
 /** Éxito: solo estos van al tab Completadas */
 const ESTADOS_COMPLETADOS_OK = ['completado', 'completada'];
+/** La orden (SolicitudServicio) ya cerró: no usar estado viejo de la oferta en caché. */
+const ESTADOS_ORDEN_PRECEDENCIA_OFERTA = [
+  'completado',
+  'cancelado',
+  'rechazada_por_proveedor',
+  'devuelto',
+];
 /** Rechazo / cancelación / expiración: tab Rechazadas */
 const ESTADOS_RECHAZADAS = [
   'cancelado',
@@ -224,11 +231,20 @@ export default function OrdenesScreen() {
   }, [ofertas]);
 
   const getEstadoEfectivo = useCallback((orden: Orden): string => {
+    if (ESTADOS_ORDEN_PRECEDENCIA_OFERTA.includes(orden.estado)) {
+      return orden.estado;
+    }
     const ofertaId = orden.oferta_proveedor_id ? String(orden.oferta_proveedor_id) : null;
     return (ofertaId && ofertasMap[ofertaId]) ? ofertasMap[ofertaId] : orden.estado;
   }, [ofertasMap]);
 
   const getTextoEstado = useCallback((orden: Orden): string => {
+    if (ESTADOS_ORDEN_PRECEDENCIA_OFERTA.includes(orden.estado)) {
+      if (orden.estado === 'completado') {
+        return OFERTA_LABELS.completada;
+      }
+      return orden.estado_display || orden.estado.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
     const ofertaId = orden.oferta_proveedor_id ? String(orden.oferta_proveedor_id) : null;
     const estadoOferta = ofertaId ? ofertasMap[ofertaId] : null;
     if (estadoOferta && OFERTA_LABELS[estadoOferta]) return OFERTA_LABELS[estadoOferta];
