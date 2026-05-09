@@ -13,6 +13,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { checklistService, ChecklistInstance, ChecklistItemResponse } from '@/services/checklistService';
+import { signatureStoredToImageUri } from '@/utils/signatureImageUri';
 import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -256,7 +257,7 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
                       >
                         <Text style={styles.sigCaption}>Técnico</Text>
                         <Image
-                          source={{ uri: `data:image/png;base64,${instance.firma_tecnico}` }}
+                          source={{ uri: signatureStoredToImageUri(instance.firma_tecnico) || '' }}
                           style={styles.sigImage}
                           resizeMode="contain"
                         />
@@ -271,7 +272,7 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
                       >
                         <Text style={styles.sigCaption}>Cliente</Text>
                         <Image
-                          source={{ uri: `data:image/png;base64,${instance.firma_cliente}` }}
+                          source={{ uri: signatureStoredToImageUri(instance.firma_cliente) || '' }}
                           style={styles.sigImage}
                           resizeMode="contain"
                         />
