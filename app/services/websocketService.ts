@@ -277,8 +277,15 @@ class WebSocketService {
           break;
 
         case 'solicitud_cancelada':
-          devLog('🚫 Solicitud cancelada:', data);
-          // TODO: Manejar evento de solicitud cancelada
+          devLog('🚫 Solicitud cancelada (legacy):', data);
+          this.handleSolicitudCanceladaCliente({
+            type: 'solicitud_cancelada_cliente',
+            solicitud_id: String(data.solicitud_id || ''),
+            oferta_id: '',
+            mensaje: 'La solicitud fue cancelada.',
+            creditos_devueltos: false,
+            timestamp: data.timestamp || new Date().toISOString(),
+          });
           break;
 
         case 'nuevo_mensaje_chat':
