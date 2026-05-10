@@ -591,6 +591,8 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
     switch (item.tipo_pregunta) {
       case 'TEXT':
       case 'DAMAGE_REPORT':
+      case 'FINAL_NOTES':
+      case 'WORK_SUMMARY':
         responseData.respuesta_texto = inputValue;
         break;
       case 'NUMBER':
@@ -616,14 +618,43 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         break;
       }
       case 'BOOLEAN':
+      case 'CLIENT_CONFIRMATION':
         responseData.respuesta_booleana = inputValue;
         break;
       case 'SELECT':
       case 'MULTISELECT':
+      case 'FLUID_LEVEL':
+      case 'SERVICE_SELECTION':
+      case 'VEHICLE_CONDITION':
+      case 'ELECTRICAL_CHECK':
+      case 'BRAKE_CHECK':
+      case 'SUSPENSION_CHECK':
+      case 'TIRE_CONDITION':
+      case 'EXTERIOR_INSPECTION':
+      case 'INTERIOR_INSPECTION':
+      case 'ENGINE_INSPECTION':
         responseData.respuesta_seleccion = inputValue;
+        break;
+      case 'FUEL_GAUGE':
+      case 'INVENTORY_CHECKLIST':
+        if (
+          inputValue &&
+          typeof inputValue === 'object' &&
+          !Array.isArray(inputValue) &&
+          ('respuesta_seleccion' in inputValue ||
+            'respuesta_texto' in inputValue ||
+            'respuesta_numero' in inputValue)
+        ) {
+          Object.assign(responseData, inputValue);
+        } else {
+          responseData.respuesta_seleccion = inputValue;
+        }
         break;
       case 'DATETIME':
         responseData.respuesta_fecha = inputValue;
+        break;
+      case 'LOCATION':
+        responseData.respuesta_ubicacion = inputValue;
         break;
       case 'PHOTO':
         // Para fotos, solo marcamos como completado si hay fotos

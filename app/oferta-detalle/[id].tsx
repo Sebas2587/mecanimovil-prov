@@ -821,17 +821,17 @@ export default function OfertaDetalleScreen() {
             const rep = parseFloat(String(oferta.costo_repuestos ?? '0')) || 0;
             const gest = parseFloat(String(oferta.costo_gestion_compra ?? '0')) || 0;
             const tieneMontosProveedor = mo > 0 || rep > 0 || gest > 0;
-            const {
-              subSinIvaDisplay,
-              ivaDisplay,
-              totalCliente,
-              mostrarNotaReconciliacion,
-            } = calcularDesgloseIvaOferta({
+            const desgloseCalc = calcularDesgloseIvaOferta({
               costoManoObra: oferta.costo_mano_obra,
               costoRepuestos: oferta.costo_repuestos,
               costoGestionCompra: oferta.costo_gestion_compra,
               precioTotalOfrecido: oferta.precio_total_ofrecido,
             });
+            const dApi = oferta.desglose_iva;
+            const subSinIvaDisplay = dApi?.subtotal_sin_iva ?? desgloseCalc.subSinIvaDisplay;
+            const ivaDisplay = dApi?.iva ?? desgloseCalc.ivaDisplay;
+            const totalCliente = dApi?.total ?? desgloseCalc.totalCliente;
+            const mostrarNotaReconciliacion = desgloseCalc.mostrarNotaReconciliacion;
 
             return (
               <View style={styles.precioCard}>

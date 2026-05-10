@@ -55,7 +55,7 @@ interface FormularioOfertaProps {
   loading?: boolean;
   bottomInset?: number;
   esOfertaSecundaria?: boolean; // Nueva prop para ofertas secundarias
-  /** Saldo vs créditos requeridos (solo oferta principal); se muestra como badge junto al título */
+  /** Saldo vs créditos requeridos (solo oferta principal); se muestra como badge en la cabecera */
   verificacionCreditos?: VerificacionCreditosOferta | null;
   verificandoCreditos?: boolean;
   onPressComprarCreditos?: () => void;
@@ -1401,65 +1401,60 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header: título + badge de créditos (oferta principal) */}
+        {/* Contexto: solo badge de créditos (principal) o badge de oferta adicional — sin título "Nueva oferta" */}
         <View style={styles.headerCard}>
-          <View style={styles.headerRow}>
-            <View style={styles.headerTextContainer}>
-              <View style={styles.headerTitleLine}>
-                <Text style={styles.headerTitle} numberOfLines={1}>
-                  {esOfertaSecundaria ? 'Oferta adicional' : 'Nueva Oferta'}
-                </Text>
-                {!esOfertaSecundaria && (verificandoCreditos || verificacionCreditos) ? (
-                  verificandoCreditos ? (
-                    <View style={[styles.creditosBadge, styles.creditosBadgeNeutral]}>
-                      <ActivityIndicator size="small" color={I.primary} />
-                    </View>
-                  ) : verificacionCreditos ? (
-                    <TouchableOpacity
-                      activeOpacity={verificacionCreditos.puede_ofertar ? 1 : 0.75}
-                      onPress={
-                        !verificacionCreditos.puede_ofertar && onPressComprarCreditos
-                          ? onPressComprarCreditos
-                          : undefined
-                      }
-                      disabled={verificacionCreditos.puede_ofertar}
-                      style={[
-                        styles.creditosBadge,
-                        verificacionCreditos.puede_ofertar
-                          ? styles.creditosBadgeOk
-                          : styles.creditosBadgeWarn,
-                      ]}
-                    >
-                      <InstitutionalIcon
-                        name="account-balance-wallet"
-                        size={14}
-                        color={verificacionCreditos.puede_ofertar ? I.semanticUp : I.accentYellow}
-                        strokeWidth={ICON_STROKE_WIDTH}
-                      />
-                      <Text
-                        style={[
-                          styles.creditosBadgeText,
-                          {
-                            color: verificacionCreditos.puede_ofertar ? I.semanticUp : I.body,
-                          },
-                        ]}
-                      >
-                        {verificacionCreditos.saldo_actual}/{verificacionCreditos.creditos_necesarios}
-                      </Text>
-                      {!verificacionCreditos.puede_ofertar && (
-                        <InstitutionalIcon name="chevron-right" size={16} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
-                      )}
-                    </TouchableOpacity>
-                  ) : null
-                ) : null}
+          <View style={styles.headerBadgeRow}>
+            {esOfertaSecundaria ? (
+              <View style={[styles.creditosBadge, styles.creditosBadgeNeutral]}>
+                <InstitutionalIcon name="layers" size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={[styles.creditosBadgeText, { color: I.body }]}>Oferta adicional</Text>
               </View>
-              <Text style={styles.headerSubtitle}>
-                {esOfertaSecundaria
-                  ? 'Completa la información del servicio adicional'
-                  : 'Completa la información para enviar tu oferta'}
-              </Text>
-            </View>
+            ) : null}
+            {!esOfertaSecundaria && (verificandoCreditos || verificacionCreditos) ? (
+              verificandoCreditos ? (
+                <View style={[styles.creditosBadge, styles.creditosBadgeNeutral]}>
+                  <ActivityIndicator size="small" color={I.primary} />
+                </View>
+              ) : verificacionCreditos ? (
+                <TouchableOpacity
+                  activeOpacity={verificacionCreditos.puede_ofertar ? 1 : 0.75}
+                  onPress={
+                    !verificacionCreditos.puede_ofertar && onPressComprarCreditos
+                      ? onPressComprarCreditos
+                      : undefined
+                  }
+                  disabled={verificacionCreditos.puede_ofertar}
+                  style={[
+                    styles.creditosBadge,
+                    verificacionCreditos.puede_ofertar ? styles.creditosBadgeOk : styles.creditosBadgeWarn,
+                  ]}
+                >
+                  <InstitutionalIcon
+                    name="account-balance-wallet"
+                    size={14}
+                    color={verificacionCreditos.puede_ofertar ? I.semanticUp : I.accentYellow}
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
+                  <Text
+                    style={[
+                      styles.creditosBadgeText,
+                      { color: verificacionCreditos.puede_ofertar ? I.semanticUp : I.body },
+                    ]}
+                  >
+                    {verificacionCreditos.saldo_actual}/{verificacionCreditos.creditos_necesarios}
+                  </Text>
+                  {!verificacionCreditos.puede_ofertar && (
+                    <InstitutionalIcon name="chevron-right" size={16} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
+                  )}
+                </TouchableOpacity>
+              ) : null
+            ) : null}
           </View>
+          <Text style={styles.headerContextHint}>
+            {esOfertaSecundaria
+              ? 'Completa precios, plazos y descripción del servicio adicional.'
+              : 'Completa precios, plazos y descripción para enviar tu propuesta.'}
+          </Text>
         </View>
 
         {/* Servicios solicitados - Sin checkboxes, todos incluidos */}
@@ -1591,7 +1586,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                   style={styles.servicioCard}
                 >
                   <View style={styles.servicioHeader}>
-                    <Text style={styles.servicioNombre}>
+                    <Text style={styles.servicioNombre} numberOfLines={4}>
                       {item.servicio.nombre}
                     </Text>
                     {esOfertaSecundaria && (
@@ -2417,29 +2412,15 @@ const styles = StyleSheet.create({
   },
 
   headerCard: {
-    marginBottom: SPACING.fixed.lg,
+    marginBottom: SPACING.fixed.md,
   },
-  headerRow: {
-    marginBottom: SPACING.fixed.xs,
-  },
-  headerTextContainer: {
-    flex: 1,
-  },
-  headerTitleLine: {
+  headerBadgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
+    justifyContent: 'flex-start',
     gap: SPACING.fixed.sm,
-    marginBottom: 6,
-  },
-  headerTitle: {
-    fontSize: TS.h2.fontSize,
-    fontFamily: FF.sansRegular,
-    lineHeight: lh(TS.h2.fontSize, TS.h2.lineHeight),
-    letterSpacing: TS.h2.letterSpacing,
-    color: I.ink,
-    flexShrink: 1,
-    marginBottom: 0,
+    marginBottom: SPACING.fixed.sm,
   },
   creditosBadge: {
     flexDirection: 'row',
@@ -2470,11 +2451,11 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
     lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
   },
-  headerSubtitle: {
-    fontSize: TS.small.fontSize,
+  headerContextHint: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansRegular,
-    lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),
-    color: I.body,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.relaxed),
+    color: I.muted,
   },
 
   section: {
@@ -2565,11 +2546,13 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.md,
   },
   sectionTitle: {
-    fontSize: TS.h4.fontSize,
+    fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
-    color: I.ink,
-    marginBottom: 6,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
   },
   sectionSubtitle: {
     fontSize: TYPOGRAPHY.fontSize.base,
@@ -2591,13 +2574,17 @@ const styles = StyleSheet.create({
   servicioHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.sm,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairline,
   },
   servicioNombre: {
-    fontSize: TYPOGRAPHY.fontSize.md,
+    fontSize: TS.h3.fontSize,
     fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.md, TS.body.lineHeight),
+    lineHeight: lh(TS.h3.fontSize, TS.h3.lineHeight),
+    letterSpacing: TS.h3.letterSpacing,
     color: I.ink,
     flex: 1,
     marginRight: SPACING.fixed.sm,

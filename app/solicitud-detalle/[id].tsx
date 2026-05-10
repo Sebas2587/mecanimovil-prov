@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -74,6 +76,7 @@ export default function SolicitudDetalleScreen() {
   const [loading, setLoading] = useState(true);
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
   const [rechazando, setRechazando] = useState(false);
+  const [fotoAmpliadaUrl, setFotoAmpliadaUrl] = useState<string | null>(null);
 
   const cargarDatos = useCallback(async () => {
     if (!id) return;
@@ -421,6 +424,36 @@ export default function SolicitudDetalleScreen() {
               </View>
               <Text style={styles.descriptionText}>{solicitud.descripcion_problema}</Text>
             </View>
+
+            {Array.isArray(solicitud.fotos_necesidad) && solicitud.fotos_necesidad.length > 0 ? (
+              <View style={styles.fotosClienteSection}>
+                <View style={styles.descripcionBlockHeader}>
+                  <InstitutionalIcon name="image" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.descripcionBlockLabel}>Fotos del cliente</Text>
+                </View>
+                <Text style={styles.fotosClienteHint}>Toca una imagen para verla en grande.</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.fotosClienteRow}
+                >
+                  {solicitud.fotos_necesidad.map((foto) => {
+                    const url = foto?.imagen_url;
+                    if (!url) return null;
+                    return (
+                      <TouchableOpacity
+                        key={foto.id || url}
+                        onPress={() => setFotoAmpliadaUrl(url)}
+                        activeOpacity={0.85}
+                        style={styles.fotosClienteThumbWrap}
+                      >
+                        <Image source={{ uri: url }} style={styles.fotosClienteThumb} resizeMode="cover" />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.section}>
@@ -596,6 +629,14 @@ export default function SolicitudDetalleScreen() {
           onConfirm={handleRechazar}
           loading={rechazando}
         />
+
+        <Modal visible={!!fotoAmpliadaUrl} transparent animationType="fade" onRequestClose={() => setFotoAmpliadaUrl(null)}>
+          <Pressable style={styles.fotoLightboxBackdrop} onPress={() => setFotoAmpliadaUrl(null)}>
+            {fotoAmpliadaUrl ? (
+              <Image source={{ uri: fotoAmpliadaUrl }} style={styles.fotoLightboxImage} resizeMode="contain" />
+            ) : null}
+          </Pressable>
+        </Modal>
       </View>
     </View>
   );
@@ -868,6 +909,46 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
     color: I.ink,
+  },
+  fotosClienteSection: {
+    marginTop: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.md,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+  },
+  fotosClienteHint: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    marginBottom: SPACING.fixed.sm,
+  },
+  fotosClienteRow: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.sm,
+    paddingVertical: 4,
+  },
+  fotosClienteThumbWrap: {
+    borderRadius: BORDERS.radius.md,
+    overflow: 'hidden',
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  fotosClienteThumb: {
+    width: 96,
+    height: 96,
+  },
+  fotoLightboxBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.fixed.md,
+  },
+  fotoLightboxImage: {
+    width: '100%' as const,
+    height: '100%' as const,
+    maxHeight: 640,
   },
 
   dateTimeRow: {

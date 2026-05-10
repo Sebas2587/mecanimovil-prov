@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,8 +24,10 @@ const FF = TYPOGRAPHY.fontFamily;
 const TS = TYPOGRAPHY.styles;
 const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
+const NAV_TITLE_MAX = 40;
+
 const stackScreenOptions = {
-  title: 'Crear Oferta',
+  title: 'Crear oferta',
   headerBackTitle: '',
   headerBackTitleVisible: false as const,
   headerStyle: { backgroundColor: I.canvas },
@@ -112,6 +114,23 @@ export default function CrearOfertaScreen() {
       await verificarCreditosParaSolicitud(solicitud);
     }
   };
+
+  const navTitle = useMemo(() => {
+    const detail = solicitud?.servicios_solicitados_detail;
+    if (!detail?.length) return stackScreenOptions.title;
+    const names = detail.map((s) => s.nombre).filter(Boolean);
+    if (!names.length) return stackScreenOptions.title;
+    if (names.length === 1) {
+      const n = names[0];
+      return n.length > NAV_TITLE_MAX ? `${n.slice(0, NAV_TITLE_MAX - 1)}…` : n;
+    }
+    return `${names.length} servicios`;
+  }, [solicitud]);
+
+  const screenOptions = useMemo(
+    () => ({ ...stackScreenOptions, title: navTitle }),
+    [navTitle]
+  );
   
   const handleIrAComprarCreditos = () => {
     const min = verificacionCreditos?.creditos_necesarios;
@@ -290,7 +309,7 @@ export default function CrearOfertaScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeRoot} edges={['left', 'right', 'bottom']}>
-        <Stack.Screen options={stackScreenOptions} />
+        <Stack.Screen options={screenOptions} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={I.primary} />
           <Text style={styles.loadingText}>Cargando solicitud…</Text>
@@ -302,7 +321,7 @@ export default function CrearOfertaScreen() {
   if (!solicitud) {
     return (
       <SafeAreaView style={styles.safeRoot} edges={['left', 'right', 'bottom']}>
-        <Stack.Screen options={stackScreenOptions} />
+        <Stack.Screen options={screenOptions} />
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>Solicitud no encontrada</Text>
         </View>
@@ -312,7 +331,7 @@ export default function CrearOfertaScreen() {
 
   return (
     <SafeAreaView style={styles.safeRoot} edges={['left', 'right', 'bottom']}>
-      <Stack.Screen options={stackScreenOptions} />
+      <Stack.Screen options={screenOptions} />
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

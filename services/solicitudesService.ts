@@ -109,6 +109,12 @@ export interface SolicitudPublica {
   ofertas_secundarias?: OfertaProveedor[];
   rechazos?: RechazoSolicitud[];
   puede_reenviar?: boolean;
+  /** Fotos que el cliente adjuntó al describir la necesidad (máx. 3) */
+  fotos_necesidad?: Array<{
+    id: string;
+    imagen_url: string | null;
+    orden: number;
+  }>;
 }
 
 export interface DetalleServicioOferta {
@@ -258,6 +264,14 @@ export interface OfertaProveedor {
   saldo_creditos_proveedor?: number | null;
   /** Mínimo a comprar para alcanzar el requerido (max(0, necesarios − saldo)) */
   creditos_faltantes_para_confirmar?: number | null;
+  /** Calculado en API: subtotal sin IVA, IVA y total alineados a precio_total_ofrecido */
+  desglose_iva?: {
+    subtotal_sin_iva: number;
+    iva: number;
+    total: number;
+    lineas_cuadran_con_total?: boolean;
+    suma_sin_iva_declarada?: number;
+  };
 }
 
 export interface MensajeChat {

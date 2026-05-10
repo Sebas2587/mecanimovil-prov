@@ -71,7 +71,14 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
   };
 
   const renderRespuesta = (response: ChecklistItemResponse) => {
-    const { respuesta_texto, respuesta_numero, respuesta_booleana, respuesta_seleccion, fotos } = response;
+    const {
+      respuesta_texto,
+      respuesta_numero,
+      respuesta_booleana,
+      respuesta_seleccion,
+      respuesta_fecha,
+      fotos,
+    } = response;
 
     let valorMostrar = '';
 
@@ -81,6 +88,8 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
       valorMostrar = respuesta_numero.toString();
     } else if (respuesta_booleana !== undefined && respuesta_booleana !== null) {
       valorMostrar = respuesta_booleana ? 'Sí' : 'No';
+    } else if (respuesta_fecha) {
+      valorMostrar = formatearFechaHora(String(respuesta_fecha));
     } else if (respuesta_seleccion) {
       if (Array.isArray(respuesta_seleccion)) {
         valorMostrar = respuesta_seleccion
