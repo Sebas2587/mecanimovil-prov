@@ -1309,45 +1309,36 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     const minutos = Math.round((tiempoTotalHoras - horas) * 60);
     const tiempoEstimadoTotal = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:00`;
 
-    // Determinar si incluye repuestos (si al menos un servicio tiene repuestos)
+    // Un servicio "incluye repuestos" cuando tiene tipoServicio con_repuestos Y al menos un repuesto.
+    // Nota: la condición anterior marcaba incorrectamente TODOS los servicios manuales como
+    // "con_repuestos" por el operador ||, lo que producía incluye_repuestos=true siempre.
     const incluyeRepuestos = serviciosOferta.some(
-      s => s.usandoServicioConfigurado && s.tipoServicio === 'con_repuestos' && s.repuestos.length > 0
-    ) || serviciosOferta.some(s => !s.usandoServicioConfigurado && parseFloat(s.precio || '0') > 0);
+      s => s.tipoServicio === 'con_repuestos' && s.repuestos.length > 0
+    );
 
     // Calcular costos de desglose
     let costoRepuestos = calcularCostoRepuestos();
     let costoManoObra = calcularCostoManoObra();
     const precioTotalCalculado = calcularPrecioTotal();
 
-    // FIX: Si hay repuestos pero costoManoObra es 0, calcular automáticamente el desglose
-    // basándose en el precio total ingresado por el proveedor
+    // Si hay repuestos pero costo_mano_obra es 0, derivarlo del precio total.
+    // Esto asegura que el backend puede calcular IVA coherente usando los costos enviados.
     if (incluyeRepuestos && costoManoObra === 0 && precioTotalCalculado > 0) {
-      // El precio total incluye IVA, calculamos el precio sin IVA
       const precioSinIva = precioTotalCalculado / 1.19;
-
-      // Si hay repuestos calculados, usar ese valor
-      // Si no, asumir que el 60% es mano de obra y 40% repuestos (proporción típica)
       if (costoRepuestos > 0) {
-        // costoManoObra = precioSinIva - costoRepuestos
         costoManoObra = Math.max(0, precioSinIva - costoRepuestos);
       } else {
-        // No hay repuestos calculados pero incluye_repuestos es true
-        // Usar proporción estimada: 60% mano de obra, 40% repuestos
         costoManoObra = precioSinIva * 0.6;
         costoRepuestos = precioSinIva * 0.4;
       }
-
-      console.log('📊 FormularioOferta: Calculando desglose automático:', {
-        precioTotalCalculado,
-        precioSinIva,
-        costoRepuestosCalculado: costoRepuestos,
-        costoManoObraCalculado: costoManoObra,
-      });
     }
 
-    // precioTotalCalculado = suma de precios por servicio; cada línea con repuestos ya incluye
-    // (MO + repuestos + gestión) sin IVA y el IVA sobre ese subtotal (ver actualizarCostoManoObra / repuestos / gestión).
-    // No sumar gestión otra vez: antes se duplicaba y el total no coincidía con el desglose guardado.
+    // Si el servicio no tiene repuestos y costo_mano_obra es 0, derivarlo del precio total.
+    // Esto garantiza que costo_mano_obra nunca llegue como "0" cuando hay un precio válido.
+    if (!incluyeRepuestos && costoManoObra === 0 && precioTotalCalculado > 0) {
+      costoManoObra = precioTotalCalculado / 1.19;
+    }
+
     const precioTotalFinal = precioTotalCalculado;
     const gestionCompra = incluyeRepuestos ? parseFloat(costoGestionCompra || '0') : 0;
 

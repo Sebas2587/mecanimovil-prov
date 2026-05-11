@@ -1,7 +1,9 @@
 /**
- * Desglose subtotal (sin IVA) + IVA alineado a precio_total_ofrecido.
- * Si mo+rep+gest y sum*1.19 cuadran con el total (±2), IVA = total − subtotal;
- * si no, subtotal ≈ total/1.19 y IVA es el residuo.
+ * Desglose subtotal (sin IVA) + IVA derivados SIEMPRE de precio_total_ofrecido.
+ *
+ * IVA = total − round(total / 1.19)  — garantiza que IVA > 0 cuando total > 0.
+ * Los costos individuales (mo, rep, gest) se usan solo como contexto de líneas,
+ * nunca para calcular el IVA final (evita que costo_mano_obra=0 produzca IVA=$0).
  */
 export type OfertaDesgloseInput = {
   costoManoObra?: string | number | null;
@@ -27,19 +29,9 @@ export function calcularDesgloseIvaOferta({
   const lineasCuadranConTotal =
     sumSinIva > 0 && Math.abs(totalDesdeLineas - totalCliente) <= TOL;
 
-  let subSinIvaDisplay: number;
-  let ivaDisplay: number;
-
-  if (totalCliente <= 0) {
-    subSinIvaDisplay = 0;
-    ivaDisplay = 0;
-  } else if (tieneMontosProveedor && lineasCuadranConTotal) {
-    subSinIvaDisplay = Math.round(sumSinIva);
-    ivaDisplay = totalCliente - subSinIvaDisplay;
-  } else {
-    subSinIvaDisplay = Math.round(totalCliente / 1.19);
-    ivaDisplay = totalCliente - subSinIvaDisplay;
-  }
+  // IVA y subtotal SIEMPRE derivados del total — única fuente de verdad
+  const subSinIvaDisplay = totalCliente > 0 ? Math.round(totalCliente / 1.19) : 0;
+  const ivaDisplay = totalCliente > 0 ? totalCliente - subSinIvaDisplay : 0;
 
   return {
     subSinIvaDisplay,
@@ -50,5 +42,51 @@ export function calcularDesgloseIvaOferta({
     tieneMontosProveedor,
     mostrarNotaReconciliacion:
       tieneMontosProveedor && totalCliente > 0 && !lineasCuadranConTotal && sumSinIva > 0,
+  };
+}
+
+export type DesgloseIvaApi = {
+  subtotal_sin_iva?: number | string | null;
+  iva?: number | string | null;
+  total?: number | string | null;
+} | null | undefined;
+
+type CalcDesglose = ReturnType<typeof calcularDesgloseIvaOferta>;
+
+/**
+ * Combina `desglose_iva` del API con el cálculo local.
+ *
+ * Problema que evita: `dApi.iva ?? calc` deja IVA en 0 cuando la API manda `iva: 0` explícito
+ * (nullish coalescing no distingue "faltante" de "cero"), aunque subtotal+IVA no cierre con total.
+ */
+export function resolverDesgloseIvaMostrado(
+  dApi: DesgloseIvaApi,
+  calc: CalcDesglose
+): { subSinIva: number; iva: number; total: number } {
+  // Usar el IVA del API solo cuando venga positivo y coherente con su propio total.
+  // En cualquier otro caso (iva=0, faltante, incoherente) usamos el cálculo local
+  // que siempre deriva IVA de precio_total_ofrecido → nunca puede ser $0 si total > 0.
+  const apiIva = dApi != null && dApi.iva != null ? Number(dApi.iva) : null;
+  const apiSub = dApi != null && dApi.subtotal_sin_iva != null ? Number(dApi.subtotal_sin_iva) : null;
+  const apiTotal = dApi != null && dApi.total != null ? Number(dApi.total) : null;
+
+  const apiValida =
+    apiIva !== null &&
+    Number.isFinite(apiIva) &&
+    apiIva > 0 &&
+    apiSub !== null &&
+    Number.isFinite(apiSub) &&
+    apiTotal !== null &&
+    Number.isFinite(apiTotal) &&
+    apiTotal > 0;
+
+  if (apiValida) {
+    return { subSinIva: apiSub as number, iva: apiIva as number, total: apiTotal as number };
+  }
+
+  return {
+    subSinIva: calc.subSinIvaDisplay,
+    iva: calc.ivaDisplay,
+    total: calc.totalCliente,
   };
 }

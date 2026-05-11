@@ -22,7 +22,7 @@ import { checklistService, type ChecklistInstance } from '@/services/checklistSe
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
-import { calcularDesgloseIvaOferta } from '@/utils/ofertaPrecioDesglose';
+import { calcularDesgloseIvaOferta, resolverDesgloseIvaMostrado } from '@/utils/ofertaPrecioDesglose';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -827,10 +827,10 @@ export default function OfertaDetalleScreen() {
               costoGestionCompra: oferta.costo_gestion_compra,
               precioTotalOfrecido: oferta.precio_total_ofrecido,
             });
-            const dApi = oferta.desglose_iva;
-            const subSinIvaDisplay = dApi?.subtotal_sin_iva ?? desgloseCalc.subSinIvaDisplay;
-            const ivaDisplay = dApi?.iva ?? desgloseCalc.ivaDisplay;
-            const totalCliente = dApi?.total ?? desgloseCalc.totalCliente;
+            const merged = resolverDesgloseIvaMostrado(oferta.desglose_iva, desgloseCalc);
+            const subSinIvaDisplay = merged.subSinIva;
+            const ivaDisplay = merged.iva;
+            const totalCliente = merged.total;
             const mostrarNotaReconciliacion = desgloseCalc.mostrarNotaReconciliacion;
 
             return (
