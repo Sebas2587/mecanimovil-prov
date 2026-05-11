@@ -30,6 +30,7 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-syst
 import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import PhoneInput, { validateFullPhone } from '@/components/ui/PhoneInput';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const I = COLORS.institutional;
@@ -455,6 +456,12 @@ export default function ConfiguracionPerfilScreen() {
   };
 
   const guardarDatosPersonales = async () => {
+    const phoneErr = validateFullPhone(datosPersonales.telefono);
+    if (phoneErr) {
+      Alert.alert('Teléfono', phoneErr);
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -740,17 +747,13 @@ export default function ConfiguracionPerfilScreen() {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Teléfono</Text>
-                <TextInput
-                  style={styles.formInput}
+                <PhoneInput
+                  label="Teléfono"
                   value={datosPersonales.telefono}
                   onChangeText={(value) => {
                     setDatosPersonales(prev => ({ ...prev, telefono: value }));
                     setHasChanges(true);
                   }}
-                  placeholder="Ingresa tu teléfono"
-                  keyboardType="phone-pad"
-                  placeholderTextColor={textTertiary}
                 />
               </View>
 
