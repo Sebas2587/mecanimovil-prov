@@ -4,7 +4,13 @@
     "slug": "mecanimovil-app-proveedores",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/app-icon.png",
+    "splash": {
+      "backgroundColor": "#ffffff",
+      "dark": {
+        "backgroundColor": "#0a0b0d"
+      }
+    },
     "scheme": "mecanimovilappproveedores",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -14,18 +20,19 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/app-icon.png",
+        "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.mecanimovil.proveedores",
       "versionCode": 1,
       "permissions": [
-        "CAMERA",
-        "WRITE_EXTERNAL_STORAGE",
-        "READ_EXTERNAL_STORAGE",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "android.permission.CAMERA",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.RECORD_AUDIO"
       ],
       "intentFilters": [
         {
@@ -48,17 +55,18 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/app-icon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "backgroundColor": "#ffffff",
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "dark": {
+            "backgroundColor": "#0a0b0d"
+          }
         }
       ],
       "expo-secure-store",
@@ -86,14 +94,18 @@
       "router": {
         "origin": false
       },
-      "serverHost": null,
+      "serverHost": {},
       "serverPort": 8000,
       "apiUrl": "https://mecanimovil-api.onrender.com/api",
       "forceLocalhost": false,
       "useNgrok": false,
-      "ngrokUrl": null,
+      "ngrokUrl": {},
       "productionApiUrl": "https://mecanimovil-api.onrender.com",
-      "forceProduction": true
-    }
+      "forceProduction": true,
+      "eas": {
+        "projectId": "934a3f58-256e-499b-a14b-6ad252eba296"
+      }
+    },
+    "owner": "sebas2587"
   }
 }
