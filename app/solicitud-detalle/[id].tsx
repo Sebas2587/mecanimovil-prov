@@ -16,6 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { COLORS, withOpacity, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import solicitudesService, { type SolicitudPublica, type OfertaProveedor, type MotivoRechazo } from '@/services/solicitudesService';
 import { RechazarSolicitudModal } from '@/components/solicitudes/RechazarSolicitudModal';
+import { ProponerFechaCatalogoModal } from '@/components/solicitudes/ProponerFechaCatalogoModal';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
@@ -79,6 +80,8 @@ export default function SolicitudDetalleScreen() {
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
   const [rechazando, setRechazando] = useState(false);
   const [confirmandoCatalogo, setConfirmandoCatalogo] = useState(false);
+  const [mostrarModalFecha, setMostrarModalFecha] = useState(false);
+  const [proponiendoFecha, setProponiendoFecha] = useState(false);
   const [fotoAmpliadaUrl, setFotoAmpliadaUrl] = useState<string | null>(null);
 
   const cargarDatos = useCallback(async () => {
@@ -222,6 +225,31 @@ export default function SolicitudDetalleScreen() {
         },
       ]
     );
+  };
+
+  const handleProponerFechaCatalogo = async (fecha: string, hora: string, motivo: string) => {
+    if (!miOferta?.id) return;
+    setProponiendoFecha(true);
+    try {
+      const result = await solicitudesService.proponerFechaCatalogo(
+        miOferta.id,
+        fecha,
+        hora || undefined,
+        motivo
+      );
+      if (result.success) {
+        setMostrarModalFecha(false);
+        Alert.alert(
+          'Fecha enviada',
+          'El cliente fue notificado. Podrá aceptarla desde su solicitud.',
+          [{ text: 'OK', onPress: () => cargarDatos() }]
+        );
+      } else {
+        Alert.alert('Error', result.error || 'No se pudo proponer la fecha');
+      }
+    } finally {
+      setProponiendoFecha(false);
+    }
   };
 
   const handleRechazarCatalogo = async () => {
@@ -689,12 +717,22 @@ export default function SolicitudDetalleScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.crearOfertaButton}
+                onPress={() => setMostrarModalFecha(true)}
+                activeOpacity={0.85}
+              >
+                <InstitutionalIcon name="event" size={22} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.crearOfertaButtonText} numberOfLines={1}>
+                  Otra fecha
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.crearOfertaButton}
                 onPress={() => router.push(`/chat-oferta/${miOferta!.id}`)}
                 activeOpacity={0.85}
               >
                 <InstitutionalIcon name="chat" size={22} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.crearOfertaButtonText} numberOfLines={1}>
-                  Chat / Fecha
+                  Chat
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -750,6 +788,15 @@ export default function SolicitudDetalleScreen() {
           onClose={() => setMostrarModalRechazo(false)}
           onConfirm={handleRechazar}
           loading={rechazando}
+        />
+
+        <ProponerFechaCatalogoModal
+          visible={mostrarModalFecha}
+          fechaReferencia={solicitud?.fecha_preferida}
+          horaReferencia={solicitud?.hora_preferida}
+          loading={proponiendoFecha}
+          onClose={() => setMostrarModalFecha(false)}
+          onConfirm={handleProponerFechaCatalogo}
         />
 
         <Modal visible={!!fotoAmpliadaUrl} transparent animationType="fade" onRequestClose={() => setFotoAmpliadaUrl(null)}>
