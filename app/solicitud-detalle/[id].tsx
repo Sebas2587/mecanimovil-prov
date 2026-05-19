@@ -35,6 +35,8 @@ const shadowFooter = {
 
 function textoEstadoOferta(estado: string): string {
   switch (estado) {
+    case 'pendiente_confirmacion':
+      return 'Pendiente tu confirmación';
     case 'enviada':
       return 'Enviada';
     case 'vista':
@@ -76,6 +78,7 @@ export default function SolicitudDetalleScreen() {
   const [loading, setLoading] = useState(true);
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
   const [rechazando, setRechazando] = useState(false);
+  const [confirmandoCatalogo, setConfirmandoCatalogo] = useState(false);
   const [fotoAmpliadaUrl, setFotoAmpliadaUrl] = useState<string | null>(null);
 
   const cargarDatos = useCallback(async () => {
@@ -180,6 +183,75 @@ export default function SolicitudDetalleScreen() {
     }
 
     return false;
+  };
+
+  const esCatalogoPendiente =
+    miOferta?.origen === 'catalogo' && miOferta?.estado === 'pendiente_confirmacion';
+
+  const handleConfirmarCatalogo = async () => {
+    if (!miOferta?.id) return;
+    Alert.alert(
+      'Confirmar asignación',
+      'Al confirmar se consumirán créditos y el cliente podrá pagar. ¿Continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            setConfirmandoCatalogo(true);
+            try {
+              const result = await solicitudesService.confirmarCatalogo(miOferta.id);
+              if (result.success) {
+                const estado = (result.data as { estado_resultado?: string })?.estado_resultado;
+                Alert.alert(
+                  estado === 'esperando_creditos_proveedor'
+                    ? 'Créditos insuficientes'
+                    : 'Asignación confirmada',
+                  estado === 'esperando_creditos_proveedor'
+                    ? 'Debes acreditar créditos antes de que el cliente pueda pagar.'
+                    : 'El cliente fue notificado y puede proceder al pago.',
+                  [{ text: 'OK', onPress: () => cargarDatos() }]
+                );
+              } else {
+                Alert.alert('Error', result.error || 'No se pudo confirmar');
+              }
+            } finally {
+              setConfirmandoCatalogo(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRechazarCatalogo = async () => {
+    if (!miOferta?.id) return;
+    Alert.alert(
+      'Rechazar asignación',
+      'El cliente será notificado. ¿Seguro que no puedes realizar este servicio?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Rechazar',
+          style: 'destructive',
+          onPress: async () => {
+            setRechazando(true);
+            try {
+              const result = await solicitudesService.rechazarCatalogo(miOferta.id);
+              if (result.success) {
+                Alert.alert('Rechazada', 'La solicitud fue cancelada.', [
+                  { text: 'OK', onPress: () => router.back() },
+                ]);
+              } else {
+                Alert.alert('Error', result.error || 'No se pudo rechazar');
+              }
+            } finally {
+              setRechazando(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleRechazar = async (motivo: MotivoRechazo, detalle: string) => {
@@ -596,7 +668,57 @@ export default function SolicitudDetalleScreen() {
           ) : null}
         </ScrollView>
 
-        {!miOferta ? (
+        {esCatalogoPendiente ? (
+          <SafeAreaView edges={['bottom']} style={styles.fixedActionsContainer}>
+            <View style={styles.catalogoBanner}>
+              <Text style={styles.catalogoBannerText}>
+                El cliente eligió tu servicio del catálogo. Confirma, rechaza o propón otra fecha en el chat.
+              </Text>
+            </View>
+            <View style={styles.fixedActionsRow}>
+              <TouchableOpacity
+                style={styles.rechazarButton}
+                onPress={handleRechazarCatalogo}
+                disabled={rechazando || confirmandoCatalogo}
+                activeOpacity={0.85}
+              >
+                <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.rechazarButtonText} numberOfLines={1}>
+                  Rechazar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.crearOfertaButton}
+                onPress={() => router.push(`/chat-oferta/${miOferta!.id}`)}
+                activeOpacity={0.85}
+              >
+                <InstitutionalIcon name="chat" size={22} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.crearOfertaButtonText} numberOfLines={1}>
+                  Chat / Fecha
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.crearOfertaButton, { flex: 1.2 }]}
+                onPress={handleConfirmarCatalogo}
+                disabled={confirmandoCatalogo}
+                activeOpacity={0.85}
+              >
+                {confirmandoCatalogo ? (
+                  <ActivityIndicator color={I.onPrimary} />
+                ) : (
+                  <>
+                    <InstitutionalIcon name="check-circle" size={22} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.crearOfertaButtonText} numberOfLines={1}>
+                      Confirmar
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        ) : null}
+
+        {!miOferta && solicitud.estado !== 'pendiente_confirmacion' ? (
           <SafeAreaView edges={['bottom']} style={styles.fixedActionsContainer}>
             <View style={styles.fixedActionsRow}>
               <TouchableOpacity
@@ -1150,6 +1272,21 @@ const styles = StyleSheet.create({
     color: I.primary,
   },
 
+  catalogoBanner: {
+    marginHorizontal: hx,
+    marginBottom: SPACING.fixed.sm,
+    padding: SPACING.fixed.sm,
+    backgroundColor: withOpacity(I.primary, 0.1),
+    borderRadius: BORDERS.radius.md,
+    borderWidth: 1,
+    borderColor: withOpacity(I.primary, 0.25),
+  },
+  catalogoBannerText: {
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansRegular,
+    color: I.ink,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
+  },
   fixedActionsContainer: {
     position: 'absolute',
     bottom: 0,

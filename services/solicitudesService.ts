@@ -88,6 +88,7 @@ export interface SolicitudPublica {
     | 'seleccionando_servicios'
     | 'publicada'
     | 'con_ofertas'
+    | 'pendiente_confirmacion'
     | 'esperando_creditos_proveedor'
     | 'adjudicada'
     | 'pendiente_pago'
@@ -168,6 +169,7 @@ export interface OfertaProveedor {
     | 'seleccionando_servicios'
     | 'publicada'
     | 'con_ofertas'
+    | 'pendiente_confirmacion'
     | 'esperando_creditos_proveedor'
     | 'adjudicada'
     | 'pendiente_pago'
@@ -219,10 +221,12 @@ export interface OfertaProveedor {
   hora_disponible: string;
   es_fecha_alternativa?: boolean;
   motivo_fecha_alternativa?: string | null;
+  origen?: 'manual' | 'catalogo' | 'secundaria';
   estado:
     | 'enviada'
     | 'vista'
     | 'en_chat'
+    | 'pendiente_confirmacion'
     | 'pendiente_creditos'
     | 'aceptada'
     | 'pendiente_pago'
@@ -918,10 +922,65 @@ export const terminarServicio = async (ofertaId: string): Promise<ApiResponse<Of
   }
 };
 
+export const confirmarCatalogo = async (
+  ofertaId: string
+): Promise<ApiResponse<Record<string, unknown>>> => {
+  try {
+    const response = await api.post(`/ordenes/ofertas/${ofertaId}/confirmar-catalogo/`, {});
+    return { success: true, data: response.data };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.response?.data?.error || error.message || 'No se pudo confirmar',
+    };
+  }
+};
+
+export const rechazarCatalogo = async (
+  ofertaId: string,
+  motivo?: string
+): Promise<ApiResponse<Record<string, unknown>>> => {
+  try {
+    const response = await api.post(`/ordenes/ofertas/${ofertaId}/rechazar-catalogo/`, {
+      motivo: motivo || '',
+    });
+    return { success: true, data: response.data };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.response?.data?.error || error.message || 'No se pudo rechazar',
+    };
+  }
+};
+
+export const proponerFechaCatalogo = async (
+  ofertaId: string,
+  fecha: string,
+  hora?: string,
+  motivo?: string
+): Promise<ApiResponse<Record<string, unknown>>> => {
+  try {
+    const response = await api.post(`/ordenes/ofertas/${ofertaId}/proponer-fecha-catalogo/`, {
+      fecha_disponible: fecha,
+      hora_disponible: hora,
+      motivo,
+    });
+    return { success: true, data: response.data };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.response?.data?.error || error.message || 'No se pudo proponer fecha',
+    };
+  }
+};
+
 const solicitudesService = {
   obtenerSolicitudesDisponibles,
   obtenerDetalleSolicitud,
   crearOferta,
+  confirmarCatalogo,
+  rechazarCatalogo,
+  proponerFechaCatalogo,
   crearOfertaSecundaria,
   obtenerMisOfertas,
   obtenerDetalleOferta,
