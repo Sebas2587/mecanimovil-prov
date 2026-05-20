@@ -117,7 +117,8 @@ const CrearServicioScreen = () => {
 
   // Estados del formulario
   const [tipoServicio, setTipoServicio] = useState<'con_repuestos' | 'sin_repuestos'>('con_repuestos');
-  const [marcaSeleccionada, setMarcaSeleccionada] = useState<number | null>(null);
+  /** IDs de marca; 0 = genérico (sin marca en API). En creación permite varias marcas reales. */
+  const [marcasSeleccionadas, setMarcasSeleccionadas] = useState<number[]>([]);
   const [servicioSeleccionado, setServicioSeleccionado] = useState<number | null>(null);
   const [descripcion, setDescripcion] = useState('');
   const [costoManoObra, setCostoManoObra] = useState('');
@@ -147,6 +148,16 @@ const CrearServicioScreen = () => {
   // Estado para guardar el servicio original en modo edición (para restaurar cuando se cambia tipo)
   const [servicioOriginal, setServicioOriginal] = useState<number | null>(null);
 
+  const marcasRealesSeleccionadas = useMemo(
+    () => marcasSeleccionadas.filter((id) => id > 0),
+    [marcasSeleccionadas]
+  );
+  const esGenericoTodasMarcas =
+    marcasSeleccionadas.length === 1 && marcasSeleccionadas[0] === 0;
+  const esMultimarca = !isEditMode && marcasRealesSeleccionadas.length > 1;
+  const tieneSeleccionMarca = marcasSeleccionadas.length > 0;
+  const marcasSeleccionadasKey = marcasSeleccionadas.join(',');
+
   // Pre-cargar datos en modo edición (OPTIMIZADO - evita bucle infinito)
   useEffect(() => {
     if (isEditMode && servicioExistente && !datosPreCargados) {
@@ -171,10 +182,12 @@ const CrearServicioScreen = () => {
       setFotos(Array.isArray(fotosExistentes) ? fotosExistentes : []);
       console.log('📸 Fotos pre-cargadas:', fotosExistentes.length);
 
-      // ✅ Pre-cargar marca seleccionada si existe
+      // Pre-cargar marca(s): null en API = servicio genérico (UI id 0)
       if (servicioExistente.marca_vehiculo_seleccionada) {
         console.log('🚗 Pre-cargando marca seleccionada:', servicioExistente.marca_vehiculo_info?.nombre);
-        setMarcaSeleccionada(servicioExistente.marca_vehiculo_seleccionada);
+        setMarcasSeleccionadas([servicioExistente.marca_vehiculo_seleccionada]);
+      } else {
+        setMarcasSeleccionadas([0]);
       }
 
       // Pre-cargar repuestos seleccionados - PRIORITARIO: usar repuestos_seleccionados que tiene los precios personalizados
@@ -302,11 +315,11 @@ const CrearServicioScreen = () => {
 
   // Efecto especial para pre-cargar marca en modo edición basado en servicios disponibles
   useEffect(() => {
-    if (isEditMode && servicioSeleccionado && tipoServicio === 'con_repuestos' && datosPreCargados && marcas.length > 0 && !marcaSeleccionada) {
+    if (isEditMode && servicioSeleccionado && tipoServicio === 'con_repuestos' && datosPreCargados && marcas.length > 0 && !tieneSeleccionMarca) {
       console.log('🔧 Modo edición: Determinando marca automáticamente para servicio ID:', servicioSeleccionado);
       determinarMarcaDelServicio();
     }
-  }, [isEditMode, servicioSeleccionado, tipoServicio, datosPreCargados, marcas.length, marcaSeleccionada]);
+  }, [isEditMode, servicioSeleccionado, tipoServicio, datosPreCargados, marcas.length, tieneSeleccionMarca]);
 
   // Función para determinar la marca basándose en servicios disponibles
   const determinarMarcaDelServicio = async () => {
@@ -333,7 +346,7 @@ const CrearServicioScreen = () => {
             console.log(`📋 Servicio: ${servicioEncontrado.nombre}`);
 
             // Pre-seleccionar esta marca
-            setMarcaSeleccionada(marca.id);
+            setMarcasSeleccionadas([marca.id]);
 
             // Cargar todos los servicios de esta marca
             setServicios(serviciosDeEstaMarca);
@@ -366,41 +379,38 @@ const CrearServicioScreen = () => {
   useEffect(() => {
     console.log('🎯 Selecciones actuales:');
     console.log('  - Tipo servicio:', tipoServicio);
-    console.log('  - Marca seleccionada:', marcaSeleccionada);
+    console.log('  - Marcas seleccionadas:', marcasSeleccionadas);
     console.log('  - Servicio seleccionado:', servicioSeleccionado);
     console.log('  - Servicio original (edición):', servicioOriginal);
     console.log('  - Repuestos seleccionados:', Array.from(repuestosSeleccionados));
     console.log('  - Fotos:', fotos.length);
-  }, [tipoServicio, marcaSeleccionada, servicioSeleccionado, servicioOriginal, repuestosSeleccionados, fotos.length]);
+  }, [tipoServicio, marcasSeleccionadasKey, servicioSeleccionado, servicioOriginal, repuestosSeleccionados, fotos.length]);
 
   // Efecto para restaurar servicio cuando se vuelve a "con repuestos" en modo edición
   useEffect(() => {
-    if (isEditMode && tipoServicio === 'con_repuestos' && servicioOriginal && !servicioSeleccionado && marcaSeleccionada && datosPreCargados) {
+    if (isEditMode && tipoServicio === 'con_repuestos' && servicioOriginal && !servicioSeleccionado && tieneSeleccionMarca && datosPreCargados) {
       console.log('🔄 Restaurando servicio original después de cambiar tipo:', servicioOriginal);
       // Esperar un momento para que los servicios se carguen primero
       setTimeout(() => {
         setServicioSeleccionado(servicioOriginal);
       }, 500);
     }
-  }, [isEditMode, tipoServicio, servicioOriginal, servicioSeleccionado, marcaSeleccionada, datosPreCargados]);
+  }, [isEditMode, tipoServicio, servicioOriginal, servicioSeleccionado, tieneSeleccionMarca, datosPreCargados]);
 
-  // Cargar servicios cuando cambia la marca (CORREGIDO)
+  // Cargar servicios cuando cambian las marcas seleccionadas
   useEffect(() => {
-    if (marcaSeleccionada) {
-      // Cargar servicios tanto en modo creación como edición
-      // Solo esperar datosPreCargados en modo edición
+    if (tieneSeleccionMarca) {
       if (!isEditMode || datosPreCargados) {
-        console.log('⚙️ Cargando servicios para marca:', marcaSeleccionada);
+        console.log('⚙️ Cargando servicios para marcas:', marcasSeleccionadas);
         cargarServicios();
       }
     } else {
       setServicios([]);
-      // Si no hay marca, limpiar servicio seleccionado
       if (!isEditMode || !datosPreCargados) {
         setServicioSeleccionado(null);
       }
     }
-  }, [marcaSeleccionada, datosPreCargados, isEditMode]);
+  }, [marcasSeleccionadasKey, datosPreCargados, isEditMode]);
 
   // Cargar repuestos cuando cambia el servicio (CORREGIDO - protege repuestos pre-cargados)
   useEffect(() => {
@@ -553,7 +563,7 @@ const CrearServicioScreen = () => {
       const marcasObtenidas = response.data || [];
       // Agregar la marca genérica (ID 0) a la lista
       setMarcas([
-        { id: 0, nombre: 'Todas las marcas (Generico)', logo: null },
+        { id: 0, nombre: 'Todas las marcas (servicios genéricos)', logo: null },
         ...marcasObtenidas
       ]);
     } catch (error) {
@@ -564,28 +574,42 @@ const CrearServicioScreen = () => {
     }
   };
 
+  const resetDependientesDeMarca = useCallback(() => {
+    if (!isEditMode || !datosPreCargados) {
+      setServicioSeleccionado(null);
+      setRepuestos([]);
+      setRepuestosSeleccionados(new Set());
+      setPreciosRepuestos(new Map());
+    }
+    setServicios([]);
+  }, [isEditMode, datosPreCargados]);
+
   const cargarServicios = async () => {
-    if (!marcaSeleccionada) return;
+    if (!tieneSeleccionMarca) return;
 
     setLoadingServicios(true);
     try {
-      console.log('⚙️ Cargando servicios del proveedor para marca:', marcaSeleccionada);
+      console.log('⚙️ Cargando catálogo para marcas:', marcasSeleccionadas);
       const { serviciosAPI } = await import('@/services/api');
 
-      // Verificar que la función existe antes de usarla
-      if (!serviciosAPI || !serviciosAPI.obtenerServiciosPorMarca) {
-        console.error('❌ serviciosAPI.obtenerServiciosPorMarca no está disponible');
-        // Fallback: usar endpoint directo
-        const { get } = await import('@/services/api');
-        const response = await get(`/servicios/proveedor/mis-servicios/servicios_por_marca/?marca_id=${marcaSeleccionada}`);
-        console.log('✅ Servicios del proveedor cargados (fallback):', response.data?.length || 0);
-        setServicios(response.data || []);
-        return;
+      let serviciosCargados: Servicio[] = [];
+
+      if (esGenericoTodasMarcas) {
+        const response = await serviciosAPI.obtenerServiciosPorMarca(0);
+        serviciosCargados = response.data || [];
+      } else if (esMultimarca) {
+        const response = await serviciosAPI.obtenerServiciosComunesPorMarcas(
+          marcasRealesSeleccionadas
+        );
+        serviciosCargados = response.data || [];
+      } else {
+        const marcaId =
+          marcasRealesSeleccionadas[0] ?? marcasSeleccionadas[0];
+        const response = await serviciosAPI.obtenerServiciosPorMarca(marcaId);
+        serviciosCargados = response.data || [];
       }
 
-      const response = await serviciosAPI.obtenerServiciosPorMarca(marcaSeleccionada);
-      console.log('✅ Servicios del proveedor cargados:', response.data?.length || 0);
-      const serviciosCargados = response.data || [];
+      console.log('✅ Servicios cargados:', serviciosCargados.length);
       setServicios(serviciosCargados);
 
       // En modo edición, verificar que el servicio seleccionado esté en la lista
@@ -817,9 +841,8 @@ const CrearServicioScreen = () => {
       return;
     }
 
-    // Validar marca del vehículo (siempre requerida, 0 = genérica)
-    if (marcaSeleccionada === null || marcaSeleccionada === undefined) {
-      Alert.alert('Error', 'Debes seleccionar una marca de vehículo');
+    if (!tieneSeleccionMarca) {
+      Alert.alert('Error', 'Debes seleccionar al menos una marca de vehículo');
       return;
     }
 
@@ -908,9 +931,8 @@ const CrearServicioScreen = () => {
 
       // No enviar servicio cuando es null: la API rechaza "este campo no puede ser nulo".
       // En PATCH, si no se envía servicio, se conserva el valor actual de la oferta.
-      const datosServicio: Record<string, unknown> = {
+      const datosBase: Record<string, unknown> = {
         tipo_servicio: tipoServicio,
-        marca_vehiculo_seleccionada: marcaSeleccionada === 0 ? null : marcaSeleccionada,
         detalles_adicionales: descripcion.trim(),
         costo_mano_de_obra_sin_iva: parseMontoDecimal(costoManoObra),
         costo_repuestos_sin_iva: parseMontoDecimal(costoRepuestos || '0'),
@@ -918,34 +940,75 @@ const CrearServicioScreen = () => {
         disponible: true,
       };
       if (servicioSeleccionado != null) {
-        datosServicio.servicio = servicioSeleccionado;
+        datosBase.servicio = servicioSeleccionado;
       }
 
-      console.log('📤 Datos del servicio:', datosServicio);
-      console.log('📤 Repuestos array:', JSON.stringify(repuestosArray, null, 2));
+      const marcasPublicacion: (number | null)[] = esGenericoTodasMarcas
+        ? [null]
+        : (marcasRealesSeleccionadas.length > 0
+            ? marcasRealesSeleccionadas
+            : marcasSeleccionadas.map((id) => (id === 0 ? null : id)));
 
-      let response;
-      if (isEditMode && servicioId) {
-        // Actualizar servicio existente
-        response = await serviciosAPI.actualizarServicio(servicioId, datosServicio);
-        console.log('✅ Servicio actualizado exitosamente:', response.data);
-      } else {
-        // Crear nuevo servicio
-        response = await serviciosAPI.crearServicio(datosServicio);
-        console.log('✅ Servicio publicado exitosamente:', response.data);
-      }
+      console.log('📤 Datos base del servicio:', datosBase);
+      console.log('📤 Marcas destino:', marcasPublicacion);
 
-      // Subir fotos al servidor si hay fotos
-      if (fotos.length > 0) {
-        const ofertaId = response.data.id;
-        console.log(`📸 Subiendo fotos para oferta ${ofertaId}...`);
-        await subirFotosAlServidor(ofertaId);
-      }
-
-      const tituloExito = isEditMode ? '¡Servicio Actualizado!' : '¡Servicio Publicado!';
-      const mensajeExito = isEditMode
+      let tituloExito = isEditMode ? '¡Servicio Actualizado!' : '¡Servicio Publicado!';
+      let mensajeExito = isEditMode
         ? 'Tu servicio ha sido actualizado correctamente y los cambios ya están disponibles para los clientes.'
         : 'Tu servicio ha sido publicado correctamente y ya está disponible para los clientes.';
+
+      if (isEditMode && servicioId) {
+        const marcaApi =
+          marcasSeleccionadas[0] === 0 ? null : marcasSeleccionadas[0];
+        const datosServicio = {
+          ...datosBase,
+          marca_vehiculo_seleccionada: marcaApi,
+        };
+        const response = await serviciosAPI.actualizarServicio(servicioId, datosServicio);
+        console.log('✅ Servicio actualizado exitosamente:', response.data);
+        if (fotos.length > 0) {
+          await subirFotosAlServidor(response.data.id);
+        }
+      } else {
+        let creados = 0;
+        const erroresMarca: string[] = [];
+
+        for (const marcaId of marcasPublicacion) {
+          const datosServicio = {
+            ...datosBase,
+            marca_vehiculo_seleccionada: marcaId,
+          };
+          try {
+            const response = await serviciosAPI.crearServicio(datosServicio);
+            creados += 1;
+            if (fotos.length > 0) {
+              await subirFotosAlServidor(response.data.id);
+            }
+          } catch (err: any) {
+            const nombreMarca =
+              marcas.find((m) => m.id === marcaId)?.nombre ?? `ID ${marcaId}`;
+            const detalle =
+              err?.response?.data?.servicio?.[0] ??
+              err?.response?.data?.detail ??
+              err?.response?.data?.error ??
+              'No se pudo crear';
+            erroresMarca.push(`${nombreMarca}: ${detalle}`);
+          }
+        }
+
+        if (creados === 0) {
+          throw new Error(
+            erroresMarca.join('\n') || 'No se pudo publicar en ninguna marca'
+          );
+        }
+
+        if (erroresMarca.length > 0) {
+          tituloExito = 'Publicación parcial';
+          mensajeExito = `Se publicó en ${creados} marca(s). No se pudo en:\n${erroresMarca.join('\n')}`;
+        } else if (creados > 1) {
+          mensajeExito = `Tu servicio se publicó en ${creados} marcas con la misma configuración.`;
+        }
+      }
 
       Alert.alert(
         tituloExito,
@@ -1081,102 +1144,184 @@ const CrearServicioScreen = () => {
 
   // Componente de selección de marca (requerido para todos los servicios)
   const MarcaSelector = () => {
+    const marcasReales = marcas.filter((m) => m.id > 0);
+    const marcaGenerica = marcas.find((m) => m.id === 0);
 
-    console.log('🚗 MarcaSelector renderizado - marcas disponibles:', marcas.length);
+    const estaSeleccionada = (marcaId: number) => marcasSeleccionadas.includes(marcaId);
 
-    const handleSelectMarca = (marcaId: number, marcaNombre: string) => {
-      console.log('🚗 Marca seleccionada:', marcaId, marcaNombre);
-
-      // Si es la misma marca, no hacer nada
-      if (marcaId === marcaSeleccionada) {
-        console.log('🚗 Misma marca, ignorando');
+    const handleToggleMarca = (marcaId: number) => {
+      if (isEditMode) {
+        if (estaSeleccionada(marcaId)) return;
+        setMarcasSeleccionadas([marcaId]);
+        resetDependientesDeMarca();
         return;
       }
 
-      setMarcaSeleccionada(marcaId);
-
-      // Solo resetear datos dependientes si es servicio con repuestos Y no estamos en modo edición con datos pre-cargados
-      if (tipoServicio === 'con_repuestos') {
-        if (!isEditMode || !datosPreCargados) {
-          setServicioSeleccionado(null);
-          setServicios([]);
-          setRepuestos([]);
-          setRepuestosSeleccionados(new Set());
-          setPreciosRepuestos(new Map());
-        } else {
-          setServicios([]);
-        }
+      if (marcaId === 0) {
+        setMarcasSeleccionadas([0]);
+        resetDependientesDeMarca();
+        return;
       }
+
+      setMarcasSeleccionadas((prev) => {
+        const sinGenerico = prev.filter((id) => id !== 0);
+        if (sinGenerico.includes(marcaId)) {
+          return sinGenerico.filter((id) => id !== marcaId);
+        }
+        return [...sinGenerico, marcaId];
+      });
+      resetDependientesDeMarca();
     };
 
-    const marcaSeleccionadaObj = marcas.find(m => m.id === marcaSeleccionada);
+    const seleccionarTodasMisMarcas = () => {
+      const ids = marcasReales.map((m) => m.id);
+      setMarcasSeleccionadas(ids);
+      resetDependientesDeMarca();
+    };
+
+    const limpiarMarcas = () => {
+      setMarcasSeleccionadas([]);
+      resetDependientesDeMarca();
+    };
 
     if (marcas.length === 0) {
       return (
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Marca del vehículo</Text>
           <View style={styles.noDataContainer}>
-            <InstitutionalIcon name="information-circle-outline" size={24} color={I.accentYellow}  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="information-circle-outline" size={24} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.noDataText}>
-              No se encontraron marcas. Verifica tu configuración de servicios.
+              No se encontraron marcas. Verifica tu configuración de especialidades.
             </Text>
           </View>
         </View>
       );
     }
 
+    const resumenSeleccion = () => {
+      if (!tieneSeleccionMarca) return null;
+      if (esGenericoTodasMarcas) {
+        return 'Servicios genéricos (diagnóstico y similares, sin marca específica)';
+      }
+      if (esMultimarca) {
+        const nombres = marcasRealesSeleccionadas
+          .map((id) => marcas.find((m) => m.id === id)?.nombre)
+          .filter(Boolean)
+          .join(', ');
+        return `${marcasRealesSeleccionadas.length} marcas: ${nombres}`;
+      }
+      const m = marcas.find((x) => x.id === marcasSeleccionadas[0]);
+      return m?.nombre ?? '';
+    };
+
     return (
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Marca del vehículo</Text>
         <Text style={styles.subtitle}>
-          {isEditMode && (marcaSeleccionada === null || marcaSeleccionada === undefined) && servicioSeleccionado ?
-            `Determinando marca del servicio... (${marcas.length} disponibles)` :
-            `Selecciona la marca de vehículo que atenderás (${marcas.length} disponibles)`
-          }
+          {isEditMode && !tieneSeleccionMarca && servicioSeleccionado
+            ? 'Determinando marca del servicio...'
+            : isEditMode
+              ? 'Marca de esta oferta (no se puede cambiar a varias en edición)'
+              : 'Elige una o varias marcas. Con varias, verás solo servicios comunes a todas.'}
         </Text>
 
-        {/* Indicador de búsqueda en modo edición */}
-        {isEditMode && (marcaSeleccionada === null || marcaSeleccionada === undefined) && servicioSeleccionado && (
+        {isEditMode && !tieneSeleccionMarca && servicioSeleccionado && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color={I.primary} />
             <Text style={styles.loadingText}>Buscando marca del servicio...</Text>
           </View>
         )}
 
-        {/* Selector Visual de Marcas */}
-        <View style={styles.selectorContainer}>
-          {marcas.map((marca) => (
+        {marcaGenerica && (
+          <>
+            <Text style={styles.marcaGrupoLabel}>Servicios genéricos</Text>
             <TouchableOpacity
-              key={marca.id}
               style={[
                 styles.selectorOption,
-                marcaSeleccionada === marca.id && styles.selectorOptionSelected
+                estaSeleccionada(0) && styles.selectorOptionSelected,
               ]}
-              onPress={() => handleSelectMarca(marca.id, marca.nombre)}
+              onPress={() => handleToggleMarca(0)}
               activeOpacity={0.7}
             >
               <View style={styles.selectorContent}>
-                <Text style={styles.selectorEmoji}>🚗</Text>
-                <Text style={[
-                  styles.selectorText,
-                  marcaSeleccionada === marca.id && styles.selectorTextSelected
-                ]}>
-                  {marca.nombre}
+                <Text style={styles.selectorEmoji}>🌐</Text>
+                <Text
+                  style={[
+                    styles.selectorText,
+                    estaSeleccionada(0) && styles.selectorTextSelected,
+                  ]}
+                >
+                  {marcaGenerica.nombre}
                 </Text>
-                {marcaSeleccionada === marca.id && (
-                  <InstitutionalIcon name="checkmark-circle" size={24} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
+                {estaSeleccionada(0) && (
+                  <InstitutionalIcon name="checkmark-circle" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                 )}
               </View>
             </TouchableOpacity>
-          ))}
-        </View>
-
-        {marcaSeleccionadaObj && (
-          <View style={styles.selectedIndicator}>
-            <InstitutionalIcon name="checkmark-circle" size={20} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.selectedText}>
-              Marca seleccionada: {marcaSeleccionadaObj.nombre}
+            <Text style={styles.marcaHint}>
+              Solo para diagnóstico y servicios que no dependen de una marca de auto.
             </Text>
+          </>
+        )}
+
+        {marcasReales.length > 0 && (
+          <>
+            <Text style={styles.marcaGrupoLabel}>Por marca de vehículo</Text>
+            {!isEditMode && (
+              <View style={styles.marcaAccionesRow}>
+                <TouchableOpacity
+                  style={styles.quickChip}
+                  onPress={seleccionarTodasMisMarcas}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.quickChipText}>Todas mis marcas</Text>
+                </TouchableOpacity>
+                {tieneSeleccionMarca && !esGenericoTodasMarcas && (
+                  <TouchableOpacity
+                    style={styles.quickChipOutline}
+                    onPress={limpiarMarcas}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.quickChipOutlineText}>Limpiar</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+            <View style={styles.selectorContainer}>
+              {marcasReales.map((marca) => (
+                <TouchableOpacity
+                  key={marca.id}
+                  style={[
+                    styles.selectorOption,
+                    estaSeleccionada(marca.id) && styles.selectorOptionSelected,
+                  ]}
+                  onPress={() => handleToggleMarca(marca.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.selectorContent}>
+                    <Text style={styles.selectorEmoji}>🚗</Text>
+                    <Text
+                      style={[
+                        styles.selectorText,
+                        estaSeleccionada(marca.id) && styles.selectorTextSelected,
+                      ]}
+                    >
+                      {marca.nombre}
+                    </Text>
+                    {estaSeleccionada(marca.id) && (
+                      <InstitutionalIcon name="checkmark-circle" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+
+        {tieneSeleccionMarca && (
+          <View style={styles.selectedIndicator}>
+            <InstitutionalIcon name="checkmark-circle" size={20} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={styles.selectedText}>{resumenSeleccion()}</Text>
           </View>
         )}
       </View>
@@ -1185,8 +1330,7 @@ const CrearServicioScreen = () => {
 
   // Componente de selección de servicio
   const ServicioSelector = () => {
-    // Ya no filtramos por tipoServicio !== 'con_repuestos', mostramos para todos
-    if (marcaSeleccionada === null || marcaSeleccionada === undefined) return null;
+    if (!tieneSeleccionMarca) return null;
 
     const handleSelectServicio = (servicioId: number, servicioNombre: string) => {
       console.log('⚙️ Servicio seleccionado:', servicioId, servicioNombre);
@@ -1211,17 +1355,30 @@ const CrearServicioScreen = () => {
     };
 
     const servicioSeleccionadoObj = servicios.find(s => s.id === servicioSeleccionado);
-    const marcaObj = marcas.find(m => m.id === marcaSeleccionada);
+
+    const subtituloServicios = () => {
+      const n = servicios.length;
+      if (esGenericoTodasMarcas) {
+        return `Servicios genéricos del catálogo (${n} disponibles)`;
+      }
+      if (esMultimarca) {
+        return `Servicios comunes a las ${marcasRealesSeleccionadas.length} marcas seleccionadas (${n})`;
+      }
+      const marcaObj = marcas.find((m) => m.id === marcasRealesSeleccionadas[0]);
+      return marcaObj
+        ? `Servicios para ${marcaObj.nombre} (${n} disponibles)`
+        : `Selecciona marca(s) primero`;
+    };
 
     return (
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Servicio ofrecido</Text>
-        <Text style={styles.subtitle}>
-          {marcaObj ?
-            `Servicios que ofreces para ${marcaObj.nombre} (${servicios.length} disponibles)` :
-            `Selecciona una marca primero`
-          }
-        </Text>
+        <Text style={styles.subtitle}>{subtituloServicios()}</Text>
+        {esMultimarca && (
+          <Text style={styles.marcaHint}>
+            Solo aparecen servicios que el catálogo tiene para todas las marcas elegidas.
+          </Text>
+        )}
 
 
         {loadingServicios ? (
@@ -1278,8 +1435,9 @@ const CrearServicioScreen = () => {
           <View style={styles.noDataContainer}>
             <InstitutionalIcon name="information-circle-outline" size={24} color={I.accentYellow}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.noDataText}>
-              No hay servicios catalogados para esta marca. Si crees que falta alguno, contacta al administrador.
-              Verifica tu configuración de servicios.
+              {esMultimarca
+                ? 'No hay servicios en común para todas las marcas seleccionadas. Prueba con menos marcas o publícalo por separado.'
+                : 'No hay servicios catalogados para esta selección. Si crees que falta alguno, contacta al administrador.'}
             </Text>
           </View>
         )}
@@ -1619,7 +1777,7 @@ const CrearServicioScreen = () => {
               {console.log('🎨 Renderizando componentes de selección:', {
                 tipoServicio,
                 marcasLength: marcas.length,
-                marcaSeleccionada,
+                marcasSeleccionadas,
                 serviciosLength: servicios.length,
                 servicioSeleccionado
               })}
@@ -1698,7 +1856,11 @@ const CrearServicioScreen = () => {
                 <>
                   <InstitutionalIcon name={isEditMode ? "checkmark-circle" : "rocket"} size={20} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.publishButtonText}>
-                    {isEditMode ? 'Actualizar Servicio' : 'Publicar Servicio'}
+                    {isEditMode
+                      ? 'Actualizar Servicio'
+                      : esMultimarca
+                        ? `Publicar en ${marcasRealesSeleccionadas.length} marcas`
+                        : 'Publicar Servicio'}
                   </Text>
                 </>
               )}
@@ -1787,6 +1949,50 @@ const styles = StyleSheet.create({
     color: I.muted,
     marginBottom: SPACING.fixed.sm,
     lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
+  },
+
+  marcaGrupoLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    marginTop: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.xs,
+  },
+  marcaHint: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginBottom: SPACING.fixed.sm,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+  },
+  marcaAccionesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.sm,
+  },
+  quickChip: {
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.xs,
+    borderRadius: BORDERS.radius.full,
+    backgroundColor: withOpacity(I.primary, 0.12),
+  },
+  quickChipText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
+  },
+  quickChipOutline: {
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.xs,
+    borderRadius: BORDERS.radius.full,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  quickChipOutlineText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
   },
 
   selectorContainer: {

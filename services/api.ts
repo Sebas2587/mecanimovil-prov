@@ -1728,6 +1728,11 @@ export const serviciosAPI = {
   obtenerServiciosPorMarca: (marcaId: number) =>
     get(`/servicios/proveedor/mis-servicios/servicios_por_marca/?marca_id=${marcaId}`),
 
+  obtenerServiciosComunesPorMarcas: (marcaIds: number[]) =>
+    get(
+      `/servicios/proveedor/mis-servicios/servicios_comunes_por_marcas/?marca_ids=${marcaIds.join(',')}`
+    ),
+
   /** Catálogo por marca (sin especialidades del proveedor); útil en onboarding */
   obtenerCatalogoServiciosPorMarca: (marcaId: number) =>
     get(`/servicios/servicios/catalogo_por_marca/?marca_id=${marcaId}`),
