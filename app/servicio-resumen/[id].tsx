@@ -15,6 +15,7 @@ import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { parseOfertasGrupoParam } from '@/utils/agruparOfertasServicio';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -80,7 +81,16 @@ function fmtMoney(n: number | string | undefined): string {
 
 export default function ServicioResumenScreen() {
   const insets = useSafeAreaInsets();
-  const { id, servicioData } = useLocalSearchParams<{ id: string; servicioData?: string }>();
+  const { id, servicioData, ofertasGrupo: ofertasGrupoParam } = useLocalSearchParams<{
+    id: string;
+    servicioData?: string;
+    ofertasGrupo?: string;
+  }>();
+
+  const ofertasGrupo = useMemo(
+    () => parseOfertasGrupoParam(ofertasGrupoParam),
+    [ofertasGrupoParam]
+  );
 
   const initial = useMemo(() => parseServicioFromParams(servicioData), [servicioData]);
   const [servicio, setServicio] = useState<ServicioOferta | null>(initial);
@@ -175,9 +185,18 @@ export default function ServicioResumenScreen() {
 
   const eliminarServicio = async () => {
     if (!servicio) return;
+    const idsEliminar =
+      ofertasGrupo.length > 0
+        ? [...new Set(ofertasGrupo.map((o) => o.id))]
+        : [servicio.id];
+    const msgExtra =
+      idsEliminar.length > 1
+        ? ` Se eliminarán ${idsEliminar.length} ofertas (todas las marcas asociadas).`
+        : '';
+
     Alert.alert(
       'Eliminar servicio',
-      `¿Eliminar "${servicio.servicio_info.nombre}"? Esta acción no se puede deshacer.`,
+      `¿Eliminar "${servicio.servicio_info.nombre}"?${msgExtra} Esta acción no se puede deshacer.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -186,7 +205,9 @@ export default function ServicioResumenScreen() {
           onPress: async () => {
             try {
               const { serviciosAPI } = await import('@/services/api');
-              await serviciosAPI.eliminarServicio(servicio.id);
+              for (const oid of idsEliminar) {
+                await serviciosAPI.eliminarServicio(oid);
+              }
               Alert.alert('Éxito', 'El servicio ha sido eliminado correctamente', [
                 { text: 'OK', onPress: () => router.back() },
               ]);
@@ -208,9 +229,13 @@ export default function ServicioResumenScreen() {
         mode: 'edit',
         servicioId: servicio.id.toString(),
         servicioData: JSON.stringify(servicio),
+        ofertasGrupo:
+          ofertasGrupo.length > 0
+            ? JSON.stringify(ofertasGrupo)
+            : JSON.stringify([{ id: servicio.id, marca_id: servicio.marca_vehiculo_seleccionada ?? 0 }]),
       },
     });
-  }, [servicio]);
+  }, [servicio, ofertasGrupo]);
 
   const formatearFecha = (fecha: string) =>
     new Date(fecha).toLocaleDateString('es-CL', {
@@ -320,10 +345,30 @@ export default function ServicioResumenScreen() {
               <InstitutionalIcon name="directions-car" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <View style={styles.infoBody}>
-              <Text style={styles.label}>Marca de vehículo</Text>
-              <Text style={styles.value}>
-                {servicio.marca_vehiculo_info?.nombre?.trim() ? servicio.marca_vehiculo_info.nombre : 'No especificada'}
+              <Text style={styles.label}>
+                {ofertasGrupo.length > 1 ? 'Marcas de vehículo' : 'Marca de vehículo'}
               </Text>
+              {ofertasGrupo.length > 1 ? (
+                <View style={styles.tagsWrap}>
+                  {ofertasGrupo.map((item) => (
+                    <View key={item.id} style={styles.tag}>
+                      <Text style={styles.tagText}>
+                        {item.marca_id === 0
+                          ? 'Genérico'
+                          : item.nombre?.trim() || `Marca #${item.marca_id}`}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.value}>
+                  {servicio.marca_vehiculo_info?.nombre?.trim()
+                    ? servicio.marca_vehiculo_info.nombre
+                    : ofertasGrupo[0]?.marca_id === 0
+                      ? 'Servicio genérico (todas las marcas)'
+                      : 'No especificada'}
+                </Text>
+              )}
             </View>
           </View>
 

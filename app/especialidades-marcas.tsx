@@ -28,6 +28,7 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/ap
 import Header from '@/components/Header';
 import Snackbar from '@/components/Snackbar';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
+import { INSTITUTIONAL_SELECTION } from '@/app/design-system/styles/institutionalSelection';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
@@ -68,12 +69,13 @@ const EspecialidadCard = React.memo(function EspecialidadCard({
   return (
     <TouchableOpacity
       style={[
-        styles.selectionCard,
+        INSTITUTIONAL_SELECTION.card,
+        styles.selectionCardLayout,
         {
           width: cardWidth,
           marginRight: isLeftColumn ? GRID_COL_GAP : 0,
         },
-        isSelected && styles.selectionCardSelected,
+        isSelected && INSTITUTIONAL_SELECTION.cardSelected,
       ]}
       onPress={onPress}
       disabled={disabled}
@@ -81,8 +83,8 @@ const EspecialidadCard = React.memo(function EspecialidadCard({
     >
       <View
         style={[
-          styles.checkbox,
-          isSelected && styles.checkboxSelected,
+          INSTITUTIONAL_SELECTION.checkbox,
+          isSelected && INSTITUTIONAL_SELECTION.checkboxSelected,
         ]}
       >
         {isSelected ? <InstitutionalIcon name="checkmark" size={12} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} /> : null}
@@ -90,8 +92,9 @@ const EspecialidadCard = React.memo(function EspecialidadCard({
 
       <View
         style={[
-          styles.cardIconPlate,
-          isSelected ? styles.cardIconPlateSelected : styles.cardIconPlateIdle,
+          INSTITUTIONAL_SELECTION.iconPlate,
+          styles.cardIconPlateSpacing,
+          isSelected && INSTITUTIONAL_SELECTION.iconPlateSelected,
         ]}
       >
         <InstitutionalIcon name="build" size={16} color={isSelected ? I.primary : I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
@@ -99,7 +102,7 @@ const EspecialidadCard = React.memo(function EspecialidadCard({
 
       <View style={styles.cardTextBlock}>
         <Text
-          style={[styles.cardTitle, isSelected && styles.cardTitleSelected]}
+          style={[INSTITUTIONAL_SELECTION.title, isSelected && INSTITUTIONAL_SELECTION.titleSelected]}
           numberOfLines={2}
         >
           {especialidad.nombre}
@@ -146,32 +149,42 @@ const MarcaCard = React.memo(function MarcaCard({
   return (
     <TouchableOpacity
       style={[
-        styles.selectionCard,
+        INSTITUTIONAL_SELECTION.card,
+        styles.selectionCardLayout,
         {
           width: cardWidth,
           marginRight: isLeftColumn ? GRID_COL_GAP : 0,
         },
-        isSelected && styles.selectionCardSelected,
+        isSelected && INSTITUTIONAL_SELECTION.cardSelected,
       ]}
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.85}
     >
-      <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+      <View
+        style={[
+          INSTITUTIONAL_SELECTION.checkbox,
+          isSelected && INSTITUTIONAL_SELECTION.checkboxSelected,
+        ]}
+      >
         {isSelected ? <InstitutionalIcon name="checkmark" size={12} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} /> : null}
       </View>
 
       <View
         style={[
-          styles.cardIconPlate,
-          isSelected ? styles.cardIconPlateSelected : styles.cardIconPlateIdle,
+          INSTITUTIONAL_SELECTION.iconPlate,
+          styles.cardIconPlateSpacing,
+          isSelected && INSTITUTIONAL_SELECTION.iconPlateSelected,
         ]}
       >
         <InstitutionalIcon name="directions-car" size={16} color={isSelected ? I.primary : I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
       </View>
 
       <View style={styles.cardTextBlock}>
-        <Text style={[styles.cardTitle, isSelected && styles.cardTitleSelected]} numberOfLines={2}>
+        <Text
+          style={[INSTITUTIONAL_SELECTION.title, isSelected && INSTITUTIONAL_SELECTION.titleSelected]}
+          numberOfLines={2}
+        >
           {marca.nombre}
         </Text>
         <Text
@@ -943,65 +956,19 @@ const styles = StyleSheet.create({
     rowGap: GRID_COL_GAP,
     marginBottom: SPACING.fixed.sm,
   },
-  selectionCard: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.md,
+  selectionCardLayout: {
     paddingHorizontal: SPACING.fixed.xs,
     paddingTop: 28,
     paddingBottom: SPACING.fixed.xs,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
     flexShrink: 0,
     overflow: 'hidden',
   },
-  selectionCardSelected: {
-    backgroundColor: COLORS.primary[50],
-    borderColor: I.primary,
-  },
-  checkbox: {
-    position: 'absolute',
-    top: SPACING.fixed.xxs + 2,
-    right: SPACING.fixed.xxs + 2,
-    width: 20,
-    height: 20,
-    borderRadius: BORDERS.radius.full,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    backgroundColor: I.canvas,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxSelected: {
-    borderColor: I.primary,
-    backgroundColor: I.primary,
-  },
-  cardIconPlate: {
-    width: 28,
-    height: 28,
-    borderRadius: BORDERS.radius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
+  cardIconPlateSpacing: {
     marginBottom: SPACING.fixed.xxs + 2,
-  },
-  cardIconPlateIdle: {
-    backgroundColor: I.surfaceStrong,
-  },
-  cardIconPlateSelected: {
-    backgroundColor: withOpacity(I.primary, 0.12),
   },
   cardTextBlock: {
     width: '100%',
     paddingRight: 24,
-  },
-  cardTitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.sm, 1.35),
-    color: I.ink,
-    marginBottom: 2,
-  },
-  cardTitleSelected: {
-    color: I.primary,
   },
   cardDescription: {
     fontSize: TS.caption.fontSize,

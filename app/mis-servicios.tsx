@@ -18,6 +18,10 @@ import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import {
+  agruparOfertasServicio,
+  type ServicioOfertaGrupo,
+} from '@/utils/agruparOfertasServicio';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -126,6 +130,7 @@ const MisServiciosScreen = () => {
   const insets = useSafeAreaInsets();
   const [servicios, setServicios] = useState<ServicioOferta[]>([]);
   const [serviciosFiltrados, setServiciosFiltrados] = useState<ServicioOferta[]>([]);
+  const marcasLookupRef = React.useRef<Map<number, MarcaProveedorRow>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -140,6 +145,7 @@ const MisServiciosScreen = () => {
       const raw = resServicios.data?.results || resServicios.data || [];
       const lista = Array.isArray(raw) ? raw : [];
       const marcasArr = Array.isArray(resMarcas.data) ? (resMarcas.data as MarcaProveedorRow[]) : [];
+      marcasLookupRef.current = new Map(marcasArr.map((m) => [m.id, m]));
       const serviciosData = enriquecerOfertasConMarcas(lista, marcasArr);
       setServicios(serviciosData);
       setServiciosFiltrados(serviciosData);
@@ -158,12 +164,13 @@ const MisServiciosScreen = () => {
     }, [fetchServicios])
   );
 
-  const verDetalleServicio = (servicio: ServicioOferta) => {
+  const verDetalleServicio = (grupo: ServicioOfertaGrupo<ServicioOferta>) => {
     router.push({
       pathname: '/servicio-resumen/[id]' as any,
       params: {
-        id: servicio.id.toString(),
-        servicioData: JSON.stringify(servicio),
+        id: grupo.representante.id.toString(),
+        servicioData: JSON.stringify(grupo.representante),
+        ofertasGrupo: JSON.stringify(grupo.ofertasGrupo),
       },
     });
   };
@@ -198,17 +205,13 @@ const MisServiciosScreen = () => {
     });
   };
 
-  const listaOrdenada = useMemo(
-    () =>
-      [...serviciosFiltrados].sort((a, b) =>
-        (a.servicio_info?.nombre || '').localeCompare(b.servicio_info?.nombre || '', 'es', {
-          sensitivity: 'base',
-        })
-      ),
+  const gruposOrdenados = useMemo(
+    () => agruparOfertasServicio(serviciosFiltrados),
     [serviciosFiltrados]
   );
 
-  const totalLabel = searchText ? serviciosFiltrados.length : servicios.length;
+  const totalLabel = searchText ? gruposOrdenados.length : agruparOfertasServicio(servicios).length;
+  const totalOfertas = searchText ? serviciosFiltrados.length : servicios.length;
 
   if (loading) {
     return (
@@ -283,7 +286,9 @@ const MisServiciosScreen = () => {
           </View>
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Servicios ({totalLabel})</Text>
+            <Text style={styles.sectionTitle}>
+              Servicios ({totalLabel}){totalOfertas !== totalLabel ? ` · ${totalOfertas} ofertas` : ''}
+            </Text>
           </View>
 
           {servicios.length === 0 ? (
@@ -305,39 +310,39 @@ const MisServiciosScreen = () => {
               </TouchableOpacity>
             </View>
           ) : serviciosFiltrados.length > 0 ? (
-            listaOrdenada.map((servicio) => (
+            gruposOrdenados.map((grupo) => (
               <TouchableOpacity
-                key={servicio.id}
+                key={grupo.key}
                 style={styles.listCard}
-                onPress={() => verDetalleServicio(servicio)}
+                onPress={() => verDetalleServicio(grupo)}
                 activeOpacity={0.88}
               >
                 <View style={styles.listCardBody}>
                   <View style={styles.listCardTopRow}>
                     <View style={styles.listCardTitleWrap}>
                       <Text style={styles.listCardTitle} numberOfLines={2}>
-                        {servicio.servicio_info.nombre}
+                        {grupo.representante.servicio_info.nombre}
                       </Text>
                     </View>
                     <View style={styles.listCardPillsRow}>
                       <View style={styles.marcaBadgeCell}>
-                        <MarcaBadge servicio={servicio} />
+                        <MarcasBadgeRow grupo={grupo} />
                       </View>
                       <View
                         style={[
                           styles.statusPill,
-                          servicio.disponible ? styles.statusPillOn : styles.statusPillOff,
+                          grupo.representante.disponible ? styles.statusPillOn : styles.statusPillOff,
                         ]}
                       >
-                        <Text style={[styles.statusPillText, servicio.disponible ? styles.statusPillTextOn : styles.statusPillTextOff]}>
-                          {servicio.disponible ? 'Activo' : 'Inactivo'}
+                        <Text style={[styles.statusPillText, grupo.representante.disponible ? styles.statusPillTextOn : styles.statusPillTextOff]}>
+                          {grupo.representante.disponible ? 'Activo' : 'Inactivo'}
                         </Text>
                       </View>
                     </View>
                   </View>
                   <View style={styles.listCardBottomRow}>
-                    <Text style={styles.listCardMeta}>{formatearFecha(servicio.fecha_creacion)}</Text>
-                    <PrecioPublicoMonto servicio={servicio} />
+                    <Text style={styles.listCardMeta}>{formatearFecha(grupo.representante.fecha_creacion)}</Text>
+                    <PrecioPublicoMonto servicio={grupo.representante} />
                   </View>
                 </View>
               </TouchableOpacity>
@@ -466,6 +471,16 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     alignItems: 'flex-start',
+  },
+  marcasBadgeWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.xxs,
+    maxWidth: '100%',
+  },
+  marcaBadgeCompact: {
+    paddingHorizontal: SPACING.fixed.xs,
+    paddingVertical: 2,
   },
   listCardTitleWrap: {
     width: '100%',
@@ -669,21 +684,48 @@ function PrecioPublicoMonto({ servicio }: { servicio: ServicioOferta }) {
   );
 }
 
-function MarcaBadge({ servicio }: { servicio: ServicioOferta }) {
+function MarcasBadgeRow({ grupo }: { grupo: ServicioOfertaGrupo<ServicioOferta> }) {
+  const esGenerico =
+    grupo.marcaIds.length === 1 && grupo.marcaIds[0] === 0;
+
+  if (esGenerico) {
+    return <MarcaBadge servicio={grupo.representante} />;
+  }
+
+  if (grupo.ofertas.length <= 1) {
+    return <MarcaBadge servicio={grupo.representante} />;
+  }
+
+  return (
+    <View style={styles.marcasBadgeWrap}>
+      {grupo.ofertas.map((oferta) => (
+        <MarcaBadge key={oferta.id} servicio={oferta} compact />
+      ))}
+    </View>
+  );
+}
+
+function MarcaBadge({
+  servicio,
+  compact = false,
+}: {
+  servicio: ServicioOferta;
+  compact?: boolean;
+}) {
   const info = servicio.marca_vehiculo_info;
   const nombre = info?.nombre?.trim();
   const logoUri = info?.logo?.trim();
 
   if (nombre) {
     return (
-      <View style={styles.marcaBadge}>
+      <View style={[styles.marcaBadge, compact && styles.marcaBadgeCompact]}>
         {logoUri ? (
           <Image source={{ uri: logoUri }} style={styles.marcaBadgeLogo} contentFit="contain" />
         ) : (
-          <InstitutionalIcon name="car-sport-outline" size={11} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="car-sport-outline" size={11} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
         )}
         <View style={styles.marcaBadgeTextCol}>
-          <Text style={styles.marcaBadgeText} numberOfLines={2}>
+          <Text style={styles.marcaBadgeText} numberOfLines={1}>
             {nombre}
           </Text>
         </View>

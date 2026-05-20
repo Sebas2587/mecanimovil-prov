@@ -116,7 +116,7 @@ export default function ChatOfertaScreen() {
           fecha_envio: event.timestamp || new Date().toISOString(),
           leido: false,
           fecha_lectura: null,
-          archivo_adjunto: event.archivo_adjunto || null,
+          archivo_adjunto: event.archivo_adjunto ?? event.attachment ?? null,
           solicitud_detail: prev[0]?.solicitud_detail || null,
         };
         return [...prev, nuevoMensajeObj];

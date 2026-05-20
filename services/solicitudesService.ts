@@ -105,7 +105,8 @@ export interface SolicitudPublica {
   total_visualizaciones: number;
   total_rechazos: number;
   oferta_seleccionada?: string | null;
-  oferta_seleccionada_detail?: any;
+  /** Oferta preasignada (p. ej. catálogo); visible para el proveedor dirigido */
+  oferta_seleccionada_detail?: OfertaProveedor | null;
   ofertas?: any[];
   ofertas_secundarias?: OfertaProveedor[];
   rechazos?: RechazoSolicitud[];
@@ -290,6 +291,8 @@ export interface MensajeChat {
   nombre_remitente?: string;
   enviado_por_nombre?: string;
   archivo_adjunto?: string | null;
+  /** API chat unificada (alias de archivo_adjunto) */
+  attachment?: string | null;
   solicitud_detail?: any; // Add this to fix the error, type could be more specific but 'any' or partial SolicitudDetail is fine for now
 }
 

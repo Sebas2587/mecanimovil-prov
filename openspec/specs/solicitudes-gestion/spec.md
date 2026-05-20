@@ -43,3 +43,19 @@ El proveedor puede rechazar solicitudes que no puede atender.
 - CUANDO el proveedor toca "Rechazar" y selecciona motivo
 - THEN la solicitud desaparece de su lista
 - AND se notifica al usuario con el motivo
+
+### Requirement: Confirmación de asignación desde catálogo
+Cuando el cliente elige un servicio publicado del proveedor, el detalle (`solicitud-detalle/[id]`) separa conversación, negociación de fecha y decisión.
+
+#### Scenario: Layout de acciones catálogo
+- GIVEN solicitud `pendiente_confirmacion` con oferta `origen=catalogo` del proveedor
+- WHEN abre el detalle
+- THEN chat y contexto están en la tarjeta de asignación (scroll)
+- AND «Proponer otra fecha» está junto a la fecha preferida
+- AND el pie fijo solo muestra Rechazar y Aceptar asignación
+
+#### Scenario: Sin pie mientras espera fecha del cliente
+- GIVEN oferta catálogo en `en_chat` tras proponer fecha
+- WHEN abre el detalle
+- THEN no hay pie de Rechazar/Aceptar
+- AND el chat sigue disponible solo en la tarjeta de asignación

@@ -13,6 +13,7 @@ import {
   Platform,
   Image,
   FlatList,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,12 +25,154 @@ import { parseMontoDecimal } from '@/utils/parseMontoDecimal';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
+import { INSTITUTIONAL_SELECTION } from '@/app/design-system/styles/institutionalSelection';
+import { parseOfertasGrupoParam } from '@/utils/agruparOfertasServicio';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const TS = TYPOGRAPHY.styles;
 const hx = SPACING.container.horizontal;
 const lh = (fontSize: number, mult: number) => Math.round(fontSize * mult);
+
+const MARCA_GRID_COL_GAP = SPACING.fixed.xs;
+const MARCA_PANEL_BODY_PAD = SPACING.fixed.sm;
+
+function estimateMarcaGridSlotWidth(): number {
+  const w = Dimensions.get('window').width;
+  return Math.max(0, w - hx * 2 - SPACING.fixed.md * 2 - MARCA_PANEL_BODY_PAD * 2);
+}
+
+type MarcaModoTab = 'por_marca' | 'generico';
+
+const MarcaVehiculoCard = React.memo(function MarcaVehiculoCard({
+  marca,
+  isSelected,
+  disabled,
+  cardWidth,
+  isLeftColumn,
+  onToggle,
+}: {
+  marca: MarcaVehiculo;
+  isSelected: boolean;
+  disabled: boolean;
+  cardWidth: number;
+  isLeftColumn: boolean;
+  onToggle: (id: number) => void;
+}) {
+  const onPress = useCallback(() => onToggle(marca.id), [onToggle, marca.id]);
+
+  return (
+    <TouchableOpacity
+      style={[
+        INSTITUTIONAL_SELECTION.card,
+        styles.marcaSelectionCardLayout,
+        { width: cardWidth, marginRight: isLeftColumn ? MARCA_GRID_COL_GAP : 0 },
+        isSelected && INSTITUTIONAL_SELECTION.cardSelected,
+      ]}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.85}
+    >
+      <View
+        style={[
+          INSTITUTIONAL_SELECTION.checkbox,
+          isSelected && INSTITUTIONAL_SELECTION.checkboxSelected,
+        ]}
+      >
+        {isSelected ? (
+          <InstitutionalIcon name="checkmark" size={12} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+        ) : null}
+      </View>
+      <View
+        style={[
+          INSTITUTIONAL_SELECTION.iconPlate,
+          isSelected && INSTITUTIONAL_SELECTION.iconPlateSelected,
+        ]}
+      >
+        <InstitutionalIcon
+          name="directions-car"
+          size={16}
+          color={isSelected ? I.primary : I.muted}
+          strokeWidth={ICON_STROKE_WIDTH}
+        />
+      </View>
+      <View style={styles.marcaCardTextBlock}>
+        <Text
+          style={[
+            INSTITUTIONAL_SELECTION.title,
+            isSelected && INSTITUTIONAL_SELECTION.titleSelected,
+          ]}
+          numberOfLines={2}
+        >
+          {marca.nombre}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+const ServicioCatalogCard = React.memo(function ServicioCatalogCard({
+  servicio,
+  isSelected,
+  onSelect,
+}: {
+  servicio: Servicio;
+  isSelected: boolean;
+  onSelect: (id: number, nombre: string) => void;
+}) {
+  const onPress = useCallback(
+    () => onSelect(servicio.id, servicio.nombre),
+    [onSelect, servicio.id, servicio.nombre]
+  );
+
+  return (
+    <TouchableOpacity
+      style={[
+        INSTITUTIONAL_SELECTION.listRow,
+        isSelected && INSTITUTIONAL_SELECTION.listRowSelected,
+      ]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <View style={styles.servicioRowContent}>
+        <View
+          style={[
+            INSTITUTIONAL_SELECTION.iconPlate,
+            isSelected && INSTITUTIONAL_SELECTION.iconPlateSelected,
+          ]}
+        >
+          <InstitutionalIcon
+            name="build"
+            size={16}
+            color={isSelected ? I.primary : I.muted}
+            strokeWidth={ICON_STROKE_WIDTH}
+          />
+        </View>
+        <View style={styles.servicioRowText}>
+          <Text
+            style={[
+              INSTITUTIONAL_SELECTION.title,
+              styles.servicioRowTitle,
+              isSelected && INSTITUTIONAL_SELECTION.titleSelected,
+            ]}
+            numberOfLines={2}
+          >
+            {servicio.nombre}
+          </Text>
+          {servicio.descripcion ? (
+            <Text style={INSTITUTIONAL_SELECTION.description} numberOfLines={2}>
+              {servicio.descripcion}
+            </Text>
+          ) : null}
+        </View>
+        {isSelected ? (
+          <InstitutionalIcon name="checkmark-circle" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+        ) : null}
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 // Interfaces
 interface MarcaVehiculo {
@@ -114,6 +257,10 @@ const CrearServicioScreen = () => {
   const servicioId = params.servicioId ? parseInt(params.servicioId as string) : null;
   const servicioExistente: ServicioExistente | null = params.servicioData ?
     JSON.parse(params.servicioData as string) : null;
+  const ofertasGrupoInicial = useMemo(
+    () => parseOfertasGrupoParam(params.ofertasGrupo as string | undefined),
+    [params.ofertasGrupo]
+  );
 
   // Estados del formulario
   const [tipoServicio, setTipoServicio] = useState<'con_repuestos' | 'sin_repuestos'>('con_repuestos');
@@ -154,9 +301,24 @@ const CrearServicioScreen = () => {
   );
   const esGenericoTodasMarcas =
     marcasSeleccionadas.length === 1 && marcasSeleccionadas[0] === 0;
-  const esMultimarca = !isEditMode && marcasRealesSeleccionadas.length > 1;
+  const esMultimarca = marcasRealesSeleccionadas.length > 1;
+  const edicionGrupo = isEditMode && ofertasGrupoInicial.length > 1;
   const tieneSeleccionMarca = marcasSeleccionadas.length > 0;
   const marcasSeleccionadasKey = marcasSeleccionadas.join(',');
+
+  const [marcaModoTab, setMarcaModoTab] = useState<MarcaModoTab>('por_marca');
+  const [marcaGridWidth, setMarcaGridWidth] = useState(estimateMarcaGridSlotWidth);
+  const [busquedaMarca, setBusquedaMarca] = useState('');
+  /** marca_id (0 = genérico) → oferta_id existente en edición */
+  const [ofertasPorMarca, setOfertasPorMarca] = useState<Map<number, number>>(new Map());
+
+  useEffect(() => {
+    if (esGenericoTodasMarcas) {
+      setMarcaModoTab('generico');
+    } else if (marcasRealesSeleccionadas.length > 0) {
+      setMarcaModoTab('por_marca');
+    }
+  }, [esGenericoTodasMarcas, marcasRealesSeleccionadas.length]);
 
   // Pre-cargar datos en modo edición (OPTIMIZADO - evita bucle infinito)
   useEffect(() => {
@@ -169,11 +331,26 @@ const CrearServicioScreen = () => {
       console.log('📦 servicioExistente COMPLETO recibido:', JSON.stringify(servicioExistente, null, 2));
 
 
+      const catalogoServicioId =
+        servicioExistente.servicio ??
+        servicioExistente.servicio_info?.id ??
+        null;
+
       // Pre-cargar datos del formulario
       setTipoServicio(servicioExistente.tipo_servicio);
-      setServicioSeleccionado(servicioExistente.servicio);
-      // Guardar servicio original para poder restaurarlo si se cambia el tipo
-      setServicioOriginal(servicioExistente.servicio);
+      setServicioSeleccionado(catalogoServicioId);
+      setServicioOriginal(catalogoServicioId);
+
+      if (ofertasGrupoInicial.length > 0) {
+        const mapa = new Map<number, number>();
+        const marcaIds: number[] = [];
+        for (const item of ofertasGrupoInicial) {
+          mapa.set(item.marca_id, item.id);
+          marcaIds.push(item.marca_id);
+        }
+        setOfertasPorMarca(mapa);
+        setMarcasSeleccionadas(marcaIds);
+      }
       setDescripcion(servicioExistente.detalles_adicionales || '');
       setCostoManoObra(servicioExistente.costo_mano_de_obra_sin_iva);
       setCostoRepuestos(servicioExistente.costo_repuestos_sin_iva);
@@ -182,12 +359,18 @@ const CrearServicioScreen = () => {
       setFotos(Array.isArray(fotosExistentes) ? fotosExistentes : []);
       console.log('📸 Fotos pre-cargadas:', fotosExistentes.length);
 
-      // Pre-cargar marca(s): null en API = servicio genérico (UI id 0)
-      if (servicioExistente.marca_vehiculo_seleccionada) {
-        console.log('🚗 Pre-cargando marca seleccionada:', servicioExistente.marca_vehiculo_info?.nombre);
-        setMarcasSeleccionadas([servicioExistente.marca_vehiculo_seleccionada]);
-      } else {
-        setMarcasSeleccionadas([0]);
+      // Marca(s) si no vinieron en el grupo (oferta individual)
+      if (ofertasGrupoInicial.length === 0) {
+        if (servicioExistente.marca_vehiculo_seleccionada) {
+          console.log('🚗 Pre-cargando marca:', servicioExistente.marca_vehiculo_info?.nombre);
+          setMarcasSeleccionadas([servicioExistente.marca_vehiculo_seleccionada]);
+          setOfertasPorMarca(
+            new Map([[servicioExistente.marca_vehiculo_seleccionada, servicioExistente.id]])
+          );
+        } else {
+          setMarcasSeleccionadas([0]);
+          setOfertasPorMarca(new Map([[0, servicioExistente.id]]));
+        }
       }
 
       // Pre-cargar repuestos seleccionados - PRIORITARIO: usar repuestos_seleccionados que tiene los precios personalizados
@@ -294,7 +477,7 @@ const CrearServicioScreen = () => {
       setDatosPreCargados(true);
       console.log('✅ Datos pre-cargados para edición');
     }
-  }, [isEditMode, servicioId, datosPreCargados]); // Usar servicioId en lugar de servicioExistente
+  }, [isEditMode, servicioId, datosPreCargados, ofertasGrupoInicial.length]);
 
   // Cargar marcas al montar componente e inicializar datosPreCargados para modo creación
   useEffect(() => {
@@ -315,7 +498,15 @@ const CrearServicioScreen = () => {
 
   // Efecto especial para pre-cargar marca en modo edición basado en servicios disponibles
   useEffect(() => {
-    if (isEditMode && servicioSeleccionado && tipoServicio === 'con_repuestos' && datosPreCargados && marcas.length > 0 && !tieneSeleccionMarca) {
+    if (
+      isEditMode &&
+      ofertasGrupoInicial.length === 0 &&
+      servicioSeleccionado &&
+      tipoServicio === 'con_repuestos' &&
+      datosPreCargados &&
+      marcas.length > 0 &&
+      !tieneSeleccionMarca
+    ) {
       console.log('🔧 Modo edición: Determinando marca automáticamente para servicio ID:', servicioSeleccionado);
       determinarMarcaDelServicio();
     }
@@ -609,20 +800,26 @@ const CrearServicioScreen = () => {
         serviciosCargados = response.data || [];
       }
 
+      const catalogoId = servicioSeleccionado ?? servicioOriginal;
+      if (isEditMode && catalogoId && servicioExistente?.servicio_info) {
+        const yaEnLista = serviciosCargados.some((s) => s.id === catalogoId);
+        if (!yaEnLista) {
+          serviciosCargados = [
+            {
+              id: servicioExistente.servicio_info.id,
+              nombre: servicioExistente.servicio_info.nombre,
+              descripcion: servicioExistente.servicio_info.descripcion ?? '',
+              requiere_repuestos: servicioExistente.servicio_info.requiere_repuestos ?? false,
+              foto: servicioExistente.servicio_info.foto,
+            },
+            ...serviciosCargados,
+          ];
+        }
+        setServicioSeleccionado(catalogoId);
+      }
+
       console.log('✅ Servicios cargados:', serviciosCargados.length);
       setServicios(serviciosCargados);
-
-      // En modo edición, verificar que el servicio seleccionado esté en la lista
-      if (isEditMode && servicioSeleccionado) {
-        const servicioEncontrado = serviciosCargados.find((s: Servicio) => s.id === servicioSeleccionado);
-        if (!servicioEncontrado) {
-          console.warn('⚠️ El servicio seleccionado no está en la lista de servicios de esta marca');
-          console.warn('  - Servicio buscado ID:', servicioSeleccionado);
-          console.warn('  - Servicios disponibles:', serviciosCargados.map((s: Servicio) => s.id));
-        } else {
-          console.log('✅ Servicio seleccionado encontrado en la lista:', servicioEncontrado.nombre);
-        }
-      }
     } catch (error) {
       console.error('❌ Error cargando servicios del proveedor:', error);
       Alert.alert('Error', 'No se pudieron cargar los servicios que usted ofrece para esta marca');
@@ -957,17 +1154,81 @@ const CrearServicioScreen = () => {
         ? 'Tu servicio ha sido actualizado correctamente y los cambios ya están disponibles para los clientes.'
         : 'Tu servicio ha sido publicado correctamente y ya está disponible para los clientes.';
 
-      if (isEditMode && servicioId) {
-        const marcaApi =
-          marcasSeleccionadas[0] === 0 ? null : marcasSeleccionadas[0];
-        const datosServicio = {
-          ...datosBase,
-          marca_vehiculo_seleccionada: marcaApi,
-        };
-        const response = await serviciosAPI.actualizarServicio(servicioId, datosServicio);
-        console.log('✅ Servicio actualizado exitosamente:', response.data);
-        if (fotos.length > 0) {
-          await subirFotosAlServidor(response.data.id);
+      if (isEditMode) {
+        const marcasPublicacionEdit: (number | null)[] = esGenericoTodasMarcas
+          ? [null]
+          : marcasRealesSeleccionadas.length > 0
+            ? marcasRealesSeleccionadas
+            : marcasSeleccionadas.map((id) => (id === 0 ? null : id));
+
+        const marcasClaveDestino = new Set(
+          marcasPublicacionEdit.map((m) => (m === null ? 0 : m))
+        );
+
+        let actualizados = 0;
+        let creados = 0;
+        const erroresMarca: string[] = [];
+
+        for (const marcaApi of marcasPublicacionEdit) {
+          const marcaClave = marcaApi === null ? 0 : marcaApi;
+          const ofertaId = ofertasPorMarca.get(marcaClave);
+          const datosServicio = {
+            ...datosBase,
+            marca_vehiculo_seleccionada: marcaApi,
+          };
+          const nombreMarca =
+            marcas.find((m) => m.id === marcaClave)?.nombre ?? `ID ${marcaClave}`;
+
+          try {
+            if (ofertaId) {
+              const response = await serviciosAPI.actualizarServicio(ofertaId, datosServicio);
+              actualizados += 1;
+              if (fotos.length > 0) {
+                await subirFotosAlServidor(response.data.id);
+              }
+            } else {
+              const response = await serviciosAPI.crearServicio(datosServicio);
+              creados += 1;
+              setOfertasPorMarca((prev) => {
+                const next = new Map(prev);
+                next.set(marcaClave, response.data.id);
+                return next;
+              });
+              if (fotos.length > 0) {
+                await subirFotosAlServidor(response.data.id);
+              }
+            }
+          } catch (err: any) {
+            const detalle =
+              err?.response?.data?.servicio?.[0] ??
+              err?.response?.data?.detail ??
+              err?.response?.data?.error ??
+              'No se pudo guardar';
+            erroresMarca.push(`${nombreMarca}: ${detalle}`);
+          }
+        }
+
+        for (const [marcaClave, ofertaId] of ofertasPorMarca.entries()) {
+          if (!marcasClaveDestino.has(marcaClave)) {
+            try {
+              await serviciosAPI.eliminarServicio(ofertaId);
+            } catch (err: any) {
+              erroresMarca.push(
+                `Quitar ${marcas.find((m) => m.id === marcaClave)?.nombre ?? marcaClave}: ${err?.message ?? 'error'}`
+              );
+            }
+          }
+        }
+
+        if (actualizados + creados === 0 && erroresMarca.length > 0) {
+          throw new Error(erroresMarca.join('\n'));
+        }
+
+        if (erroresMarca.length > 0) {
+          tituloExito = 'Actualización parcial';
+          mensajeExito = `Cambios guardados con advertencias:\n${erroresMarca.join('\n')}`;
+        } else if (creados > 0 || marcasPublicacionEdit.length > 1) {
+          mensajeExito = `Configuración aplicada en ${marcasPublicacionEdit.length} marca(s).`;
         }
       } else {
         let creados = 0;
@@ -1100,8 +1361,8 @@ const CrearServicioScreen = () => {
         <View style={styles.tipoServicioContainer}>
           <TouchableOpacity
             style={[
-              styles.tipoServicioOption,
-              tipoServicio === 'con_repuestos' && styles.tipoServicioSelected
+              INSTITUTIONAL_SELECTION.toggleOption,
+              tipoServicio === 'con_repuestos' && INSTITUTIONAL_SELECTION.toggleOptionSelected,
             ]}
             onPress={() => handleChangeTipoServicio('con_repuestos')}
           >
@@ -1120,8 +1381,8 @@ const CrearServicioScreen = () => {
 
           <TouchableOpacity
             style={[
-              styles.tipoServicioOption,
-              tipoServicio === 'sin_repuestos' && styles.tipoServicioSelected
+              INSTITUTIONAL_SELECTION.toggleOption,
+              tipoServicio === 'sin_repuestos' && INSTITUTIONAL_SELECTION.toggleOptionSelected,
             ]}
             onPress={() => handleChangeTipoServicio('sin_repuestos')}
           >
@@ -1142,186 +1403,303 @@ const CrearServicioScreen = () => {
     );
   };
 
-  // Componente de selección de marca (requerido para todos los servicios)
+  // Card de marca — patrón institucional (tabs + grid como especialidades-marcas)
   const MarcaSelector = () => {
-    const marcasReales = marcas.filter((m) => m.id > 0);
-    const marcaGenerica = marcas.find((m) => m.id === 0);
+    const marcasReales = useMemo(() => marcas.filter((m) => m.id > 0), [marcas]);
+    const tieneOpcionGenerica = marcas.some((m) => m.id === 0);
 
-    const estaSeleccionada = (marcaId: number) => marcasSeleccionadas.includes(marcaId);
+    const estaSeleccionada = useCallback(
+      (marcaId: number) => marcasSeleccionadas.includes(marcaId),
+      [marcasSeleccionadas]
+    );
 
-    const handleToggleMarca = (marcaId: number) => {
-      if (isEditMode) {
-        if (estaSeleccionada(marcaId)) return;
-        setMarcasSeleccionadas([marcaId]);
-        resetDependientesDeMarca();
-        return;
-      }
-
-      if (marcaId === 0) {
-        setMarcasSeleccionadas([0]);
-        resetDependientesDeMarca();
-        return;
-      }
-
-      setMarcasSeleccionadas((prev) => {
-        const sinGenerico = prev.filter((id) => id !== 0);
-        if (sinGenerico.includes(marcaId)) {
-          return sinGenerico.filter((id) => id !== marcaId);
+    const handleToggleMarca = useCallback(
+      (marcaId: number) => {
+        if (marcaId === 0) {
+          setMarcasSeleccionadas([0]);
+          setMarcaModoTab('generico');
+          resetDependientesDeMarca();
+          return;
         }
-        return [...sinGenerico, marcaId];
-      });
-      resetDependientesDeMarca();
-    };
 
-    const seleccionarTodasMisMarcas = () => {
-      const ids = marcasReales.map((m) => m.id);
-      setMarcasSeleccionadas(ids);
-      resetDependientesDeMarca();
-    };
+        setMarcaModoTab('por_marca');
+        setMarcasSeleccionadas((prev) => {
+          const sinGenerico = prev.filter((id) => id !== 0);
+          if (sinGenerico.includes(marcaId)) {
+            return sinGenerico.filter((id) => id !== marcaId);
+          }
+          return [...sinGenerico, marcaId];
+        });
+        resetDependientesDeMarca();
+      },
+      [estaSeleccionada, resetDependientesDeMarca]
+    );
 
-    const limpiarMarcas = () => {
+    const onMarcaModoTabChange = useCallback(
+      (key: MarcaModoTab) => {
+        setMarcaModoTab(key);
+        if (key === 'generico') {
+          setMarcasSeleccionadas([0]);
+          resetDependientesDeMarca();
+        } else if (marcasSeleccionadas.length === 1 && marcasSeleccionadas[0] === 0) {
+          setMarcasSeleccionadas([]);
+          resetDependientesDeMarca();
+        }
+      },
+      [marcasSeleccionadas, resetDependientesDeMarca]
+    );
+
+    const seleccionarTodasMisMarcas = useCallback(() => {
+      setMarcaModoTab('por_marca');
+      setMarcasSeleccionadas(marcasReales.map((m) => m.id));
+      resetDependientesDeMarca();
+    }, [marcasReales, resetDependientesDeMarca]);
+
+    const limpiarMarcas = useCallback(() => {
       setMarcasSeleccionadas([]);
       resetDependientesDeMarca();
-    };
+    }, [resetDependientesDeMarca]);
+
+    const marcasFiltradas = useMemo(() => {
+      const q = busquedaMarca.trim().toLowerCase();
+      if (!q) return marcasReales;
+      return marcasReales.filter((m) => m.nombre.toLowerCase().includes(q));
+    }, [marcasReales, busquedaMarca]);
+
+    const marcaCardWidth = useMemo(() => {
+      const slot = Math.max(marcaGridWidth, 1);
+      return (slot - MARCA_GRID_COL_GAP) / 2;
+    }, [marcaGridWidth]);
+
+    const onMarcaGridLayout = useCallback((e: LayoutChangeEvent) => {
+      const w = e.nativeEvent.layout.width;
+      if (w > 0 && Math.abs(w - marcaGridWidth) > 1) {
+        setMarcaGridWidth(w);
+      }
+    }, [marcaGridWidth]);
+
+    const mostrarBusqueda = marcasReales.length >= 6;
 
     if (marcas.length === 0) {
       return (
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Marca del vehículo</Text>
+          <Text style={styles.sectionTitle}>¿Para qué vehículos?</Text>
           <View style={styles.noDataContainer}>
             <InstitutionalIcon name="information-circle-outline" size={24} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.noDataText}>
-              No se encontraron marcas. Verifica tu configuración de especialidades.
+              Configura las marcas que atiendes en Especialidades y marcas antes de publicar servicios.
             </Text>
           </View>
         </View>
       );
     }
 
-    const resumenSeleccion = () => {
-      if (!tieneSeleccionMarca) return null;
-      if (esGenericoTodasMarcas) {
-        return 'Servicios genéricos (diagnóstico y similares, sin marca específica)';
+    const tabsMarca = useMemo(() => {
+      const t: { key: MarcaModoTab; label: string; badge?: number }[] = [
+        { key: 'por_marca', label: 'Por marca', badge: marcasRealesSeleccionadas.length || null },
+      ];
+      if (tieneOpcionGenerica) {
+        t.push({ key: 'generico', label: 'Genérico' });
       }
-      if (esMultimarca) {
-        const nombres = marcasRealesSeleccionadas
-          .map((id) => marcas.find((m) => m.id === id)?.nombre)
-          .filter(Boolean)
-          .join(', ');
-        return `${marcasRealesSeleccionadas.length} marcas: ${nombres}`;
-      }
-      const m = marcas.find((x) => x.id === marcasSeleccionadas[0]);
-      return m?.nombre ?? '';
-    };
+      return t;
+    }, [tieneOpcionGenerica, marcasRealesSeleccionadas.length]);
 
     return (
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Marca del vehículo</Text>
+        <Text style={styles.sectionTitle}>¿Para qué vehículos?</Text>
         <Text style={styles.subtitle}>
           {isEditMode && !tieneSeleccionMarca && servicioSeleccionado
-            ? 'Determinando marca del servicio...'
+            ? 'Identificando la marca de esta oferta…'
             : isEditMode
-              ? 'Marca de esta oferta (no se puede cambiar a varias en edición)'
-              : 'Elige una o varias marcas. Con varias, verás solo servicios comunes a todas.'}
+              ? edicionGrupo
+                ? 'Editas el mismo servicio en varias marcas. Puedes agregar o quitar marcas; los precios y repuestos se sincronizan.'
+                : 'Puedes agregar más marcas para publicar la misma configuración en todas.'
+              : 'Elige marcas específicas o un servicio genérico. Varias marcas muestran solo servicios en común.'}
         </Text>
 
         {isEditMode && !tieneSeleccionMarca && servicioSeleccionado && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color={I.primary} />
-            <Text style={styles.loadingText}>Buscando marca del servicio...</Text>
+            <Text style={styles.loadingText}>Buscando marca del servicio…</Text>
           </View>
         )}
 
-        {marcaGenerica && (
-          <>
-            <Text style={styles.marcaGrupoLabel}>Servicios genéricos</Text>
-            <TouchableOpacity
-              style={[
-                styles.selectorOption,
-                estaSeleccionada(0) && styles.selectorOptionSelected,
-              ]}
-              onPress={() => handleToggleMarca(0)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.selectorContent}>
-                <Text style={styles.selectorEmoji}>🌐</Text>
-                <Text
-                  style={[
-                    styles.selectorText,
-                    estaSeleccionada(0) && styles.selectorTextSelected,
-                  ]}
-                >
-                  {marcaGenerica.nombre}
-                </Text>
-                {estaSeleccionada(0) && (
-                  <InstitutionalIcon name="checkmark-circle" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                )}
-              </View>
-            </TouchableOpacity>
-            <Text style={styles.marcaHint}>
-              Solo para diagnóstico y servicios que no dependen de una marca de auto.
-            </Text>
-          </>
-        )}
+        <View style={styles.marcaPanel}>
+          {tabsMarca.length > 1 && (
+            <InstitutionalScreenTabs
+              tabs={tabsMarca}
+              activeKey={marcaModoTab}
+              onChange={onMarcaModoTabChange}
+              style={styles.marcaTabsInPanel}
+            />
+          )}
 
-        {marcasReales.length > 0 && (
-          <>
-            <Text style={styles.marcaGrupoLabel}>Por marca de vehículo</Text>
-            {!isEditMode && (
-              <View style={styles.marcaAccionesRow}>
-                <TouchableOpacity
-                  style={styles.quickChip}
-                  onPress={seleccionarTodasMisMarcas}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.quickChipText}>Todas mis marcas</Text>
-                </TouchableOpacity>
-                {tieneSeleccionMarca && !esGenericoTodasMarcas && (
-                  <TouchableOpacity
-                    style={styles.quickChipOutline}
-                    onPress={limpiarMarcas}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.quickChipOutlineText}>Limpiar</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-            <View style={styles.selectorContainer}>
-              {marcasReales.map((marca) => (
-                <TouchableOpacity
-                  key={marca.id}
-                  style={[
-                    styles.selectorOption,
-                    estaSeleccionada(marca.id) && styles.selectorOptionSelected,
-                  ]}
-                  onPress={() => handleToggleMarca(marca.id)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.selectorContent}>
-                    <Text style={styles.selectorEmoji}>🚗</Text>
-                    <Text
-                      style={[
-                        styles.selectorText,
-                        estaSeleccionada(marca.id) && styles.selectorTextSelected,
-                      ]}
-                    >
-                      {marca.nombre}
+          {marcaModoTab === 'por_marca' && marcasReales.length > 0 && (
+            <>
+              {tabsMarca.length > 1 && <View style={styles.marcaPanelDivider} />}
+              <View style={styles.marcaPanelBody}>
+                <View style={styles.marcaInfoNotice}>
+                  <View style={styles.marcaInfoNoticeContent}>
+                    <InstitutionalIcon name="information-circle-outline" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.marcaInfoNoticeText}>
+                      {isEditMode
+                        ? 'Marca con check ya tiene oferta. Al guardar, las nuevas marcas reciben la misma configuración; al desmarcar, se elimina esa oferta.'
+                        : 'Puedes elegir varias marcas y publicar el mismo servicio en todas con una sola configuración.'}
                     </Text>
-                    {estaSeleccionada(marca.id) && (
-                      <InstitutionalIcon name="checkmark-circle" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                    )}
                   </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        )}
+                </View>
 
-        {tieneSeleccionMarca && (
-          <View style={styles.selectedIndicator}>
-            <InstitutionalIcon name="checkmark-circle" size={20} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.selectedText}>{resumenSeleccion()}</Text>
+                <View style={styles.marcaToolBlock}>
+                    <View style={styles.marcaQuickActionsRow}>
+                      <TouchableOpacity
+                        style={styles.marcaQuickChip}
+                        onPress={seleccionarTodasMisMarcas}
+                        activeOpacity={0.85}
+                      >
+                        <InstitutionalIcon name="checkmark-done" size={16} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.marcaQuickChipTextUp}>Todas mis marcas</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.marcaQuickChip}
+                        onPress={limpiarMarcas}
+                        activeOpacity={0.85}
+                      >
+                        <InstitutionalIcon name="close" size={16} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.marcaQuickChipTextDown}>Limpiar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                {mostrarBusqueda && (
+                  <View style={[styles.marcaToolBlock, styles.marcaToolBlockNoTopPad]}>
+                    <View style={styles.marcaSearchRow}>
+                      <InstitutionalIcon name="search" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                      <TextInput
+                        style={styles.marcaSearchInput}
+                        placeholder="Buscar marca…"
+                        value={busquedaMarca}
+                        onChangeText={setBusquedaMarca}
+                        placeholderTextColor={I.mutedSoft}
+                      />
+                      {busquedaMarca.length > 0 ? (
+                        <TouchableOpacity onPress={() => setBusquedaMarca('')} hitSlop={12}>
+                          <InstitutionalIcon name="close-circle" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
+                )}
+
+                <View style={styles.marcaCounterRow}>
+                  <InstitutionalIcon name="directions-car" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.marcaCounterLabel}>
+                    <Text style={styles.marcaCounterMono}>{marcasRealesSeleccionadas.length}</Text>
+                    <Text style={styles.marcaCounterSlash}> / </Text>
+                    <Text style={styles.marcaCounterMono}>{marcasReales.length}</Text>
+                    <Text style={styles.marcaCounterRest}>
+                      {isEditMode ? ' marca' : ' marcas seleccionadas'}
+                    </Text>
+                  </Text>
+                </View>
+
+                <View style={styles.marcaGridSlot} onLayout={onMarcaGridLayout}>
+                  <View style={styles.marcaItemsGrid}>
+                    {marcasFiltradas.map((marca, index) => (
+                      <MarcaVehiculoCard
+                        key={marca.id}
+                        marca={marca}
+                        isSelected={estaSeleccionada(marca.id)}
+                        disabled={false}
+                        cardWidth={marcaCardWidth}
+                        isLeftColumn={index % 2 === 0}
+                        onToggle={handleToggleMarca}
+                      />
+                    ))}
+                  </View>
+                  {marcasFiltradas.length === 0 && busquedaMarca.trim().length > 0 && (
+                    <Text style={styles.marcaEmptySearch}>No hay marcas que coincidan con tu búsqueda.</Text>
+                  )}
+                </View>
+
+                {marcasRealesSeleccionadas.length > 0 && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.marcaChipsScroll}
+                    contentContainerStyle={styles.marcaChipsContent}
+                  >
+                    {marcasRealesSeleccionadas.map((id) => {
+                      const nombre = marcas.find((m) => m.id === id)?.nombre ?? '';
+                      return (
+                        <View key={id} style={styles.marcaChip}>
+                          <Text style={styles.marcaChipText} numberOfLines={1}>
+                            {nombre}
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => handleToggleMarca(id)}
+                            hitSlop={8}
+                            accessibilityLabel={`Quitar ${nombre}`}
+                          >
+                            <InstitutionalIcon name="close" size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+              </View>
+            </>
+          )}
+
+          {marcaModoTab === 'generico' && tieneOpcionGenerica && (
+            <>
+              {tabsMarca.length > 1 && <View style={styles.marcaPanelDivider} />}
+              <View style={styles.marcaPanelBody}>
+                <View style={styles.marcaInfoNotice}>
+                  <View style={styles.marcaInfoNoticeContent}>
+                    <InstitutionalIcon name="information-circle-outline" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.marcaInfoNoticeText}>
+                      Para diagnóstico, revisión general u otros servicios que no dependen de una marca de auto. No uses esta opción si el servicio es específico de Toyota, Chevrolet, etc.
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.marcaGenericoCta,
+                    esGenericoTodasMarcas && styles.marcaGenericoCtaSelected,
+                  ]}
+                  onPress={() => handleToggleMarca(0)}
+                  activeOpacity={0.88}
+                >
+                  <InstitutionalIcon
+                    name="checkmark-circle"
+                    size={22}
+                    color={esGenericoTodasMarcas ? I.primary : I.muted}
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
+                  <Text
+                    style={[
+                      styles.marcaGenericoCtaText,
+                      esGenericoTodasMarcas && styles.marcaGenericoCtaTextSelected,
+                    ]}
+                  >
+                    {esGenericoTodasMarcas
+                      ? 'Servicio genérico activado'
+                      : 'Usar servicios genéricos del catálogo'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+        </View>
+
+        {tieneSeleccionMarca && (esMultimarca || edicionGrupo) && (
+          <View style={styles.marcaResumenBanner}>
+            <InstitutionalIcon name="layers" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={styles.marcaResumenBannerText}>
+              Publicarás en {marcasRealesSeleccionadas.length} marcas con la misma configuración.
+            </Text>
           </View>
         )}
       </View>
@@ -1389,36 +1767,14 @@ const CrearServicioScreen = () => {
         ) : servicios.length > 0 ? (
           <>
             {/* Selector Visual de Servicios */}
-            <View style={styles.selectorContainer}>
+            <View style={styles.servicioListContainer}>
               {servicios.map((servicio) => (
-                <TouchableOpacity
+                <ServicioCatalogCard
                   key={servicio.id}
-                  style={[
-                    styles.selectorOption,
-                    servicioSeleccionado === servicio.id && styles.selectorOptionSelected
-                  ]}
-                  onPress={() => handleSelectServicio(servicio.id, servicio.nombre)}
-                >
-                  <View style={styles.selectorContent}>
-                    <Text style={styles.selectorEmoji}>⚙️</Text>
-                    <View style={styles.selectorTextContainer}>
-                      <Text style={[
-                        styles.selectorText,
-                        servicioSeleccionado === servicio.id && styles.selectorTextSelected
-                      ]}>
-                        {servicio.nombre}
-                      </Text>
-                      {servicio.descripcion && (
-                        <Text style={styles.selectorDescription}>
-                          {servicio.descripcion}
-                        </Text>
-                      )}
-                    </View>
-                    {servicioSeleccionado === servicio.id && (
-                      <InstitutionalIcon name="checkmark-circle" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
-                    )}
-                  </View>
-                </TouchableOpacity>
+                  servicio={servicio}
+                  isSelected={servicioSeleccionado === servicio.id}
+                  onSelect={handleSelectServicio}
+                />
               ))}
             </View>
 
@@ -1857,7 +2213,9 @@ const CrearServicioScreen = () => {
                   <InstitutionalIcon name={isEditMode ? "checkmark-circle" : "rocket"} size={20} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.publishButtonText}>
                     {isEditMode
-                      ? 'Actualizar Servicio'
+                      ? esMultimarca || edicionGrupo
+                        ? `Guardar en ${marcasRealesSeleccionadas.length} marcas`
+                        : 'Actualizar Servicio'
                       : esMultimarca
                         ? `Publicar en ${marcasRealesSeleccionadas.length} marcas`
                         : 'Publicar Servicio'}
@@ -1917,19 +2275,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: SPACING.fixed.xs,
   },
-  tipoServicioOption: {
-    flex: 1,
-    alignItems: 'center',
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    backgroundColor: I.canvas,
-  },
-  tipoServicioSelected: {
-    borderColor: I.primary,
-    backgroundColor: withOpacity(I.primary, 0.08),
-  },
   tipoServicioText: {
     marginTop: SPACING.fixed.xs,
     fontSize: TYPOGRAPHY.fontSize.base,
@@ -1951,13 +2296,6 @@ const styles = StyleSheet.create({
     lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
   },
 
-  marcaGrupoLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
-    marginTop: SPACING.fixed.sm,
-    marginBottom: SPACING.fixed.xs,
-  },
   marcaHint: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansRegular,
@@ -1965,88 +2303,242 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.sm,
     lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
   },
-  marcaAccionesRow: {
+  marcaPanel: {
+    marginTop: SPACING.fixed.sm,
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.card.xl,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    overflow: 'hidden',
+  },
+  marcaTabsInPanel: {
+    marginHorizontal: SPACING.fixed.sm,
+    marginTop: SPACING.fixed.sm,
+  },
+  marcaPanelDivider: {
+    height: BORDERS.width.thin,
+    backgroundColor: I.hairline,
+    marginHorizontal: SPACING.fixed.sm,
+  },
+  marcaPanelBody: {
+    paddingHorizontal: MARCA_PANEL_BODY_PAD,
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.sm,
+  },
+  marcaInfoNotice: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  marcaInfoNoticeMuted: {
+    backgroundColor: I.surfaceSoft,
+  },
+  marcaInfoNoticeContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.xs + 2,
+  },
+  marcaInfoNoticeText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.body.lineHeight),
+    color: I.body,
+  },
+  marcaToolBlock: {
+    paddingBottom: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairlineSoft,
+  },
+  marcaToolBlockNoTopPad: {
+    paddingTop: 0,
+  },
+  marcaQuickActionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: SPACING.fixed.sm,
+  },
+  marcaQuickChip: {
+    flex: 1,
+    minWidth: 108,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.xxs,
+    paddingVertical: SPACING.fixed.xs,
+    paddingHorizontal: SPACING.fixed.xs,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
+  },
+  marcaQuickChipTextUp: {
+    fontSize: TS.captionBold.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.captionBold.fontSize, TS.captionBold.lineHeight),
+    color: I.semanticUp,
+  },
+  marcaQuickChipTextDown: {
+    fontSize: TS.captionBold.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.captionBold.fontSize, TS.captionBold.lineHeight),
+    color: I.semanticDown,
+  },
+  marcaSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+  },
+  marcaSearchInput: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.ink,
+    paddingVertical: SPACING.fixed.xxs,
+  },
+  marcaCounterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: SPACING.fixed.xs,
     marginBottom: SPACING.fixed.sm,
   },
-  quickChip: {
-    paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.xs,
-    borderRadius: BORDERS.radius.full,
-    backgroundColor: withOpacity(I.primary, 0.12),
+  marcaCounterLabel: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
   },
-  quickChipText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.primary,
+  marcaCounterMono: {
+    fontSize: TS.numberDisplay.fontSize,
+    fontFamily: FF.monoMedium,
+    color: I.ink,
   },
-  quickChipOutline: {
-    paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.xs,
-    borderRadius: BORDERS.radius.full,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
-  quickChipOutlineText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+  marcaCounterSlash: {
+    fontSize: TS.caption.fontSize,
     fontFamily: FF.sansRegular,
     color: I.muted,
   },
-
-  selectorContainer: {
+  marcaCounterRest: {
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+  },
+  marcaGridSlot: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  marcaItemsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: '100%',
+    rowGap: MARCA_GRID_COL_GAP,
+  },
+  marcaSelectionCardLayout: {
+    paddingHorizontal: SPACING.fixed.xs,
+    paddingTop: 28,
+    paddingBottom: SPACING.fixed.xs,
+    flexShrink: 0,
+    overflow: 'hidden',
+  },
+  marcaCardTextBlock: {
+    width: '100%',
+    paddingRight: 24,
+  },
+  servicioListContainer: {
     marginTop: SPACING.fixed.sm,
     gap: SPACING.fixed.xs,
   },
-
-  selectorOption: {
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    borderRadius: BORDERS.radius.lg,
-    backgroundColor: I.canvas,
-    paddingVertical: SPACING.fixed.md,
-    paddingHorizontal: SPACING.fixed.md,
-    ...SHADOWS.editorial,
-  },
-
-  selectorOptionSelected: {
-    borderColor: I.primary,
-    backgroundColor: withOpacity(I.primary, 0.06),
-  },
-
-  selectorContent: {
+  servicioRowContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: SPACING.fixed.sm,
   },
-
-  selectorEmoji: {
-    fontSize: 22,
-    marginRight: SPACING.fixed.sm,
-  },
-
-  selectorTextContainer: {
+  servicioRowText: {
     flex: 1,
+    minWidth: 0,
   },
-
-  selectorText: {
+  servicioRowTitle: {
     fontSize: TYPOGRAPHY.fontSize.md,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
   },
-
-  selectorTextSelected: {
-    color: I.primary,
-  },
-
-  selectorDescription: {
-    fontSize: TYPOGRAPHY.fontSize.base,
+  marcaEmptySearch: {
+    fontSize: TS.caption.fontSize,
     fontFamily: FF.sansRegular,
     color: I.muted,
-    marginTop: SPACING.fixed.xxs,
-    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.normal),
+    textAlign: 'center',
+    paddingVertical: SPACING.fixed.md,
   },
+  marcaChipsScroll: {
+    marginTop: SPACING.fixed.sm,
+  },
+  marcaChipsContent: {
+    gap: SPACING.fixed.xs,
+    paddingRight: SPACING.fixed.xs,
+  },
+  marcaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xxs,
+    paddingVertical: SPACING.fixed.xxs + 2,
+    paddingLeft: SPACING.fixed.sm,
+    paddingRight: SPACING.fixed.xs,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: withOpacity(I.primary, 0.1),
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.25),
+    maxWidth: 160,
+  },
+  marcaChipText: {
+    flex: 1,
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
+  },
+  marcaGenericoCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
+  },
+  marcaGenericoCtaSelected: {
+    borderColor: I.primary,
+    borderWidth: BORDERS.width.medium,
+    backgroundColor: I.canvas,
+  },
+  marcaGenericoCtaText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.muted,
+  },
+  marcaGenericoCtaTextSelected: {
+    color: I.primary,
+  },
+  marcaResumenBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    marginTop: SPACING.fixed.sm,
+    padding: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: withOpacity(I.primary, 0.08),
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.2),
+  },
+  marcaResumenBannerText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+  },
+
   selectedIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2097,16 +2589,12 @@ const styles = StyleSheet.create({
   },
 
   repuestoItem: {
+    ...INSTITUTIONAL_SELECTION.card,
     padding: SPACING.fixed.sm,
     marginBottom: SPACING.fixed.xs,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    backgroundColor: I.canvas,
   },
   repuestoSelected: {
-    borderColor: I.primary,
-    backgroundColor: withOpacity(I.primary, 0.06),
+    ...INSTITUTIONAL_SELECTION.cardSelected,
   },
   repuestoInfoContainer: {
     flexDirection: 'row',

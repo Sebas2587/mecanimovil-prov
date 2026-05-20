@@ -93,21 +93,28 @@ export default function SolicitudDetalleScreen() {
       if (result.success && result.data) {
         setSolicitud(result.data);
 
-        if (result.data.ofertas && result.data.ofertas.length > 0) {
+        // El detalle de solicitud no incluye `ofertas` para proveedores (solo cliente/admin).
+        // La oferta de catálogo sí viene en oferta_seleccionada_detail; si no, buscar en mis ofertas.
+        const ofertaSeleccionada = result.data.oferta_seleccionada_detail as OfertaProveedor | null | undefined;
+        let ofertaPropia: OfertaProveedor | null = null;
+
+        if (ofertaSeleccionada && !ofertaSeleccionada.es_oferta_secundaria) {
+          ofertaPropia = ofertaSeleccionada;
+        } else {
           const misOfertas = await solicitudesService.obtenerMisOfertas();
           if (misOfertas.success && misOfertas.data) {
-            const ofertaEnSolicitud = misOfertas.data.find(
-              (o) => o.solicitud === id && !o.es_oferta_secundaria
-            );
-            if (ofertaEnSolicitud) {
-              setMiOferta(ofertaEnSolicitud);
+            ofertaPropia =
+              misOfertas.data.find((o) => o.solicitud === id && !o.es_oferta_secundaria) ?? null;
+          }
+        }
 
-              if (ofertaEnSolicitud.estado === 'aceptada' || ofertaEnSolicitud.estado === 'pagada') {
-                const ofertasSecResult = await solicitudesService.obtenerOfertasSecundarias(ofertaEnSolicitud.id);
-                if (ofertasSecResult.success && ofertasSecResult.data) {
-                  setOfertasSecundarias(ofertasSecResult.data);
-                }
-              }
+        if (ofertaPropia) {
+          setMiOferta(ofertaPropia);
+
+          if (ofertaPropia.estado === 'aceptada' || ofertaPropia.estado === 'pagada') {
+            const ofertasSecResult = await solicitudesService.obtenerOfertasSecundarias(ofertaPropia.id);
+            if (ofertasSecResult.success && ofertasSecResult.data) {
+              setOfertasSecundarias(ofertasSecResult.data);
             }
           }
         }
@@ -188,14 +195,21 @@ export default function SolicitudDetalleScreen() {
     return false;
   };
 
-  const esCatalogoPendiente =
-    miOferta?.origen === 'catalogo' && miOferta?.estado === 'pendiente_confirmacion';
+  const esAsignacionCatalogo =
+    miOferta?.origen === 'catalogo' && solicitud?.estado === 'pendiente_confirmacion';
+
+  const puedeGestionarCatalogo =
+    esAsignacionCatalogo && miOferta?.estado === 'pendiente_confirmacion';
+
+  const puedeChatCatalogo =
+    esAsignacionCatalogo &&
+    (miOferta?.estado === 'pendiente_confirmacion' || miOferta?.estado === 'en_chat');
 
   const handleConfirmarCatalogo = async () => {
     if (!miOferta?.id) return;
     Alert.alert(
       'Confirmar asignación',
-      'Al confirmar se consumirán créditos y el cliente podrá pagar. ¿Continuar?',
+      'Al confirmar adjudicarás la orden y se descontarán créditos de tu cuenta. El cliente podrá pagar. ¿Continuar?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -309,7 +323,9 @@ export default function SolicitudDetalleScreen() {
     }
   };
 
-  const footerReserve = 96 + (insets.bottom || 0);
+  const tienePieDecisionCatalogo = puedeGestionarCatalogo;
+  const footerReserve =
+    (tienePieDecisionCatalogo ? 72 : SPACING.fixed.lg) + (insets.bottom || 0);
   const requiereRepuestos = solicitud ? determinarRequiereRepuestos() : false;
 
   const stackOptions = {
@@ -573,6 +589,16 @@ export default function SolicitudDetalleScreen() {
                 <Text style={styles.dateTimeValue}>{formatearHora(solicitud.hora_preferida)}</Text>
               </View>
             </View>
+            {puedeGestionarCatalogo ? (
+              <TouchableOpacity
+                style={styles.fechaProponerLink}
+                onPress={() => setMostrarModalFecha(true)}
+                activeOpacity={0.75}
+              >
+                <InstitutionalIcon name="event" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.fechaProponerLinkText}>Proponer otra fecha al cliente</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           <View style={styles.section}>
@@ -595,8 +621,17 @@ export default function SolicitudDetalleScreen() {
               <View style={styles.ofertaHighlightCard}>
                 <View style={styles.ofertaStatusHeader}>
                   <InstitutionalIcon name="local-offer" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.ofertaStatusTitle}>Mi oferta</Text>
+                  <Text style={styles.ofertaStatusTitle}>
+                    {esAsignacionCatalogo ? 'Asignación desde catálogo' : 'Mi oferta'}
+                  </Text>
                 </View>
+                {esAsignacionCatalogo ? (
+                  <Text style={styles.catalogoContextHint}>
+                    {puedeGestionarCatalogo
+                      ? 'El cliente eligió tu servicio publicado. Revisa los datos, conversa si necesitas aclarar algo y luego acepta o rechaza.'
+                      : 'Esperando que el cliente confirme la fecha que propusiste.'}
+                  </Text>
+                ) : null}
                 <View style={styles.estadoOfertaRow}>
                   <View style={[styles.estadoOfertaPill, { backgroundColor: withOpacity(I.primary, 0.12) }]}>
                     <Text style={[styles.estadoOfertaPillText, { color: I.primary }]}>
@@ -611,14 +646,16 @@ export default function SolicitudDetalleScreen() {
                     minimumFractionDigits: 0,
                   })}
                 </Text>
-                {miOferta.estado === 'aceptada' || miOferta.estado === 'pagada' ? (
+                {puedeChatCatalogo ||
+                miOferta.estado === 'aceptada' ||
+                miOferta.estado === 'pagada' ? (
                   <TouchableOpacity
                     style={styles.chatButton}
                     onPress={() => router.push(`/chat-oferta/${miOferta.id}`)}
                     activeOpacity={0.85}
                   >
                     <InstitutionalIcon name="chat" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.chatButtonText}>Ver chat</Text>
+                    <Text style={styles.chatButtonText}>Ver chat con cliente</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -696,13 +733,8 @@ export default function SolicitudDetalleScreen() {
           ) : null}
         </ScrollView>
 
-        {esCatalogoPendiente ? (
+        {tienePieDecisionCatalogo ? (
           <SafeAreaView edges={['bottom']} style={styles.fixedActionsContainer}>
-            <View style={styles.catalogoBanner}>
-              <Text style={styles.catalogoBannerText}>
-                El cliente eligió tu servicio del catálogo. Confirma, rechaza o propón otra fecha en el chat.
-              </Text>
-            </View>
             <View style={styles.fixedActionsRow}>
               <TouchableOpacity
                 style={styles.rechazarButton}
@@ -716,27 +748,7 @@ export default function SolicitudDetalleScreen() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.crearOfertaButton}
-                onPress={() => setMostrarModalFecha(true)}
-                activeOpacity={0.85}
-              >
-                <InstitutionalIcon name="event" size={22} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.crearOfertaButtonText} numberOfLines={1}>
-                  Otra fecha
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.crearOfertaButton}
-                onPress={() => router.push(`/chat-oferta/${miOferta!.id}`)}
-                activeOpacity={0.85}
-              >
-                <InstitutionalIcon name="chat" size={22} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.crearOfertaButtonText} numberOfLines={1}>
-                  Chat
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.crearOfertaButton, { flex: 1.2 }]}
+                style={[styles.aceptarCatalogoButton, confirmandoCatalogo && styles.aceptarCatalogoButtonDisabled]}
                 onPress={handleConfirmarCatalogo}
                 disabled={confirmandoCatalogo}
                 activeOpacity={0.85}
@@ -746,8 +758,8 @@ export default function SolicitudDetalleScreen() {
                 ) : (
                   <>
                     <InstitutionalIcon name="check-circle" size={22} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.crearOfertaButtonText} numberOfLines={1}>
-                      Confirmar
+                    <Text style={styles.aceptarCatalogoButtonText} numberOfLines={1}>
+                      Aceptar asignación
                     </Text>
                   </>
                 )}
@@ -1319,20 +1331,26 @@ const styles = StyleSheet.create({
     color: I.primary,
   },
 
-  catalogoBanner: {
-    marginHorizontal: hx,
-    marginBottom: SPACING.fixed.sm,
-    padding: SPACING.fixed.sm,
-    backgroundColor: withOpacity(I.primary, 0.1),
-    borderRadius: BORDERS.radius.md,
-    borderWidth: 1,
-    borderColor: withOpacity(I.primary, 0.25),
-  },
-  catalogoBannerText: {
+  catalogoContextHint: {
     fontSize: TS.caption.fontSize,
     fontFamily: FF.sansRegular,
-    color: I.ink,
+    color: I.body,
     lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
+    marginBottom: SPACING.fixed.sm,
+  },
+  fechaProponerLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    marginTop: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.xs,
+    alignSelf: 'flex-start',
+  },
+  fechaProponerLinkText: {
+    fontSize: TS.button.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),
+    color: I.primary,
   },
   fixedActionsContainer: {
     position: 'absolute',
@@ -1385,6 +1403,28 @@ const styles = StyleSheet.create({
     ...SHADOWS.editorial,
   },
   crearOfertaButtonText: {
+    fontSize: TS.button.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),
+    color: I.onPrimary,
+  },
+  aceptarCatalogoButton: {
+    flex: 1.6,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.sm + 2,
+    paddingHorizontal: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.primary,
+    ...SHADOWS.editorial,
+  },
+  aceptarCatalogoButtonDisabled: {
+    opacity: 0.7,
+  },
+  aceptarCatalogoButtonText: {
     fontSize: TS.button.fontSize,
     fontFamily: FF.sansSemiBold,
     lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),

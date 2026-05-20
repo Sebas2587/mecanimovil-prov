@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } fr
 import { CheckCheck, Check } from 'lucide-react-native';
 import { MensajeChat } from '@/services/solicitudesService';
 import ServerConfig from '@/services/serverConfig';
+import { isChatAttachmentImage, resolveChatAttachmentUri } from '@/utils/chatAttachmentMedia';
 import { COLORS, TYPOGRAPHY, SHADOWS, BORDERS, SPACING, withOpacity } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
@@ -24,13 +25,11 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ mensaje, esPropio, onIma
     return date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const resolveImageUrl = (url: string | null | undefined): string => {
-    if (!url) return '';
-    if (url.startsWith('http') || url.startsWith('file://')) return url;
-    const baseUrl = ServerConfig.getInstance().getMediaURLSync();
-    if (baseUrl) return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
-    return url;
-  };
+  const attachmentRaw = mensaje.archivo_adjunto ?? (mensaje as { attachment?: string | null }).attachment;
+  const imageUri = resolveChatAttachmentUri(attachmentRaw, () =>
+    ServerConfig.getInstance().getMediaURLSync()
+  );
+  const showImage = !!attachmentRaw && isChatAttachmentImage(attachmentRaw);
 
   return (
     <View style={[styles.container, esPropio ? styles.containerPropio : styles.containerOtro]}>
@@ -41,15 +40,15 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ mensaje, esPropio, onIma
           </Text>
         )}
 
-        {mensaje.archivo_adjunto && (
+        {showImage && imageUri ? (
           <View style={styles.imageWrap}>
             <TouchableOpacity
               activeOpacity={0.9}
-              onPress={() => onImagePress?.(resolveImageUrl(mensaje.archivo_adjunto))}
+              onPress={() => onImagePress?.(imageUri)}
               disabled={!onImagePress}
             >
               <Image
-                source={{ uri: resolveImageUrl(mensaje.archivo_adjunto) }}
+                source={{ uri: imageUri }}
                 style={styles.attachedImage}
                 resizeMode="cover"
                 onLoadStart={() => setLoadingImage(true)}
@@ -62,7 +61,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ mensaje, esPropio, onIma
               )}
             </TouchableOpacity>
           </View>
-        )}
+        ) : null}
 
         {mensaje.mensaje ? (
           <Text style={[styles.messageText, esPropio ? styles.textPropio : styles.textOtro]}>
