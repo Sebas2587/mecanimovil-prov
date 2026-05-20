@@ -713,6 +713,24 @@ export const rechazarSolicitud = async (
  * Obtiene la lista de todos los chats del proveedor
  * @returns Promise<ChatItem[]> - Lista de chats con metadata
  */
+/**
+ * Elimina por completo el chat de una oferta (mensajes, adjuntos y conversación si aplica).
+ */
+export const eliminarChatPorOferta = async (
+  ofertaId: string
+): Promise<ApiResponse<{ mensajes_chat_solicitud_eliminados?: number; conversaciones_eliminadas?: number }>> => {
+  try {
+    const response = await api.delete(`/ordenes/chat-solicitudes/eliminar-por-oferta/${ofertaId}/`);
+    return { success: true, data: response.data };
+  } catch (error: any) {
+    console.error('Error eliminando chat:', error);
+    return {
+      success: false,
+      error: error.response?.data?.error || error.response?.data?.detail || error.message || 'No se pudo eliminar el chat',
+    };
+  }
+};
+
 export const obtenerListaChats = async (): Promise<any[]> => {
   try {
     // Verificar autenticación antes de hacer la llamada
@@ -996,6 +1014,7 @@ const solicitudesService = {
   marcarMensajesComoLeidos,
   rechazarSolicitud,
   obtenerListaChats,
+  eliminarChatPorOferta,
 };
 
 export default solicitudesService;

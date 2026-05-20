@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,7 +17,8 @@ import {
 } from 'lucide-react-native';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { obtenerListaChats } from '@/services/solicitudesService';
+import solicitudesService, { obtenerListaChats } from '@/services/solicitudesService';
+import { ChatSwipeableRow } from '@/components/chats/ChatSwipeableRow';
 import websocketService from '../services/websocketService';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
@@ -38,6 +40,7 @@ export default function ChatsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [chatHighlighted, setChatHighlighted] = useState<string | null>(null);
+  const [deletingOfertaId, setDeletingOfertaId] = useState<string | null>(null);
 
   const cargarChats = useCallback(async (isRefreshing = false) => {
     try {
@@ -127,11 +130,37 @@ export default function ChatsScreen() {
     } catch { return ''; }
   };
 
+  const deleteChat = useCallback(
+    async (ofertaId: string, unreadCount: number) => {
+      setDeletingOfertaId(ofertaId);
+      try {
+        const result = await solicitudesService.eliminarChatPorOferta(ofertaId);
+        if (!result.success) {
+          Alert.alert('Error', result.error || 'No se pudo eliminar el chat');
+          throw new Error(result.error || 'delete failed');
+        }
+        setChats((prev) => {
+          const next = prev.filter((c) => c.oferta_id !== ofertaId);
+          const total = next.reduce((sum: number, c: any) => sum + (c.mensajes_no_leidos || 0), 0);
+          actualizarTotal(total);
+          return next;
+        });
+        if (unreadCount > 0) {
+          decrementarNoLeidos(unreadCount);
+        }
+      } finally {
+        setDeletingOfertaId(null);
+      }
+    },
+    [decrementarNoLeidos, actualizarTotal],
+  );
+
   const renderChatItem = useCallback(({ item }: { item: any }) => {
     const { oferta_id, otra_persona, vehiculo, ultimo_mensaje, mensajes_no_leidos } = item;
     const isHighlighted = chatHighlighted === oferta_id;
     const hasUnread = mensajes_no_leidos > 0;
     const vehiculoPill = formatVehiculoPillLabel(vehiculo);
+    const isDeleting = deletingOfertaId === oferta_id;
 
     const handleOpenChat = () => {
       if (hasUnread) {
@@ -142,10 +171,16 @@ export default function ChatsScreen() {
     };
 
     return (
+      <ChatSwipeableRow
+        rowKey={String(oferta_id)}
+        disabled={isDeleting}
+        onDelete={() => deleteChat(oferta_id, mensajes_no_leidos || 0)}
+      >
       <TouchableOpacity
         style={[styles.chatCard, isHighlighted && styles.chatCardHighlighted]}
         onPress={handleOpenChat}
         activeOpacity={0.7}
+        disabled={isDeleting}
       >
         {/* Avatar */}
         {otra_persona?.foto ? (
@@ -201,8 +236,9 @@ export default function ChatsScreen() {
           </View>
         </View>
       </TouchableOpacity>
+      </ChatSwipeableRow>
     );
-  }, [chatHighlighted, decrementarNoLeidos]);
+  }, [chatHighlighted, decrementarNoLeidos, deletingOfertaId, deleteChat]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
@@ -246,7 +282,6 @@ export default function ChatsScreen() {
             }
             ListEmptyComponent={renderEmptyState}
             showsVerticalScrollIndicator={false}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
           />
         )}
       </LinearGradient>
@@ -281,11 +316,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  separator: {
-    height: SPACING.sm,
-  },
 
-  // Chat card
   chatCard: {
     flexDirection: 'row',
     alignItems: 'center',
