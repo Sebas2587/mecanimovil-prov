@@ -98,6 +98,8 @@ import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -141,20 +143,23 @@ export default function RootLayout() {
   // Si loadAsync falla, `loaded` nunca pasa a true — sin este branch la app queda en pantalla en blanco.
   if (!fontsLoaded && !fontError) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: COLORS.background.default,
-        }}
-      >
-        <ActivityIndicator size="large" color={COLORS.primary[500]} />
-      </View>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: COLORS.background.default,
+          }}
+        >
+          <ActivityIndicator size="large" color={COLORS.primary[500]} />
+        </View>
+      </GestureHandlerRootView>
     );
   }
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <DesignSystemThemeProvider>
@@ -213,5 +218,6 @@ export default function RootLayout() {
         </DesignSystemThemeProvider>
       </SafeAreaProvider>
     </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -92,6 +92,16 @@ export interface ServicioCerradoPorClienteEvent {
 
 export type ServicioCerradoPorClienteCallback = (event: ServicioCerradoPorClienteEvent) => void;
 
+/** Adjudicación, pago o cambios que deben refrescar Órdenes y Ofertas en la app proveedor */
+export interface OrdenesListRefreshEvent {
+  type: 'oferta_aceptada' | 'pago_en_proceso' | 'pago_completado' | 'oferta_rechazada';
+  oferta_id?: string;
+  solicitud_id?: string;
+  solicitud_servicio_id?: string | number;
+}
+
+export type OrdenesListRefreshCallback = (event: OrdenesListRefreshEvent) => void;
+
 class WebSocketService {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
@@ -109,6 +119,7 @@ class WebSocketService {
   private pagoExpiradoCallbacks: Set<PagoExpiradoCallback> = new Set();
   private solicitudCanceladaClienteCallbacks: Set<SolicitudCanceladaClienteCallback> = new Set();
   private servicioCerradoPorClienteCallbacks: Set<ServicioCerradoPorClienteCallback> = new Set();
+  private ordenesListRefreshCallbacks: Set<OrdenesListRefreshCallback> = new Set();
 
   /**
    * Inicializa la conexión WebSocket con autenticación JWT
@@ -237,43 +248,39 @@ class WebSocketService {
 
         case 'oferta_aceptada':
           devLog('✅ Oferta aceptada:', data);
-          devLog('   📄 Solicitud ID:', data.solicitud_id);
-          devLog('   💰 Monto:', data.monto_total);
-          devLog('   📋 Estado:', data.estado_oferta);
-          devLog('   💬 Mensaje:', data.mensaje);
-          // TODO: Mostrar notificación al proveedor
-          // TODO: Actualizar lista de ofertas en tiempo real
+          this.handleOrdenesListRefresh({
+            type: 'oferta_aceptada',
+            oferta_id: data.oferta_id != null ? String(data.oferta_id) : undefined,
+            solicitud_id: data.solicitud_id != null ? String(data.solicitud_id) : undefined,
+          });
           break;
 
         case 'pago_en_proceso':
           devLog('💳 Cliente procesando pago:', data);
-          devLog('   📄 Solicitud ID:', data.solicitud_id);
-          devLog('   💵 Oferta ID:', data.oferta_id);
-          devLog('   💰 Monto:', data.monto_total);
-          devLog('   📋 Estado:', data.estado_oferta);
-          devLog('   💬 Mensaje:', data.mensaje);
-          // TODO: Mostrar notificación "Cliente está pagando..."
-          // TODO: Actualizar estado de oferta a 'pendiente_pago'
+          this.handleOrdenesListRefresh({
+            type: 'pago_en_proceso',
+            oferta_id: data.oferta_id != null ? String(data.oferta_id) : undefined,
+            solicitud_id: data.solicitud_id != null ? String(data.solicitud_id) : undefined,
+          });
           break;
 
         case 'pago_completado':
           devLog('💰 ¡Pago completado!:', data);
-          devLog('   📄 Solicitud ID:', data.solicitud_id);
-          devLog('   🔧 Solicitud Servicio ID:', data.solicitud_servicio_id);
-          devLog('   💵 Oferta ID:', data.oferta_id);
-          devLog('   💰 Monto:', data.monto_total);
-          devLog('   📅 Fecha servicio:', data.fecha_servicio);
-          devLog('   🕐 Hora servicio:', data.hora_servicio);
-          devLog('   📋 Estado:', data.estado_oferta);
-          devLog('   💬 Mensaje:', data.mensaje);
-          // TODO: Mostrar notificación "¡Pago completado! Servicio confirmado."
-          // TODO: Actualizar estado de oferta a 'pagada'
-          // TODO: Recargar órdenes activas
+          this.handleOrdenesListRefresh({
+            type: 'pago_completado',
+            oferta_id: data.oferta_id != null ? String(data.oferta_id) : undefined,
+            solicitud_id: data.solicitud_id != null ? String(data.solicitud_id) : undefined,
+            solicitud_servicio_id: data.solicitud_servicio_id,
+          });
           break;
 
         case 'oferta_rechazada':
           devLog('❌ Oferta rechazada:', data);
-          // TODO: Manejar evento de oferta rechazada
+          this.handleOrdenesListRefresh({
+            type: 'oferta_rechazada',
+            oferta_id: data.oferta_id != null ? String(data.oferta_id) : undefined,
+            solicitud_id: data.solicitud_id != null ? String(data.solicitud_id) : undefined,
+          });
           break;
 
         case 'solicitud_cancelada':
@@ -707,6 +714,24 @@ class WebSocketService {
     };
   }
 
+  private handleOrdenesListRefresh(event: OrdenesListRefreshEvent): void {
+    this.ordenesListRefreshCallbacks.forEach((callback) => {
+      try {
+        callback(event);
+      } catch (error) {
+        console.error('❌ Error en callback ordenes_list_refresh:', error);
+      }
+    });
+  }
+
+  /** Adjudicación / pago / rechazo — refrescar tab Órdenes y Ofertas */
+  onOrdenesListRefresh(callback: OrdenesListRefreshCallback): () => void {
+    this.ordenesListRefreshCallbacks.add(callback);
+    return () => {
+      this.ordenesListRefreshCallbacks.delete(callback);
+    };
+  }
+
   /**
    * Limpia los listeners al destruir el servicio
    */
@@ -720,6 +745,7 @@ class WebSocketService {
     this.pagoExpiradoCallbacks.clear();
     this.solicitudCanceladaClienteCallbacks.clear();
     this.servicioCerradoPorClienteCallbacks.clear();
+    this.ordenesListRefreshCallbacks.clear();
     this.disconnect();
   }
 }

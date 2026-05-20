@@ -1,16 +1,34 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Modal,
   View,
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { GLASS_INSET } from '@/app/design-system/blankGlass';
+import {
+  CatalogoFechaHoraPickers,
+  formatDateApi,
+  resolveInitialPickerValue,
+  type CatalogoFechaHoraValue,
+} from '@/components/solicitudes/CatalogoFechaHoraPickers';
+
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
+const hx = SPACING.container.horizontal;
+
+const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
 type Props = {
   visible: boolean;
@@ -29,159 +47,248 @@ export function ProponerFechaCatalogoModal({
   onClose,
   onConfirm,
 }: Props) {
-  const [fecha, setFecha] = useState(fechaReferencia);
-  const [hora, setHora] = useState(horaReferencia ? String(horaReferencia).substring(0, 5) : '');
+  const insets = useSafeAreaInsets();
+  const [pickerValue, setPickerValue] = useState<CatalogoFechaHoraValue>(() =>
+    resolveInitialPickerValue(fechaReferencia, horaReferencia),
+  );
   const [motivo, setMotivo] = useState('');
 
   useEffect(() => {
     if (visible) {
-      setFecha(fechaReferencia || '');
-      setHora(horaReferencia ? String(horaReferencia).substring(0, 5) : '');
+      setPickerValue(resolveInitialPickerValue(fechaReferencia, horaReferencia));
       setMotivo('');
     }
   }, [visible, fechaReferencia, horaReferencia]);
 
-  const handleSubmit = () => {
-    if (!fecha.trim()) return;
-    onConfirm(fecha.trim(), hora.trim(), motivo.trim());
-  };
+  const handleSubmit = useCallback(() => {
+    if (loading) return;
+    const fecha = formatDateApi(pickerValue.fecha);
+    const hora = pickerValue.hora ?? '';
+    onConfirm(fecha, hora, motivo.trim());
+  }, [pickerValue, motivo, loading, onConfirm]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
-        style={styles.backdrop}
+        style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.sheet}>
-          <Text style={styles.title}>Proponer otra fecha</Text>
-          <Text style={styles.subtitle}>
-            El cliente deberá aceptar la fecha antes de que puedas confirmar la asignación.
-          </Text>
+        <Pressable style={styles.dismissHit} onPress={onClose} accessibilityLabel="Cerrar" />
+        <Pressable
+          style={[
+            styles.sheet,
+            { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) },
+            SHADOWS.editorial,
+          ]}
+          onPress={(e) => e.stopPropagation()}
+        >
+          <View style={styles.sheetHeader}>
+            <View style={styles.headerTitleCol}>
+              <View style={styles.kickerPill}>
+                <Text style={styles.kickerText}>PROPUESTA</Text>
+              </View>
+              <Text style={styles.title}>Proponer otra fecha</Text>
+              <Text style={styles.subtitle}>
+                El cliente deberá aceptarla antes de confirmar la asignación.
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closePlate}
+              disabled={loading}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar"
+            >
+              <InstitutionalIcon name="close" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            </TouchableOpacity>
+          </View>
 
-          <Text style={styles.label}>Fecha (AAAA-MM-DD)</Text>
-          <TextInput
-            style={styles.input}
-            value={fecha}
-            onChangeText={setFecha}
-            placeholder="2026-05-25"
-            autoCapitalize="none"
-          />
+          <View style={styles.body}>
+            <CatalogoFechaHoraPickers value={pickerValue} onChange={setPickerValue} />
 
-          <Text style={styles.label}>Hora (HH:MM, opcional)</Text>
-          <TextInput
-            style={styles.input}
-            value={hora}
-            onChangeText={setHora}
-            placeholder="10:30"
-            autoCapitalize="none"
-          />
+            <Text style={styles.fieldLabel}>Motivo (opcional)</Text>
+            <TextInput
+              style={styles.motivoInput}
+              value={motivo}
+              onChangeText={setMotivo}
+              placeholder="Ej: agenda completa ese día"
+              placeholderTextColor={I.muted}
+              maxLength={160}
+              returnKeyType="done"
+            />
+          </View>
 
-          <Text style={styles.label}>Motivo (opcional)</Text>
-          <TextInput
-            style={[styles.input, styles.inputMultiline]}
-            value={motivo}
-            onChangeText={setMotivo}
-            placeholder="Ej: agenda completa ese día"
-            multiline
-          />
-
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={loading}>
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={onClose}
+              disabled={loading}
+              activeOpacity={0.88}
+            >
               <Text style={styles.cancelText}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.confirmBtn, loading && styles.confirmDisabled]}
               onPress={handleSubmit}
-              disabled={loading || !fecha.trim()}
+              disabled={loading}
+              activeOpacity={0.88}
             >
               {loading ? (
-                <ActivityIndicator color={COLORS.institutional.onPrimary} />
+                <ActivityIndicator color={I.onPrimary} />
               ) : (
                 <Text style={styles.confirmText}>Enviar propuesta</Text>
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </Pressable>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: withOpacity(I.ink, 0.48),
+  },
+  dismissHit: {
+    ...StyleSheet.absoluteFillObject,
   },
   sheet: {
-    backgroundColor: COLORS.institutional.surface,
+    backgroundColor: I.canvas,
     borderTopLeftRadius: BORDERS.radius.xl,
     borderTopRightRadius: BORDERS.radius.xl,
-    padding: SPACING.fixed.lg,
-    paddingBottom: SPACING.fixed.xl,
+    borderWidth: BORDERS.width.thin,
+    borderBottomWidth: 0,
+    borderColor: I.hairline,
+    overflow: 'hidden',
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: hx,
+    paddingTop: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.sm,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairline,
+    backgroundColor: I.canvas,
+  },
+  headerTitleCol: {
+    flex: 1,
+    marginRight: SPACING.fixed.sm,
+    gap: 4,
+  },
+  kickerPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+  },
+  kickerText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    letterSpacing: 0.6,
+    color: I.muted,
   },
   title: {
-    fontSize: TYPOGRAPHY.styles.h3.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansBold,
-    color: COLORS.institutional.ink,
-    marginBottom: SPACING.fixed.xs,
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    letterSpacing: TS.h4.letterSpacing,
+    color: I.ink,
   },
   subtitle: {
-    fontSize: TYPOGRAPHY.styles.body.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    color: COLORS.institutional.inkMuted,
-    marginBottom: SPACING.fixed.md,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.body,
   },
-  label: {
-    fontSize: TYPOGRAPHY.styles.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    color: COLORS.institutional.ink,
-    marginBottom: 4,
-    marginTop: SPACING.fixed.sm,
+  closePlate: {
+    width: 40,
+    height: 40,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  input: {
-    borderWidth: 1,
-    borderColor: COLORS.institutional.border,
+  body: {
+    backgroundColor: I.surfaceSoft,
+    paddingHorizontal: hx,
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.md,
+    gap: SPACING.fixed.xs,
+  },
+  fieldLabel: {
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    marginTop: SPACING.fixed.xs,
+  },
+  motivoInput: {
+    backgroundColor: I.canvas,
     borderRadius: BORDERS.radius.md,
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: 10,
-    fontSize: TYPOGRAPHY.styles.body.fontSize,
-    color: COLORS.institutional.ink,
-    backgroundColor: COLORS.institutional.surfaceSoft,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.sm + 2,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.ink,
+    minHeight: 44,
+    ...SHADOWS.editorial,
   },
-  inputMultiline: {
-    minHeight: 72,
-    textAlignVertical: 'top',
-  },
-  actions: {
+  footer: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     gap: SPACING.fixed.sm,
-    marginTop: SPACING.fixed.lg,
+    paddingHorizontal: GLASS_INSET,
+    paddingTop: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.sm,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+    backgroundColor: I.canvas,
   },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 12,
+    minWidth: 0,
     alignItems: 'center',
-    borderRadius: BORDERS.radius.md,
-    borderWidth: 1,
-    borderColor: COLORS.institutional.border,
+    justifyContent: 'center',
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.xs,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
   },
   cancelText: {
-    color: COLORS.institutional.ink,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.ink,
   },
   confirmBtn: {
-    flex: 1,
-    paddingVertical: 12,
+    flex: 1.35,
+    minWidth: 0,
     alignItems: 'center',
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: COLORS.institutional.primary,
+    justifyContent: 'center',
+    paddingVertical: SPACING.fixed.sm + 2,
+    paddingHorizontal: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.primary,
+    ...SHADOWS.editorial,
   },
   confirmDisabled: {
-    opacity: 0.6,
+    opacity: 0.55,
   },
   confirmText: {
-    color: COLORS.institutional.onPrimary,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontSize: TS.button.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),
+    color: I.onPrimary,
   },
 });

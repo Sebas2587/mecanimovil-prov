@@ -231,6 +231,7 @@ export interface OfertaProveedor {
     | 'pendiente_creditos'
     | 'aceptada'
     | 'pendiente_pago'
+    | 'pagada_parcialmente'
     | 'pagada'
     | 'en_ejecucion'
     | 'completada'
@@ -258,7 +259,11 @@ export interface OfertaProveedor {
   costo_mano_obra?: string;
   costo_gestion_compra?: string;
   foto_cotizacion_repuestos?: string;
-  metodo_pago_cliente?: 'repuestos_adelantado' | 'todo_adelantado' | 'pendiente';
+  metodo_pago_cliente?:
+    | 'repuestos_adelantado'
+    | 'todo_adelantado'
+    | 'cliente_compra_repuestos'
+    | 'pendiente';
   estado_pago_repuestos?: 'no_aplica' | 'pendiente' | 'pagado';
   estado_pago_servicio?: 'pendiente' | 'pagado';
   proveedor_puede_recibir_pagos?: boolean;
@@ -437,14 +442,13 @@ export const obtenerMisOfertas = async (): Promise<ApiResponse<OfertaProveedor[]
 
     // ✅ El backend filtra automáticamente por proveedor en get_queryset()
     // No es necesario enviar el parámetro 'proveedor: me', pero no causa problemas si se envía
-    const response = await apiInstance.get('/ordenes/ofertas/');
+    // mis_ofertas devuelve todas las ofertas del proveedor (sin paginación de PAGE_SIZE=10 del list)
+    const response = await apiInstance.get('/ordenes/ofertas/mis_ofertas/');
 
-    console.log('✅ Respuesta recibida:', {
+    console.log('✅ Respuesta mis_ofertas:', {
       hasData: !!response.data,
       isArray: Array.isArray(response.data),
-      hasResults: !!(response.data?.results),
-      resultsCount: response.data?.results?.length || 0,
-      dataCount: Array.isArray(response.data) ? response.data.length : 0
+      count: Array.isArray(response.data) ? response.data.length : 0,
     });
 
     let ofertas: OfertaProveedor[] = [];

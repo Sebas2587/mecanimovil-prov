@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import {
   Briefcase, CheckCircle, Inbox, User, Car, Clock,
-  Wrench, AlertTriangle, Shield, CreditCard,
+  AlertTriangle, Shield, CreditCard,
   PlusCircle, Package, XCircle,
 } from 'lucide-react-native';
 import {
@@ -32,6 +32,7 @@ import websocketService from '@/app/services/websocketService';
 import Header from '@/components/Header';
 import { COLORS, withOpacity, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '@/app/design-system/tokens';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
+import { TipoPagoClienteChip } from '@/components/solicitudes/TipoPagoClienteChip';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -56,6 +57,7 @@ const ESTADO_VARIANT: Record<string, EstadoBadgeVariant> = {
   pendiente_creditos: 'warning',
   aceptada: 'success',
   pendiente_pago: 'warning',
+  pagada_parcialmente: 'warning',
   pagada: 'success',
   en_ejecucion: 'info',
   completada: 'success',
@@ -86,12 +88,35 @@ function getEstadoBadgeColors(variant: EstadoBadgeVariant) {
 
 type TabType = 'activas' | 'completadas' | 'rechazadas';
 
+/** Una card en Activas: oferta y/o orden del mismo flujo (estado unificado) */
+type ActividadActivaItem = {
+  key: string;
+  oferta?: OfertaProveedor;
+  orden?: Orden;
+  estadoEfectivo: string;
+};
+
 const ESTADOS_ACTIVOS = [
   'enviada',
   'vista',
   'en_chat',
+  'pendiente_confirmacion',
   'pendiente_creditos',
   'aceptada',
+  'pendiente_pago',
+  'pagada_parcialmente',
+  'pagada',
+  'en_ejecucion',
+];
+
+/** Solicitud pública aún «viva» para el proveedor (incluye adjudicada / pendiente de pago) */
+const SOLICITUD_ESTADOS_ACTIVOS = [
+  'publicada',
+  'con_ofertas',
+  'seleccionando_servicios',
+  'pendiente_confirmacion',
+  'esperando_creditos_proveedor',
+  'adjudicada',
   'pendiente_pago',
   'pagada',
   'en_ejecucion',
@@ -118,9 +143,11 @@ const OFERTA_LABELS: Record<string, string> = {
   enviada: 'Oferta Enviada',
   vista: 'Vista por Cliente',
   en_chat: 'En Conversación',
+  pendiente_confirmacion: 'Confirmar asignación',
   pendiente_creditos: 'Pendiente créditos',
-  aceptada: 'Aceptada',
+  aceptada: 'Adjudicada — espera pago',
   pendiente_pago: 'Pendiente de Pago',
+  pagada_parcialmente: 'Pago parcial',
   pagada: 'Pagada',
   en_ejecucion: 'En Ejecución',
   completada: 'Completada',
@@ -171,14 +198,20 @@ export default function OrdenesScreen() {
   const isVerified = estadoProveedor?.estado_verificacion === 'aprobado';
   const queryClient = useQueryClient();
 
+  const invalidateOrdenesYOfertas = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['ordenes-proveedor'] });
+    queryClient.invalidateQueries({ queryKey: ['ofertas-proveedor'] });
+  }, [queryClient]);
+
   useEffect(() => {
     if (!isVerified) return;
-    const unsub = websocketService.onServicioCerradoPorCliente(() => {
-      queryClient.invalidateQueries({ queryKey: ['ordenes-proveedor'] });
-      queryClient.invalidateQueries({ queryKey: ['ofertas-proveedor'] });
-    });
-    return unsub;
-  }, [isVerified, queryClient]);
+    const unsubCerrado = websocketService.onServicioCerradoPorCliente(invalidateOrdenesYOfertas);
+    const unsubLista = websocketService.onOrdenesListRefresh(invalidateOrdenesYOfertas);
+    return () => {
+      unsubCerrado();
+      unsubLista();
+    };
+  }, [isVerified, invalidateOrdenesYOfertas]);
 
   const {
     data: ordenesCompletas = [],
@@ -251,13 +284,28 @@ export default function OrdenesScreen() {
     return orden.estado_display || orden.estado.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   }, [ofertasMap]);
 
-  const ofertasActivas = useMemo(() => ofertas.filter(oferta => {
-    if (oferta.estado === 'pagada' || oferta.estado === 'en_ejecucion') return false;
-    const estadoActivo = ESTADOS_ACTIVOS.includes(oferta.estado);
-    if (!oferta.solicitud_estado) return estadoActivo;
-    const solicitudValida = oferta.solicitud_estado !== 'cancelada' && oferta.solicitud_estado !== 'expirada';
-    return estadoActivo && solicitudValida;
-  }), [ofertas]);
+  const ofertasActivas = useMemo(
+    () =>
+      ofertas.filter((oferta) => {
+        if (oferta.es_oferta_secundaria) {
+          // Secundarias activas: mismo criterio de estado de oferta
+          if (!ESTADOS_ACTIVOS.includes(oferta.estado)) return false;
+        } else if (!ESTADOS_ACTIVOS.includes(oferta.estado)) {
+          return false;
+        }
+        if (!oferta.solicitud_estado) return true;
+        return SOLICITUD_ESTADOS_ACTIVOS.includes(oferta.solicitud_estado);
+      }),
+    [ofertas],
+  );
+
+  const ofertasById = useMemo(() => {
+    const map = new Map<string, OfertaProveedor>();
+    for (const o of ofertas) {
+      map.set(String(o.id), o);
+    }
+    return map;
+  }, [ofertas]);
 
   const ofertasTabCompletadas = useMemo(
     () => ofertas.filter(o => o.estado === 'completada'),
@@ -288,6 +336,58 @@ export default function OrdenesScreen() {
     return ESTADOS_RECHAZADAS.includes(efectivo);
   }), [ordenesCompletas, getEstadoEfectivo]);
 
+  const activasUnificadas = useMemo((): ActividadActivaItem[] => {
+    const ordenes = ordenesActivas ?? [];
+    const ofertasAct = ofertasActivas ?? [];
+    const ordenPorOferta = new Map<string, Orden>();
+    for (const orden of ordenes) {
+      if (!orden.oferta_proveedor_id) continue;
+      const k = String(orden.oferta_proveedor_id);
+      const prev = ordenPorOferta.get(k);
+      if (!prev || orden.id > prev.id) {
+        ordenPorOferta.set(k, orden);
+      }
+    }
+
+    const items: ActividadActivaItem[] = [];
+    const ofertaIdsUsados = new Set<string>();
+
+    for (const oferta of ofertasAct) {
+      const id = String(oferta.id);
+      ofertaIdsUsados.add(id);
+      const orden = ordenPorOferta.get(id);
+      items.push({
+        key: orden ? `u-${orden.id}` : `u-oferta-${id}`,
+        oferta,
+        orden,
+        estadoEfectivo: orden ? getEstadoEfectivo(orden) : oferta.estado,
+      });
+    }
+
+    for (const orden of ordenes) {
+      const ofertaId = orden.oferta_proveedor_id ? String(orden.oferta_proveedor_id) : null;
+      if (ofertaId && ofertaIdsUsados.has(ofertaId)) continue;
+      items.push({
+        key: `u-orden-${orden.id}`,
+        oferta: ofertaId ? ofertasById.get(ofertaId) : undefined,
+        orden,
+        estadoEfectivo: getEstadoEfectivo(orden),
+      });
+    }
+
+    const ts = (item: ActividadActivaItem) => {
+      const raw =
+        item.orden?.fecha_hora_solicitud
+        || item.orden?.fecha_servicio
+        || item.oferta?.fecha_envio
+        || item.oferta?.fecha_disponible
+        || '';
+      return raw ? new Date(raw).getTime() : 0;
+    };
+    items.sort((a, b) => ts(b) - ts(a));
+    return items;
+  }, [ofertasActivas, ordenesActivas, ofertasById, getEstadoEfectivo]);
+
   // In completadas tab, de-duplicate: if an order references an offer via oferta_proveedor_id,
   // don't show that offer separately -- the order card already shows the effective state.
   const ofertaIdsConOrden = useMemo(() => {
@@ -308,7 +408,7 @@ export default function OrdenesScreen() {
     [ofertasTabRechazadas, ofertaIdsConOrden]
   );
 
-  const activasCount = ordenesActivas.length + ofertasActivas.length;
+  const activasCount = activasUnificadas.length;
   const completadasCount = ordenesCompletadasTab.length + ofertasCompletadasSinDuplicar.length;
   const rechazadasCount = ordenesRechazadasTab.length + ofertasRechazadasSinDuplicar.length;
 
@@ -324,7 +424,10 @@ export default function OrdenesScreen() {
       : tabActivo === 'completadas'
         ? ofertasCompletadasSinDuplicar
         : ofertasRechazadasSinDuplicar;
-  const tieneDatos = ordenesMostrar.length > 0 || ofertasMostrar.length > 0;
+  const tieneDatos =
+    tabActivo === 'activas'
+      ? activasUnificadas.length > 0
+      : ordenesMostrar.length > 0 || ofertasMostrar.length > 0;
 
   const handleOrdenPress = useCallback((orden: Orden) => {
     if (orden.oferta_proveedor_id) {
@@ -539,6 +642,172 @@ export default function OrdenesScreen() {
     );
   }, [getEstadoEfectivo, getTextoEstado, handleOrdenPress]);
 
+  const renderActividadUnificadaCard = useCallback(
+    (item: ActividadActivaItem) => {
+      const { oferta, orden, estadoEfectivo } = item;
+      const estadoStyle = getEstadoBadgeColors(ESTADO_VARIANT[estadoEfectivo] || 'neutral');
+      const textoEstado = orden
+        ? getTextoEstado(orden)
+        : OFERTA_LABELS[estadoEfectivo] || estadoEfectivo;
+
+      const onPress = () => {
+        if (orden) {
+          handleOrdenPress(orden);
+        } else if (oferta) {
+          handleOfertaPress(oferta);
+        }
+      };
+
+      const precioRaw = orden?.total ?? oferta?.precio_total_ofrecido ?? '0';
+      const precioFormateado = formatearPrecio(precioRaw);
+
+      const serviciosFromOrden = orden?.lineas?.map((l) => l.servicio_nombre) || [];
+      const serviciosFromOferta =
+        oferta?.solicitud_detail?.servicios_solicitados?.map((s) => s.nombre) || [];
+      const serviciosNombres = serviciosFromOrden.length > 0 ? serviciosFromOrden : serviciosFromOferta;
+      const nombreServicio =
+        serviciosNombres.length > 0
+          ? serviciosNombres.length === 1
+            ? serviciosNombres[0]
+            : serviciosNombres.join(', ')
+          : 'Servicio';
+
+      const fechaRaw = orden?.fecha_servicio || oferta?.fecha_disponible || orden?.fecha_hora_solicitud;
+      const horaRaw = orden?.hora_servicio || oferta?.hora_disponible;
+      const fechaTexto = fechaRaw
+        ? formatearFecha(fechaRaw)
+        : oferta?.fecha_envio
+          ? formatearFecha(oferta.fecha_envio)
+          : '';
+
+      const clienteFoto =
+        (orden?.cliente_detail as { foto_perfil?: string } | undefined)?.foto_perfil
+        || oferta?.solicitud_detail?.cliente_foto;
+      const nombreCliente = orden
+        ? obtenerNombreCompleto(orden.cliente_detail)
+        : oferta?.solicitud_detail?.cliente_nombre || 'Cliente';
+
+      const vehiculo = orden?.vehiculo_detail || oferta?.solicitud_detail?.vehiculo;
+      const esClienteCompletoFlag = orden ? esClienteCompleto(orden.cliente_detail) : true;
+      const urgencia = orden ? ordenesProveedorService.esOrdenUrgente(orden) : false;
+      const tieneRepuestos =
+        orden?.lineas?.some((l) => l.con_repuestos)
+        || oferta?.incluye_repuestos === true;
+
+      return (
+        <TouchableOpacity
+          key={item.key}
+          style={styles.listCardOuter}
+          onPress={onPress}
+          activeOpacity={0.88}
+        >
+          <View style={styles.listCardInner}>
+            <View style={styles.cardTop}>
+              <View style={[styles.statusBadge, { backgroundColor: estadoStyle.bg }]}>
+                <View style={[styles.statusDot, { backgroundColor: estadoStyle.dot }]} />
+                <Text style={[styles.statusText, { color: estadoStyle.text }]}>{textoEstado}</Text>
+              </View>
+              {oferta?.es_oferta_secundaria ? (
+                <View style={styles.additionalBadge}>
+                  <PlusCircle size={10} color={I.onPrimary} />
+                  <Text style={styles.additionalBadgeText}>Adicional</Text>
+                </View>
+              ) : null}
+              {urgencia ? (
+                <View style={styles.urgentBadge}>
+                  <AlertTriangle size={10} color={I.onPrimary} />
+                </View>
+              ) : null}
+              {orden && !esClienteCompletoFlag ? (
+                <View style={styles.protectedBadge}>
+                  <Shield size={10} color={I.accentYellow} />
+                </View>
+              ) : null}
+              <View style={{ flex: 1 }} />
+              <Text style={styles.cardPrice}>{precioFormateado}</Text>
+            </View>
+
+            <Text style={styles.cardTitle} numberOfLines={2}>
+              {nombreServicio}
+            </Text>
+
+            <View style={styles.cardMeta}>
+              <Clock size={13} color={I.muted} />
+              <Text style={styles.cardMetaText}>
+                {fechaTexto}
+                {horaRaw ? ` · ${String(horaRaw).substring(0, 5)}` : ''}
+              </Text>
+              {orden?.tipo_servicio ? (
+                <View style={styles.serviceTypePill}>
+                  <Text style={styles.serviceTypeText}>
+                    {orden.tipo_servicio === 'domicilio' ? 'Domicilio' : 'Taller'}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            {oferta ? (
+              <View style={styles.tipoPagoRow}>
+                <TipoPagoClienteChip oferta={oferta} compact />
+              </View>
+            ) : null}
+
+            <View style={styles.cardDivider} />
+
+            <View style={styles.cardBottom}>
+              <View style={styles.cardUser}>
+                {clienteFoto ? (
+                  <Image source={{ uri: clienteFoto }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <User size={14} color={I.onPrimary} />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.userName} numberOfLines={1}>
+                    {nombreCliente}
+                  </Text>
+                  {vehiculo ? (
+                    <View style={styles.vehicleRow}>
+                      <Car size={12} color={I.muted} />
+                      <Text style={styles.vehicleText} numberOfLines={1}>
+                        {vehiculo.marca} {vehiculo.modelo}
+                        {'año' in vehiculo && vehiculo.año ? ` (${vehiculo.año})` : ''}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+              <View style={styles.cardBadges}>
+                {tieneRepuestos ? (
+                  <View style={styles.repuestosBadge}>
+                    <Package size={10} color={I.semanticUp} />
+                    <Text style={styles.repuestosText}>Repuestos</Text>
+                  </View>
+                ) : null}
+                {orden?.metodo_pago ? (
+                  <View style={styles.pagoBadge}>
+                    <CreditCard size={10} color={I.muted} />
+                    <Text style={styles.pagoText}>
+                      {orden.metodo_pago === 'mercadopago'
+                        ? 'MP'
+                        : orden.metodo_pago === 'transferencia'
+                          ? 'Transf.'
+                          : orden.metodo_pago === 'efectivo'
+                            ? 'Efectivo'
+                            : orden.metodo_pago}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [getTextoEstado, handleOrdenPress, handleOfertaPress],
+  );
+
   if (!isVerified) {
     return (
       <TabScreenWrapper>
@@ -602,51 +871,47 @@ export default function OrdenesScreen() {
             </View>
           ) : tieneDatos ? (
             <>
-              {tabActivo === 'activas' && ofertasMostrar.length > 0 && (
+              {tabActivo === 'activas' && activasUnificadas.length > 0 && (
                 <View style={styles.bannerWrap}>
-                  {ofertasMostrar.some(o => o.estado === 'aceptada' || o.estado === 'pendiente_pago') && (
+                  {activasUnificadas.some(
+                    (i) =>
+                      i.estadoEfectivo === 'aceptada' || i.estadoEfectivo === 'pendiente_pago',
+                  ) && (
                     <EstadoBanner
                       type="warning"
-                      title="Esperando Confirmación de Pago"
-                      message="No te dirijas al servicio hasta que veas el estado 'Pagada'. Te notificaremos."
+                      title="Esperando pago del cliente"
+                      message="La misma tarjeta pasará a «Pagada» cuando el cliente pague. No vayas al servicio antes."
                       icon="info"
                     />
                   )}
-                  {ofertasMostrar.some(o => o.estado === 'pagada') && (
+                  {activasUnificadas.some((i) => i.estadoEfectivo === 'pagada') && (
                     <EstadoBanner
                       type="success"
-                      title="Servicios Listos para Realizar"
-                      message="Las ofertas con estado 'Pagada' están confirmadas. Revisa fecha y hora."
+                      title="Listo para realizar"
+                      message="Servicios pagados: revisa fecha, hora y checklist en el detalle."
                       icon="check-circle"
+                    />
+                  )}
+                  {activasUnificadas.some((i) => i.estadoEfectivo === 'pendiente_confirmacion') && (
+                    <EstadoBanner
+                      type="info"
+                      title="Confirma la asignación"
+                      message="Hay servicios de catálogo esperando tu confirmación en el detalle de la solicitud."
+                      icon="info"
                     />
                   )}
                 </View>
               )}
 
               {tabActivo === 'activas' ? (
-                <>
-                  {ofertasMostrar.length > 0 && (
-                    <View style={styles.section}>
-                      <View style={styles.sectionHeader}>
-                        <Wrench size={18} color={I.ink} />
-                        <Text style={styles.sectionTitle}>Ofertas enviadas</Text>
-                        <Text style={styles.sectionCount}>{ofertasMostrar.length}</Text>
-                      </View>
-                      {ofertasMostrar.map(renderOfertaCard)}
-                    </View>
-                  )}
-
-                  {ordenesMostrar.length > 0 && (
-                    <View style={styles.section}>
-                      <View style={styles.sectionHeader}>
-                        <Briefcase size={18} color={I.ink} />
-                        <Text style={styles.sectionTitle}>Órdenes de servicio</Text>
-                        <Text style={styles.sectionCount}>{ordenesMostrar.length}</Text>
-                      </View>
-                      {ordenesMostrar.map(renderOrdenCard)}
-                    </View>
-                  )}
-                </>
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <Briefcase size={18} color={I.ink} />
+                    <Text style={styles.sectionTitle}>Servicios activos</Text>
+                    <Text style={styles.sectionCount}>{activasUnificadas.length}</Text>
+                  </View>
+                  {activasUnificadas.map(renderActividadUnificadaCard)}
+                </View>
               ) : tabActivo === 'completadas' ? (
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
@@ -689,7 +954,7 @@ export default function OrdenesScreen() {
               </Text>
               <Text style={styles.emptySubtitle}>
                 {tabActivo === 'activas'
-                  ? 'No hay órdenes o ofertas activas por el momento'
+                  ? 'No hay servicios activos por el momento'
                   : tabActivo === 'completadas'
                     ? 'Aquí verás servicios finalizados con éxito'
                     : 'Aquí verás ofertas rechazadas, expiradas u órdenes canceladas'}
@@ -911,6 +1176,9 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
     lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.normal),
     color: I.semanticUp,
+  },
+  tipoPagoRow: {
+    marginTop: SPACING.fixed.xs,
   },
   pagoBadge: {
     flexDirection: 'row',

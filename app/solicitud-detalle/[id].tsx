@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,10 @@ import {
   Image,
   Modal,
   Pressable,
+  AppState,
 } from 'react-native';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, withOpacity, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import solicitudesService, { type SolicitudPublica, type OfertaProveedor, type MotivoRechazo } from '@/services/solicitudesService';
@@ -69,9 +71,50 @@ function textoEstadoOferta(estado: string): string {
   }
 }
 
+/** Evita desfase por zona horaria con fechas YYYY-MM-DD del API. */
+function parseFechaLocal(fecha: string | null | undefined): Date | null {
+  if (!fecha) return null;
+  const iso = String(fecha).split('T')[0];
+  const [y, m, d] = iso.split('-').map((p) => parseInt(p, 10));
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+
+function normalizarFechaApi(fecha: string | null | undefined): string {
+  if (!fecha) return '';
+  return String(fecha).split('T')[0];
+}
+
+function resolverFechaHoraPantalla(
+  solicitud: SolicitudPublica | null,
+  miOferta: OfertaProveedor | null,
+): { fecha: string; hora: string | null; propuestaPendiente: boolean } {
+  if (!solicitud) {
+    return { fecha: '', hora: null, propuestaPendiente: false };
+  }
+  if (miOferta?.es_fecha_alternativa && miOferta.fecha_disponible) {
+    return {
+      fecha: normalizarFechaApi(miOferta.fecha_disponible),
+      hora: miOferta.hora_disponible ?? null,
+      propuestaPendiente: true,
+    };
+  }
+  return {
+    fecha: normalizarFechaApi(solicitud.fecha_preferida),
+    hora: solicitud.hora_preferida ?? null,
+    propuestaPendiente: false,
+  };
+}
+
 export default function SolicitudDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+
+  const invalidateOrdenesYOfertas = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['ordenes-proveedor'] });
+    queryClient.invalidateQueries({ queryKey: ['ofertas-proveedor'] });
+  }, [queryClient]);
 
   const [solicitud, setSolicitud] = useState<SolicitudPublica | null>(null);
   const [miOferta, setMiOferta] = useState<OfertaProveedor | null>(null);
@@ -84,10 +127,12 @@ export default function SolicitudDetalleScreen() {
   const [proponiendoFecha, setProponiendoFecha] = useState(false);
   const [fotoAmpliadaUrl, setFotoAmpliadaUrl] = useState<string | null>(null);
 
-  const cargarDatos = useCallback(async () => {
+  const cargarDatos = useCallback(async (opts?: { silent?: boolean }) => {
     if (!id) return;
     try {
-      setLoading(true);
+      if (!opts?.silent) {
+        setLoading(true);
+      }
       const result = await solicitudesService.obtenerDetalleSolicitud(id);
 
       if (result.success && result.data) {
@@ -135,14 +180,34 @@ export default function SolicitudDetalleScreen() {
     }
   }, [id]);
 
+  const hasLoadedOnceRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!id) return;
+      cargarDatos({ silent: hasLoadedOnceRef.current });
+      hasLoadedOnceRef.current = true;
+    }, [id, cargarDatos]),
+  );
+
   useEffect(() => {
-    if (id) {
-      cargarDatos();
-    }
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && id && hasLoadedOnceRef.current) {
+        cargarDatos({ silent: true });
+      }
+    });
+    return () => sub.remove();
   }, [id, cargarDatos]);
 
+  const fechaHoraPantalla = useMemo(
+    () => resolverFechaHoraPantalla(solicitud, miOferta),
+    [solicitud, miOferta],
+  );
+
   const formatearFecha = (fecha: string) => {
-    return new Date(fecha).toLocaleDateString('es-ES', {
+    const parsed = parseFechaLocal(fecha);
+    if (!parsed) return '—';
+    return parsed.toLocaleDateString('es-ES', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -152,7 +217,7 @@ export default function SolicitudDetalleScreen() {
 
   const formatearHora = (hora: string | null) => {
     if (!hora) return 'No especificada';
-    return hora.substring(0, 5);
+    return String(hora).substring(0, 5);
   };
 
   const esServicioDiagnostico = (nombreServicio: string): boolean => {
@@ -227,7 +292,15 @@ export default function SolicitudDetalleScreen() {
                   estado === 'esperando_creditos_proveedor'
                     ? 'Debes acreditar créditos antes de que el cliente pueda pagar.'
                     : 'El cliente fue notificado y puede proceder al pago.',
-                  [{ text: 'OK', onPress: () => cargarDatos() }]
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        invalidateOrdenesYOfertas();
+                        cargarDatos();
+                      },
+                    },
+                  ],
                 );
               } else {
                 Alert.alert('Error', result.error || 'No se pudo confirmar');
@@ -252,11 +325,29 @@ export default function SolicitudDetalleScreen() {
         motivo
       );
       if (result.success) {
+        const payload = result.data as {
+          fecha_disponible?: string;
+          hora_disponible?: string | null;
+          es_fecha_alternativa?: boolean;
+        } | undefined;
+        setMiOferta((prev) =>
+          prev
+            ? {
+                ...prev,
+                estado: 'en_chat',
+                fecha_disponible: payload?.fecha_disponible ?? fecha,
+                hora_disponible: payload?.hora_disponible ?? (hora || prev.hora_disponible),
+                es_fecha_alternativa: true,
+                motivo_fecha_alternativa: motivo || prev.motivo_fecha_alternativa,
+              }
+            : prev,
+        );
         setMostrarModalFecha(false);
+        invalidateOrdenesYOfertas();
+        cargarDatos({ silent: true });
         Alert.alert(
           'Fecha enviada',
           'El cliente fue notificado. Podrá aceptarla desde su solicitud.',
-          [{ text: 'OK', onPress: () => cargarDatos() }]
         );
       } else {
         Alert.alert('Error', result.error || 'No se pudo proponer la fecha');
@@ -574,11 +665,19 @@ export default function SolicitudDetalleScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionHeaderTitle}>Fecha y hora preferida</Text>
+            {fechaHoraPantalla.propuestaPendiente ? (
+              <View style={styles.fechaPropuestaBanner}>
+                <InstitutionalIcon name="schedule" size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.fechaPropuestaBannerText}>
+                  Propuesta enviada — el cliente aún no la ha confirmado
+                </Text>
+              </View>
+            ) : null}
             <View style={styles.dateTimeRow}>
               <InstitutionalIcon name="calendar-today" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               <View style={styles.dateTimeTextos}>
                 <Text style={styles.dateTimeLabel}>Fecha</Text>
-                <Text style={styles.dateTimeValue}>{formatearFecha(solicitud.fecha_preferida)}</Text>
+                <Text style={styles.dateTimeValue}>{formatearFecha(fechaHoraPantalla.fecha)}</Text>
               </View>
             </View>
             <View style={styles.dateTimeDivider} />
@@ -586,7 +685,7 @@ export default function SolicitudDetalleScreen() {
               <InstitutionalIcon name="access-time" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               <View style={styles.dateTimeTextos}>
                 <Text style={styles.dateTimeLabel}>Hora</Text>
-                <Text style={styles.dateTimeValue}>{formatearHora(solicitud.hora_preferida)}</Text>
+                <Text style={styles.dateTimeValue}>{formatearHora(fechaHoraPantalla.hora)}</Text>
               </View>
             </View>
             {puedeGestionarCatalogo ? (
@@ -804,8 +903,8 @@ export default function SolicitudDetalleScreen() {
 
         <ProponerFechaCatalogoModal
           visible={mostrarModalFecha}
-          fechaReferencia={solicitud?.fecha_preferida}
-          horaReferencia={solicitud?.hora_preferida}
+          fechaReferencia={fechaHoraPantalla.fecha || solicitud?.fecha_preferida}
+          horaReferencia={fechaHoraPantalla.hora ?? solicitud?.hora_preferida}
           loading={proponiendoFecha}
           onClose={() => setMostrarModalFecha(false)}
           onConfirm={handleProponerFechaCatalogo}
@@ -1337,6 +1436,26 @@ const styles = StyleSheet.create({
     color: I.body,
     lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
     marginBottom: SPACING.fixed.sm,
+  },
+  fechaPropuestaBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    marginTop: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.xs + 2,
+    paddingHorizontal: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: withOpacity(I.primary, 0.08),
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.22),
+  },
+  fechaPropuestaBannerText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.body,
   },
   fechaProponerLink: {
     flexDirection: 'row',

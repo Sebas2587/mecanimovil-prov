@@ -23,6 +23,8 @@ import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { calcularDesgloseIvaOferta, resolverDesgloseIvaMostrado } from '@/utils/ofertaPrecioDesglose';
+import { TipoPagoClienteChip } from '@/components/solicitudes/TipoPagoClienteChip';
+import { getResumenTipoPagoCliente } from '@/utils/tipoPagoClienteLabel';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -563,11 +565,18 @@ export default function OfertaDetalleScreen() {
             title="Pago Parcial Realizado"
             message={
               oferta.estado_pago_repuestos === 'pagado' && oferta.estado_pago_servicio === 'pendiente'
-                ? "El cliente pagó los repuestos y la gestión de compra. Puedes iniciar el servicio. El pago de la mano de obra se realizará al finalizar."
-                : "El cliente realizó un pago parcial. Revisa los detalles del pago a continuación."
+                ? 'El cliente eligió pagar repuestos ahora. Ya pagó repuestos y gestión; la mano de obra queda para el final del servicio.'
+                : 'El cliente realizó un pago parcial. Revisa el plan de pago a continuación.'
             }
             icon="payment"
           />
+        )}
+
+        {oferta && getResumenTipoPagoCliente(oferta).visible && (
+          <View style={styles.planPagoSection}>
+            <Text style={styles.planPagoTitulo}>Plan de pago del cliente</Text>
+            <TipoPagoClienteChip oferta={oferta} />
+          </View>
         )}
 
         {oferta.estado === 'en_ejecucion' && (
@@ -898,13 +907,28 @@ export default function OfertaDetalleScreen() {
             );
           })()}
 
-          {/* Información de pago si es parcial */}
-          {oferta.estado === 'pagada_parcialmente' && (
+          {/* Desglose de pagos según plan elegido */}
+          {(oferta.estado === 'pagada_parcialmente' ||
+            oferta.estado === 'pagada' ||
+            getResumenTipoPagoCliente(oferta).visible) && (
             <View style={styles.pagoParcialInfoCard}>
               <View style={styles.pagoParcialHeader}>
                 <InstitutionalIcon name="payment" size={20} color={I.accentYellow} />
-                <Text style={styles.pagoParcialTitulo}>Estado de Pago</Text>
+                <Text style={styles.pagoParcialTitulo}>Detalle del pago</Text>
               </View>
+
+              {getResumenTipoPagoCliente(oferta).metodo === 'cliente_compra_repuestos' && (
+                <Text style={styles.pagoParcialNota}>
+                  El cliente comprará los repuestos por su cuenta. Solo pagó mano de obra por la plataforma.
+                </Text>
+              )}
+
+              {getResumenTipoPagoCliente(oferta).metodo === 'todo_adelantado' &&
+                oferta.estado_pago_servicio === 'pagado' && (
+                <Text style={styles.pagoParcialNota}>
+                  El cliente pagó el total anticipado (repuestos, gestión y mano de obra).
+                </Text>
+              )}
 
               {oferta.estado_pago_repuestos === 'pagado' && oferta.estado_pago_servicio === 'pendiente' && (
                 <>
@@ -1595,6 +1619,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.sm,
+  },
+  planPagoSection: {
+    marginHorizontal: hx,
+    marginBottom: SPACING.fixed.md,
+  },
+  planPagoTitulo: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    marginBottom: SPACING.fixed.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  pagoParcialNota: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.relaxed),
+    color: I.body,
     marginBottom: SPACING.fixed.sm,
   },
   pagoParcialTitulo: {
