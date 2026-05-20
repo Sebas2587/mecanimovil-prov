@@ -230,6 +230,8 @@ interface ServicioExistente {
   tipo_servicio: 'con_repuestos' | 'sin_repuestos';
   disponible: boolean;
   duracion_estimada: string | null;
+  duracion_minima_minutos?: number | null;
+  duracion_maxima_minutos?: number | null;
   incluye_garantia: boolean;
   duracion_garantia: number;
   detalles_adicionales: string | null;
@@ -268,6 +270,8 @@ const CrearServicioScreen = () => {
   const [marcasSeleccionadas, setMarcasSeleccionadas] = useState<number[]>([]);
   const [servicioSeleccionado, setServicioSeleccionado] = useState<number | null>(null);
   const [descripcion, setDescripcion] = useState('');
+  const [duracionMinimaMin, setDuracionMinimaMin] = useState('');
+  const [duracionMaximaMin, setDuracionMaximaMin] = useState('');
   const [costoManoObra, setCostoManoObra] = useState('');
   const [costoRepuestos, setCostoRepuestos] = useState('');
   const [repuestosSeleccionados, setRepuestosSeleccionados] = useState<Set<number>>(new Set());
@@ -352,6 +356,19 @@ const CrearServicioScreen = () => {
         setMarcasSeleccionadas(marcaIds);
       }
       setDescripcion(servicioExistente.detalles_adicionales || '');
+      if (servicioExistente.duracion_minima_minutos != null) {
+        setDuracionMinimaMin(String(servicioExistente.duracion_minima_minutos));
+      }
+      if (servicioExistente.duracion_maxima_minutos != null) {
+        setDuracionMaximaMin(String(servicioExistente.duracion_maxima_minutos));
+      } else if (servicioExistente.duracion_estimada) {
+        const parts = String(servicioExistente.duracion_estimada).split(':');
+        const legacyMin = parseInt(parts[0], 10) * 60 + parseInt(parts[1] || '0', 10);
+        if (legacyMin > 0) {
+          setDuracionMinimaMin(String(legacyMin));
+          setDuracionMaximaMin(String(legacyMin));
+        }
+      }
       setCostoManoObra(servicioExistente.costo_mano_de_obra_sin_iva);
       setCostoRepuestos(servicioExistente.costo_repuestos_sin_iva);
       // Pre-cargar fotos - asegurar que sea un array
@@ -1079,6 +1096,17 @@ const CrearServicioScreen = () => {
       return;
     }
 
+    const minDur = parseInt(duracionMinimaMin, 10);
+    const maxDur = parseInt(duracionMaximaMin, 10);
+    if (!Number.isFinite(minDur) || !Number.isFinite(maxDur) || minDur < 15 || maxDur < 15) {
+      Alert.alert('Duración', 'Indica tiempo mínimo y máximo del servicio (mín. 15 minutos cada uno).');
+      return;
+    }
+    if (minDur > maxDur) {
+      Alert.alert('Duración', 'El tiempo máximo debe ser mayor o igual al mínimo.');
+      return;
+    }
+
     setLoading(true);
     try {
       const accion = isEditMode ? 'Actualizando' : 'Publicando';
@@ -1135,6 +1163,8 @@ const CrearServicioScreen = () => {
         costo_repuestos_sin_iva: parseMontoDecimal(costoRepuestos || '0'),
         repuestos_seleccionados: repuestosArray,
         disponible: true,
+        duracion_minima_minutos: minDur,
+        duracion_maxima_minutos: maxDur,
       };
       if (servicioSeleccionado != null) {
         datosBase.servicio = servicioSeleccionado;
@@ -2160,6 +2190,37 @@ const CrearServicioScreen = () => {
             />
           </View>
 
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Tiempo estimado del servicio</Text>
+            <Text style={styles.sectionHint}>
+              Define el rango en minutos. Los clientes verán horarios disponibles según esta duración.
+            </Text>
+            <View style={styles.duracionRow}>
+              <View style={styles.duracionField}>
+                <Text style={styles.duracionLabel}>Mínimo (min)</Text>
+                <TextInput
+                  style={styles.duracionInput}
+                  placeholder="30"
+                  placeholderTextColor={I.mutedSoft}
+                  keyboardType="number-pad"
+                  value={duracionMinimaMin}
+                  onChangeText={setDuracionMinimaMin}
+                />
+              </View>
+              <View style={styles.duracionField}>
+                <Text style={styles.duracionLabel}>Máximo (min)</Text>
+                <TextInput
+                  style={styles.duracionInput}
+                  placeholder="60"
+                  placeholderTextColor={I.mutedSoft}
+                  keyboardType="number-pad"
+                  value={duracionMaximaMin}
+                  onChangeText={setDuracionMaximaMin}
+                />
+              </View>
+            </View>
+          </View>
+
           {/* Costos */}
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Costos (sin IVA)</Text>
@@ -2268,6 +2329,37 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.sm,
     color: I.ink,
     lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+  },
+  sectionHint: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginBottom: SPACING.fixed.sm,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+  },
+  duracionRow: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.sm,
+  },
+  duracionField: {
+    flex: 1,
+  },
+  duracionLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    color: I.muted,
+    marginBottom: SPACING.fixed.xs,
+  },
+  duracionInput: {
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.md,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.sm,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.ink,
+    backgroundColor: I.surface,
   },
 
   tipoServicioContainer: {
