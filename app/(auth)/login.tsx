@@ -1,198 +1,201 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
+  ActivityIndicator,
+  Alert,
+  StatusBar,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
+import {
+  useGoogleSignInFlow,
+  getConnectedGoogleAccountsAsync,
+  clearConnectedGoogleAccountsAsync,
+} from '@/hooks/auth/useGoogleSignInFlow';
+import { LoginCanvaFlow, type LoginStep } from '@/components/auth/login/LoginCanvaFlow';
+import { navigateAfterLogin } from '@/utils/auth/navigateAfterLogin';
+import { COLORS, SPACING } from '@/app/design-system/tokens';
+
+const LOGO = require('@/assets/images/Group 27logo_negro_mecanimovil.png');
 
 export default function LoginScreen() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  
-  const { login } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { login, loginWithGoogle } = useAuth();
 
-  const handleLogin = async () => {
-    // Logs solo en desarrollo (__DEV__), nunca en producción (APK)
-    if (__DEV__) {
-      console.log('🔑 Iniciando proceso de login...');
-      console.log('Username:', username.trim());
-      console.log('Password length:', password.length);
-    }
-    
-    if (!username.trim() || !password) {
-      if (__DEV__) {
-        console.log('❌ Campos incompletos');
+  const [connectedAccounts, setConnectedAccounts] = useState<
+    Awaited<ReturnType<typeof getConnectedGoogleAccountsAsync>>
+  >([]);
+  const [accountsLoaded, setAccountsLoaded] = useState(false);
+  const [step, setStep] = useState<LoginStep | null>(null);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+  const handleGoogleSuccess = useCallback(
+    async (result: { success: boolean; estadoProveedor?: any }) => {
+      if (result.success) {
+        navigateAfterLogin(router, result.estadoProveedor);
       }
-      Alert.alert(
-        'Campos incompletos',
-        'Por favor completa todos los campos para iniciar sesión.',
-        [{ text: 'Entendido', style: 'default' }]
-      );
-      return;
-    }
+    },
+    [router],
+  );
 
-    setIsLoading(true);
-    
+  const { googleLoading, signInWithAccountChooser } = useGoogleSignInFlow(
+    async (idToken: string, flow?: 'login' | 'register') => {
+      const result = await loginWithGoogle(idToken, flow);
+      if (result.success) {
+        await handleGoogleSuccess(result);
+      }
+      return result;
+    },
+    {
+      flow: 'login',
+      onUserNotFound: (profile?: {
+        email?: string;
+        given_name?: string;
+        family_name?: string;
+      }) => {
+        router.push({
+          pathname: '/registro',
+          params: {
+            email: profile?.email || '',
+            firstName: profile?.given_name || '',
+            lastName: profile?.family_name || '',
+          },
+        } as any);
+      },
+    },
+  );
+
+  const reloadAccounts = async () => {
+    const list = await getConnectedGoogleAccountsAsync();
+    setConnectedAccounts(list);
+    setAccountsLoaded(true);
+    return list;
+  };
+
+  useEffect(() => {
+    reloadAccounts();
+  }, []);
+
+  useEffect(() => {
+    if (!googleLoading && accountsLoaded) reloadAccounts();
+  }, [googleLoading, accountsLoaded]);
+
+  useEffect(() => {
+    if (!accountsLoaded) return;
+    if (step !== null) return;
+    setStep(connectedAccounts.length > 0 ? 'accounts' : 'methods');
+  }, [accountsLoaded, connectedAccounts.length, step]);
+
+  const validateEmailForm = () => {
+    const next: { email?: string; password?: string } = {};
+    if (!email.trim()) next.email = 'El correo electrónico es requerido';
+    else if (!/\S+@\S+\.\S+/.test(email)) next.email = 'Correo electrónico no válido';
+    if (!password) next.password = 'La contraseña es requerida';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const handleEmailLogin = async () => {
+    if (!validateEmailForm()) return;
+    setEmailLoading(true);
     try {
-      if (__DEV__) {
-        console.log('📡 Llamando a login API...');
-      }
-      const result = await login(username.trim(), password);
-      
-      if (__DEV__) {
-        console.log('✅ Login exitoso! Navegando...');
-      }
-      
-      // Usar el estado del proveedor retornado por login
-      const { estadoProveedor: estadoActual } = result;
-      
-      if (__DEV__) {
-        console.log('🧭 EstadoProveedor retornado por login:', estadoActual);
-      }
-      
-      // Lógica de navegación corregida
-      if (!estadoActual || !estadoActual.tiene_perfil) {
-        if (__DEV__) {
-          console.log('🚀 Navegando a onboarding - sin perfil de proveedor');
-        }
-        router.replace('/(onboarding)/tipo-cuenta');
-      } else if (estadoActual.onboarding_iniciado && !estadoActual.onboarding_completado) {
-        if (__DEV__) {
-          console.log('🔄 Navegando a onboarding - onboarding iniciado pero no completado');
-        }
-        router.replace('/(onboarding)/tipo-cuenta');
-      } else if (estadoActual.onboarding_completado && !estadoActual.verificado) {
-        if (__DEV__) {
-          console.log('✅ Usuario con onboarding completado pero no verificado - navegando a home');
-        }
-        router.replace('/(tabs)' as any);
-      } else if (estadoActual.verificado) {
-        if (__DEV__) {
-          console.log('🎉 Usuario verificado - navegando a tabs principales');
-        }
-        router.replace('/(tabs)' as any);
-      } else {
-        if (__DEV__) {
-          console.log('❓ Caso edge - navegando a home por defecto');
-        }
-        router.replace('/(tabs)' as any);
-      }
-      
+      const { estadoProveedor: estadoActual } = await login(email.trim(), password);
+      navigateAfterLogin(router, estadoActual);
     } catch (error: any) {
-      // Log detallado solo en desarrollo para debugging
-      // En producción (APK), estos logs NO aparecerán
-      if (__DEV__) {
-        console.error('❌ Error en login (detalles solo en desarrollo):', {
-          message: error.message,
-          code: error.code,
-          // NO loguear datos sensibles o detalles técnicos completos
-        });
-      }
-      
-      // El mensaje de error ya viene amigable desde AuthContext
-      // Solo mostrarlo en una alerta apropiada
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : 'Ocurrió un problema al intentar iniciar sesión. Por favor, verifica tu conexión a internet e intenta nuevamente.';
-      
       Alert.alert(
         'Error al iniciar sesión',
-        errorMessage,
-        [{ text: 'Entendido', style: 'default' }]
+        error?.message || 'Verifica tus credenciales e intenta nuevamente.',
       );
     } finally {
-      if (__DEV__) {
-        console.log('🏁 Finalizando proceso de login, isLoading = false');
-      }
-      setIsLoading(false);
+      setEmailLoading(false);
     }
   };
 
-  const goToRegister = () => {
-    router.push('/registro' as any);
+  const handleClearGoogleAccounts = async () => {
+    await clearConnectedGoogleAccountsAsync();
+    const fresh = await reloadAccounts();
+    if (fresh.length === 0) setStep('methods');
+  };
+
+  const goRegister = (prefillEmail?: string) => {
+    router.push({
+      pathname: '/registro',
+      params: { email: prefillEmail || email || '' },
+    } as any);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
+        style={styles.flex}
       >
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.header}>
-            <Text style={styles.title}>MecaniMóvil</Text>
-            <Text style={styles.subtitle}>Proveedores</Text>
-            <Text style={styles.description}>
-              Conecta tu taller o servicio a domicilio con clientes
-            </Text>
-          </View>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.scroll,
+              { paddingTop: insets.top + SPACING.xl, paddingBottom: insets.bottom + SPACING.xl },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.logoWrap}>
+              <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+            </View>
 
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Usuario o Email</Text>
-              <TextInput
-                style={styles.input}
-                value={username}
-                onChangeText={setUsername}
-                placeholder="Ingresa tu usuario o email"
-                placeholderTextColor="#999"
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
+            {step === null ? (
+              <View style={styles.loaderWrap}>
+                <ActivityIndicator size="large" color={COLORS.institutional.primary} />
+              </View>
+            ) : (
+              <LoginCanvaFlow
+                step={step}
+                connectedAccounts={connectedAccounts}
+                googleLoading={googleLoading}
+                emailLoading={emailLoading}
+                email={email}
+                password={password}
+                emailError={errors.email}
+                passwordError={errors.password}
+                onEmailChange={(v) => {
+                  setEmail(v);
+                  if (errors.email) setErrors((p) => ({ ...p, email: undefined }));
+                }}
+                onPasswordChange={(v) => {
+                  setPassword(v);
+                  if (errors.password) setErrors((p) => ({ ...p, password: undefined }));
+                }}
+                onAccountTap={(accountEmail) => {
+                  if (!googleLoading) signInWithAccountChooser({ loginHint: accountEmail });
+                }}
+                onUseAnotherGoogle={() => {
+                  if (!googleLoading) signInWithAccountChooser();
+                }}
+                onGoMethods={() => setStep('methods')}
+                onGoAccounts={() => setStep('accounts')}
+                onGoEmail={() => setStep('email')}
+                onClearGoogleAccounts={handleClearGoogleAccounts}
+                onEmailLogin={handleEmailLogin}
+                onGoRegister={goRegister}
               />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Contraseña</Text>
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Ingresa tu contraseña"
-                placeholderTextColor="#999"
-                secureTextEntry
-                autoComplete="current-password"
-                autoCorrect={false}
-                autoCapitalize="none"
-                textContentType="password"
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[styles.loginButton, isLoading && styles.buttonDisabled]}
-              onPress={handleLogin}
-              disabled={isLoading}
-            >
-              <Text style={styles.loginButtonText}>
-                {isLoading ? 'Iniciando Sesión...' : 'Iniciar Sesión'}
-              </Text>
-            </TouchableOpacity>
-
-            <View style={styles.divider}>
-              <Text style={styles.dividerText}>¿No tienes cuenta?</Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.registerButton}
-              onPress={goToRegister}
-              disabled={isLoading}
-            >
-              <Text style={styles.registerButtonText}>Crear Cuenta</Text>
-            </TouchableOpacity>
-            
-          </View>
-        </ScrollView>
+            )}
+          </ScrollView>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -201,99 +204,25 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: COLORS.institutional.canvas,
   },
-  scrollContainer: {
+  flex: {
+    flex: 1,
+  },
+  scroll: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
+    paddingHorizontal: SPACING.lg,
   },
-  header: {
+  logoWrap: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: SPACING.xl,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 8,
+  logo: {
+    width: 180,
+    height: 48,
   },
-  subtitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#3498db',
-    marginBottom: 12,
-  },
-  description: {
-    fontSize: 16,
-    color: '#7f8c8d',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  form: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2c3e50',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e1e8ed',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    backgroundColor: '#f8f9fa',
-    color: '#2c3e50',
-  },
-  loginButton: {
-    backgroundColor: '#3498db',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    backgroundColor: '#bdc3c7',
-  },
-  loginButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  divider: {
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  dividerText: {
-    color: '#7f8c8d',
-    fontSize: 16,
-  },
-  registerButton: {
-    borderWidth: 2,
-    borderColor: '#3498db',
-    borderRadius: 12,
-    padding: 16,
+  loaderWrap: {
+    paddingTop: 60,
     alignItems: 'center',
   },
-  registerButtonText: {
-    color: '#3498db',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-}); 
+});

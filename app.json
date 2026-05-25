@@ -23,6 +23,7 @@
         "foregroundImage": "./assets/images/app-icon.png",
         "backgroundColor": "#000000"
       },
+      "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "package": "com.mecanimovil.proveedores",
       "versionCode": 1,
@@ -85,7 +86,13 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.REVERSED_IOS_CLIENT_ID_AQUI"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

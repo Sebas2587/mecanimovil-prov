@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -88,6 +88,12 @@ const getErrorMessage = (error: any): string => {
 };
 
 export default function RegistroScreen() {
+  const params = useLocalSearchParams<{
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+  }>();
+
   const [formData, setFormData] = useState({
     nombre: '',
     correo: '',
@@ -101,6 +107,17 @@ export default function RegistroScreen() {
   
   const { registro, limpiarStorage } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    const prefillName = [params.firstName, params.lastName].filter(Boolean).join(' ').trim();
+    if (prefillName || params.email) {
+      setFormData((prev) => ({
+        ...prev,
+        nombre: prefillName || prev.nombre,
+        correo: typeof params.email === 'string' ? params.email : prev.correo,
+      }));
+    }
+  }, [params.email, params.firstName, params.lastName]);
 
   const handleInputChange = (field: string, value: string) => {
     // Limpiar error cuando el usuario empieza a escribir

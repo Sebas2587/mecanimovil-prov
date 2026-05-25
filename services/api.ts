@@ -117,6 +117,7 @@ const setupInterceptors = (api: any) => {
         '/usuarios/usuarios/', // registro
         '/usuarios/login/', // login (usuarios)
         '/usuarios/login-proveedor/', // login (proveedores)
+        '/usuarios/google-login-proveedor/', // Google login proveedores
       ];
 
       const isPublicEndpoint = publicEndpoints.some(endpoint =>

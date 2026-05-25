@@ -49,3 +49,46 @@ El proveedor puede cerrar sesión desde el perfil.
 - WHEN toca "Cerrar sesión" en app/(tabs)/perfil.tsx
 - THEN los tokens se eliminan del almacenamiento local
 - AND se redirige a la pantalla de login
+
+### Requirement: Login con Google
+El proveedor puede iniciar sesión o registrarse con Google (id_token) desde la pantalla de login.
+
+#### Scenario: Login Google exitoso — proveedor existente
+- GIVEN un usuario con perfil Taller o Mecánico a domicilio
+- WHEN completa Google Sign-In en app/(auth)/login.tsx
+- THEN el backend valida id_token contra GOOGLE_OAUTH_CLIENT_IDS
+- AND devuelve { token, user } con tipo_proveedor si aplica
+- AND la app navega según estadoProveedor (tabs u onboarding)
+
+#### Scenario: Login Google — usuario nuevo
+- GIVEN un email de Google no registrado en el backend
+- WHEN completa Google Sign-In
+- THEN se crea Usuario con es_mecanico=True y contraseña unusable
+- AND NO se crea perfil Cliente
+- AND se redirige a onboarding tipo-cuenta
+
+#### Scenario: Login Google — es_mecanico sin perfil aún
+- GIVEN un usuario con es_mecanico=True pero sin Taller/Mecánico
+- WHEN inicia sesión con Google
+- THEN recibe token válido
+- AND onboarding continúa normalmente
+
+#### Scenario: Cuenta solo cliente rechazada
+- GIVEN un usuario registrado solo como cliente (es_mecanico=false, sin perfil proveedor)
+- WHEN intenta Google Sign-In en app proveedores
+- THEN el backend responde 403 con mensaje de usar app usuarios
+- AND la app muestra alerta CLIENT_ACCOUNT
+
+#### Scenario: Selector de cuentas Google (UX Canva)
+- GIVEN cuentas Google usadas previamente en este dispositivo
+- WHEN abre login
+- THEN muestra paso "accounts" con lista y login rápido (login_hint)
+- WHEN elige "Usar otra cuenta"
+- THEN muestra paso "methods" con Google y correo
+- WHEN elige correo
+- THEN muestra formulario email/password (paso "email")
+
+#### Scenario: Registro manual con prefill Google
+- GIVEN flujo que redirige a registro con datos Google
+- WHEN navega a app/(auth)/registro.tsx con params email, firstName, lastName
+- THEN el formulario se prellena para completar registro manual

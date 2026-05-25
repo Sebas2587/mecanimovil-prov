@@ -1,6 +1,26 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { authAPI, EstadoProveedor } from '@/services/api';
+import { googleLoginProveedor, type GoogleLoginProveedorResponse } from '@/services/auth/googleAuth';
 import * as SecureStore from 'expo-secure-store';
+
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
+const CAN_USE_NATIVE_GOOGLE = Platform.OS !== 'web' && !IS_EXPO_GO;
+if (CAN_USE_NATIVE_GOOGLE) {
+  try {
+    const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+    GoogleSignin.configure({
+      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      offlineAccess: false,
+    });
+  } catch (e: any) {
+    if (__DEV__) {
+      console.warn('[AuthContext] GoogleSignin no disponible:', e?.message);
+    }
+  }
+}
 
 // Tipos
 interface Usuario {
@@ -21,6 +41,17 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (username: string, password: string, manageLoading?: boolean) => Promise<{ estadoProveedor: EstadoProveedor | null }>;
+  loginWithGoogle: (
+    idToken: string,
+    flow?: 'login' | 'register',
+    manageLoading?: boolean,
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    code?: string;
+    estadoProveedor?: EstadoProveedor | null;
+    profile?: { email?: string; given_name?: string; family_name?: string };
+  }>;
   logout: () => Promise<void>;
   registro: (datos: any) => Promise<void>;
   updateUser: (userData: Usuario) => void;
@@ -356,6 +387,83 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async (
+    idToken: string,
+    flow: 'login' | 'register' = 'login',
+    manageLoading: boolean = true,
+  ) => {
+    try {
+      if (manageLoading) setIsLoading(true);
+
+      const response = await googleLoginProveedor(idToken, flow);
+
+      if ('__clientAccount' in response && response.__clientAccount) {
+        await SecureStore.deleteItemAsync('authToken').catch(() => {});
+        await SecureStore.deleteItemAsync('userData').catch(() => {});
+        setUsuario(null);
+        setIsAuthenticated(false);
+        setEstadoProveedor(null);
+        return {
+          success: false,
+          code: 'CLIENT_ACCOUNT',
+          error:
+            response.error ||
+            'Esta cuenta no es de proveedor. Utiliza la aplicación de usuarios.',
+        };
+      }
+
+      const loginResponse = response as GoogleLoginProveedorResponse;
+      setUsuario({
+        id: loginResponse.user.id,
+        username: loginResponse.user.username,
+        email: loginResponse.user.email,
+        first_name: loginResponse.user.first_name,
+        last_name: loginResponse.user.last_name,
+        telefono: loginResponse.user.telefono,
+        direccion: loginResponse.user.direccion,
+        es_mecanico: loginResponse.user.es_mecanico,
+        foto_perfil: loginResponse.user.foto_perfil ?? undefined,
+      });
+      setIsAuthenticated(true);
+
+      let estadoProveedorActual: EstadoProveedor | null = null;
+      try {
+        const estado = await obtenerEstadoProveedorWithRetries();
+        setEstadoProveedor(estado);
+        estadoProveedorActual = estado;
+      } catch (error: any) {
+        if (error.response?.status === 404) {
+          const estadoSinPerfil = {
+            tiene_perfil: false,
+            estado_verificacion: 'pendiente' as const,
+            verificado: false,
+            onboarding_iniciado: false,
+            onboarding_completado: false,
+            activo: false,
+          };
+          setEstadoProveedor(estadoSinPerfil);
+          estadoProveedorActual = estadoSinPerfil;
+        } else {
+          setEstadoProveedor(null);
+        }
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return { success: true, estadoProveedor: estadoProveedorActual };
+    } catch (error: any) {
+      const status = error?.response?.status;
+      let errorMessage = 'No se pudo iniciar sesión con Google. Intenta nuevamente.';
+      if (status === 403) {
+        errorMessage =
+          'Esta cuenta no es de proveedor. Utiliza la aplicación de usuarios.';
+        return { success: false, error: errorMessage, code: 'CLIENT_ACCOUNT' };
+      }
+      return { success: false, error: errorMessage };
+    } finally {
+      if (manageLoading) setIsLoading(false);
+    }
+  };
+
   const login = async (username: string, password: string, manageLoading: boolean = true) => {
     try {
       // Logs solo en desarrollo (__DEV__), nunca en producción (APK)
@@ -651,7 +759,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsAuthenticated(false);
       setEstadoProveedor(null);
       
-      // Luego limpiar almacenamiento
+      try {
+        if (Platform.OS !== 'web' && !IS_EXPO_GO) {
+          const { GoogleSignin: GS } = require('@react-native-google-signin/google-signin');
+          await GS.signOut().catch(() => {});
+        }
+      } catch {
+        /* no crítico */
+      }
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+        try {
+          window.localStorage.removeItem('mecanimovil-prov:connectedGoogleAccounts');
+        } catch {
+          /* no crítico */
+        }
+      }
+
       await authAPI.logout();
       
       if (__DEV__) {
@@ -733,6 +857,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isLoading,
     isAuthenticated,
     login,
+    loginWithGoogle,
     logout,
     registro,
     updateUser,
