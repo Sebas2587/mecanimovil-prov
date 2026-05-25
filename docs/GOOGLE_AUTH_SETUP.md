@@ -37,30 +37,27 @@ En el plugin `@react-native-google-signin/google-signin`:
 
 ## 4. Backend Render — GOOGLE_OAUTH_CLIENT_IDS
 
-En el servicio **mecanimovil-api** (Render → Environment):
+En el servicio **mecanimovil-api** (Render → Environment), pega el valor listo en:
 
-```
-GOOGLE_OAUTH_CLIENT_IDS=<usuarios-android>,<usuarios-ios>,<usuarios-web>,<prov-android>,<prov-ios>,<prov-web>
-```
+**[`docs/RENDER_GOOGLE_ENV_VARS.md`](./RENDER_GOOGLE_ENV_VARS.md)** (sección 1).
 
-Lista separada por comas con **todos** los Client IDs cuyo `aud` puede emitir el id_token:
-
-- App usuarios (Android, iOS, Web)
-- App proveedores (Android, iOS, Web)
+Incluye usuarios + proveedores Android/Web; añade iOS proveedores cuando lo tengas.
 
 Sin esto, el backend rechazará tokens con `Token de Google inválido`.
 
 ## 5. Variables EAS / entorno local (prov)
 
-Copia `.env.example` → `.env` y completa:
+El repo ya incluye `.env` con Android y Web (desde `google-services.json`). Solo falta **iOS**:
 
 ```bash
-EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=
-EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=
-EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=85359766939-vod9ceeb0fj4p8c7pvmp31flk0ai56fm.apps.googleusercontent.com
+EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=   # ← pegar cuando crees el cliente iOS en GCP
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=85359766939-43i2uscgvk6gpg337chr6gffbvv7mne5.apps.googleusercontent.com
 ```
 
-Para EAS Build: `eas secret:create` o variables en `eas.json` / dashboard.
+`app.config.ts` aplica `iosUrlScheme` automáticamente cuando `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` está definido.
+
+Para EAS Build: ver `docs/RENDER_GOOGLE_ENV_VARS.md` (comandos `eas secret:create`).
 
 ## 6. Web — redirect URIs autorizadas
 
