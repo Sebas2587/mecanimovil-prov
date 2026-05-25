@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { authAPI, EstadoProveedor } from '@/services/api';
 import { googleLoginProveedor, type GoogleLoginProveedorResponse } from '@/services/auth/googleAuth';
-import * as SecureStore from 'expo-secure-store';
+import NotificationService from '@/services/push/notificationService';
 
 const IS_EXPO_GO = Constants.appOwnership === 'expo';
 const CAN_USE_NATIVE_GOOGLE = Platform.OS !== 'web' && !IS_EXPO_GO;
@@ -19,6 +19,15 @@ if (CAN_USE_NATIVE_GOOGLE) {
     if (__DEV__) {
       console.warn('[AuthContext] GoogleSignin no disponible:', e?.message);
     }
+  }
+}
+
+async function registerPushForUser(userId: number | undefined): Promise<void> {
+  if (!userId) return;
+  try {
+    await NotificationService.syncPushTokenForUser(userId);
+  } catch {
+    /* no crítico */
   }
 }
 
@@ -355,10 +364,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               }
             }
           }
+          void registerPushForUser(userData.id);
         } else {
-          if (__DEV__) {
-            console.log('❌ No se pudieron obtener datos del usuario, limpiando estado');
-          }
           setIsAuthenticated(false);
           setUsuario(null);
           setEstadoProveedor(null);
@@ -449,6 +456,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       await new Promise((resolve) => setTimeout(resolve, 100));
+      void registerPushForUser(loginResponse.user.id);
       return { success: true, estadoProveedor: estadoProveedorActual };
     } catch (error: any) {
       const status = error?.response?.status;
@@ -554,7 +562,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (__DEV__) {
         console.log('✅ Estado debería estar propagado ahora');
       }
-      
+
+      void registerPushForUser(response.user?.id);
+
       // Retornar el estado actual para que el componente pueda usarlo
       return { estadoProveedor: estadoProveedorActual };
       
@@ -775,6 +785,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           /* no crítico */
         }
       }
+
+      await NotificationService.deactivateOnLogout();
 
       await authAPI.logout();
       

@@ -108,7 +108,8 @@ import { AuthProvider } from '@/context/AuthContext';
 import { RadarOportunidadesProvider } from '@/context/RadarOportunidadesContext';
 import { ChatsProvider } from '@/context/ChatsContext';
 import { AlertsProvider } from '@/context/AlertsContext';
-import { DesignSystemThemeProvider } from '@/app/design-system/theme/DesignSystemThemeProvider';
+import { PushNotificationSetup } from '@/components/push/PushNotificationSetup';
+import '@/services/push/notificationService';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -164,6 +165,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <DesignSystemThemeProvider>
           <AuthProvider>
+            <PushNotificationSetup />
             <RadarOportunidadesProvider>
             <AlertsProvider>
               <ChatsProvider>

@@ -20,6 +20,12 @@ El proveedor ve las solicitudes que puede aceptar según sus especialidades.
 - CUANDO abre la sección
 - THEN ve estado vacío con mensaje "No hay solicitudes disponibles en este momento"
 
+#### Scenario: Push al publicarse solicitud compatible
+- GIVEN un proveedor verificado con token Expo registrado (`registrar-push-token`)
+- WHEN un cliente publica una solicitud compatible con sus especialidades
+- THEN el proveedor recibe push "Nueva solicitud disponible" (tipo `nueva_solicitud`, `solicitud_id`)
+- AND al tocar la notificación la app abre `solicitud-detalle/{id}`
+
 ### Requirement: Aceptar solicitud
 El proveedor acepta una solicitud consumiendo créditos.
 
