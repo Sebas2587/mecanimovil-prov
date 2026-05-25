@@ -66,7 +66,7 @@ En el OAuth client **Web** de proveedores, registra:
 **Authorized JavaScript origins**
 
 - `http://localhost:8081` (dev)
-- URL de producción web prov (ej. Vercel/Render static)
+- URL de producción web prov (dominio Vercel del proyecto, p. ej. `https://mecanimovil-proveedores.vercel.app`)
 
 **Authorized redirect URIs**
 
