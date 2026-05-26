@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "export": "expo export --platform web",
     "export:web": "expo export --platform web",
+    "deploy:vercel:cli": "npx vercel@53.2.0 deploy --prod --yes",
     "lint": "expo lint"
   },
   "dependencies": {

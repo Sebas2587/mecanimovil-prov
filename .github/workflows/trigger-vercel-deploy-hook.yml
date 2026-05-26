@@ -1,0 +1,20 @@
+# Opcional: GitHub → Settings → Secrets → Actions → VERCEL_DEPLOY_HOOK_URL_PROV
+# URL del Deploy Hook: Vercel → mecanimovil-prov-web → Settings → Git → Deploy Hooks
+name: Trigger Vercel deploy hook (prov)
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST deploy hook
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL_PROV }}
+        run: |
+          if [ -z "$VERCEL_DEPLOY_HOOK_URL" ]; then
+            echo "Secret VERCEL_DEPLOY_HOOK_URL_PROV no definida; conecta Git en Vercel o añade el hook."
+            exit 0
+          fi
+          curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL" -H "Content-Type: application/json"

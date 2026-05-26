@@ -6,12 +6,17 @@ App Expo Router exportada como sitio estático (`expo export --platform web` →
 
 Suele aparecer cuando Vercel **no sirve archivos** del build, no cuando falla la app en el navegador.
 
-### Causas habituales
+### Causa más común en este proyecto
+
+Un deploy **vacío** (build de **0 ms**, sin `expo export`). El dominio existe pero no hay `index.html` en producción. Solución: redeploy con `vercel.json` en el repo o `npx vercel --prod` desde la raíz del proyecto.
+
+### Otras causas
 
 1. **Output Directory incorrecto** (vacío, `public`, `web-build` en lugar de `dist`).
 2. **Build Command** distinto o el build falló y no hay `index.html` en la salida.
 3. **Falta `vercel.json`** en el repo (rewrites SPA + comando de build).
 4. **Root Directory** apuntando a otra carpeta (debe ser `.` en el repo `mecanimovil-prov`).
+5. **Git no conectado** en Vercel → no hay deploys automáticos al hacer push.
 
 ### Checklist en Vercel (Settings → Build & Deployment)
 
