@@ -52,28 +52,60 @@ El repo ya incluye `.env` con Android y Web (desde `google-services.json`). Solo
 ```bash
 EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=85359766939-vod9ceeb0fj4p8c7pvmp31flk0ai56fm.apps.googleusercontent.com
 EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=   # ← pegar cuando crees el cliente iOS en GCP
-EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=85359766939-43i2uscgvk6gpg337chr6gffbvv7mne5.apps.googleusercontent.com
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=85359766939-cjebsrg7s5s48sumoh3gio83jf5tskj9.apps.googleusercontent.com
 ```
 
 `app.config.ts` aplica `iosUrlScheme` automáticamente cuando `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` está definido.
 
 Para EAS Build: ver `docs/RENDER_GOOGLE_ENV_VARS.md` (comandos `eas secret:create`).
 
-## 6. Web — redirect URIs autorizadas
+## 6. Web — Google Cloud (fix `redirect_uri_mismatch`)
 
-En el OAuth client **Web** de proveedores, registra:
+El login web usa el cliente OAuth **Web** cuyo ID está en `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`:
 
-**Authorized JavaScript origins**
+`85359766939-cjebsrg7s5s48sumoh3gio83jf5tskj9.apps.googleusercontent.com`
 
-- `http://localhost:8081` (dev)
-- URL de producción web prov (dominio Vercel del proyecto, p. ej. `https://mecanimovil-proveedores.vercel.app`)
+**No uses el cliente Web de la app usuarios** (`487744484665-…`); cada app tiene su propio client ID.
 
-**Authorized redirect URIs**
+### Pasos en Google Cloud Console
 
-- `http://localhost:8081/oauth-callback.html`
-- `https://<tu-dominio-prov>/oauth-callback.html`
+1. Abre [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials) (proyecto **mecanimovilapp** / Firebase MecaniMóvil).
+2. En **OAuth 2.0 Client IDs**, edita el cliente tipo **Web application** cuyo ID termina en `…cjebsrg7s5s48sumoh3gio83jf5tskj9` (proveedores web).
+3. En **Authorized JavaScript origins**, agrega **exactamente** (sin `/` final):
 
-El archivo estático está en `public/oauth-callback.html`.
+   | Entorno | URL |
+   |---------|-----|
+   | Producción Vercel | `https://mecanimovil-prov-web.vercel.app` |
+   | Dev local (Expo web) | `http://localhost:8081` |
+
+4. En **Authorized redirect URIs**, agrega **exactamente** (ruta completa, minúsculas):
+
+   | Entorno | URL |
+   |---------|-----|
+   | Producción | `https://mecanimovil-prov-web.vercel.app/oauth-callback.html` |
+   | Dev local | `http://localhost:8081/oauth-callback.html` |
+
+5. **Save**. Los cambios en Google suelen aplicar en **1–5 minutos** (a veces hasta ~10 min).
+
+### Comprobar
+
+- Abre en el navegador: `https://mecanimovil-prov-web.vercel.app/oauth-callback.html` → debe cargar “Iniciando sesión con Google…” (HTTP 200).
+- En login → **Usar Google**: el popup no debe mostrar `Error 400: redirect_uri_mismatch`.
+
+### Errores frecuentes
+
+| Error | Causa |
+|-------|--------|
+| `redirect_uri_mismatch` | Falta la redirect URI **exacta** de la tabla (incluye `/oauth-callback.html`). |
+| Mismo error tras guardar | Cliente OAuth equivocado (editaste el de usuarios en lugar del de proveedores). |
+| `origin_mismatch` | Falta el **JavaScript origin** sin path (`https://mecanimovil-prov-web.vercel.app`). |
+| `https://mecanimovil-prov-web.vercel.app/` con barra final | Quitar la `/` final en **origins** (solo el origin, sin path). |
+
+### Preview deployments (opcional)
+
+Si pruebas URLs de preview de Vercel (`…-git-main-….vercel.app`), añade también ese origin y `…/oauth-callback.html` en el mismo cliente Web. Producción usa solo el dominio alias principal arriba.
+
+El callback estático vive en `public/oauth-callback.html` y se exporta a `dist/oauth-callback.html`.
 
 ## 7. Dev build obligatorio (nativo)
 

@@ -59,7 +59,10 @@ Sin `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, el build de web deja el client ID vacío
 
 Tras añadir variables → **Redeploy** (el valor se embebe en el bundle en tiempo de build).
 
-Google OAuth: orígenes y redirect con tu dominio real (`docs/GOOGLE_AUTH_SETUP.md`).
+Google OAuth (obligatorio para «Usar Google»): ver **`docs/GOOGLE_AUTH_SETUP.md` §6** — en GCP, cliente Web `…cjebsrg7s5s48sumoh3gio83jf5tskj9`:
+
+- Origin: `https://mecanimovil-prov-web.vercel.app`
+- Redirect: `https://mecanimovil-prov-web.vercel.app/oauth-callback.html`
 
 ## Deploy manual (CLI)
 

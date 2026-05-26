@@ -20,7 +20,7 @@ Variable de entorno en el backend Django. **Una sola línea**, IDs separados por
 
 ```
 85359766939-vod9ceeb0fj4p8c7pvmp31flk0ai56fm.apps.googleusercontent.com
-85359766939-43i2uscgvk6gpg337chr6gffbvv7mne5.apps.googleusercontent.com
+85359766939-cjebsrg7s5s48sumoh3gio83jf5tskj9.apps.googleusercontent.com
 ```
 
 ### iOS proveedores (agregar cuando lo tengas)
@@ -32,7 +32,7 @@ Variable de entorno en el backend Django. **Una sola línea**, IDs separados por
 ### Valor completo para pegar en Render (sin iOS prov aún)
 
 ```
-487744484665-vn63daqqbpfeod7rkg1sqta6n7ej7gri.apps.googleusercontent.com,487744484665-otrorqrrqkkc7riu1kshlcqknakok0mm.apps.googleusercontent.com,487744484665-gpu5qn0pjsauugaq4i4ki7or6j0v60vf.apps.googleusercontent.com,85359766939-vod9ceeb0fj4p8c7pvmp31flk0ai56fm.apps.googleusercontent.com,85359766939-43i2uscgvk6gpg337chr6gffbvv7mne5.apps.googleusercontent.com
+487744484665-vn63daqqbpfeod7rkg1sqta6n7ej7gri.apps.googleusercontent.com,487744484665-otrorqrrqkkc7riu1kshlcqknakok0mm.apps.googleusercontent.com,487744484665-gpu5qn0pjsauugaq4i4ki7or6j0v60vf.apps.googleusercontent.com,85359766939-vod9ceeb0fj4p8c7pvmp31flk0ai56fm.apps.googleusercontent.com,85359766939-cjebsrg7s5s48sumoh3gio83jf5tskj9.apps.googleusercontent.com
 ```
 
 Cuando crees el cliente iOS de proveedores, **añádelo al final** de la misma variable (otra coma + el nuevo ID) y redeploy del backend.
@@ -46,7 +46,7 @@ Ya configurado en `.env` del repo (no subir a git si contiene datos sensibles; l
 | Variable | Valor |
 |----------|--------|
 | `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` | `85359766939-vod9ceeb0fj4p8c7pvmp31flk0ai56fm.apps.googleusercontent.com` |
-| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | `85359766939-43i2uscgvk6gpg337chr6gffbvv7mne5.apps.googleusercontent.com` |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | `85359766939-cjebsrg7s5s48sumoh3gio83jf5tskj9.apps.googleusercontent.com` |
 | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | *(pendiente — pegar cuando lo crees)* |
 
 Comandos EAS (opcional):
@@ -54,7 +54,7 @@ Comandos EAS (opcional):
 ```bash
 cd mecanimovil-prov
 npx eas-cli secret:create --name EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID --value "85359766939-vod9ceeb0fj4p8c7pvmp31flk0ai56fm.apps.googleusercontent.com" --scope project
-npx eas-cli secret:create --name EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID --value "85359766939-43i2uscgvk6gpg337chr6gffbvv7mne5.apps.googleusercontent.com" --scope project
+npx eas-cli secret:create --name EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID --value "85359766939-cjebsrg7s5s48sumoh3gio83jf5tskj9.apps.googleusercontent.com" --scope project
 ```
 
 ---
