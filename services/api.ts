@@ -1,6 +1,6 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { deleteItem, getItem, setItem } from '@/utils/authStorage';
 import ServerConfig from './serverConfig';
 
 // Configuración dinámica del servidor
@@ -142,7 +142,7 @@ const setupInterceptors = (api: any) => {
       // Agregar token de autenticación
       if (!isPublicEndpoint) {
         try {
-          const token = await SecureStore.getItemAsync('authToken');
+          const token = await getItem('authToken');
           if (token) {
             config.headers.Authorization = `Token ${token}`;
           }
@@ -192,7 +192,7 @@ const setupInterceptors = (api: any) => {
       if (error.response?.status === 401) {
         // Verificar si hay token - si no hay, es normal (no hay sesión)
         try {
-          const token = await SecureStore.getItemAsync('authToken');
+          const token = await getItem('authToken');
           if (!token) {
             // No hay token, no es un error crítico - solo log informativo (solo en desarrollo)
             if (__DEV__) {
@@ -215,8 +215,8 @@ const setupInterceptors = (api: any) => {
           console.log('🧹 Limpiando tokens expirados...');
         }
         try {
-          await SecureStore.deleteItemAsync('authToken');
-          await SecureStore.deleteItemAsync('userData');
+          await deleteItem('authToken');
+          await deleteItem('userData');
           if (__DEV__) {
             console.log('✅ Tokens limpiados correctamente');
           }
@@ -479,8 +479,8 @@ export const authAPI = {
         }
 
         if (data.token) {
-          await SecureStore.setItemAsync('authToken', data.token);
-          await SecureStore.setItemAsync('userData', JSON.stringify(data.user));
+          await setItem('authToken', data.token);
+          await setItem('userData', JSON.stringify(data.user));
           if (__DEV__) {
             console.log('✅ Login exitoso - Credenciales guardadas');
           }
@@ -526,8 +526,8 @@ export const authAPI = {
     }
 
     try {
-      await SecureStore.deleteItemAsync('authToken');
-      await SecureStore.deleteItemAsync('userData');
+      await deleteItem('authToken');
+      await deleteItem('userData');
 
       if (__DEV__) {
         console.log('✅ Sesión cerrada correctamente');
@@ -544,7 +544,7 @@ export const authAPI = {
   // Verificar si está autenticado
   isAuthenticated: async () => {
     try {
-      const token = await SecureStore.getItemAsync('authToken');
+      const token = await getItem('authToken');
       console.log('🔑 isAuthenticated - Token encontrado:', !!token);
       if (token) {
         console.log('🔑 Token preview:', token.substring(0, 10) + '...');
@@ -559,7 +559,7 @@ export const authAPI = {
   // Obtener datos del usuario del storage
   getUserData: async () => {
     try {
-      const userData = await SecureStore.getItemAsync('userData');
+      const userData = await getItem('userData');
       console.log('👤 getUserData - Datos encontrados:', !!userData);
 
       if (userData) {
@@ -579,7 +579,7 @@ export const authAPI = {
   // Obtener estado del proveedor
   obtenerEstadoProveedor: async (): Promise<EstadoProveedor> => {
     // Verificar autenticación antes de hacer la llamada
-    const token = await SecureStore.getItemAsync('authToken');
+    const token = await getItem('authToken');
     if (!token) {
       console.log('⚠️ [AUTH API] No hay token, no se puede obtener estado del proveedor');
       throw new Error('No autenticado');
@@ -593,7 +593,7 @@ export const authAPI = {
   // Obtener datos completos del usuario (incluyendo foto de perfil)
   obtenerDatosUsuario: async () => {
     // Verificar autenticación antes de hacer la llamada
-    const token = await SecureStore.getItemAsync('authToken');
+    const token = await getItem('authToken');
     if (!token) {
       console.log('⚠️ [AUTH API] No hay token, no se pueden obtener datos del usuario');
       throw new Error('No autenticado');
@@ -641,8 +641,8 @@ export const authAPI = {
 
   // Limpiar completamente el almacenamiento (para debugging)
   clearStorage: async () => {
-    await SecureStore.deleteItemAsync('authToken');
-    await SecureStore.deleteItemAsync('userData');
+    await deleteItem('authToken');
+    await deleteItem('userData');
     console.log('✅ Storage limpiado completamente');
   },
 
@@ -814,7 +814,7 @@ export const documentosAPI = {
       console.log('📤 Datos del archivo:', { archivo: archivo, tipo: tipoDocumento });
 
       // Obtener token directamente
-      const token = await SecureStore.getItemAsync('authToken');
+      const token = await getItem('authToken');
       if (!token) {
         throw new Error('No hay token de autenticación');
       }
@@ -1347,7 +1347,7 @@ export const perfilAPI = {
       }
 
       // Obtener token y baseURL
-      const token = await SecureStore.getItemAsync('authToken');
+      const token = await getItem('authToken');
       if (!token) {
         throw new Error('No hay token de autenticación disponible. Por favor, inicia sesión nuevamente.');
       }
@@ -1772,7 +1772,7 @@ export const fotosServiciosAPI = {
       console.log('📸 Subiendo foto de servicio para oferta:', ofertaId);
 
       // Obtener token y baseURL
-      const token = await SecureStore.getItemAsync('authToken');
+      const token = await getItem('authToken');
       if (!token) {
         throw new Error('No hay token de autenticación disponible');
       }
@@ -1824,7 +1824,7 @@ export const fotosServiciosAPI = {
       console.log('📸 Subiendo múltiples fotos de servicio para oferta:', ofertaId);
 
       // Obtener token y baseURL
-      const token = await SecureStore.getItemAsync('authToken');
+      const token = await getItem('authToken');
       if (!token) {
         throw new Error('No hay token de autenticación disponible');
       }

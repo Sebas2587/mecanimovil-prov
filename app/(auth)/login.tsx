@@ -8,11 +8,11 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
-  Alert,
   StatusBar,
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
+import { showAlert } from '@/utils/platformAlert';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
@@ -116,7 +116,7 @@ export default function LoginScreen() {
       const { estadoProveedor: estadoActual } = await login(email.trim(), password);
       navigateAfterLogin(router, estadoActual);
     } catch (error: any) {
-      Alert.alert(
+      showAlert(
         'Error al iniciar sesión',
         error?.message || 'Verifica tus credenciales e intenta nuevamente.',
       );
@@ -138,6 +138,59 @@ export default function LoginScreen() {
     } as any);
   };
 
+  const scrollContent = (
+    <ScrollView
+      contentContainerStyle={[
+        styles.scroll,
+        { paddingTop: insets.top + SPACING.xl, paddingBottom: insets.bottom + SPACING.xl },
+      ]}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={Platform.OS === 'web' ? undefined : 'on-drag'}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.logoWrap}>
+        <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+      </View>
+
+      {step === null ? (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator size="large" color={COLORS.institutional.primary} />
+        </View>
+      ) : (
+        <LoginCanvaFlow
+          step={step}
+          connectedAccounts={connectedAccounts}
+          googleLoading={googleLoading}
+          emailLoading={emailLoading}
+          email={email}
+          password={password}
+          emailError={errors.email}
+          passwordError={errors.password}
+          onEmailChange={(v) => {
+            setEmail(v);
+            if (errors.email) setErrors((p) => ({ ...p, email: undefined }));
+          }}
+          onPasswordChange={(v) => {
+            setPassword(v);
+            if (errors.password) setErrors((p) => ({ ...p, password: undefined }));
+          }}
+          onAccountTap={(accountEmail) => {
+            if (!googleLoading) signInWithAccountChooser({ loginHint: accountEmail });
+          }}
+          onUseAnotherGoogle={() => {
+            if (!googleLoading) signInWithAccountChooser();
+          }}
+          onGoMethods={() => setStep('methods')}
+          onGoAccounts={() => setStep('accounts')}
+          onGoEmail={() => setStep('email')}
+          onClearGoogleAccounts={handleClearGoogleAccounts}
+          onEmailLogin={handleEmailLogin}
+          onGoRegister={goRegister}
+        />
+      )}
+    </ScrollView>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
@@ -145,57 +198,13 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <ScrollView
-            contentContainerStyle={[
-              styles.scroll,
-              { paddingTop: insets.top + SPACING.xl, paddingBottom: insets.bottom + SPACING.xl },
-            ]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.logoWrap}>
-              <Image source={LOGO} style={styles.logo} resizeMode="contain" />
-            </View>
-
-            {step === null ? (
-              <View style={styles.loaderWrap}>
-                <ActivityIndicator size="large" color={COLORS.institutional.primary} />
-              </View>
-            ) : (
-              <LoginCanvaFlow
-                step={step}
-                connectedAccounts={connectedAccounts}
-                googleLoading={googleLoading}
-                emailLoading={emailLoading}
-                email={email}
-                password={password}
-                emailError={errors.email}
-                passwordError={errors.password}
-                onEmailChange={(v) => {
-                  setEmail(v);
-                  if (errors.email) setErrors((p) => ({ ...p, email: undefined }));
-                }}
-                onPasswordChange={(v) => {
-                  setPassword(v);
-                  if (errors.password) setErrors((p) => ({ ...p, password: undefined }));
-                }}
-                onAccountTap={(accountEmail) => {
-                  if (!googleLoading) signInWithAccountChooser({ loginHint: accountEmail });
-                }}
-                onUseAnotherGoogle={() => {
-                  if (!googleLoading) signInWithAccountChooser();
-                }}
-                onGoMethods={() => setStep('methods')}
-                onGoAccounts={() => setStep('accounts')}
-                onGoEmail={() => setStep('email')}
-                onClearGoogleAccounts={handleClearGoogleAccounts}
-                onEmailLogin={handleEmailLogin}
-                onGoRegister={goRegister}
-              />
-            )}
-          </ScrollView>
-        </TouchableWithoutFeedback>
+        {Platform.OS === 'web' ? (
+          scrollContent
+        ) : (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            {scrollContent}
+          </TouchableWithoutFeedback>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

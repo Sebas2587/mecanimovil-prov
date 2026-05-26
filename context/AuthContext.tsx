@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { authAPI, EstadoProveedor } from '@/services/api';
 import { googleLoginProveedor, type GoogleLoginProveedorResponse } from '@/services/auth/googleAuth';
 import NotificationService from '@/services/push/notificationService';
+import { deleteItem, getItem, setItem } from '@/utils/authStorage';
 
 const IS_EXPO_GO = Constants.appOwnership === 'expo';
 const CAN_USE_NATIVE_GOOGLE = Platform.OS !== 'web' && !IS_EXPO_GO;
@@ -235,7 +236,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // Intentar obtener datos actualizados del usuario (incluida foto de perfil)
           try {
             // Verificar token antes de intentar obtener datos
-            const token = await SecureStore.getItemAsync('authToken');
+            const token = await getItem('authToken');
             if (!token) {
               if (__DEV__) {
                 console.log('⚠️ No hay token, no se pueden obtener datos actualizados del usuario');
@@ -245,7 +246,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               const datosUsuarioActualizados = await authAPI.obtenerDatosUsuario();
               setUsuario(datosUsuarioActualizados);
               // Actualizar también los datos guardados en SecureStore
-              await SecureStore.setItemAsync('userData', JSON.stringify(datosUsuarioActualizados));
+              await setItem('userData', JSON.stringify(datosUsuarioActualizados));
               if (__DEV__) {
                 console.log('✅ Datos del usuario actualizados con foto de perfil');
               }
@@ -258,8 +259,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               }
               // Limpiar tokens si aún existen
               try {
-                await SecureStore.deleteItemAsync('authToken');
-                await SecureStore.deleteItemAsync('userData');
+                await deleteItem('authToken');
+                await deleteItem('userData');
               } catch (cleanupError) {
                 if (__DEV__) {
                   console.error('Error limpiando tokens (detalles solo en desarrollo):', cleanupError);
@@ -286,7 +287,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
           try {
             // Verificar token antes de intentar obtener estado
-            const token = await SecureStore.getItemAsync('authToken');
+            const token = await getItem('authToken');
             if (!token) {
               if (__DEV__) {
                 console.log('⚠️ No hay token, no se puede obtener estado del proveedor');
@@ -308,8 +309,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               }
               // Limpiar tokens si aún existen
               try {
-                await SecureStore.deleteItemAsync('authToken');
-                await SecureStore.deleteItemAsync('userData');
+                await deleteItem('authToken');
+                await deleteItem('userData');
               } catch (cleanupError) {
                 if (__DEV__) {
                   console.error('Error limpiando tokens (detalles solo en desarrollo):', cleanupError);
@@ -405,8 +406,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await googleLoginProveedor(idToken, flow);
 
       if ('__clientAccount' in response && response.__clientAccount) {
-        await SecureStore.deleteItemAsync('authToken').catch(() => {});
-        await SecureStore.deleteItemAsync('userData').catch(() => {});
+        await deleteItem('authToken').catch(() => {});
+        await deleteItem('userData').catch(() => {});
         setUsuario(null);
         setIsAuthenticated(false);
         setEstadoProveedor(null);
@@ -679,7 +680,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         try {
           // Guardar credenciales en SecureStore para usar después del onboarding
-          await SecureStore.setItemAsync('pendingRegistration', JSON.stringify({
+          await setItem('pendingRegistration', JSON.stringify({
             username: datos.username,
             password: datos.password,
             email: datos.email || response.email,
@@ -823,7 +824,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         const datosUsuario = await authAPI.obtenerDatosUsuario();
         setUsuario(datosUsuario);
-        await SecureStore.setItemAsync('userData', JSON.stringify(datosUsuario));
+        await setItem('userData', JSON.stringify(datosUsuario));
       } catch (userError) {
         if (__DEV__) {
           console.log('No se pudieron actualizar los datos del usuario (detalles solo en desarrollo):', userError);

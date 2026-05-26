@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Image,
   TextInput,
+  Platform,
 } from 'react-native';
 import { ChevronLeft, ChevronRight, Mail, UserMinus } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
@@ -79,7 +80,7 @@ export function LoginCanvaFlow({
                 key={acc.email}
                 onPress={() => onAccountTap(acc.email)}
                 disabled={googleLoading}
-                style={[styles.accountRow, googleLoading && styles.disabled]}
+                style={[styles.accountRow, webCursor, googleLoading && styles.disabled]}
                 activeOpacity={0.7}
               >
                 {acc.picture ? (
@@ -117,7 +118,7 @@ export function LoginCanvaFlow({
           <TouchableOpacity
             onPress={onGoMethods}
             disabled={googleLoading}
-            style={[styles.btnPrimary, googleLoading && styles.disabled]}
+            style={[styles.btnPrimary, webCursor, googleLoading && styles.disabled]}
             activeOpacity={0.75}
           >
             <Text style={styles.btnPrimaryText}>Usar otra cuenta</Text>
@@ -131,7 +132,7 @@ export function LoginCanvaFlow({
         <TouchableOpacity
           onPress={onClearGoogleAccounts}
           disabled={googleLoading}
-          style={styles.clearBtn}
+          style={[styles.clearBtn, webCursor]}
           activeOpacity={0.7}
         >
           <UserMinus size={14} color={COLORS.institutional.body} style={{ marginRight: 6 }} />
@@ -145,7 +146,7 @@ export function LoginCanvaFlow({
     return (
       <>
         {connectedAccounts.length > 0 && (
-          <TouchableOpacity onPress={onGoAccounts} style={styles.backRow} activeOpacity={0.7}>
+          <TouchableOpacity onPress={onGoAccounts} style={[styles.backRow, webCursor]} activeOpacity={0.7}>
             <ChevronLeft size={20} color={COLORS.institutional.ink} />
             <Text style={styles.backText}>Volver</Text>
           </TouchableOpacity>
@@ -162,7 +163,7 @@ export function LoginCanvaFlow({
           <TouchableOpacity
             onPress={onUseAnotherGoogle}
             disabled={googleLoading}
-            style={[styles.optionBtn, googleLoading && styles.disabled]}
+            style={[styles.optionBtn, webCursor, googleLoading && styles.disabled]}
             activeOpacity={0.75}
           >
             {googleLoading ? (
@@ -173,7 +174,7 @@ export function LoginCanvaFlow({
             <Text style={styles.optionText}>Usar Google</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={onGoEmail} style={styles.optionBtn} activeOpacity={0.75}>
+          <TouchableOpacity onPress={onGoEmail} style={[styles.optionBtn, webCursor]} activeOpacity={0.75}>
             <Mail size={20} color={COLORS.institutional.ink} style={styles.optionIcon} />
             <Text style={styles.optionText}>Usar mi correo</Text>
           </TouchableOpacity>
@@ -188,7 +189,7 @@ export function LoginCanvaFlow({
 
   return (
     <>
-      <TouchableOpacity onPress={onGoMethods} style={styles.backRow} activeOpacity={0.7}>
+      <TouchableOpacity onPress={onGoMethods} style={[styles.backRow, webCursor]} activeOpacity={0.7}>
         <ChevronLeft size={20} color={COLORS.institutional.ink} />
         <Text style={styles.backText}>Volver</Text>
       </TouchableOpacity>
@@ -238,7 +239,7 @@ export function LoginCanvaFlow({
         <TouchableOpacity
           onPress={onEmailLogin}
           disabled={emailLoading}
-          style={[styles.btnPrimary, emailLoading && styles.disabled]}
+          style={[styles.btnPrimary, webCursor, emailLoading && styles.disabled]}
           activeOpacity={0.75}
         >
           {emailLoading ? (
@@ -436,3 +437,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 });
+
+const webCursor =
+  Platform.OS === 'web' ? ({ cursor: 'pointer' } as const) : null;

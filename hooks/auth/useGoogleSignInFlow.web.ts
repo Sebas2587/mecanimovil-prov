@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Alert } from 'react-native';
+import { showAlert } from '@/utils/platformAlert';
 
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 const ACCOUNTS_KEY = 'mecanimovil-prov:connectedGoogleAccounts';
@@ -240,13 +240,13 @@ export function useGoogleSignInFlow(
         return;
       }
       if (result?.code === 'CLIENT_ACCOUNT') {
-        Alert.alert(
+        showAlert(
           'Cuenta de cliente',
           'La cuenta de Google que seleccionaste está registrada como cliente.\n\nUtiliza la app MecaniMóvil Usuarios.',
         );
         return;
       }
-      Alert.alert('Error', result?.error || 'No se pudo iniciar sesión con Google.');
+      showAlert('Error', result?.error || 'No se pudo iniciar sesión con Google.');
     },
     [loginWithGoogle, flow, onUserNotFound],
   );
@@ -254,7 +254,7 @@ export function useGoogleSignInFlow(
   const signInWithAccountChooser = useCallback(
     async (opts: { loginHint?: string } = {}) => {
       if (!WEB_CLIENT_ID) {
-        Alert.alert('Google', 'Google Sign-In no está configurado para web.');
+        showAlert('Google', 'Google Sign-In no está configurado para web.');
         return;
       }
       setGoogleLoading(true);
@@ -269,27 +269,27 @@ export function useGoogleSignInFlow(
         if (msg === 'cancelled') {
           /* silencioso */
         } else if (msg === 'popup_blocked') {
-          Alert.alert(
+          showAlert(
             'Popup bloqueado',
             'Tu navegador bloqueó la ventana de Google. Habilita popups para este sitio e intenta nuevamente.',
           );
         } else if (msg === 'likely_oauth_misconfig') {
-          Alert.alert(
+          showAlert(
             'Configuración de Google',
             `Google rechazó la solicitud.\n\nRegistra en Google Cloud Console:\n${window.location.origin}${CALLBACK_PATH}`,
           );
         } else if (msg.startsWith('oauth_error:')) {
           const errDetail = msg.replace('oauth_error:', '');
           if (errDetail.startsWith('redirect_uri_mismatch')) {
-            Alert.alert(
+            showAlert(
               'Configuración de Google',
               `URL de redirección no autorizada:\n${window.location.origin}${CALLBACK_PATH}`,
             );
           } else if (!errDetail.startsWith('access_denied')) {
-            Alert.alert('Google', `No se pudo iniciar sesión.\n${errDetail}`);
+            showAlert('Google', `No se pudo iniciar sesión.\n${errDetail}`);
           }
         } else if (msg !== 'timeout' && msg !== 'no_id_token') {
-          Alert.alert('Google', 'No se pudo iniciar sesión con Google. Intenta nuevamente.');
+          showAlert('Google', 'No se pudo iniciar sesión con Google. Intenta nuevamente.');
         }
       } finally {
         if (mountedRef.current) setGoogleLoading(false);

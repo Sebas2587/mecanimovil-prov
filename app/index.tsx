@@ -3,7 +3,7 @@ import { View, ActivityIndicator, Text, TouchableOpacity, StyleSheet } from 'rea
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import EstadoRevisionScreen from '@/components/EstadoRevisionScreen';
-import * as SecureStore from 'expo-secure-store';
+import { getItem } from '@/utils/authStorage';
 
 export default function IndexScreen() {
   const { isAuthenticated, isLoading, usuario, estadoProveedor, refrescarEstadoProveedor } = useAuth();
@@ -74,7 +74,7 @@ export default function IndexScreen() {
           console.log('⚠️ EstadoProveedor es null — mostrando opción de reintentar / sesión');
         }
         setMostrarErrorConectividad(true);
-        SecureStore.getItemAsync('authToken').then((token) => {
+        getItem('authToken').then((token) => {
           if (!token) router.replace('/(auth)/login');
         }).catch(() => router.replace('/(auth)/login'));
         return;

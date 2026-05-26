@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import { setItem } from '@/utils/authStorage';
 import ServerConfig from '../serverConfig';
 
 export interface GoogleLoginProveedorResponse {
@@ -74,8 +74,8 @@ export async function googleLoginProveedor(
     throw new Error('Respuesta inválida de Google login proveedor');
   }
 
-  await SecureStore.setItemAsync('authToken', data.token);
-  await SecureStore.setItemAsync('userData', JSON.stringify(data.user));
+  await setItem('authToken', data.token);
+  await setItem('userData', JSON.stringify(data.user));
 
   return data as GoogleLoginProveedorResponse;
 }
