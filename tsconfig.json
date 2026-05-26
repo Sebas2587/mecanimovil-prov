@@ -5,6 +5,24 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@/app/design-system": [
+        "./design-system"
+      ],
+      "@/app/design-system/*": [
+        "./design-system/*"
+      ],
+      "@/app/components": [
+        "./components"
+      ],
+      "@/app/components/*": [
+        "./components/*"
+      ],
+      "@/app/services": [
+        "./services"
+      ],
+      "@/app/services/*": [
+        "./services/*"
       ]
     }
   },

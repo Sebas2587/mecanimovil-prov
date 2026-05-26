@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { AppState, AppStateStatus } from 'react-native';
-import ServerConfig from '../../services/serverConfig';
+import ServerConfig from './serverConfig';
 import { devLog } from '@/utils/devLog';
 import { isRadarOportunidadesActivo } from '@/utils/radarOportunidadesGate';
 

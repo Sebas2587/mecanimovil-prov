@@ -39,7 +39,7 @@ import { PerformanceWidget } from '@/components/dashboard/PerformanceWidget';
 import { useProveedorKpisResumen } from '@/hooks/useProveedorKpisResumen';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { devLog, devWarn } from '@/utils/devLog';
-import { createHomeScreenStyles, type HomeScreenFonts } from './homeScreenStyles';
+import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
 
 export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens

@@ -109,7 +109,7 @@ import { RadarOportunidadesProvider } from '@/context/RadarOportunidadesContext'
 import { ChatsProvider } from '@/context/ChatsContext';
 import { AlertsProvider } from '@/context/AlertsContext';
 import { PushNotificationSetup } from '@/components/push/PushNotificationSetup';
-import '@/services/push/notificationService';
+import { DesignSystemThemeProvider } from '@/app/design-system/theme/DesignSystemThemeProvider';
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -19,7 +19,7 @@ import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import solicitudesService, { obtenerListaChats } from '@/services/solicitudesService';
 import { ChatSwipeableRow } from '@/components/chats/ChatSwipeableRow';
-import websocketService from '../services/websocketService';
+import websocketService from '@/app/services/websocketService';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
 import { useChats } from '@/context/ChatsContext';

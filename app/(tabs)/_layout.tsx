@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
 import { useChats } from '@/context/ChatsContext';
-import websocketService from '../services/websocketService';
+import websocketService from '@/app/services/websocketService';
 import connectionService from '@/services/connectionService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '@/app/design-system/tokens/colors';

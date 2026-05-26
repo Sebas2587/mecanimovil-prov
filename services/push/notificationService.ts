@@ -1,73 +1,103 @@
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { post } from '@/services/api';
 
-const ANDROID_CHANNELS: Notifications.NotificationChannelInput[] = [
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
+
+type NotificationsModule = typeof import('expo-notifications');
+type DeviceModule = typeof import('expo-device');
+
+const ANDROID_CHANNEL_DEFS = [
   {
     id: 'default',
     name: 'General',
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importanceKey: 'DEFAULT' as const,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#0052FF',
-    sound: 'default',
+    sound: 'default' as const,
   },
   {
     id: 'servicios',
     name: 'Solicitudes y servicios',
     description: 'Nuevas solicitudes, ofertas y cambios de estado',
-    importance: Notifications.AndroidImportance.HIGH,
+    importanceKey: 'HIGH' as const,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#0052FF',
-    sound: 'default',
+    sound: 'default' as const,
   },
   {
     id: 'chat',
     name: 'Chat',
     description: 'Mensajes con clientes',
-    importance: Notifications.AndroidImportance.HIGH,
+    importanceKey: 'HIGH' as const,
     vibrationPattern: [0, 200, 200, 200],
     lightColor: '#6366F1',
-    sound: 'default',
+    sound: 'default' as const,
   },
   {
     id: 'suscripciones',
     name: 'Suscripción y créditos',
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importanceKey: 'DEFAULT' as const,
     vibrationPattern: [0, 200],
     lightColor: '#F59E0B',
-    sound: 'default',
+    sound: 'default' as const,
   },
-];
+] as const;
 
-/** Debe ejecutarse al importar el módulo (antes de montar la app). */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+let notificationHandlerConfigured = false;
+
+function loadNotifications(): NotificationsModule | null {
+  if (IS_EXPO_GO || Platform.OS === 'web') return null;
+  return require('expo-notifications') as NotificationsModule;
+}
+
+function loadDevice(): DeviceModule | null {
+  if (IS_EXPO_GO || Platform.OS === 'web') return null;
+  return require('expo-device') as DeviceModule;
+}
+
+function configureNotificationHandler(Notifications: NotificationsModule): void {
+  if (notificationHandlerConfigured) return;
+  notificationHandlerConfigured = true;
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 class NotificationService {
-  private initPromise: Promise<void>;
-
-  constructor() {
-    this.initPromise = this.initializeChannels();
-  }
+  private initPromise: Promise<void> | null = null;
 
   async ensureInitialized(): Promise<void> {
+    const Notifications = loadNotifications();
+    if (!Notifications) return;
+    configureNotificationHandler(Notifications);
+    if (!this.initPromise) {
+      this.initPromise = this.initializeChannels(Notifications);
+    }
     await this.initPromise;
   }
 
-  private async initializeChannels(): Promise<void> {
+  private async initializeChannels(Notifications: NotificationsModule): Promise<void> {
     if (Platform.OS !== 'android') return;
     try {
+      const importanceMap = Notifications.AndroidImportance;
       await Promise.all(
-        ANDROID_CHANNELS.map((ch) => Notifications.setNotificationChannelAsync(ch.id, ch)),
+        ANDROID_CHANNEL_DEFS.map((ch) =>
+          Notifications.setNotificationChannelAsync(ch.id, {
+            name: ch.name,
+            description: 'description' in ch ? ch.description : undefined,
+            importance: importanceMap[ch.importanceKey],
+            vibrationPattern: [...ch.vibrationPattern],
+            lightColor: ch.lightColor,
+            sound: ch.sound,
+          }),
+        ),
       );
     } catch (e) {
       if (__DEV__) console.warn('[NotificationService] canales Android:', e);
@@ -75,11 +105,14 @@ class NotificationService {
   }
 
   isAvailable(): boolean {
-    return Platform.OS !== 'web';
+    return Platform.OS !== 'web' && !IS_EXPO_GO;
   }
 
   async requestPermissions(): Promise<boolean> {
-    if (!this.isAvailable()) return false;
+    const Notifications = loadNotifications();
+    const Device = loadDevice();
+    if (!Notifications || !Device) return false;
+
     if (!Device.isDevice && __DEV__) {
       console.log('[NotificationService] Simulador: push limitado');
     }
@@ -97,6 +130,9 @@ class NotificationService {
     if (!this.isAvailable()) return null;
 
     await this.ensureInitialized();
+    const Notifications = loadNotifications();
+    if (!Notifications) return null;
+
     const granted = await this.requestPermissions();
     if (!granted) return null;
 
