@@ -41,7 +41,7 @@ Cuando crees el cliente iOS de proveedores, **añádelo al final** de la misma v
 
 ## 2. EAS / `.env` local — mecanimovil-prov
 
-Ya configurado en `.env` del repo (no subir a git si contiene datos sensibles; los Client IDs son públicos en la app).
+### `.env` local
 
 | Variable | Valor |
 |----------|--------|
@@ -49,13 +49,37 @@ Ya configurado en `.env` del repo (no subir a git si contiene datos sensibles; l
 | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | `85359766939-cjebsrg7s5s48sumoh3gio83jf5tskj9.apps.googleusercontent.com` |
 | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | *(pendiente — pegar cuando lo crees)* |
 
-Comandos EAS (opcional):
+`AuthContext` usa `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` como `webClientId` en `GoogleSignin.configure()` (APK/IPA). Sin esta variable en el build de EAS, Google nativo falla aunque `google-services.json` esté bien.
+
+### EAS Environment Variables (builds en la nube)
+
+Verificado: no había secrets ni `eas env` en el proyecto. Configurar con (reemplaza si ya existen usando `--force`):
 
 ```bash
 cd mecanimovil-prov
-npx eas-cli secret:create --name EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID --value "85359766939-vod9ceeb0fj4p8c7pvmp31flk0ai56fm.apps.googleusercontent.com" --scope project
-npx eas-cli secret:create --name EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID --value "85359766939-cjebsrg7s5s48sumoh3gio83jf5tskj9.apps.googleusercontent.com" --scope project
+
+npx eas-cli env:create --name EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID \
+  --value "85359766939-vod9ceeb0fj4p8c7pvmp31flk0ai56fm.apps.googleusercontent.com" \
+  --environment production --environment preview --environment development \
+  --visibility plaintext --scope project --non-interactive
+
+npx eas-cli env:create --name EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID \
+  --value "85359766939-cjebsrg7s5s48sumoh3gio83jf5tskj9.apps.googleusercontent.com" \
+  --environment production --environment preview --environment development \
+  --visibility plaintext --scope project --non-interactive
 ```
+
+Comprobar: `npx eas-cli env:list --environment production`
+
+Tras cambiar variables → **nuevo build EAS** (`preview` o `production`); un APK ya instalado no recibe el cambio.
+
+### `google-services.json` (Android)
+
+Actualizado en el bloque `com.mecanimovil.proveedores`: el cliente web (`client_type: 3`) pasa de `…43i2uscgvk6gpg337chr6gffbvv7mne5` a `…cjebsrg7s5s48sumoh3gio83jf5tskj9`.
+
+Los demás `package_name` del mismo archivo Firebase (usuarios legacy, etc.) siguen con el web client antiguo; no afectan la app proveedores.
+
+Opcional: en [Firebase Console](https://console.firebase.google.com/) → app Android proveedores → volver a descargar `google-services.json` tras enlazar el OAuth web nuevo en GCP, y reemplazar el del repo si Firebase ya muestra el ID nuevo.
 
 ---
 

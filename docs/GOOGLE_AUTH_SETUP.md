@@ -21,7 +21,8 @@ Checklist para habilitar login/registro con Google en **mecanimovil-prov**.
 1. En Firebase, agrega app Android con package `com.mecanimovil.proveedores`.
 2. Descarga `google-services.json`.
 3. Colócalo en la **raíz de mecanimovil-prov** (`./google-services.json`).
-4. **No lo subas a git** si contiene datos sensibles; usa EAS secrets o CI.
+4. En el bloque `com.mecanimovil.proveedores`, el OAuth **Web** (`client_type: 3`) debe ser el mismo que `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (`…cjebsrg7s5s48sumoh3gio83jf5tskj9`). El repo ya está alineado; si regeneras desde Firebase, verifica ese ID.
+5. **No lo subas a git** si tu política lo exige; en este repo el archivo está versionado para EAS/Android builds.
 
 ## 3. app.json — iosUrlScheme
 
