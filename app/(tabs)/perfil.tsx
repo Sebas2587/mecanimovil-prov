@@ -31,6 +31,7 @@ import Header from '@/components/Header';
 import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 
@@ -76,23 +77,19 @@ export default function PerfilScreen() {
   };
 
   const handleCerrarSesion = () => {
-    Alert.alert('Cerrar sesión', '¿Seguro que querés salir?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Cerrar sesión',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            setIsLoggingOut(true);
-            await logout();
-          } catch {
-            Alert.alert('Error', 'No se pudo cerrar la sesión.');
-          } finally {
-            setIsLoggingOut(false);
-          }
-        },
+    showConfirm('Cerrar sesión', '¿Seguro que querés salir?', {
+      confirmText: 'Cerrar sesión',
+      onConfirm: async () => {
+        try {
+          setIsLoggingOut(true);
+          await logout();
+        } catch {
+          showAlert('Error', 'No se pudo cerrar la sesión.');
+        } finally {
+          setIsLoggingOut(false);
+        }
       },
-    ]);
+    });
   };
 
   const getEstadoInk = () => {

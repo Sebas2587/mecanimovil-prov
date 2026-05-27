@@ -13,6 +13,7 @@ import { EstadoProveedor, getAPI } from '@/services/api';
 import { useRouter } from 'expo-router';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { showConfirm } from '@/utils/platformAlert';
 
 interface EstadoRevisionScreenProps {
   estadoProveedor: EstadoProveedor;
@@ -92,14 +93,10 @@ export default function EstadoRevisionScreen({ estadoProveedor }: EstadoRevision
   };
 
   const handleCerrarSesion = () => {
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro de que deseas cerrar sesión?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Cerrar Sesión', style: 'destructive', onPress: logout },
-      ]
-    );
+    showConfirm('Cerrar Sesión', '¿Estás seguro de que deseas cerrar sesión?', {
+      confirmText: 'Cerrar Sesión',
+      onConfirm: logout,
+    });
   };
 
   const handleCompletarDocumentos = async () => {
