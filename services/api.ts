@@ -1219,6 +1219,17 @@ export const onboardingAPI = {
     const response = await api.post('/usuarios/completar-onboarding/');
     return response.data;
   },
+
+  /** Habilita subida de documentos cuando el onboarding básico ya está completo pero faltan archivos. */
+  completarOnboardingDocumentos: async (): Promise<{
+    puede_subir_documentos: boolean;
+    mensaje_verificacion?: string;
+    documentos_count?: number;
+  }> => {
+    const api = await getAPI();
+    const response = await api.post('/usuarios/completar-onboarding-documentos/');
+    return response.data;
+  },
 };
 
 // Nuevos tipos para funcionalidades adicionales

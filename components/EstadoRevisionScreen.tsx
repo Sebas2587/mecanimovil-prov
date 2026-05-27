@@ -9,11 +9,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
-import { EstadoProveedor, getAPI } from '@/services/api';
+import { EstadoProveedor, onboardingAPI } from '@/services/api';
 import { useRouter } from 'expo-router';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { showConfirm } from '@/utils/platformAlert';
+import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
 
 interface EstadoRevisionScreenProps {
   estadoProveedor: EstadoProveedor;
@@ -101,35 +101,33 @@ export default function EstadoRevisionScreen({ estadoProveedor }: EstadoRevision
 
   const handleCompletarDocumentos = async () => {
     try {
-      // Llamar al endpoint para permitir completar documentos
-      const api = await getAPI();
-      const response = await api.post('/usuarios/completar-onboarding-documentos/');
-      
-      if (response.data.puede_subir_documentos) {
-        Alert.alert(
-          'Completar Documentos',
-          'Ahora puedes subir tus documentos para completar tu verificación.',
+      const data = await onboardingAPI.completarOnboardingDocumentos();
+
+      if (data.puede_subir_documentos) {
+        showAlertButtons(
+          'Completar documentos',
+          data.mensaje_verificacion ||
+            'Ahora puedes subir tus documentos para completar tu verificación.',
           [
             { text: 'Cancelar', style: 'cancel' },
-            { 
-              text: 'Subir Documentos', 
-              onPress: () => router.push('/(onboarding)/subir-documentos') 
+            {
+              text: 'Subir documentos',
+              onPress: () => router.push('/(onboarding)/subir-documentos'),
             },
-          ]
+          ],
         );
       } else {
-        Alert.alert(
+        showAlert(
           'Documentos ya subidos',
-          'Ya tienes documentos en revisión. Te notificaremos cuando sean aprobados.',
-          [{ text: 'Entendido', style: 'default' }]
+          data.mensaje_verificacion ||
+            'Ya tienes documentos en revisión. Te notificaremos cuando sean aprobados.',
         );
       }
-    } catch (error) {
-      Alert.alert(
-        'Error',
-        'No se pudo procesar la solicitud. Intenta nuevamente.',
-        [{ text: 'Entendido', style: 'default' }]
-      );
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } }; message?: string };
+      const detalle =
+        err.response?.data?.error || err.message || 'No se pudo procesar la solicitud.';
+      showAlert('Error', `${detalle} Intenta nuevamente.`);
     }
   };
 
