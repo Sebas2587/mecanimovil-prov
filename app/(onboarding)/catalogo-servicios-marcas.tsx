@@ -28,12 +28,22 @@ type GrupoMarca = {
   servicios: ServicioCatalogo[];
 };
 
+// Servicios genéricos para proveedores multimarca (sin marca específica)
+type ServicioGenerico = ServicioCatalogo & { seleccionado?: boolean };
+
 export default function CatalogoServiciosMarcasScreen() {
   const router = useRouter();
   const rawParams = useLocalSearchParams();
-  const { tipo, marcas: marcasParam, ...otherParams } = rawParams;
+  const { tipo, marcas: marcasParam, es_multimarca: esMultimarcaParam, ...otherParams } = rawParams;
+
+  const esMultimarca = useMemo(() => {
+    const v = Array.isArray(esMultimarcaParam) ? esMultimarcaParam[0] : esMultimarcaParam;
+    return v === 'true';
+  }, [esMultimarcaParam]);
 
   const [grupos, setGrupos] = useState<GrupoMarca[]>([]);
+  const [serviciosGenericos, setServiciosGenericos] = useState<ServicioCatalogo[]>([]);
+  const [seleccionadosGenericos, setSeleccionadosGenericos] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   // marcaId → Set de servicioIds seleccionados
   const [seleccionados, setSeleccionados] = useState<Record<number, Set<number>>>({});
@@ -48,6 +58,49 @@ export default function CatalogoServiciosMarcasScreen() {
       return [];
     }
   }, [marcasParam]);
+
+  // Cargar catálogo genérico para multimarca
+  const cargarCatalogoGenerico = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Intentar cargar servicios genéricos desde el backend
+      // Fallback a una lista estándar si no hay endpoint específico
+      let servicios: ServicioCatalogo[] = [];
+      try {
+        const res = await (serviciosAPI as any).obtenerCatalogoServiciosGenericos?.();
+        if (Array.isArray(res?.data)) {
+          servicios = res.data;
+        } else if (Array.isArray(res)) {
+          servicios = res;
+        }
+      } catch {
+        // Fallback a servicios estándar del catálogo
+      }
+      if (servicios.length === 0) {
+        // Lista estándar de servicios cuando no hay endpoint genérico
+        servicios = [
+          { id: 1001, nombre: 'Cambio de aceite y filtros', descripcion: 'Mantenimiento básico del motor', requiere_repuestos: true },
+          { id: 1002, nombre: 'Revisión de frenos', descripcion: 'Inspección y reemplazo de pastillas y discos', requiere_repuestos: true },
+          { id: 1003, nombre: 'Alineación y balanceo', descripcion: 'Ajuste de alineación y balance de ruedas', requiere_repuestos: false },
+          { id: 1004, nombre: 'Diagnóstico electrónico', descripcion: 'Escaneo OBD con scanner profesional', requiere_repuestos: false },
+          { id: 1005, nombre: 'Mantenimiento preventivo', descripcion: 'Revisión general del vehículo', requiere_repuestos: false },
+          { id: 1006, nombre: 'Cambio de neumáticos', descripcion: 'Montaje y desmontaje de neumáticos', requiere_repuestos: true },
+          { id: 1007, nombre: 'Revisión de suspensión', descripcion: 'Amortiguadores, resortes y rótulas', requiere_repuestos: true },
+          { id: 1008, nombre: 'Sistema de aire acondicionado', descripcion: 'Recarga y revisión del A/C', requiere_repuestos: true },
+          { id: 1009, nombre: 'Revisión eléctrica', descripcion: 'Batería, alternador y circuitos', requiere_repuestos: false },
+          { id: 1010, nombre: 'Revisión de transmisión', descripcion: 'Caja de cambios automática y manual', requiere_repuestos: false },
+          { id: 1011, nombre: 'Servicio de motor', descripcion: 'Reparación y mantenimiento de motor', requiere_repuestos: true },
+          { id: 1012, nombre: 'Servicio de embrague', descripcion: 'Revisión y cambio de embrague', requiere_repuestos: true },
+        ];
+      }
+      setServiciosGenericos(servicios.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })));
+    } catch (e) {
+      console.error('Error cargando catálogo genérico:', e);
+      setServiciosGenericos([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   const cargarCatalogo = useCallback(async () => {
     if (marcasIds.length === 0) {
@@ -103,8 +156,12 @@ export default function CatalogoServiciosMarcasScreen() {
   }, [marcasIds]);
 
   useEffect(() => {
-    cargarCatalogo();
-  }, [cargarCatalogo]);
+    if (esMultimarca) {
+      cargarCatalogoGenerico();
+    } else {
+      cargarCatalogo();
+    }
+  }, [esMultimarca, cargarCatalogo, cargarCatalogoGenerico]);
 
   const toggleServicio = useCallback((marcaId: number, servicioId: number) => {
     setSeleccionados((prev) => {
@@ -117,6 +174,24 @@ export default function CatalogoServiciosMarcasScreen() {
       return { ...prev, [marcaId]: set };
     });
   }, []);
+
+  const toggleServicioGenerico = useCallback((servicioId: number) => {
+    setSeleccionadosGenericos((prev) => {
+      const next = new Set(prev);
+      if (next.has(servicioId)) {
+        next.delete(servicioId);
+      } else {
+        next.add(servicioId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleTodosGenericos = useCallback(() => {
+    const todosIds = serviciosGenericos.map((s) => s.id);
+    const todosSeleccionados = todosIds.every((id) => seleccionadosGenericos.has(id));
+    setSeleccionadosGenericos(todosSeleccionados ? new Set() : new Set(todosIds));
+  }, [serviciosGenericos, seleccionadosGenericos]);
 
   const toggleTodoGrupo = useCallback(
     (grupo: GrupoMarca) => {
@@ -131,8 +206,10 @@ export default function CatalogoServiciosMarcasScreen() {
   );
 
   const totalSeleccionados = useMemo(
-    () => Object.values(seleccionados).reduce((sum, set) => sum + set.size, 0),
-    [seleccionados],
+    () => esMultimarca
+      ? seleccionadosGenericos.size
+      : Object.values(seleccionados).reduce((sum, set) => sum + set.size, 0),
+    [esMultimarca, seleccionadosGenericos, seleccionados],
   );
 
   const getBackPath = () => {
@@ -146,6 +223,7 @@ export default function CatalogoServiciosMarcasScreen() {
     if (tipoStr) params.append('tipo', String(tipoStr));
     const m = Array.isArray(marcasParam) ? marcasParam[0] : marcasParam;
     if (m) params.append('marcas', String(m));
+    params.append('es_multimarca', esMultimarca ? 'true' : 'false');
     return `/(onboarding)/marcas?${params.toString()}`;
   };
 
@@ -173,11 +251,19 @@ export default function CatalogoServiciosMarcasScreen() {
         return;
       }
 
-      // Serializar { marcaId: [servicioId, ...] }[]
-      const serviciosSeleccionadosArr: { marcaId: number; servicioId: number }[] = [];
-      for (const [mId, set] of Object.entries(seleccionados)) {
-        for (const sId of Array.from(set)) {
-          serviciosSeleccionadosArr.push({ marcaId: Number(mId), servicioId: sId });
+      let serviciosSeleccionadosArr: { marcaId: number; servicioId: number }[] = [];
+
+      if (esMultimarca) {
+        // Para multimarca: servicios sin marca específica (marcaId = 0 como señal genérica)
+        for (const sId of Array.from(seleccionadosGenericos)) {
+          serviciosSeleccionadosArr.push({ marcaId: 0, servicioId: sId });
+        }
+      } else {
+        // Para especialistas: servicios por marca
+        for (const [mId, set] of Object.entries(seleccionados)) {
+          for (const sId of Array.from(set)) {
+            serviciosSeleccionadosArr.push({ marcaId: Number(mId), servicioId: sId });
+          }
         }
       }
 
@@ -190,6 +276,8 @@ export default function CatalogoServiciosMarcasScreen() {
       if (!params.has('especialidades')) {
         params.append('especialidades', JSON.stringify([]));
       }
+      // Asegurarse de pasar es_multimarca al finalizar
+      params.set('es_multimarca', esMultimarca ? 'true' : 'false');
       params.set('servicios_seleccionados', JSON.stringify(serviciosSeleccionadosArr));
 
       router.push(`/(onboarding)/finalizar-basico?${params.toString()}` as any);
@@ -204,7 +292,9 @@ export default function CatalogoServiciosMarcasScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4E4FEB" />
-          <Text style={styles.loadingText}>Cargando servicios por marca…</Text>
+          <Text style={styles.loadingText}>
+            {esMultimarca ? 'Cargando catálogo de servicios…' : 'Cargando servicios por marca…'}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -219,18 +309,30 @@ export default function CatalogoServiciosMarcasScreen() {
           style={styles.scrollView}
         >
           <OnboardingHeader
-            title="Servicios por marca"
-            subtitle="Selecciona los servicios que ofrecerás por cada marca. Configura precios desde Mis servicios."
+            title={esMultimarca ? 'Servicios que ofreces' : 'Servicios por marca'}
+            subtitle={esMultimarca
+              ? 'Selecciona los servicios que realizas para cualquier marca de vehículo.'
+              : 'Selecciona los servicios que ofrecerás por cada marca. Configura precios desde Mis servicios.'}
             currentStep={4}
             totalSteps={5}
             icon="construct"
             backPath={getBackPath()}
           />
 
+          {/* Badge multimarca informativo */}
+          {esMultimarca && (
+            <View style={styles.multimarcaBadge}>
+              <InstitutionalIcon name="globe-outline" size={18} color="#4E4FEB" strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.multimarcaBadgeText}>Proveedor Multimarca — Atiendes todas las marcas</Text>
+            </View>
+          )}
+
           <View style={styles.infoBox}>
             <InstitutionalIcon name="information-circle" size={22} color="#4E4FEB"  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.infoText}>
-              Toca cada servicio para marcarlo. Usa el botón por marca para seleccionar/deseleccionar todos. Los precios los configuras al publicar cada servicio.
+              {esMultimarca
+                ? 'Marca los servicios que ofreces. Los precios los configuras después en "Mis servicios".'
+                : 'Toca cada servicio para marcarlo. Usa el botón por marca para seleccionar/deseleccionar todos. Los precios los configuras al publicar cada servicio.'}
             </Text>
           </View>
 
@@ -243,7 +345,74 @@ export default function CatalogoServiciosMarcasScreen() {
             </View>
           )}
 
-          {marcasIds.length === 0 ? (
+          {/* Vista para proveedor MULTIMARCA */}
+          {esMultimarca ? (
+            <View style={styles.grupo}>
+              <View style={styles.grupoHeader}>
+                <View style={styles.grupoTituloRow}>
+                  <Text style={styles.grupoTitulo}>Catálogo de servicios</Text>
+                  <Text style={styles.grupoCount}>
+                    {seleccionadosGenericos.size}/{serviciosGenericos.length}
+                  </Text>
+                </View>
+                {serviciosGenericos.length > 0 && (
+                  <TouchableOpacity
+                    onPress={toggleTodosGenericos}
+                    style={[
+                      styles.toggleTodoBtn,
+                      serviciosGenericos.every((s) => seleccionadosGenericos.has(s.id)) && styles.toggleTodoBtnActive,
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <InstitutionalIcon
+                      name={serviciosGenericos.every((s) => seleccionadosGenericos.has(s.id)) ? 'checkbox' : 'square-outline'}
+                      size={16}
+                      color={serviciosGenericos.every((s) => seleccionadosGenericos.has(s.id)) ? '#fff' : '#555'}
+                      strokeWidth={ICON_STROKE_WIDTH}
+                    />
+                    <Text style={[
+                      styles.toggleTodoBtnText,
+                      serviciosGenericos.every((s) => seleccionadosGenericos.has(s.id)) && styles.toggleTodoBtnTextActive,
+                    ]}>
+                      {serviciosGenericos.every((s) => seleccionadosGenericos.has(s.id)) ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              {serviciosGenericos.map((s) => {
+                const isSelected = seleccionadosGenericos.has(s.id);
+                return (
+                  <TouchableOpacity
+                    key={`generico-${s.id}`}
+                    style={[styles.servicioRow, isSelected && styles.servicioRowSelected]}
+                    onPress={() => toggleServicioGenerico(s.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.servicioLeft}>
+                      <InstitutionalIcon
+                        name={isSelected ? 'checkbox' : 'square-outline'}
+                        size={22}
+                        color={isSelected ? '#4E4FEB' : '#aaa'}
+                        style={styles.checkIcon}
+                        strokeWidth={ICON_STROKE_WIDTH}
+                      />
+                      <View style={styles.servicioInfo}>
+                        <Text style={[styles.servicioNombre, isSelected && styles.servicioNombreSelected]}>
+                          {s.nombre}
+                        </Text>
+                        <Text style={styles.servicioMeta}>
+                          {s.requiere_repuestos ? 'Con repuestos' : 'Sin repuestos'}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : (
+
+          /* Vista para proveedor ESPECIALISTA (por marca) */
+          marcasIds.length === 0 ? (
             <View style={styles.emptyBox}>
               <Text style={styles.emptyTitle}>No hay marcas seleccionadas</Text>
               <Text style={styles.emptySub}>Vuelve atrás y elige al menos una marca.</Text>
@@ -325,7 +494,7 @@ export default function CatalogoServiciosMarcasScreen() {
                 </View>
               );
             })
-          )}
+          ))}
         </ScrollView>
 
         <SafeAreaView edges={['bottom']} style={styles.fixedButtonContainer}>
@@ -349,6 +518,22 @@ const styles = StyleSheet.create({
   scrollContainer: { padding: 20, paddingBottom: 24 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, fontSize: 15, color: '#7f8c8d' },
+  multimarcaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EEF3FF',
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#C5D5FF',
+  },
+  multimarcaBadgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4E4FEB',
+  },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',

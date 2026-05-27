@@ -234,15 +234,32 @@ export default function PerfilScreen() {
               <View style={[styles.statusDot, { backgroundColor: estadoInk }]} />
               <Text style={[styles.statusLabel, { color: estadoInk }]}>{getEstadoTexto()}</Text>
             </View>
-            {estadoProveedor?.tipo_proveedor ? (
-              <View style={[styles.tipoProveedorPill, { backgroundColor: I.surfaceStrong }]}>
-                <Text style={[styles.tipoProveedorPillText, { color: I.muted }]}>
-                  {estadoProveedor.tipo_proveedor === 'taller'
-                    ? 'TALLER MECÁNICO'
-                    : 'MECÁNICO A DOMICILIO'}
-                </Text>
-              </View>
-            ) : null}
+            {/* Fila de badges: tipo proveedor + cobertura de marcas */}
+            <View style={styles.badgesRow}>
+              {estadoProveedor?.tipo_proveedor ? (
+                <View style={[styles.tipoProveedorPill, { backgroundColor: I.surfaceStrong }]}>
+                  <Text style={[styles.tipoProveedorPillText, { color: I.muted }]}>
+                    {estadoProveedor.tipo_proveedor === 'taller' ? 'TALLER MECÁNICO' : 'MECÁNICO A DOMICILIO'}
+                  </Text>
+                </View>
+              ) : null}
+              {(() => {
+                const cobertura = estadoProveedor?.tipo_cobertura_marca
+                  || (estadoProveedor?.datos_proveedor as any)?.tipo_cobertura_marca;
+                if (!cobertura) return null;
+                const isMultimarca = cobertura === 'multimarca';
+                return (
+                  <View style={[
+                    styles.coberturaPill,
+                    { backgroundColor: isMultimarca ? '#EEF3FF' : '#EAF9EF', borderColor: isMultimarca ? '#C5D5FF' : '#B7E4C7' }
+                  ]}>
+                    <Text style={[styles.coberturaPillText, { color: isMultimarca ? I.primary : I.semanticUp }]}>
+                      {isMultimarca ? '🌐 MULTIMARCA' : '⭐ ESPECIALISTA'}
+                    </Text>
+                  </View>
+                );
+              })()}
+            </View>
           </View>
 
           <View style={{ paddingHorizontal: GLASS_INSET }}>
@@ -431,9 +448,15 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
+  badgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: SPACING.sm,
+  },
   /** Misma semántica que `sectionPill` / kicker: etiqueta pequeña mayúsculas */
   tipoProveedorPill: {
-    marginTop: SPACING.sm,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: BORDERS.radius.pill,
@@ -444,6 +467,18 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     letterSpacing: TYPOGRAPHY.letterSpacing.wider,
     textTransform: 'uppercase',
+  },
+  coberturaPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: 1,
+  },
+  coberturaPillText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
   },
   groupCard: {
     borderRadius: BORDERS.radius.lg,

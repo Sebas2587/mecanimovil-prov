@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -32,14 +32,14 @@ interface DocumentoInfo {
   acepta: string[];
 }
 
-const TIPOS_DOCUMENTOS: DocumentoInfo[] = [
+const DOCS_COMUNES: DocumentoInfo[] = [
   {
     nombre: 'Documento de Identidad (Frontal)',
     descripcion: 'Foto clara del frente de tu cédula o DNI',
     tipo: 'dni_frontal',
     obligatorio: true,
     icono: 'card-outline',
-    acepta: ['JPG', 'PNG', 'PDF']
+    acepta: ['JPG', 'PNG', 'PDF'],
   },
   {
     nombre: 'Documento de Identidad (Trasero)',
@@ -47,15 +47,7 @@ const TIPOS_DOCUMENTOS: DocumentoInfo[] = [
     tipo: 'dni_trasero',
     obligatorio: true,
     icono: 'card-outline',
-    acepta: ['JPG', 'PNG', 'PDF']
-  },
-  {
-    nombre: 'RUT/CUIT Fiscal',
-    descripcion: 'Documento tributario oficial',
-    tipo: 'rut_fiscal',
-    obligatorio: true,
-    icono: 'document-text-outline',
-    acepta: ['JPG', 'PNG', 'PDF']
+    acepta: ['JPG', 'PNG', 'PDF'],
   },
   {
     nombre: 'Licencia de Conducir',
@@ -63,7 +55,18 @@ const TIPOS_DOCUMENTOS: DocumentoInfo[] = [
     tipo: 'licencia_conducir',
     obligatorio: true,
     icono: 'car-outline',
-    acepta: ['JPG', 'PNG', 'PDF']
+    acepta: ['JPG', 'PNG', 'PDF'],
+  },
+];
+
+const DOCS_TALLER: DocumentoInfo[] = [
+  {
+    nombre: 'RUT/CUIT Fiscal',
+    descripcion: 'Documento tributario oficial del negocio',
+    tipo: 'rut_fiscal',
+    obligatorio: true,
+    icono: 'document-text-outline',
+    acepta: ['JPG', 'PNG', 'PDF'],
   },
   {
     nombre: 'Foto de Fachada',
@@ -71,7 +74,7 @@ const TIPOS_DOCUMENTOS: DocumentoInfo[] = [
     tipo: 'foto_fachada',
     obligatorio: false,
     icono: 'business-outline',
-    acepta: ['JPG', 'PNG']
+    acepta: ['JPG', 'PNG'],
   },
   {
     nombre: 'Foto Interior',
@@ -79,7 +82,7 @@ const TIPOS_DOCUMENTOS: DocumentoInfo[] = [
     tipo: 'foto_interior',
     obligatorio: false,
     icono: 'home-outline',
-    acepta: ['JPG', 'PNG']
+    acepta: ['JPG', 'PNG'],
   },
   {
     nombre: 'Foto de Equipos',
@@ -87,9 +90,35 @@ const TIPOS_DOCUMENTOS: DocumentoInfo[] = [
     tipo: 'foto_equipos',
     obligatorio: false,
     icono: 'build-outline',
-    acepta: ['JPG', 'PNG']
+    acepta: ['JPG', 'PNG'],
   },
 ];
+
+const DOCS_MECANICO: DocumentoInfo[] = [
+  {
+    nombre: 'Foto de Herramientas',
+    descripcion: 'Herramientas portátiles que utilizas (opcional)',
+    tipo: 'foto_herramientas',
+    obligatorio: false,
+    icono: 'build-outline',
+    acepta: ['JPG', 'PNG'],
+  },
+  {
+    nombre: 'Foto de Vehículo de Trabajo',
+    descripcion: 'Vehículo con el que te desplazas (opcional)',
+    tipo: 'foto_vehiculo',
+    obligatorio: false,
+    icono: 'car-outline',
+    acepta: ['JPG', 'PNG'],
+  },
+];
+
+function tiposDocumentosParaProveedor(tipoProveedor?: string): DocumentoInfo[] {
+  if (tipoProveedor === 'mecanico') {
+    return [...DOCS_COMUNES, ...DOCS_MECANICO];
+  }
+  return [...DOCS_COMUNES, ...DOCS_TALLER];
+}
 
 interface DocumentoSubido {
   tipo: string;
@@ -112,22 +141,29 @@ export default function SubirDocumentosScreen() {
   const [isFinalizando, setIsFinalizando] = useState(false);
   const [progreso, setProgreso] = useState('');
 
+  const tiposDocumentos = useMemo(
+    () => tiposDocumentosParaProveedor(estadoProveedor?.tipo_proveedor),
+    [estadoProveedor?.tipo_proveedor],
+  );
+
   useEffect(() => {
-    console.log('🔍 SubirDocumentosScreen - Estado del proveedor:', estadoProveedor);
-    
-    // Si no hay estado del proveedor, redirigir a tipo de cuenta
+    refrescarEstadoProveedor();
+  }, [refrescarEstadoProveedor]);
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('🔍 SubirDocumentosScreen - Estado del proveedor:', estadoProveedor);
+    }
+
     if (!estadoProveedor?.tiene_perfil) {
-      console.log('⚠️ No hay perfil de proveedor, redirigiendo a tipo de cuenta');
       router.replace('/(onboarding)/tipo-cuenta');
       return;
     }
 
     if (estadoProveedor?.estado_verificacion === 'aprobado') {
-      console.log('✅ Cuenta ya aprobada, saliendo del flujo de documentos');
       router.replace('/(onboarding)/cuenta-en-revision');
-      return;
     }
-  }, [estadoProveedor]);
+  }, [estadoProveedor, router]);
 
   const abrirSelectorDocumento = (documentoInfo: DocumentoInfo) => {
     setTipoDocumentoActual(documentoInfo);
@@ -395,12 +431,12 @@ export default function SubirDocumentosScreen() {
 
     } catch (error: any) {
       console.error('❌ Error subiendo documento:', error);
-      
-      let mensajeError = 'Error desconocido';
-      if (error.response?.data?.error) {
-        mensajeError = error.response.data.error;
-      } else if (error.message) {
+
+      let mensajeError = 'No se pudo subir el archivo. Intenta de nuevo.';
+      if (error?.message) {
         mensajeError = error.message;
+      } else if (error.response?.data?.error) {
+        mensajeError = error.response.data.error;
       }
 
       // Marcar como error
@@ -420,17 +456,20 @@ export default function SubirDocumentosScreen() {
     }
   };
 
-  const getTipoDocumentoInfo = (tipo: string): DocumentoInfo | undefined => {
-    return TIPOS_DOCUMENTOS.find(doc => doc.tipo === tipo);
-  };
+  const getTipoDocumentoInfo = useCallback(
+    (tipo: string): DocumentoInfo | undefined => tiposDocumentos.find((doc) => doc.tipo === tipo),
+    [tiposDocumentos],
+  );
 
-  const getDocumentosObligatorios = () => {
-    return TIPOS_DOCUMENTOS.filter(doc => doc.obligatorio);
-  };
+  const getDocumentosObligatorios = useCallback(
+    () => tiposDocumentos.filter((doc) => doc.obligatorio),
+    [tiposDocumentos],
+  );
 
-  const getDocumentosOpcionales = () => {
-    return TIPOS_DOCUMENTOS.filter(doc => !doc.obligatorio);
-  };
+  const getDocumentosOpcionales = useCallback(
+    () => tiposDocumentos.filter((doc) => !doc.obligatorio),
+    [tiposDocumentos],
+  );
 
   const getDocumentosObligatoriosSubidos = () => {
     return getDocumentosObligatorios().filter(doc => 

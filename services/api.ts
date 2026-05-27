@@ -309,6 +309,8 @@ export interface MarcaVehiculo {
 export interface EstadoProveedor {
   tiene_perfil: boolean;
   tipo_proveedor?: 'taller' | 'mecanico';
+  /** Cobertura de marcas: especialista en marcas específicas o multimarca */
+  tipo_cobertura_marca?: 'especialista' | 'multimarca';
   nombre?: string;
   estado_verificacion: 'pendiente' | 'en_revision' | 'aprobado' | 'rechazado';
   verificado: boolean;
@@ -324,6 +326,7 @@ export interface EstadoProveedor {
     direccion?: string;
     ubicacion_lat?: number;
     ubicacion_lng?: number;
+    tipo_cobertura_marca?: 'especialista' | 'multimarca';
     direccion_fisica?: {
       direccion_completa?: string;
       calle?: string;
@@ -678,11 +681,12 @@ export const tallerAPI = {
     return response.data;
   },
 
-  // Actualizar marcas del taller
-  actualizarMarcas: async (marcasIds: number[]) => {
+  // Actualizar marcas del taller (con soporte multimarca)
+  actualizarMarcas: async (marcasIds: number[], tipoCoberturasMarca?: 'especialista' | 'multimarca') => {
     const api = await getAPI();
     const response = await api.post('/usuarios/actualizar-marcas-taller/', {
-      marcas: marcasIds
+      marcas: marcasIds,
+      ...(tipoCoberturasMarca ? { tipo_cobertura_marca: tipoCoberturasMarca } : {}),
     });
     return response.data;
   },
@@ -746,11 +750,12 @@ export const mecanicoAPI = {
     return response.data;
   },
 
-  // Actualizar marcas del mecánico
-  actualizarMarcas: async (marcasIds: number[]) => {
+  // Actualizar marcas del mecánico (con soporte multimarca)
+  actualizarMarcas: async (marcasIds: number[], tipoCoberturasMarca?: 'especialista' | 'multimarca') => {
     const api = await getAPI();
     const response = await api.post('/usuarios/actualizar-marcas-mecanico/', {
-      marcas: marcasIds
+      marcas: marcasIds,
+      ...(tipoCoberturasMarca ? { tipo_cobertura_marca: tipoCoberturasMarca } : {}),
     });
     return response.data;
   },
@@ -767,35 +772,114 @@ export const vehiculoAPI = {
   },
 };
 
-// Función para subir archivo directamente usando fetch (evita interceptores)
-const subirArchivoDirecto = async (formData: FormData, token: string) => {
-  try {
-    const baseURL = await getBaseURL();
-    const uploadURL = `${baseURL}/usuarios/documentos-onboarding/`;
+/** Normaliza nombre de archivo con extensión válida para el backend (jpg/png/pdf). */
+function normalizarNombreArchivoDocumento(nombre: string, tipoMime: string, uri?: string): string {
+  let nombreArchivo = (nombre || 'documento').trim();
+  const uriLower = (uri || '').toLowerCase();
+  const mime = (tipoMime || '').toLowerCase();
 
-    console.log('📤 Subiendo archivo a:', uploadURL);
-
-    const response = await fetch(uploadURL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Token ${token}`,
-        // NO incluir Content-Type - fetch lo maneja automáticamente para FormData
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log('✅ Archivo subido exitosamente (fetch):', data);
-    return data;
-
-  } catch (error: any) {
-    console.error('❌ Error subiendo archivo (fetch):', error);
-    throw error;
+  if (uriLower.includes('.pdf') || mime.includes('pdf')) {
+    if (!nombreArchivo.toLowerCase().endsWith('.pdf')) nombreArchivo += '.pdf';
+  } else if (uriLower.includes('.png') || mime.includes('png')) {
+    if (!nombreArchivo.toLowerCase().endsWith('.png')) nombreArchivo += '.png';
+  } else if (
+    uriLower.includes('.jpg') ||
+    uriLower.includes('.jpeg') ||
+    mime.includes('jpeg') ||
+    mime.includes('jpg')
+  ) {
+    if (!/\.(jpe?g)$/i.test(nombreArchivo)) nombreArchivo += '.jpg';
+  } else if (!nombreArchivo.includes('.')) {
+    nombreArchivo += '.jpg';
   }
+  return nombreArchivo;
+}
+
+/** Construye FormData de documento compatible con RN nativo y web. */
+async function buildDocumentoFormData(
+  archivo: { uri: string; type?: string; name?: string; fileName?: string },
+  tipoDocumento: string,
+): Promise<FormData> {
+  if (!archivo?.uri) {
+    throw new Error('El archivo no tiene URI válida. Intenta seleccionarlo de nuevo.');
+  }
+
+  let tipoArchivo = archivo.type || 'image/jpeg';
+  const nombreArchivo = normalizarNombreArchivoDocumento(
+    archivo.name || archivo.fileName || 'documento',
+    tipoArchivo,
+    archivo.uri,
+  );
+
+  if (archivo.uri.toLowerCase().includes('.pdf')) tipoArchivo = 'application/pdf';
+  else if (archivo.uri.toLowerCase().includes('.png')) tipoArchivo = 'image/png';
+  else if (!tipoArchivo || tipoArchivo === 'application/octet-stream') tipoArchivo = 'image/jpeg';
+
+  const formData = new FormData();
+  formData.append('tipo_documento', tipoDocumento);
+
+  if (Platform.OS === 'web') {
+    const res = await fetch(archivo.uri);
+    const blob = await res.blob();
+    formData.append('archivo', blob, nombreArchivo);
+  } else {
+    formData.append('archivo', {
+      uri: archivo.uri,
+      type: tipoArchivo,
+      name: nombreArchivo,
+    } as any);
+  }
+
+  return formData;
+}
+
+/** Sube documento vía fetch (evita interceptores de axios en multipart). */
+const subirArchivoDirecto = async (formData: FormData, token: string) => {
+  const baseURL = await getBaseURL();
+  const uploadURL = `${baseURL}/usuarios/documentos-onboarding/`;
+
+  if (__DEV__) {
+    console.log('📤 Subiendo archivo a:', uploadURL);
+  }
+
+  const response = await fetch(uploadURL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Token ${token}`,
+    },
+    body: formData,
+  });
+
+  let payload: Record<string, unknown> | null = null;
+  const rawText = await response.text();
+  if (rawText) {
+    try {
+      payload = JSON.parse(rawText);
+    } catch {
+      payload = { raw: rawText };
+    }
+  }
+
+  if (!response.ok) {
+    const err = payload as { error?: string; details?: unknown } | null;
+    const detalle =
+      typeof err?.details === 'string'
+        ? err.details
+        : err?.details
+          ? JSON.stringify(err.details)
+          : err?.error || rawText || `HTTP ${response.status}`;
+    const uploadError = new Error(
+      err?.error ? `${err.error}${detalle ? `: ${detalle}` : ''}` : `Error al subir (${response.status}): ${detalle}`,
+    ) as Error & { status?: number; details?: unknown };
+    uploadError.status = response.status;
+    uploadError.details = err?.details;
+    throw uploadError;
+  }
+
+  if (__DEV__) {
+    console.log('✅ Archivo subido exitosamente (fetch):', payload);
+  }
+  return payload;
 };
 
 // Servicios para documentos de onboarding
@@ -807,114 +891,27 @@ export const documentosAPI = {
     return response.data;
   },
 
-  // Subir documento - VERSIÓN CORREGIDA CON PARÁMETROS CORRECTOS
+  // Subir documento (multipart → Cloudflare R2 vía backend; queda pendiente de aprobación staff)
   subirDocumento: async (archivo: any, tipoDocumento: string) => {
     try {
-      console.log('📤 Subiendo documento:', tipoDocumento);
-      console.log('📤 Datos del archivo:', { archivo: archivo, tipo: tipoDocumento });
-
-      // Obtener token directamente
       const token = await getItem('authToken');
       if (!token) {
-        throw new Error('No hay token de autenticación');
+        throw new Error('No hay token de autenticación. Inicia sesión de nuevo.');
       }
 
-      // Extraer nombre del archivo
-      let nombreArchivo = archivo.fileName || archivo.name || 'documento.jpg';
-
-      // Detectar tipo de archivo y ajustar nombre si es necesario
-      let tipoArchivo = archivo.type || 'image/jpeg';
-
-      // Validación y corrección de tipos de archivo
-      console.log('📋 Detalles del archivo:', {
-        name: nombreArchivo,
-        type: tipoArchivo,
-        uri: archivo.uri
-      });
-
-      // VALIDACIÓN CRÍTICA: Verificar que URI existe antes de procesarlo
-      if (!archivo.uri) {
-        throw new Error('El archivo no tiene URI válida. Intenta seleccionar el archivo nuevamente.');
+      if (__DEV__) {
+        console.log('📤 Subiendo documento:', tipoDocumento, Platform.OS);
       }
 
-      // Detectar tipo de archivo basado en URI
-      const uriLower = archivo.uri.toLowerCase();
-
-      if (uriLower.includes('.pdf')) {
-        tipoArchivo = 'application/pdf';
-        if (!nombreArchivo.endsWith('.pdf')) {
-          nombreArchivo += '.pdf';
-        }
-      } else if (uriLower.includes('.png')) {
-        tipoArchivo = 'image/png';
-        if (!nombreArchivo.endsWith('.png')) {
-          nombreArchivo += '.png';
-        }
-      } else if (uriLower.includes('.jpg') || uriLower.includes('.jpeg')) {
-        tipoArchivo = 'image/jpeg';
-        if (!nombreArchivo.endsWith('.jpg') && !nombreArchivo.endsWith('.jpeg')) {
-          nombreArchivo += '.jpg';
-        }
-      } else {
-        // Por defecto, tratar como imagen JPEG
-        tipoArchivo = 'image/jpeg';
-        if (!nombreArchivo.includes('.')) {
-          nombreArchivo += '.jpg';
-        }
-      }
-
-      console.log('📋 Tipo detectado:', tipoArchivo, 'Nombre final:', nombreArchivo);
-
-      // Crear FormData específico para React Native
-      const formData = new FormData();
-
-      // IMPORTANTE: Primero el tipo de documento
-      formData.append('tipo_documento', tipoDocumento);
-
-      // FORMATO ESPECÍFICO PARA REACT NATIVE - CORREGIDO
-      formData.append('archivo', {
-        uri: archivo.uri,
-        type: tipoArchivo,
-        name: nombreArchivo
-      } as any);
-
-      console.log('📋 FormData construido para:', tipoDocumento);
-
-      // USAR FUNCIÓN DIRECTA SIN INTERCEPTOR
-      const response = await subirArchivoDirecto(formData, token);
-
-      console.log('✅ Documento subido exitosamente:', response);
-      return response;
-
+      const formData = await buildDocumentoFormData(archivo, tipoDocumento);
+      return await subirArchivoDirecto(formData, token);
     } catch (error: any) {
       console.error('❌ Error subiendo documento:', error);
-
-      // Logging detallado para debugging
-      console.log('❌ Error en respuesta:', {
-        message: error.message,
-        status: error.response?.status,
-        url: error.config?.url
-      });
-
-      if (error.response) {
-        console.error('❌ Error response:', error.response.data);
-        console.error('❌ Error status:', error.response.status);
-        console.error('❌ Error headers:', error.response.headers);
-      } else if (error.request) {
-        console.error('❌ Error request (no response):', error.request);
-      }
-
-      // Si es error de red, dar mensaje más específico
       if (error.message === 'Network Error') {
-        throw new Error(`Error de conexión al subir ${tipoDocumento}. Verifica tu conexión a internet y que el servidor esté funcionando.`);
+        throw new Error(
+          `Error de conexión al subir ${tipoDocumento}. Verifica tu internet y que el servidor esté disponible.`,
+        );
       }
-
-      // Si es error 400, mostrar detalles del servidor
-      if (error.response?.status === 400) {
-        const detalles = error.response.data?.details || error.response.data?.error || 'Error de validación';
-        throw new Error(`Error validando ${tipoDocumento}: ${JSON.stringify(detalles)}`);
-      }
-
       throw error;
     }
   },
@@ -1165,19 +1162,18 @@ export const proveedorVerificadoAPI = {
     }
   },
 
-  // Actualizar marcas según el tipo de proveedor
-  actualizarMarcas: async (marcasIds: number[], tipoProveedor: string) => {
+  // Actualizar marcas según el tipo de proveedor (con soporte multimarca)
+  actualizarMarcas: async (marcasIds: number[], tipoProveedor: string, tipoCoberturasMarca?: 'especialista' | 'multimarca') => {
     const api = await getAPI();
+    const payload = {
+      marcas: marcasIds,
+      ...(tipoCoberturasMarca ? { tipo_cobertura_marca: tipoCoberturasMarca } : {}),
+    };
     if (tipoProveedor === 'taller') {
-      const response = await api.post('/usuarios/actualizar-marcas-taller/', {
-        marcas: marcasIds
-      });
+      const response = await api.post('/usuarios/actualizar-marcas-taller/', payload);
       return response.data;
     } else {
-      // CORREGIDO: Usar el endpoint correcto para mecánicos
-      const response = await api.post('/usuarios/actualizar-marcas-mecanico/', {
-        marcas: marcasIds
-      });
+      const response = await api.post('/usuarios/actualizar-marcas-mecanico/', payload);
       return response.data;
     }
   },

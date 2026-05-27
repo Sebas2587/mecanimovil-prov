@@ -17,7 +17,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 
 export default function FinalizarBasicoScreen() {
-  const { tipo, especialidades, marcas, servicios_seleccionados, ...otherParams } = useLocalSearchParams();
+  const { tipo, especialidades, marcas, servicios_seleccionados, es_multimarca, ...otherParams } = useLocalSearchParams();
   const router = useRouter();
   const { usuario, refrescarEstadoProveedor } = useAuth();
   
@@ -107,6 +107,9 @@ export default function FinalizarBasicoScreen() {
       const dniValue = getParamValue('dni');
       const experienciaValue = getParamValue('experiencia_anos');
       
+      const esMultimarcaStr = Array.isArray(es_multimarca) ? es_multimarca[0] : es_multimarca;
+      const esMultimarcaBool = esMultimarcaStr === 'true';
+
       const datos = {
         tipo: tipoStr || '',
         nombre: (nombreValue ?? '') as string,
@@ -118,6 +121,8 @@ export default function FinalizarBasicoScreen() {
         experiencia_anos: (experienciaValue ?? '') as string,
         especialidades: especialidadesParsed,
         marcas: marcasParsed,
+        es_multimarca: esMultimarcaBool,
+        tipo_cobertura_marca: esMultimarcaBool ? 'multimarca' : 'especialista' as 'multimarca' | 'especialista',
         servicios_seleccionados: (() => {
           try {
             if (serviciosSeleccionadosStr && typeof serviciosSeleccionadosStr === 'string') {
@@ -244,17 +249,21 @@ export default function FinalizarBasicoScreen() {
         console.log('No hay especialidades para guardar');
       }
       
-      // Guardar marcas atendidas
-      if (Array.isArray(datosCompletos.marcas) && datosCompletos.marcas.length > 0) {
+      // Guardar marcas atendidas (o tipo multimarca si corresponde)
+      const tipoCoberturasMarca = datosCompletos.tipo_cobertura_marca as 'multimarca' | 'especialista' | undefined;
+      const tieneCoberturaMarca = tipoCoberturasMarca === 'multimarca' || (Array.isArray(datosCompletos.marcas) && datosCompletos.marcas.length > 0);
+
+      if (tieneCoberturaMarca) {
         try {
-          setProgresoSubida('Guardando marcas atendidas...');
-          console.log('Enviando marcas:', datosCompletos.marcas, 'para tipo:', datosCompletos.tipo);
+          setProgresoSubida('Guardando cobertura de marcas...');
+          const marcasFinal = tipoCoberturasMarca === 'multimarca' ? [] : (datosCompletos.marcas || []);
+          console.log('Enviando marcas:', marcasFinal, 'tipo_cobertura:', tipoCoberturasMarca, 'para tipo proveedor:', datosCompletos.tipo);
           
           if (datosCompletos.tipo === 'taller') {
-            await tallerAPI.actualizarMarcas(datosCompletos.marcas);
+            await tallerAPI.actualizarMarcas(marcasFinal, tipoCoberturasMarca);
             console.log('Marcas del taller guardadas exitosamente');
           } else {
-            await mecanicoAPI.actualizarMarcas(datosCompletos.marcas);
+            await mecanicoAPI.actualizarMarcas(marcasFinal, tipoCoberturasMarca);
             console.log('Marcas del mecánico guardadas exitosamente');
           }
         } catch (error: any) {
@@ -697,11 +706,18 @@ export default function FinalizarBasicoScreen() {
           <View style={styles.seccionResumen}>
             <View style={styles.seccionHeader}>
               <InstitutionalIcon name="car" size={24} color="#e74c3c"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.seccionTitulo}>Marcas de Vehículos</Text>
+              <Text style={styles.seccionTitulo}>Cobertura de Marcas</Text>
             </View>
-            <Text style={styles.estadisticaValor}>
-              {Array.isArray(datosCompletos.marcas) ? datosCompletos.marcas.length : 0} marcas seleccionadas
-            </Text>
+            {datosCompletos.tipo_cobertura_marca === 'multimarca' ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <InstitutionalIcon name="globe-outline" size={18} color="#4E4FEB" strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={[styles.estadisticaValor, { color: '#4E4FEB' }]}>Multimarca — Todas las marcas</Text>
+              </View>
+            ) : (
+              <Text style={styles.estadisticaValor}>
+                {Array.isArray(datosCompletos.marcas) ? datosCompletos.marcas.length : 0} marcas seleccionadas
+              </Text>
+            )}
           </View>
         </View>
 

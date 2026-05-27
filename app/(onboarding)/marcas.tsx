@@ -25,6 +25,7 @@ export default function MarcasScreen() {
   const [marcasSeleccionadas, setMarcasSeleccionadas] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
+  const [esMultimarca, setEsMultimarca] = useState(false);
 
   useEffect(() => {
     cargarMarcas();
@@ -163,13 +164,16 @@ export default function MarcasScreen() {
 
   const validarSeleccion = () => {
     try {
+      // Multimarca no necesita marcas individuales
+      if (esMultimarca) return true;
+
       const seleccionadas = Array.isArray(marcasSeleccionadas) ? marcasSeleccionadas : [];
       
       // Validar mínimo
       if (seleccionadas.length === 0) {
         showAlert(
           'Marcas Requeridas',
-          'Debes seleccionar al menos una marca de vehículo que atiendas.'
+          'Debes seleccionar al menos una marca de vehículo que atiendas, o activar la opción "Multimarca".'
         );
         return false;
       }
@@ -214,13 +218,13 @@ export default function MarcasScreen() {
       });
       const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
       if (tipoStr) params.append('tipo', String(tipoStr));
+
+      // Pasar estado multimarca
+      params.append('es_multimarca', esMultimarca ? 'true' : 'false');
       
-      // Validar que marcasSeleccionadas sea un array antes de stringify
-      if (Array.isArray(marcasSeleccionadas)) {
-        params.append('marcas', JSON.stringify(marcasSeleccionadas));
-      } else {
-        params.append('marcas', JSON.stringify([]));
-      }
+      // Marcas: vacío si multimarca, seleccionadas si especialista
+      const marcasFinal = esMultimarca ? [] : (Array.isArray(marcasSeleccionadas) ? marcasSeleccionadas : []);
+      params.append('marcas', JSON.stringify(marcasFinal));
 
       router.push(`/(onboarding)/catalogo-servicios-marcas?${params.toString()}` as any);
     } catch (error: any) {
@@ -316,51 +320,93 @@ export default function MarcasScreen() {
           style={styles.scrollView}
         >
           <OnboardingHeader
-            title="Marcas de Vehículos"
-            subtitle={`Selecciona las marcas de vehículos que atiende tu ${tipo === 'taller' ? 'taller' : 'servicio'}`}
+            title="Cobertura de Marcas"
+            subtitle={esMultimarca ? 'Atiendes vehículos de cualquier marca' : `Selecciona las marcas de vehículos que atiende tu ${tipo === 'taller' ? 'taller' : 'servicio'}`}
             currentStep={3}
             totalSteps={5}
             icon="car"
             backPath={getBackPath()}
           />
 
-          {/* Barra de búsqueda */}
-          <View style={styles.searchContainer}>
-            <InstitutionalIcon name="search" size={20} color="#666666" style={styles.searchIcon}  strokeWidth={ICON_STROKE_WIDTH} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar marca..."
-              value={busqueda}
-              onChangeText={setBusqueda}
-              placeholderTextColor="#999999"
+          {/* Toggle Multimarca */}
+          <TouchableOpacity
+            style={[styles.multimarcaToggle, esMultimarca && styles.multimarcaToggleActive]}
+            onPress={() => setEsMultimarca(prev => !prev)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.multimarcaToggleLeft}>
+              <InstitutionalIcon
+                name="globe-outline"
+                size={24}
+                color={esMultimarca ? '#FFFFFF' : '#4E4FEB'}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+              <View style={styles.multimarcaToggleTexts}>
+                <Text style={[styles.multimarcaToggleTitle, esMultimarca && styles.multimarcaToggleTitleActive]}>
+                  Soy Proveedor Multimarca
+                </Text>
+                <Text style={[styles.multimarcaToggleSubtitle, esMultimarca && styles.multimarcaToggleSubtitleActive]}>
+                  Atiendo vehículos de cualquier marca
+                </Text>
+              </View>
+            </View>
+            <InstitutionalIcon
+              name={esMultimarca ? 'checkmark-circle' : 'ellipse-outline'}
+              size={24}
+              color={esMultimarca ? '#FFFFFF' : '#CCCCCC'}
+              strokeWidth={ICON_STROKE_WIDTH}
             />
-          </View>
+          </TouchableOpacity>
 
-          {/* Botón para seleccionar/deseleccionar todas */}
-          {marcasParaMostrar.length > 0 && (
-            <TouchableOpacity style={styles.selectAllButton} onPress={seleccionarTodas} activeOpacity={0.7}>
-              <InstitutionalIcon 
-                name={todasSeleccionadas ? "checkmark-circle" : "ellipse-outline"} 
-                size={20} 
-                color="#4E4FEB" 
-               strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.selectAllText}>
-                {todasSeleccionadas ? 'Deseleccionar todas' : 'Seleccionar todas'}
+          {esMultimarca ? (
+            <View style={styles.multimarcaInfoBox}>
+              <InstitutionalIcon name="information-circle" size={18} color="#4E4FEB" strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.multimarcaInfoText}>
+                Como proveedor multimarca, aparecerás en búsquedas de usuarios con cualquier marca de vehículo. Podrás configurar tus servicios en el siguiente paso.
               </Text>
-            </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              {/* Barra de búsqueda */}
+              <View style={styles.searchContainer}>
+                <InstitutionalIcon name="search" size={20} color="#666666" style={styles.searchIcon} strokeWidth={ICON_STROKE_WIDTH} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Buscar marca..."
+                  value={busqueda}
+                  onChangeText={setBusqueda}
+                  placeholderTextColor="#999999"
+                />
+              </View>
+
+              {/* Botón para seleccionar/deseleccionar todas */}
+              {marcasParaMostrar.length > 0 && (
+                <TouchableOpacity style={styles.selectAllButton} onPress={seleccionarTodas} activeOpacity={0.7}>
+                  <InstitutionalIcon
+                    name={todasSeleccionadas ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={20}
+                    color="#4E4FEB"
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
+                  <Text style={styles.selectAllText}>
+                    {todasSeleccionadas ? 'Deseleccionar todas' : 'Seleccionar todas'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Contador de selecciones */}
+              <View style={styles.counterContainer}>
+                <Text style={styles.counterText}>
+                  {Array.isArray(marcasSeleccionadas) ? marcasSeleccionadas.length : 0} / {MAX_MARCAS} marca{(Array.isArray(marcasSeleccionadas) && marcasSeleccionadas.length !== 1) ? 's' : ''} seleccionada{(Array.isArray(marcasSeleccionadas) && marcasSeleccionadas.length !== 1) ? 's' : ''}
+                </Text>
+              </View>
+
+              {/* Lista de marcas */}
+              <View style={styles.marcasContainer}>
+                {marcasParaMostrar.map(renderMarca)}
+              </View>
+            </>
           )}
-
-          {/* Contador de selecciones */}
-          <View style={styles.counterContainer}>
-            <Text style={styles.counterText}>
-              {Array.isArray(marcasSeleccionadas) ? marcasSeleccionadas.length : 0} / {MAX_MARCAS} marca{(Array.isArray(marcasSeleccionadas) && marcasSeleccionadas.length !== 1) ? 's' : ''} seleccionada{(Array.isArray(marcasSeleccionadas) && marcasSeleccionadas.length !== 1) ? 's' : ''}
-            </Text>
-          </View>
-
-          {/* Lista de marcas */}
-          <View style={styles.marcasContainer}>
-            {marcasParaMostrar.map(renderMarca)}
-          </View>
 
           {marcasParaMostrar.length === 0 && (
             <View style={styles.emptyContainer}>
@@ -452,6 +498,61 @@ const styles = StyleSheet.create({
     color: '#666666',
     textAlign: 'center',
     fontWeight: '600',
+  },
+  multimarcaToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#4E4FEB',
+  },
+  multimarcaToggleActive: {
+    backgroundColor: '#4E4FEB',
+    borderColor: '#4E4FEB',
+  },
+  multimarcaToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  multimarcaToggleTexts: {
+    flex: 1,
+  },
+  multimarcaToggleTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#4E4FEB',
+    marginBottom: 2,
+  },
+  multimarcaToggleTitleActive: {
+    color: '#FFFFFF',
+  },
+  multimarcaToggleSubtitle: {
+    fontSize: 12,
+    color: '#666666',
+  },
+  multimarcaToggleSubtitleActive: {
+    color: 'rgba(255,255,255,0.8)',
+  },
+  multimarcaInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#EEF3FF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    gap: 10,
+  },
+  multimarcaInfoText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#444',
+    lineHeight: 19,
   },
   marcasContainer: {
     gap: 12,
