@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +18,7 @@ import {
   formatRutForDisplay,
   rutCompactoEsValido,
 } from '@/utils/chileRut';
+import { showAlert } from '@/utils/platformAlert';
 import {
   mergeNineMobileDigits,
   telefonoCompletoDesdeNacional,
@@ -270,7 +270,7 @@ export default function InformacionBasicaScreen() {
     if (!puedeContinuar) return;
 
     if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) {
-      Alert.alert('Error', 'Tipo de proveedor no válido. Por favor, vuelve al inicio.');
+      showAlert('Error', 'Tipo de proveedor no válido. Por favor, vuelve al inicio.');
       router.replace('/(onboarding)/tipo-cuenta');
       return;
     }
@@ -299,13 +299,13 @@ export default function InformacionBasicaScreen() {
       if (!dataDoc.disponible) {
         setRutRemoto('taken');
         setRutRemotoMsg(dataDoc.mensaje || 'Este RUT ya está registrado.');
-        Alert.alert('Documento ya registrado', dataDoc.mensaje || 'Este RUT ya está registrado.');
+        showAlert('Documento ya registrado', dataDoc.mensaje || 'Este RUT ya está registrado.');
         return;
       }
       if (!dataTel.disponible) {
         setTelRemoto('taken');
         setTelRemotoMsg(dataTel.mensaje || 'Este número ya está registrado.');
-        Alert.alert('Teléfono no disponible', dataTel.mensaje || 'Este número ya está registrado.');
+        showAlert('Teléfono no disponible', dataTel.mensaje || 'Este número ya está registrado.');
         return;
       }
 
@@ -334,7 +334,7 @@ export default function InformacionBasicaScreen() {
         e.response?.data?.error ||
         e.response?.data?.detail ||
         'No se pudo confirmar los datos. Intenta de nuevo.';
-      Alert.alert('Error', msg);
+      showAlert('Error', msg);
     } finally {
       setVerificando(false);
     }

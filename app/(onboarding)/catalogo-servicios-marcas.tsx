@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +13,7 @@ import { serviciosAPI, vehiculoAPI, type MarcaVehiculo } from '@/services/api';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
 
 type ServicioCatalogo = {
   id: number;
@@ -95,7 +95,7 @@ export default function CatalogoServiciosMarcasScreen() {
       setGrupos(resultados);
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'No se pudo cargar el catálogo de servicios. Intenta de nuevo.');
+      showAlert('Error', 'No se pudo cargar el catálogo de servicios. Intenta de nuevo.');
       setGrupos([]);
     } finally {
       setIsLoading(false);
@@ -151,13 +151,13 @@ export default function CatalogoServiciosMarcasScreen() {
 
   const handleContinuar = () => {
     if (totalSeleccionados === 0) {
-      Alert.alert(
+      showConfirm(
         'Sin servicios seleccionados',
         'Selecciona al menos un servicio para continuar. Puedes agregar más desde "Mis servicios" luego.',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Continuar de todas formas', onPress: () => navegar() },
-        ],
+        {
+          confirmText: 'Continuar de todas formas',
+          onConfirm: () => navegar(),
+        },
       );
       return;
     }
@@ -168,7 +168,7 @@ export default function CatalogoServiciosMarcasScreen() {
     try {
       const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
       if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) {
-        Alert.alert('Error', 'Tipo de proveedor no válido. Vuelve al inicio.');
+        showAlert('Error', 'Tipo de proveedor no válido. Vuelve al inicio.');
         router.replace('/(onboarding)/tipo-cuenta');
         return;
       }
@@ -195,7 +195,7 @@ export default function CatalogoServiciosMarcasScreen() {
       router.push(`/(onboarding)/finalizar-basico?${params.toString()}` as any);
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'No se pudo continuar. Intenta nuevamente.');
+      showAlert('Error', 'No se pudo continuar. Intenta nuevamente.');
     }
   };
 

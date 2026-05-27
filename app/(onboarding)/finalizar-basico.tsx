@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +14,7 @@ import { useAuth } from '@/context/AuthContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 
 export default function FinalizarBasicoScreen() {
   const { tipo, especialidades, marcas, servicios_seleccionados, ...otherParams } = useLocalSearchParams();
@@ -156,18 +156,12 @@ export default function FinalizarBasicoScreen() {
       dataProcessed.current = true;
       } catch (error: any) {
       console.error('Error crítico procesando datos del onboarding:', error);
-      Alert.alert(
-        'Error',
-        'Ocurrió un error al procesar los datos. Por favor, vuelve al inicio del onboarding.',
-        [
-          {
-            text: 'Volver al inicio',
-            onPress: () => {
-              router.replace('/(onboarding)/tipo-cuenta');
-            }
-          }
-        ]
-      );
+      showAlertButtons('Error', 'Ocurrió un error al procesar los datos. Por favor, vuelve al inicio del onboarding.', [
+        {
+          text: 'Volver al inicio',
+          onPress: () => router.replace('/(onboarding)/tipo-cuenta'),
+        },
+      ]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipo, especialidades, marcas, servicios_seleccionados]);
@@ -210,14 +204,14 @@ export default function FinalizarBasicoScreen() {
       }
       
       if (errores.length > 0) {
-        Alert.alert('Datos Incompletos', errores.join('\n\n'));
+        showAlert('Datos Incompletos', errores.join('\n\n'));
         return false;
       }
       
       return true;
     } catch (error) {
       console.error('Error en validarDatos:', error);
-      Alert.alert('Error', 'Ocurrió un error al validar los datos.');
+      showAlert('Error', 'Ocurrió un error al validar los datos.');
       return false;
     }
   };
@@ -321,7 +315,7 @@ export default function FinalizarBasicoScreen() {
     
     if (!validarDatos() || !usuario) {
       console.error('❌ Validación fallida o usuario no encontrado');
-      Alert.alert('Error', 'Faltan datos requeridos o no se encontró información del usuario');
+      showAlert('Error', 'Faltan datos requeridos o no se encontró información del usuario');
       return;
     }
 
@@ -519,7 +513,7 @@ export default function FinalizarBasicoScreen() {
         ? `Tu perfil de ${datosCompletos.tipo === 'taller' ? 'taller mecánico' : 'mecánico a domicilio'} ha sido creado exitosamente.`
         : `Tu información de onboarding ha sido actualizada exitosamente.`;
         
-      Alert.alert(
+      showAlertButtons(
         '🎉 Onboarding Completado',
         `${mensajeExito}\n\nAhora necesitas completar tu documentación para activar tu cuenta y empezar a recibir órdenes de servicio.`,
         [
@@ -528,9 +522,9 @@ export default function FinalizarBasicoScreen() {
             onPress: () => {
               console.log('🏠 Navegando a subir documentos...');
               router.replace('/(onboarding)/subir-documentos');
-            }
-          }
-        ]
+            },
+          },
+        ],
       );
 
     } catch (error: any) {
@@ -579,10 +573,10 @@ export default function FinalizarBasicoScreen() {
           console.log('🔄 Refrescando estado para perfil existente...');
           await refrescarEstadoProveedor();
           
-          Alert.alert(
+          showAlertButtons(
             '✅ Información Actualizada',
             'Tu información de onboarding ha sido actualizada exitosamente. Ahora puedes proceder a subir tus documentos.',
-            [{ text: 'Subir Documentos', onPress: () => router.replace('/(onboarding)/subir-documentos') }]
+            [{ text: 'Subir Documentos', onPress: () => router.replace('/(onboarding)/subir-documentos') }],
           );
           return;
         } catch (updateError: any) {
@@ -599,7 +593,7 @@ export default function FinalizarBasicoScreen() {
         mensajeError = error.response.data.errores.join('\n');
       }
       
-      Alert.alert(tituloError, `${mensajeError}\n\n(Paso fallido: ${pasoCompletado}/6)`);
+      showAlert(tituloError, `${mensajeError}\n\n(Paso fallido: ${pasoCompletado}/6)`);
     } finally {
       setIsSubmitting(false);
       setProgresoSubida('');

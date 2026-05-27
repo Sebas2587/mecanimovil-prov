@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Modal,
   Image,
@@ -22,6 +21,7 @@ import OnboardingHeader from '@/components/OnboardingHeader';
 import { Buffer } from 'buffer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
 
 interface DocumentoInfo {
   nombre: string;
@@ -132,30 +132,26 @@ export default function SubirDocumentosScreen() {
   const abrirSelectorDocumento = (documentoInfo: DocumentoInfo) => {
     setTipoDocumentoActual(documentoInfo);
     
+    if (Platform.OS === 'web') {
+      seleccionarImagen(documentoInfo);
+      return;
+    }
+
     // En iOS con Expo Go, el Modal puede bloquear launchCameraAsync
-    // Usar Alert en lugar de Modal para evitar problemas
     if (Platform.OS === 'ios') {
-      Alert.alert(
+      showAlertButtons(
         `Seleccionar ${documentoInfo.nombre}`,
         '¿Cómo quieres agregar el documento?',
         [
           { text: 'Cancelar', style: 'cancel' },
-          { 
-            text: 'Tomar Foto', 
-            onPress: () => tomarFoto(documentoInfo) 
-          },
-          { 
-            text: 'Galería', 
-            onPress: () => seleccionarImagen(documentoInfo) 
-          },
-          ...(documentoInfo.acepta.includes('PDF') ? [{
-            text: 'PDF',
-            onPress: () => seleccionarDocumento(documentoInfo)
-          }] : [])
-        ]
+          { text: 'Tomar Foto', onPress: () => tomarFoto(documentoInfo) },
+          { text: 'Galería', onPress: () => seleccionarImagen(documentoInfo) },
+          ...(documentoInfo.acepta.includes('PDF')
+            ? [{ text: 'PDF', onPress: () => seleccionarDocumento(documentoInfo) }]
+            : []),
+        ],
       );
     } else {
-      // En Android, usar Modal normalmente
       setModalVisible(true);
     }
   };
@@ -177,13 +173,13 @@ export default function SubirDocumentosScreen() {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert(
+        showAlertButtons(
           'Permisos Requeridos',
           'Necesitamos acceso a tu galería para seleccionar documentos. Por favor, permite el acceso en la configuración de la app.',
           [
             { text: 'Cancelar', style: 'cancel' },
-            { 
-              text: 'Abrir Configuración', 
+            {
+              text: 'Abrir Configuración',
               onPress: async () => {
                 try {
                   if (Platform.OS === 'ios') {
@@ -196,9 +192,9 @@ export default function SubirDocumentosScreen() {
                     console.error('Error abriendo configuración:', error);
                   }
                 }
-              }
-            }
-          ]
+              },
+            },
+          ],
         );
         return;
       }
@@ -218,7 +214,7 @@ export default function SubirDocumentosScreen() {
       if (__DEV__) {
         console.error('Error seleccionando imagen:', error);
       }
-      Alert.alert(
+      showAlert(
         'Error', 
         error.message || 'No se pudo seleccionar la imagen. Verifica que tengas permisos de galería.'
       );
@@ -252,13 +248,13 @@ export default function SubirDocumentosScreen() {
       
       if (status !== 'granted') {
         console.log('📸 [DEBUG] Permisos denegados');
-        Alert.alert(
+        showAlertButtons(
           'Permisos Requeridos',
           'Necesitamos acceso a tu cámara para tomar fotos de documentos. Por favor, permite el acceso en la configuración de la app.',
           [
             { text: 'Cancelar', style: 'cancel' },
-            { 
-              text: 'Abrir Configuración', 
+            {
+              text: 'Abrir Configuración',
               onPress: async () => {
                 try {
                   if (Platform.OS === 'ios') {
@@ -269,9 +265,9 @@ export default function SubirDocumentosScreen() {
                 } catch (error) {
                   console.error('❌ [DEBUG] Error abriendo configuración:', error);
                 }
-              }
-            }
-          ]
+              },
+            },
+          ],
         );
         return;
       }
@@ -305,7 +301,7 @@ export default function SubirDocumentosScreen() {
         name: error?.name,
         code: error?.code
       });
-      Alert.alert(
+      showAlert(
         'Error', 
         error?.message || 'No se pudo tomar la foto. Verifica que tengas permisos de cámara.'
       );
@@ -336,7 +332,7 @@ export default function SubirDocumentosScreen() {
       }
     } catch (error) {
       console.error('Error seleccionando documento:', error);
-      Alert.alert('Error', 'No se pudo seleccionar el documento');
+      showAlert('Error', 'No se pudo seleccionar el documento');
     }
     setModalVisible(false);
   };
@@ -395,7 +391,7 @@ export default function SubirDocumentosScreen() {
       }));
 
       // Mostrar mensaje de éxito
-      Alert.alert('✅ Documento Subido', `${getTipoDocumentoInfo(documento.tipo)?.nombre} se subió correctamente`);
+      showAlert('✅ Documento Subido', `${getTipoDocumentoInfo(documento.tipo)?.nombre} se subió correctamente`);
 
     } catch (error: any) {
       console.error('❌ Error subiendo documento:', error);
@@ -413,7 +409,7 @@ export default function SubirDocumentosScreen() {
         [documento.tipo]: { ...documento, subiendose: false, error: mensajeError }
       }));
 
-      Alert.alert('❌ Error al Subir', `No se pudo subir ${getTipoDocumentoInfo(documento.tipo)?.nombre}:\n${mensajeError}`);
+      showAlert('❌ Error al Subir', `No se pudo subir ${getTipoDocumentoInfo(documento.tipo)?.nombre}:\n${mensajeError}`);
     }
   };
 
@@ -454,7 +450,7 @@ export default function SubirDocumentosScreen() {
 
   const completarDocumentacion = async () => {
     if (!puedeCompletar()) {
-      Alert.alert('Documentos Faltantes', 'Debes subir todos los documentos obligatorios antes de continuar');
+      showAlert('Documentos Faltantes', 'Debes subir todos los documentos obligatorios antes de continuar');
       return;
     }
 
@@ -471,20 +467,20 @@ export default function SubirDocumentosScreen() {
       setProgreso('Finalizando...');
       
       // Mostrar mensaje de éxito
-      Alert.alert(
+      showAlertButtons(
         '🎉 Documentación Completada',
         'Todos tus documentos han sido subidos exitosamente. Tu cuenta está ahora en revisión por nuestro equipo.',
         [
           {
             text: 'Continuar',
-            onPress: () => router.replace('/(onboarding)/cuenta-en-revision')
-          }
-        ]
+            onPress: () => router.replace('/(onboarding)/cuenta-en-revision'),
+          },
+        ],
       );
 
     } catch (error: any) {
       console.error('❌ Error completando documentación:', error);
-      Alert.alert('Error', 'No se pudo completar la documentación. Intenta nuevamente.');
+      showAlert('Error', 'No se pudo completar la documentación. Intenta nuevamente.');
     } finally {
       setIsFinalizando(false);
       setProgreso('');
@@ -492,13 +488,13 @@ export default function SubirDocumentosScreen() {
   };
 
   const omitirDocumentosOpcionales = () => {
-    Alert.alert(
+    showConfirm(
       'Omitir Documentos Opcionales',
       'Puedes agregar documentos opcionales más tarde desde tu perfil. ¿Deseas continuar?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Continuar', onPress: completarDocumentacion }
-      ]
+      {
+        confirmText: 'Continuar',
+        onConfirm: completarDocumentacion,
+      },
     );
   };
 

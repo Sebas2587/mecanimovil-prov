@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
   TextInput,
 } from 'react-native';
@@ -16,6 +15,7 @@ import { useAuth } from '@/context/AuthContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { showAlert } from '@/utils/platformAlert';
 
 export default function EspecialidadesScreen() {
   const { tipo, ...otherParams } = useLocalSearchParams();
@@ -78,10 +78,9 @@ export default function EspecialidadesScreen() {
       } else {
         // Verificar límite antes de seleccionar
         if (prevArray.length >= MAX_ESPECIALIDADES) {
-          Alert.alert(
+          showAlert(
             'Límite alcanzado',
-            `Solo puedes seleccionar un máximo de ${MAX_ESPECIALIDADES} especialidades.`,
-            [{ text: 'OK' }]
+            `Solo puedes seleccionar un máximo de ${MAX_ESPECIALIDADES} especialidades.`
           );
           return prevArray;
         }
@@ -123,10 +122,9 @@ export default function EspecialidadesScreen() {
       const disponibles = MAX_ESPECIALIDADES - prevArray.length;
       
       if (disponibles <= 0) {
-        Alert.alert(
+        showAlert(
           'Límite alcanzado',
-          `Solo puedes seleccionar un máximo de ${MAX_ESPECIALIDADES} especialidades.`,
-          [{ text: 'OK' }]
+          `Solo puedes seleccionar un máximo de ${MAX_ESPECIALIDADES} especialidades.`
         );
         return;
       }
@@ -143,10 +141,9 @@ export default function EspecialidadesScreen() {
       });
       
       if (nuevasSelecciones.length < especialidadesFiltradasList.filter(e => !prevArray.includes(e.id)).length) {
-        Alert.alert(
+        showAlert(
           'Límite alcanzado',
-          `Se seleccionaron ${nuevasSelecciones.length} especialidades. Solo puedes tener un máximo de ${MAX_ESPECIALIDADES}.`,
-          [{ text: 'OK' }]
+          `Se seleccionaron ${nuevasSelecciones.length} especialidades. Solo puedes tener un máximo de ${MAX_ESPECIALIDADES}.`
         );
       }
     }
@@ -159,7 +156,7 @@ export default function EspecialidadesScreen() {
       
       // Validar mínimo para mecánicos
       if (tipoStr === 'mecanico' && seleccionadas.length === 0) {
-        Alert.alert(
+        showAlert(
           'Especialidades Requeridas',
           'Como mecánico a domicilio, debes seleccionar al menos una especialidad.'
         );
@@ -168,7 +165,7 @@ export default function EspecialidadesScreen() {
       
       // Validar máximo
       if (seleccionadas.length > MAX_ESPECIALIDADES) {
-        Alert.alert(
+        showAlert(
           'Límite excedido',
           `Solo puedes seleccionar un máximo de ${MAX_ESPECIALIDADES} especialidades.`
         );
@@ -210,7 +207,7 @@ export default function EspecialidadesScreen() {
       // Validar que tipo esté definido
       const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
       if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) {
-        Alert.alert('Error', 'Tipo de proveedor no válido. Por favor, vuelve al inicio.');
+        showAlert('Error', 'Tipo de proveedor no válido. Por favor, vuelve al inicio.');
         router.replace('/(onboarding)/tipo-cuenta');
         return;
       }
@@ -237,10 +234,9 @@ export default function EspecialidadesScreen() {
       router.push(`/(onboarding)/marcas?${params.toString()}`);
     } catch (error: any) {
       console.error('Error en handleContinuar (especialidades):', error);
-      Alert.alert(
+      showAlert(
         'Error',
-        'Ocurrió un error al continuar. Por favor, intenta nuevamente.',
-        [{ text: 'OK' }]
+        'Ocurrió un error al continuar. Por favor, intenta nuevamente.'
       );
     }
   };

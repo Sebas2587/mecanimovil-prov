@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
+  Platform,
   Image,
   ActivityIndicator,
 } from 'react-native';
@@ -17,6 +17,7 @@ import OnboardingHeader from '@/components/OnboardingHeader';
 import { Buffer } from 'buffer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 
 interface DocumentoLocal {
   uri: string;
@@ -58,7 +59,7 @@ export default function DocumentacionScreen() {
       
     } catch (error) {
       console.error('Error cargando tipos de documento:', error);
-      Alert.alert('Error', 'No se pudieron cargar los tipos de documento');
+      showAlert('Error', 'No se pudieron cargar los tipos de documento');
     } finally {
       setIsLoadingTipos(false);
     }
@@ -82,7 +83,7 @@ export default function DocumentacionScreen() {
   const solicitarPermisos = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
+      showAlert(
         'Permisos Requeridos',
         'Necesitamos acceso a tu galería para seleccionar documentos.'
       );
@@ -95,15 +96,16 @@ export default function DocumentacionScreen() {
     const tienePermisos = await solicitarPermisos();
     if (!tienePermisos) return;
 
-    Alert.alert(
-      'Seleccionar Imagen',
-      '¿Cómo quieres agregar la imagen?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Galería', onPress: () => abrirGaleria(tipoDoc, nombreDoc) },
-        { text: 'Cámara', onPress: () => abrirCamara(tipoDoc, nombreDoc) },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      abrirGaleria(tipoDoc, nombreDoc);
+      return;
+    }
+
+    showAlertButtons('Seleccionar Imagen', '¿Cómo quieres agregar la imagen?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Galería', onPress: () => abrirGaleria(tipoDoc, nombreDoc) },
+      { text: 'Cámara', onPress: () => abrirCamara(tipoDoc, nombreDoc) },
+    ]);
   };
 
   const abrirGaleria = async (tipoDoc: string, nombreDoc: string) => {
@@ -120,7 +122,7 @@ export default function DocumentacionScreen() {
         guardarDocumentoLocal(tipoDoc, nombreDoc, asset);
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+      showAlert('Error', 'No se pudo seleccionar la imagen');
     }
   };
 
@@ -128,7 +130,7 @@ export default function DocumentacionScreen() {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Error', 'Se necesita permiso para usar la cámara');
+        showAlert('Error', 'Se necesita permiso para usar la cámara');
         return;
       }
 
@@ -143,7 +145,7 @@ export default function DocumentacionScreen() {
         guardarDocumentoLocal(tipoDoc, nombreDoc, asset);
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo tomar la foto');
+      showAlert('Error', 'No se pudo tomar la foto');
     }
   };
 
@@ -187,7 +189,7 @@ export default function DocumentacionScreen() {
         return tipoEncontrado ? tipoEncontrado.label : key;
       });
       
-      Alert.alert(
+      showAlert(
         'Documentos Obligatorios Faltantes',
         `Debes seleccionar los siguientes documentos:\n${nombresDoc.map(nombre => `• ${nombre}`).join('\n')}`
       );
@@ -233,10 +235,9 @@ export default function DocumentacionScreen() {
         console.log('Documentos:', documentos);
         
         // Mostrar alerta si falla la serialización
-        Alert.alert(
+        showAlert(
           'Error al Preparar Documentos',
-          'Hubo un problema preparando tus documentos. Por favor, intenta nuevamente.',
-          [{ text: 'OK' }]
+          'Hubo un problema preparando tus documentos. Por favor, intenta nuevamente.'
         );
         return;
       }

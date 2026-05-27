@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +15,7 @@ import OnboardingHeader from '@/components/OnboardingHeader';
 import { Buffer } from 'buffer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 
 export default function FinalizarOnboardingScreen() {
   const { tipo, especialidades, marcas, documentos, ...otherParams } = useLocalSearchParams();
@@ -103,10 +103,9 @@ export default function FinalizarOnboardingScreen() {
               documentosParsed = {};
               
               // CRÍTICO: Mostrar alerta al usuario
-              Alert.alert(
+              showAlert(
                 'Error de Documentos',
                 'Hubo un problema cargando tus documentos. Por favor, regresa a la pantalla anterior y vuelve a seleccionar tus documentos.',
-                [{ text: 'OK' }]
               );
             }
           }
@@ -189,7 +188,7 @@ export default function FinalizarOnboardingScreen() {
     }
     
     if (errores.length > 0) {
-      Alert.alert('Datos Incompletos', errores.join('\n\n'));
+      showAlert('Datos Incompletos', errores.join('\n\n'));
       return false;
     }
     
@@ -362,7 +361,7 @@ export default function FinalizarOnboardingScreen() {
     
     if (!validarDatos() || !usuario) {
       console.error('❌ Validación fallida o usuario no encontrado');
-      Alert.alert('Error', 'Faltan datos requeridos o no se encontró información del usuario');
+      showAlert('Error', 'Faltan datos requeridos o no se encontró información del usuario');
       return;
     }
 
@@ -581,7 +580,7 @@ export default function FinalizarOnboardingScreen() {
         mensajeCompleto += `\n\nPerfecto: Todos los documentos obligatorios fueron subidos correctamente. Los documentos opcionales pueden subirse más tarde desde tu perfil.`;
       }
         
-      Alert.alert(
+      showAlertButtons(
         '¡Registro Completado! 🎉',
         `${mensajeCompleto}\n\n📋 Estado: Pendiente de revisión\n👥 Nuestro equipo revisará tu información y documentos.\n📧 Te contactaremos cuando tu perfil esté aprobado.`,
         [
@@ -645,10 +644,10 @@ export default function FinalizarOnboardingScreen() {
           console.log('🔄 Refrescando estado para perfil existente...');
           await refrescarEstadoProveedor();
           
-          Alert.alert(
+          showAlertButtons(
             '¡Información Actualizada! ✅',
             'Tu información de onboarding ha sido actualizada exitosamente.',
-            [{ text: 'Entendido', onPress: () => router.replace('/') }]
+            [{ text: 'Entendido', onPress: () => router.replace('/') }],
           );
           return;
         } catch (updateError: any) {
@@ -665,7 +664,7 @@ export default function FinalizarOnboardingScreen() {
         mensajeError = error.response.data.errores.join('\n');
       }
       
-      Alert.alert(tituloError, `${mensajeError}\n\n(Paso fallido: ${pasoCompletado}/7)`);
+      showAlert(tituloError, `${mensajeError}\n\n(Paso fallido: ${pasoCompletado}/7)`);
     } finally {
       setIsSubmitting(false);
       setProgresoSubida('');

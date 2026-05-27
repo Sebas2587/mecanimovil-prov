@@ -5,14 +5,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { authAPI, getAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
-import * as SecureStore from 'expo-secure-store';
+import { deleteItem, getItem, setItem } from '@/utils/authStorage';
+import { showAlertButtons, showConfirm } from '@/utils/platformAlert';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -28,7 +28,7 @@ export default function TipoCuentaScreen() {
   useEffect(() => {
     const checkPendingRegistration = async () => {
       try {
-        const pendingData = await SecureStore.getItemAsync('pendingRegistration');
+        const pendingData = await getItem('pendingRegistration');
         if (pendingData) {
           const credentials = JSON.parse(pendingData);
           
@@ -50,8 +50,8 @@ export default function TipoCuentaScreen() {
               
               if (loginResponse.data.token) {
                 // Guardar token y datos del usuario
-                await SecureStore.setItemAsync('authToken', loginResponse.data.token);
-                await SecureStore.setItemAsync('userData', JSON.stringify(loginResponse.data.user));
+                await setItem('authToken', loginResponse.data.token);
+                await setItem('userData', JSON.stringify(loginResponse.data.user));
                 
                 // Actualizar el usuario en el contexto
                 if (loginResponse.data.user) {
@@ -73,21 +73,21 @@ export default function TipoCuentaScreen() {
                 }
                 
                 // Limpiar credenciales pendientes
-                await SecureStore.deleteItemAsync('pendingRegistration');
+                await deleteItem('pendingRegistration');
               }
             } catch (loginError: any) {
               if (__DEV__) {
                 console.warn('⚠️ Error en login automático (continuando sin autenticación):', loginError.message);
               }
               // Limpiar credenciales pendientes incluso si falla el login
-              await SecureStore.deleteItemAsync('pendingRegistration');
+              await deleteItem('pendingRegistration');
             }
           } else {
             // Credenciales muy antiguas, limpiarlas
             if (__DEV__) {
               console.log('⏰ Credenciales pendientes expiradas, limpiando...');
             }
-            await SecureStore.deleteItemAsync('pendingRegistration');
+            await deleteItem('pendingRegistration');
           }
         }
       } catch (error) {
@@ -113,7 +113,7 @@ export default function TipoCuentaScreen() {
     // Si no está autenticado, intentar hacer login con credenciales pendientes
     if (!isAuthenticated) {
       try {
-        const pendingData = await SecureStore.getItemAsync('pendingRegistration');
+        const pendingData = await getItem('pendingRegistration');
         if (pendingData) {
           const credentials = JSON.parse(pendingData);
           if (__DEV__) {
@@ -129,8 +129,8 @@ export default function TipoCuentaScreen() {
           
           if (loginResponse.data.token) {
             // Guardar token y datos del usuario
-            await SecureStore.setItemAsync('authToken', loginResponse.data.token);
-            await SecureStore.setItemAsync('userData', JSON.stringify(loginResponse.data.user));
+            await setItem('authToken', loginResponse.data.token);
+            await setItem('userData', JSON.stringify(loginResponse.data.user));
             
             // Actualizar el usuario en el contexto
             if (loginResponse.data.user) {
@@ -147,31 +147,26 @@ export default function TipoCuentaScreen() {
               }
             }
             
-            await SecureStore.deleteItemAsync('pendingRegistration');
+            await deleteItem('pendingRegistration');
             if (__DEV__) {
               console.log('✅ Login exitoso con credenciales pendientes');
             }
           }
         } else {
-          Alert.alert(
-            'Sesión requerida',
-            'Por favor, inicia sesión para continuar con el registro.',
-            [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }]
-          );
+          showAlertButtons('Sesión requerida', 'Por favor, inicia sesión para continuar con el registro.', [
+            { text: 'OK', onPress: () => router.replace('/(auth)/login') },
+          ]);
           return;
         }
       } catch (loginError: any) {
         if (__DEV__) {
           console.error('❌ Error en login con credenciales pendientes:', loginError);
         }
-        Alert.alert(
-          'Error de autenticación',
-          'No se pudo iniciar sesión. Por favor, intenta nuevamente.',
-          [
-            { text: 'Intentar de nuevo', onPress: () => handleContinuar() },
-            { text: 'Ir al login', onPress: () => router.replace('/(auth)/login') }
-          ]
-        );
+        showConfirm('Error de autenticación', 'No se pudo iniciar sesión. ¿Intentar de nuevo?', {
+          confirmText: 'Intentar de nuevo',
+          onConfirm: () => handleContinuar(),
+          onCancel: () => router.replace('/(auth)/login'),
+        });
         return;
       }
     }
@@ -223,23 +218,10 @@ export default function TipoCuentaScreen() {
       }
       
       // Mostrar error con opción de reintentar
-      Alert.alert(
-        'Error',
-        mensajeError,
-        [
-          {
-            text: 'Reintentar',
-            onPress: () => {
-              // Pequeño delay para evitar múltiples llamadas rápidas
-              setTimeout(() => handleContinuar(), 500);
-            }
-          },
-          {
-            text: 'Cancelar',
-            style: 'cancel'
-          }
-        ]
-      );
+      showConfirm('Error', mensajeError, {
+        confirmText: 'Reintentar',
+        onConfirm: () => setTimeout(() => handleContinuar(), 500),
+      });
     } finally {
       setIsLoading(false);
     }

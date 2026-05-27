@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
   TextInput,
 } from 'react-native';
@@ -16,6 +15,7 @@ import { useAuth } from '@/context/AuthContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { showAlert } from '@/utils/platformAlert';
 
 export default function MarcasScreen() {
   const { tipo, ...otherParams } = useLocalSearchParams();
@@ -91,10 +91,9 @@ export default function MarcasScreen() {
       } else {
         // Verificar límite antes de seleccionar
         if (prevArray.length >= MAX_MARCAS) {
-          Alert.alert(
+          showAlert(
             'Límite alcanzado',
-            `Solo puedes seleccionar un máximo de ${MAX_MARCAS} marcas automotrices.`,
-            [{ text: 'OK' }]
+            `Solo puedes seleccionar un máximo de ${MAX_MARCAS} marcas automotrices.`
           );
           return prevArray;
         }
@@ -135,10 +134,9 @@ export default function MarcasScreen() {
       const disponibles = MAX_MARCAS - prevArray.length;
       
       if (disponibles <= 0) {
-        Alert.alert(
+        showAlert(
           'Límite alcanzado',
-          `Solo puedes seleccionar un máximo de ${MAX_MARCAS} marcas automotrices.`,
-          [{ text: 'OK' }]
+          `Solo puedes seleccionar un máximo de ${MAX_MARCAS} marcas automotrices.`
         );
         return;
       }
@@ -155,10 +153,9 @@ export default function MarcasScreen() {
       });
       
       if (nuevasSelecciones.length < marcasFiltradasList.filter(m => !prevArray.includes(m.id)).length) {
-        Alert.alert(
+        showAlert(
           'Límite alcanzado',
-          `Se seleccionaron ${nuevasSelecciones.length} marcas. Solo puedes tener un máximo de ${MAX_MARCAS}.`,
-          [{ text: 'OK' }]
+          `Se seleccionaron ${nuevasSelecciones.length} marcas. Solo puedes tener un máximo de ${MAX_MARCAS}.`
         );
       }
     }
@@ -170,7 +167,7 @@ export default function MarcasScreen() {
       
       // Validar mínimo
       if (seleccionadas.length === 0) {
-        Alert.alert(
+        showAlert(
           'Marcas Requeridas',
           'Debes seleccionar al menos una marca de vehículo que atiendas.'
         );
@@ -179,7 +176,7 @@ export default function MarcasScreen() {
       
       // Validar máximo
       if (seleccionadas.length > MAX_MARCAS) {
-        Alert.alert(
+        showAlert(
           'Límite excedido',
           `Solo puedes seleccionar un máximo de ${MAX_MARCAS} marcas automotrices.`
         );
@@ -189,7 +186,7 @@ export default function MarcasScreen() {
       return true;
     } catch (error) {
       console.error('Error en validarSeleccion:', error);
-      Alert.alert('Error', 'Ocurrió un error al validar la selección.');
+      showAlert('Error', 'Ocurrió un error al validar la selección.');
       return false;
     }
   };
@@ -202,7 +199,7 @@ export default function MarcasScreen() {
 
       // Validar que tipo esté definido
       if (!tipo || (tipo !== 'taller' && tipo !== 'mecanico')) {
-        Alert.alert('Error', 'Tipo de proveedor no válido. Por favor, vuelve al inicio.');
+        showAlert('Error', 'Tipo de proveedor no válido. Por favor, vuelve al inicio.');
         router.replace('/(onboarding)/tipo-cuenta');
         return;
       }
@@ -228,10 +225,9 @@ export default function MarcasScreen() {
       router.push(`/(onboarding)/catalogo-servicios-marcas?${params.toString()}` as any);
     } catch (error: any) {
       console.error('Error en handleContinuar (marcas):', error);
-      Alert.alert(
+      showAlert(
         'Error',
-        'Ocurrió un error al continuar. Por favor, intenta nuevamente.',
-        [{ text: 'OK' }]
+        'Ocurrió un error al continuar. Por favor, intenta nuevamente.'
       );
     }
   };
