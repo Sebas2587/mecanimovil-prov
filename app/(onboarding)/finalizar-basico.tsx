@@ -169,8 +169,12 @@ export default function FinalizarBasicoScreen() {
       
       console.log('Datos consolidados:', {
         tipo: datos.tipo,
+        serviciosSeleccionados: Array.isArray(datos.servicios_seleccionados)
+          ? datos.servicios_seleccionados.length
+          : 0,
         tieneEspecialidades: Array.isArray(datos.especialidades) && datos.especialidades.length > 0,
         tieneMarcas: Array.isArray(datos.marcas) && datos.marcas.length > 0,
+        esMultimarca: datos.es_multimarca,
         nombre: !!datos.nombre,
         telefono: !!datos.telefono,
         descripcion: !!datos.descripcion,
@@ -229,6 +233,15 @@ export default function FinalizarBasicoScreen() {
         if (!datosCompletos.experiencia_anos || typeof datosCompletos.experiencia_anos !== 'string' || !datosCompletos.experiencia_anos.trim()) {
           errores.push('Años de experiencia son requeridos para validar tu competencia');
         }
+      }
+
+      const serviciosCount = Array.isArray(datosCompletos.servicios_seleccionados)
+        ? datosCompletos.servicios_seleccionados.length
+        : 0;
+      if (serviciosCount === 0) {
+        errores.push(
+          'Debes seleccionar al menos un servicio en el paso de catálogo. Vuelve atrás y marca los servicios que ofreces.'
+        );
       }
       
       if (errores.length > 0) {
@@ -659,6 +672,13 @@ export default function FinalizarBasicoScreen() {
     );
   }
 
+  const serviciosCount = Array.isArray(datosCompletos.servicios_seleccionados)
+    ? datosCompletos.servicios_seleccionados.length
+    : 0;
+  const especialidadesCount = Array.isArray(datosCompletos.especialidades)
+    ? datosCompletos.especialidades.length
+    : 0;
+
   return (
     <OnboardingScreenLayout
       footer={
@@ -738,12 +758,28 @@ export default function FinalizarBasicoScreen() {
 
           <View style={styles.seccionResumen}>
             <View style={styles.seccionHeader}>
-              <InstitutionalIcon name="build" size={24} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.seccionTitulo}>Especialidades</Text>
+              <InstitutionalIcon name="construct" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.seccionTitulo}>Servicios del catálogo</Text>
             </View>
-            <Text style={styles.estadisticaValor}>
-              {Array.isArray(datosCompletos.especialidades) ? datosCompletos.especialidades.length : 0} especialidades seleccionadas
-            </Text>
+            {serviciosCount > 0 ? (
+              <>
+                <Text style={[styles.estadisticaValor, { color: I.semanticUp }]}>
+                  {serviciosCount} servicio{serviciosCount !== 1 ? 's' : ''} seleccionado{serviciosCount !== 1 ? 's' : ''}
+                </Text>
+                <Text style={styles.estadisticaHint}>
+                  Aparecerán en Mis servicios al completar el registro (podrás configurar precios después).
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.estadisticaValor, { color: I.semanticDown }]}>
+                  Ningún servicio detectado
+                </Text>
+                <Text style={styles.estadisticaHint}>
+                  Vuelve al paso anterior y selecciona al menos un servicio antes de finalizar.
+                </Text>
+              </>
+            )}
           </View>
 
           <View style={styles.seccionResumen}>
@@ -759,6 +795,35 @@ export default function FinalizarBasicoScreen() {
             ) : (
               <Text style={styles.estadisticaValor}>
                 {Array.isArray(datosCompletos.marcas) ? datosCompletos.marcas.length : 0} marcas seleccionadas
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.seccionResumen}>
+            <View style={styles.seccionHeader}>
+              <InstitutionalIcon name="build" size={24} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.seccionTitulo}>Especialidades</Text>
+            </View>
+            {datosCompletos.tipo_cobertura_marca === 'multimarca' ? (
+              <>
+                <Text style={styles.estadisticaValor}>
+                  {especialidadesCount > 0
+                    ? `${especialidadesCount} especialidad${especialidadesCount !== 1 ? 'es' : ''} en el formulario`
+                    : 'Se asignan al guardar'}
+                </Text>
+                <Text style={styles.estadisticaHint}>
+                  {serviciosCount > 0
+                    ? `Según tus ${serviciosCount} servicio${serviciosCount !== 1 ? 's' : ''}, el sistema registrará las especialidades (categorías) correspondientes.`
+                    : 'Sin servicios seleccionados no se pueden derivar especialidades.'}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.estadisticaValor}>
+                {especialidadesCount > 0
+                  ? `${especialidadesCount} especialidad${especialidadesCount !== 1 ? 'es' : ''} en el formulario`
+                  : serviciosCount > 0
+                    ? 'Se asignan al guardar según tus servicios'
+                    : '0 — selecciona servicios en el paso anterior'}
               </Text>
             )}
           </View>
@@ -814,6 +879,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     flex: 1,
     textAlign: 'right',
+  },
+  estadisticaHint: {
+    fontSize: 13,
+    color: I.muted,
+    marginTop: 8,
+    lineHeight: 18,
   },
   estadisticaValor: {
     fontSize: 16,

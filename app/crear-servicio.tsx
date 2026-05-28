@@ -21,13 +21,18 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import Header from '@/components/Header';
-import { parseMontoDecimal } from '@/utils/parseMontoDecimal';
+import { parseMontoDecimal, formatMontoForInput } from '@/utils/parseMontoDecimal';
+import { calcularDesglosePrecios } from '@/utils/calcularDesglosePrecios';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { INSTITUTIONAL_SELECTION } from '@/app/design-system/styles/institutionalSelection';
 import { parseOfertasGrupoParam } from '@/utils/agruparOfertasServicio';
+import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+import { esFotoLocalParaSubir, extraerUrlsFotosApi } from '@/utils/fotosServicio';
+
+type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -278,6 +283,7 @@ const CrearServicioScreen = () => {
   const [preciosRepuestos, setPreciosRepuestos] = useState<Map<number, string>>(new Map());
   const [preciosRepuestosVersion, setPreciosRepuestosVersion] = useState(0); // Version counter para forzar recálculos
   const preciosRepuestosRef = useRef<Map<number, string>>(new Map()); // Ref para acceso actualizado en efectos
+  const calculosRequestIdRef = useRef(0);
   const [fotos, setFotos] = useState<string[]>([]);
 
   // Estados de datos de API
@@ -288,6 +294,8 @@ const CrearServicioScreen = () => {
 
   // Estados de UI
   const [loading, setLoading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [saveMessage, setSaveMessage] = useState('');
   const [loadingMarcas, setLoadingMarcas] = useState(true);
   const [loadingServicios, setLoadingServicios] = useState(false);
   const [loadingRepuestos, setLoadingRepuestos] = useState(false);
@@ -369,8 +377,8 @@ const CrearServicioScreen = () => {
           setDuracionMaximaMin(String(legacyMin));
         }
       }
-      setCostoManoObra(servicioExistente.costo_mano_de_obra_sin_iva);
-      setCostoRepuestos(servicioExistente.costo_repuestos_sin_iva);
+      setCostoManoObra(formatMontoForInput(servicioExistente.costo_mano_de_obra_sin_iva));
+      setCostoRepuestos(formatMontoForInput(servicioExistente.costo_repuestos_sin_iva));
       // Pre-cargar fotos - asegurar que sea un array
       const fotosExistentes = servicioExistente.fotos_urls || [];
       setFotos(Array.isArray(fotosExistentes) ? fotosExistentes : []);
@@ -412,7 +420,7 @@ const CrearServicioScreen = () => {
             // Si el repuesto tiene precio personalizado, cargarlo (PRIORIDAD)
             // Cargar el precio incluso si es 0, para mantener la consistencia
             if (typeof r === 'object' && r.precio !== undefined && r.precio !== null && r.precio > 0) {
-              preciosMap.set(id, r.precio.toString());
+              preciosMap.set(id, formatMontoForInput(r.precio));
               console.log(`    💰 Precio cargado para repuesto ${id}: ${r.precio}`);
             } else {
               // Si no hay precio guardado o es 0, dejar vacío para que el proveedor lo ingrese
@@ -438,7 +446,7 @@ const CrearServicioScreen = () => {
             }
             // Si tiene precio personalizado válido, usarlo
             if (r.precio !== undefined && r.precio !== null && r.precio > 0) {
-              preciosMap.set(id, r.precio.toString());
+              preciosMap.set(id, formatMontoForInput(r.precio));
             } else if (!preciosMap.has(id)) {
               // Si no hay precio personalizado válido, dejar vacío para que el proveedor lo ingrese
               preciosMap.set(id, '');
@@ -484,17 +492,34 @@ const CrearServicioScreen = () => {
         console.log('🔩 Repuestos disponibles se cargarán automáticamente por el efecto');
       }
 
-      // Pre-cargar cálculos existentes
-      if (servicioExistente.desglose_precios) {
-        setCalculos(servicioExistente.desglose_precios);
-        setShowCalculos(true);
-      }
-
       // Marcar como pre-cargado para evitar re-ejecución
       setDatosPreCargados(true);
       console.log('✅ Datos pre-cargados para edición');
     }
   }, [isEditMode, servicioId, datosPreCargados, ofertasGrupoInicial.length]);
+
+  // Fotos reales desde FotoServicio (fotos_urls del JSON suele venir vacío)
+  useEffect(() => {
+    if (!isEditMode || !servicioId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { fotosServiciosAPI } = await import('@/services/api');
+        const fotosData = await fotosServiciosAPI.obtenerFotosOferta(servicioId);
+        const urls = extraerUrlsFotosApi(fotosData);
+        if (!cancelled && urls.length > 0) {
+          setFotos(urls);
+        }
+      } catch (error) {
+        console.warn('⚠️ No se pudieron cargar fotos del servicio:', error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditMode, servicioId]);
 
   // Cargar marcas al montar componente e inicializar datosPreCargados para modo creación
   useEffect(() => {
@@ -706,7 +731,7 @@ const CrearServicioScreen = () => {
       }
     });
 
-    return total.toString();
+    return formatMontoForInput(total);
   }, [tipoServicio, repuestosSeleccionados]);
 
   // Sincronizar ref con el estado del Map
@@ -723,6 +748,16 @@ const CrearServicioScreen = () => {
 
 
       setCostoRepuestos(prev => {
+        const nuevoNum = parseMontoDecimal(nuevoTotal);
+        const prevNum = parseMontoDecimal(prev);
+        if (
+          nuevoNum === 0 &&
+          prevNum > 0 &&
+          isEditMode &&
+          repuestosSeleccionados.size > 0
+        ) {
+          return prev;
+        }
         if (prev !== nuevoTotal) {
           console.log(`💰 Actualizando costoRepuestos: ${prev} -> ${nuevoTotal}`);
           return nuevoTotal;
@@ -734,19 +769,47 @@ const CrearServicioScreen = () => {
     }
     // Depender de versión para forzar recálculo cuando cambian los precios
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repuestosSeleccionados, preciosRepuestosVersion, tipoServicio, calcularTotalRepuestos]);
+  }, [repuestosSeleccionados, preciosRepuestosVersion, tipoServicio, calcularTotalRepuestos, isEditMode]);
+
+  const calcularPrecios = useCallback(async () => {
+    const manoObra = parseMontoDecimal(costoManoObra);
+    const repuestos = parseMontoDecimal(costoRepuestos || '0');
+
+    const local = calcularDesglosePrecios(manoObra, repuestos);
+    setCalculos(local);
+    setShowCalculos(manoObra > 0);
+
+    const requestId = ++calculosRequestIdRef.current;
+    try {
+      const { serviciosAPI } = await import('@/services/api');
+      const response = await serviciosAPI.calcularPreview(manoObra, repuestos);
+      if (requestId === calculosRequestIdRef.current) {
+        setCalculos(response.data);
+      }
+    } catch (error) {
+      console.error('❌ Error calculando precios:', error);
+    }
+  }, [costoManoObra, costoRepuestos]);
+
+  const normalizarCostoManoObra = useCallback(() => {
+    const n = parseMontoDecimal(costoManoObra);
+    if (n > 0) {
+      const normalizado = formatMontoForInput(n);
+      if (normalizado !== String(costoManoObra).trim()) {
+        setCostoManoObra(normalizado);
+      }
+    }
+  }, [costoManoObra]);
 
   // Calcular precios en tiempo real (OPTIMIZADO - evita cálculos en pre-carga)
   useEffect(() => {
-    // Solo calcular si no estamos en modo edición con datos ya pre-cargados
-    // o si estamos en modo edición pero el usuario cambió los costos
     if (costoManoObra && (!isEditMode || datosPreCargados)) {
       calcularPrecios();
     } else if (!costoManoObra) {
       setCalculos(null);
       setShowCalculos(false);
     }
-  }, [costoManoObra, costoRepuestos, isEditMode, datosPreCargados]);
+  }, [costoManoObra, costoRepuestos, isEditMode, datosPreCargados, calcularPrecios]);
 
   // Funciones de carga de datos
   const cargarMarcas = async () => {
@@ -882,22 +945,6 @@ const CrearServicioScreen = () => {
     }
   };
 
-  const calcularPrecios = async () => {
-    const manoObra = parseMontoDecimal(costoManoObra);
-    const repuestos = parseMontoDecimal(costoRepuestos || '0');
-
-    try {
-      console.log('💰 Calculando precios:', { manoObra, repuestos });
-      const { serviciosAPI } = await import('@/services/api');
-      const response = await serviciosAPI.calcularPreview(manoObra, repuestos);
-      console.log('✅ Cálculos obtenidos:', response.data);
-      setCalculos(response.data);
-      setShowCalculos(manoObra > 0);
-    } catch (error) {
-      console.error('❌ Error calculando precios:', error);
-    }
-  };
-
   // Función para toggle repuestos
   const toggleRepuesto = (repuestoId: number) => {
     const nuevosSeleccionados = new Set(repuestosSeleccionados);
@@ -1017,46 +1064,52 @@ const CrearServicioScreen = () => {
     );
   };
 
-  // Función para subir fotos al servidor
-  const subirFotosAlServidor = async (ofertaId: number) => {
-    if (fotos.length === 0) {
-      console.log('📸 No hay fotos para subir');
-      return [];
+  // Función para subir fotos nuevas al servidor (omite URLs ya guardadas)
+  const subirFotosAlServidor = async (
+    ofertaId: number,
+    urisLocales?: string[],
+  ) => {
+    const fotosLocales = (urisLocales ?? fotos).filter(esFotoLocalParaSubir);
+    if (fotosLocales.length === 0) {
+      console.log('📸 No hay fotos nuevas para subir');
+      return { subidas: 0, urls: [] as string[] };
     }
 
-    try {
-      console.log(`📸 Subiendo ${fotos.length} fotos al servidor para oferta ${ofertaId}...`);
-      const { fotosServiciosAPI } = await import('@/services/api');
+    console.log(`📸 Subiendo ${fotosLocales.length} foto(s) nueva(s) para oferta ${ofertaId}...`);
+    const { fotosServiciosAPI } = await import('@/services/api');
 
-      // Convertir URIs locales a objetos de archivo
-      const archivos = fotos.map((uri, index) => ({
-        uri: uri,
-        type: 'image/jpeg',
-        name: `foto_servicio_${index + 1}_${Date.now()}.jpg`
-      }));
+    const archivos = fotosLocales.map((uri, index) => ({
+      uri,
+      type: 'image/jpeg',
+      name: `foto_servicio_${index + 1}_${Date.now()}.jpg`,
+    }));
 
-      // Subir múltiples fotos
-      const response = await fotosServiciosAPI.subirMultiplesFotos(ofertaId, archivos);
-      console.log('✅ Fotos subidas exitosamente:', response.fotos?.length || 0);
+    const response = await fotosServiciosAPI.subirMultiplesFotos(ofertaId, archivos);
+    const subidas = response.fotos?.length ?? 0;
+    console.log('✅ Fotos subidas exitosamente:', subidas);
 
-      return response.fotos || [];
-    } catch (error) {
-      console.error('❌ Error subiendo fotos:', error);
-      // No lanzar error aquí, solo logearlo para no interrumpir el flujo principal
-      return [];
-    }
+    const urlsServidor =
+      (response.fotos_urls as string[] | undefined) ??
+      extraerUrlsFotosApi(response.fotos);
+
+    return { subidas, urls: urlsServidor };
   };
+
+  const resetSaveFeedback = useCallback(() => {
+    setSaveStatus('idle');
+    setSaveMessage('');
+  }, []);
 
   // Función para publicar o actualizar servicio
   const publicarServicio = async () => {
     // Validaciones
     if (!costoManoObra || parseMontoDecimal(costoManoObra) <= 0) {
-      Alert.alert('Error', 'Debes especificar un costo de mano de obra válido');
+      showAlert('Error', 'Debes especificar un costo de mano de obra válido');
       return;
     }
 
     if (!tieneSeleccionMarca) {
-      Alert.alert('Error', 'Debes seleccionar al menos una marca de vehículo');
+      showAlert('Error', 'Debes seleccionar al menos una marca de vehículo');
       return;
     }
 
@@ -1076,7 +1129,7 @@ const CrearServicioScreen = () => {
       });
 
       if (repuestosSinPrecio.length > 0) {
-        Alert.alert(
+        showAlert(
           'Precios no confirmados',
           `Tienes ${repuestosSinPrecio.length} repuesto(s) sin precio confirmado. Por favor ingresa el precio y presiona el botón "Confirmar" para cada repuesto seleccionado.`
         );
@@ -1086,28 +1139,32 @@ const CrearServicioScreen = () => {
 
     if (tipoServicio === 'con_repuestos') {
       if (!servicioSeleccionado) {
-        Alert.alert('Error', 'Debes seleccionar un tipo de servicio');
+        showAlert('Error', 'Debes seleccionar un tipo de servicio');
         return;
       }
     }
 
     if (!descripcion.trim()) {
-      Alert.alert('Error', 'Debes agregar una descripción del servicio');
+      showAlert('Error', 'Debes agregar una descripción del servicio');
       return;
     }
 
     const minDur = parseInt(duracionMinimaMin, 10);
     const maxDur = parseInt(duracionMaximaMin, 10);
     if (!Number.isFinite(minDur) || !Number.isFinite(maxDur) || minDur < 15 || maxDur < 15) {
-      Alert.alert('Duración', 'Indica tiempo mínimo y máximo del servicio (mín. 15 minutos cada uno).');
+      showAlert('Duración', 'Indica tiempo mínimo y máximo del servicio (mín. 15 minutos cada uno).');
       return;
     }
     if (minDur > maxDur) {
-      Alert.alert('Duración', 'El tiempo máximo debe ser mayor o igual al mínimo.');
+      showAlert('Duración', 'El tiempo máximo debe ser mayor o igual al mínimo.');
       return;
     }
 
     setLoading(true);
+    setSaveStatus('saving');
+    setSaveMessage(
+      isEditMode ? 'Actualizando servicio, espera un momento…' : 'Publicando servicio, espera un momento…'
+    );
     try {
       const accion = isEditMode ? 'Actualizando' : 'Publicando';
       console.log(`🚀 ${accion} servicio...`);
@@ -1183,6 +1240,10 @@ const CrearServicioScreen = () => {
       let mensajeExito = isEditMode
         ? 'Tu servicio ha sido actualizado correctamente y los cambios ya están disponibles para los clientes.'
         : 'Tu servicio ha sido publicado correctamente y ya está disponible para los clientes.';
+      const erroresFoto: string[] = [];
+      const fotosLocalesSnapshot = fotos.filter(esFotoLocalParaSubir);
+      const hayFotosNuevas = fotosLocalesSnapshot.length > 0;
+      let ultimasUrlsFotos: string[] = [];
 
       if (isEditMode) {
         const marcasPublicacionEdit: (number | null)[] = esGenericoTodasMarcas
@@ -1198,8 +1259,11 @@ const CrearServicioScreen = () => {
         let actualizados = 0;
         let creados = 0;
         const erroresMarca: string[] = [];
+        const totalMarcas = marcasPublicacionEdit.length;
+        let marcaIdx = 0;
 
         for (const marcaApi of marcasPublicacionEdit) {
+          marcaIdx += 1;
           const marcaClave = marcaApi === null ? 0 : marcaApi;
           const ofertaId = ofertasPorMarca.get(marcaClave);
           const datosServicio = {
@@ -1209,12 +1273,31 @@ const CrearServicioScreen = () => {
           const nombreMarca =
             marcas.find((m) => m.id === marcaClave)?.nombre ?? `ID ${marcaClave}`;
 
+          if (totalMarcas > 1) {
+            setSaveMessage(`Guardando ${nombreMarca} (${marcaIdx} de ${totalMarcas})…`);
+          }
+
           try {
             if (ofertaId) {
               const response = await serviciosAPI.actualizarServicio(ofertaId, datosServicio);
               actualizados += 1;
-              if (fotos.length > 0) {
-                await subirFotosAlServidor(response.data.id);
+              if (hayFotosNuevas) {
+                setSaveMessage('Subiendo fotos del servicio…');
+                try {
+                  const { subidas, urls } = await subirFotosAlServidor(
+                    response.data.id,
+                    fotosLocalesSnapshot,
+                  );
+                  if (subidas === 0) {
+                    erroresFoto.push(`${nombreMarca}: no se subieron las fotos`);
+                  } else if (urls.length > 0) {
+                    ultimasUrlsFotos = urls;
+                  }
+                } catch (fotoErr: any) {
+                  erroresFoto.push(
+                    `${nombreMarca}: ${fotoErr?.message ?? 'error al subir fotos'}`
+                  );
+                }
               }
             } else {
               const response = await serviciosAPI.crearServicio(datosServicio);
@@ -1224,8 +1307,23 @@ const CrearServicioScreen = () => {
                 next.set(marcaClave, response.data.id);
                 return next;
               });
-              if (fotos.length > 0) {
-                await subirFotosAlServidor(response.data.id);
+              if (hayFotosNuevas) {
+                setSaveMessage('Subiendo fotos del servicio…');
+                try {
+                  const { subidas, urls } = await subirFotosAlServidor(
+                    response.data.id,
+                    fotosLocalesSnapshot,
+                  );
+                  if (subidas === 0) {
+                    erroresFoto.push(`${nombreMarca}: no se subieron las fotos`);
+                  } else if (urls.length > 0) {
+                    ultimasUrlsFotos = urls;
+                  }
+                } catch (fotoErr: any) {
+                  erroresFoto.push(
+                    `${nombreMarca}: ${fotoErr?.message ?? 'error al subir fotos'}`
+                  );
+                }
               }
             }
           } catch (err: any) {
@@ -1263,17 +1361,44 @@ const CrearServicioScreen = () => {
       } else {
         let creados = 0;
         const erroresMarca: string[] = [];
+        const totalMarcas = marcasPublicacion.length;
+        let marcaIdx = 0;
 
         for (const marcaId of marcasPublicacion) {
+          marcaIdx += 1;
           const datosServicio = {
             ...datosBase,
             marca_vehiculo_seleccionada: marcaId,
           };
+          if (totalMarcas > 1) {
+            const nombreMarca =
+              marcas.find((m) => m.id === marcaId)?.nombre ?? `marca ${marcaIdx}`;
+            setSaveMessage(`Publicando en ${nombreMarca} (${marcaIdx} de ${totalMarcas})…`);
+          }
           try {
             const response = await serviciosAPI.crearServicio(datosServicio);
             creados += 1;
-            if (fotos.length > 0) {
-              await subirFotosAlServidor(response.data.id);
+            if (hayFotosNuevas) {
+              setSaveMessage('Subiendo fotos del servicio…');
+              try {
+                const nombreMarca =
+                  marcas.find((m) => m.id === marcaId)?.nombre ?? `ID ${marcaId}`;
+                const { subidas, urls } = await subirFotosAlServidor(
+                  response.data.id,
+                  fotosLocalesSnapshot,
+                );
+                if (subidas === 0) {
+                  erroresFoto.push(`${nombreMarca}: no se subieron las fotos`);
+                } else if (urls.length > 0) {
+                  ultimasUrlsFotos = urls;
+                }
+              } catch (fotoErr: any) {
+                const nombreMarca =
+                  marcas.find((m) => m.id === marcaId)?.nombre ?? `ID ${marcaId}`;
+                erroresFoto.push(
+                  `${nombreMarca}: ${fotoErr?.message ?? 'error al subir fotos'}`
+                );
+              }
             }
           } catch (err: any) {
             const nombreMarca =
@@ -1301,16 +1426,34 @@ const CrearServicioScreen = () => {
         }
       }
 
-      Alert.alert(
-        tituloExito,
-        mensajeExito,
-        [
-          {
-            text: 'Ver mis servicios',
-            onPress: () => router.replace('/mis-servicios')
+      if (erroresFoto.length > 0) {
+        if (!tituloExito.toLowerCase().includes('parcial')) {
+          tituloExito = 'Guardado con advertencias';
+        }
+        mensajeExito = `${mensajeExito}\n\nFotos:\n${erroresFoto.join('\n')}`;
+      }
+
+      if (hayFotosNuevas && ultimasUrlsFotos.length > 0) {
+        setFotos((prev) => {
+          const remotas = prev.filter((u) => !esFotoLocalParaSubir(u));
+          const merged = [...remotas];
+          for (const url of ultimasUrlsFotos) {
+            if (!merged.includes(url)) merged.push(url);
           }
-        ]
-      );
+          return merged;
+        });
+      }
+
+      setSaveStatus('success');
+      setSaveMessage(mensajeExito);
+
+      showAlertButtons(tituloExito, mensajeExito, [
+        { text: 'Seguir editando', style: 'cancel' },
+        {
+          text: 'Ver mis servicios',
+          onPress: () => router.replace('/mis-servicios'),
+        },
+      ]);
 
     } catch (error: any) {
       console.error(`❌ Error ${isEditMode ? 'actualizando' : 'publicando'} servicio:`, error);
@@ -1343,11 +1486,33 @@ const CrearServicioScreen = () => {
         }
       }
 
-      Alert.alert('Error', mensajeError);
+      setSaveStatus('error');
+      setSaveMessage(mensajeError);
+      showAlert('Error', mensajeError);
     } finally {
       setLoading(false);
     }
   };
+
+  const publishButtonLabel = useMemo(() => {
+    if (loading) {
+      return isEditMode ? 'Actualizando…' : 'Publicando…';
+    }
+    if (isEditMode) {
+      return esMultimarca || edicionGrupo
+        ? `Guardar en ${marcasRealesSeleccionadas.length} marcas`
+        : 'Actualizar servicio';
+    }
+    return esMultimarca
+      ? `Publicar en ${marcasRealesSeleccionadas.length} marcas`
+      : 'Publicar servicio';
+  }, [
+    loading,
+    isEditMode,
+    esMultimarca,
+    edicionGrupo,
+    marcasRealesSeleccionadas.length,
+  ]);
 
   // Componente de selector de tipo de servicio
   const TipoServicioSelector = () => {
@@ -1858,7 +2023,7 @@ const CrearServicioScreen = () => {
 
     const handleChangeText = (text: string) => {
       // Solo permitir números y punto decimal
-      const numericText = text.replace(/[^0-9.]/g, '');
+      const numericText = text.replace(/[^0-9.,]/g, '');
       setLocalPrecio(numericText);
       // Marcar como no confirmado cuando cambia el texto
       if (precioConfirmado) {
@@ -1882,7 +2047,7 @@ const CrearServicioScreen = () => {
       }
 
       // Formatear el número
-      const valorFormateado = precioNum.toString();
+      const valorFormateado = formatMontoForInput(precioNum);
       setLocalPrecio(valorFormateado);
       setPrecioConfirmado(true);
 
@@ -2104,7 +2269,10 @@ const CrearServicioScreen = () => {
         <View style={[styles.calculoRow, styles.calculoDestacado]}>
           <Text style={styles.calculoLabel}>Costo total sin IVA:</Text>
           <Text style={styles.calculoValue}>
-            ${calculos.costo_total_sin_iva.toLocaleString('es-CL')}
+            ${(
+              parseMontoDecimal(costoManoObra || '0') +
+              parseMontoDecimal(costoRepuestos || '0')
+            ).toLocaleString('es-CL')}
           </Text>
         </View>
 
@@ -2233,6 +2401,7 @@ const CrearServicioScreen = () => {
                 placeholderTextColor={I.mutedSoft}
                 value={costoManoObra}
                 onChangeText={setCostoManoObra}
+                onBlur={normalizarCostoManoObra}
                 keyboardType="numeric"
               />
             </View>
@@ -2259,6 +2428,64 @@ const CrearServicioScreen = () => {
 
           {/* Botón publicar */}
           <View style={styles.publishContainer}>
+            {saveStatus !== 'idle' ? (
+              <View
+                style={[
+                  styles.saveStatusBanner,
+                  saveStatus === 'saving' && styles.saveStatusSaving,
+                  saveStatus === 'success' && styles.saveStatusSuccess,
+                  saveStatus === 'error' && styles.saveStatusError,
+                ]}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+              >
+                {saveStatus === 'saving' ? (
+                  <ActivityIndicator size="small" color={I.primary} />
+                ) : (
+                  <InstitutionalIcon
+                    name={saveStatus === 'success' ? 'checkmark-circle' : 'alert-circle'}
+                    size={22}
+                    color={saveStatus === 'success' ? I.semanticUp : I.semanticDown}
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
+                )}
+                <View style={styles.saveStatusTextWrap}>
+                  <Text
+                    style={[
+                      styles.saveStatusTitle,
+                      saveStatus === 'success' && styles.saveStatusTitleSuccess,
+                      saveStatus === 'error' && styles.saveStatusTitleError,
+                    ]}
+                  >
+                    {saveStatus === 'saving'
+                      ? isEditMode
+                        ? 'Actualizando servicio'
+                        : 'Publicando servicio'
+                      : saveStatus === 'success'
+                        ? isEditMode
+                          ? 'Servicio actualizado'
+                          : 'Servicio publicado'
+                        : 'No se pudo guardar'}
+                  </Text>
+                  {saveMessage ? (
+                    <Text style={styles.saveStatusMessage}>{saveMessage}</Text>
+                  ) : null}
+                </View>
+                {saveStatus === 'success' ? (
+                  <TouchableOpacity
+                    style={styles.saveStatusAction}
+                    onPress={() => router.replace('/mis-servicios')}
+                  >
+                    <Text style={styles.saveStatusActionText}>Ver lista</Text>
+                  </TouchableOpacity>
+                ) : saveStatus === 'error' ? (
+                  <TouchableOpacity style={styles.saveStatusAction} onPress={resetSaveFeedback}>
+                    <Text style={styles.saveStatusActionText}>Cerrar</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ) : null}
+
             <TouchableOpacity
               style={[
                 styles.publishButton,
@@ -2266,21 +2493,18 @@ const CrearServicioScreen = () => {
               ]}
               onPress={publicarServicio}
               disabled={loading}
+              activeOpacity={0.88}
+              accessibilityState={{ busy: loading, disabled: loading }}
             >
               {loading ? (
-                <ActivityIndicator color={I.onPrimary} />
+                <>
+                  <ActivityIndicator size="small" color={I.onPrimary} />
+                  <Text style={styles.publishButtonText}>{publishButtonLabel}</Text>
+                </>
               ) : (
                 <>
                   <InstitutionalIcon name={isEditMode ? "checkmark-circle" : "rocket"} size={20} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.publishButtonText}>
-                    {isEditMode
-                      ? esMultimarca || edicionGrupo
-                        ? `Guardar en ${marcasRealesSeleccionadas.length} marcas`
-                        : 'Actualizar Servicio'
-                      : esMultimarca
-                        ? `Publicar en ${marcasRealesSeleccionadas.length} marcas`
-                        : 'Publicar Servicio'}
-                  </Text>
+                  <Text style={styles.publishButtonText}>{publishButtonLabel}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -2935,6 +3159,61 @@ const styles = StyleSheet.create({
     paddingHorizontal: hx,
     paddingTop: SPACING.fixed.md,
     paddingBottom: SPACING.fixed.xl,
+  },
+  saveStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.sm,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: 1,
+    marginBottom: SPACING.fixed.md,
+  },
+  saveStatusSaving: {
+    backgroundColor: withOpacity(I.primary, 0.08),
+    borderColor: withOpacity(I.primary, 0.25),
+  },
+  saveStatusSuccess: {
+    backgroundColor: withOpacity(I.semanticUp, 0.1),
+    borderColor: withOpacity(I.semanticUp, 0.35),
+  },
+  saveStatusError: {
+    backgroundColor: withOpacity(I.semanticDown, 0.08),
+    borderColor: withOpacity(I.semanticDown, 0.3),
+  },
+  saveStatusTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  saveStatusTitle: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TYPOGRAPHY.lineHeight.tight),
+  },
+  saveStatusTitleSuccess: {
+    color: I.semanticUp,
+  },
+  saveStatusTitleError: {
+    color: I.semanticDown,
+  },
+  saveStatusMessage: {
+    marginTop: SPACING.fixed.xxs,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+  },
+  saveStatusAction: {
+    paddingVertical: SPACING.fixed.xs,
+    paddingHorizontal: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: withOpacity(I.primary, 0.12),
+  },
+  saveStatusActionText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
   },
   publishButton: {
     backgroundColor: I.primary,

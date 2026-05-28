@@ -1778,9 +1778,51 @@ export const serviciosAPI = {
 // API de Fotos de Servicios
 // ========================================
 
+type ArchivoImagenInput = {
+  uri: string;
+  type?: string;
+  name?: string;
+};
+
+/** Añade imagen a FormData: Blob en web, {uri,type,name} en nativo. */
+async function appendImagenFormData(
+  formData: FormData,
+  fieldName: string,
+  archivo: ArchivoImagenInput,
+): Promise<void> {
+  if (!archivo?.uri) {
+    throw new Error('La imagen no tiene URI válida');
+  }
+
+  const type = archivo.type || 'image/jpeg';
+  let name = archivo.name || `foto_servicio_${Date.now()}.jpg`;
+  if (!name.includes('.')) {
+    name = `${name}.jpg`;
+  }
+
+  if (Platform.OS === 'web') {
+    const res = await fetch(archivo.uri);
+    if (!res.ok) {
+      throw new Error('No se pudo leer la imagen seleccionada');
+    }
+    const blob = await res.blob();
+    formData.append(fieldName, blob, name);
+    return;
+  }
+
+  formData.append(
+    fieldName,
+    {
+      uri: archivo.uri,
+      type,
+      name,
+    } as any,
+  );
+}
+
 export const fotosServiciosAPI = {
   // Subir una foto de servicio (usando fetch nativo para mejor compatibilidad)
-  subirFoto: async (ofertaId: number, archivo: any, descripcion?: string) => {
+  subirFoto: async (ofertaId: number, archivo: ArchivoImagenInput, descripcion?: string) => {
     try {
       console.log('📸 Subiendo foto de servicio para oferta:', ofertaId);
 
@@ -1795,11 +1837,7 @@ export const fotosServiciosAPI = {
 
       const formData = new FormData();
       formData.append('oferta_servicio', ofertaId.toString());
-      formData.append('imagen', {
-        uri: archivo.uri,
-        type: archivo.type || 'image/jpeg',
-        name: archivo.name || `foto_servicio_${Date.now()}.jpg`
-      } as any);
+      await appendImagenFormData(formData, 'imagen', archivo);
 
       if (descripcion) {
         formData.append('descripcion', descripcion);
@@ -1832,9 +1870,13 @@ export const fotosServiciosAPI = {
   },
 
   // Subir múltiples fotos de servicio (usando fetch nativo para mejor compatibilidad)
-  subirMultiplesFotos: async (ofertaId: number, archivos: any[]) => {
+  subirMultiplesFotos: async (ofertaId: number, archivos: ArchivoImagenInput[]) => {
     try {
       console.log('📸 Subiendo múltiples fotos de servicio para oferta:', ofertaId);
+
+      if (!archivos?.length) {
+        throw new Error('No hay archivos para subir');
+      }
 
       // Obtener token y baseURL
       const token = await getItem('authToken');
@@ -1849,13 +1891,14 @@ export const fotosServiciosAPI = {
       const formData = new FormData();
       formData.append('oferta_servicio', ofertaId.toString());
 
-      archivos.forEach((archivo, index) => {
-        formData.append('fotos', {
+      for (let index = 0; index < archivos.length; index += 1) {
+        const archivo = archivos[index];
+        await appendImagenFormData(formData, 'fotos', {
           uri: archivo.uri,
           type: archivo.type || 'image/jpeg',
-          name: archivo.name || `foto_servicio_${index + 1}_${Date.now()}.jpg`
-        } as any);
-      });
+          name: archivo.name || `foto_servicio_${index + 1}_${Date.now()}.jpg`,
+        });
+      }
 
       console.log('📤 Enviando FormData a:', uploadURL);
       console.log('📋 Número de fotos:', archivos.length);
