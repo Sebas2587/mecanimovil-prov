@@ -1,6 +1,6 @@
 import api from './api';
 import { AppState, AppStateStatus } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import { getItem } from '@/utils/authStorage';
 import { isRadarOportunidadesActivo } from '@/utils/radarOportunidadesGate';
 
 export interface ConnectionStatus {
@@ -51,7 +51,7 @@ class ConnectionService {
   async disconnect(): Promise<ConnectionStatus | null> {
     try {
       // Verificar si hay token antes de intentar desconectar
-      const token = await SecureStore.getItemAsync('authToken');
+      const token = await getItem('authToken');
       if (!token) {
         console.log('⚠️ No hay token válido, saltando desconexión');
         this.isConnected = false;

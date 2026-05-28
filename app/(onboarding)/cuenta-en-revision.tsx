@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { Redirect, useRootNavigationState, useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -24,32 +24,28 @@ interface EstadisticasDocumentos {
 
 export default function CuentaEnRevisionScreen() {
   const router = useRouter();
-  const { estadoProveedor, refrescarEstadoProveedor } = useAuth();
+  const rootNavigationState = useRootNavigationState();
+  const { estadoProveedor, refrescarEstadoProveedor, isLoading: authLoading } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    console.log('🔍 CuentaEnRevisionScreen - Estado del proveedor:', estadoProveedor);
-    
-    if (estadoProveedor?.estado_verificacion === 'aprobado') {
-      console.log('✅ Cuenta aprobada, redirigiendo a app principal');
-      router.replace('/(tabs)');
-      return;
-    }
+  const navigationReady = Boolean(rootNavigationState?.key);
 
-    // Si no tiene perfil, redirigir a onboarding
-    if (!estadoProveedor?.tiene_perfil) {
-      console.log('❌ Usuario sin perfil, redirigiendo a onboarding');
-      router.replace('/(onboarding)/tipo-cuenta');
-      return;
-    }
+  if (!navigationReady || authLoading || !estadoProveedor) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={styles.loadingText}>Cargando estado...</Text>
+      </SafeAreaView>
+    );
+  }
 
-    // Si el onboarding no está completo, redirigir a onboarding
-    if (!estadoProveedor?.onboarding_completado) {
-      console.log('❌ Onboarding incompleto, redirigiendo a onboarding');
-      router.replace('/(onboarding)/tipo-cuenta');
-      return;
-    }
-  }, [estadoProveedor]);
+  if (estadoProveedor.estado_verificacion === 'aprobado') {
+    return <Redirect href="/(tabs)" />;
+  }
+
+  if (!estadoProveedor.tiene_perfil || !estadoProveedor.onboarding_completado) {
+    return <Redirect href="/(onboarding)/tipo-cuenta" />;
+  }
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -306,15 +302,6 @@ export default function CuentaEnRevisionScreen() {
       </View>
     );
   };
-
-  if (!estadoProveedor) {
-    return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3498db" />
-        <Text style={styles.loadingText}>Cargando estado...</Text>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>

@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import { getItem } from '@/utils/authStorage';
 import { AppState, AppStateStatus } from 'react-native';
 import ServerConfig from './serverConfig';
 import { devLog } from '@/utils/devLog';
@@ -7,7 +7,7 @@ import { isRadarOportunidadesActivo } from '@/utils/radarOportunidadesGate';
 // Función simple para obtener token
 const getAuthToken = async (): Promise<string | null> => {
   try {
-    const token = await SecureStore.getItemAsync('authToken');
+    const token = await getItem('authToken');
     return token;
   } catch (error) {
     devLog('❌ Error obteniendo token:', error);

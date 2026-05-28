@@ -209,6 +209,14 @@ export default function EspecialidadesMarcasScreen() {
   const { estadoProveedor } = useAuth();
   const insets = useSafeAreaInsets();
 
+  const isMultimarca = useMemo(() => {
+    const cobertura =
+      estadoProveedor?.tipo_cobertura_marca
+      || (estadoProveedor?.datos_proveedor as { tipo_cobertura_marca?: string } | undefined)
+        ?.tipo_cobertura_marca;
+    return cobertura === 'multimarca';
+  }, [estadoProveedor]);
+
   /** Ancho real del hueco del grid (panelBody); `onLayout` corrige el estimado por bordes / fuente. */
   const [gridSlotWidth, setGridSlotWidth] = useState(estimateGridSlotWidth);
   const onGridSlotLayout = useCallback((e: LayoutChangeEvent) => {
@@ -261,6 +269,12 @@ export default function EspecialidadesMarcasScreen() {
 
     cargarDatos();
   }, [estadoProveedor]);
+
+  useEffect(() => {
+    if (isMultimarca && tabActiva === 'marcas') {
+      setTabActiva('especialidades');
+    }
+  }, [isMultimarca, tabActiva]);
 
   const cargarDatos = async () => {
     try {
@@ -473,24 +487,32 @@ export default function EspecialidadesMarcasScreen() {
         return;
       }
 
-      if (marcasSeleccionadas.length === 0) {
-        Alert.alert('Error', 'Debes seleccionar al menos una marca de vehículo.');
-        setSaving(false);
-        return;
-      }
+      if (!isMultimarca) {
+        if (marcasSeleccionadas.length === 0) {
+          Alert.alert('Error', 'Debes seleccionar al menos una marca de vehículo.');
+          setSaving(false);
+          return;
+        }
 
-      if (marcasSeleccionadas.length > MAX_MARCAS) {
-        mostrarSnackbar(`Has excedido el límite de ${MAX_MARCAS} marcas. Por favor, deselecciona algunas.`, 'error');
-        setSaving(false);
-        return;
+        if (marcasSeleccionadas.length > MAX_MARCAS) {
+          mostrarSnackbar(`Has excedido el límite de ${MAX_MARCAS} marcas. Por favor, deselecciona algunas.`, 'error');
+          setSaving(false);
+          return;
+        }
       }
 
       await especialidadesAPI.actualizarEspecialidades(especialidadesSeleccionadas);
-      await proveedorVerificadoAPI.actualizarMarcas(marcasSeleccionadas, estadoProveedor?.tipo_proveedor || '');
+      await proveedorVerificadoAPI.actualizarMarcas(
+        isMultimarca ? [] : marcasSeleccionadas,
+        estadoProveedor?.tipo_proveedor || '',
+        isMultimarca ? 'multimarca' : 'especialista',
+      );
 
       Alert.alert(
         '✅ Configuración Guardada',
-        `Se han actualizado ${especialidadesSeleccionadas.length} especialidades y ${marcasSeleccionadas.length} marcas de vehículos.`,
+        isMultimarca
+          ? `Se han actualizado ${especialidadesSeleccionadas.length} especialidades. Tu perfil sigue como proveedor multimarca.`
+          : `Se han actualizado ${especialidadesSeleccionadas.length} especialidades y ${marcasSeleccionadas.length} marcas de vehículos.`,
         [{ text: 'Perfecto', style: 'default' }]
       );
 
@@ -524,7 +546,7 @@ export default function EspecialidadesMarcasScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <Header
-          title="Especialidades y Marcas"
+          title={isMultimarca ? 'Especialidades' : 'Especialidades y Marcas'}
           showBack
           onBackPress={() => router.back()}
           backgroundColor={I.canvas}
@@ -548,7 +570,7 @@ export default function EspecialidadesMarcasScreen() {
       />
 
       <Header
-        title="Especialidades y Marcas"
+        title={isMultimarca ? 'Especialidades' : 'Especialidades y Marcas'}
         showBack
         onBackPress={() => router.back()}
         backgroundColor={I.canvas}
@@ -566,42 +588,77 @@ export default function EspecialidadesMarcasScreen() {
             <View style={styles.infoCardContent}>
               <InstitutionalIcon name="information-circle" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>
-                {modoEdicion
-                  ? 'Selecciona las especialidades que ofreces y las marcas de vehículos que atiendes. Esto define tu perfil de servicios.'
-                  : 'Esta es tu configuración actual. Toca «Configurar» abajo para modificar.'}
+                {isMultimarca
+                  ? modoEdicion
+                    ? 'Eres proveedor multimarca: configura solo tus especialidades de servicio. Atiendes vehículos de cualquier marca.'
+                    : 'Perfil multimarca: atiendes todas las marcas. Aquí puedes revisar y editar tus especialidades.'
+                  : modoEdicion
+                    ? 'Selecciona las especialidades que ofreces y las marcas de vehículos que atiendes. Esto define tu perfil de servicios.'
+                    : 'Esta es tu configuración actual. Toca «Configurar» abajo para modificar.'}
               </Text>
             </View>
           </View>
+
+          {isMultimarca ? (
+            <View style={styles.multimarcaProfileBadge}>
+              <InstitutionalIcon name="globe-outline" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <View style={styles.multimarcaProfileBadgeText}>
+                <Text style={styles.multimarcaProfileTitle}>Proveedor multimarca</Text>
+                <Text style={styles.multimarcaProfileSub}>
+                  No necesitas elegir marcas de vehículos. Los clientes te verán para cualquier marca de auto.
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           <View style={styles.mainPanel}>
             <InstitutionalScreenTabs
               style={styles.tabsInPanel}
               activeKey={tabActiva}
               onChange={setTabActiva}
-              tabs={[
-                {
-                  key: 'especialidades',
-                  label: 'Especialidades',
-                  leading: (
-                    <InstitutionalIcon
-                      name="build"
-                      size={18}
-                      color={tabActiva === 'especialidades' ? I.onPrimary : I.muted}
-                     strokeWidth={ICON_STROKE_WIDTH} />
-                  ),
-                },
-                {
-                  key: 'marcas',
-                  label: 'Marcas',
-                  leading: (
-                    <InstitutionalIcon
-                      name="directions-car"
-                      size={18}
-                      color={tabActiva === 'marcas' ? I.onPrimary : I.muted}
-                     strokeWidth={ICON_STROKE_WIDTH} />
-                  ),
-                },
-              ]}
+              tabs={
+                isMultimarca
+                  ? [
+                      {
+                        key: 'especialidades',
+                        label: 'Especialidades',
+                        leading: (
+                          <InstitutionalIcon
+                            name="build"
+                            size={18}
+                            color={I.onPrimary}
+                            strokeWidth={ICON_STROKE_WIDTH}
+                          />
+                        ),
+                      },
+                    ]
+                  : [
+                      {
+                        key: 'especialidades',
+                        label: 'Especialidades',
+                        leading: (
+                          <InstitutionalIcon
+                            name="build"
+                            size={18}
+                            color={tabActiva === 'especialidades' ? I.onPrimary : I.muted}
+                            strokeWidth={ICON_STROKE_WIDTH}
+                          />
+                        ),
+                      },
+                      {
+                        key: 'marcas',
+                        label: 'Marcas',
+                        leading: (
+                          <InstitutionalIcon
+                            name="directions-car"
+                            size={18}
+                            color={tabActiva === 'marcas' ? I.onPrimary : I.muted}
+                            strokeWidth={ICON_STROKE_WIDTH}
+                          />
+                        ),
+                      },
+                    ]
+              }
             />
             <View style={styles.panelDivider} />
             <View style={styles.panelBody}>
@@ -678,7 +735,7 @@ export default function EspecialidadesMarcasScreen() {
                 </>
               )}
 
-              {tabActiva === 'marcas' && (
+              {tabActiva === 'marcas' && !isMultimarca && (
                 <>
                   {modoEdicion && (
                     <View style={styles.toolBlock}>
@@ -756,7 +813,9 @@ export default function EspecialidadesMarcasScreen() {
             activeOpacity={0.88}
           >
             <InstitutionalIcon name="edit" size={20} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.primaryCtaText}>Configurar especialidades y marcas</Text>
+            <Text style={styles.primaryCtaText}>
+              {isMultimarca ? 'Configurar especialidades' : 'Configurar especialidades y marcas'}
+            </Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.editingButtonsFloat}>
@@ -1003,6 +1062,32 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   modelosPreviewText: {
+    fontSize: TS.small.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),
+    color: I.body,
+  },
+  multimarcaProfileBadge: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.md,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: '#EEF3FF',
+    borderWidth: BORDERS.width.thin,
+    borderColor: '#C5D5FF',
+  },
+  multimarcaProfileBadgeText: {
+    flex: 1,
+  },
+  multimarcaProfileTitle: {
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    marginBottom: SPACING.fixed.xxs,
+  },
+  multimarcaProfileSub: {
     fontSize: TS.small.fontSize,
     fontFamily: FF.sansRegular,
     lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),

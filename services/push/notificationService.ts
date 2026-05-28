@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import { getItem } from '@/utils/authStorage';
 import { post } from '@/services/api';
 
 const IS_EXPO_GO = Constants.appOwnership === 'expo';
@@ -156,7 +156,7 @@ class NotificationService {
 
   async registrarTokenEnBackend(token: string, userId: number): Promise<unknown> {
     try {
-      const authToken = await SecureStore.getItemAsync('authToken');
+      const authToken = await getItem('authToken');
       if (!authToken) return null;
 
       const platform = Platform.OS === 'ios' ? 'ios' : 'android';

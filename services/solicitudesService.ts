@@ -1,5 +1,5 @@
 import api, { getAPI } from './api';
-import * as SecureStore from 'expo-secure-store';
+import { getItem } from '@/utils/authStorage';
 
 // Tipos para solicitudes públicas
 export interface ServicioSolicitado {
@@ -586,7 +586,7 @@ export const enviarMensajeChat = async (
       // Obtener URL base de la instancia de axios
       const apiInstance = await getAPI();
       const baseURL = apiInstance.defaults.baseURL;
-      const token = await SecureStore.getItemAsync('authToken');
+      const token = await getItem('authToken');
 
       const response = await fetch(`${baseURL}/ordenes/chat-solicitudes/`, {
         method: 'POST',
@@ -738,7 +738,7 @@ export const eliminarChatPorOferta = async (
 export const obtenerListaChats = async (): Promise<any[]> => {
   try {
     // Verificar autenticación antes de hacer la llamada
-    const token = await SecureStore.getItemAsync('authToken');
+    const token = await getItem('authToken');
     if (!token) {
       console.log('⚠️ [SOLICITUDES SERVICE] No hay token, no se puede obtener lista de chats');
       return [];
