@@ -24,12 +24,26 @@ export default function OnboardingLayout() {
           headerShown: false 
         }} 
       />
-      <Stack.Screen 
-        name="marcas" 
-        options={{ 
+      <Stack.Screen
+        name="cobertura-marcas"
+        options={{
+          title: 'Tipo de cobertura',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="seleccion-marcas"
+        options={{
+          title: 'Marcas que atiendes',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="marcas"
+        options={{
           title: 'Marcas de Vehículos',
-          headerShown: false 
-        }} 
+          headerShown: false,
+        }}
       />
       <Stack.Screen
         name="catalogo-servicios-marcas"

@@ -8,10 +8,18 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
+import {
+  OnboardingScreenLayout,
+  OnboardingPrimaryButton,
+  OnboardingNotice,
+} from '@/components/onboarding';
+import { COLORS } from '@/app/design-system/tokens';
+import { onboardingStyles } from '@/app/design-system/styles/onboarding';
+
+const I = COLORS.institutional;
 import { authAPI } from '@/services/api';
 import {
   mergeRutCompactInput,
@@ -27,6 +35,8 @@ import {
 } from '@/utils/chilePhone';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import ChileAddressField from '@/components/forms/ChileAddressField';
+import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
 
 const DEBOUNCE_MS = 500;
 
@@ -68,6 +78,7 @@ export default function InformacionBasicaScreen() {
   const [rutRemotoMsg, setRutRemotoMsg] = useState('');
   const [telRemoto, setTelRemoto] = useState<RemotoEstado>('idle');
   const [telRemotoMsg, setTelRemotoMsg] = useState('');
+  const [direccionValidada, setDireccionValidada] = useState<ChileFormattedAddress | null>(null);
 
   const rutVerifySeq = useRef(0);
   const telVerifySeq = useRef(0);
@@ -119,14 +130,14 @@ export default function InformacionBasicaScreen() {
     if (!rutCompactoEsValido(docCompact)) return false;
 
     if (esTaller) {
-      if (!formData.direccion.trim()) return false;
+      if (!direccionValidada?.line?.trim()) return false;
     } else {
       if (!formData.experiencia_anos.trim()) return false;
       const exp = parseInt(formData.experiencia_anos, 10);
       if (Number.isNaN(exp) || exp < 0) return false;
     }
     return true;
-  }, [formData, telefonoNacional, docCompact, esTaller]);
+  }, [formData, telefonoNacional, docCompact, esTaller, direccionValidada]);
 
   const puedeContinuar = useMemo(() => {
     if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) return false;
@@ -317,15 +328,26 @@ export default function InformacionBasicaScreen() {
       };
 
       if (tipoStr === 'taller') {
+        if (!direccionValidada) {
+          showAlert(
+            'Dirección no confirmada',
+            'Selecciona una dirección de la lista para validar comuna y región en Chile.'
+          );
+          return;
+        }
         paramsParaEnviar.rut = docFormatted;
-        paramsParaEnviar.direccion = formData.direccion.trim();
+        paramsParaEnviar.direccion = direccionValidada.line;
+        paramsParaEnviar.direccion_lat = String(direccionValidada.lat);
+        paramsParaEnviar.direccion_lng = String(direccionValidada.lon);
+        paramsParaEnviar.comuna = direccionValidada.comuna;
+        paramsParaEnviar.region = direccionValidada.region;
       } else {
         paramsParaEnviar.dni = docFormatted;
         paramsParaEnviar.experiencia_anos = formData.experiencia_anos.trim();
       }
 
       router.push({
-        pathname: '/(onboarding)/marcas' as any,
+        pathname: '/(onboarding)/cobertura-marcas' as any,
         params: paramsParaEnviar,
       });
     } catch (e: any) {
@@ -414,18 +436,14 @@ export default function InformacionBasicaScreen() {
 
       {renderRutBlock(rutCompact, onRutChange, 'RUT/CUIT/ID Fiscal *')}
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Dirección del Taller *</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.direccion}
-          onChangeText={(value) => handleInputChange('direccion', value)}
-          placeholder="Dirección completa donde está ubicado tu taller"
-          placeholderTextColor="#95a5a6"
-          multiline
-          numberOfLines={2}
-        />
-      </View>
+      <ChileAddressField
+        label="Dirección del taller *"
+        hint="Escribe calle y número; elige un resultado con comuna y región en Chile."
+        value={formData.direccion}
+        validated={direccionValidada}
+        onChangeText={(value) => handleInputChange('direccion', value)}
+        onValidatedChange={setDireccionValidada}
+      />
 
       {renderTelefonoInput()}
 
@@ -490,129 +508,62 @@ export default function InformacionBasicaScreen() {
 
   if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingTipo}>
-          <ActivityIndicator size="large" color="#4E4FEB" />
-          <Text style={styles.loadingTipoText}>Cargando…</Text>
+      <OnboardingScreenLayout>
+        <View style={onboardingStyles.loadingCenter}>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={onboardingStyles.loadingText}>Cargando…</Text>
         </View>
-      </SafeAreaView>
+      </OnboardingScreenLayout>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.contentWrapper}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          showsVerticalScrollIndicator={false}
-          style={styles.scrollView}
-          keyboardShouldPersistTaps="handled"
-        >
-          <OnboardingHeader
-            title={`Información de tu ${esTaller ? 'taller' : 'servicio'}`}
-            subtitle="Completa la información básica para continuar"
-            currentStep={2}
-            totalSteps={5}
-            canGoBack={true}
-            backPath={getBackPath()}
-            icon={esTaller ? 'business-outline' : 'car-sport-outline'}
-          />
+    <OnboardingScreenLayout
+      keyboardAvoiding
+      footer={
+        <OnboardingPrimaryButton
+          label={puedeContinuar ? 'Continuar' : 'Completa y valida los datos'}
+          onPress={handleContinuar}
+          disabled={!puedeContinuar}
+          loading={verificando}
+          loadingLabel="Validando…"
+        />
+      }
+    >
+      <OnboardingHeader
+        title={`Información de tu ${esTaller ? 'taller' : 'servicio'}`}
+        subtitle="Completa la información básica para continuar"
+        currentStep={2}
+        totalSteps={5}
+        canGoBack
+        backPath={getBackPath()}
+        icon={esTaller ? 'business-outline' : 'car-sport-outline'}
+      />
 
-          <View style={styles.form}>
-            <View style={styles.infoContainer}>
-              <InstitutionalIcon name="information-circle" size={20} color="#4E4FEB"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.infoText}>
-                Los campos con * son obligatorios. RUT y teléfono se validan en tiempo real antes de continuar.
-              </Text>
-            </View>
-            {esTaller ? renderTallerForm() : renderMecanicoForm()}
-          </View>
-        </ScrollView>
-
-        <SafeAreaView edges={['bottom']} style={styles.fixedButtonContainer}>
-          <TouchableOpacity
-            style={[styles.continuarButton, (!puedeContinuar || verificando) && styles.buttonDisabled]}
-            onPress={handleContinuar}
-            disabled={!puedeContinuar || verificando}
-            activeOpacity={0.8}
-          >
-            {verificando ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.continuarButtonText}>
-                {puedeContinuar ? 'Continuar' : 'Completa y valida los datos'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </SafeAreaView>
+      <View style={styles.form}>
+        <OnboardingNotice>
+          Los campos con * son obligatorios. RUT y teléfono se validan en tiempo real antes de continuar.
+        </OnboardingNotice>
+        {esTaller ? renderTallerForm() : renderMecanicoForm()}
       </View>
-    </SafeAreaView>
+    </OnboardingScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#EEEEEE',
-  },
-  contentWrapper: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContainer: {
-    padding: 20,
-    paddingBottom: 24,
-  },
-  loadingTipo: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  loadingTipoText: {
-    marginTop: 12,
-    fontSize: 15,
-    color: '#666666',
-  },
   form: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    marginBottom: 20,
+    ...onboardingStyles.panel,
   },
   inputGroup: {
     marginBottom: 16,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 8,
-  },
+  label: onboardingStyles.label,
   hint: {
     fontSize: 12,
-    color: '#888888',
+    color: I.mutedSoft,
     marginBottom: 8,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    backgroundColor: '#F9F9F9',
-    color: '#000000',
-  },
+  input: onboardingStyles.input,
   inputBorderWarn: {
     borderColor: '#F5B041',
     borderWidth: 1.5,
@@ -622,81 +573,33 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   inputBorderOk: {
-    borderColor: '#27AE60',
+    borderColor: I.semanticUp,
     borderWidth: 1.5,
   },
   phoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#EEEEEE',
+    borderColor: I.hairline,
     borderRadius: 12,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: I.canvas,
     paddingHorizontal: 12,
   },
   phonePrefix: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333333',
+    color: I.body,
     marginRight: 4,
   },
   phoneInput: {
     flex: 1,
     paddingVertical: 16,
     fontSize: 16,
-    color: '#000000',
+    color: I.ink,
   },
   textArea: {
     height: 80,
     textAlignVertical: 'top',
-  },
-  fixedButtonContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  continuarButton: {
-    backgroundColor: '#4E4FEB',
-    borderRadius: 12,
-    padding: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 56,
-  },
-  continuarButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  buttonDisabled: {
-    backgroundColor: '#D0D0D0',
-  },
-  infoContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#E6F5FF',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-  },
-  infoText: {
-    fontSize: 13,
-    color: '#666666',
-    marginLeft: 10,
-    flex: 1,
-    lineHeight: 18,
   },
   feedbackRow: {
     flexDirection: 'row',

@@ -1,25 +1,40 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { onboardingAPI, tallerAPI, mecanicoAPI, especialidadesAPI, authAPI, serviciosAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
+import {
+  OnboardingScreenLayout,
+  OnboardingPrimaryButton,
+  OnboardingNotice,
+} from '@/components/onboarding';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS } from '@/app/design-system/tokens';
+import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+import { appendOnboardingParams, finalizarBasicoStep } from '@/utils/onboardingNavigation';
+
+const I = COLORS.institutional;
 
 export default function FinalizarBasicoScreen() {
   const { tipo, especialidades, marcas, servicios_seleccionados, es_multimarca, ...otherParams } = useLocalSearchParams();
   const router = useRouter();
   const { usuario, refrescarEstadoProveedor } = useAuth();
+
+  const esMultimarca = useMemo(() => {
+    const v = Array.isArray(es_multimarca) ? es_multimarca[0] : es_multimarca;
+    return v === 'true';
+  }, [es_multimarca]);
+
+  const pasoFinalizar = finalizarBasicoStep(esMultimarca);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [datosCompletos, setDatosCompletos] = useState<any>(null);
@@ -104,6 +119,10 @@ export default function FinalizarBasicoScreen() {
       const descripcionValue = getParamValue('descripcion');
       const rutValue = getParamValue('rut');
       const direccionValue = getParamValue('direccion');
+      const direccionLatValue = getParamValue('direccion_lat');
+      const direccionLngValue = getParamValue('direccion_lng');
+      const comunaValue = getParamValue('comuna');
+      const regionValue = getParamValue('region');
       const dniValue = getParamValue('dni');
       const experienciaValue = getParamValue('experiencia_anos');
       
@@ -117,6 +136,10 @@ export default function FinalizarBasicoScreen() {
         descripcion: (descripcionValue ?? '') as string,
         rut: (rutValue ?? '') as string,
         direccion: (direccionValue ?? '') as string,
+        direccion_lat: direccionLatValue ? parseFloat(String(direccionLatValue)) : undefined,
+        direccion_lng: direccionLngValue ? parseFloat(String(direccionLngValue)) : undefined,
+        comuna: (comunaValue ?? '') as string,
+        region: (regionValue ?? '') as string,
         dni: (dniValue ?? '') as string,
         experiencia_anos: (experienciaValue ?? '') as string,
         especialidades: especialidadesParsed,
@@ -286,7 +309,8 @@ export default function FinalizarBasicoScreen() {
           setProgresoSubida('Guardando catálogo de servicios…');
           const payload = serviciosArr.map((item: { marcaId: number; servicioId: number }) => ({
             servicio_id: item.servicioId,
-            marca_id: item.marcaId,
+            // Multimarca usa marcaId=0 como señal en UI; backend espera null/ausente (no 0).
+            marca_id: item.marcaId === 0 ? null : item.marcaId,
           }));
           await serviciosAPI.crearCatalogoInicial(payload);
           console.log('Catálogo inicial guardado exitosamente:', payload.length, 'servicios');
@@ -305,17 +329,16 @@ export default function FinalizarBasicoScreen() {
 
   const getBackPath = () => {
     const params = new URLSearchParams();
-    Object.entries(otherParams).forEach(([key, value]) => {
-      if (value === undefined || value === null) return;
-      const v = Array.isArray(value) ? value[0] : value;
-      if (v !== undefined && v !== '') params.append(key, String(v));
+    appendOnboardingParams(params, {
+      ...otherParams,
+      tipo: Array.isArray(tipo) ? tipo[0] : tipo,
+      marcas: Array.isArray(marcas) ? marcas[0] : marcas,
+      especialidades: Array.isArray(especialidades) ? especialidades[0] : especialidades,
+      servicios_seleccionados: Array.isArray(servicios_seleccionados)
+        ? servicios_seleccionados[0]
+        : servicios_seleccionados,
+      es_multimarca: esMultimarca ? 'true' : 'false',
     });
-    const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
-    if (tipoStr) params.append('tipo', String(tipoStr));
-    const marcasVal = Array.isArray(marcas) ? marcas[0] : marcas;
-    if (marcasVal) params.append('marcas', String(marcasVal));
-    const espVal = Array.isArray(especialidades) ? especialidades[0] : especialidades;
-    if (espVal) params.append('especialidades', String(espVal));
     return `/(onboarding)/catalogo-servicios-marcas?${params.toString()}`;
   };
 
@@ -454,6 +477,21 @@ export default function FinalizarBasicoScreen() {
           
           console.log('🏪 Actualizando datos del taller:', datosTaller);
           await tallerAPI.actualizarPerfilExistente(datosTaller);
+
+          const lat = datosCompletos.direccion_lat;
+          const lng = datosCompletos.direccion_lng;
+          if (
+            typeof lat === 'number' &&
+            typeof lng === 'number' &&
+            Number.isFinite(lat) &&
+            Number.isFinite(lng)
+          ) {
+            await tallerAPI.actualizarUbicacionDomicilio({
+              direccion: datosCompletos.direccion,
+              latitud: lat,
+              longitud: lng,
+            });
+          }
           
         } else {
           // Parse seguro de experiencia_anos
@@ -612,26 +650,31 @@ export default function FinalizarBasicoScreen() {
 
   if (!datosCompletos) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3498db" />
-          <Text style={styles.loadingText}>Preparando datos...</Text>
+      <OnboardingScreenLayout>
+        <View style={onboardingStyles.loadingCenter}>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={onboardingStyles.loadingText}>Preparando datos…</Text>
         </View>
-      </SafeAreaView>
+      </OnboardingScreenLayout>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <OnboardingHeader
+    <OnboardingScreenLayout
+      footer={
+        <OnboardingPrimaryButton
+          label={isSubmitting ? 'Procesando…' : 'Completar onboarding básico'}
+          onPress={finalizarOnboardingBasico}
+          disabled={isSubmitting}
+          loading={isSubmitting}
+        />
+      }
+    >
+      <OnboardingHeader
           title="Finalizar Onboarding Básico"
           subtitle="Revisa tu información y completa el registro de tu perfil"
-          currentStep={5}
-          totalSteps={5}
+          currentStep={pasoFinalizar.current}
+          totalSteps={pasoFinalizar.total}
           icon="checkmark-circle"
           backPath={getBackPath()}
         />
@@ -642,7 +685,7 @@ export default function FinalizarBasicoScreen() {
               <InstitutionalIcon 
                 name={datosCompletos.tipo === 'taller' ? 'business' : 'person'} 
                 size={24} 
-                color="#3498db" 
+                color={I.primary}
                strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.seccionTitulo}>
                 {datosCompletos.tipo === 'taller' ? 'Información del Taller' : 'Información del Mecánico'}
@@ -695,7 +738,7 @@ export default function FinalizarBasicoScreen() {
 
           <View style={styles.seccionResumen}>
             <View style={styles.seccionHeader}>
-              <InstitutionalIcon name="build" size={24} color="#27ae60"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="build" size={24} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.seccionTitulo}>Especialidades</Text>
             </View>
             <Text style={styles.estadisticaValor}>
@@ -705,13 +748,13 @@ export default function FinalizarBasicoScreen() {
 
           <View style={styles.seccionResumen}>
             <View style={styles.seccionHeader}>
-              <InstitutionalIcon name="car" size={24} color="#e74c3c"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="car" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.seccionTitulo}>Cobertura de Marcas</Text>
             </View>
             {datosCompletos.tipo_cobertura_marca === 'multimarca' ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <InstitutionalIcon name="globe-outline" size={18} color="#4E4FEB" strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[styles.estadisticaValor, { color: '#4E4FEB' }]}>Multimarca — Todas las marcas</Text>
+                <InstitutionalIcon name="globe-outline" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={[styles.estadisticaValor, { color: I.primary }]}>Multimarca — todas las marcas</Text>
               </View>
             ) : (
               <Text style={styles.estadisticaValor}>
@@ -721,80 +764,27 @@ export default function FinalizarBasicoScreen() {
           </View>
         </View>
 
-        <View style={styles.infoContainer}>
-          <InstitutionalIcon name="information-circle" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
-          <View style={styles.infoTexto}>
-            <Text style={styles.infoTitle}>¿Qué sigue?</Text>
-            <Text style={styles.infoDescription}>
-              Completaremos tu registro básico y luego te guiaremos para subir tus documentos. 
-              Una vez completado, nuestro equipo revisará tu información para activar tu cuenta.
-            </Text>
-          </View>
-        </View>
+      <OnboardingNotice>
+        Completaremos tu registro básico y luego te guiaremos para subir documentos. Nuestro equipo revisará tu información para activar tu cuenta.
+      </OnboardingNotice>
 
-        {isSubmitting && progresoSubida && (
-          <View style={styles.progresoContainer}>
-            <ActivityIndicator size="small" color="#3498db" />
-            <Text style={styles.progresoTexto}>{progresoSubida}</Text>
-          </View>
-        )}
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.finalizarButton, isSubmitting && styles.buttonDisabled]}
-            onPress={finalizarOnboardingBasico}
-            disabled={isSubmitting}
-            activeOpacity={0.8}
-          >
-            {isSubmitting && (
-              <ActivityIndicator 
-                size="small" 
-                color="white" 
-                style={styles.buttonLoader}
-              />
-            )}
-            <Text style={styles.finalizarButtonText}>
-              {isSubmitting ? 'Procesando...' : 'Completar Onboarding Básico'}
-            </Text>
-          </TouchableOpacity>
+      {isSubmitting && progresoSubida ? (
+        <View style={styles.progresoContainer}>
+          <ActivityIndicator size="small" color={I.primary} />
+          <Text style={styles.progresoTexto}>{progresoSubida}</Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      ) : null}
+    </OnboardingScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-  },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
-    color: '#5d6d7e',
-  },
-  scrollContainer: {
-    padding: 20,
-  },
   resumenContainer: {
     marginBottom: 20,
   },
   seccionResumen: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
+    ...onboardingStyles.panel,
     marginBottom: 15,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   seccionHeader: {
     flexDirection: 'row',
@@ -804,7 +794,7 @@ const styles = StyleSheet.create({
   seccionTitulo: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2c3e50',
+    color: I.ink,
     marginLeft: 10,
   },
   datoContainer: {
@@ -815,84 +805,34 @@ const styles = StyleSheet.create({
   },
   datoLabel: {
     fontSize: 14,
-    color: '#5d6d7e',
+    color: I.muted,
     fontWeight: '500',
   },
   datoValor: {
     fontSize: 14,
-    color: '#2c3e50',
+    color: I.ink,
     fontWeight: 'bold',
     flex: 1,
     textAlign: 'right',
   },
   estadisticaValor: {
     fontSize: 16,
-    color: '#2c3e50',
+    color: I.ink,
     fontWeight: 'bold',
-  },
-  infoContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#e3f2fd',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 25,
-    alignItems: 'flex-start',
-  },
-  infoTexto: {
-    flex: 1,
-    marginLeft: 15,
-  },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 5,
-  },
-  infoDescription: {
-    fontSize: 14,
-    color: '#5d6d7e',
-    lineHeight: 20,
   },
   progresoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
     padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
+    borderRadius: 12,
+    marginBottom: 12,
   },
   progresoTexto: {
     marginLeft: 10,
     fontSize: 14,
-    color: '#3498db',
+    color: I.primary,
     fontWeight: '500',
-  },
-  buttonContainer: {
-    marginTop: 10,
-  },
-  finalizarButton: {
-    backgroundColor: '#3498db',
-    paddingVertical: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  buttonDisabled: {
-    backgroundColor: '#bdc3c7',
-  },
-  buttonLoader: {
-    marginRight: 10,
-  },
-  finalizarButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 }); 

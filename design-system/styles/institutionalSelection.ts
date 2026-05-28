@@ -8,33 +8,67 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '../tokens';
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 
+/** Inset estándar de cards/filas (OpenSpec / Coinbase). */
+export const INSTITUTIONAL_CARD_INSET = {
+  horizontal: SPACING.fixed.md,
+  vertical: SPACING.fixed.md,
+} as const;
+
+/** Borde fijo en todos los estados para que el contenido no “salte” al seleccionar. */
+const CARD_BORDER_WIDTH = BORDERS.width.medium;
+
 export const INSTITUTIONAL_SELECTION = {
-  /** Tarjeta / fila en reposo */
+  /** Solo borde/radio (onboarding: combinar con `cardInset` en hijo). */
+  cardShell: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.xl,
+    borderWidth: CARD_BORDER_WIDTH,
+    borderColor: I.hairline,
+    overflow: 'hidden',
+  } satisfies ViewStyle,
+  cardInset: {
+    paddingHorizontal: INSTITUTIONAL_CARD_INSET.horizontal,
+    paddingVertical: INSTITUTIONAL_CARD_INSET.vertical,
+  } satisfies ViewStyle,
+  /** Tarjeta con borde + padding (pantallas fuera de onboarding). */
   card: {
     backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
+    borderRadius: BORDERS.radius.xl,
+    borderWidth: CARD_BORDER_WIDTH,
     borderColor: I.hairline,
+    overflow: 'hidden',
+    paddingHorizontal: INSTITUTIONAL_CARD_INSET.horizontal,
+    paddingVertical: INSTITUTIONAL_CARD_INSET.vertical,
   } satisfies ViewStyle,
-  /** Tarjeta / fila seleccionada — contraste por borde, no fondo gris */
+  /** Tarjeta seleccionada — solo cambia color de borde */
   cardSelected: {
     backgroundColor: I.canvas,
     borderColor: I.primary,
-    borderWidth: BORDERS.width.medium,
   } satisfies ViewStyle,
-  /** Fila lista (servicios ofrecidos, etc.) */
+  listRowShell: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: CARD_BORDER_WIDTH,
+    borderColor: I.hairline,
+    overflow: 'hidden',
+  } satisfies ViewStyle,
+  listRowInset: {
+    paddingHorizontal: INSTITUTIONAL_CARD_INSET.horizontal,
+    paddingVertical: INSTITUTIONAL_CARD_INSET.vertical,
+  } satisfies ViewStyle,
+  /** Fila lista con borde + padding (compat). */
   listRow: {
     backgroundColor: I.canvas,
     borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
+    borderWidth: CARD_BORDER_WIDTH,
     borderColor: I.hairline,
-    paddingVertical: SPACING.fixed.md,
-    paddingHorizontal: SPACING.fixed.md,
+    overflow: 'hidden',
+    paddingHorizontal: INSTITUTIONAL_CARD_INSET.horizontal,
+    paddingVertical: INSTITUTIONAL_CARD_INSET.vertical,
   } satisfies ViewStyle,
   listRowSelected: {
     backgroundColor: I.canvas,
     borderColor: I.primary,
-    borderWidth: BORDERS.width.medium,
   } satisfies ViewStyle,
   /** Placa de ícono — reposo */
   iconPlate: {

@@ -4,24 +4,30 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   ActivityIndicator,
   Modal,
   Image,
   Linking,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useAuth } from '@/context/AuthContext';
-import { documentosAPI } from '@/services/api';
+import { documentosAPI, onboardingAPI } from '@/services/api';
 import OnboardingHeader from '@/components/OnboardingHeader';
+import {
+  OnboardingScreenLayout,
+  OnboardingPrimaryButton,
+} from '@/components/onboarding';
 import { Buffer } from 'buffer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS } from '@/app/design-system/tokens';
+import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
+
+const I = COLORS.institutional;
 
 interface DocumentoInfo {
   nombre: string;
@@ -497,13 +503,12 @@ export default function SubirDocumentosScreen() {
     setProgreso('Completando documentación...');
 
     try {
-      // Marcar los documentos como completados en el backend
-      console.log('📋 Marcando documentación como completada...');
-      
-      // Refrescar el estado del proveedor
-      await refrescarEstadoProveedor();
-      
-      setProgreso('Finalizando...');
+      // Avisar al backend que ya se subieron documentos (evita refrescarEstadoProveedor que hace 2 requests + reintentos)
+      console.log('📋 Confirmando documentación en backend...');
+      await onboardingAPI.completarOnboardingDocumentos();
+
+      // Refresco en background (no bloqueante) para que la app se ponga al día sin alargar el loading.
+      refrescarEstadoProveedor().catch(() => null);
       
       // Mostrar mensaje de éxito
       showAlertButtons(
@@ -548,7 +553,7 @@ export default function SubirDocumentosScreen() {
             <InstitutionalIcon 
               name={documentoInfo.icono as any} 
               size={24} 
-              color={isObligatorio ? '#e74c3c' : '#3498db'} 
+              color={isObligatorio ? I.semanticDown : I.primary} 
              strokeWidth={ICON_STROKE_WIDTH} />
             {isObligatorio && (
               <View style={styles.obligatorioIndicador}>
@@ -568,17 +573,17 @@ export default function SubirDocumentosScreen() {
         <View style={styles.documentoEstado}>
           {documento?.subiendose ? (
             <View style={styles.subiendose}>
-              <ActivityIndicator size="small" color="#3498db" />
+              <ActivityIndicator size="small" color={I.primary} />
               <Text style={styles.subiendoseTexto}>Subiendo...</Text>
             </View>
           ) : documento?.subido ? (
             <View style={styles.subido}>
-              <InstitutionalIcon name="checkmark-circle" size={24} color="#27ae60"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="checkmark-circle" size={24} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.subidoTexto}>Subido</Text>
             </View>
           ) : documento?.error ? (
             <View style={styles.error}>
-              <InstitutionalIcon name="alert-circle" size={24} color="#e74c3c"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="alert-circle" size={24} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.errorTexto}>Error</Text>
               <TouchableOpacity 
                 style={styles.reintentarButton}
@@ -647,18 +652,18 @@ export default function SubirDocumentosScreen() {
           <Text style={styles.modalTitulo}>Seleccionar {tipoDocumentoActual?.nombre}</Text>
           
           <TouchableOpacity style={styles.modalOpcion} onPress={() => tipoDocumentoActual && tomarFoto(tipoDocumentoActual)}>
-            <InstitutionalIcon name="camera" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="camera" size={24} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modalOpcionTexto}>Tomar Foto</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.modalOpcion} onPress={() => tipoDocumentoActual && seleccionarImagen(tipoDocumentoActual)}>
-            <InstitutionalIcon name="image" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="image" size={24} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modalOpcionTexto}>Seleccionar de Galería</Text>
           </TouchableOpacity>
           
           {tipoDocumentoActual?.acepta.includes('PDF') && (
             <TouchableOpacity style={styles.modalOpcion} onPress={() => tipoDocumentoActual && seleccionarDocumento(tipoDocumentoActual)}>
-              <InstitutionalIcon name="document" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="document" size={24} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.modalOpcionTexto}>Seleccionar PDF</Text>
             </TouchableOpacity>
           )}
@@ -674,12 +679,31 @@ export default function SubirDocumentosScreen() {
     </Modal>
   );
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
+  const footer = puedeCompletar() ? (
+    <OnboardingPrimaryButton
+      label={isFinalizando ? 'Completando…' : 'Completar documentación'}
+      onPress={completarDocumentacion}
+      disabled={isFinalizando}
+      loading={isFinalizando}
+    />
+  ) : (
+    <View>
+      <Text style={styles.ayudaTexto}>
+        Faltan {getDocumentosObligatoriosFaltantes().length} documentos obligatorios
+      </Text>
+      <TouchableOpacity
+        style={styles.ayudaButton}
+        onPress={omitirDocumentosOpcionales}
+        disabled={!puedeCompletar()}
       >
+        <Text style={styles.ayudaButtonTexto}>Continuar sin documentos opcionales</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <>
+      <OnboardingScreenLayout footer={footer}>
         <OnboardingHeader
           title="Subir Documentos"
           subtitle="Completa tu documentación para activar tu cuenta"
@@ -693,7 +717,7 @@ export default function SubirDocumentosScreen() {
 
         <View style={styles.seccionContainer}>
           <View style={styles.seccionHeader}>
-            <InstitutionalIcon name="alert-circle" size={24} color="#e74c3c"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="alert-circle" size={24} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.seccionTitulo}>Documentos Obligatorios</Text>
           </View>
           <Text style={styles.seccionDescripcion}>
@@ -704,7 +728,7 @@ export default function SubirDocumentosScreen() {
 
         <View style={styles.seccionContainer}>
           <View style={styles.seccionHeader}>
-            <InstitutionalIcon name="information-circle" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="information-circle" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.seccionTitulo}>Documentos Opcionales</Text>
           </View>
           <Text style={styles.seccionDescripcion}>
@@ -715,54 +739,18 @@ export default function SubirDocumentosScreen() {
 
         {isFinalizando && progreso && (
           <View style={styles.progresoSubida}>
-            <ActivityIndicator size="small" color="#3498db" />
+            <ActivityIndicator size="small" color={I.primary} />
             <Text style={styles.progresoTexto}>{progreso}</Text>
           </View>
         )}
 
-        <View style={styles.botonesContainer}>
-          {puedeCompletar() ? (
-            <TouchableOpacity
-              style={styles.completarButton}
-              onPress={completarDocumentacion}
-              disabled={isFinalizando}
-            >
-              <Text style={styles.completarButtonTexto}>
-                {isFinalizando ? 'Completando...' : 'Completar Documentación'}
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.ayudaContainer}>
-              <Text style={styles.ayudaTexto}>
-                Faltan {getDocumentosObligatoriosFaltantes().length} documentos obligatorios
-              </Text>
-              <TouchableOpacity
-                style={styles.ayudaButton}
-                onPress={omitirDocumentosOpcionales}
-                disabled={!puedeCompletar()}
-              >
-                <Text style={styles.ayudaButtonTexto}>
-                  Continuar sin Documentos Opcionales
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </ScrollView>
-
+      </OnboardingScreenLayout>
       {renderModalSelector()}
-    </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  scrollContainer: {
-    padding: 20,
-  },
   progresoContainer: {
     backgroundColor: 'white',
     padding: 20,
@@ -803,7 +791,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#3498db',
+    backgroundColor: I.primary,
     borderRadius: 4,
   },
   seccionContainer: {
@@ -892,7 +880,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   subiendoseTexto: {
-    color: '#3498db',
+    color: I.primary,
     marginLeft: 10,
     fontSize: 14,
   },
@@ -901,7 +889,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   subidoTexto: {
-    color: '#27ae60',
+    color: I.semanticUp,
     marginLeft: 10,
     fontSize: 14,
     fontWeight: 'bold',
@@ -927,7 +915,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   subirButton: {
-    backgroundColor: '#3498db',
+    backgroundColor: I.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -947,7 +935,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   completarButton: {
-    backgroundColor: '#27ae60',
+    backgroundColor: I.primary,
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -987,7 +975,7 @@ const styles = StyleSheet.create({
   progresoTexto: {
     marginLeft: 10,
     fontSize: 14,
-    color: '#3498db',
+    color: I.primary,
   },
   modalOverlay: {
     flex: 1,

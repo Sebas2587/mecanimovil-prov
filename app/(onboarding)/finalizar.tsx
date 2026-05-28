@@ -4,18 +4,25 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { onboardingAPI, tallerAPI, mecanicoAPI, documentosAPI, especialidadesAPI, authAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
+import {
+  OnboardingScreenLayout,
+  OnboardingPrimaryButton,
+  OnboardingNotice,
+} from '@/components/onboarding';
 import { Buffer } from 'buffer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS } from '@/app/design-system/tokens';
+import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+
+const I = COLORS.institutional;
 
 export default function FinalizarOnboardingScreen() {
   const { tipo, especialidades, marcas, documentos, ...otherParams } = useLocalSearchParams();
@@ -674,24 +681,29 @@ export default function FinalizarOnboardingScreen() {
 
   if (!datosCompletos) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3498db" />
-          <Text style={styles.loadingText}>Preparando datos...</Text>
+      <OnboardingScreenLayout>
+        <View style={onboardingStyles.loadingCenter}>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={onboardingStyles.loadingText}>Preparando datos…</Text>
         </View>
-      </SafeAreaView>
+      </OnboardingScreenLayout>
     );
   }
 
   const documentosCount = Object.keys(datosCompletos.documentos || {}).length;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <OnboardingHeader
+    <OnboardingScreenLayout
+      footer={
+        <OnboardingPrimaryButton
+          label={isSubmitting ? 'Procesando…' : 'Finalizar registro'}
+          onPress={finalizarRegistro}
+          disabled={isSubmitting}
+          loading={isSubmitting}
+        />
+      }
+    >
+      <OnboardingHeader
           title="Finalizar Registro"
           subtitle="Revisa tu información y completa el registro"
           currentStep={7}
@@ -795,46 +807,17 @@ export default function FinalizarOnboardingScreen() {
           )}
         </View>
 
-        <View style={styles.infoContainer}>
-          <InstitutionalIcon name="information-circle" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
-          <View style={styles.infoTexto}>
-            <Text style={styles.infoTitle}>¿Qué sigue?</Text>
-            <Text style={styles.infoDescription}>
-              Una vez completado el registro, crearemos tu perfil, subiremos tus documentos y nuestro equipo revisará tu información. 
-              Te notificaremos por email cuando tu cuenta esté verificada y lista para recibir solicitudes de servicio.
-            </Text>
-          </View>
-        </View>
+      <OnboardingNotice>
+        Al finalizar crearemos tu perfil, subiremos tus documentos y nuestro equipo revisará tu información. Te avisaremos por correo cuando tu cuenta esté verificada.
+      </OnboardingNotice>
 
-        {isSubmitting && progresoSubida && (
-          <View style={styles.progresoContainer}>
-            <ActivityIndicator size="small" color="#3498db" />
-            <Text style={styles.progresoTexto}>{progresoSubida}</Text>
-          </View>
-        )}
-
-        {/* Botón de finalizar con mejor posicionamiento */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.finalizarButton, isSubmitting && styles.buttonDisabled]}
-            onPress={finalizarRegistro}
-            disabled={isSubmitting}
-            activeOpacity={0.8}
-          >
-            {isSubmitting && (
-              <ActivityIndicator 
-                size="small" 
-                color="white" 
-                style={styles.buttonLoader}
-              />
-            )}
-            <Text style={styles.finalizarButtonText}>
-              {isSubmitting ? 'Procesando...' : 'Finalizar Registro'}
-            </Text>
-          </TouchableOpacity>
+      {isSubmitting && progresoSubida ? (
+        <View style={styles.progresoContainer}>
+          <ActivityIndicator size="small" color={I.primary} />
+          <Text style={styles.progresoTexto}>{progresoSubida}</Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      ) : null}
+    </OnboardingScreenLayout>
   );
 }
 
@@ -859,23 +842,13 @@ const styles = StyleSheet.create({
     color: '#7f8c8d',
   },
   resumenContainer: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
+    ...onboardingStyles.panel,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   resumenTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#2c3e50',
+    color: I.ink,
     marginBottom: 16,
   },
   resumenSection: {

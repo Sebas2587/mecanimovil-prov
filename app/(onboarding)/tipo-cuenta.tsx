@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { authAPI, getAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { deleteItem, getItem, setItem } from '@/utils/authStorage';
 import { showAlertButtons, showConfirm } from '@/utils/platformAlert';
 import OnboardingHeader from '@/components/OnboardingHeader';
+import {
+  OnboardingScreenLayout,
+  OnboardingPrimaryButton,
+} from '@/components/onboarding';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS } from '@/app/design-system/tokens';
+import { onboardingStyles } from '@/app/design-system/styles/onboarding';
+
+const I = COLORS.institutional;
 
 export default function TipoCuentaScreen() {
   const [tipoSeleccionado, setTipoSeleccionado] = useState<'taller' | 'mecanico' | null>(null);
@@ -228,210 +228,89 @@ export default function TipoCuentaScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.contentWrapper}>
-        <ScrollView 
-          contentContainerStyle={styles.scrollContainer}
-          showsVerticalScrollIndicator={false}
-          style={styles.scrollView}
+    <OnboardingScreenLayout
+      footer={
+        <OnboardingPrimaryButton
+          label={tipoSeleccionado ? 'Continuar' : 'Selecciona una opción'}
+          onPress={handleContinuar}
+          disabled={!tipoSeleccionado}
+          loading={isLoading || isCheckingCredentials}
+          loadingLabel={isCheckingCredentials ? 'Verificando…' : 'Inicializando…'}
+        />
+      }
+    >
+      <OnboardingHeader
+        title="¿Qué tipo de servicio ofreces?"
+        subtitle="Selecciona la opción que mejor describa tu negocio"
+        currentStep={1}
+        totalSteps={5}
+        canGoBack={false}
+        icon="business-outline"
+      />
+
+      <View style={onboardingStyles.optionsStack}>
+        <TouchableOpacity
+          style={[
+            onboardingStyles.optionCard,
+            tipoSeleccionado === 'taller' && onboardingStyles.optionCardSelected,
+          ]}
+          onPress={() => handleSeleccion('taller')}
+          activeOpacity={0.85}
         >
-          <OnboardingHeader
-            title="¿Qué tipo de servicio ofreces?"
-            subtitle="Selecciona la opción que mejor describa tu negocio"
-            currentStep={1}
-            totalSteps={5}
-            canGoBack={false}
-            icon="business-outline"
-          />
-
-          <View style={styles.opciones}>
-            <TouchableOpacity
-              style={[
-                styles.opcion,
-                tipoSeleccionado === 'taller' && styles.opcionSeleccionada
-              ]}
-              onPress={() => handleSeleccion('taller')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.opcionHeader}>
-                <InstitutionalIcon 
-                  name="business" 
-                  size={32} 
-                  color={tipoSeleccionado === 'taller' ? '#4E4FEB' : '#666666'} 
-                 strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[
-                  styles.opcionTitulo,
-                  tipoSeleccionado === 'taller' && styles.opcionTituloSeleccionado
-                ]}>
-                  Taller Mecánico
-                </Text>
-              </View>
-              <Text style={styles.opcionDescripcion}>
-                Tengo un taller físico donde los clientes traen sus vehículos para reparación y mantenimiento.
+          <View style={onboardingStyles.optionCardBody}>
+            <View style={onboardingStyles.optionHeaderRow}>
+              <InstitutionalIcon
+                name="business"
+                size={28}
+                color={tipoSeleccionado === 'taller' ? I.primary : I.muted}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+              <Text
+                style={[
+                  onboardingStyles.optionTitle,
+                  tipoSeleccionado === 'taller' && onboardingStyles.optionTitleSelected,
+                ]}
+              >
+                Taller Mecánico
               </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.opcion,
-                tipoSeleccionado === 'mecanico' && styles.opcionSeleccionada
-              ]}
-              onPress={() => handleSeleccion('mecanico')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.opcionHeader}>
-                <InstitutionalIcon 
-                  name="car-sport" 
-                  size={32} 
-                  color={tipoSeleccionado === 'mecanico' ? '#4E4FEB' : '#666666'} 
-                 strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[
-                  styles.opcionTitulo,
-                  tipoSeleccionado === 'mecanico' && styles.opcionTituloSeleccionado
-                ]}>
-                  Mecánico a Domicilio
-                </Text>
-              </View>
-              <Text style={styles.opcionDescripcion}>
-                Ofrezco servicios de mecánica móvil, yendo directamente a la ubicación del cliente.
-              </Text>
-            </TouchableOpacity>
+            </View>
+            <Text style={onboardingStyles.optionDescription}>
+              Tengo un taller físico donde los clientes traen sus vehículos para reparación y mantenimiento.
+            </Text>
           </View>
-        </ScrollView>
+        </TouchableOpacity>
 
-        {/* Botón fijo en la parte inferior */}
-        <SafeAreaView edges={['bottom']} style={styles.fixedButtonContainer}>
-          <TouchableOpacity
-            style={[
-              styles.continuarButton,
-              (!tipoSeleccionado || isLoading || isCheckingCredentials) && styles.buttonDisabled
-            ]}
-            onPress={handleContinuar}
-            disabled={!tipoSeleccionado || isLoading || isCheckingCredentials}
-            activeOpacity={0.8}
-          >
-            {isLoading || isCheckingCredentials ? (
-              <View style={styles.loadingContent}>
-                <ActivityIndicator size="small" color="#ffffff" />
-                <Text style={styles.continuarButtonText}>
-                  {isCheckingCredentials ? 'Verificando...' : 'Inicializando...'}
-                </Text>
-              </View>
-            ) : (
-              <Text style={styles.continuarButtonText}>
-                {tipoSeleccionado ? 'Continuar' : 'Selecciona una opción'}
+        <TouchableOpacity
+          style={[
+            onboardingStyles.optionCard,
+            tipoSeleccionado === 'mecanico' && onboardingStyles.optionCardSelected,
+          ]}
+          onPress={() => handleSeleccion('mecanico')}
+          activeOpacity={0.85}
+        >
+          <View style={onboardingStyles.optionCardBody}>
+            <View style={onboardingStyles.optionHeaderRow}>
+              <InstitutionalIcon
+                name="car-sport"
+                size={28}
+                color={tipoSeleccionado === 'mecanico' ? I.primary : I.muted}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+              <Text
+                style={[
+                  onboardingStyles.optionTitle,
+                  tipoSeleccionado === 'mecanico' && onboardingStyles.optionTitleSelected,
+                ]}
+              >
+                Mecánico a Domicilio
               </Text>
-            )}
-          </TouchableOpacity>
-        </SafeAreaView>
+            </View>
+            <Text style={onboardingStyles.optionDescription}>
+              Ofrezco servicios de mecánica móvil, yendo directamente a la ubicación del cliente.
+            </Text>
+          </View>
+        </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </OnboardingScreenLayout>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#EEEEEE',
-  },
-  contentWrapper: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContainer: {
-    padding: 20,
-    paddingBottom: 24,
-  },
-  opciones: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 16,
-    minHeight: 400,
-  },
-  opcion: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 2,
-    borderColor: '#EEEEEE',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  opcionSeleccionada: {
-    borderColor: '#4E4FEB',
-    backgroundColor: '#E6F2FF',
-  },
-  opcionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  opcionTitulo: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#000000',
-    marginLeft: 12,
-  },
-  opcionTituloSeleccionado: {
-    color: '#4E4FEB',
-  },
-  opcionDescripcion: {
-    fontSize: 15,
-    color: '#666666',
-    lineHeight: 22,
-  },
-  caracteristicas: {
-    gap: 6,
-  },
-  caracteristica: {
-    fontSize: 14,
-    color: '#666666',
-    lineHeight: 20,
-  },
-  fixedButtonContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  continuarButton: {
-    backgroundColor: '#4E4FEB',
-    borderRadius: 12,
-    padding: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 56,
-  },
-  buttonDisabled: {
-    backgroundColor: '#D0D0D0',
-  },
-  continuarButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  loadingContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-}); 
+} 

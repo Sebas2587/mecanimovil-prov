@@ -5,17 +5,21 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import {
+  OnboardingScreenLayout,
+  OnboardingPrimaryButton,
+} from '@/components/onboarding';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS } from '@/app/design-system/tokens';
+import { onboardingStyles } from '@/app/design-system/styles/onboarding';
+
+const I = COLORS.institutional;
 
 // Mapeo de errores comunes del backend a mensajes amigables
 const ERROR_MESSAGES: { [key: string]: string } = {
@@ -241,20 +245,23 @@ export default function RegistroScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Crear Cuenta</Text>
-            <Text style={styles.subtitle}>
-              Únete a MecaniMóvil Proveedores
-            </Text>
-          </View>
+    <OnboardingScreenLayout
+      keyboardAvoiding
+      footer={
+        <OnboardingPrimaryButton
+          label={isLoading ? 'Creando cuenta…' : 'Crear cuenta'}
+          onPress={handleRegister}
+          disabled={isLoading}
+          loading={isLoading}
+        />
+      }
+    >
+      <View style={styles.header}>
+        <Text style={styles.title}>Crear cuenta</Text>
+        <Text style={styles.subtitle}>Únete a Mecanimovil Proveedores</Text>
+      </View>
 
-          <View style={styles.form}>
+      <View style={onboardingStyles.panel}>
             {/* Banner de error */}
             {errorMessage && (
               <View style={styles.errorBanner}>
@@ -270,26 +277,26 @@ export default function RegistroScreen() {
             )}
             
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Nombre Completo</Text>
+              <Text style={onboardingStyles.label}>Nombre completo</Text>
               <TextInput
-                style={styles.input}
+                style={onboardingStyles.input}
                 value={formData.nombre}
                 onChangeText={(value) => handleInputChange('nombre', value)}
                 placeholder="Ingresa tu nombre completo"
-                placeholderTextColor="#999"
+                placeholderTextColor={I.mutedSoft}
                 autoCapitalize="words"
                 editable={!isLoading}
               />
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Correo Electrónico</Text>
+              <Text style={onboardingStyles.label}>Correo electrónico</Text>
               <TextInput
-                style={styles.input}
+                style={onboardingStyles.input}
                 value={formData.correo}
                 onChangeText={(value) => handleInputChange('correo', value)}
                 placeholder="ejemplo@correo.com"
-                placeholderTextColor="#999"
+                placeholderTextColor={I.mutedSoft}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
@@ -298,14 +305,14 @@ export default function RegistroScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Contraseña</Text>
+              <Text style={onboardingStyles.label}>Contraseña</Text>
               <View style={[styles.passwordInputWrapper, isLoading && styles.inputDisabled]}>
                 <TextInput
                   style={styles.passwordInput}
                   value={formData.contrasena}
                   onChangeText={(value) => handleInputChange('contrasena', value)}
                   placeholder="Mínimo 8 caracteres"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={I.mutedSoft}
                   secureTextEntry={!showPassword}
                   autoComplete="new-password"
                   autoCorrect={false}
@@ -324,21 +331,21 @@ export default function RegistroScreen() {
                   <InstitutionalIcon
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={22}
-                    color={showPassword ? '#4E4FEB' : '#666666'}
+                    color={showPassword ? I.primary : I.muted}
                    strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Confirmar Contraseña</Text>
+              <Text style={onboardingStyles.label}>Confirmar contraseña</Text>
               <View style={[styles.passwordInputWrapper, isLoading && styles.inputDisabled]}>
                 <TextInput
                   style={styles.passwordInput}
                   value={formData.confirmarContrasena}
                   onChangeText={(value) => handleInputChange('confirmarContrasena', value)}
                   placeholder="Repite tu contraseña"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={I.mutedSoft}
                   secureTextEntry={!showConfirmPassword}
                   autoComplete="new-password"
                   autoCorrect={false}
@@ -356,134 +363,72 @@ export default function RegistroScreen() {
                   <InstitutionalIcon
                     name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={22}
-                    color={showConfirmPassword ? '#4E4FEB' : '#666666'}
+                    color={showConfirmPassword ? I.primary : I.muted}
                    strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
               </View>
             </View>
 
-            <TouchableOpacity
-              style={[styles.registerButton, isLoading && styles.buttonDisabled]}
-              onPress={handleRegister}
-              disabled={isLoading}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={styles.registerButtonText}>Creando Cuenta...</Text>
-                </View>
-              ) : (
-                <Text style={styles.registerButtonText}>Crear Cuenta</Text>
-              )}
-            </TouchableOpacity>
+        <View style={styles.divider}>
+          <Text style={styles.dividerText}>¿Ya tienes cuenta?</Text>
+        </View>
 
-            <View style={styles.divider}>
-              <Text style={styles.dividerText}>¿Ya tienes cuenta?</Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.loginButton}
-              onPress={goToLogin}
-              disabled={isLoading}
-            >
-              <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        <TouchableOpacity style={styles.loginButton} onPress={goToLogin} disabled={isLoading}>
+          <Text style={styles.loginButtonText}>Iniciar sesión</Text>
+        </TouchableOpacity>
+      </View>
+    </OnboardingScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 24,
+    marginTop: 8,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2c3e50',
+    fontWeight: '700',
+    color: I.ink,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#7f8c8d',
+    color: I.muted,
     textAlign: 'center',
-  },
-  form: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e74c3c',
-    borderRadius: 10,
+    backgroundColor: I.semanticDown,
+    borderRadius: 12,
     padding: 12,
     marginBottom: 16,
     gap: 10,
   },
   errorBannerText: {
     flex: 1,
-    color: '#FFFFFF',
+    color: I.onPrimary,
     fontSize: 14,
     fontWeight: '500',
   },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2c3e50',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e1e8ed',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    backgroundColor: '#f8f9fa',
-    color: '#2c3e50',
-  },
-  inputDisabled: {
-    opacity: 0.6,
-  },
+  inputContainer: { marginBottom: 16 },
+  inputDisabled: { opacity: 0.6 },
   passwordInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e1e8ed',
+    borderColor: I.hairline,
     borderRadius: 12,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.canvas,
     paddingRight: 12,
   },
   passwordInput: {
     flex: 1,
     padding: 16,
     fontSize: 16,
-    color: '#2c3e50',
+    color: I.ink,
   },
   eyeIcon: {
     padding: 8,
@@ -492,44 +437,18 @@ const styles = StyleSheet.create({
     minWidth: 36,
     minHeight: 36,
   },
-  registerButton: {
-    backgroundColor: '#27ae60',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    backgroundColor: '#95a5a6',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  registerButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  divider: {
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  dividerText: {
-    color: '#7f8c8d',
-    fontSize: 16,
-  },
+  divider: { alignItems: 'center', marginVertical: 20 },
+  dividerText: { color: I.muted, fontSize: 15 },
   loginButton: {
-    borderWidth: 2,
-    borderColor: '#3498db',
-    borderRadius: 12,
-    padding: 16,
+    borderWidth: 1.5,
+    borderColor: I.primary,
+    borderRadius: 999,
+    padding: 14,
     alignItems: 'center',
   },
   loginButtonText: {
-    color: '#3498db',
-    fontSize: 18,
+    color: I.primary,
+    fontSize: 16,
     fontWeight: '600',
   },
 }); 

@@ -4,15 +4,18 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useRootNavigationState, useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import { OnboardingScreenLayout } from '@/components/onboarding';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS } from '@/app/design-system/tokens';
+import { onboardingStyles } from '@/app/design-system/styles/onboarding';
+
+const I = COLORS.institutional;
 
 interface EstadisticasDocumentos {
   totalSubidos: number;
@@ -32,10 +35,12 @@ export default function CuentaEnRevisionScreen() {
 
   if (!navigationReady || authLoading || !estadoProveedor) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3498db" />
-        <Text style={styles.loadingText}>Cargando estado...</Text>
-      </SafeAreaView>
+      <OnboardingScreenLayout>
+        <View style={onboardingStyles.loadingCenter}>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={onboardingStyles.loadingText}>Cargando estado…</Text>
+        </View>
+      </OnboardingScreenLayout>
     );
   }
 
@@ -80,7 +85,7 @@ export default function CuentaEnRevisionScreen() {
       case 'pendiente':
         return '#f39c12';
       case 'en_revision':
-        return '#3498db';
+        return I.primary;
       case 'revision_documentos':
         return '#9b59b6';
       case 'verificado':
@@ -195,7 +200,7 @@ export default function CuentaEnRevisionScreen() {
           <InstitutionalIcon 
             name={tipoProveedor === 'taller' ? 'business-outline' : 'person-outline'} 
             size={24} 
-            color="#3498db" 
+            color={I.primary} 
            strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.infoTitulo}>Información del Perfil</Text>
         </View>
@@ -284,7 +289,7 @@ export default function CuentaEnRevisionScreen() {
               style={styles.accionSecundaria}
               onPress={onRefresh}
             >
-              <InstitutionalIcon name="refresh-outline" size={20} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="refresh-outline" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.accionSecundariaTexto}>Actualizar Estado</Text>
             </TouchableOpacity>
             
@@ -304,16 +309,13 @@ export default function CuentaEnRevisionScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        <View style={styles.header}>
-          <InstitutionalIcon name="shield-checkmark-outline" size={64} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
+    <OnboardingScreenLayout
+      scrollProps={{
+        refreshControl: <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />,
+      }}
+    >
+      <View style={styles.header}>
+        <InstitutionalIcon name="shield-checkmark-outline" size={64} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.headerTitulo}>Estado de tu Cuenta</Text>
           <Text style={styles.headerSubtitulo}>
             Verificación de Proveedor
@@ -333,29 +335,11 @@ export default function CuentaEnRevisionScreen() {
             contáctanos a través de nuestro soporte técnico.
           </Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+    </OnboardingScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#5d6d7e',
-  },
-  scrollContainer: {
-    padding: 20,
-  },
   header: {
     alignItems: 'center',
     marginBottom: 30,
@@ -363,7 +347,7 @@ const styles = StyleSheet.create({
   headerTitulo: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2c3e50',
+    color: I.ink,
     marginTop: 15,
     marginBottom: 5,
   },
@@ -403,7 +387,7 @@ const styles = StyleSheet.create({
   },
   estadoMensaje: {
     fontSize: 16,
-    color: '#2c3e50',
+    color: I.ink,
     marginBottom: 10,
     lineHeight: 22,
   },
@@ -431,7 +415,7 @@ const styles = StyleSheet.create({
   infoTitulo: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2c3e50',
+    color: I.ink,
     marginLeft: 10,
   },
   infoDetalle: {
@@ -447,7 +431,7 @@ const styles = StyleSheet.create({
   infoValor: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#2c3e50',
+    color: I.ink,
   },
   documentosCard: {
     backgroundColor: 'white',
@@ -468,7 +452,7 @@ const styles = StyleSheet.create({
   documentosTitulo: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2c3e50',
+    color: I.ink,
     marginLeft: 10,
   },
   documentosStatus: {
@@ -482,7 +466,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   subirDocumentosButton: {
-    backgroundColor: '#3498db',
+    backgroundColor: I.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -529,7 +513,7 @@ const styles = StyleSheet.create({
     borderColor: '#ecf0f1',
   },
   accionSecundariaTexto: {
-    color: '#3498db',
+    color: I.primary,
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 8,
@@ -548,7 +532,7 @@ const styles = StyleSheet.create({
   ayudaTitulo: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2c3e50',
+    color: I.ink,
     marginTop: 10,
     marginBottom: 10,
   },

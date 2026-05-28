@@ -3,6 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
+
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
 
 interface OnboardingHeaderProps {
   title: string;
@@ -21,9 +25,10 @@ export default function OnboardingHeader({
   totalSteps,
   canGoBack = true,
   backPath,
-  icon
+  icon,
 }: OnboardingHeaderProps) {
   const router = useRouter();
+  const progress = Math.min(100, Math.max(0, (currentStep / totalSteps) * 100));
 
   const handleGoBack = () => {
     if (backPath) {
@@ -35,51 +40,36 @@ export default function OnboardingHeader({
 
   return (
     <View style={styles.container}>
-      {/* Barra de progreso mejorada */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBarWrapper}>
-          <View style={styles.progressBar}>
-            <View 
-              style={[
-                styles.progressFill, 
-                { width: `${(currentStep / totalSteps) * 100}%` }
-              ]} 
-            />
-          </View>
+      <View style={styles.progressBlock}>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
-        <Text style={styles.progressText}>
+        <Text style={styles.progressLabel}>
           Paso {currentStep} de {totalSteps}
         </Text>
       </View>
 
-      {/* Header con botón de retroceso mejorado */}
-      <View style={styles.headerContainer}>
-        {canGoBack && (
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={handleGoBack}
-            activeOpacity={0.7}
-          >
-            <View style={styles.backButtonContent}>
-              <InstitutionalIcon name="chevron-back" size={20} color="#4E4FEB"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.backButtonText}>Anterior</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-        
-        <View style={styles.titleContainer}>
-          {icon && (
-            <View style={styles.iconContainer}>
-              <InstitutionalIcon name={icon as any} size={32} color="#4E4FEB"  strokeWidth={ICON_STROKE_WIDTH} />
-            </View>
-          )}
-          <Text style={styles.title}>{title}</Text>
-          {subtitle && (
-            <View style={styles.subtitleContainer}>
-              <Text style={styles.subtitle}>{subtitle}</Text>
-            </View>
-          )}
-        </View>
+      {canGoBack ? (
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleGoBack}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Paso anterior"
+        >
+          <InstitutionalIcon name="chevron-back" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+          <Text style={styles.backLabel}>Anterior</Text>
+        </TouchableOpacity>
+      ) : null}
+
+      <View style={styles.titleBlock}>
+        {icon ? (
+          <View style={styles.iconPlate}>
+            <InstitutionalIcon name={icon as any} size={28} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+          </View>
+        ) : null}
+        <Text style={styles.title}>{title}</Text>
+        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
     </View>
   );
@@ -87,80 +77,71 @@ export default function OnboardingHeader({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
-    paddingHorizontal: 4,
+    marginBottom: SPACING.fixed.lg,
   },
-  progressContainer: {
-    marginBottom: 24,
+  progressBlock: {
+    marginBottom: SPACING.fixed.md,
   },
-  progressBarWrapper: {
-    marginBottom: 12,
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: '#EEEEEE',
-    borderRadius: 3,
+  progressTrack: {
+    height: 4,
+    backgroundColor: I.hairlineSoft,
+    borderRadius: BORDERS.radius.full,
     overflow: 'hidden',
+    marginBottom: SPACING.fixed.sm,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#4E4FEB',
-    borderRadius: 3,
+    backgroundColor: I.primary,
+    borderRadius: BORDERS.radius.full,
   },
-  progressText: {
-    fontSize: 13,
-    color: '#666666',
+  progressLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    color: I.muted,
     textAlign: 'center',
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
-  headerContainer: {
-    position: 'relative',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
   },
   backButton: {
-    marginBottom: 20,
-    alignSelf: 'flex-start',
-  },
-  backButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    alignSelf: 'flex-start',
+    gap: 4,
+    marginBottom: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.xs,
   },
-  backButtonText: {
-    fontSize: 15,
-    color: '#4E4FEB',
-    fontWeight: '600',
-    marginLeft: 4,
+  backLabel: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
   },
-  titleContainer: {
+  titleBlock: {
     alignItems: 'center',
   },
-  iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#E6F2FF',
+  iconPlate: {
+    width: 56,
+    height: 56,
+    borderRadius: BORDERS.radius.full,
+    backgroundColor: withOpacity(I.primary, 0.08),
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.2),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.fixed.md,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#000000',
+    fontSize: TYPOGRAPHY.fontSize['2xl'],
+    fontFamily: FF.sansBold,
+    color: I.ink,
     textAlign: 'center',
-    marginBottom: 12,
-    letterSpacing: -0.5,
-  },
-  subtitleContainer: {
-    paddingHorizontal: 16,
+    letterSpacing: TYPOGRAPHY.letterSpacing.tight,
+    marginBottom: SPACING.fixed.xs,
   },
   subtitle: {
-    fontSize: 15,
-    color: '#666666',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
     textAlign: 'center',
     lineHeight: 22,
-    fontWeight: '400',
+    paddingHorizontal: SPACING.fixed.sm,
   },
-}); 
+});

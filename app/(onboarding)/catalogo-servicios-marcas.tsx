@@ -4,16 +4,24 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { serviciosAPI, vehiculoAPI, type MarcaVehiculo } from '@/services/api';
 import OnboardingHeader from '@/components/OnboardingHeader';
+import {
+  OnboardingScreenLayout,
+  OnboardingPrimaryButton,
+  OnboardingNotice,
+} from '@/components/onboarding';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS } from '@/app/design-system/tokens';
+import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
+import { appendOnboardingParams, catalogoStep } from '@/utils/onboardingNavigation';
+
+const I = COLORS.institutional;
 
 type ServicioCatalogo = {
   id: number;
@@ -63,35 +71,34 @@ export default function CatalogoServiciosMarcasScreen() {
   const cargarCatalogoGenerico = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Intentar cargar servicios genéricos desde el backend
-      // Fallback a una lista estándar si no hay endpoint específico
+      // Para multimarca: cargar servicios reales (IDs reales) desde el backend.
+      // Importante: si usamos IDs "fake", luego `crear_catalogo_inicial` no creará ofertas.
       let servicios: ServicioCatalogo[] = [];
       try {
+        // 1) Si existe endpoint dedicado, usarlo.
         const res = await (serviciosAPI as any).obtenerCatalogoServiciosGenericos?.();
-        if (Array.isArray(res?.data)) {
-          servicios = res.data;
-        } else if (Array.isArray(res)) {
-          servicios = res;
+        const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : null;
+        if (raw) {
+          servicios = raw;
+        } else {
+          // 2) Fallback: usar catálogo general de servicios (IDs reales).
+          const allRes = await serviciosAPI.obtenerServicios();
+          const allRaw = (allRes as any)?.data?.results ?? (allRes as any)?.data ?? [];
+          if (Array.isArray(allRaw)) {
+            servicios = allRaw.map((s: any) => ({
+              id: Number(s.id),
+              nombre: String(s.nombre ?? ''),
+              descripcion: String(s.descripcion ?? ''),
+              requiere_repuestos: !!s.requiere_repuestos,
+            })).filter((s: ServicioCatalogo) => Number.isFinite(s.id) && !!s.nombre);
+          }
         }
       } catch {
         // Fallback a servicios estándar del catálogo
       }
       if (servicios.length === 0) {
-        // Lista estándar de servicios cuando no hay endpoint genérico
-        servicios = [
-          { id: 1001, nombre: 'Cambio de aceite y filtros', descripcion: 'Mantenimiento básico del motor', requiere_repuestos: true },
-          { id: 1002, nombre: 'Revisión de frenos', descripcion: 'Inspección y reemplazo de pastillas y discos', requiere_repuestos: true },
-          { id: 1003, nombre: 'Alineación y balanceo', descripcion: 'Ajuste de alineación y balance de ruedas', requiere_repuestos: false },
-          { id: 1004, nombre: 'Diagnóstico electrónico', descripcion: 'Escaneo OBD con scanner profesional', requiere_repuestos: false },
-          { id: 1005, nombre: 'Mantenimiento preventivo', descripcion: 'Revisión general del vehículo', requiere_repuestos: false },
-          { id: 1006, nombre: 'Cambio de neumáticos', descripcion: 'Montaje y desmontaje de neumáticos', requiere_repuestos: true },
-          { id: 1007, nombre: 'Revisión de suspensión', descripcion: 'Amortiguadores, resortes y rótulas', requiere_repuestos: true },
-          { id: 1008, nombre: 'Sistema de aire acondicionado', descripcion: 'Recarga y revisión del A/C', requiere_repuestos: true },
-          { id: 1009, nombre: 'Revisión eléctrica', descripcion: 'Batería, alternador y circuitos', requiere_repuestos: false },
-          { id: 1010, nombre: 'Revisión de transmisión', descripcion: 'Caja de cambios automática y manual', requiere_repuestos: false },
-          { id: 1011, nombre: 'Servicio de motor', descripcion: 'Reparación y mantenimiento de motor', requiere_repuestos: true },
-          { id: 1012, nombre: 'Servicio de embrague', descripcion: 'Revisión y cambio de embrague', requiere_repuestos: true },
-        ];
+        // Si no se pudo cargar desde el backend, no inventar IDs: dejar vacío.
+        servicios = [];
       }
       setServiciosGenericos(servicios.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })));
     } catch (e) {
@@ -214,18 +221,19 @@ export default function CatalogoServiciosMarcasScreen() {
 
   const getBackPath = () => {
     const params = new URLSearchParams();
-    Object.entries(otherParams).forEach(([key, value]) => {
-      if (value === undefined || value === null) return;
-      const valueStr = Array.isArray(value) ? value[0] : value;
-      if (valueStr !== undefined && valueStr !== '') params.append(key, String(valueStr));
+    appendOnboardingParams(params, {
+      ...otherParams,
+      tipo: Array.isArray(tipo) ? tipo[0] : tipo,
+      marcas: Array.isArray(marcasParam) ? marcasParam[0] : marcasParam,
+      es_multimarca: esMultimarca ? 'true' : 'false',
     });
-    const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
-    if (tipoStr) params.append('tipo', String(tipoStr));
-    const m = Array.isArray(marcasParam) ? marcasParam[0] : marcasParam;
-    if (m) params.append('marcas', String(m));
-    params.append('es_multimarca', esMultimarca ? 'true' : 'false');
-    return `/(onboarding)/marcas?${params.toString()}`;
+    if (esMultimarca) {
+      return `/(onboarding)/cobertura-marcas?${params.toString()}`;
+    }
+    return `/(onboarding)/seleccion-marcas?${params.toString()}`;
   };
+
+  const pasoCatalogo = catalogoStep(esMultimarca);
 
   const handleContinuar = () => {
     if (totalSeleccionados === 0) {
@@ -287,58 +295,56 @@ export default function CatalogoServiciosMarcasScreen() {
     }
   };
 
+  const footerLabel =
+    totalSeleccionados > 0
+      ? `Continuar con ${totalSeleccionados} servicio${totalSeleccionados !== 1 ? 's' : ''}`
+      : 'Continuar';
+
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4E4FEB" />
-          <Text style={styles.loadingText}>
+      <OnboardingScreenLayout>
+        <View style={onboardingStyles.loadingCenter}>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={onboardingStyles.loadingText}>
             {esMultimarca ? 'Cargando catálogo de servicios…' : 'Cargando servicios por marca…'}
           </Text>
         </View>
-      </SafeAreaView>
+      </OnboardingScreenLayout>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.contentWrapper}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          showsVerticalScrollIndicator={false}
-          style={styles.scrollView}
-        >
-          <OnboardingHeader
+    <OnboardingScreenLayout
+      footer={<OnboardingPrimaryButton label={footerLabel} onPress={handleContinuar} />}
+    >
+      <OnboardingHeader
             title={esMultimarca ? 'Servicios que ofreces' : 'Servicios por marca'}
             subtitle={esMultimarca
               ? 'Selecciona los servicios que realizas para cualquier marca de vehículo.'
               : 'Selecciona los servicios que ofrecerás por cada marca. Configura precios desde Mis servicios.'}
-            currentStep={4}
-            totalSteps={5}
+            currentStep={pasoCatalogo.current}
+            totalSteps={pasoCatalogo.total}
             icon="construct"
             backPath={getBackPath()}
           />
 
           {/* Badge multimarca informativo */}
-          {esMultimarca && (
-            <View style={styles.multimarcaBadge}>
-              <InstitutionalIcon name="globe-outline" size={18} color="#4E4FEB" strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.multimarcaBadgeText}>Proveedor Multimarca — Atiendes todas las marcas</Text>
-            </View>
-          )}
+      {esMultimarca ? (
+        <View style={styles.multimarcaBadge}>
+          <InstitutionalIcon name="globe-outline" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+          <Text style={styles.multimarcaBadgeText}>Proveedor multimarca — atiendes todas las marcas</Text>
+        </View>
+      ) : null}
 
-          <View style={styles.infoBox}>
-            <InstitutionalIcon name="information-circle" size={22} color="#4E4FEB"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.infoText}>
-              {esMultimarca
-                ? 'Marca los servicios que ofreces. Los precios los configuras después en "Mis servicios".'
-                : 'Toca cada servicio para marcarlo. Usa el botón por marca para seleccionar/deseleccionar todos. Los precios los configuras al publicar cada servicio.'}
-            </Text>
-          </View>
+      <OnboardingNotice>
+        {esMultimarca
+          ? 'Marca los servicios que ofreces. Los precios los configuras después en Mis servicios.'
+          : 'Toca cada servicio para marcarlo. Usa el botón por marca para seleccionar o deseleccionar todos. Los precios los configuras al publicar cada servicio.'}
+      </OnboardingNotice>
 
           {totalSeleccionados > 0 && (
             <View style={styles.resumenBox}>
-              <InstitutionalIcon name="checkmark-circle" size={18} color="#27AE60"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="checkmark-circle" size={18} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.resumenText}>
                 {totalSeleccionados} servicio{totalSeleccionados !== 1 ? 's' : ''} seleccionado{totalSeleccionados !== 1 ? 's' : ''}
               </Text>
@@ -347,7 +353,7 @@ export default function CatalogoServiciosMarcasScreen() {
 
           {/* Vista para proveedor MULTIMARCA */}
           {esMultimarca ? (
-            <View style={styles.grupo}>
+            <View style={onboardingStyles.groupCard}>
               <View style={styles.grupoHeader}>
                 <View style={styles.grupoTituloRow}>
                   <Text style={styles.grupoTitulo}>Catálogo de servicios</Text>
@@ -392,7 +398,7 @@ export default function CatalogoServiciosMarcasScreen() {
                       <InstitutionalIcon
                         name={isSelected ? 'checkbox' : 'square-outline'}
                         size={22}
-                        color={isSelected ? '#4E4FEB' : '#aaa'}
+                        color={isSelected ? I.primary : I.mutedSoft}
                         style={styles.checkIcon}
                         strokeWidth={ICON_STROKE_WIDTH}
                       />
@@ -425,7 +431,7 @@ export default function CatalogoServiciosMarcasScreen() {
               const algunoSeleccionado = grupo.servicios.some((s) => grupoSet.has(s.id));
 
               return (
-                <View key={grupo.marcaId} style={styles.grupo}>
+                <View key={grupo.marcaId} style={onboardingStyles.groupCard}>
                   <View style={styles.grupoHeader}>
                     <View style={styles.grupoTituloRow}>
                       <Text style={styles.grupoTitulo}>{grupo.marcaNombre}</Text>
@@ -445,7 +451,7 @@ export default function CatalogoServiciosMarcasScreen() {
                         <InstitutionalIcon
                           name={todosSeleccionados ? 'checkbox' : algunoSeleccionado ? 'remove-circle-outline' : 'square-outline'}
                           size={16}
-                          color={todosSeleccionados ? '#fff' : algunoSeleccionado ? '#4E4FEB' : '#555'}
+                          color={todosSeleccionados ? I.onPrimary : algunoSeleccionado ? I.primary : I.muted}
                          strokeWidth={ICON_STROKE_WIDTH} />
                         <Text
                           style={[
@@ -475,7 +481,7 @@ export default function CatalogoServiciosMarcasScreen() {
                             <InstitutionalIcon
                               name={isSelected ? 'checkbox' : 'square-outline'}
                               size={22}
-                              color={isSelected ? '#4E4FEB' : '#aaa'}
+                              color={isSelected ? I.primary : I.mutedSoft}
                               style={styles.checkIcon}
                              strokeWidth={ICON_STROKE_WIDTH} />
                             <View style={styles.servicioInfo}>
@@ -495,77 +501,39 @@ export default function CatalogoServiciosMarcasScreen() {
               );
             })
           ))}
-        </ScrollView>
-
-        <SafeAreaView edges={['bottom']} style={styles.fixedButtonContainer}>
-          <TouchableOpacity style={styles.continueButton} onPress={handleContinuar} activeOpacity={0.8}>
-            <Text style={styles.continueButtonText}>
-              {totalSeleccionados > 0
-                ? `Continuar con ${totalSeleccionados} servicio${totalSeleccionados !== 1 ? 's' : ''}`
-                : 'Continuar'}
-            </Text>
-          </TouchableOpacity>
-        </SafeAreaView>
-      </View>
-    </SafeAreaView>
+    </OnboardingScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#EEEEEE' },
-  contentWrapper: { flex: 1 },
-  scrollView: { flex: 1 },
-  scrollContainer: { padding: 20, paddingBottom: 24 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, fontSize: 15, color: '#7f8c8d' },
   multimarcaBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#EEF3FF',
+    backgroundColor: 'rgba(0, 82, 255, 0.06)',
     padding: 10,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#C5D5FF',
+    borderColor: 'rgba(0, 82, 255, 0.2)',
   },
   multimarcaBadgeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#4E4FEB',
+    color: I.primary,
   },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    backgroundColor: '#FFFFFF',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8F0',
-  },
-  infoText: { flex: 1, fontSize: 14, color: '#444', lineHeight: 20 },
   resumenBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#EAF9EF',
+    backgroundColor: 'rgba(5, 177, 105, 0.08)',
     padding: 10,
-    borderRadius: 10,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#B7E4C7',
-  },
-  resumenText: { fontSize: 14, color: '#27AE60', fontWeight: '600' },
-  grupo: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 14,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#EEEEEE',
+    borderColor: 'rgba(5, 177, 105, 0.25)',
   },
+  resumenText: { fontSize: 14, color: I.semanticUp, fontWeight: '600' },
   grupoHeader: { marginBottom: 10 },
   grupoTituloRow: {
     flexDirection: 'row',
@@ -573,8 +541,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  grupoTitulo: { fontSize: 17, fontWeight: '700', color: '#000' },
-  grupoCount: { fontSize: 13, color: '#666', fontWeight: '600' },
+  grupoTitulo: { fontSize: 17, fontWeight: '700', color: I.ink },
+  grupoCount: { fontSize: 13, color: I.muted, fontWeight: '600' },
   toggleTodoBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -582,30 +550,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#F3F3FF',
+    backgroundColor: I.surfaceSoft,
     borderWidth: 1,
-    borderColor: '#D0D0F0',
+    borderColor: I.hairline,
     alignSelf: 'flex-start',
   },
   toggleTodoBtnActive: {
-    backgroundColor: '#4E4FEB',
-    borderColor: '#4E4FEB',
+    backgroundColor: I.primary,
+    borderColor: I.primary,
   },
-  toggleTodoBtnText: { fontSize: 13, color: '#555', fontWeight: '500' },
-  toggleTodoBtnTextActive: { color: '#fff' },
-  sinServicios: { fontSize: 14, color: '#888', fontStyle: 'italic' },
+  toggleTodoBtnText: { fontSize: 13, color: I.muted, fontWeight: '500' },
+  toggleTodoBtnTextActive: { color: I.onPrimary },
+  sinServicios: { fontSize: 14, color: I.mutedSoft, fontStyle: 'italic' },
   servicioRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 11,
-    paddingHorizontal: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E0E0E0',
-    borderRadius: 8,
-    marginHorizontal: -4,
+    borderTopColor: I.hairline,
   },
   servicioRowSelected: {
-    backgroundColor: '#F3F3FF',
+    backgroundColor: 'rgba(0, 82, 255, 0.06)',
   },
   servicioLeft: {
     flexDirection: 'row',
@@ -614,27 +580,10 @@ const styles = StyleSheet.create({
   },
   checkIcon: { marginRight: 12 },
   servicioInfo: { flex: 1 },
-  servicioNombre: { fontSize: 15, fontWeight: '500', color: '#333' },
-  servicioNombreSelected: { color: '#4E4FEB', fontWeight: '600' },
-  servicioMeta: { fontSize: 12, color: '#888', marginTop: 2 },
+  servicioNombre: { fontSize: 15, fontWeight: '500', color: I.body },
+  servicioNombreSelected: { color: I.primary, fontWeight: '600' },
+  servicioMeta: { fontSize: 12, color: I.mutedSoft, marginTop: 2 },
   emptyBox: { padding: 24, alignItems: 'center' },
-  emptyTitle: { fontSize: 16, fontWeight: '600', color: '#333' },
-  emptySub: { fontSize: 14, color: '#888', marginTop: 6, textAlign: 'center' },
-  fixedButtonContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-    elevation: 8,
-  },
-  continueButton: {
-    backgroundColor: '#4E4FEB',
-    borderRadius: 12,
-    padding: 18,
-    alignItems: 'center',
-    minHeight: 56,
-  },
-  continueButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  emptyTitle: { fontSize: 16, fontWeight: '600', color: I.ink },
+  emptySub: { fontSize: 14, color: I.mutedSoft, marginTop: 6, textAlign: 'center' },
 });

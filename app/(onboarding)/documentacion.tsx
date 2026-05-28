@@ -4,20 +4,27 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   Platform,
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { documentosAPI, type TipoDocumento } from '@/services/api';
 import OnboardingHeader from '@/components/OnboardingHeader';
+import {
+  OnboardingScreenLayout,
+  OnboardingPrimaryButton,
+  OnboardingNotice,
+} from '@/components/onboarding';
 import { Buffer } from 'buffer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS } from '@/app/design-system/tokens';
+import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+
+const I = COLORS.institutional;
 
 interface DocumentoLocal {
   uri: string;
@@ -253,7 +260,7 @@ export default function DocumentacionScreen() {
     });
     params.append('tipo', tipo as string);
     if (especialidades) params.append('especialidades', especialidades as string);
-    return `/(onboarding)/marcas?${params.toString()}`;
+    return `/(onboarding)/cobertura-marcas?${params.toString()}`;
   };
 
   const renderDocumento = (tipoDoc: TipoDocumento) => {
@@ -264,13 +271,13 @@ export default function DocumentacionScreen() {
     return (
       <View key={tipoDoc.key} style={styles.documentoItem}>
         <View style={styles.documentoHeader}>
-          <InstitutionalIcon name={icono} size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name={icono} size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
           <View style={styles.documentoInfo}>
             <Text style={styles.documentoNombre}>{tipoDoc.label}</Text>
             {esOpcional && <Text style={styles.opcionalText}>Opcional</Text>}
           </View>
           {documentoGuardado && (
-            <InstitutionalIcon name="checkmark-circle" size={20} color="#27ae60"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="checkmark-circle" size={20} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
           )}
         </View>
 
@@ -282,14 +289,14 @@ export default function DocumentacionScreen() {
                 style={styles.botonCambiar}
                 onPress={() => seleccionarImagen(tipoDoc.key, tipoDoc.label)}
               >
-                <InstitutionalIcon name="refresh" size={16} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="refresh" size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.textoBotonCambiar}>Cambiar</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.botonEliminar}
                 onPress={() => eliminarDocumento(tipoDoc.key)}
               >
-                <InstitutionalIcon name="trash" size={16} color="#e74c3c"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="trash" size={16} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.textoBotonEliminar}>Eliminar</Text>
               </TouchableOpacity>
             </View>
@@ -299,7 +306,7 @@ export default function DocumentacionScreen() {
             style={styles.botonSubir}
             onPress={() => seleccionarImagen(tipoDoc.key, tipoDoc.label)}
           >
-            <InstitutionalIcon name="cloud-upload" size={32} color="#7f8c8d"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="cloud-upload" size={32} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.textoSubir}>Seleccionar Documento</Text>
             <Text style={styles.textoSubirSecundario}>Toca para elegir imagen</Text>
           </TouchableOpacity>
@@ -310,92 +317,51 @@ export default function DocumentacionScreen() {
 
   if (isLoadingTipos) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3498db" />
-          <Text style={styles.loadingText}>Cargando tipos de documento...</Text>
+      <OnboardingScreenLayout>
+        <View style={onboardingStyles.loadingCenter}>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={onboardingStyles.loadingText}>Cargando tipos de documento…</Text>
         </View>
-      </SafeAreaView>
+      </OnboardingScreenLayout>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <OnboardingHeader
-          title="Documentación"
-          subtitle={`Selecciona los documentos requeridos para verificar tu ${tipo === 'taller' ? 'taller' : 'servicio'}`}
-          currentStep={5}
-          totalSteps={6}
-          icon="document-text"
-          backPath={getBackPath()}
-        />
+    <OnboardingScreenLayout
+      footer={<OnboardingPrimaryButton label="Continuar" onPress={handleContinuar} />}
+    >
+      <OnboardingHeader
+        title="Documentación"
+        subtitle={`Selecciona los documentos requeridos para verificar tu ${tipo === 'taller' ? 'taller' : 'servicio'}`}
+        currentStep={5}
+        totalSteps={6}
+        icon="document-text"
+        backPath={getBackPath()}
+      />
 
-        <View style={styles.documentosContainer}>
-          {tiposDocumento.map(renderDocumento)}
-        </View>
+      <View style={styles.documentosContainer}>
+        {tiposDocumento.map(renderDocumento)}
+      </View>
 
-        <View style={styles.infoContainer}>
-          <InstitutionalIcon name="information-circle" size={20} color="#f39c12"  strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.infoText}>
-            Las imágenes se subirán al completar el registro. Asegúrate de que sean claras y legibles.
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.continueButton}
-          onPress={handleContinuar}
-        >
-          <Text style={styles.continueButtonText}>Continuar</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      <OnboardingNotice>
+        Las imágenes se subirán al completar el registro. Asegúrate de que sean claras y legibles.
+      </OnboardingNotice>
+    </OnboardingScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    padding: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#7f8c8d',
-  },
-  infoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e8f4fd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-  },
-  infoText: {
-    marginLeft: 12,
-    fontSize: 14,
-    color: '#2980b9',
-    flex: 1,
-  },
   documentosContainer: {
     gap: 12,
     marginBottom: 20,
   },
   documentoItem: {
-    backgroundColor: 'white',
-    borderRadius: 8,
+    backgroundColor: I.canvas,
+    borderRadius: 16,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#e1e8ed',
+    borderWidth: 2,
+    borderColor: I.hairline,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -418,32 +384,32 @@ const styles = StyleSheet.create({
   documentoNombre: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#2c3e50',
+    color: I.ink,
     flex: 1,
   },
   opcionalText: {
     fontSize: 12,
-    color: '#95a5a6',
+    color: I.mutedSoft,
     fontStyle: 'italic',
   },
   botonSubir: {
     borderWidth: 2,
-    borderColor: '#e1e8ed',
+    borderColor: I.hairline,
     borderStyle: 'dashed',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 24,
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
   },
   textoSubir: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#7f8c8d',
+    color: I.muted,
     marginTop: 8,
   },
   textoSubirSecundario: {
     fontSize: 12,
-    color: '#95a5a6',
+    color: I.mutedSoft,
     marginTop: 4,
   },
   documentoSubido: {
@@ -469,7 +435,7 @@ const styles = StyleSheet.create({
   },
   textoBotonCambiar: {
     fontSize: 12,
-    color: '#3498db',
+    color: I.primary,
     marginLeft: 4,
     fontWeight: '600',
   },
@@ -479,26 +445,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: '#fadbd8',
+    backgroundColor: 'rgba(207, 32, 47, 0.08)',
   },
   textoBotonEliminar: {
     fontSize: 12,
-    color: '#e74c3c',
+    color: I.semanticDown,
     marginLeft: 4,
-    fontWeight: '600',
-  },
-  continueButton: {
-    backgroundColor: '#27ae60',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    backgroundColor: '#bdc3c7',
-  },
-  continueButtonText: {
-    color: 'white',
-    fontSize: 16,
     fontWeight: '600',
   },
 }); 

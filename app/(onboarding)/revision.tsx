@@ -1,16 +1,18 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import {
+  OnboardingScreenLayout,
+  OnboardingPrimaryButton,
+  OnboardingNotice,
+} from '@/components/onboarding';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS } from '@/app/design-system/tokens';
+import { onboardingStyles } from '@/app/design-system/styles/onboarding';
+
+const I = COLORS.institutional;
 
 export default function RevisionScreen() {
   const { tipo } = useLocalSearchParams();
@@ -22,250 +24,151 @@ export default function RevisionScreen() {
     router.replace('/(auth)/login' as any);
   };
 
+  const tipoLabel = tipo === 'taller' ? 'taller mecánico' : 'mecánico a domicilio';
+
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
-          <View style={styles.iconContainer}>
-            <InstitutionalIcon name="checkmark-circle" size={80} color="#27ae60"  strokeWidth={ICON_STROKE_WIDTH} />
-          </View>
-          <Text style={styles.title}>¡Registro Completado!</Text>
-          <Text style={styles.subtitle}>
-            Tu solicitud de registro como {tipo === 'taller' ? 'taller mecánico' : 'mecánico a domicilio'} ha sido enviada exitosamente.
-          </Text>
+    <OnboardingScreenLayout
+      footer={<OnboardingPrimaryButton label="Volver al inicio de sesión" onPress={handleVolverLogin} />}
+    >
+      <View style={styles.hero}>
+        <View style={styles.iconRing}>
+          <InstitutionalIcon name="checkmark-circle" size={72} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
         </View>
+        <Text style={styles.title}>Registro completado</Text>
+        <Text style={styles.subtitle}>
+          Tu solicitud como {tipoLabel} fue enviada correctamente.
+        </Text>
+      </View>
 
-        <View style={styles.infoContainer}>
-          <View style={styles.infoItem}>
-            <InstitutionalIcon name="time" size={24} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
-            <View style={styles.infoText}>
-              <Text style={styles.infoTitle}>Tiempo de Revisión</Text>
-              <Text style={styles.infoDescription}>
-                Nuestro equipo revisará tu solicitud en un plazo de 24-48 horas hábiles.
-              </Text>
-            </View>
-          </View>
+      <View style={onboardingStyles.panel}>
+        <InfoRow icon="time" color={I.primary} title="Tiempo de revisión">
+          Nuestro equipo revisará tu solicitud en 24–48 horas hábiles.
+        </InfoRow>
+        <InfoRow icon="document-text" color={I.accentYellow} title="Verificación de documentos">
+          Validaremos la autenticidad de los documentos y la información proporcionada.
+        </InfoRow>
+        <InfoRow icon="mail" color={I.primary} title="Notificación por correo">
+          Te avisaremos por email con el resultado de la revisión.
+        </InfoRow>
+        <InfoRow icon="shield-checkmark" color={I.semanticUp} title="Activación de cuenta" last>
+          Una vez aprobado, podrás acceder y recibir solicitudes de servicio.
+        </InfoRow>
+      </View>
 
-          <View style={styles.infoItem}>
-            <InstitutionalIcon name="document-text" size={24} color="#f39c12"  strokeWidth={ICON_STROKE_WIDTH} />
-            <View style={styles.infoText}>
-              <Text style={styles.infoTitle}>Verificación de Documentos</Text>
-              <Text style={styles.infoDescription}>
-                Verificaremos la autenticidad de los documentos y la información proporcionada.
-              </Text>
-            </View>
-          </View>
+      <View style={[onboardingStyles.panel, styles.stepsPanel]}>
+        <Text style={styles.sectionTitle}>Próximos pasos</Text>
+        <Step n={1}>Mantén tu correo activo para recibir notificaciones.</Step>
+        <Step n={2}>
+          Prepara tu {tipo === 'taller' ? 'taller' : 'equipo'} para atender clientes.
+        </Step>
+        <Step n={3}>Cuando estés aprobado, ingresa a la app y comienza a trabajar.</Step>
+      </View>
 
-          <View style={styles.infoItem}>
-            <InstitutionalIcon name="mail" size={24} color="#9b59b6"  strokeWidth={ICON_STROKE_WIDTH} />
-            <View style={styles.infoText}>
-              <Text style={styles.infoTitle}>Notificación por Email</Text>
-              <Text style={styles.infoDescription}>
-                Te enviaremos un correo electrónico con el resultado de la revisión.
-              </Text>
-            </View>
-          </View>
+      <OnboardingNotice>
+        ¿Tienes preguntas? Escríbenos a{' '}
+        <Text style={styles.contactEmail}>soporte@mecanimovil.com</Text>
+      </OnboardingNotice>
+    </OnboardingScreenLayout>
+  );
+}
 
-          <View style={styles.infoItem}>
-            <InstitutionalIcon name="shield-checkmark" size={24} color="#27ae60"  strokeWidth={ICON_STROKE_WIDTH} />
-            <View style={styles.infoText}>
-              <Text style={styles.infoTitle}>Activación de Cuenta</Text>
-              <Text style={styles.infoDescription}>
-                Una vez aprobado, podrás acceder a la plataforma y comenzar a recibir solicitudes de servicio.
-              </Text>
-            </View>
-          </View>
-        </View>
+function InfoRow({
+  icon,
+  color,
+  title,
+  children,
+  last,
+}: {
+  icon: React.ComponentProps<typeof InstitutionalIcon>['name'];
+  color: string;
+  title: string;
+  children: React.ReactNode;
+  last?: boolean;
+}) {
+  return (
+    <View style={[styles.infoRow, !last && styles.infoRowBorder]}>
+      <InstitutionalIcon name={icon} size={22} color={color} strokeWidth={ICON_STROKE_WIDTH} />
+      <View style={styles.infoCopy}>
+        <Text style={styles.infoTitle}>{title}</Text>
+        <Text style={styles.infoBody}>{children}</Text>
+      </View>
+    </View>
+  );
+}
 
-        <View style={styles.nextStepsContainer}>
-          <Text style={styles.nextStepsTitle}>Próximos Pasos</Text>
-          
-          <View style={styles.stepItem}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>1</Text>
-            </View>
-            <Text style={styles.stepText}>
-              Mantén tu correo electrónico activo para recibir notificaciones
-            </Text>
-          </View>
-
-          <View style={styles.stepItem}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>2</Text>
-            </View>
-            <Text style={styles.stepText}>
-              Prepara tu {tipo === 'taller' ? 'taller' : 'equipo de trabajo'} para comenzar a atender clientes
-            </Text>
-          </View>
-
-          <View style={styles.stepItem}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>3</Text>
-            </View>
-            <Text style={styles.stepText}>
-              Una vez aprobado, descarga la aplicación para proveedores y comienza a trabajar
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.contactContainer}>
-          <InstitutionalIcon name="help-circle" size={20} color="#3498db"  strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.contactText}>
-            ¿Tienes preguntas? Contáctanos en{' '}
-            <Text style={styles.contactEmail}>soporte@mecanimovil.com</Text>
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleVolverLogin}
-        >
-          <Text style={styles.logoutButtonText}>Volver al Login</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+function Step({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <View style={styles.stepRow}>
+      <View style={styles.stepBadge}>
+        <Text style={styles.stepBadgeText}>{n}</Text>
+      </View>
+      <Text style={styles.stepText}>{children}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    padding: 20,
-  },
-  header: {
+  hero: { alignItems: 'center', marginBottom: 24, marginTop: 8 },
+  iconRing: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: 'rgba(22, 163, 74, 0.08)',
     alignItems: 'center',
-    marginBottom: 40,
-    marginTop: 40,
-  },
-  iconContainer: {
-    marginBottom: 20,
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2c3e50',
+    fontSize: 26,
+    fontWeight: '700',
+    color: I.ink,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#7f8c8d',
+    color: I.muted,
     textAlign: 'center',
     lineHeight: 24,
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
   },
-  infoContainer: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  infoItem: {
+  infoRow: {
     flexDirection: 'row',
-    marginBottom: 20,
     alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 14,
   },
-  infoText: {
-    flex: 1,
-    marginLeft: 16,
+  infoRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: I.hairline,
   },
+  infoCopy: { flex: 1 },
   infoTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#2c3e50',
+    color: I.ink,
     marginBottom: 4,
   },
-  infoDescription: {
-    fontSize: 14,
-    color: '#7f8c8d',
-    lineHeight: 20,
+  infoBody: { fontSize: 14, color: I.muted, lineHeight: 20 },
+  stepsPanel: { marginTop: 16 },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: I.ink,
+    marginBottom: 12,
   },
-  nextStepsContainer: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  nextStepsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 16,
-  },
-  stepItem: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    alignItems: 'flex-start',
-  },
-  stepNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#3498db',
+  stepRow: { flexDirection: 'row', marginBottom: 12, alignItems: 'flex-start' },
+  stepBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: I.primary,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    marginTop: 2,
+    marginRight: 10,
+    marginTop: 1,
   },
-  stepNumberText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  stepText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#2c3e50',
-    lineHeight: 20,
-  },
-  contactContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#e8f4fd',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
-    alignItems: 'flex-start',
-  },
-  contactText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#2c3e50',
-    marginLeft: 8,
-    lineHeight: 20,
-  },
-  contactEmail: {
-    color: '#3498db',
-    fontWeight: '600',
-  },
-  logoutButton: {
-    backgroundColor: '#3498db',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  logoutButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-}); 
+  stepBadgeText: { color: I.onPrimary, fontSize: 12, fontWeight: '700' },
+  stepText: { flex: 1, fontSize: 14, color: I.body, lineHeight: 20 },
+  contactEmail: { color: I.primary, fontWeight: '600' },
+});

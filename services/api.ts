@@ -1400,9 +1400,8 @@ export const perfilAPI = {
         throw new Error('La imagen es demasiado grande. Por favor, selecciona una imagen de menos de 10MB.');
       }
 
-      // Crear FormData con formato correcto para React Native
-      // IMPORTANTE: En React Native, el objeto debe tener uri, type y name
-      // El formato es el mismo para iOS y Android cuando se usa fetch nativo
+      // Crear FormData.
+      // Importante: en Web se debe enviar un Blob/File. En RN se envía {uri,type,name}.
       const formData = new FormData();
 
       // Asegurar que el nombre del archivo tenga una extensión válida
@@ -1414,11 +1413,18 @@ export const perfilAPI = {
         fileName = `${fileName}${extension}`;
       }
 
-      formData.append('foto_perfil', {
-        uri: imageUri,
-        type: fileType, // Ya validado arriba
-        name: fileName
-      } as any);
+      if (Platform.OS === 'web') {
+        // En web, archivo.uri suele ser un blob: URL o data: URL. Convertir a Blob para multipart real.
+        const res = await fetch(imageUri);
+        const blob = await res.blob();
+        formData.append('foto_perfil', blob, fileName);
+      } else {
+        formData.append('foto_perfil', {
+          uri: imageUri,
+          type: fileType, // Ya validado arriba
+          name: fileName,
+        } as any);
+      }
 
       // Log solo en desarrollo
       if (__DEV__) {

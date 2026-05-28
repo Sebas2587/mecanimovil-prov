@@ -24,6 +24,7 @@ import {
   type ActualizarPerfilRequest,
   type TipoDocumento
 } from '@/services/api';
+import ServerConfig from '@/services/serverConfig';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
@@ -80,6 +81,16 @@ export default function ConfiguracionPerfilScreen() {
   const infoLight = I.surfaceSoft;
   const neutralGray100 = I.surfaceSoft;
   const neutralGray50 = I.surfaceSoft;
+
+  const handleBack = () => {
+    const canGoBack = (router as any)?.canGoBack?.();
+    if (canGoBack) {
+      router.back();
+      return;
+    }
+    // Web: si no hay historial (refresh / deep link), volver a Perfil.
+    router.replace('/(tabs)/perfil');
+  };
 
   // Estados para datos del perfil
   const [datosPersonales, setDatosPersonales] = useState({
@@ -193,7 +204,15 @@ export default function ConfiguracionPerfilScreen() {
 
       // Cargar foto de perfil si existe
       if (usuario?.foto_perfil) {
-        setFotoPerfilUri(usuario.foto_perfil);
+        // Resolver URL relativa → absoluta (web) y cache-bust para Cloudflare.
+        const raw = usuario.foto_perfil;
+        let base = raw;
+        if (typeof raw === 'string' && raw.startsWith('/')) {
+          const mediaBase = await ServerConfig.getInstance().getMediaBaseURL();
+          base = `${mediaBase}${raw}`;
+        }
+        const sep = base.includes('?') ? '&' : '?';
+        setFotoPerfilUri(`${base}${sep}v=${Date.now()}`);
       }
 
       // MEJORADO: Cargar documentos del proveedor con mejor logging
@@ -278,6 +297,10 @@ export default function ConfiguracionPerfilScreen() {
         fileSize: asset.fileSize,
       };
 
+      // Optimista: mostrar inmediatamente la imagen seleccionada (especialmente en web)
+      // para que el usuario vea el cambio sin esperar al backend.
+      setFotoPerfilUri(`${archivo.uri}${archivo.uri.includes('?') ? '&' : '?'}local=1&v=${Date.now()}`);
+
       console.log('📷 Subiendo foto de perfil (datos completos):', {
         uri: archivo.uri,
         type: archivo.type,
@@ -288,7 +311,18 @@ export default function ConfiguracionPerfilScreen() {
       });
 
       // CORREGIDO: Usar perfilAPI correctamente (ahora usa fetch nativo para mejor compatibilidad)
-      await perfilAPI.actualizarFotoPerfil(archivo);
+      const resp = await perfilAPI.actualizarFotoPerfil(archivo);
+
+      // Intentar extraer URL nueva desde la respuesta; si no viene, se refresca estado igual.
+      const nuevaUrl =
+        (resp as any)?.foto_perfil ||
+        (resp as any)?.foto ||
+        (resp as any)?.user?.foto_perfil ||
+        (resp as any)?.usuario?.foto_perfil;
+      if (typeof nuevaUrl === 'string' && nuevaUrl) {
+        const sep = nuevaUrl.includes('?') ? '&' : '?';
+        setFotoPerfilUri(`${nuevaUrl}${sep}v=${Date.now()}`);
+      }
 
       // Actualizar el estado del proveedor para reflejar la nueva foto
       await refrescarEstadoProveedor();
@@ -661,7 +695,7 @@ export default function ConfiguracionPerfilScreen() {
   if (loading) {
     return screenShell(
       <>
-        <Header title="Gestionar perfil" showBack onBackPress={() => router.back()} />
+        <Header title="Gestionar perfil" showBack onBackPress={handleBack} />
         <LoadingSpinner />
       </>
     );
@@ -669,7 +703,7 @@ export default function ConfiguracionPerfilScreen() {
 
   return screenShell(
     <>
-      <Header title="Gestionar perfil" showBack onBackPress={() => router.back()} />
+      <Header title="Gestionar perfil" showBack onBackPress={handleBack} />
       <ScrollView
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
