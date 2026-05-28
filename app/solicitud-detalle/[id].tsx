@@ -417,7 +417,20 @@ export default function SolicitudDetalleScreen() {
   const tienePieDecisionCatalogo = puedeGestionarCatalogo;
   const footerReserve =
     (tienePieDecisionCatalogo ? 72 : SPACING.fixed.lg) + (insets.bottom || 0);
-  const requiereRepuestos = solicitud ? determinarRequiereRepuestos() : false;
+  const repuestosSegunOferta = (oferta: OfertaProveedor | null): boolean => {
+    if (!oferta) return false;
+    if (!oferta.incluye_repuestos) return false;
+    const costoRep = parseFloat(String(oferta.costo_repuestos ?? '0')) || 0;
+    if (costoRep <= 0) return false;
+    return true;
+  };
+
+  /** Si ya hay oferta del proveedor, la pill refleja su catálogo (no solo la preferencia del cliente). */
+  const requiereRepuestos = solicitud
+    ? (miOferta != null
+      ? repuestosSegunOferta(miOferta)
+      : determinarRequiereRepuestos())
+    : false;
 
   const stackOptions = {
     title: 'Detalle de Solicitud',
