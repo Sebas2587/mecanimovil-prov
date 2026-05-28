@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import {
   ArrowLeft, User, Send, X, MessageCircle,
 } from 'lucide-react-native';
 import solicitudesService, { type MensajeChat, type OfertaProveedor } from '@/services/solicitudesService';
+import chatService from '@/services/chatService';
 import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
 import websocketService, { type NuevoMensajeChatEvent } from '@/app/services/websocketService';
@@ -32,6 +33,69 @@ import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
+
+function mapWsToMensaje(
+  raw: Record<string, unknown>,
+  ofertaIdStr: string,
+  solicitudDetail: MensajeChat['solicitud_detail'],
+  currentUserId?: number,
+): MensajeChat | null {
+  const msgId = raw.id ?? raw.mensaje_id;
+  if (msgId == null || String(msgId).trim() === '') return null;
+
+  const senderId = Number(raw.sender_id ?? (raw.sender as { id?: number })?.id ?? 0);
+  const esProveedor = raw.es_proveedor !== undefined
+    ? Boolean(raw.es_proveedor)
+    : (currentUserId != null && senderId === currentUserId);
+
+  return {
+    id: String(msgId),
+    oferta: ofertaIdStr,
+    mensaje: String(raw.content ?? raw.message ?? raw.mensaje ?? ''),
+    enviado_por: senderId,
+    enviado_por_nombre: String(
+      raw.sender_name
+      ?? (raw.sender as { username?: string })?.username
+      ?? raw.enviado_por
+      ?? 'Cliente',
+    ),
+    es_proveedor: esProveedor,
+    fecha_envio: String(raw.timestamp ?? raw.created_at ?? new Date().toISOString()),
+    leido: Boolean(raw.is_read ?? raw.leido ?? false),
+    fecha_lectura: null,
+    archivo_adjunto: (raw.attachment ?? raw.archivo_adjunto ?? null) as string | null,
+    solicitud_detail: solicitudDetail,
+  };
+}
+
+function mapApiRowToMensaje(
+  row: Record<string, unknown>,
+  ofertaIdStr: string,
+  solicitudDetail: MensajeChat['solicitud_detail'],
+  currentUserId?: number,
+): MensajeChat {
+  const senderId = Number(row.sender_id ?? (row.sender as { id?: number })?.id ?? row.enviado_por ?? 0);
+  const esProveedor = row.es_proveedor === true || (currentUserId != null && senderId === currentUserId);
+
+  return {
+    id: String(row.id),
+    oferta: ofertaIdStr,
+    mensaje: String(row.content ?? row.mensaje ?? row.message ?? ''),
+    enviado_por: senderId,
+    enviado_por_nombre: String(
+      row.enviado_por_nombre
+      ?? (row.sender as { first_name?: string })?.first_name
+      ?? row.nombre_remitente
+      ?? (esProveedor ? 'Tú' : 'Cliente'),
+    ),
+    es_proveedor: esProveedor,
+    fecha_envio: String(row.timestamp ?? row.fecha_envio ?? row.created_at ?? new Date().toISOString()),
+    leido: Boolean(row.is_read ?? row.leido ?? false),
+    fecha_lectura: (row.fecha_lectura as string | null) ?? null,
+    archivo_adjunto: (row.attachment ?? row.archivo_adjunto ?? null) as string | null,
+    solicitud_detail: solicitudDetail,
+  };
+}
 
 export default function ChatOfertaScreen() {
   const { ofertaId } = useLocalSearchParams<{ ofertaId: string }>();
@@ -49,16 +113,58 @@ export default function ChatOfertaScreen() {
 
   const flatListRef = useRef<FlatList>(null);
   const mensajesEnviadosRef = useRef<Set<string>>(new Set());
+  const conversationIdRef = useRef<string | null>(null);
+  const solicitudIdRef = useRef<string | null>(null);
+  const solicitudDetailRef = useRef<MensajeChat['solicitud_detail']>(null);
+  const pendingWsRef = useRef<MensajeChat[]>([]);
+  const isLoadedRef = useRef(false);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      let unsubscribe: (() => void) | undefined;
-      if (ofertaId) {
-        cargarDatos();
-        unsubscribe = suscribirWebSocket();
+  const appendMensaje = useCallback((msg: MensajeChat) => {
+    if (!isLoadedRef.current) {
+      pendingWsRef.current.push(msg);
+      return;
+    }
+    setMensajes((prev) => {
+      if (prev.some((m) => String(m.id) === String(msg.id))) return prev;
+      if (mensajesEnviadosRef.current.has(String(msg.id))) return prev;
+      return [...prev, msg];
+    });
+  }, []);
+
+  const eventMatchesChat = useCallback(
+    (event: NuevoMensajeChatEvent) => {
+      const convId = conversationIdRef.current;
+      if (
+        event.conversation_id
+        && convId
+        && String(event.conversation_id) === String(convId)
+      ) {
+        return true;
       }
-      return () => { if (unsubscribe) unsubscribe(); };
-    }, [ofertaId])
+      if (!ofertaId) return false;
+      const evtOferta = event.oferta_id && String(event.oferta_id) !== 'undefined'
+        ? String(event.oferta_id)
+        : '';
+      if (evtOferta && evtOferta === String(ofertaId)) return true;
+      const sol = solicitudIdRef.current;
+      if (sol && event.solicitud_id && String(event.solicitud_id) === String(sol)) return true;
+      return false;
+    },
+    [ofertaId],
+  );
+
+  const handleRealtimePayload = useCallback(
+    (raw: Record<string, unknown>, solicitudDetail: MensajeChat['solicitud_detail']) => {
+      if (!ofertaId) return;
+      const mapped = mapWsToMensaje(raw, String(ofertaId), solicitudDetail, usuario?.id);
+      if (!mapped) return;
+      if (mapped.es_proveedor && mensajesEnviadosRef.current.has(String(mapped.id))) return;
+      appendMensaje(mapped);
+      if (!mapped.es_proveedor && conversationIdRef.current) {
+        chatService.markRead(conversationIdRef.current).catch(() => {});
+      }
+    },
+    [appendMensaje, ofertaId, usuario?.id],
   );
 
   useEffect(() => {
@@ -79,54 +185,119 @@ export default function ChatOfertaScreen() {
     return () => { show.remove(); hide.remove(); };
   }, []);
 
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     if (!ofertaId) return;
     try {
       setLoading(true);
-      const [ofertaResult, mensajesResult] = await Promise.all([
-        solicitudesService.obtenerDetalleOferta(ofertaId),
-        solicitudesService.obtenerChatOferta(ofertaId),
-      ]);
-      if (ofertaResult.success && ofertaResult.data) setOferta(ofertaResult.data);
-      if (mensajesResult.success && mensajesResult.data) {
-        setMensajes(mensajesResult.data);
-        await solicitudesService.marcarMensajesComoLeidos(ofertaId);
+      isLoadedRef.current = false;
+      pendingWsRef.current = [];
+
+      const ofertaResult = await solicitudesService.obtenerDetalleOferta(ofertaId);
+      if (!ofertaResult.success || !ofertaResult.data) {
+        throw new Error(ofertaResult.error || 'No se pudo cargar la oferta');
       }
+
+      const ofertaData = ofertaResult.data;
+      setOferta(ofertaData);
+      const solicitudId = String(ofertaData.solicitud ?? '');
+      solicitudIdRef.current = solicitudId || null;
+
+      const conversationId = await chatService.getOrCreateConversation({
+        ofertaId: String(ofertaId),
+        solicitudId: solicitudId || undefined,
+        type: 'service',
+      });
+      conversationIdRef.current = conversationId;
+
+      const rows = await chatService.getMessages(conversationId);
+      const solicitudDetail = ofertaData.solicitud_detail ?? null;
+      solicitudDetailRef.current = solicitudDetail;
+      const loaded = (rows as Record<string, unknown>[])
+        .map((row) => mapApiRowToMensaje(row, String(ofertaId), solicitudDetail, usuario?.id))
+        .sort(
+          (a, b) => new Date(a.fecha_envio).getTime() - new Date(b.fecha_envio).getTime(),
+        );
+
+      isLoadedRef.current = true;
+      const pending = pendingWsRef.current;
+      pendingWsRef.current = [];
+      const loadedIds = new Set(loaded.map((m) => String(m.id)));
+      const extra = pending.filter((m) => !loadedIds.has(String(m.id)));
+      setMensajes([...loaded, ...extra]);
+
+      await chatService.markRead(conversationId).catch(() => {});
+      await solicitudesService.marcarMensajesComoLeidos(ofertaId).catch(() => {});
     } catch (error) {
       console.error('Error cargando datos del chat:', error);
+      Alert.alert('Error', 'No se pudo cargar el chat. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [ofertaId, usuario?.id]);
 
-  const suscribirWebSocket = () => {
-    if (!ofertaId) return;
-    const unsubscribe = websocketService.onNuevoMensajeChat((event: NuevoMensajeChatEvent) => {
-      if (String(event.oferta_id) !== String(ofertaId)) return;
-      if (mensajesEnviadosRef.current.has(event.mensaje_id)) return;
-      setMensajes(prev => {
-        if (prev.some(m => m.id === event.mensaje_id)) return prev;
-        const nuevoMensajeObj: MensajeChat = {
-          id: event.mensaje_id,
-          oferta: event.oferta_id,
-          mensaje: event.mensaje || event.message || event.content || '',
-          enviado_por: 0,
-          enviado_por_nombre: event.enviado_por,
-          es_proveedor: event.es_proveedor,
-          fecha_envio: event.timestamp || new Date().toISOString(),
-          leido: false,
-          fecha_lectura: null,
-          archivo_adjunto: event.archivo_adjunto ?? event.attachment ?? null,
-          solicitud_detail: prev[0]?.solicitud_detail || null,
-        };
-        return [...prev, nuevoMensajeObj];
-      });
-      if (!event.es_proveedor) {
-        setTimeout(() => solicitudesService.marcarMensajesComoLeidos(ofertaId), 1000);
-      }
+  const connectConversationWs = useCallback(() => {
+    const convId = conversationIdRef.current;
+    if (!convId) return;
+    chatService.connect(convId, (raw) => {
+      handleRealtimePayload(raw, solicitudDetailRef.current);
     });
-    return unsubscribe;
-  };
+  }, [handleRealtimePayload]);
+
+  useEffect(() => {
+    if (!ofertaId) return undefined;
+
+    websocketService.setChatSessionActive(true);
+    websocketService.connect({ force: true }).catch(() => {});
+
+    isLoadedRef.current = false;
+    pendingWsRef.current = [];
+
+    const unsubGlobal = websocketService.onNuevoMensajeChat((event: NuevoMensajeChatEvent) => {
+      if (!eventMatchesChat(event)) return;
+      if (!event.mensaje_id || String(event.mensaje_id).trim() === '') return;
+      if (event.es_proveedor && mensajesEnviadosRef.current.has(String(event.mensaje_id))) return;
+
+      handleRealtimePayload(
+        {
+          id: event.mensaje_id,
+          mensaje_id: event.mensaje_id,
+          sender_id: event.sender_id,
+          content: event.mensaje ?? event.content ?? event.message,
+          mensaje: event.mensaje,
+          message: event.message,
+          es_proveedor: event.es_proveedor,
+          enviado_por: event.enviado_por,
+          timestamp: event.timestamp,
+          archivo_adjunto: event.archivo_adjunto,
+          attachment: event.archivo_adjunto,
+        },
+        solicitudDetailRef.current,
+      );
+    });
+
+    cargarDatos().then(() => {
+      connectConversationWs();
+    });
+
+    return () => {
+      websocketService.setChatSessionActive(false);
+      unsubGlobal();
+      chatService.disconnect();
+      isLoadedRef.current = false;
+      if (!websocketService.shouldMaintainConnection()) {
+        websocketService.disconnect({ force: true });
+      }
+    };
+  }, [ofertaId, cargarDatos, eventMatchesChat, handleRealtimePayload, connectConversationWs]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!ofertaId) return undefined;
+      websocketService.connect({ force: true }).catch(() => {});
+      connectConversationWs();
+      return undefined;
+    }, [ofertaId, connectConversationWs]),
+  );
 
   const handlePickAttachment = async () => {
     try {
@@ -170,11 +341,42 @@ export default function ChatOfertaScreen() {
     setEnviando(true);
 
     try {
-      const result = await solicitudesService.enviarMensajeChat(ofertaId, mensajeTexto, attachmentTemp);
-      if (result.success && result.data) {
-        mensajesEnviadosRef.current.add(result.data.id);
-        setMensajes(prev => prev.map(m => m.id === mensajeId ? result.data! : m));
-        setTimeout(() => mensajesEnviadosRef.current.delete(result.data!.id), 10000);
+      const convId = conversationIdRef.current;
+      let realMsg: MensajeChat | null = null;
+
+      if (convId) {
+        const apiMsg = await chatService.sendMessageHTTP(
+          convId,
+          {
+            content: mensajeTexto,
+            attachment: attachmentTemp
+              ? {
+                  uri: attachmentTemp.uri,
+                  name: attachmentTemp.name,
+                  type: attachmentTemp.type === 'image' ? 'image/jpeg' : 'video/mp4',
+                }
+              : null,
+          },
+          Boolean(attachmentTemp),
+        );
+        const detail = oferta?.solicitud_detail ?? mensajeOptimista.solicitud_detail ?? null;
+        realMsg = mapApiRowToMensaje(
+          apiMsg as Record<string, unknown>,
+          String(ofertaId),
+          detail,
+          usuario?.id,
+        );
+      } else {
+        const result = await solicitudesService.enviarMensajeChat(ofertaId, mensajeTexto, attachmentTemp);
+        if (result.success && result.data) {
+          realMsg = result.data;
+        }
+      }
+
+      if (realMsg) {
+        mensajesEnviadosRef.current.add(String(realMsg.id));
+        setMensajes((prev) => prev.map((m) => (m.id === mensajeId ? realMsg! : m)));
+        setTimeout(() => mensajesEnviadosRef.current.delete(String(realMsg!.id)), 15000);
       } else {
         setMensajes(prev => prev.filter(m => m.id !== mensajeId));
         setNuevoMensaje(mensajeTexto);

@@ -32,7 +32,7 @@ export default function TabLayout() {
       if (__DEV__) {
         console.log('🚪 TabLayout - Usuario no autenticado, navegando al login');
       }
-      websocketService.disconnect();
+      websocketService.disconnect({ force: true });
       connectionService.stopConnectionMonitoring();
       router.replace('/(auth)/login');
     }
@@ -47,9 +47,11 @@ export default function TabLayout() {
         connectionService.startConnectionMonitoring();
       } else {
         if (__DEV__) {
-          console.log('⏸️ TabLayout - Radar inactivo: sin WebSocket ni conexión para oportunidades');
+          console.log('⏸️ TabLayout - Radar inactivo: sin conexión de oportunidades');
         }
-        websocketService.disconnect();
+        if (!websocketService.isChatSessionActive()) {
+          websocketService.disconnect();
+        }
         connectionService.stopConnectionMonitoring();
       }
     }
@@ -62,7 +64,7 @@ export default function TabLayout() {
       if (__DEV__) {
         console.log('🧹 TabLayout - Desmontando, desconectando WebSocket y monitoreo de conexión');
       }
-      websocketService.disconnect();
+      websocketService.disconnect({ force: true });
       connectionService.stopConnectionMonitoring();
     };
   }, []);

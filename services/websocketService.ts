@@ -46,9 +46,11 @@ export interface NuevaSolicitudEvent {
 
 export interface NuevoMensajeChatEvent {
   type: 'nuevo_mensaje_chat';
+  conversation_id?: string;
   mensaje_id: string;
   oferta_id: string;
   solicitud_id: string;
+  sender_id?: number;
   enviado_por: string;
   mensaje: string;
   message?: string; // Optional alias
@@ -120,13 +122,31 @@ class WebSocketService {
   private solicitudCanceladaClienteCallbacks: Set<SolicitudCanceladaClienteCallback> = new Set();
   private servicioCerradoPorClienteCallbacks: Set<ServicioCerradoPorClienteCallback> = new Set();
   private ordenesListRefreshCallbacks: Set<OrdenesListRefreshCallback> = new Set();
+  /** Pantallas de chat abiertas: mantener WS aunque el radar esté apagado */
+  private chatSessionCount = 0;
+
+  shouldMaintainConnection(): boolean {
+    return isRadarOportunidadesActivo() || this.chatSessionCount > 0;
+  }
+
+  isChatSessionActive(): boolean {
+    return this.chatSessionCount > 0;
+  }
+
+  setChatSessionActive(active: boolean): void {
+    if (active) {
+      this.chatSessionCount += 1;
+      return;
+    }
+    this.chatSessionCount = Math.max(0, this.chatSessionCount - 1);
+  }
 
   /**
    * Inicializa la conexión WebSocket con autenticación JWT
    */
-  async connect(): Promise<void> {
-    if (!isRadarOportunidadesActivo()) {
-      devLog('WebSocket: radar de oportunidades inactivo, no se conecta');
+  async connect(options?: { force?: boolean }): Promise<void> {
+    if (!options?.force && !this.shouldMaintainConnection()) {
+      devLog('WebSocket: sin radar ni sesión de chat, no se conecta');
       return;
     }
 
@@ -300,9 +320,11 @@ class WebSocketService {
           // Normalize payload to match interface
           const chatEvent: NuevoMensajeChatEvent = {
             type: 'nuevo_mensaje_chat',
-            mensaje_id: data.id || data.mensaje_id,
-            oferta_id: data.oferta_id || data.oferta,
-            solicitud_id: data.solicitud_id,
+            conversation_id: data.conversation_id != null ? String(data.conversation_id) : undefined,
+            mensaje_id: String(data.mensaje_id ?? data.id ?? ''),
+            oferta_id: data.oferta_id != null ? String(data.oferta_id) : (data.oferta != null ? String(data.oferta) : ''),
+            solicitud_id: data.solicitud_id != null ? String(data.solicitud_id) : '',
+            sender_id: data.sender_id != null ? Number(data.sender_id) : undefined,
             enviado_por: data.sender_name || data.enviado_por,
             mensaje: data.mensaje || data.message || data.content || '',
             message: data.message,
@@ -494,7 +516,11 @@ class WebSocketService {
   /**
    * Desconecta el WebSocket
    */
-  disconnect(): void {
+  disconnect(options?: { force?: boolean }): void {
+    if (!options?.force && this.shouldMaintainConnection()) {
+      devLog('🔌 WebSocket: sesión de chat o radar activo, no se desconecta');
+      return;
+    }
     devLog('🔌 Desconectando WebSocket...');
 
     // Limpiar timeout de reconexión
@@ -555,15 +581,15 @@ class WebSocketService {
     devLog('📱 Estado de la app cambiado:', nextAppState);
 
     if (nextAppState === 'active') {
-      // App vuelve a primer plano - reconectar si es necesario
-      if (!this.isConnected && isRadarOportunidadesActivo()) {
+      if (!this.isConnected && this.shouldMaintainConnection()) {
         devLog('🔄 App activa, reconectando WebSocket...');
         this.connect();
       }
     } else if (nextAppState === 'background' || nextAppState === 'inactive') {
-      // App va a segundo plano - desconectar para ahorrar batería
-      devLog('🔌 App en segundo plano, desconectando WebSocket...');
-      this.disconnect();
+      if (!this.isChatSessionActive()) {
+        devLog('🔌 App en segundo plano, desconectando WebSocket...');
+        this.disconnect({ force: true });
+      }
     }
   }
 
