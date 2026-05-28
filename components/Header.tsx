@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -113,8 +113,10 @@ export default function Header({
               (showBack ? (
                 <TouchableOpacity
                   onPress={onBackPress}
-                  style={styles.iconButton}
+                  style={[styles.iconButton, Platform.OS === 'web' && styles.iconButtonWeb]}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Volver"
                 >
                   <ArrowLeft size={24} color={primaryColor} strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
@@ -173,6 +175,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  iconButtonWeb: {
+    cursor: 'pointer',
+    zIndex: 2,
+  } as object,
   headerRowSpacer: {
     flex: 1,
     minWidth: 0,

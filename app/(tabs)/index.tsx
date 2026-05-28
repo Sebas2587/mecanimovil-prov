@@ -40,6 +40,11 @@ import { useProveedorKpisResumen } from '@/hooks/useProveedorKpisResumen';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
+import { horariosAPI } from '@/services/api';
+import {
+  parseHorariosApiResponse,
+  proveedorTieneHorariosActivos,
+} from '@/utils/horariosProveedor';
 
 export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens
@@ -124,6 +129,8 @@ export default function HomeScreen() {
   const [alertaCreditosDevueltos, setAlertaCreditosDevueltos] = useState(false);
 
   const [radarSwitchLoading, setRadarSwitchLoading] = useState(false);
+  /** null = aún no consultado; true = falta configurar horarios en BD */
+  const [necesitaConfigurarHorarios, setNecesitaConfigurarHorarios] = useState<boolean | null>(null);
 
   // Animación de pulso para notificaciones y badges
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -184,6 +191,21 @@ export default function HomeScreen() {
     [setRadarOportunidadesActivo]
   );
 
+  const verificarHorariosConfigurados = useCallback(async () => {
+    if (!cuentaAprobadaPorAdmin) {
+      setNecesitaConfigurarHorarios(null);
+      return;
+    }
+    try {
+      const raw = await horariosAPI.obtenerMisHorarios();
+      const horarios = parseHorariosApiResponse(raw);
+      setNecesitaConfigurarHorarios(!proveedorTieneHorariosActivos(horarios));
+    } catch (error) {
+      devWarn('No se pudo verificar horarios del proveedor:', error);
+      setNecesitaConfigurarHorarios(null);
+    }
+  }, [cuentaAprobadaPorAdmin]);
+
   // Redirigir al onboarding si el usuario no tiene perfil
   useEffect(() => {
     if (!isLoading && estadoProveedor) {
@@ -204,8 +226,9 @@ export default function HomeScreen() {
       cargarCreditos();
       cargarEstadisticasMP();
       cargarSuscripcion();
+      verificarHorariosConfigurados();
     }
-  }, [perfilProveedorKey, cuentaAprobadaPorAdmin, radarOportunidadesActivo, radarPreferenciaCargada]);
+  }, [perfilProveedorKey, cuentaAprobadaPorAdmin, radarOportunidadesActivo, radarPreferenciaCargada, verificarHorariosConfigurados]);
 
   // Al volver al tab: alertas + KPIs ligeros. La carga pesada (stats, MP, suscripción, solicitudes)
   // queda en useEffect arriba para no duplicar peticiones al montar (useEffect + useFocusEffect).
@@ -214,7 +237,8 @@ export default function HomeScreen() {
       if (!cuentaAprobadaPorAdmin) return;
       verificarYGenerarAlertas();
       kpisResumen.refresh();
-    }, [cuentaAprobadaPorAdmin, kpisResumen.refresh])
+      verificarHorariosConfigurados();
+    }, [cuentaAprobadaPorAdmin, kpisResumen.refresh, verificarHorariosConfigurados])
   );
 
   useEffect(() => {
@@ -573,6 +597,7 @@ export default function HomeScreen() {
       cargarEstadisticasMP(),
       cargarSuscripcion(),
       kpisResumen.refresh(),
+      verificarHorariosConfigurados(),
     ];
     if (radarPreferenciaCargada && radarOportunidadesActivo) {
       tasks.push(cargarSolicitudesDisponibles());
@@ -714,6 +739,30 @@ export default function HomeScreen() {
             paddingBottom: insets.bottom + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl),
           }}
         >
+          {necesitaConfigurarHorarios === true ? (
+            <View style={themedStyles.sectionWrap}>
+              <TouchableOpacity
+                style={[themedStyles.suscBanner, themedStyles.suscBannerWarning]}
+                activeOpacity={0.7}
+                onPress={() => router.push('/configuracion-horarios')}
+              >
+                <View style={[themedStyles.suscBannerIcon, { backgroundColor: `${palette.accentYellow}22` }]}>
+                  <Clock size={18} color={palette.warningEmphasis} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[themedStyles.suscBannerTitle, { color: palette.warningEmphasis }]}>
+                    Configura tus horarios de atención
+                  </Text>
+                  <Text style={themedStyles.suscBannerMsg} numberOfLines={3}>
+                    Los clientes no pueden agendar contigo hasta que actives tus días de trabajo y guardes la
+                    configuración.
+                  </Text>
+                </View>
+                <ChevronRight size={18} color={palette.muted} />
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           {/* Rendimiento / progreso */}
           <View style={themedStyles.sectionWrap}>
             <PerformanceWidget

@@ -30,6 +30,7 @@ import { InstitutionalScreenTabs } from '@/app/design-system/components/Institut
 import { INSTITUTIONAL_SELECTION } from '@/app/design-system/styles/institutionalSelection';
 import { parseOfertasGrupoParam } from '@/utils/agruparOfertasServicio';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+import { navigateBack } from '@/utils/navigateBack';
 import { esFotoLocalParaSubir, extraerUrlsFotosApi } from '@/utils/fotosServicio';
 
 type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
@@ -2293,6 +2294,10 @@ const CrearServicioScreen = () => {
     );
   };
 
+  const handleBack = useCallback(() => {
+    navigateBack('/mis-servicios');
+  }, []);
+
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <Stack.Screen
@@ -2303,7 +2308,7 @@ const CrearServicioScreen = () => {
       <Header
         title={isEditMode ? 'Editar servicio' : 'Crear servicio'}
         showBack
-        onBackPress={() => router.back()}
+        onBackPress={handleBack}
         backgroundColor={I.canvas}
         titleColor={I.ink}
       />

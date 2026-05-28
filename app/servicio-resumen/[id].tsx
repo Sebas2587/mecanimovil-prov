@@ -16,6 +16,7 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/ap
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { parseOfertasGrupoParam } from '@/utils/agruparOfertasServicio';
+import { navigateBack } from '@/utils/navigateBack';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -209,7 +210,7 @@ export default function ServicioResumenScreen() {
                 await serviciosAPI.eliminarServicio(oid);
               }
               Alert.alert('Éxito', 'El servicio ha sido eliminado correctamente', [
-                { text: 'OK', onPress: () => router.back() },
+                { text: 'OK', onPress: () => navigateBack('/mis-servicios') },
               ]);
             } catch (error) {
               console.error('❌ Error eliminando servicio:', error);
@@ -246,6 +247,10 @@ export default function ServicioResumenScreen() {
 
   const desglose = servicio?.desglose_precios;
 
+  const handleBack = useCallback(() => {
+    navigateBack('/mis-servicios');
+  }, []);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
@@ -253,7 +258,7 @@ export default function ServicioResumenScreen() {
         <Header
           title="Resumen del servicio"
           showBack
-          onBackPress={() => router.back()}
+          onBackPress={handleBack}
           backgroundColor={I.canvas}
           titleColor={I.ink}
         />
@@ -272,14 +277,14 @@ export default function ServicioResumenScreen() {
         <Header
           title="Resumen del servicio"
           showBack
-          onBackPress={() => router.back()}
+          onBackPress={handleBack}
           backgroundColor={I.canvas}
           titleColor={I.ink}
         />
         <View style={styles.centered}>
           <InstitutionalIcon name="error-outline" size={48} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.errorTitle}>No se pudo cargar el servicio</Text>
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => router.back()} activeOpacity={0.88}>
+          <TouchableOpacity style={styles.primaryBtn} onPress={handleBack} activeOpacity={0.88}>
             <Text style={styles.primaryBtnText}>Volver</Text>
           </TouchableOpacity>
         </View>
@@ -300,7 +305,7 @@ export default function ServicioResumenScreen() {
       <Header
         title="Resumen del servicio"
         showBack
-        onBackPress={() => router.back()}
+        onBackPress={handleBack}
         backgroundColor={I.canvas}
         titleColor={I.ink}
       />

@@ -22,6 +22,7 @@ import {
   agruparOfertasServicio,
   type ServicioOfertaGrupo,
 } from '@/utils/agruparOfertasServicio';
+import { navigateBack } from '@/utils/navigateBack';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -213,13 +214,17 @@ const MisServiciosScreen = () => {
   const totalLabel = searchText ? gruposOrdenados.length : agruparOfertasServicio(servicios).length;
   const totalOfertas = searchText ? serviciosFiltrados.length : servicios.length;
 
+  const handleBack = useCallback(() => {
+    navigateBack('/(tabs)');
+  }, []);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <Header
           title="Mis servicios"
           showBack
-          onBackPress={() => router.back()}
+          onBackPress={handleBack}
           backgroundColor={I.canvas}
           titleColor={I.ink}
         />
@@ -237,7 +242,7 @@ const MisServiciosScreen = () => {
       <Header
         title="Mis servicios"
         showBack
-        onBackPress={() => router.back()}
+        onBackPress={handleBack}
         backgroundColor={I.canvas}
         titleColor={I.ink}
       />

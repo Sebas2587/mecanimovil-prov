@@ -15,6 +15,12 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '@/context/AuthContext';
 import { Stack, router } from 'expo-router';
 import { horariosAPI, type HorarioProveedor, type ConfiguracionSemanal } from '@/services/api';
+import { navigateBack } from '@/utils/navigateBack';
+import {
+  normalizarActivo,
+  parseHorariosApiResponse,
+  proveedorTieneHorariosActivos,
+} from '@/utils/horariosProveedor';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -368,6 +374,8 @@ export default function ConfiguracionHorariosScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  /** Sin registros en BD: proveedor nuevo debe activar días y guardar. */
+  const [sinHorariosEnServidor, setSinHorariosEnServidor] = useState(false);
 
   // Estados para modal de edición
   const [modalEditarDia, setModalEditarDia] = useState<ModalEditarDia>({
@@ -421,7 +429,7 @@ export default function ConfiguracionHorariosScreen() {
       Alert.alert(
         'Acceso Restringido',
         'Solo los proveedores con cuenta aprobada pueden configurar sus horarios.',
-        [{ text: 'Entendido', onPress: () => router.back() }]
+        [{ text: 'Entendido', onPress: () => navigateBack('/(tabs)') }]
       );
       return;
     }
@@ -429,29 +437,28 @@ export default function ConfiguracionHorariosScreen() {
     cargarHorarios();
   }, [estadoProveedor]);
 
+  const formatearHoraApi = (hora: string | undefined, fallback: string): string => {
+    if (!hora) return fallback;
+    const s = String(hora).trim();
+    if (s.includes(':') && s.split(':').length >= 2) {
+      const [h, m] = s.split(':');
+      return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
+    }
+    return fallback;
+  };
+
   const cargarHorarios = async () => {
     try {
       setLoading(true);
-      const horariosData = await horariosAPI.obtenerMisHorarios();
+      const raw = await horariosAPI.obtenerMisHorarios();
+      const horariosData = parseHorariosApiResponse(raw);
+      const necesitaConfigurar = !proveedorTieneHorariosActivos(horariosData);
+      setSinHorariosEnServidor(necesitaConfigurar);
 
-      // Si no hay horarios configurados, crear estructura por defecto
-      if (horariosData.length === 0) {
-        const horariosDefault = diasSemana.map(dia => ({
-          dia_semana: dia.id,
-          dia_nombre: dia.nombre,
-          activo: dia.id < 5, // Lunes a Viernes activos por defecto
-          hora_inicio: '08:00',
-          hora_fin: '18:00',
-          duracion_slot: 60,
-          tiempo_descanso: 0,
-          editado: false,
-        }));
-        setHorarios(horariosDefault);
-      } else {
-        // Asegurar que todos los días estén presentes
-        const horariosCompletos = diasSemana.map(dia => {
-          const horarioExistente = horariosData.find(h => h.dia_semana === dia.id);
-          return horarioExistente || {
+      const horariosCompletos: HorarioDia[] = diasSemana.map((dia) => {
+        const horarioExistente = horariosData.find((h) => h.dia_semana === dia.id);
+        if (!horarioExistente) {
+          return {
             dia_semana: dia.id,
             dia_nombre: dia.nombre,
             activo: false,
@@ -461,9 +468,19 @@ export default function ConfiguracionHorariosScreen() {
             tiempo_descanso: 0,
             editado: false,
           };
-        });
-        setHorarios(horariosCompletos);
-      }
+        }
+        return {
+          ...horarioExistente,
+          dia_nombre: dia.nombre,
+          activo: normalizarActivo(horarioExistente.activo),
+          hora_inicio: formatearHoraApi(horarioExistente.hora_inicio, '08:00'),
+          hora_fin: formatearHoraApi(horarioExistente.hora_fin, '18:00'),
+          duracion_slot: horarioExistente.duracion_slot ?? 60,
+          tiempo_descanso: horarioExistente.tiempo_descanso ?? 0,
+          editado: false,
+        };
+      });
+      setHorarios(horariosCompletos);
     } catch (error) {
       console.error('Error cargando horarios:', error);
       Alert.alert('Error', 'No se pudieron cargar los horarios configurados.');
@@ -483,7 +500,7 @@ export default function ConfiguracionHorariosScreen() {
     const nuevosHorarios = [...horarios];
     nuevosHorarios[diaIndex] = {
       ...nuevosHorarios[diaIndex],
-      activo: !nuevosHorarios[diaIndex].activo,
+      activo: !normalizarActivo(nuevosHorarios[diaIndex].activo),
       editado: true,
     };
     setHorarios(nuevosHorarios);
@@ -586,6 +603,15 @@ export default function ConfiguracionHorariosScreen() {
   };
 
   const guardarCambios = async () => {
+    const diasActivos = horarios.filter((h) => h.activo);
+    if (diasActivos.length === 0) {
+      Alert.alert(
+        'Selecciona al menos un día',
+        'Activa los días en que atiendes y define el horario de cada uno antes de guardar.'
+      );
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -624,7 +650,8 @@ export default function ConfiguracionHorariosScreen() {
       );
 
       setHasChanges(false);
-      await cargarHorarios(); // Recargar para obtener los IDs actualizados
+      setSinHorariosEnServidor(false);
+      await cargarHorarios();
 
     } catch (error: any) {
       console.error('Error guardando horarios:', error);
@@ -660,7 +687,7 @@ export default function ConfiguracionHorariosScreen() {
 
           <View style={styles.modernSwitchContainer}>
             <Switch
-              value={horario.activo}
+              value={normalizarActivo(horario.activo)}
               onValueChange={() => toggleDiaActivo(index)}
               trackColor={{ false: I.hairline, true: I.primary }}
               thumbColor={I.canvas}
@@ -671,37 +698,33 @@ export default function ConfiguracionHorariosScreen() {
 
         {!horario.activo ? (
           <View style={styles.modernDiaInactiveBanner}>
-            <Text style={styles.modernDiaInactiveLabel}>Sin atención</Text>
-            <Text style={styles.modernDiaInactiveHint}>Horario guardado (si activas el día)</Text>
+            <Text style={styles.modernDiaInactiveLabel}>Día deshabilitado</Text>
+            <Text style={styles.modernDiaInactiveHint}>Activa el interruptor para configurar el horario</Text>
           </View>
-        ) : null}
+        ) : (
+          <View style={styles.modernHorariosConfig}>
+            <View style={styles.modernTiemposContainer}>
+              <View style={styles.modernTiempoCard}>
+                <InstitutionalIcon name="play" size={14} color={I.semanticUp} />
+                <Text style={styles.modernTiempoValue}>{formatearHora(horario.hora_inicio)}</Text>
+              </View>
 
-        <View style={styles.modernHorariosConfig}>
-          <View style={styles.modernTiemposContainer}>
-            <View style={[styles.modernTiempoCard, !horario.activo && styles.modernTiempoCardInactive]}>
-              <InstitutionalIcon name="play" size={14} color={horario.activo ? I.semanticUp : I.muted} />
-              <Text style={[styles.modernTiempoValue, !horario.activo && styles.modernTiempoValueInactive]}>
-                {formatearHora(horario.hora_inicio)}
-              </Text>
+              <InstitutionalIcon name="arrow-forward" size={12} color={I.muted} />
+
+              <View style={styles.modernTiempoCard}>
+                <InstitutionalIcon name="stop" size={14} color={I.semanticDown} />
+                <Text style={styles.modernTiempoValue}>{formatearHora(horario.hora_fin)}</Text>
+              </View>
             </View>
 
-            <InstitutionalIcon name="arrow-forward" size={12} color={horario.activo ? I.muted : I.mutedSoft} />
-
-            <View style={[styles.modernTiempoCard, !horario.activo && styles.modernTiempoCardInactive]}>
-              <InstitutionalIcon name="stop" size={14} color={horario.activo ? I.semanticDown : I.muted} />
-              <Text style={[styles.modernTiempoValue, !horario.activo && styles.modernTiempoValueInactive]}>
-                {formatearHora(horario.hora_fin)}
+            <View style={styles.modernConfigSlots}>
+              <Text style={styles.modernSlotInfo}>
+                {horario.duracion_slot} min
+                {horario.tiempo_descanso > 0 && ` • ${horario.tiempo_descanso} min desc`}
               </Text>
             </View>
           </View>
-
-          <View style={styles.modernConfigSlots}>
-            <Text style={[styles.modernSlotInfo, !horario.activo && styles.modernSlotInfoInactive]}>
-              {horario.duracion_slot} min
-              {horario.tiempo_descanso > 0 && ` • ${horario.tiempo_descanso} min desc`}
-            </Text>
-          </View>
-        </View>
+        )}
       </TouchableOpacity>
     );
   };
@@ -835,7 +858,7 @@ export default function ConfiguracionHorariosScreen() {
         <Header
           title="Horarios de trabajo"
           showBack
-          onBackPress={() => router.back()}
+          onBackPress={() => navigateBack('/(tabs)')}
           backgroundColor={I.canvas}
           titleColor={I.ink}
         />
@@ -853,7 +876,7 @@ export default function ConfiguracionHorariosScreen() {
       <Header
         title="Horarios de trabajo"
         showBack
-        onBackPress={() => router.back()}
+        onBackPress={() => navigateBack('/(tabs)')}
         backgroundColor={I.canvas}
         titleColor={I.ink}
       />
@@ -865,12 +888,17 @@ export default function ConfiguracionHorariosScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + (hasChanges ? 100 : 20) }}
       >
         <View style={[styles.content, { paddingHorizontal: hx }]}>
-          <View style={styles.uiCard}>
+          <View style={[styles.uiCard, sinHorariosEnServidor && styles.uiCardHighlight]}>
             <View style={styles.infoCardContent}>
-              <InstitutionalIcon name="information-circle" size={20} color={I.primary} />
+              <InstitutionalIcon
+                name={sinHorariosEnServidor ? 'alert-circle' : 'information-circle'}
+                size={20}
+                color={sinHorariosEnServidor ? I.accentYellow : I.primary}
+              />
               <Text style={styles.infoText}>
-                Define tus horarios de atención para cada día de la semana. Los clientes podrán agendar servicios en
-                estos horarios.
+                {sinHorariosEnServidor
+                  ? 'Aún no has configurado tu horario de atención. Activa los días que trabajas, ajusta las horas si lo necesitas y pulsa «Guardar cambios» para que los clientes puedan agendar contigo.'
+                  : 'Define tus horarios de atención para cada día de la semana. Los clientes podrán agendar servicios en estos horarios.'}
               </Text>
             </View>
           </View>
@@ -939,7 +967,7 @@ export default function ConfiguracionHorariosScreen() {
         </View>
       </ScrollView>
 
-      {hasChanges ? (
+      {hasChanges || sinHorariosEnServidor ? (
         <SafeAreaView style={styles.modernActionButtonsContainer} edges={['bottom']}>
           <TouchableOpacity
             style={[styles.modernSaveButton, saving && styles.modernSaveButtonDisabled]}
@@ -993,6 +1021,10 @@ const styles = StyleSheet.create({
     ...SHADOWS.editorial,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
+  },
+  uiCardHighlight: {
+    borderColor: withOpacity(I.accentYellow, 0.55),
+    backgroundColor: withOpacity(I.accentYellow, 0.08),
   },
   infoCardContent: {
     flexDirection: 'row',
