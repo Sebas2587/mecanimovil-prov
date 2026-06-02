@@ -8,6 +8,7 @@ export type ServicioCatalogoRow = {
   descripcion?: string;
   requiere_repuestos?: boolean;
   foto?: string | null;
+  tipos_motor_compatibles?: string[];
 };
 
 export function intersectServiciosCatalogoPorId(

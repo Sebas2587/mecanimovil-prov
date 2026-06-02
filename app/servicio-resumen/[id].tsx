@@ -164,13 +164,34 @@ export default function ServicioResumenScreen() {
   const initial = useMemo(() => parseServicioFromParams(servicioData), [servicioData]);
   const [servicio, setServicio] = useState<ServicioOferta | null>(initial);
 
+  const [ofertasEnGrupo, setOfertasEnGrupo] = useState<ServicioOferta[]>(() =>
+    ofertasCatalogo.length > 0 ? ofertasCatalogo : initial ? [initial] : [],
+  );
+
+  useEffect(() => {
+    if (ofertasCatalogo.length > 0) {
+      setOfertasEnGrupo(ofertasCatalogo);
+    } else if (servicio) {
+      setOfertasEnGrupo([servicio]);
+    }
+  }, [ofertasCatalogo, servicio?.id]);
+
   const ofertasParaDesglose = useMemo(() => {
-    if (ofertasCatalogo.length > 0) return ofertasCatalogo;
+    if (ofertasEnGrupo.length > 0) return ofertasEnGrupo;
     return servicio ? [servicio] : [];
-  }, [ofertasCatalogo, servicio]);
+  }, [ofertasEnGrupo, servicio]);
 
   const variasTarifas = ofertasParaDesglose.length > 1;
+
+  const resumenDisponibilidad = useMemo(() => {
+    const total = ofertasParaDesglose.length;
+    const activas = ofertasParaDesglose.filter((o) => o.disponible !== false).length;
+    return { total, activas, pausadas: total - activas };
+  }, [ofertasParaDesglose]);
+
   const [loading, setLoading] = useState(!initial);
+  const [togglingOfertaId, setTogglingOfertaId] = useState<number | null>(null);
+  const [togglingTodas, setTogglingTodas] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [loadingFotos, setLoadingFotos] = useState(false);
 
@@ -246,17 +267,82 @@ export default function ServicioResumenScreen() {
     if (servicio?.id) cargarFotos();
   }, [servicio?.id]);
 
-  const toggleDisponibilidad = async () => {
-    if (!servicio) return;
+  const aplicarDisponibilidadLocal = useCallback(
+    (ofertaId: number, disponible: boolean) => {
+      setOfertasEnGrupo((prev) =>
+        prev.map((o) => (o.id === ofertaId ? { ...o, disponible } : o)),
+      );
+      setServicio((prev) => (prev?.id === ofertaId ? { ...prev, disponible } : prev));
+    },
+    [],
+  );
+
+  const toggleDisponibilidadOferta = async (ofertaId: number, disponibleActual: boolean) => {
+    const nueva = !disponibleActual;
+    const marcaLabel =
+      ofertasParaDesglose.find((o) => o.id === ofertaId)?.marca_vehiculo_info?.nombre?.trim()
+      || 'esta marca';
     try {
+      setTogglingOfertaId(ofertaId);
       const { serviciosAPI } = await import('@/services/api');
-      await serviciosAPI.cambiarDisponibilidad(servicio.id, !servicio.disponible);
-      setServicio({ ...servicio, disponible: !servicio.disponible });
-      showAlert('Éxito', `Servicio ${!servicio.disponible ? 'activado' : 'pausado'} correctamente`);
+      await serviciosAPI.cambiarDisponibilidad(ofertaId, nueva);
+      aplicarDisponibilidadLocal(ofertaId, nueva);
+      showAlert(
+        'Éxito',
+        nueva
+          ? `Oferta activada para ${marcaLabel}.`
+          : `Oferta pausada para ${marcaLabel}. Las demás marcas no se modifican.`,
+      );
     } catch (error) {
       console.error('❌ Error cambiando disponibilidad:', error);
-      showAlert('Error', 'No se pudo cambiar la disponibilidad del servicio');
+      showAlert('Error', 'No se pudo cambiar la disponibilidad de esta marca');
+    } finally {
+      setTogglingOfertaId(null);
     }
+  };
+
+  const toggleDisponibilidadTodas = () => {
+    if (!servicio || ofertasParaDesglose.length === 0) return;
+    const activar = resumenDisponibilidad.activas < resumenDisponibilidad.total;
+    const accion = activar ? 'activar' : 'pausar';
+    const nombres = ofertasParaDesglose
+      .map((o) => o.marca_vehiculo_info?.nombre?.trim() || 'Precio base')
+      .join(', ');
+
+    showConfirm(
+      activar ? 'Activar todas las marcas' : 'Pausar todas las marcas',
+      `Se ${activar ? 'activarán' : 'pausarán'} las ${ofertasParaDesglose.length} ofertas de este servicio:\n• ${nombres.replace(/, /g, '\n• ')}`,
+      {
+        confirmText: activar ? 'Activar todas' : 'Pausar todas',
+        onConfirm: async () => {
+          try {
+            setTogglingTodas(true);
+            const { serviciosAPI } = await import('@/services/api');
+            for (const oferta of ofertasParaDesglose) {
+              if (oferta.disponible !== activar) {
+                await serviciosAPI.cambiarDisponibilidad(oferta.id, activar);
+                aplicarDisponibilidadLocal(oferta.id, activar);
+              }
+            }
+            showAlert('Éxito', `Todas las marcas fueron ${activar ? 'activadas' : 'pausadas'}.`);
+          } catch (error) {
+            console.error('❌ Error cambiando disponibilidad masiva:', error);
+            showAlert('Error', `No se pudo ${accion} todas las marcas. Revisa el detalle de cada una.`);
+          } finally {
+            setTogglingTodas(false);
+          }
+        },
+      },
+    );
+  };
+
+  const toggleDisponibilidad = async () => {
+    if (!servicio) return;
+    if (variasTarifas) {
+      toggleDisponibilidadTodas();
+      return;
+    }
+    await toggleDisponibilidadOferta(servicio.id, servicio.disponible);
   };
 
   const eliminarServicio = () => {
@@ -392,13 +478,44 @@ export default function ServicioResumenScreen() {
 
         <View style={styles.card}>
           <View style={styles.statusRow}>
-            <View style={[styles.statusPill, servicio.disponible ? styles.statusPillOn : styles.statusPillOff]}>
-              <Text style={[styles.statusPillText, servicio.disponible ? styles.statusPillTextOn : styles.statusPillTextOff]}>
-                {servicio.disponible ? 'Activo' : 'Pausado'}
+            <View
+              style={[
+                styles.statusPill,
+                resumenDisponibilidad.activas === resumenDisponibilidad.total
+                  ? styles.statusPillOn
+                  : resumenDisponibilidad.activas === 0
+                    ? styles.statusPillOff
+                    : styles.statusPillPartial,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusPillText,
+                  resumenDisponibilidad.activas === resumenDisponibilidad.total
+                    ? styles.statusPillTextOn
+                    : resumenDisponibilidad.activas === 0
+                      ? styles.statusPillTextOff
+                      : styles.statusPillTextPartial,
+                ]}
+              >
+                {variasTarifas
+                  ? resumenDisponibilidad.activas === resumenDisponibilidad.total
+                    ? 'Todas activas'
+                    : resumenDisponibilidad.activas === 0
+                      ? 'Todas pausadas'
+                      : `${resumenDisponibilidad.activas}/${resumenDisponibilidad.total} activas`
+                  : servicio.disponible
+                    ? 'Activo'
+                    : 'Pausado'}
               </Text>
             </View>
             <Text style={styles.metaDate}>Creado {formatearFecha(servicio.fecha_creacion)}</Text>
           </View>
+          {variasTarifas ? (
+            <Text style={styles.statusHint}>
+              La pausa es por marca. Usa el botón en cada tarjeta o «Pausar/Activar todas» abajo.
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.card}>
@@ -503,7 +620,14 @@ export default function ServicioResumenScreen() {
               {ofertasParaDesglose.length} configuraciones por marca
             </Text>
             {ofertasParaDesglose.map((oferta) => (
-              <TarifaMarcaResumenCard key={oferta.id} oferta={oferta}>
+              <TarifaMarcaResumenCard
+                key={oferta.id}
+                oferta={oferta}
+                onToggleDisponibilidad={() =>
+                  toggleDisponibilidadOferta(oferta.id, oferta.disponible !== false)
+                }
+                togglingDisponibilidad={togglingOfertaId === oferta.id}
+              >
                 <DesglosePrecioOferta oferta={oferta} omitirPrecioPublicoHero />
               </TarifaMarcaResumenCard>
             ))}
@@ -521,18 +645,63 @@ export default function ServicioResumenScreen() {
           <TouchableOpacity
             style={[
               styles.actionBtn,
-              servicio.disponible ? styles.actionPause : styles.actionPlay,
+              variasTarifas
+                ? resumenDisponibilidad.activas === resumenDisponibilidad.total
+                  ? styles.actionPause
+                  : styles.actionPlay
+                : servicio.disponible
+                  ? styles.actionPause
+                  : styles.actionPlay,
             ]}
             onPress={toggleDisponibilidad}
+            disabled={togglingTodas || togglingOfertaId != null}
             activeOpacity={0.88}
           >
-            <InstitutionalIcon
-              name={servicio.disponible ? 'pause' : 'play-arrow'}
-              size={20}
-              color={servicio.disponible ? I.accentYellow : I.semanticUp}
-             strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[styles.actionText, servicio.disponible ? styles.actionTextPause : styles.actionTextPlay]}>
-              {servicio.disponible ? 'Pausar' : 'Activar'}
+            {togglingTodas ? (
+              <ActivityIndicator size="small" color={I.primary} />
+            ) : (
+              <InstitutionalIcon
+                name={
+                  variasTarifas
+                    ? resumenDisponibilidad.activas === resumenDisponibilidad.total
+                      ? 'pause'
+                      : 'play-arrow'
+                    : servicio.disponible
+                      ? 'pause'
+                      : 'play-arrow'
+                }
+                size={20}
+                color={
+                  variasTarifas
+                    ? resumenDisponibilidad.activas === resumenDisponibilidad.total
+                      ? I.accentYellow
+                      : I.semanticUp
+                    : servicio.disponible
+                      ? I.accentYellow
+                      : I.semanticUp
+                }
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+            )}
+            <Text
+              style={[
+                styles.actionText,
+                variasTarifas
+                  ? resumenDisponibilidad.activas === resumenDisponibilidad.total
+                    ? styles.actionTextPause
+                    : styles.actionTextPlay
+                  : servicio.disponible
+                    ? styles.actionTextPause
+                    : styles.actionTextPlay,
+              ]}
+            >
+              {variasTarifas
+                ? resumenDisponibilidad.activas === resumenDisponibilidad.total
+                  ? 'Pausar todas'
+                  : 'Activar todas'
+                : servicio.disponible
+                  ? 'Pausar'
+                  : 'Activar'}
             </Text>
           </TouchableOpacity>
 
@@ -628,6 +797,9 @@ const styles = StyleSheet.create({
   statusPillOff: {
     backgroundColor: withOpacity(I.semanticDown, 0.1),
   },
+  statusPillPartial: {
+    backgroundColor: withOpacity(I.accentYellow, 0.18),
+  },
   statusPillText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansSemiBold,
@@ -636,6 +808,14 @@ const styles = StyleSheet.create({
   },
   statusPillTextOn: { color: I.semanticUp },
   statusPillTextOff: { color: I.semanticDown },
+  statusPillTextPartial: { color: I.ink },
+  statusHint: {
+    marginTop: SPACING.fixed.sm,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.sm * 1.4),
+  },
   metaDate: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansRegular,

@@ -24,6 +24,8 @@ import {
 import { navigateBack } from '@/utils/navigateBack';
 import { parseMisMarcasResponse } from '@/utils/parseMisMarcasResponse';
 import { TarifasMarcaListaDestacada } from '@/components/servicios/TarifasMarcaCatalogo';
+import { MotoresAplicablesChips } from '@/components/servicios/MotoresAplicablesChips';
+import { labelTipoMotor } from '@/utils/tiposMotorCatalogo';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -37,6 +39,8 @@ interface ServicioOferta {
     descripcion: string;
     requiere_repuestos: boolean;
     foto: string | null;
+    tipos_motor_compatibles?: string[];
+    motores_info?: string[];
   };
   marca_vehiculo_seleccionada: number | null;
   marca_vehiculo_info: {
@@ -44,6 +48,7 @@ interface ServicioOferta {
     nombre: string;
     logo: string | null;
   } | null;
+  tipo_motor?: string;
   tipo_servicio: 'con_repuestos' | 'sin_repuestos';
   disponible: boolean;
   duracion_estimada: string | null;
@@ -169,7 +174,8 @@ const MisServiciosScreen = () => {
         servicio.tipo_servicio === 'con_repuestos'
           ? 'con repuestos'.includes(textoLower)
           : 'sin repuestos'.includes(textoLower);
-      return nombreMatch || marcaMatch || tipoMatch;
+      const motorMatch = labelTipoMotor(servicio.tipo_motor).toLowerCase().includes(textoLower);
+      return nombreMatch || marcaMatch || tipoMatch || motorMatch;
     });
     setServiciosFiltrados(filtrados);
   }, []);
@@ -312,11 +318,20 @@ const MisServiciosScreen = () => {
                       </Text>
                       <EstadoDisponibilidadPill grupo={grupo} />
                     </View>
+                    <MotoresAplicablesChips
+                      motores={
+                        grupo.representante.servicio_info.tipos_motor_compatibles
+                        ?? grupo.representante.servicio_info.motores_info
+                      }
+                      tipoMotorOferta={grupo.representante.tipo_motor}
+                      compact
+                    />
                     <Text style={styles.listCardTarifasHint}>
                       {grupo.tarifasPorMarca.length > 1
-                        ? 'Precio por marca configurada'
+                        ? `${grupo.tarifasPorMarca.length} marcas · precio por marca`
                         : 'Precio publicado'}
                     </Text>
+                    <EstadoDisponibilidadHint grupo={grupo} />
                     <TarifasMarcaListaDestacada
                       tarifas={grupo.tarifasPorMarca}
                       ofertas={grupo.ofertas}
@@ -454,6 +469,13 @@ const styles = StyleSheet.create({
     color: I.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.35,
+    marginTop: SPACING.fixed.xxs,
+  },
+  disponibilidadHint: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.xs * 1.4),
     marginTop: SPACING.fixed.xxs,
   },
   marcasBadgeWrap: {
@@ -628,25 +650,48 @@ const styles = StyleSheet.create({
   },
 });
 
+function contarDisponibilidadGrupo(grupo: ServicioCatalogoGrupo<ServicioOferta>) {
+  const total = grupo.ofertas.length;
+  const activas = grupo.ofertas.filter((o) => o.disponible !== false).length;
+  return { total, activas, pausadas: total - activas };
+}
+
 function EstadoDisponibilidadPill({ grupo }: { grupo: ServicioCatalogoGrupo<ServicioOferta> }) {
-  const todas = grupo.todasDisponibles;
-  const alguna = grupo.algunaDisponible;
-  const label = todas ? 'Activo' : alguna ? 'Parcial' : 'Inactivo';
+  const { total, activas, pausadas } = contarDisponibilidadGrupo(grupo);
+  const todas = activas === total;
+  const ninguna = activas === 0;
+  const label = todas
+    ? 'Activo'
+    : ninguna
+      ? 'Pausado'
+      : `${activas}/${total} activas`;
   const pillStyle = todas
     ? styles.statusPillOn
-    : alguna
-      ? styles.statusPillPartial
-      : styles.statusPillOff;
+    : ninguna
+      ? styles.statusPillOff
+      : styles.statusPillPartial;
   const textStyle = todas
     ? styles.statusPillTextOn
-    : alguna
-      ? styles.statusPillTextPartial
-      : styles.statusPillTextOff;
+    : ninguna
+      ? styles.statusPillTextOff
+      : styles.statusPillTextPartial;
 
   return (
     <View style={[styles.statusPill, pillStyle]}>
       <Text style={[styles.statusPillText, textStyle]}>{label}</Text>
     </View>
+  );
+}
+
+function EstadoDisponibilidadHint({ grupo }: { grupo: ServicioCatalogoGrupo<ServicioOferta> }) {
+  const { total, activas, pausadas } = contarDisponibilidadGrupo(grupo);
+  if (total <= 1) return null;
+  if (activas === total || pausadas === total) return null;
+
+  return (
+    <Text style={styles.disponibilidadHint}>
+      {pausadas} marca{pausadas !== 1 ? 's' : ''} pausada{pausadas !== 1 ? 's' : ''} · gestiona cada una en el detalle
+    </Text>
   );
 }
 

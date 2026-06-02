@@ -34,11 +34,23 @@ import { useAuth } from '@/context/AuthContext';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
 import { formatearPrecioCLP } from '@/utils/tarifasPorMarca';
 import { navigateBack } from '@/utils/navigateBack';
+import { extraerMensajeErrorApi } from '@/utils/extraerMensajeErrorApi';
+import { esFotoLocalParaSubir, extraerUrlsFotosApi } from '@/utils/fotosServicio';
 import {
   intersectServiciosCatalogoPorId,
   normalizarListaServiciosCatalogo,
   type ServicioCatalogoRow,
 } from '@/utils/serviciosCatalogoMarca';
+import {
+  MotoresAplicablesChips,
+  MotoresAplicablesHint,
+} from '@/components/servicios/MotoresAplicablesChips';
+import {
+  normalizeMotoresLista,
+  normalizeTipoMotor,
+  opcionesAlcanceMotor,
+  type TipoMotorCodigo,
+} from '@/utils/tiposMotorCatalogo';
 
 type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
 
@@ -198,6 +210,7 @@ const ServicioCatalogCard = React.memo(function ServicioCatalogCard({
               {servicio.descripcion}
             </Text>
           ) : null}
+          <MotoresAplicablesChips motores={servicio.tipos_motor_compatibles} compact />
         </View>
         {isSelected ? (
           <InstitutionalIcon name="checkmark-circle" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -220,6 +233,7 @@ interface Servicio {
   descripcion: string;
   requiere_repuestos: boolean;
   foto: string | null;
+  tipos_motor_compatibles?: string[];
 }
 
 interface Repuesto {
@@ -253,6 +267,8 @@ interface ServicioExistente {
     descripcion: string;
     requiere_repuestos: boolean;
     foto: string | null;
+    tipos_motor_compatibles?: string[];
+    motores_info?: string[];
   };
   marca_vehiculo_seleccionada: number | null;
   marca_vehiculo_info: {
@@ -260,6 +276,7 @@ interface ServicioExistente {
     nombre: string;
     logo: string | null;
   } | null;
+  tipo_motor?: string;
   tipo_servicio: 'con_repuestos' | 'sin_repuestos';
   disponible: boolean;
   duracion_estimada: string | null;
@@ -329,6 +346,8 @@ const CrearServicioScreen = () => {
   const preciosRepuestosRef = useRef<Map<number, string>>(new Map()); // Ref para acceso actualizado en efectos
   const calculosRequestIdRef = useRef(0);
   const [fotos, setFotos] = useState<string[]>([]);
+  /** '' = todos los motores del catálogo; GASOLINA/DIESEL/etc. = oferta específica */
+  const [alcanceMotor, setAlcanceMotor] = useState<TipoMotorCodigo>('');
 
   // Estados de datos de API
   const [marcas, setMarcas] = useState<MarcaVehiculo[]>([]);
@@ -497,6 +516,7 @@ const CrearServicioScreen = () => {
       }
       setCostoManoObra(formatMontoForInput(servicioExistente.costo_mano_de_obra_sin_iva));
       setCostoRepuestos(formatMontoForInput(servicioExistente.costo_repuestos_sin_iva));
+      setAlcanceMotor(normalizeTipoMotor(servicioExistente.tipo_motor ?? ''));
       // Pre-cargar fotos - asegurar que sea un array
       const fotosExistentes = servicioExistente.fotos_urls || [];
       setFotos(Array.isArray(fotosExistentes) ? fotosExistentes : []);
@@ -1030,6 +1050,10 @@ const CrearServicioScreen = () => {
               descripcion: servicioExistente.servicio_info.descripcion ?? '',
               requiere_repuestos: servicioExistente.servicio_info.requiere_repuestos ?? false,
               foto: servicioExistente.servicio_info.foto,
+              tipos_motor_compatibles:
+                servicioExistente.servicio_info.tipos_motor_compatibles
+                ?? servicioExistente.servicio_info.motores_info
+                ?? [],
             },
             ...serviciosCargados,
           ];
@@ -1276,11 +1300,12 @@ const CrearServicioScreen = () => {
       }
     }
 
-    if (tipoServicio === 'con_repuestos') {
-      if (!servicioSeleccionado) {
-        showAlert('Error', 'Debes seleccionar un tipo de servicio');
-        return;
-      }
+    if (!servicioSeleccionado) {
+      showAlert(
+        'Servicio requerido',
+        'Selecciona un servicio del catálogo antes de guardar.',
+      );
+      return;
     }
 
     if (!descripcion.trim()) {
@@ -1398,6 +1423,7 @@ const CrearServicioScreen = () => {
         disponible: true,
         duracion_minima_minutos: minDur,
         duracion_maxima_minutos: maxDur,
+        tipo_motor: alcanceMotor || '',
       };
       if (servicioSeleccionado != null) {
         datosBase.servicio = servicioSeleccionado;
@@ -1503,11 +1529,7 @@ const CrearServicioScreen = () => {
               }
             }
           } catch (err: any) {
-            const detalle =
-              err?.response?.data?.servicio?.[0] ??
-              err?.response?.data?.detail ??
-              err?.response?.data?.error ??
-              'No se pudo guardar';
+            const detalle = extraerMensajeErrorApi(err, 'No se pudo guardar');
             erroresMarca.push(`${nombreMarca}: ${detalle}`);
           }
         }
@@ -1579,11 +1601,7 @@ const CrearServicioScreen = () => {
           } catch (err: any) {
             const nombreMarca =
               marcas.find((m) => m.id === marcaId)?.nombre ?? `ID ${marcaId}`;
-            const detalle =
-              err?.response?.data?.servicio?.[0] ??
-              err?.response?.data?.detail ??
-              err?.response?.data?.error ??
-              'No se pudo crear';
+            const detalle = extraerMensajeErrorApi(err, 'No se pudo crear');
             erroresMarca.push(`${nombreMarca}: ${detalle}`);
           }
         }
@@ -1632,34 +1650,19 @@ const CrearServicioScreen = () => {
       ]);
 
     } catch (error: any) {
-      console.error(`❌ Error ${isEditMode ? 'actualizando' : 'publicando'} servicio:`, error);
-
       const accionError = isEditMode ? 'actualizar' : 'publicar';
-      let mensajeError = `No se pudo ${accionError} el servicio. Por favor, intenta nuevamente.`;
+      const fallback = `No se pudo ${accionError} el servicio. Por favor, intenta nuevamente.`;
+      const mensajeError = extraerMensajeErrorApi(error, fallback);
 
-      if (error?.response?.data) {
-        // Si hay detalles específicos del error
-        const errorData = error.response.data;
-        if (typeof errorData === 'string') {
-          mensajeError = errorData;
-        } else if (errorData.detail) {
-          mensajeError = errorData.detail;
-        } else if (errorData.error) {
-          mensajeError = errorData.error;
-        } else if (errorData.servicio) {
-          // Error de validación específico del campo servicio (duplicado)
-          mensajeError = Array.isArray(errorData.servicio)
-            ? errorData.servicio[0]
-            : errorData.servicio;
-        } else if (typeof errorData === 'object') {
-          // Extraer primer mensaje de error de validación de Django
-          const campos = Object.keys(errorData);
-          if (campos.length > 0) {
-            const primerCampo = campos[0];
-            const valor = errorData[primerCampo];
-            mensajeError = Array.isArray(valor) ? valor[0] : valor;
-          }
-        }
+      if (__DEV__) {
+        console.error(`❌ Error ${accionError} servicio:`, {
+          message: error?.message,
+          status: error?.response?.status,
+          data: error?.response?.data,
+          mensajeMostrado: mensajeError,
+        });
+      } else {
+        console.error(`❌ Error ${accionError} servicio:`, mensajeError);
       }
 
       setSaveStatus('error');
@@ -1904,6 +1907,28 @@ const CrearServicioScreen = () => {
 
     const mostrarBusqueda = marcasReales.length >= 6;
 
+    const tabsMarca = useMemo(() => {
+      const t: { key: MarcaModoTab; label: string; badge?: number }[] = [
+        { key: 'por_marca', label: 'Por marca', badge: marcasRealesSeleccionadas.length || undefined },
+      ];
+      if (tieneOpcionGenerica) {
+        t.push({
+          key: 'generico',
+          label: proveedorEsMultimarca ? 'Precio base' : 'Genérico',
+        });
+      }
+      return t;
+    }, [tieneOpcionGenerica, marcasRealesSeleccionadas.length, proveedorEsMultimarca]);
+
+    if (loadingMarcas) {
+      return (
+        <View style={styles.sectionContainer}>
+          <ActivityIndicator size="large" color={I.primary} style={styles.loader} />
+          <Text style={styles.loadingText}>Cargando marcas de vehículos…</Text>
+        </View>
+      );
+    }
+
     if (marcas.length === 0) {
       return (
         <View style={styles.sectionContainer}>
@@ -1917,19 +1942,6 @@ const CrearServicioScreen = () => {
         </View>
       );
     }
-
-    const tabsMarca = useMemo(() => {
-      const t: { key: MarcaModoTab; label: string; badge?: number }[] = [
-        { key: 'por_marca', label: 'Por marca', badge: marcasRealesSeleccionadas.length || null },
-      ];
-      if (tieneOpcionGenerica) {
-        t.push({
-          key: 'generico',
-          label: proveedorEsMultimarca ? 'Precio base' : 'Genérico',
-        });
-      }
-      return t;
-    }, [tieneOpcionGenerica, marcasRealesSeleccionadas.length]);
 
     return (
       <View style={styles.sectionContainer}>
@@ -2203,6 +2215,8 @@ const CrearServicioScreen = () => {
 
       setServicioSeleccionado(servicioId);
 
+      setAlcanceMotor('');
+
       // Solo resetear repuestos si estamos cambiando a un servicio diferente
       // Y no estamos en modo edición con datos pre-cargados del mismo servicio
       if (!isEditMode || !datosPreCargados || servicioId !== servicioOriginal) {
@@ -2386,6 +2400,69 @@ const CrearServicioScreen = () => {
             ⚠️ Presiona "Confirmar" para guardar este precio
           </Text>
         )}
+      </View>
+    );
+  };
+
+  const motoresCatalogoSeleccionado = useMemo(() => {
+    const svc = servicios.find((s) => s.id === servicioSeleccionado);
+    return normalizeMotoresLista(svc?.tipos_motor_compatibles);
+  }, [servicios, servicioSeleccionado]);
+
+  const opcionesAlcance = useMemo(
+    () => opcionesAlcanceMotor(motoresCatalogoSeleccionado),
+    [motoresCatalogoSeleccionado],
+  );
+
+  const renderAlcanceMotorSelector = () => {
+    if (!servicioSeleccionado || !tieneSeleccionMarca) return null;
+
+    return (
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>Tipo de motor</Text>
+        <Text style={styles.subtitle}>
+          Define para qué vehículos aplica esta configuración de precio.
+        </Text>
+        <MotoresAplicablesHint motores={motoresCatalogoSeleccionado} />
+        <View style={styles.motorOpcionesList}>
+          {opcionesAlcance.map((op) => {
+            const selected = alcanceMotor === op.value;
+            return (
+              <TouchableOpacity
+                key={op.value || 'todos'}
+                style={[
+                  INSTITUTIONAL_SELECTION.listRow,
+                  selected && INSTITUTIONAL_SELECTION.listRowSelected,
+                  styles.motorOpcionRow,
+                ]}
+                onPress={() => setAlcanceMotor(op.value)}
+                activeOpacity={0.85}
+              >
+                <Text
+                  style={[
+                    INSTITUTIONAL_SELECTION.title,
+                    selected && INSTITUTIONAL_SELECTION.titleSelected,
+                  ]}
+                >
+                  {op.label}
+                </Text>
+                {selected ? (
+                  <InstitutionalIcon
+                    name="checkmark-circle"
+                    size={20}
+                    color={I.primary}
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {alcanceMotor ? (
+          <Text style={styles.marcaHint}>
+            Para otro tipo de motor con precio distinto, publica otra configuración desde Mis servicios.
+          </Text>
+        ) : null}
       </View>
     );
   };
@@ -2612,18 +2689,14 @@ const CrearServicioScreen = () => {
         >
           <TipoServicioSelector />
 
-          {loadingMarcas ? (
-            <View style={styles.sectionContainer}>
-              <ActivityIndicator size="large" color={I.primary} style={styles.loader} />
-              <Text style={styles.loadingText}>Cargando marcas de vehículos...</Text>
-            </View>
-          ) : (
+          {renderMarcaSelector()}
+          {!loadingMarcas ? (
             <>
-              {renderMarcaSelector()}
               {renderServicioSelector()}
+              {renderAlcanceMotorSelector()}
               <RepuestosSelector />
             </>
-          )}
+          ) : null}
 
           <FotoSelector />
 
@@ -2902,6 +2975,13 @@ const styles = StyleSheet.create({
     color: I.muted,
     marginBottom: SPACING.fixed.sm,
     lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+  },
+  motorOpcionesList: {
+    marginTop: SPACING.fixed.sm,
+    gap: SPACING.fixed.xs,
+  },
+  motorOpcionRow: {
+    marginBottom: 0,
   },
   marcaPanel: {
     marginTop: SPACING.fixed.sm,

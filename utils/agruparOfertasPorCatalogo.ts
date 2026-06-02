@@ -31,7 +31,8 @@ export interface ServicioCatalogoGrupo<T extends ServicioOfertaLike = ServicioOf
 
 function catalogoKey(o: ServicioOfertaLike): string {
   const servicioId = o.servicio ?? o.servicio_info?.id ?? 0;
-  return `${servicioId}|${o.tipo_servicio || 'sin_repuestos'}`;
+  const motor = (o.tipo_motor ?? '').trim();
+  return `${servicioId}|${o.tipo_servicio || 'sin_repuestos'}|${motor}`;
 }
 
 export function agruparOfertasPorCatalogo<T extends ServicioOfertaLike>(

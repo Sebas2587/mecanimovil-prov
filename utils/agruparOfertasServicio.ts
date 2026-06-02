@@ -15,6 +15,7 @@ export interface ServicioOfertaLike {
   marca_vehiculo_seleccionada: number | null;
   marca_vehiculo_info?: { id: number; nombre: string; logo?: string | null } | null;
   tipo_servicio: string;
+  tipo_motor?: string;
   detalles_adicionales: string | null;
   costo_mano_de_obra_sin_iva: string;
   costo_repuestos_sin_iva: string;
@@ -41,6 +42,7 @@ function firmaOferta(o: ServicioOfertaLike): string {
   return [
     servicioId,
     o.tipo_servicio,
+    (o.tipo_motor ?? '').trim(),
     (o.detalles_adicionales ?? '').trim(),
     String(o.costo_mano_de_obra_sin_iva ?? ''),
     String(o.costo_repuestos_sin_iva ?? ''),

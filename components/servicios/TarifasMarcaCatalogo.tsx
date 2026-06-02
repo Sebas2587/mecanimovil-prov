@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -99,25 +99,27 @@ export function TarifasMarcaListaDestacada({
           >
             <MarcaTarifaHeader tarifa={tarifa} oferta={oferta} size={unaSola ? 'lg' : 'md'} />
             <View style={styles.precioCol}>
-              <Text
-                style={[
-                  styles.precioMonto,
-                  unaSola && styles.precioMontoUna,
-                  !tarifa.disponible && styles.precioOff,
-                ]}
-                numberOfLines={1}
-              >
-                {formatearPrecioCLP(tarifa.precioPublico)}
-              </Text>
+              <View style={styles.precioTopRow}>
+                <Text
+                  style={[
+                    styles.precioMonto,
+                    unaSola && styles.precioMontoUna,
+                    !tarifa.disponible && styles.precioOff,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {formatearPrecioCLP(tarifa.precioPublico)}
+                </Text>
+                {!tarifa.disponible ? (
+                  <View style={styles.pausadoBadgeInline}>
+                    <Text style={styles.pausadoText}>Pausado</Text>
+                  </View>
+                ) : null}
+              </View>
               <Text style={styles.precioEtiqueta} numberOfLines={1}>
-                Precio al público
+                {tarifa.disponible ? 'Precio al público' : 'No visible para clientes'}
               </Text>
             </View>
-            {!tarifa.disponible ? (
-              <View style={styles.pausadoBadge}>
-                <Text style={styles.pausadoText}>Pausado</Text>
-              </View>
-            ) : null}
           </View>
         );
       })}
@@ -128,10 +130,17 @@ export function TarifasMarcaListaDestacada({
 type ResumenOfertaProps = {
   oferta: OfertaMarcaRef;
   children: React.ReactNode;
+  onToggleDisponibilidad?: () => void;
+  togglingDisponibilidad?: boolean;
 };
 
 /** Card institucional por marca/oferta (resumen del servicio). */
-export function TarifaMarcaResumenCard({ oferta, children }: ResumenOfertaProps) {
+export function TarifaMarcaResumenCard({
+  oferta,
+  children,
+  onToggleDisponibilidad,
+  togglingDisponibilidad = false,
+}: ResumenOfertaProps) {
   const tarifa: TarifaPorMarca = {
     ofertaId: oferta.id,
     marcaId: oferta.marca_vehiculo_seleccionada ?? 0,
@@ -185,6 +194,39 @@ export function TarifaMarcaResumenCard({ oferta, children }: ResumenOfertaProps)
       ) : null}
 
       {children}
+
+      {onToggleDisponibilidad ? (
+        <TouchableOpacity
+          style={[
+            styles.toggleMarcaBtn,
+            oferta.disponible ? styles.toggleMarcaPause : styles.toggleMarcaPlay,
+          ]}
+          onPress={onToggleDisponibilidad}
+          disabled={togglingDisponibilidad}
+          activeOpacity={0.88}
+        >
+          {togglingDisponibilidad ? (
+            <ActivityIndicator size="small" color={oferta.disponible ? I.accentYellow : I.semanticUp} />
+          ) : (
+            <>
+              <InstitutionalIcon
+                name={oferta.disponible ? 'pause' : 'play-arrow'}
+                size={18}
+                color={oferta.disponible ? I.accentYellow : I.semanticUp}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+              <Text
+                style={[
+                  styles.toggleMarcaBtnText,
+                  oferta.disponible ? styles.toggleMarcaPauseText : styles.toggleMarcaPlayText,
+                ]}
+              >
+                {oferta.disponible ? 'Pausar esta marca' : 'Activar esta marca'}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -202,6 +244,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: SPACING.fixed.md,
+    position: 'relative',
     backgroundColor: I.surfaceStrong,
     borderRadius: BORDERS.radius.md,
     borderWidth: BORDERS.width.thin,
@@ -264,7 +307,16 @@ const styles = StyleSheet.create({
   precioCol: {
     alignItems: 'flex-end',
     flexShrink: 0,
-    maxWidth: '46%',
+    maxWidth: '48%',
+    minWidth: 108,
+  },
+  precioTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.xs,
+    maxWidth: '100%',
   },
   precioMonto: {
     fontSize: TY.numberDisplay.fontSize,
@@ -288,19 +340,46 @@ const styles = StyleSheet.create({
     color: I.mutedSoft,
     textDecorationLine: 'line-through',
   },
-  pausadoBadge: {
-    position: 'absolute',
-    top: SPACING.fixed.xs,
-    right: SPACING.fixed.xs,
+  pausadoBadgeInline: {
     paddingHorizontal: SPACING.fixed.xs,
     paddingVertical: 2,
     borderRadius: BORDERS.radius.pill,
     backgroundColor: withOpacity(I.semanticDown, 0.12),
+    flexShrink: 0,
   },
   pausadoText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansSemiBold,
     color: I.semanticDown,
+  },
+  toggleMarcaBtn: {
+    marginTop: SPACING.fixed.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+  },
+  toggleMarcaPause: {
+    backgroundColor: withOpacity(I.accentYellow, 0.12),
+    borderColor: withOpacity(I.accentYellow, 0.35),
+  },
+  toggleMarcaPlay: {
+    backgroundColor: withOpacity(I.semanticUp, 0.1),
+    borderColor: withOpacity(I.semanticUp, 0.3),
+  },
+  toggleMarcaBtnText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+  },
+  toggleMarcaPauseText: {
+    color: I.ink,
+  },
+  toggleMarcaPlayText: {
+    color: I.semanticUp,
   },
   resumenCard: {
     backgroundColor: I.canvas,
