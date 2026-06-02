@@ -11,7 +11,6 @@ import {
   TextInput,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { Image } from 'expo-image';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
@@ -20,17 +19,15 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
   agruparOfertasPorCatalogo,
-  formatearRangoPrecioCLP,
   type ServicioCatalogoGrupo,
 } from '@/utils/agruparOfertasPorCatalogo';
 import { navigateBack } from '@/utils/navigateBack';
 import { parseMisMarcasResponse } from '@/utils/parseMisMarcasResponse';
+import { TarifasMarcaListaDestacada } from '@/components/servicios/TarifasMarcaCatalogo';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const hx = SPACING.container.horizontal;
-const TY = TYPOGRAPHY.styles;
-
 interface ServicioOferta {
   id: number;
   servicio: number;
@@ -154,6 +151,7 @@ const MisServiciosScreen = () => {
         id: grupo.representante.id.toString(),
         servicioData: JSON.stringify(grupo.representante),
         ofertasGrupo: JSON.stringify(grupo.ofertasGrupo),
+        ofertasCatalogo: JSON.stringify(grupo.ofertas),
       },
     });
   };
@@ -308,22 +306,25 @@ const MisServiciosScreen = () => {
               >
                 <View style={styles.listCardBody}>
                   <View style={styles.listCardTopRow}>
-                    <View style={styles.listCardTitleWrap}>
+                    <View style={styles.listCardTitleRow}>
                       <Text style={styles.listCardTitle} numberOfLines={2}>
                         {grupo.representante.servicio_info.nombre}
                       </Text>
-                    </View>
-                    <View style={styles.listCardPillsRow}>
-                      <View style={styles.marcaBadgeCell}>
-                        <MarcasBadgeRowCatalogo grupo={grupo} />
-                      </View>
                       <EstadoDisponibilidadPill grupo={grupo} />
                     </View>
+                    <Text style={styles.listCardTarifasHint}>
+                      {grupo.tarifasPorMarca.length > 1
+                        ? 'Precio por marca configurada'
+                        : 'Precio publicado'}
+                    </Text>
+                    <TarifasMarcaListaDestacada
+                      tarifas={grupo.tarifasPorMarca}
+                      ofertas={grupo.ofertas}
+                    />
                   </View>
-                  <View style={styles.listCardBottomRow}>
-                    <Text style={styles.listCardMeta}>{formatearFecha(grupo.fechaReciente)}</Text>
-                    <PrecioCatalogoGrupoMonto grupo={grupo} />
-                  </View>
+                  <Text style={styles.listCardMeta}>
+                    Actualizado {formatearFecha(grupo.fechaReciente)}
+                  </Text>
                 </View>
               </TouchableOpacity>
             ))
@@ -438,19 +439,22 @@ const styles = StyleSheet.create({
   listCardTopRow: {
     flexDirection: 'column',
     alignItems: 'stretch',
-    gap: SPACING.fixed.sm,
+    gap: SPACING.fixed.xs,
   },
-  listCardPillsRow: {
+  listCardTitleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     width: '100%',
     gap: SPACING.fixed.sm,
   },
-  marcaBadgeCell: {
-    flex: 1,
-    minWidth: 0,
-    alignItems: 'flex-start',
+  listCardTarifasHint: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansMedium,
+    color: I.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.35,
+    marginTop: SPACING.fixed.xxs,
   },
   marcasBadgeWrap: {
     flexDirection: 'row',
@@ -471,40 +475,11 @@ const styles = StyleSheet.create({
     color: I.ink,
     lineHeight: Math.round(TYPOGRAPHY.fontSize.md * 1.35),
   },
-  listCardBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: SPACING.fixed.sm,
-  },
   listCardMeta: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansRegular,
     color: I.muted,
-  },
-  precioPublicoWrap: {
-    alignItems: 'flex-end',
-    flexShrink: 0,
-    maxWidth: '52%',
-  },
-  precioPublicoMonto: {
-    fontSize: TY.numberDisplay.fontSize,
-    fontFamily: FF.monoMedium,
-    fontWeight: TY.numberDisplay.fontWeight,
-    lineHeight: Math.round(TY.numberDisplay.fontSize * Number(TY.numberDisplay.lineHeight)),
-    color: I.ink,
-    letterSpacing: TY.numberDisplay.letterSpacing,
-    textAlign: 'right',
-  },
-  precioPublicoMontoVacío: {
-    fontSize: TY.small.fontSize,
-    fontFamily: FF.sansRegular,
-    fontWeight: TY.small.fontWeight,
-    lineHeight: Math.round(TY.small.fontSize * Number(TY.small.lineHeight)),
-    color: I.muted,
-    textAlign: 'right',
+    marginTop: SPACING.fixed.xs,
   },
   marcaBadge: {
     flexDirection: 'row',
@@ -572,9 +547,6 @@ const styles = StyleSheet.create({
   },
   statusPillTextPartial: {
     color: I.ink,
-  },
-  precioPublicoMontoRango: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -656,29 +628,6 @@ const styles = StyleSheet.create({
   },
 });
 
-function PrecioCatalogoGrupoMonto({ grupo }: { grupo: ServicioCatalogoGrupo<ServicioOferta> }) {
-  const label = formatearRangoPrecioCLP(grupo.precioMin, grupo.precioMax);
-  return (
-    <View style={styles.precioPublicoWrap}>
-      {label ? (
-        <Text
-          style={[
-            styles.precioPublicoMonto,
-            grupo.tieneRangoPrecio && styles.precioPublicoMontoRango,
-          ]}
-          numberOfLines={1}
-        >
-          {label}
-        </Text>
-      ) : (
-        <Text style={styles.precioPublicoMontoVacío} numberOfLines={1}>
-          —
-        </Text>
-      )}
-    </View>
-  );
-}
-
 function EstadoDisponibilidadPill({ grupo }: { grupo: ServicioCatalogoGrupo<ServicioOferta> }) {
   const todas = grupo.todasDisponibles;
   const alguna = grupo.algunaDisponible;
@@ -697,75 +646,6 @@ function EstadoDisponibilidadPill({ grupo }: { grupo: ServicioCatalogoGrupo<Serv
   return (
     <View style={[styles.statusPill, pillStyle]}>
       <Text style={[styles.statusPillText, textStyle]}>{label}</Text>
-    </View>
-  );
-}
-
-function MarcasBadgeRowCatalogo({ grupo }: { grupo: ServicioCatalogoGrupo<ServicioOferta> }) {
-  const esSoloGenerico = grupo.marcaIds.length === 1 && grupo.marcaIds[0] === 0;
-
-  if (esSoloGenerico) {
-    return <MarcaBadge servicio={grupo.representante} />;
-  }
-
-  const seen = new Set<number>();
-  const ofertasUnicas: ServicioOferta[] = [];
-  for (const oferta of grupo.ofertas) {
-    const mid = oferta.marca_vehiculo_seleccionada ?? 0;
-    if (seen.has(mid)) continue;
-    seen.add(mid);
-    ofertasUnicas.push(oferta);
-  }
-
-  if (ofertasUnicas.length <= 1) {
-    return <MarcaBadge servicio={ofertasUnicas[0] ?? grupo.representante} />;
-  }
-
-  return (
-    <View style={styles.marcasBadgeWrap}>
-      {ofertasUnicas.map((oferta) => (
-        <MarcaBadge key={oferta.id} servicio={oferta} compact />
-      ))}
-    </View>
-  );
-}
-
-function MarcaBadge({
-  servicio,
-  compact = false,
-}: {
-  servicio: ServicioOferta;
-  compact?: boolean;
-}) {
-  const info = servicio.marca_vehiculo_info;
-  const nombre = info?.nombre?.trim();
-  const logoUri = info?.logo?.trim();
-
-  if (nombre) {
-    return (
-      <View style={[styles.marcaBadge, compact && styles.marcaBadgeCompact]}>
-        {logoUri ? (
-          <Image source={{ uri: logoUri }} style={styles.marcaBadgeLogo} contentFit="contain" />
-        ) : (
-          <InstitutionalIcon name="car-sport-outline" size={11} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-        )}
-        <View style={styles.marcaBadgeTextCol}>
-          <Text style={styles.marcaBadgeText} numberOfLines={1}>
-            {nombre}
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.marcaBadge, styles.marcaBadgeGenerico]}>
-      <InstitutionalIcon name="albums-outline" size={11} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-      <View style={styles.marcaBadgeTextCol}>
-        <Text style={styles.marcaBadgeTextGenerico} numberOfLines={2}>
-          Precio base
-        </Text>
-      </View>
     </View>
   );
 }

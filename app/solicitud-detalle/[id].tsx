@@ -11,10 +11,12 @@ import {
   Modal,
   Pressable,
   AppState,
+  Platform,
 } from 'react-native';
+import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, withOpacity, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import solicitudesService, { type SolicitudPublica, type OfertaProveedor, type MotivoRechazo } from '@/services/solicitudesService';
 import { RechazarSolicitudModal } from '@/components/solicitudes/RechazarSolicitudModal';
@@ -270,47 +272,40 @@ export default function SolicitudDetalleScreen() {
     esAsignacionCatalogo &&
     (miOferta?.estado === 'pendiente_confirmacion' || miOferta?.estado === 'en_chat');
 
-  const handleConfirmarCatalogo = async () => {
+  const ejecutarConfirmarCatalogo = async () => {
     if (!miOferta?.id) return;
-    Alert.alert(
+    setConfirmandoCatalogo(true);
+    try {
+      const result = await solicitudesService.confirmarCatalogo(miOferta.id);
+      if (result.success) {
+        const estado = (result.data as { estado_resultado?: string })?.estado_resultado;
+        showAlert(
+          estado === 'esperando_creditos_proveedor'
+            ? 'Créditos insuficientes'
+            : 'Asignación confirmada',
+          estado === 'esperando_creditos_proveedor'
+            ? 'Debes acreditar créditos antes de que el cliente pueda pagar.'
+            : 'El cliente fue notificado y puede proceder al pago.',
+        );
+        invalidateOrdenesYOfertas();
+        cargarDatos();
+      } else {
+        showAlert('Error', result.error || 'No se pudo confirmar');
+      }
+    } finally {
+      setConfirmandoCatalogo(false);
+    }
+  };
+
+  const handleConfirmarCatalogo = () => {
+    if (!miOferta?.id || confirmandoCatalogo || rechazando) return;
+    showAlertButtons(
       'Confirmar asignación',
       'Al confirmar adjudicarás la orden y se descontarán créditos de tu cuenta. El cliente podrá pagar. ¿Continuar?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar',
-          onPress: async () => {
-            setConfirmandoCatalogo(true);
-            try {
-              const result = await solicitudesService.confirmarCatalogo(miOferta.id);
-              if (result.success) {
-                const estado = (result.data as { estado_resultado?: string })?.estado_resultado;
-                Alert.alert(
-                  estado === 'esperando_creditos_proveedor'
-                    ? 'Créditos insuficientes'
-                    : 'Asignación confirmada',
-                  estado === 'esperando_creditos_proveedor'
-                    ? 'Debes acreditar créditos antes de que el cliente pueda pagar.'
-                    : 'El cliente fue notificado y puede proceder al pago.',
-                  [
-                    {
-                      text: 'OK',
-                      onPress: () => {
-                        invalidateOrdenesYOfertas();
-                        cargarDatos();
-                      },
-                    },
-                  ],
-                );
-              } else {
-                Alert.alert('Error', result.error || 'No se pudo confirmar');
-              }
-            } finally {
-              setConfirmandoCatalogo(false);
-            }
-          },
-        },
-      ]
+        { text: 'Confirmar', onPress: () => void ejecutarConfirmarCatalogo() },
+      ],
     );
   };
 
@@ -357,33 +352,31 @@ export default function SolicitudDetalleScreen() {
     }
   };
 
-  const handleRechazarCatalogo = async () => {
+  const ejecutarRechazarCatalogo = async () => {
     if (!miOferta?.id) return;
-    Alert.alert(
+    setRechazando(true);
+    try {
+      const result = await solicitudesService.rechazarCatalogo(miOferta.id);
+      if (result.success) {
+        showAlert('Rechazada', 'La solicitud fue cancelada.');
+        router.back();
+      } else {
+        showAlert('Error', result.error || 'No se pudo rechazar');
+      }
+    } finally {
+      setRechazando(false);
+    }
+  };
+
+  const handleRechazarCatalogo = () => {
+    if (!miOferta?.id || rechazando || confirmandoCatalogo) return;
+    showAlertButtons(
       'Rechazar asignación',
       'El cliente será notificado. ¿Seguro que no puedes realizar este servicio?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Rechazar',
-          style: 'destructive',
-          onPress: async () => {
-            setRechazando(true);
-            try {
-              const result = await solicitudesService.rechazarCatalogo(miOferta.id);
-              if (result.success) {
-                Alert.alert('Rechazada', 'La solicitud fue cancelada.', [
-                  { text: 'OK', onPress: () => router.back() },
-                ]);
-              } else {
-                Alert.alert('Error', result.error || 'No se pudo rechazar');
-              }
-            } finally {
-              setRechazando(false);
-            }
-          },
-        },
-      ]
+        { text: 'Rechazar', style: 'destructive', onPress: () => void ejecutarRechazarCatalogo() },
+      ],
     );
   };
 
@@ -436,9 +429,81 @@ export default function SolicitudDetalleScreen() {
     title: 'Detalle de Solicitud',
     headerBackTitle: '',
     headerBackTitleVisible: false as const,
-    headerStyle: { backgroundColor: I.canvas },
+    headerShadowVisible: false,
+    headerStyle: {
+      backgroundColor: I.canvas,
+      borderBottomWidth: 0,
+      elevation: 0,
+      shadowOpacity: 0,
+    },
     headerTintColor: I.ink,
   };
+
+  const footerBottomPad = Math.max(insets.bottom, Platform.OS === 'web' ? 12 : 0);
+
+  const renderFooterActions = (
+    primary: {
+      label: string;
+      icon: string;
+      onPress: () => void;
+      loading?: boolean;
+      disabled?: boolean;
+    },
+    secondary: {
+      label: string;
+      icon: string;
+      onPress: () => void;
+      loading?: boolean;
+      disabled?: boolean;
+    },
+  ) => (
+    <View style={[styles.fixedActionsContainer, { paddingBottom: footerBottomPad }]}>
+      <View style={styles.fixedActionsRow}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.footerBtnOutline,
+            (pressed || secondary.loading) && styles.footerBtnPressed,
+            (secondary.disabled || secondary.loading) && styles.footerBtnDisabled,
+          ]}
+          onPress={secondary.onPress}
+          disabled={secondary.disabled || secondary.loading}
+          accessibilityRole="button"
+        >
+          {secondary.loading ? (
+            <ActivityIndicator color={I.semanticDown} size="small" />
+          ) : (
+            <>
+              <InstitutionalIcon name={secondary.icon} size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.footerBtnOutlineText} numberOfLines={1}>
+                {secondary.label}
+              </Text>
+            </>
+          )}
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [
+            styles.footerBtnPrimary,
+            (pressed || primary.loading) && styles.footerBtnPressed,
+            (primary.disabled || primary.loading) && styles.footerBtnDisabled,
+          ]}
+          onPress={primary.onPress}
+          disabled={primary.disabled || primary.loading}
+          accessibilityRole="button"
+        >
+          {primary.loading ? (
+            <ActivityIndicator color={I.onPrimary} size="small" />
+          ) : (
+            <>
+              <InstitutionalIcon name={primary.icon} size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>
+                {primary.label}
+              </Text>
+            </>
+          )}
+        </Pressable>
+      </View>
+    </View>
+  );
 
   if (loading) {
     return (
@@ -845,67 +910,40 @@ export default function SolicitudDetalleScreen() {
           ) : null}
         </ScrollView>
 
-        {tienePieDecisionCatalogo ? (
-          <SafeAreaView edges={['bottom']} style={styles.fixedActionsContainer}>
-            <View style={styles.fixedActionsRow}>
-              <TouchableOpacity
-                style={styles.rechazarButton}
-                onPress={handleRechazarCatalogo}
-                disabled={rechazando || confirmandoCatalogo}
-                activeOpacity={0.85}
-              >
-                <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.rechazarButtonText} numberOfLines={1}>
-                  Rechazar
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.aceptarCatalogoButton, confirmandoCatalogo && styles.aceptarCatalogoButtonDisabled]}
-                onPress={handleConfirmarCatalogo}
-                disabled={confirmandoCatalogo}
-                activeOpacity={0.85}
-              >
-                {confirmandoCatalogo ? (
-                  <ActivityIndicator color={I.onPrimary} />
-                ) : (
-                  <>
-                    <InstitutionalIcon name="check-circle" size={22} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.aceptarCatalogoButtonText} numberOfLines={1}>
-                      Aceptar asignación
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        ) : null}
+        {tienePieDecisionCatalogo
+          ? renderFooterActions(
+              {
+                label: 'Aceptar asignación',
+                icon: 'check-circle',
+                onPress: handleConfirmarCatalogo,
+                loading: confirmandoCatalogo,
+                disabled: rechazando,
+              },
+              {
+                label: 'Rechazar',
+                icon: 'cancel',
+                onPress: handleRechazarCatalogo,
+                loading: rechazando,
+                disabled: confirmandoCatalogo,
+              },
+            )
+          : null}
 
-        {!miOferta && solicitud.estado !== 'pendiente_confirmacion' ? (
-          <SafeAreaView edges={['bottom']} style={styles.fixedActionsContainer}>
-            <View style={styles.fixedActionsRow}>
-              <TouchableOpacity
-                style={styles.rechazarButton}
-                onPress={() => setMostrarModalRechazo(true)}
-                activeOpacity={0.85}
-              >
-                <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.rechazarButtonText} numberOfLines={1}>
-                  Rechazar oferta
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.crearOfertaButton}
-                onPress={() => router.push(`/crear-oferta/${solicitud.id}`)}
-                activeOpacity={0.85}
-              >
-                <InstitutionalIcon name="add-circle" size={22} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.crearOfertaButtonText} numberOfLines={1}>
-                  Crear oferta
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        ) : null}
+        {!miOferta && solicitud.estado !== 'pendiente_confirmacion'
+          ? renderFooterActions(
+              {
+                label: 'Crear oferta',
+                icon: 'add-circle',
+                onPress: () => router.push(`/crear-oferta/${solicitud.id}`),
+              },
+              {
+                label: 'Rechazar oferta',
+                icon: 'cancel',
+                onPress: () => setMostrarModalRechazo(true),
+                loading: rechazando,
+              },
+            )
+          : null}
 
         <RechazarSolicitudModal
           visible={mostrarModalRechazo}
@@ -1491,75 +1529,69 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: I.canvas,
     paddingHorizontal: hx,
-    paddingTop: SPACING.fixed.sm,
-    borderTopWidth: BORDERS.width.thin,
+    paddingTop: SPACING.fixed.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
-    ...shadowFooter,
+    ...(Platform.OS === 'web'
+      ? { zIndex: 40 }
+      : shadowFooter),
   },
   fixedActionsRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: SPACING.fixed.sm,
+    maxWidth: Platform.OS === 'web' ? 480 : undefined,
+    width: '100%',
+    alignSelf: 'center',
   },
-  rechazarButton: {
+  footerBtnOutline: {
     flex: 1,
     minWidth: 0,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: SPACING.fixed.sm,
-    paddingHorizontal: SPACING.fixed.xs,
+    gap: SPACING.fixed.xs,
+    paddingVertical: 10,
+    paddingHorizontal: SPACING.fixed.sm,
     borderRadius: BORDERS.radius.pill,
     borderWidth: BORDERS.width.thin,
-    borderColor: I.semanticDown,
+    borderColor: I.hairline,
     backgroundColor: I.canvas,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : null),
   },
-  rechazarButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+  footerBtnOutlineText: {
+    fontSize: TS.button.fontSize,
     fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),
     color: I.semanticDown,
   },
-  crearOfertaButton: {
-    flex: 1.35,
+  footerBtnPrimary: {
+    flex: 1,
     minWidth: 0,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.fixed.xs,
-    paddingVertical: SPACING.fixed.sm + 2,
+    paddingVertical: 10,
     paddingHorizontal: SPACING.fixed.sm,
     borderRadius: BORDERS.radius.pill,
     backgroundColor: I.primary,
-    ...SHADOWS.editorial,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.primary,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : null),
   },
-  crearOfertaButtonText: {
+  footerBtnPrimaryText: {
     fontSize: TS.button.fontSize,
     fontFamily: FF.sansSemiBold,
     lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),
     color: I.onPrimary,
   },
-  aceptarCatalogoButton: {
-    flex: 1.6,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.fixed.xs,
-    paddingVertical: SPACING.fixed.sm + 2,
-    paddingHorizontal: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.primary,
-    ...SHADOWS.editorial,
+  footerBtnPressed: {
+    opacity: 0.88,
   },
-  aceptarCatalogoButtonDisabled: {
-    opacity: 0.7,
-  },
-  aceptarCatalogoButtonText: {
-    fontSize: TS.button.fontSize,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),
-    color: I.onPrimary,
+  footerBtnDisabled: {
+    opacity: 0.55,
   },
 });

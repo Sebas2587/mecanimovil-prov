@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Image,
 } from 'react-native';
@@ -16,7 +15,9 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/ap
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { parseOfertasGrupoParam } from '@/utils/agruparOfertasServicio';
+import { TarifaMarcaResumenCard } from '@/components/servicios/TarifasMarcaCatalogo';
 import { navigateBack } from '@/utils/navigateBack';
+import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -75,6 +76,62 @@ function parseServicioFromParams(raw?: string): ServicioOferta | null {
   }
 }
 
+function parseOfertasCatalogoParam(raw?: string | string[]): ServicioOferta[] {
+  const s = Array.isArray(raw) ? raw[0] : raw;
+  if (!s || typeof s !== 'string') return [];
+  try {
+    const parsed = JSON.parse(s) as ServicioOferta[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function DesglosePrecioOferta({
+  oferta,
+  omitirPrecioPublicoHero = false,
+}: {
+  oferta: ServicioOferta;
+  omitirPrecioPublicoHero?: boolean;
+}) {
+  const desglose = oferta.desglose_precios;
+  return (
+    <View style={styles.priceBlock}>
+      <View style={styles.priceRow}>
+        <Text style={styles.priceLabel}>Precio mano de obra</Text>
+        <Text style={styles.priceValue}>{fmtMoney(oferta.costo_mano_de_obra_sin_iva)}</Text>
+      </View>
+      {oferta.tipo_servicio === 'con_repuestos'
+      && parseFloat(String(oferta.costo_repuestos_sin_iva)) > 0 ? (
+        <View style={styles.priceRow}>
+          <Text style={styles.priceLabel}>Precio repuestos</Text>
+          <Text style={styles.priceValue}>{fmtMoney(oferta.costo_repuestos_sin_iva)}</Text>
+        </View>
+      ) : null}
+      {desglose ? (
+        <>
+          <View style={[styles.priceRow, styles.subtotalBox]}>
+            <Text style={styles.subtotalLabel}>Costo total sin IVA</Text>
+            <Text style={styles.subtotalValue}>{fmtMoney(desglose.costo_total_sin_iva)}</Text>
+          </View>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>IVA 19%</Text>
+            <Text style={styles.priceValue}>{fmtMoney(desglose.iva_19_porciento)}</Text>
+          </View>
+          {!omitirPrecioPublicoHero ? (
+            <View style={[styles.priceRow, styles.highlightBox]}>
+              <Text style={styles.highlightLabel}>Precio al público</Text>
+              <Text style={styles.highlightValue}>{fmtMoney(desglose.precio_final_cliente)}</Text>
+            </View>
+          ) : null}
+        </>
+      ) : (
+        <Text style={styles.valueMuted}>Sin desglose numérico disponible.</Text>
+      )}
+    </View>
+  );
+}
+
 function fmtMoney(n: number | string | undefined): string {
   const v = typeof n === 'string' ? parseFloat(n) || 0 : typeof n === 'number' ? n : 0;
   return `$${v.toLocaleString('es-CL')}`;
@@ -82,10 +139,16 @@ function fmtMoney(n: number | string | undefined): string {
 
 export default function ServicioResumenScreen() {
   const insets = useSafeAreaInsets();
-  const { id, servicioData, ofertasGrupo: ofertasGrupoParam } = useLocalSearchParams<{
+  const {
+    id,
+    servicioData,
+    ofertasGrupo: ofertasGrupoParam,
+    ofertasCatalogo: ofertasCatalogoParam,
+  } = useLocalSearchParams<{
     id: string;
     servicioData?: string;
     ofertasGrupo?: string;
+    ofertasCatalogo?: string;
   }>();
 
   const ofertasGrupo = useMemo(
@@ -93,8 +156,20 @@ export default function ServicioResumenScreen() {
     [ofertasGrupoParam]
   );
 
+  const ofertasCatalogo = useMemo(
+    () => parseOfertasCatalogoParam(ofertasCatalogoParam),
+    [ofertasCatalogoParam]
+  );
+
   const initial = useMemo(() => parseServicioFromParams(servicioData), [servicioData]);
   const [servicio, setServicio] = useState<ServicioOferta | null>(initial);
+
+  const ofertasParaDesglose = useMemo(() => {
+    if (ofertasCatalogo.length > 0) return ofertasCatalogo;
+    return servicio ? [servicio] : [];
+  }, [ofertasCatalogo, servicio]);
+
+  const variasTarifas = ofertasParaDesglose.length > 1;
   const [loading, setLoading] = useState(!initial);
   const [loadError, setLoadError] = useState(false);
   const [loadingFotos, setLoadingFotos] = useState(false);
@@ -177,14 +252,14 @@ export default function ServicioResumenScreen() {
       const { serviciosAPI } = await import('@/services/api');
       await serviciosAPI.cambiarDisponibilidad(servicio.id, !servicio.disponible);
       setServicio({ ...servicio, disponible: !servicio.disponible });
-      Alert.alert('Éxito', `Servicio ${!servicio.disponible ? 'activado' : 'pausado'} correctamente`);
+      showAlert('Éxito', `Servicio ${!servicio.disponible ? 'activado' : 'pausado'} correctamente`);
     } catch (error) {
       console.error('❌ Error cambiando disponibilidad:', error);
-      Alert.alert('Error', 'No se pudo cambiar la disponibilidad del servicio');
+      showAlert('Error', 'No se pudo cambiar la disponibilidad del servicio');
     }
   };
 
-  const eliminarServicio = async () => {
+  const eliminarServicio = () => {
     if (!servicio) return;
     const idsEliminar =
       ofertasGrupo.length > 0
@@ -195,30 +270,26 @@ export default function ServicioResumenScreen() {
         ? ` Se eliminarán ${idsEliminar.length} ofertas (todas las marcas asociadas).`
         : '';
 
-    Alert.alert(
+    showConfirm(
       'Eliminar servicio',
       `¿Eliminar "${servicio.servicio_info.nombre}"?${msgExtra} Esta acción no se puede deshacer.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { serviciosAPI } = await import('@/services/api');
-              for (const oid of idsEliminar) {
-                await serviciosAPI.eliminarServicio(oid);
-              }
-              Alert.alert('Éxito', 'El servicio ha sido eliminado correctamente', [
-                { text: 'OK', onPress: () => navigateBack('/mis-servicios') },
-              ]);
-            } catch (error) {
-              console.error('❌ Error eliminando servicio:', error);
-              Alert.alert('Error', 'No se pudo eliminar el servicio. Intenta nuevamente.');
+      {
+        confirmText: 'Eliminar',
+        onConfirm: async () => {
+          try {
+            const { serviciosAPI } = await import('@/services/api');
+            for (const oid of idsEliminar) {
+              await serviciosAPI.eliminarServicio(oid);
             }
-          },
+            showAlertButtons('Éxito', 'El servicio ha sido eliminado correctamente', [
+              { text: 'OK', onPress: () => navigateBack('/mis-servicios') },
+            ]);
+          } catch (error) {
+            console.error('❌ Error eliminando servicio:', error);
+            showAlert('Error', 'No se pudo eliminar el servicio. Intenta nuevamente.');
+          }
         },
-      ]
+      },
     );
   };
 
@@ -244,8 +315,6 @@ export default function ServicioResumenScreen() {
       month: '2-digit',
       year: 'numeric',
     });
-
-  const desglose = servicio?.desglose_precios;
 
   const handleBack = useCallback(() => {
     navigateBack('/mis-servicios');
@@ -345,37 +414,23 @@ export default function ServicioResumenScreen() {
             </View>
           </View>
 
-          <View style={[styles.infoRow, styles.infoRowDivider]}>
-            <View style={styles.infoIcon}>
-              <InstitutionalIcon name="directions-car" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
-            </View>
-            <View style={styles.infoBody}>
-              <Text style={styles.label}>
-                {ofertasGrupo.length > 1 ? 'Marcas de vehículo' : 'Marca de vehículo'}
-              </Text>
-              {ofertasGrupo.length > 1 ? (
-                <View style={styles.tagsWrap}>
-                  {ofertasGrupo.map((item) => (
-                    <View key={item.id} style={styles.tag}>
-                      <Text style={styles.tagText}>
-                        {item.marca_id === 0
-                          ? 'Genérico'
-                          : item.nombre?.trim() || `Marca #${item.marca_id}`}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              ) : (
+          {!variasTarifas ? (
+            <View style={[styles.infoRow, styles.infoRowDivider]}>
+              <View style={styles.infoIcon}>
+                <InstitutionalIcon name="directions-car" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
+              </View>
+              <View style={styles.infoBody}>
+                <Text style={styles.label}>Marca de vehículo</Text>
                 <Text style={styles.value}>
                   {servicio.marca_vehiculo_info?.nombre?.trim()
                     ? servicio.marca_vehiculo_info.nombre
                     : ofertasGrupo[0]?.marca_id === 0
-                      ? 'Servicio genérico (todas las marcas)'
+                      ? 'Precio base (todas las marcas)'
                       : 'No especificada'}
                 </Text>
-              )}
+              </View>
             </View>
-          </View>
+          ) : null}
 
           <View style={[styles.infoRow, styles.infoRowDivider]}>
             <View style={styles.infoIcon}>
@@ -442,41 +497,23 @@ export default function ServicioResumenScreen() {
           </View>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Desglose de precios</Text>
-
-          <View style={styles.priceBlock}>
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Precio mano de obra</Text>
-              <Text style={styles.priceValue}>{fmtMoney(servicio.costo_mano_de_obra_sin_iva)}</Text>
-            </View>
-            {servicio.tipo_servicio === 'con_repuestos' && parseFloat(String(servicio.costo_repuestos_sin_iva)) > 0 ? (
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>Precio repuestos</Text>
-                <Text style={styles.priceValue}>{fmtMoney(servicio.costo_repuestos_sin_iva)}</Text>
-              </View>
-            ) : null}
-
-            {desglose ? (
-              <>
-                <View style={[styles.priceRow, styles.subtotalBox]}>
-                  <Text style={styles.subtotalLabel}>Costo total sin IVA</Text>
-                  <Text style={styles.subtotalValue}>{fmtMoney(desglose.costo_total_sin_iva)}</Text>
-                </View>
-                <View style={styles.priceRow}>
-                  <Text style={styles.priceLabel}>IVA 19%</Text>
-                  <Text style={styles.priceValue}>{fmtMoney(desglose.iva_19_porciento)}</Text>
-                </View>
-                <View style={[styles.priceRow, styles.highlightBox]}>
-                  <Text style={styles.highlightLabel}>Precio al público</Text>
-                  <Text style={styles.highlightValue}>{fmtMoney(desglose.precio_final_cliente)}</Text>
-                </View>
-              </>
-            ) : (
-              <Text style={styles.valueMuted}>Sin desglose numérico disponible.</Text>
-            )}
+        {variasTarifas ? (
+          <>
+            <Text style={styles.sectionHeading}>
+              {ofertasParaDesglose.length} configuraciones por marca
+            </Text>
+            {ofertasParaDesglose.map((oferta) => (
+              <TarifaMarcaResumenCard key={oferta.id} oferta={oferta}>
+                <DesglosePrecioOferta oferta={oferta} omitirPrecioPublicoHero />
+              </TarifaMarcaResumenCard>
+            ))}
+          </>
+        ) : (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Desglose de precios</Text>
+            <DesglosePrecioOferta oferta={servicio} />
           </View>
-        </View>
+        )}
       </ScrollView>
 
       <SafeAreaView style={styles.footerSafe} edges={['bottom']}>
@@ -702,6 +739,15 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansRegular,
     color: I.muted,
+  },
+  sectionHeading: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: SPACING.fixed.sm,
+    marginTop: SPACING.fixed.xs,
   },
   priceBlock: {
     gap: SPACING.fixed.sm,

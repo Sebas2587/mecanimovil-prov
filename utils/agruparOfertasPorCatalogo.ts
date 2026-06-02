@@ -4,6 +4,11 @@
  */
 import type { ServicioOfertaLike, ServicioOfertaGrupo } from './agruparOfertasServicio';
 import { agruparOfertasServicio } from './agruparOfertasServicio';
+import {
+  buildTarifasPorMarca,
+  montoPrecioPublicoOferta,
+  type TarifaPorMarca,
+} from './tarifasPorMarca';
 
 export interface ServicioCatalogoGrupo<T extends ServicioOfertaLike = ServicioOfertaLike> {
   key: string;
@@ -21,17 +26,7 @@ export interface ServicioCatalogoGrupo<T extends ServicioOfertaLike = ServicioOf
   todasDisponibles: boolean;
   algunaDisponible: boolean;
   fechaReciente: string;
-}
-
-function montoPrecioPublico(o: ServicioOfertaLike): number | null {
-  const d = o.desglose_precios?.precio_final_cliente;
-  if (typeof d === 'number' && Number.isFinite(d) && d >= 0) {
-    return d;
-  }
-  const raw = String(o.precio_publicado_cliente ?? '').trim().replace(',', '.');
-  const p = parseFloat(raw);
-  if (!Number.isFinite(p) || p < 0) return null;
-  return p;
+  tarifasPorMarca: TarifaPorMarca[];
 }
 
 function catalogoKey(o: ServicioOfertaLike): string {
@@ -55,8 +50,9 @@ export function agruparOfertasPorCatalogo<T extends ServicioOfertaLike>(
   for (const [key, list] of porCatalogo) {
     const sorted = [...list].sort((a, b) => a.id - b.id);
     const subgrupos = agruparOfertasServicio(sorted);
+    const tarifasPorMarca = buildTarifasPorMarca(sorted);
     const representante = subgrupos[0]?.representante ?? sorted[0];
-    const montos = sorted.map(montoPrecioPublico).filter((m): m is number => m != null);
+    const montos = sorted.map(montoPrecioPublicoOferta).filter((m): m is number => m != null);
     const precioMin = montos.length ? Math.min(...montos) : null;
     const precioMax = montos.length ? Math.max(...montos) : null;
     const tieneRangoPrecio =
@@ -94,6 +90,7 @@ export function agruparOfertasPorCatalogo<T extends ServicioOfertaLike>(
       todasDisponibles: sorted.every((o) => o.disponible !== false),
       algunaDisponible: sorted.some((o) => o.disponible !== false),
       fechaReciente,
+      tarifasPorMarca,
     });
   }
 

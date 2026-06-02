@@ -31,9 +31,14 @@ import { INSTITUTIONAL_SELECTION } from '@/app/design-system/styles/institutiona
 import { parseOfertasGrupoParam } from '@/utils/agruparOfertasServicio';
 import { parseMisMarcasResponse } from '@/utils/parseMisMarcasResponse';
 import { useAuth } from '@/context/AuthContext';
-import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
+import { formatearPrecioCLP } from '@/utils/tarifasPorMarca';
 import { navigateBack } from '@/utils/navigateBack';
-import { esFotoLocalParaSubir, extraerUrlsFotosApi } from '@/utils/fotosServicio';
+import {
+  intersectServiciosCatalogoPorId,
+  normalizarListaServiciosCatalogo,
+  type ServicioCatalogoRow,
+} from '@/utils/serviciosCatalogoMarca';
 
 type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
 
@@ -60,6 +65,7 @@ const MarcaVehiculoCard = React.memo(function MarcaVehiculoCard({
   cardWidth,
   isLeftColumn,
   onToggle,
+  badgeLabel,
 }: {
   marca: MarcaVehiculo;
   isSelected: boolean;
@@ -67,6 +73,7 @@ const MarcaVehiculoCard = React.memo(function MarcaVehiculoCard({
   cardWidth: number;
   isLeftColumn: boolean;
   onToggle: (id: number) => void;
+  badgeLabel?: string | null;
 }) {
   const onPress = useCallback(() => onToggle(marca.id), [onToggle, marca.id]);
 
@@ -115,6 +122,24 @@ const MarcaVehiculoCard = React.memo(function MarcaVehiculoCard({
         >
           {marca.nombre}
         </Text>
+        {badgeLabel ? (
+          <View
+            style={[
+              styles.marcaCardEstadoBadge,
+              badgeLabel === 'Nueva' && styles.marcaCardEstadoBadgeNueva,
+            ]}
+          >
+            <Text
+              style={[
+                styles.marcaCardEstadoText,
+                badgeLabel === 'Nueva' && styles.marcaCardEstadoTextNueva,
+              ]}
+              numberOfLines={1}
+            >
+              {badgeLabel}
+            </Text>
+          </View>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
@@ -273,6 +298,14 @@ const CrearServicioScreen = () => {
   const params = useLocalSearchParams();
   const isEditMode = params.mode === 'edit';
   const servicioId = params.servicioId ? parseInt(params.servicioId as string) : null;
+  const marcaPrecargadaParam = params.marcaPrecargada
+    ? parseInt(params.marcaPrecargada as string, 10)
+    : null;
+  const servicioCatalogoPrecargadoParam = params.servicioCatalogoPrecargado
+    ? parseInt(params.servicioCatalogoPrecargado as string, 10)
+    : null;
+  const tipoServicioPrecargadoParam =
+    params.tipoServicioPrecargado === 'sin_repuestos' ? 'sin_repuestos' : 'con_repuestos';
   const servicioExistente: ServicioExistente | null = params.servicioData ?
     JSON.parse(params.servicioData as string) : null;
   const ofertasGrupoInicial = useMemo(
@@ -326,6 +359,11 @@ const CrearServicioScreen = () => {
     marcasSeleccionadas.length === 1 && marcasSeleccionadas[0] === 0;
   const esMultimarca = marcasRealesSeleccionadas.length > 1;
   const edicionGrupo = isEditMode && ofertasGrupoInicial.length > 1;
+  const [modoSincronizarMarcas, setModoSincronizarMarcas] = useState(
+    () => isEditMode && ofertasGrupoInicial.length > 1,
+  );
+  const permiteMultiplesMarcas = !isEditMode || edicionGrupo || modoSincronizarMarcas;
+  const edicionMarcaUnica = isEditMode && !edicionGrupo && !modoSincronizarMarcas;
   const tieneSeleccionMarca = marcasSeleccionadas.length > 0;
   const marcasSeleccionadasKey = marcasSeleccionadas.join(',');
 
@@ -334,6 +372,75 @@ const CrearServicioScreen = () => {
   const [busquedaMarca, setBusquedaMarca] = useState('');
   /** marca_id (0 = genérico) → oferta_id existente en edición */
   const [ofertasPorMarca, setOfertasPorMarca] = useState<Map<number, number>>(new Map());
+
+  const marcasInicialesEnEdicion = useMemo(() => {
+    if (!isEditMode) return new Set<number>();
+    if (ofertasGrupoInicial.length > 0) {
+      return new Set(ofertasGrupoInicial.map((o) => o.marca_id));
+    }
+    if (servicioExistente?.marca_vehiculo_seleccionada) {
+      return new Set([servicioExistente.marca_vehiculo_seleccionada]);
+    }
+    if (servicioExistente && servicioExistente.marca_vehiculo_seleccionada == null) {
+      return new Set([0]);
+    }
+    return new Set<number>();
+  }, [isEditMode, ofertasGrupoInicial, servicioExistente]);
+
+  const marcasNuevasSeleccionadas = useMemo(
+    () => marcasRealesSeleccionadas.filter((id) => !marcasInicialesEnEdicion.has(id)),
+    [marcasRealesSeleccionadas, marcasInicialesEnEdicion],
+  );
+
+  useEffect(() => {
+    if (isEditMode || datosPreCargados) return;
+    if (marcaPrecargadaParam != null && Number.isFinite(marcaPrecargadaParam) && marcaPrecargadaParam > 0) {
+      setMarcasSeleccionadas([marcaPrecargadaParam]);
+      setMarcaModoTab('por_marca');
+    }
+    if (
+      servicioCatalogoPrecargadoParam != null
+      && Number.isFinite(servicioCatalogoPrecargadoParam)
+      && servicioCatalogoPrecargadoParam > 0
+    ) {
+      setServicioSeleccionado(servicioCatalogoPrecargadoParam);
+      setServicioOriginal(servicioCatalogoPrecargadoParam);
+    }
+    if (params.tipoServicioPrecargado) {
+      setTipoServicio(tipoServicioPrecargadoParam);
+    }
+    if (marcaPrecargadaParam || servicioCatalogoPrecargadoParam) {
+      setDatosPreCargados(true);
+    }
+  }, [
+    isEditMode,
+    datosPreCargados,
+    marcaPrecargadaParam,
+    servicioCatalogoPrecargadoParam,
+    tipoServicioPrecargadoParam,
+    params.tipoServicioPrecargado,
+  ]);
+
+  const irAgregarTarifaOtraMarca = useCallback(
+    (marcaId: number) => {
+      if (!servicioSeleccionado) {
+        showAlert(
+          'Selecciona el servicio',
+          'Elige primero el servicio de catálogo antes de agregar otra tarifa por marca.',
+        );
+        return;
+      }
+      router.push({
+        pathname: '/crear-servicio',
+        params: {
+          marcaPrecargada: String(marcaId),
+          servicioCatalogoPrecargado: String(servicioSeleccionado),
+          tipoServicioPrecargado: tipoServicio,
+        },
+      });
+    },
+    [servicioSeleccionado, tipoServicio],
+  );
 
   useEffect(() => {
     if (esGenericoTodasMarcas) {
@@ -884,21 +991,32 @@ const CrearServicioScreen = () => {
       console.log('⚙️ Cargando catálogo para marcas:', marcasSeleccionadas);
       const { serviciosAPI } = await import('@/services/api');
 
-      let serviciosCargados: Servicio[] = [];
+      let serviciosCargados: ServicioCatalogoRow[] = [];
 
       if (esGenericoTodasMarcas) {
         const response = await serviciosAPI.obtenerServiciosPorMarca(0);
-        serviciosCargados = response.data || [];
-      } else if (esMultimarca) {
-        const response = await serviciosAPI.obtenerServiciosComunesPorMarcas(
-          marcasRealesSeleccionadas
-        );
-        serviciosCargados = response.data || [];
+        serviciosCargados = normalizarListaServiciosCatalogo(response.data);
+      } else if (marcasRealesSeleccionadas.length >= 2) {
+        try {
+          const response = await serviciosAPI.obtenerServiciosComunesPorMarcas(
+            marcasRealesSeleccionadas,
+          );
+          serviciosCargados = normalizarListaServiciosCatalogo(response.data);
+        } catch (comunesErr) {
+          console.warn('⚠️ servicios_comunes_por_marcas falló, intersectando en cliente:', comunesErr);
+          const porMarca = await Promise.all(
+            marcasRealesSeleccionadas.map(async (marcaId) => {
+              const response = await serviciosAPI.obtenerServiciosPorMarca(marcaId);
+              return normalizarListaServiciosCatalogo(response.data);
+            }),
+          );
+          serviciosCargados = intersectServiciosCatalogoPorId(porMarca);
+        }
       } else {
         const marcaId =
           marcasRealesSeleccionadas[0] ?? marcasSeleccionadas[0];
         const response = await serviciosAPI.obtenerServiciosPorMarca(marcaId);
-        serviciosCargados = response.data || [];
+        serviciosCargados = normalizarListaServiciosCatalogo(response.data);
       }
 
       const catalogoId = servicioSeleccionado ?? servicioOriginal;
@@ -920,7 +1038,7 @@ const CrearServicioScreen = () => {
       }
 
       console.log('✅ Servicios cargados:', serviciosCargados.length);
-      setServicios(serviciosCargados);
+      setServicios(serviciosCargados as Servicio[]);
     } catch (error) {
       console.error('❌ Error cargando servicios del proveedor:', error);
       Alert.alert('Error', 'No se pudieron cargar los servicios que usted ofrece para esta marca');
@@ -1122,7 +1240,7 @@ const CrearServicioScreen = () => {
   }, []);
 
   // Función para publicar o actualizar servicio
-  const publicarServicio = async () => {
+  const publicarServicio = async (opts?: { omitirConfirmacion?: boolean }) => {
     // Validaciones
     if (!costoManoObra || parseMontoDecimal(costoManoObra) <= 0) {
       showAlert('Error', 'Debes especificar un costo de mano de obra válido');
@@ -1178,6 +1296,43 @@ const CrearServicioScreen = () => {
     }
     if (minDur > maxDur) {
       showAlert('Duración', 'El tiempo máximo debe ser mayor o igual al mínimo.');
+      return;
+    }
+
+    const requiereConfirmacionMultimarca =
+      !opts?.omitirConfirmacion
+      && !esGenericoTodasMarcas
+      && marcasRealesSeleccionadas.length > 0
+      && (
+        marcasRealesSeleccionadas.length > 1
+        || marcasNuevasSeleccionadas.length > 0
+      );
+
+    if (requiereConfirmacionMultimarca) {
+      const nombresMarcas = marcasRealesSeleccionadas.map(
+        (id) => marcas.find((m) => m.id === id)?.nombre ?? `Marca #${id}`,
+      );
+      const precioLabel = calculos?.precio_final_cliente != null
+        ? formatearPrecioCLP(calculos.precio_final_cliente)
+        : 'los montos que configuraste';
+      const nuevasNombres = marcasNuevasSeleccionadas.map(
+        (id) => marcas.find((m) => m.id === id)?.nombre ?? `Marca #${id}`,
+      );
+      const lineaNuevas =
+        nuevasNombres.length > 0
+          ? `\n\nMarcas nuevas: ${nuevasNombres.join(', ')}. Recibirán la misma configuración.`
+          : '';
+
+      showConfirm(
+        'Confirmar precio por marca',
+        `Se guardará ${precioLabel} para:\n• ${nombresMarcas.join('\n• ')}${lineaNuevas}\n\n¿Necesitas otro precio para una marca? Usa «Agregar tarifa para otra marca» en lugar de editar este grupo.`,
+        {
+          confirmText: 'Guardar',
+          onConfirm: () => {
+            publicarServicio({ omitirConfirmacion: true });
+          },
+        },
+      );
       return;
     }
 
@@ -1520,7 +1675,7 @@ const CrearServicioScreen = () => {
       return isEditMode ? 'Actualizando…' : 'Publicando…';
     }
     if (isEditMode) {
-      return esMultimarca || edicionGrupo
+      return modoSincronizarMarcas && marcasRealesSeleccionadas.length > 1
         ? `Guardar en ${marcasRealesSeleccionadas.length} marcas`
         : 'Actualizar servicio';
     }
@@ -1530,8 +1685,7 @@ const CrearServicioScreen = () => {
   }, [
     loading,
     isEditMode,
-    esMultimarca,
-    edicionGrupo,
+    modoSincronizarMarcas,
     marcasRealesSeleccionadas.length,
   ]);
 
@@ -1620,7 +1774,7 @@ const CrearServicioScreen = () => {
   };
 
   // Card de marca — patrón institucional (tabs + grid como especialidades-marcas)
-  const MarcaSelector = () => {
+  const renderMarcaSelector = () => {
     const marcasReales = useMemo(() => marcas.filter((m) => m.id > 0), [marcas]);
     const tieneOpcionGenerica = marcas.some((m) => m.id === 0);
 
@@ -1644,11 +1798,48 @@ const CrearServicioScreen = () => {
           if (sinGenerico.includes(marcaId)) {
             return sinGenerico.filter((id) => id !== marcaId);
           }
+
+          if (!permiteMultiplesMarcas) {
+            if (sinGenerico.length === 0) {
+              return [marcaId];
+            }
+            const actualId = sinGenerico[0];
+            const actualNombre = marcas.find((m) => m.id === actualId)?.nombre ?? 'esta marca';
+            const nuevaNombre = marcas.find((m) => m.id === marcaId)?.nombre ?? 'otra marca';
+            showAlertButtons(
+              '¿Qué quieres hacer?',
+              `Estás editando el precio para ${actualNombre}. Para ${nuevaNombre} puedes crear una tarifa aparte o extender el mismo precio a varias marcas.`,
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                  text: `Nueva tarifa (${nuevaNombre})`,
+                  onPress: () => irAgregarTarifaOtraMarca(marcaId),
+                },
+                {
+                  text: 'Mismo precio, varias marcas',
+                  onPress: () => {
+                    setModoSincronizarMarcas(true);
+                    setMarcasSeleccionadas((p) => {
+                      const base = p.filter((id) => id !== 0);
+                      return base.includes(marcaId) ? base : [...base, marcaId];
+                    });
+                  },
+                },
+              ],
+            );
+            return sinGenerico;
+          }
+
           return [...sinGenerico, marcaId];
         });
         resetDependientesDeMarca();
       },
-      [estaSeleccionada, resetDependientesDeMarca]
+      [
+        permiteMultiplesMarcas,
+        marcas,
+        irAgregarTarifaOtraMarca,
+        resetDependientesDeMarca,
+      ],
     );
 
     const onMarcaModoTabChange = useCallback(
@@ -1666,10 +1857,27 @@ const CrearServicioScreen = () => {
     );
 
     const seleccionarTodasMisMarcas = useCallback(() => {
-      setMarcaModoTab('por_marca');
-      setMarcasSeleccionadas(marcasReales.map((m) => m.id));
-      resetDependientesDeMarca();
-    }, [marcasReales, resetDependientesDeMarca]);
+      const aplicarTodas = () => {
+        setMarcaModoTab('por_marca');
+        setMarcasSeleccionadas(marcasReales.map((m) => m.id));
+        resetDependientesDeMarca();
+      };
+      if (!permiteMultiplesMarcas) {
+        showConfirm(
+          'Mismo precio en todas mis marcas',
+          'Se aplicará la configuración y el precio actual a todas tus marcas. Si alguna necesita otro valor, configúrala por separado.',
+          {
+            confirmText: 'Continuar',
+            onConfirm: () => {
+              setModoSincronizarMarcas(true);
+              aplicarTodas();
+            },
+          },
+        );
+        return;
+      }
+      aplicarTodas();
+    }, [marcasReales, resetDependientesDeMarca, permiteMultiplesMarcas]);
 
     const limpiarMarcas = useCallback(() => {
       setMarcasSeleccionadas([]);
@@ -1729,14 +1937,56 @@ const CrearServicioScreen = () => {
         <Text style={styles.subtitle}>
           {isEditMode && !tieneSeleccionMarca && servicioSeleccionado
             ? 'Identificando la marca de esta oferta…'
-            : isEditMode
-              ? edicionGrupo
-                ? 'Editas el mismo servicio en varias marcas. Puedes agregar o quitar marcas; los precios y repuestos se sincronizan.'
-                : 'Puedes agregar más marcas para publicar la misma configuración en todas.'
-              : proveedorEsMultimarca
-                ? 'Usa precio base para la mayoría de marcas y agrega tarifas por marca donde el trabajo sea más exigente (ej. premium o eléctricos).'
-                : 'Elige marcas específicas o un servicio genérico. Varias marcas muestran solo servicios en común.'}
+            : esGenericoTodasMarcas
+              ? 'Precio base: un solo monto para todas las marcas que no tengan tarifa específica.'
+              : edicionGrupo || modoSincronizarMarcas
+                ? 'Editas el mismo servicio en varias marcas. Al guardar, todas comparten la misma configuración y precio.'
+                : edicionMarcaUnica
+                  ? 'Estás editando una tarifa para una sola marca. Para otra marca con otro precio, usa «Agregar tarifa para otra marca».'
+                  : proveedorEsMultimarca
+                    ? 'Elige una marca para un precio específico, o usa Precio base para un monto único en todo tu catálogo.'
+                    : 'Elige marcas específicas o un servicio genérico. Varias marcas muestran solo servicios en común.'}
         </Text>
+
+        {edicionMarcaUnica && servicioSeleccionado ? (
+          <View style={styles.edicionMarcaUnicaBanner}>
+            <View style={styles.edicionMarcaUnicaContent}>
+              <InstitutionalIcon name="information-circle-outline" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.edicionMarcaUnicaText}>
+                Cada marca puede tener su propio precio. No agregues marcas aquí si el monto es distinto: crea otra tarifa.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.edicionMarcaUnicaCta}
+              onPress={() => {
+                const primeraSinOferta = marcasReales.find(
+                  (m) => !marcasInicialesEnEdicion.has(m.id),
+                );
+                if (primeraSinOferta) {
+                  irAgregarTarifaOtraMarca(primeraSinOferta.id);
+                } else {
+                  showAlert(
+                    'Agregar tarifa',
+                    'Selecciona una marca en la grilla para crear su tarifa con otro precio.',
+                  );
+                }
+              }}
+              activeOpacity={0.88}
+            >
+              <InstitutionalIcon name="add-circle-outline" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.edicionMarcaUnicaCtaText}>Agregar tarifa para otra marca</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {modoSincronizarMarcas && !edicionGrupo ? (
+          <View style={styles.modoSyncBanner}>
+            <InstitutionalIcon name="layers" size={18} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={styles.modoSyncBannerText}>
+              Modo sincronizado: el precio actual se aplicará a todas las marcas seleccionadas al guardar.
+            </Text>
+          </View>
+        ) : null}
 
         {isEditMode && !tieneSeleccionMarca && servicioSeleccionado && (
           <View style={styles.loadingContainer}>
@@ -1763,9 +2013,9 @@ const CrearServicioScreen = () => {
                   <View style={styles.marcaInfoNoticeContent}>
                     <InstitutionalIcon name="information-circle-outline" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                     <Text style={styles.marcaInfoNoticeText}>
-                      {isEditMode
-                        ? 'Marca con check ya tiene oferta. Al guardar, las nuevas marcas reciben la misma configuración; al desmarcar, se elimina esa oferta.'
-                        : 'Puedes elegir varias marcas y publicar el mismo servicio en todas con una sola configuración.'}
+                      {permiteMultiplesMarcas
+                        ? 'Marca con «Activa» ya tiene oferta. Las marcadas «Nueva» recibirán el mismo precio al guardar.'
+                        : 'Selecciona una marca. Para otra marca con distinto precio, usa el botón «Agregar tarifa para otra marca».'}
                     </Text>
                   </View>
                 </View>
@@ -1801,6 +2051,9 @@ const CrearServicioScreen = () => {
                         value={busquedaMarca}
                         onChangeText={setBusquedaMarca}
                         placeholderTextColor={I.mutedSoft}
+                        autoCorrect={false}
+                        autoCapitalize="none"
+                        blurOnSubmit={false}
                       />
                       {busquedaMarca.length > 0 ? (
                         <TouchableOpacity onPress={() => setBusquedaMarca('')} hitSlop={12}>
@@ -1825,7 +2078,13 @@ const CrearServicioScreen = () => {
 
                 <View style={styles.marcaGridSlot} onLayout={onMarcaGridLayout}>
                   <View style={styles.marcaItemsGrid}>
-                    {marcasFiltradas.map((marca, index) => (
+                    {marcasFiltradas.map((marca, index) => {
+                      const badgeLabel = ofertasPorMarca.has(marca.id)
+                        ? 'Activa'
+                        : estaSeleccionada(marca.id) && marcasNuevasSeleccionadas.includes(marca.id)
+                          ? 'Nueva'
+                          : null;
+                      return (
                       <MarcaVehiculoCard
                         key={marca.id}
                         marca={marca}
@@ -1834,8 +2093,10 @@ const CrearServicioScreen = () => {
                         cardWidth={marcaCardWidth}
                         isLeftColumn={index % 2 === 0}
                         onToggle={handleToggleMarca}
+                        badgeLabel={badgeLabel}
                       />
-                    ))}
+                    );
+                    })}
                   </View>
                   {marcasFiltradas.length === 0 && busquedaMarca.trim().length > 0 && (
                     <Text style={styles.marcaEmptySearch}>No hay marcas que coincidan con tu búsqueda.</Text>
@@ -1915,11 +2176,11 @@ const CrearServicioScreen = () => {
 
         </View>
 
-        {tieneSeleccionMarca && (esMultimarca || edicionGrupo) && (
+        {tieneSeleccionMarca && permiteMultiplesMarcas && esMultimarca && (
           <View style={styles.marcaResumenBanner}>
             <InstitutionalIcon name="layers" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.marcaResumenBannerText}>
-              Publicarás en {marcasRealesSeleccionadas.length} marcas con la misma configuración.
+              Publicarás el mismo precio en {marcasRealesSeleccionadas.length} marcas.
             </Text>
           </View>
         )}
@@ -1928,7 +2189,7 @@ const CrearServicioScreen = () => {
   };
 
   // Componente de selección de servicio
-  const ServicioSelector = () => {
+  const renderServicioSelector = () => {
     if (!tieneSeleccionMarca) return null;
 
     const handleSelectServicio = (servicioId: number, servicioNombre: string) => {
@@ -2358,15 +2619,8 @@ const CrearServicioScreen = () => {
             </View>
           ) : (
             <>
-              {console.log('🎨 Renderizando componentes de selección:', {
-                tipoServicio,
-                marcasLength: marcas.length,
-                marcasSeleccionadas,
-                serviciosLength: servicios.length,
-                servicioSeleccionado
-              })}
-              <MarcaSelector />
-              <ServicioSelector />
+              {renderMarcaSelector()}
+              {renderServicioSelector()}
               <RepuestosSelector />
             </>
           )}
@@ -2792,6 +3046,79 @@ const styles = StyleSheet.create({
   marcaCardTextBlock: {
     width: '100%',
     paddingRight: 24,
+  },
+  marcaCardEstadoBadge: {
+    alignSelf: 'flex-start',
+    marginTop: SPACING.fixed.xxs,
+    paddingHorizontal: SPACING.fixed.xs,
+    paddingVertical: 2,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: withOpacity(I.semanticUp, 0.12),
+  },
+  marcaCardEstadoBadgeNueva: {
+    backgroundColor: withOpacity(I.accentYellow, 0.18),
+  },
+  marcaCardEstadoText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    color: I.semanticUp,
+  },
+  marcaCardEstadoTextNueva: {
+    color: I.ink,
+  },
+  edicionMarcaUnicaBanner: {
+    marginTop: SPACING.fixed.sm,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: withOpacity(I.primary, 0.06),
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.18),
+    gap: SPACING.fixed.sm,
+  },
+  edicionMarcaUnicaContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.sm,
+  },
+  edicionMarcaUnicaText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.sm * 1.45),
+  },
+  edicionMarcaUnicaCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.canvas,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  edicionMarcaUnicaCtaText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
+  },
+  modoSyncBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    marginTop: SPACING.fixed.sm,
+    padding: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: withOpacity(I.accentYellow, 0.12),
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.accentYellow, 0.28),
+  },
+  modoSyncBannerText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    color: I.ink,
   },
   servicioListContainer: {
     marginTop: SPACING.fixed.sm,
