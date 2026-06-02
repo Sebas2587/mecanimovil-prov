@@ -320,7 +320,7 @@ export default function CatalogoServiciosMarcasScreen() {
       <OnboardingHeader
             title={esMultimarca ? 'Servicios que ofreces' : 'Servicios por marca'}
             subtitle={esMultimarca
-              ? 'Selecciona los servicios que realizas para cualquier marca de vehículo.'
+              ? 'Elige los servicios que ofreces. Luego define un precio base o tarifas por marca en Mis servicios.'
               : 'Selecciona los servicios que ofrecerás por cada marca. Configura precios desde Mis servicios.'}
             currentStep={pasoCatalogo.current}
             totalSteps={pasoCatalogo.total}
@@ -332,13 +332,13 @@ export default function CatalogoServiciosMarcasScreen() {
       {esMultimarca ? (
         <View style={styles.multimarcaBadge}>
           <InstitutionalIcon name="globe-outline" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.multimarcaBadgeText}>Proveedor multimarca — atiendes todas las marcas</Text>
+          <Text style={styles.multimarcaBadgeText}>Multimarca — visible para todas las marcas; precios configurables por marca</Text>
         </View>
       ) : null}
 
       <OnboardingNotice>
         {esMultimarca
-          ? 'Marca los servicios que ofreces. Los precios los configuras después en Mis servicios.'
+          ? 'Marca los servicios que ofreces. En Mis servicios podrás fijar un precio base o precios distintos por marca de vehículo.'
           : 'Toca cada servicio para marcarlo. Usa el botón por marca para seleccionar o deseleccionar todos. Los precios los configuras al publicar cada servicio.'}
       </OnboardingNotice>
 

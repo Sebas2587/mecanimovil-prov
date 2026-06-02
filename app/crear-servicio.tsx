@@ -29,6 +29,8 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { INSTITUTIONAL_SELECTION } from '@/app/design-system/styles/institutionalSelection';
 import { parseOfertasGrupoParam } from '@/utils/agruparOfertasServicio';
+import { parseMisMarcasResponse } from '@/utils/parseMisMarcasResponse';
+import { useAuth } from '@/context/AuthContext';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import { navigateBack } from '@/utils/navigateBack';
 import { esFotoLocalParaSubir, extraerUrlsFotosApi } from '@/utils/fotosServicio';
@@ -259,6 +261,14 @@ const { width: screenWidth } = Dimensions.get('window');
 
 const CrearServicioScreen = () => {
   const insets = useSafeAreaInsets();
+  const { estadoProveedor } = useAuth();
+  const proveedorEsMultimarca = useMemo(() => {
+    const cobertura =
+      estadoProveedor?.tipo_cobertura_marca
+      || (estadoProveedor?.datos_proveedor as { tipo_cobertura_marca?: string } | undefined)
+        ?.tipo_cobertura_marca;
+    return cobertura === 'multimarca';
+  }, [estadoProveedor]);
   // Parámetros de navegación para modo edición
   const params = useLocalSearchParams();
   const isEditMode = params.mode === 'edit';
@@ -522,16 +532,16 @@ const CrearServicioScreen = () => {
     };
   }, [isEditMode, servicioId]);
 
-  // Cargar marcas al montar componente e inicializar datosPreCargados para modo creación
+  // Cargar marcas al montar (y si cambia cobertura multimarca)
   useEffect(() => {
     console.log('🎬 CrearServicioScreen - Iniciando carga de marcas...');
     cargarMarcas();
 
-    // En modo creación, marcar como "pre-cargado" inmediatamente para permitir carga de servicios
     if (!isEditMode) {
       setDatosPreCargados(true);
     }
-  }, [isEditMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recargar si cambia tipo cobertura
+  }, [isEditMode, proveedorEsMultimarca]);
 
   // Debug: Monitorear cambios en el estado de marcas
   useEffect(() => {
@@ -824,19 +834,29 @@ const CrearServicioScreen = () => {
         // Fallback: usar endpoint directo
         const { get } = await import('@/services/api');
         const response = await get('/servicios/proveedor/mis-servicios/mis_marcas/');
-        console.log('✅ Marcas del proveedor cargadas (fallback):', response.data?.length || 0);
-        setMarcas(response.data || []);
+        const parsed = parseMisMarcasResponse(response?.data ?? response);
+        const etiquetaBase = proveedorEsMultimarca
+          ? 'Precio base (marcas sin tarifa propia)'
+          : 'Todas las marcas (servicios genéricos)';
+        setMarcas([{ id: 0, nombre: etiquetaBase, logo: null }, ...parsed.marcas]);
         return;
       }
 
       const response = await serviciosAPI.obtenerMisMarcas();
-      console.log('✅ Marcas del proveedor cargadas:', response.data?.length || 0);
+      const parsed = parseMisMarcasResponse(response?.data ?? response);
+      console.log(
+        '✅ Marcas cargadas:',
+        parsed.marcas.length,
+        proveedorEsMultimarca ? '(multimarca)' : '(especialista)',
+      );
 
-      const marcasObtenidas = response.data || [];
-      // Agregar la marca genérica (ID 0) a la lista
+      const etiquetaBase = proveedorEsMultimarca
+        ? 'Precio base (marcas sin tarifa propia)'
+        : 'Todas las marcas (servicios genéricos)';
+
       setMarcas([
-        { id: 0, nombre: 'Todas las marcas (servicios genéricos)', logo: null },
-        ...marcasObtenidas
+        { id: 0, nombre: etiquetaBase, logo: null },
+        ...parsed.marcas,
       ]);
     } catch (error) {
       console.error('❌ Error cargando marcas del proveedor:', error);
@@ -1695,7 +1715,10 @@ const CrearServicioScreen = () => {
         { key: 'por_marca', label: 'Por marca', badge: marcasRealesSeleccionadas.length || null },
       ];
       if (tieneOpcionGenerica) {
-        t.push({ key: 'generico', label: 'Genérico' });
+        t.push({
+          key: 'generico',
+          label: proveedorEsMultimarca ? 'Precio base' : 'Genérico',
+        });
       }
       return t;
     }, [tieneOpcionGenerica, marcasRealesSeleccionadas.length]);
@@ -1710,7 +1733,9 @@ const CrearServicioScreen = () => {
               ? edicionGrupo
                 ? 'Editas el mismo servicio en varias marcas. Puedes agregar o quitar marcas; los precios y repuestos se sincronizan.'
                 : 'Puedes agregar más marcas para publicar la misma configuración en todas.'
-              : 'Elige marcas específicas o un servicio genérico. Varias marcas muestran solo servicios en común.'}
+              : proveedorEsMultimarca
+                ? 'Usa precio base para la mayoría de marcas y agrega tarifas por marca donde el trabajo sea más exigente (ej. premium o eléctricos).'
+                : 'Elige marcas específicas o un servicio genérico. Varias marcas muestran solo servicios en común.'}
         </Text>
 
         {isEditMode && !tieneSeleccionMarca && servicioSeleccionado && (

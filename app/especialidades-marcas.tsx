@@ -605,7 +605,7 @@ export default function EspecialidadesMarcasScreen() {
               <View style={styles.multimarcaProfileBadgeText}>
                 <Text style={styles.multimarcaProfileTitle}>Proveedor multimarca</Text>
                 <Text style={styles.multimarcaProfileSub}>
-                  No necesitas elegir marcas de vehículos. Los clientes te verán para cualquier marca de auto.
+                  Atiendes cualquier marca. Configura precios por marca o un precio base en Mis servicios al publicar cada servicio.
                 </Text>
               </View>
             </View>

@@ -19,10 +19,12 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/ap
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
-  agruparOfertasServicio,
-  type ServicioOfertaGrupo,
-} from '@/utils/agruparOfertasServicio';
+  agruparOfertasPorCatalogo,
+  formatearRangoPrecioCLP,
+  type ServicioCatalogoGrupo,
+} from '@/utils/agruparOfertasPorCatalogo';
 import { navigateBack } from '@/utils/navigateBack';
+import { parseMisMarcasResponse } from '@/utils/parseMisMarcasResponse';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -106,27 +108,6 @@ function enriquecerOfertasConMarcas(
   });
 }
 
-function montoPrecioPublicoCLP(servicio: ServicioOferta): number | null {
-  const d = servicio.desglose_precios?.precio_final_cliente;
-  if (typeof d === 'number' && Number.isFinite(d) && d >= 0) {
-    return d;
-  }
-  const raw = String(servicio.precio_publicado_cliente ?? '').trim().replace(',', '.');
-  const p = parseFloat(raw);
-  if (!Number.isFinite(p) || p < 0) {
-    return null;
-  }
-  return p;
-}
-
-function formatearPrecioCLP(valor: number): string {
-  return new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-    maximumFractionDigits: 0,
-  }).format(Math.round(valor));
-}
-
 const MisServiciosScreen = () => {
   const insets = useSafeAreaInsets();
   const [servicios, setServicios] = useState<ServicioOferta[]>([]);
@@ -145,7 +126,8 @@ const MisServiciosScreen = () => {
       ]);
       const raw = resServicios.data?.results || resServicios.data || [];
       const lista = Array.isArray(raw) ? raw : [];
-      const marcasArr = Array.isArray(resMarcas.data) ? (resMarcas.data as MarcaProveedorRow[]) : [];
+      const marcasParsed = parseMisMarcasResponse(resMarcas?.data ?? resMarcas);
+      const marcasArr = marcasParsed.marcas as MarcaProveedorRow[];
       marcasLookupRef.current = new Map(marcasArr.map((m) => [m.id, m]));
       const serviciosData = enriquecerOfertasConMarcas(lista, marcasArr);
       setServicios(serviciosData);
@@ -165,7 +147,7 @@ const MisServiciosScreen = () => {
     }, [fetchServicios])
   );
 
-  const verDetalleServicio = (grupo: ServicioOfertaGrupo<ServicioOferta>) => {
+  const verDetalleServicio = (grupo: ServicioCatalogoGrupo<ServicioOferta>) => {
     router.push({
       pathname: '/servicio-resumen/[id]' as any,
       params: {
@@ -207,11 +189,13 @@ const MisServiciosScreen = () => {
   };
 
   const gruposOrdenados = useMemo(
-    () => agruparOfertasServicio(serviciosFiltrados),
+    () => agruparOfertasPorCatalogo(serviciosFiltrados),
     [serviciosFiltrados]
   );
 
-  const totalLabel = searchText ? gruposOrdenados.length : agruparOfertasServicio(servicios).length;
+  const totalLabel = searchText
+    ? gruposOrdenados.length
+    : agruparOfertasPorCatalogo(servicios).length;
   const totalOfertas = searchText ? serviciosFiltrados.length : servicios.length;
 
   const handleBack = useCallback(() => {
@@ -331,23 +315,14 @@ const MisServiciosScreen = () => {
                     </View>
                     <View style={styles.listCardPillsRow}>
                       <View style={styles.marcaBadgeCell}>
-                        <MarcasBadgeRow grupo={grupo} />
+                        <MarcasBadgeRowCatalogo grupo={grupo} />
                       </View>
-                      <View
-                        style={[
-                          styles.statusPill,
-                          grupo.representante.disponible ? styles.statusPillOn : styles.statusPillOff,
-                        ]}
-                      >
-                        <Text style={[styles.statusPillText, grupo.representante.disponible ? styles.statusPillTextOn : styles.statusPillTextOff]}>
-                          {grupo.representante.disponible ? 'Activo' : 'Inactivo'}
-                        </Text>
-                      </View>
+                      <EstadoDisponibilidadPill grupo={grupo} />
                     </View>
                   </View>
                   <View style={styles.listCardBottomRow}>
-                    <Text style={styles.listCardMeta}>{formatearFecha(grupo.representante.fecha_creacion)}</Text>
-                    <PrecioPublicoMonto servicio={grupo.representante} />
+                    <Text style={styles.listCardMeta}>{formatearFecha(grupo.fechaReciente)}</Text>
+                    <PrecioCatalogoGrupoMonto grupo={grupo} />
                   </View>
                 </View>
               </TouchableOpacity>
@@ -581,6 +556,9 @@ const styles = StyleSheet.create({
   statusPillOff: {
     backgroundColor: withOpacity(I.semanticDown, 0.1),
   },
+  statusPillPartial: {
+    backgroundColor: withOpacity(I.accentYellow, 0.18),
+  },
   statusPillText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansSemiBold,
@@ -591,6 +569,12 @@ const styles = StyleSheet.create({
   },
   statusPillTextOff: {
     color: I.semanticDown,
+  },
+  statusPillTextPartial: {
+    color: I.ink,
+  },
+  precioPublicoMontoRango: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -672,13 +656,19 @@ const styles = StyleSheet.create({
   },
 });
 
-function PrecioPublicoMonto({ servicio }: { servicio: ServicioOferta }) {
-  const monto = montoPrecioPublicoCLP(servicio);
+function PrecioCatalogoGrupoMonto({ grupo }: { grupo: ServicioCatalogoGrupo<ServicioOferta> }) {
+  const label = formatearRangoPrecioCLP(grupo.precioMin, grupo.precioMax);
   return (
     <View style={styles.precioPublicoWrap}>
-      {monto != null ? (
-        <Text style={styles.precioPublicoMonto} numberOfLines={1}>
-          {formatearPrecioCLP(monto)}
+      {label ? (
+        <Text
+          style={[
+            styles.precioPublicoMonto,
+            grupo.tieneRangoPrecio && styles.precioPublicoMontoRango,
+          ]}
+          numberOfLines={1}
+        >
+          {label}
         </Text>
       ) : (
         <Text style={styles.precioPublicoMontoVacío} numberOfLines={1}>
@@ -689,21 +679,51 @@ function PrecioPublicoMonto({ servicio }: { servicio: ServicioOferta }) {
   );
 }
 
-function MarcasBadgeRow({ grupo }: { grupo: ServicioOfertaGrupo<ServicioOferta> }) {
-  const esGenerico =
-    grupo.marcaIds.length === 1 && grupo.marcaIds[0] === 0;
+function EstadoDisponibilidadPill({ grupo }: { grupo: ServicioCatalogoGrupo<ServicioOferta> }) {
+  const todas = grupo.todasDisponibles;
+  const alguna = grupo.algunaDisponible;
+  const label = todas ? 'Activo' : alguna ? 'Parcial' : 'Inactivo';
+  const pillStyle = todas
+    ? styles.statusPillOn
+    : alguna
+      ? styles.statusPillPartial
+      : styles.statusPillOff;
+  const textStyle = todas
+    ? styles.statusPillTextOn
+    : alguna
+      ? styles.statusPillTextPartial
+      : styles.statusPillTextOff;
 
-  if (esGenerico) {
+  return (
+    <View style={[styles.statusPill, pillStyle]}>
+      <Text style={[styles.statusPillText, textStyle]}>{label}</Text>
+    </View>
+  );
+}
+
+function MarcasBadgeRowCatalogo({ grupo }: { grupo: ServicioCatalogoGrupo<ServicioOferta> }) {
+  const esSoloGenerico = grupo.marcaIds.length === 1 && grupo.marcaIds[0] === 0;
+
+  if (esSoloGenerico) {
     return <MarcaBadge servicio={grupo.representante} />;
   }
 
-  if (grupo.ofertas.length <= 1) {
-    return <MarcaBadge servicio={grupo.representante} />;
+  const seen = new Set<number>();
+  const ofertasUnicas: ServicioOferta[] = [];
+  for (const oferta of grupo.ofertas) {
+    const mid = oferta.marca_vehiculo_seleccionada ?? 0;
+    if (seen.has(mid)) continue;
+    seen.add(mid);
+    ofertasUnicas.push(oferta);
+  }
+
+  if (ofertasUnicas.length <= 1) {
+    return <MarcaBadge servicio={ofertasUnicas[0] ?? grupo.representante} />;
   }
 
   return (
     <View style={styles.marcasBadgeWrap}>
-      {grupo.ofertas.map((oferta) => (
+      {ofertasUnicas.map((oferta) => (
         <MarcaBadge key={oferta.id} servicio={oferta} compact />
       ))}
     </View>
@@ -743,7 +763,7 @@ function MarcaBadge({
       <InstitutionalIcon name="albums-outline" size={11} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
       <View style={styles.marcaBadgeTextCol}>
         <Text style={styles.marcaBadgeTextGenerico} numberOfLines={2}>
-          Cualquier marca
+          Precio base
         </Text>
       </View>
     </View>
