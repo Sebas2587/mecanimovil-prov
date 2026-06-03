@@ -25,7 +25,7 @@ import { navigateBack } from '@/utils/navigateBack';
 import { parseMisMarcasResponse } from '@/utils/parseMisMarcasResponse';
 import { TarifasMarcaListaDestacada } from '@/components/servicios/TarifasMarcaCatalogo';
 import { MotoresAplicablesChips } from '@/components/servicios/MotoresAplicablesChips';
-import { labelTipoMotor } from '@/utils/tiposMotorCatalogo';
+import { extractMotoresServicio, labelTipoMotor } from '@/utils/tiposMotorCatalogo';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -318,14 +318,13 @@ const MisServiciosScreen = () => {
                       </Text>
                       <EstadoDisponibilidadPill grupo={grupo} />
                     </View>
-                    <MotoresAplicablesChips
-                      motores={
-                        grupo.representante.servicio_info.tipos_motor_compatibles
-                        ?? grupo.representante.servicio_info.motores_info
-                      }
-                      tipoMotorOferta={grupo.representante.tipo_motor}
-                      compact
-                    />
+                    <View style={styles.motorBadgesRow}>
+                      <MotoresAplicablesChips
+                        motores={extractMotoresServicio(grupo.representante.servicio_info)}
+                        tipoMotorOferta={grupo.representante.tipo_motor}
+                        variant="card"
+                      />
+                    </View>
                     <Text style={styles.listCardTarifasHint}>
                       {grupo.tarifasPorMarca.length > 1
                         ? `${grupo.tarifasPorMarca.length} marcas · precio por marca`
@@ -462,6 +461,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     gap: SPACING.fixed.sm,
+  },
+  motorBadgesRow: {
+    width: '100%',
+    marginTop: SPACING.fixed.xxs,
   },
   listCardTarifasHint: {
     fontSize: TYPOGRAPHY.fontSize.xs,

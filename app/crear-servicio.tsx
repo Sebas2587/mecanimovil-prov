@@ -38,6 +38,7 @@ import { extraerMensajeErrorApi } from '@/utils/extraerMensajeErrorApi';
 import { esFotoLocalParaSubir, extraerUrlsFotosApi } from '@/utils/fotosServicio';
 import {
   intersectServiciosCatalogoPorId,
+  enriquecerMotoresCatalogoDesdeOferta,
   normalizarListaServiciosCatalogo,
   type ServicioCatalogoRow,
 } from '@/utils/serviciosCatalogoMarca';
@@ -46,9 +47,10 @@ import {
   MotoresAplicablesHint,
 } from '@/components/servicios/MotoresAplicablesChips';
 import {
-  normalizeMotoresLista,
   normalizeTipoMotor,
   opcionesAlcanceMotor,
+  requiereSelectorAlcanceMotor,
+  extractMotoresServicio,
   type TipoMotorCodigo,
 } from '@/utils/tiposMotorCatalogo';
 
@@ -210,7 +212,7 @@ const ServicioCatalogCard = React.memo(function ServicioCatalogCard({
               {servicio.descripcion}
             </Text>
           ) : null}
-          <MotoresAplicablesChips motores={servicio.tipos_motor_compatibles} compact />
+          <MotoresAplicablesChips motores={servicio.tipos_motor_compatibles} variant="card" />
         </View>
         {isSelected ? (
           <InstitutionalIcon name="checkmark-circle" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -1041,6 +1043,12 @@ const CrearServicioScreen = () => {
 
       const catalogoId = servicioSeleccionado ?? servicioOriginal;
       if (isEditMode && catalogoId && servicioExistente?.servicio_info) {
+        serviciosCargados = enriquecerMotoresCatalogoDesdeOferta(
+          serviciosCargados,
+          catalogoId,
+          servicioExistente.servicio_info,
+        );
+
         const yaEnLista = serviciosCargados.some((s) => s.id === catalogoId);
         if (!yaEnLista) {
           serviciosCargados = [
@@ -2406,8 +2414,34 @@ const CrearServicioScreen = () => {
 
   const motoresCatalogoSeleccionado = useMemo(() => {
     const svc = servicios.find((s) => s.id === servicioSeleccionado);
-    return normalizeMotoresLista(svc?.tipos_motor_compatibles);
-  }, [servicios, servicioSeleccionado]);
+    const fromList = extractMotoresServicio(svc ?? undefined);
+    if (fromList.length > 0) return fromList;
+
+    const catalogoId = servicioSeleccionado ?? servicioOriginal;
+    const existenteId =
+      servicioExistente?.servicio ?? servicioExistente?.servicio_info?.id ?? null;
+    if (
+      isEditMode &&
+      catalogoId != null &&
+      existenteId != null &&
+      Number(catalogoId) === Number(existenteId)
+    ) {
+      return extractMotoresServicio(servicioExistente?.servicio_info);
+    }
+    return [];
+  }, [
+    servicios,
+    servicioSeleccionado,
+    servicioOriginal,
+    isEditMode,
+    servicioExistente,
+  ]);
+
+  useEffect(() => {
+    if (!requiereSelectorAlcanceMotor(motoresCatalogoSeleccionado)) {
+      setAlcanceMotor('');
+    }
+  }, [servicioSeleccionado, motoresCatalogoSeleccionado]);
 
   const opcionesAlcance = useMemo(
     () => opcionesAlcanceMotor(motoresCatalogoSeleccionado),
@@ -2417,13 +2451,28 @@ const CrearServicioScreen = () => {
   const renderAlcanceMotorSelector = () => {
     if (!servicioSeleccionado || !tieneSeleccionMarca) return null;
 
+    const mostrarSelector = requiereSelectorAlcanceMotor(motoresCatalogoSeleccionado);
+
+    if (!mostrarSelector) {
+      return (
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Motores aplicables</Text>
+          <Text style={styles.subtitle}>
+            Definido en el catálogo Mecanimovil. Tu precio aplica a estos vehículos.
+          </Text>
+          <MotoresAplicablesChips motores={motoresCatalogoSeleccionado} variant="card" />
+          <MotoresAplicablesHint motores={motoresCatalogoSeleccionado} />
+        </View>
+      );
+    }
+
     return (
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Tipo de motor</Text>
+        <Text style={styles.sectionTitle}>Precio por tipo de motor</Text>
         <Text style={styles.subtitle}>
-          Define para qué vehículos aplica esta configuración de precio.
+          Este servicio aplica a varios motores. Indica si este precio es para todos o solo uno.
         </Text>
-        <MotoresAplicablesHint motores={motoresCatalogoSeleccionado} />
+        <MotoresAplicablesChips motores={motoresCatalogoSeleccionado} variant="card" />
         <View style={styles.motorOpcionesList}>
           {opcionesAlcance.map((op) => {
             const selected = alcanceMotor === op.value;
@@ -2460,7 +2509,7 @@ const CrearServicioScreen = () => {
         </View>
         {alcanceMotor ? (
           <Text style={styles.marcaHint}>
-            Para otro tipo de motor con precio distinto, publica otra configuración desde Mis servicios.
+            Para otro motor con precio distinto, publica otra configuración desde Mis servicios.
           </Text>
         ) : null}
       </View>

@@ -39,25 +39,30 @@ export function motoresCatalogoUniversal(motores: TipoMotorCodigo[]): boolean {
   return motores.length === 0;
 }
 
+/**
+ * Selector de alcance solo si Django definió 2+ motores (precio distinto por motor).
+ * Con 0 (universal) o 1 motor: la oferta hereda el catálogo sin elegir.
+ */
+export function requiereSelectorAlcanceMotor(motoresCatalogo: TipoMotorCodigo[]): boolean {
+  return motoresCatalogo.length >= 2;
+}
+
 export function opcionesAlcanceMotor(motoresCatalogo: TipoMotorCodigo[]): {
   value: TipoMotorCodigo;
   label: string;
 }[] {
-  const catalogo = motoresCatalogoUniversal(motoresCatalogo)
-    ? (['GASOLINA', 'DIESEL', 'ELECTRICO', 'HIBRIDO'] as TipoMotorCodigo[])
-    : motoresCatalogo;
+  if (!requiereSelectorAlcanceMotor(motoresCatalogo)) {
+    return [{ value: '', label: 'Todos los motores aplicables' }];
+  }
 
   const opciones: { value: TipoMotorCodigo; label: string }[] = [
     {
       value: '',
-      label:
-        catalogo.length > 1
-          ? `Todos (${catalogo.map(labelTipoMotor).join(', ')})`
-          : 'Todos los motores aplicables',
+      label: `Mismo precio (${motoresCatalogo.map(labelTipoMotor).join(', ')})`,
     },
   ];
 
-  for (const m of catalogo) {
+  for (const m of motoresCatalogo) {
     opciones.push({ value: m, label: `Solo ${labelTipoMotor(m)}` });
   }
   return opciones;
@@ -68,4 +73,13 @@ export function resumenMotoresCatalogo(motoresCatalogo: TipoMotorCodigo[]): stri
     return 'Todos los tipos de motor';
   }
   return motoresCatalogo.map(labelTipoMotor).join(' · ');
+}
+
+/** Lee motores del catálogo desde fila API (tipos_motor_compatibles o motores_info). */
+export function extractMotoresServicio(
+  source?: { tipos_motor_compatibles?: unknown; motores_info?: unknown } | null,
+): TipoMotorCodigo[] {
+  if (!source) return [];
+  const raw = source.tipos_motor_compatibles ?? source.motores_info;
+  return normalizeMotoresLista(raw);
 }
