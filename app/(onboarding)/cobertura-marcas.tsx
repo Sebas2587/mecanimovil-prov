@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import {
   OnboardingScreenLayout,
@@ -11,7 +11,9 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS } from '@/app/design-system/tokens';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
-import { appendOnboardingParams } from '@/utils/onboardingNavigation';
+import { useOnboardingDraft } from '@/context/OnboardingDraftContext';
+import { buildOnboardingHref, clearModalityDownstreamSelections, mergeRouteParamsIntoDraft } from '@/utils/onboardingDraftParams';
+import { readRouteParam } from '@/utils/extractApiList';
 import { showAlert } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
@@ -19,8 +21,10 @@ const I = COLORS.institutional;
 type ModoCobertura = 'multimarca' | 'especialista';
 
 export default function CoberturaMarcasScreen() {
-  const { tipo, ...otherParams } = useLocalSearchParams();
+  const rawParams = useLocalSearchParams();
+  const { tipo, ...otherParams } = rawParams;
   const router = useRouter();
+  const { draft, patchDraft } = useOnboardingDraft();
   const [modo, setModo] = useState<ModoCobertura | null>(null);
   const { height } = useWindowDimensions();
   const isCompact = height < 760;
@@ -30,16 +34,45 @@ export default function CoberturaMarcasScreen() {
     [tipo]
   );
 
-  const buildParams = () => {
-    const params = new URLSearchParams();
-    appendOnboardingParams(params, { ...otherParams, tipo: tipoStr });
-    return params;
+  const esMultimarcaParamKey = readRouteParam(rawParams.es_multimarca) ?? '';
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+
+  useFocusEffect(
+    useCallback(() => {
+      const partial = mergeRouteParamsIntoDraft(
+        draftRef.current,
+        rawParams as Record<string, string | string[] | undefined>,
+      );
+      if (Object.keys(partial).length > 0) {
+        patchDraft(partial);
+      }
+      const merged = { ...draftRef.current, ...partial };
+      if (merged.es_multimarca === true) setModo('multimarca');
+      else if (merged.es_multimarca === false) setModo('especialista');
+    }, [esMultimarcaParamKey, patchDraft, rawParams]),
+  );
+
+  const selectModo = (next: ModoCobertura) => {
+    const nextEsMultimarca = next === 'multimarca';
+    const prevEsMultimarca = draftRef.current.es_multimarca;
+    const modalityChanged =
+      prevEsMultimarca !== null && prevEsMultimarca !== nextEsMultimarca;
+
+    setModo(next);
+
+    if (modalityChanged) {
+      patchDraft({
+        es_multimarca: nextEsMultimarca,
+        ...clearModalityDownstreamSelections(),
+      });
+      return;
+    }
+
+    patchDraft({ es_multimarca: nextEsMultimarca });
   };
 
-  const getBackPath = () => {
-    const params = buildParams();
-    return `/(onboarding)/informacion-basica?${params.toString()}`;
-  };
+  const getBackPath = () => buildOnboardingHref('/(onboarding)/informacion-basica', draft);
 
   const handleContinuar = () => {
     if (!modo) {
@@ -53,16 +86,32 @@ export default function CoberturaMarcasScreen() {
       return;
     }
 
-    const params = buildParams();
-    params.append('es_multimarca', modo === 'multimarca' ? 'true' : 'false');
+    const isMultimarca = modo === 'multimarca';
+    const merged = {
+      ...draft,
+      ...mergeRouteParamsIntoDraft(draft, rawParams as Record<string, string | string[] | undefined>),
+    };
+
+    const nextDraft = {
+      ...merged,
+      es_multimarca: isMultimarca,
+      marcas: isMultimarca ? [] : merged.marcas,
+      marcas_meta: isMultimarca ? [] : merged.marcas_meta,
+    };
+
+    patchDraft({
+      es_multimarca: nextDraft.es_multimarca,
+      marcas: nextDraft.marcas,
+      marcas_meta: nextDraft.marcas_meta,
+      servicios_seleccionados: nextDraft.servicios_seleccionados,
+    });
 
     if (modo === 'multimarca') {
-      params.append('marcas', JSON.stringify([]));
-      router.push(`/(onboarding)/catalogo-servicios-marcas?${params.toString()}` as any);
+      router.push(buildOnboardingHref('/(onboarding)/catalogo-servicios-marcas', nextDraft) as any);
       return;
     }
 
-    router.push(`/(onboarding)/seleccion-marcas?${params.toString()}` as any);
+    router.push(buildOnboardingHref('/(onboarding)/seleccion-marcas', nextDraft) as any);
   };
 
   const footerLabel = modo === 'multimarca'
@@ -94,7 +143,7 @@ export default function CoberturaMarcasScreen() {
       <View style={styles.optionsStack}>
         <TouchableOpacity
           style={[onboardingStyles.optionCard, modo === 'multimarca' && onboardingStyles.optionCardSelected]}
-          onPress={() => setModo('multimarca')}
+          onPress={() => selectModo('multimarca')}
           activeOpacity={0.85}
         >
           <View style={[onboardingStyles.optionCardBody, isCompact && styles.compactCardBody]}>
@@ -131,7 +180,7 @@ export default function CoberturaMarcasScreen() {
 
         <TouchableOpacity
           style={[onboardingStyles.optionCard, modo === 'especialista' && onboardingStyles.optionCardSelected]}
-          onPress={() => setModo('especialista')}
+          onPress={() => selectModo('especialista')}
           activeOpacity={0.85}
         >
           <View style={[onboardingStyles.optionCardBody, isCompact && styles.compactCardBody]}>

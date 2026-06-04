@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,9 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { vehiculoAPI, type MarcaVehiculo } from '@/services/api';
+import { useOnboardingDraft } from '@/context/OnboardingDraftContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import {
   OnboardingScreenLayout,
@@ -17,17 +18,20 @@ import {
 } from '@/components/onboarding';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { COLORS } from '@/app/design-system/tokens';
+import { COLORS, BORDERS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
-import { appendOnboardingParams } from '@/utils/onboardingNavigation';
+import { buildOnboardingHref, mergeRouteParamsIntoDraft } from '@/utils/onboardingDraftParams';
+import { marcasIdsKeyFromParam, normalizeMarcasIds, readRouteParam } from '@/utils/extractApiList';
 import { showAlert } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const MAX_MARCAS = 5;
 
 export default function SeleccionMarcasScreen() {
-  const { tipo, ...otherParams } = useLocalSearchParams();
+  const rawParams = useLocalSearchParams();
+  const { tipo } = rawParams;
   const router = useRouter();
+  const { draft, patchDraft } = useOnboardingDraft();
 
   const [marcas, setMarcas] = useState<MarcaVehiculo[]>([]);
   const [marcasSeleccionadas, setMarcasSeleccionadas] = useState<number[]>([]);
@@ -35,63 +39,73 @@ export default function SeleccionMarcasScreen() {
   const [busqueda, setBusqueda] = useState('');
 
   const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
+  const marcasParamKey = marcasIdsKeyFromParam(rawParams.marcas);
+  const esMultimarcaParamKey = readRouteParam(rawParams.es_multimarca) ?? '';
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+
+  // Solo al enfocar la pantalla (p. ej. volver desde paso 5). No re-ejecutar al editar el borrador.
+  useFocusEffect(
+    useCallback(() => {
+      const partial = mergeRouteParamsIntoDraft(
+        draftRef.current,
+        rawParams as Record<string, string | string[] | undefined>,
+      );
+      if (Object.keys(partial).length > 0) {
+        patchDraft(partial);
+      }
+      const merged = { ...draftRef.current, ...partial };
+      setMarcasSeleccionadas(normalizeMarcasIds(merged.marcas));
+    }, [marcasParamKey, esMultimarcaParamKey, patchDraft, rawParams]),
+  );
 
   useEffect(() => {
     cargarMarcas();
   }, []);
 
-  const buildParams = () => {
-    const params = new URLSearchParams();
-    appendOnboardingParams(params, { ...otherParams, tipo: tipoStr });
-    return params;
-  };
+  const getBackPath = () => buildOnboardingHref('/(onboarding)/cobertura-marcas', draft);
 
   const cargarMarcas = async () => {
     try {
       setIsLoading(true);
       const marcasData = await vehiculoAPI.obtenerMarcas();
-
-      if (Array.isArray(marcasData)) {
-        setMarcas(marcasData);
-      } else if (marcasData && typeof marcasData === 'object' && 'results' in marcasData) {
-        const resultados = (marcasData as { results?: MarcaVehiculo[] }).results;
-        setMarcas(Array.isArray(resultados) ? resultados : []);
-      } else {
-        setMarcas([]);
-      }
+      setMarcas(Array.isArray(marcasData) ? marcasData : []);
     } catch (error) {
       console.error('Error cargando marcas:', error);
-      setMarcas([
-        { id: 1, nombre: 'Toyota' },
-        { id: 2, nombre: 'Honda' },
-        { id: 3, nombre: 'Nissan' },
-        { id: 4, nombre: 'Hyundai' },
-        { id: 5, nombre: 'Kia' },
-        { id: 6, nombre: 'Mazda' },
-        { id: 7, nombre: 'Suzuki' },
-        { id: 8, nombre: 'Chevrolet' },
-        { id: 9, nombre: 'Ford' },
-        { id: 10, nombre: 'Volkswagen' },
-      ]);
+      showAlert(
+        'No se pudieron cargar las marcas',
+        'Verifica tu conexión e intenta de nuevo. Si el problema continúa, contacta a soporte.',
+      );
+      setMarcas([]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const toggleMarca = (marcaId: number) => {
+    const id = Number(marcaId);
     setMarcasSeleccionadas((prev) => {
-      const prevArray = Array.isArray(prev) ? prev : [];
-      if (prevArray.includes(marcaId)) {
-        return prevArray.filter((id) => id !== marcaId);
-      }
-      if (prevArray.length >= MAX_MARCAS) {
+      const prevArray = normalizeMarcasIds(Array.isArray(prev) ? prev : []);
+      let next: number[];
+      if (prevArray.includes(id)) {
+        next = prevArray.filter((x) => x !== id);
+      } else if (prevArray.length >= MAX_MARCAS) {
         showAlert(
           'Límite alcanzado',
           `Solo puedes seleccionar un máximo de ${MAX_MARCAS} marcas automotrices.`
         );
         return prevArray;
+      } else {
+        next = [...prevArray, id];
       }
-      return [...prevArray, marcaId];
+      patchDraft({
+        marcas: next,
+        marcas_meta: next.map((mid) => ({
+          id: mid,
+          nombre: marcas.find((m) => m.id === mid)?.nombre ?? `Marca #${mid}`,
+        })),
+      });
+      return next;
     });
   };
 
@@ -114,7 +128,15 @@ export default function SeleccionMarcasScreen() {
     if (todasSeleccionadas) {
       setMarcasSeleccionadas((prev) => {
         if (!Array.isArray(prev)) return [];
-        return prev.filter((id) => !marcasFiltradasList.map((m) => m.id).includes(id));
+        const next = prev.filter((id) => !marcasFiltradasList.map((m) => m.id).includes(id));
+        patchDraft({
+          marcas: next,
+          marcas_meta: next.map((id) => ({
+            id,
+            nombre: marcas.find((m) => m.id === id)?.nombre ?? `Marca #${id}`,
+          })),
+        });
+        return next;
       });
       return;
     }
@@ -137,7 +159,15 @@ export default function SeleccionMarcasScreen() {
 
     setMarcasSeleccionadas((prev) => {
       const p = Array.isArray(prev) ? prev : [];
-      return [...new Set([...p, ...nuevasSelecciones])];
+      const next = [...new Set([...p, ...nuevasSelecciones])];
+      patchDraft({
+        marcas: next,
+        marcas_meta: next.map((id) => ({
+          id,
+          nombre: marcas.find((m) => m.id === id)?.nombre ?? `Marca #${id}`,
+        })),
+      });
+      return next;
     });
   };
 
@@ -169,58 +199,66 @@ export default function SeleccionMarcasScreen() {
       return;
     }
 
-    const params = buildParams();
-    params.append('es_multimarca', 'false');
-    params.append(
-      'marcas',
-      JSON.stringify(Array.isArray(marcasSeleccionadas) ? marcasSeleccionadas : [])
-    );
+    const seleccion = Array.isArray(marcasSeleccionadas) ? marcasSeleccionadas : [];
+    const marcasMeta = seleccion.map((id) => ({
+      id,
+      nombre: marcas.find((m) => m.id === id)?.nombre ?? `Marca #${id}`,
+    }));
 
-    router.push(`/(onboarding)/catalogo-servicios-marcas?${params.toString()}` as any);
-  };
+    const nextDraft = {
+      ...draft,
+      ...mergeRouteParamsIntoDraft(draft, rawParams as Record<string, string | string[] | undefined>),
+      es_multimarca: false,
+      marcas: seleccion,
+      marcas_meta: marcasMeta,
+    };
+    patchDraft({
+      es_multimarca: false,
+      marcas: seleccion,
+      marcas_meta: marcasMeta,
+    });
 
-  const getBackPath = () => {
-    const params = buildParams();
-    return `/(onboarding)/cobertura-marcas?${params.toString()}`;
+    router.push(buildOnboardingHref('/(onboarding)/catalogo-servicios-marcas', nextDraft) as any);
   };
 
   const renderMarca = (marca: MarcaVehiculo) => {
-    const isSelected =
-      Array.isArray(marcasSeleccionadas) && marcasSeleccionadas.includes(marca.id);
-    const seleccionadas = Array.isArray(marcasSeleccionadas) ? marcasSeleccionadas : [];
+    const marcaId = Number(marca.id);
+    const seleccionadas = normalizeMarcasIds(
+      Array.isArray(marcasSeleccionadas) ? marcasSeleccionadas : [],
+    );
+    const isSelected = seleccionadas.includes(marcaId);
     const isDisabled = !isSelected && seleccionadas.length >= MAX_MARCAS;
 
     return (
       <TouchableOpacity
         key={marca.id}
         style={[
-          onboardingStyles.selectionItem,
-          isSelected && onboardingStyles.selectionItemSelected,
+          styles.marcaCard,
+          isSelected && styles.marcaCardSelected,
           isDisabled && styles.marcaDisabled,
         ]}
-        onPress={() => toggleMarca(marca.id)}
+        onPress={() => toggleMarca(marcaId)}
         disabled={isDisabled}
         activeOpacity={isDisabled ? 1 : 0.7}
       >
-        <View style={onboardingStyles.selectionItemBody}>
-          <View style={styles.marcaTexto}>
-            <Text
-              style={[
-                onboardingStyles.optionTitle,
-                isSelected && onboardingStyles.optionTitleSelected,
-                isDisabled && styles.marcaNombreDisabled,
-              ]}
-            >
-              {marca.nombre}
-            </Text>
-          </View>
+        <View style={styles.marcaCardHeader}>
           <InstitutionalIcon
             name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-            size={24}
+            size={20}
             color={isSelected ? I.primary : isDisabled ? I.mutedSoft : I.hairline}
             strokeWidth={ICON_STROKE_WIDTH}
           />
         </View>
+        <Text
+          style={[
+            styles.marcaCardTitle,
+            isSelected && styles.marcaCardTitleSelected,
+            isDisabled && styles.marcaNombreDisabled,
+          ]}
+          numberOfLines={2}
+        >
+          {marca.nombre}
+        </Text>
       </TouchableOpacity>
     );
   };
@@ -290,7 +328,7 @@ export default function SeleccionMarcasScreen() {
         {count} / {MAX_MARCAS} marca{count !== 1 ? 's' : ''} seleccionada{count !== 1 ? 's' : ''}
       </Text>
 
-      <View style={styles.marcasContainer}>
+      <View style={styles.marcasGrid}>
         {marcasParaMostrar.map(renderMarca)}
       </View>
 
@@ -313,8 +351,42 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 12,
   },
-  marcasContainer: { gap: 12, marginBottom: 8 },
-  marcaTexto: { flex: 1, marginRight: 12 },
+  marcasGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: SPACING.fixed.sm,
+    marginBottom: 8,
+  },
+  marcaCard: {
+    width: '48%',
+    minHeight: 88,
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.medium,
+    borderColor: I.hairline,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.sm,
+    justifyContent: 'space-between',
+  },
+  marcaCardSelected: {
+    borderColor: I.primary,
+    backgroundColor: I.canvas,
+  },
+  marcaCardHeader: {
+    alignItems: 'flex-end',
+    marginBottom: SPACING.fixed.xs,
+  },
+  marcaCardTitle: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    color: I.ink,
+    lineHeight: 20,
+    textAlign: 'left',
+  },
+  marcaCardTitleSelected: {
+    color: I.primary,
+  },
   marcaDisabled: { opacity: 0.5 },
   marcaNombreDisabled: { color: I.mutedSoft },
   emptyContainer: { alignItems: 'center', paddingVertical: 48 },

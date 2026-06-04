@@ -60,8 +60,9 @@ export function LoginCanvaFlow({
     return (
       <>
         <View style={styles.heading}>
+          <Text style={styles.eyebrow}>Cuentas guardadas</Text>
           <Text style={styles.h1}>¿Con qué cuenta continuarás hoy?</Text>
-          <Text style={styles.h2}>
+          <Text style={styles.subtitle}>
             Selecciona una cuenta para iniciar sesión rápido o usa otra.
           </Text>
         </View>
@@ -153,30 +154,47 @@ export function LoginCanvaFlow({
         )}
 
         <View style={styles.heading}>
+          <Text style={styles.eyebrow}>Portal de proveedores</Text>
           <Text style={styles.h1}>Inicia sesión o regístrate</Text>
-          <Text style={styles.h2}>
-            Para acceder como proveedor, usa Google o tu correo electrónico.
+          <Text style={styles.subtitle}>
+            Elige cómo quieres acceder a tu cuenta de proveedor.
           </Text>
         </View>
 
         <View style={styles.card}>
+          <Text style={styles.cardLabel}>Método de acceso</Text>
+
           <TouchableOpacity
             onPress={onUseAnotherGoogle}
             disabled={googleLoading}
-            style={[styles.optionBtn, webCursor, googleLoading && styles.disabled]}
+            style={[styles.methodRow, webCursor, googleLoading && styles.disabled]}
             activeOpacity={0.75}
           >
-            {googleLoading ? (
-              <ActivityIndicator size="small" color={COLORS.institutional.ink} />
-            ) : (
-              <Text style={styles.googleGlyph}>G</Text>
-            )}
-            <Text style={styles.optionText}>Usar Google</Text>
+            <View style={[styles.methodIconWrap, styles.methodIconGoogle]}>
+              {googleLoading ? (
+                <ActivityIndicator size="small" color={COLORS.institutional.ink} />
+              ) : (
+                <Text style={styles.googleGlyph}>G</Text>
+              )}
+            </View>
+            <View style={styles.methodCopy}>
+              <Text style={styles.methodTitle}>Continuar con Google</Text>
+              <Text style={styles.methodHint}>Acceso rápido con tu cuenta Google</Text>
+            </View>
+            <ChevronRight size={18} color={COLORS.institutional.muted} />
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={onGoEmail} style={[styles.optionBtn, webCursor]} activeOpacity={0.75}>
-            <Mail size={20} color={COLORS.institutional.ink} style={styles.optionIcon} />
-            <Text style={styles.optionText}>Usar mi correo</Text>
+          <View style={styles.methodDivider} />
+
+          <TouchableOpacity onPress={onGoEmail} style={[styles.methodRow, webCursor]} activeOpacity={0.75}>
+            <View style={styles.methodIconWrap}>
+              <Mail size={20} color={COLORS.institutional.ink} />
+            </View>
+            <View style={styles.methodCopy}>
+              <Text style={styles.methodTitle}>Usar correo electrónico</Text>
+              <Text style={styles.methodHint}>Inicia sesión o crea tu cuenta</Text>
+            </View>
+            <ChevronRight size={18} color={COLORS.institutional.muted} />
           </TouchableOpacity>
         </View>
 
@@ -195,8 +213,9 @@ export function LoginCanvaFlow({
       </TouchableOpacity>
 
       <View style={styles.heading}>
+        <Text style={styles.eyebrow}>Correo electrónico</Text>
         <Text style={styles.h1}>Inicia sesión con tu correo</Text>
-        <Text style={styles.h2}>
+        <Text style={styles.subtitle}>
           ¿No tienes cuenta?{' '}
           <Text style={styles.headingLink} onPress={() => onGoRegister(email)}>
             Regístrate aquí
@@ -259,21 +278,31 @@ export function LoginCanvaFlow({
 
 const styles = StyleSheet.create({
   heading: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
+    gap: SPACING.xs,
+  },
+  eyebrow: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: COLORS.institutional.primary,
   },
   h1: {
-    ...TYPOGRAPHY.styles.h1,
+    fontSize: TYPOGRAPHY.fontSize['2xl'],
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    letterSpacing: TYPOGRAPHY.letterSpacing.tight,
+    lineHeight: 32,
     color: COLORS.institutional.ink,
-    marginBottom: SPACING.sm,
   },
-  h2: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    lineHeight: 20,
+  subtitle: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    lineHeight: 22,
     color: COLORS.institutional.body,
   },
   headingLink: {
     color: COLORS.institutional.primary,
-    fontWeight: '600',
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   card: {
     backgroundColor: COLORS.institutional.canvas,
@@ -282,6 +311,13 @@ const styles = StyleSheet.create({
     borderColor: COLORS.institutional.hairlineSoft,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
+  },
+  cardLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    color: COLORS.institutional.muted,
+    marginBottom: SPACING.md,
+    letterSpacing: 0.2,
   },
   accountRow: {
     flexDirection: 'row',
@@ -372,39 +408,61 @@ const styles = StyleSheet.create({
   backRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    alignSelf: 'flex-start',
+    marginBottom: SPACING.lg,
+    paddingVertical: SPACING.fixed.xxs,
   },
   backText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
     color: COLORS.institutional.ink,
     marginLeft: 4,
   },
-  optionBtn: {
+  methodRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.institutional.hairline,
-    borderRadius: BORDERS.radius.md,
-    paddingVertical: SPACING.md,
-    marginBottom: SPACING.sm,
-    backgroundColor: COLORS.institutional.surfaceSoft,
+    paddingVertical: SPACING.sm,
   },
-  optionIcon: {
-    marginRight: SPACING.sm,
+  methodIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: COLORS.institutional.surfaceSoft,
+    borderWidth: 1,
+    borderColor: COLORS.institutional.hairlineSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  methodIconGoogle: {
+    backgroundColor: COLORS.institutional.surfaceStrong,
+  },
+  methodCopy: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: SPACING.sm,
+  },
+  methodTitle: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    color: COLORS.institutional.ink,
+    marginBottom: 2,
+  },
+  methodHint: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: 18,
+    color: COLORS.institutional.muted,
+  },
+  methodDivider: {
+    height: 1,
+    backgroundColor: COLORS.institutional.hairlineSoft,
+    marginVertical: SPACING.xs,
   },
   googleGlyph: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: '#4285F4',
-    marginRight: SPACING.sm,
-    width: 20,
     textAlign: 'center',
-  },
-  optionText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: '600',
-    color: COLORS.institutional.ink,
   },
   fieldWrap: {
     marginBottom: SPACING.md,

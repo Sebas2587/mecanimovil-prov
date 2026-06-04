@@ -40,27 +40,30 @@ export default function OnboardingHeader({
 
   return (
     <View style={styles.container}>
-      <View style={styles.progressBlock}>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${progress}%` }]} />
-        </View>
+      <View style={styles.topRow}>
+        {canGoBack ? (
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleGoBack}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Paso anterior"
+          >
+            <InstitutionalIcon name="chevron-back" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={styles.backLabel}>Anterior</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.topRowSide} />
+        )}
+
         <Text style={styles.progressLabel}>
           Paso {currentStep} de {totalSteps}
         </Text>
       </View>
 
-      {canGoBack ? (
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleGoBack}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Paso anterior"
-        >
-          <InstitutionalIcon name="chevron-back" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.backLabel}>Anterior</Text>
-        </TouchableOpacity>
-      ) : null}
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width: `${progress}%` }]} />
+      </View>
 
       <View style={styles.titleBlock}>
         {icon ? (
@@ -79,15 +82,22 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: SPACING.fixed.lg,
   },
-  progressBlock: {
-    marginBottom: SPACING.fixed.md,
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 36,
+    marginBottom: SPACING.fixed.sm,
+  },
+  topRowSide: {
+    minWidth: 1,
   },
   progressTrack: {
     height: 4,
     backgroundColor: I.hairlineSoft,
     borderRadius: BORDERS.radius.full,
     overflow: 'hidden',
-    marginBottom: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.md,
   },
   progressFill: {
     height: '100%',
@@ -98,16 +108,15 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansMedium,
     color: I.muted,
-    textAlign: 'center',
     letterSpacing: TYPOGRAPHY.letterSpacing.wide,
+    textAlign: 'right',
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
     gap: 4,
-    marginBottom: SPACING.fixed.md,
     paddingVertical: SPACING.fixed.xs,
+    marginLeft: -SPACING.fixed.xs,
   },
   backLabel: {
     fontSize: TYPOGRAPHY.fontSize.base,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,9 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { serviciosAPI, vehiculoAPI, type MarcaVehiculo } from '@/services/api';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { serviciosAPI } from '@/services/api';
+import { useOnboardingDraft } from '@/context/OnboardingDraftContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import {
   OnboardingScreenLayout,
@@ -19,7 +20,20 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS } from '@/app/design-system/tokens';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
-import { appendOnboardingParams, catalogoStep } from '@/utils/onboardingNavigation';
+import { catalogoStep } from '@/utils/onboardingNavigation';
+import {
+  buildOnboardingHref,
+  mergeRouteParamsIntoDraft,
+  serviciosDraftToState,
+  stateToServiciosDraft,
+} from '@/utils/onboardingDraftParams';
+import {
+  extractApiList,
+  marcasIdsKeyFromParam,
+  parseMarcasIdsParam,
+  parseMarcasMetaParam,
+  readRouteParam,
+} from '@/utils/extractApiList';
 
 const I = COLORS.institutional;
 
@@ -36,139 +50,184 @@ type GrupoMarca = {
   servicios: ServicioCatalogo[];
 };
 
-// Servicios genéricos para proveedores multimarca (sin marca específica)
-type ServicioGenerico = ServicioCatalogo & { seleccionado?: boolean };
+function mapServicioCatalogo(s: Record<string, unknown>): ServicioCatalogo | null {
+  const id = Number(s.id);
+  const nombre = String(s.nombre ?? '').trim();
+  if (!Number.isFinite(id) || !nombre) return null;
+  return {
+    id,
+    nombre,
+    descripcion: String(s.descripcion ?? ''),
+    requiere_repuestos: !!s.requiere_repuestos,
+  };
+}
 
 export default function CatalogoServiciosMarcasScreen() {
   const router = useRouter();
   const rawParams = useLocalSearchParams();
-  const { tipo, marcas: marcasParam, es_multimarca: esMultimarcaParam, ...otherParams } = rawParams;
+  const { draft, patchDraft } = useOnboardingDraft();
+  const {
+    tipo,
+    marcas: marcasParam,
+    marcas_meta: marcasMetaParam,
+    es_multimarca: esMultimarcaParam,
+  } = rawParams;
 
-  const esMultimarca = useMemo(() => {
-    const v = Array.isArray(esMultimarcaParam) ? esMultimarcaParam[0] : esMultimarcaParam;
-    return v === 'true';
-  }, [esMultimarcaParam]);
+  const esMultimarca = readRouteParam(esMultimarcaParam) === 'true' || draft.es_multimarca === true;
+  const marcasIdsKey = marcasIdsKeyFromParam(marcasParam) || draft.marcas.join(',');
+  const marcasMetaKey = readRouteParam(marcasMetaParam) ?? JSON.stringify(draft.marcas_meta);
+  const marcasIds = useMemo(
+    () => (parseMarcasIdsParam(marcasParam).length ? parseMarcasIdsParam(marcasParam) : draft.marcas),
+    [marcasIdsKey, draft.marcas],
+  );
+  const marcasMeta = useMemo(
+    () => (parseMarcasMetaParam(marcasMetaParam).length ? parseMarcasMetaParam(marcasMetaParam) : draft.marcas_meta),
+    [marcasMetaKey, draft.marcas_meta],
+  );
 
   const [grupos, setGrupos] = useState<GrupoMarca[]>([]);
   const [serviciosGenericos, setServiciosGenericos] = useState<ServicioCatalogo[]>([]);
   const [seleccionadosGenericos, setSeleccionadosGenericos] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   // marcaId → Set de servicioIds seleccionados
   const [seleccionados, setSeleccionados] = useState<Record<number, Set<number>>>({});
 
-  const marcasIds = useMemo(() => {
-    const m = Array.isArray(marcasParam) ? marcasParam[0] : marcasParam;
-    if (!m || typeof m !== 'string') return [] as number[];
-    try {
-      const parsed = JSON.parse(m) as unknown;
-      return Array.isArray(parsed) ? parsed.map((id) => Number(id)).filter((id) => Number.isFinite(id)) : [];
-    } catch {
-      return [];
-    }
-  }, [marcasParam]);
+  const syncServiciosDraft = useCallback(
+    (genericos: Set<number>, porMarca: Record<number, Set<number>>) => {
+      patchDraft({
+        servicios_seleccionados: stateToServiciosDraft(esMultimarca, genericos, porMarca),
+      });
+    },
+    [esMultimarca, patchDraft],
+  );
 
-  // Cargar catálogo genérico para multimarca
-  const cargarCatalogoGenerico = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      // Para multimarca: cargar servicios reales (IDs reales) desde el backend.
-      // Importante: si usamos IDs "fake", luego `crear_catalogo_inicial` no creará ofertas.
-      let servicios: ServicioCatalogo[] = [];
-      try {
-        // 1) Si existe endpoint dedicado, usarlo.
-        const res = await (serviciosAPI as any).obtenerCatalogoServiciosGenericos?.();
-        const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : null;
-        if (raw) {
-          servicios = raw;
-        } else {
-          // 2) Fallback: usar catálogo general de servicios (IDs reales).
-          const allRes = await serviciosAPI.obtenerServicios();
-          const allRaw = (allRes as any)?.data?.results ?? (allRes as any)?.data ?? [];
-          if (Array.isArray(allRaw)) {
-            servicios = allRaw.map((s: any) => ({
-              id: Number(s.id),
-              nombre: String(s.nombre ?? ''),
-              descripcion: String(s.descripcion ?? ''),
-              requiere_repuestos: !!s.requiere_repuestos,
-            })).filter((s: ServicioCatalogo) => Number.isFinite(s.id) && !!s.nombre);
-          }
-        }
-      } catch {
-        // Fallback a servicios estándar del catálogo
-      }
-      if (servicios.length === 0) {
-        // Si no se pudo cargar desde el backend, no inventar IDs: dejar vacío.
-        servicios = [];
-      }
-      setServiciosGenericos(servicios.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })));
-    } catch (e) {
-      console.error('Error cargando catálogo genérico:', e);
-      setServiciosGenericos([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const serviciosParamKey = readRouteParam(rawParams.servicios_seleccionados) ?? '';
+  const esMultimarcaParamKey = readRouteParam(rawParams.es_multimarca) ?? '';
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
 
-  const cargarCatalogo = useCallback(async () => {
-    if (marcasIds.length === 0) {
-      setGrupos([]);
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      let marcasLista: MarcaVehiculo[] = [];
-      try {
-        const data = await vehiculoAPI.obtenerMarcas();
-        marcasLista = Array.isArray(data) ? data : (data as any)?.results || [];
-      } catch {
-        marcasLista = [];
+  useFocusEffect(
+    useCallback(() => {
+      const partial = mergeRouteParamsIntoDraft(
+        draftRef.current,
+        rawParams as Record<string, string | string[] | undefined>,
+      );
+      if (Object.keys(partial).length > 0) {
+        patchDraft(partial);
       }
-      const nombreMarca = (id: number) => marcasLista.find((x) => x.id === id)?.nombre || `Marca #${id}`;
-
-      const resultados: GrupoMarca[] = [];
-      for (const marcaId of marcasIds) {
-        try {
-          const res = (await serviciosAPI.obtenerCatalogoServiciosPorMarca(marcaId)) as {
-            data?: ServicioCatalogo[];
-          };
-          const lista = res?.data ?? [];
-          const servicios: ServicioCatalogo[] = Array.isArray(lista)
-            ? lista.map((s: any) => ({
-                id: s.id,
-                nombre: s.nombre,
-                descripcion: s.descripcion || '',
-                requiere_repuestos: !!s.requiere_repuestos,
-              }))
-            : [];
-          resultados.push({
-            marcaId,
-            marcaNombre: nombreMarca(marcaId),
-            servicios: servicios.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })),
-          });
-        } catch (e) {
-          console.warn('Error catálogo marca', marcaId, e);
-          resultados.push({ marcaId, marcaNombre: nombreMarca(marcaId), servicios: [] });
-        }
-      }
-      resultados.sort((a, b) => a.marcaNombre.localeCompare(b.marcaNombre, 'es', { sensitivity: 'base' }));
-      setGrupos(resultados);
-    } catch (e) {
-      console.error(e);
-      showAlert('Error', 'No se pudo cargar el catálogo de servicios. Intenta de nuevo.');
-      setGrupos([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [marcasIds]);
+      const merged = { ...draftRef.current, ...partial };
+      const restored = serviciosDraftToState(merged.servicios_seleccionados, esMultimarca);
+      setSeleccionadosGenericos(restored.genericos);
+      setSeleccionados(restored.porMarca);
+    }, [marcasIdsKey, serviciosParamKey, esMultimarcaParamKey, patchDraft, rawParams, esMultimarca]),
+  );
 
   useEffect(() => {
+    let cancelled = false;
+
+    const finish = () => {
+      if (!cancelled) setIsLoading(false);
+    };
+
+    const cargarCatalogoGenerico = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        let servicios: ServicioCatalogo[] = [];
+        try {
+          const res = await (serviciosAPI as { obtenerCatalogoServiciosGenericos?: () => Promise<unknown> })
+            .obtenerCatalogoServiciosGenericos?.();
+          const raw = extractApiList<Record<string, unknown>>(res);
+          if (raw.length) {
+            servicios = raw.map(mapServicioCatalogo).filter((s): s is ServicioCatalogo => s != null);
+          } else {
+            const allRes = await serviciosAPI.obtenerServicios();
+            const allRaw = extractApiList<Record<string, unknown>>(allRes);
+            servicios = allRaw.map(mapServicioCatalogo).filter((s): s is ServicioCatalogo => s != null);
+          }
+        } catch {
+          servicios = [];
+        }
+
+        if (!cancelled) {
+          setServiciosGenericos(
+            servicios.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })),
+          );
+        }
+      } catch (e) {
+        console.error('Error cargando catálogo genérico:', e);
+        if (!cancelled) {
+          setServiciosGenericos([]);
+          setLoadError('No se pudo cargar el catálogo de servicios.');
+        }
+      } finally {
+        finish();
+      }
+    };
+
+    const cargarCatalogoEspecialista = async () => {
+      if (marcasIds.length === 0) {
+        if (!cancelled) {
+          setGrupos([]);
+          setLoadError(null);
+        }
+        finish();
+        return;
+      }
+
+      setIsLoading(true);
+      setLoadError(null);
+
+      const nombreMarca = (id: number) =>
+        marcasMeta.find((m) => m.id === id)?.nombre ?? `Marca #${id}`;
+
+      try {
+        const resultados = await Promise.all(
+          marcasIds.map(async (marcaId) => {
+            try {
+              const res = await serviciosAPI.obtenerCatalogoServiciosPorMarca(marcaId);
+              const lista = extractApiList<Record<string, unknown>>(res);
+              const servicios = lista
+                .map(mapServicioCatalogo)
+                .filter((s): s is ServicioCatalogo => s != null)
+                .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+
+              return { marcaId, marcaNombre: nombreMarca(marcaId), servicios };
+            } catch (e) {
+              console.warn('Error catálogo marca', marcaId, e);
+              return { marcaId, marcaNombre: nombreMarca(marcaId), servicios: [] as ServicioCatalogo[] };
+            }
+          }),
+        );
+
+        if (!cancelled) {
+          resultados.sort((a, b) =>
+            a.marcaNombre.localeCompare(b.marcaNombre, 'es', { sensitivity: 'base' }),
+          );
+          setGrupos(resultados);
+        }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setGrupos([]);
+          setLoadError('No se pudo cargar el catálogo de servicios. Intenta de nuevo.');
+        }
+      } finally {
+        finish();
+      }
+    };
+
     if (esMultimarca) {
       cargarCatalogoGenerico();
     } else {
-      cargarCatalogo();
+      cargarCatalogoEspecialista();
     }
-  }, [esMultimarca, cargarCatalogo, cargarCatalogoGenerico]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [esMultimarca, marcasIdsKey, marcasMetaKey]);
 
   const toggleServicio = useCallback((marcaId: number, servicioId: number) => {
     setSeleccionados((prev) => {
@@ -178,9 +237,11 @@ export default function CatalogoServiciosMarcasScreen() {
       } else {
         set.add(servicioId);
       }
-      return { ...prev, [marcaId]: set };
+      const next = { ...prev, [marcaId]: set };
+      syncServiciosDraft(seleccionadosGenericos, next);
+      return next;
     });
-  }, []);
+  }, [seleccionadosGenericos, syncServiciosDraft]);
 
   const toggleServicioGenerico = useCallback((servicioId: number) => {
     setSeleccionadosGenericos((prev) => {
@@ -190,26 +251,33 @@ export default function CatalogoServiciosMarcasScreen() {
       } else {
         next.add(servicioId);
       }
+      syncServiciosDraft(next, seleccionados);
       return next;
     });
-  }, []);
+  }, [seleccionados, syncServiciosDraft]);
 
   const toggleTodosGenericos = useCallback(() => {
     const todosIds = serviciosGenericos.map((s) => s.id);
     const todosSeleccionados = todosIds.every((id) => seleccionadosGenericos.has(id));
-    setSeleccionadosGenericos(todosSeleccionados ? new Set() : new Set(todosIds));
-  }, [serviciosGenericos, seleccionadosGenericos]);
+    const next = todosSeleccionados ? new Set<number>() : new Set(todosIds);
+    setSeleccionadosGenericos(next);
+    syncServiciosDraft(next, seleccionados);
+  }, [serviciosGenericos, seleccionadosGenericos, seleccionados, syncServiciosDraft]);
 
   const toggleTodoGrupo = useCallback(
     (grupo: GrupoMarca) => {
       const actuales = seleccionados[grupo.marcaId] ?? new Set();
       const todosSeleccionados = grupo.servicios.every((s) => actuales.has(s.id));
-      setSeleccionados((prev) => ({
-        ...prev,
-        [grupo.marcaId]: todosSeleccionados ? new Set() : new Set(grupo.servicios.map((s) => s.id)),
-      }));
+      setSeleccionados((prev) => {
+        const next = {
+          ...prev,
+          [grupo.marcaId]: todosSeleccionados ? new Set<number>() : new Set(grupo.servicios.map((s) => s.id)),
+        };
+        syncServiciosDraft(seleccionadosGenericos, next);
+        return next;
+      });
     },
-    [seleccionados],
+    [seleccionados, seleccionadosGenericos, syncServiciosDraft],
   );
 
   const totalSeleccionados = useMemo(
@@ -220,17 +288,19 @@ export default function CatalogoServiciosMarcasScreen() {
   );
 
   const getBackPath = () => {
-    const params = new URLSearchParams();
-    appendOnboardingParams(params, {
-      ...otherParams,
-      tipo: Array.isArray(tipo) ? tipo[0] : tipo,
-      marcas: Array.isArray(marcasParam) ? marcasParam[0] : marcasParam,
-      es_multimarca: esMultimarca ? 'true' : 'false',
-    });
+    const merged = {
+      ...draft,
+      ...mergeRouteParamsIntoDraft(draft, rawParams as Record<string, string | string[] | undefined>),
+      servicios_seleccionados: stateToServiciosDraft(
+        esMultimarca,
+        seleccionadosGenericos,
+        seleccionados,
+      ),
+    };
     if (esMultimarca) {
-      return `/(onboarding)/cobertura-marcas?${params.toString()}`;
+      return buildOnboardingHref('/(onboarding)/cobertura-marcas', merged);
     }
-    return `/(onboarding)/seleccion-marcas?${params.toString()}`;
+    return buildOnboardingHref('/(onboarding)/seleccion-marcas', merged);
   };
 
   const pasoCatalogo = catalogoStep(esMultimarca);
@@ -259,36 +329,20 @@ export default function CatalogoServiciosMarcasScreen() {
         return;
       }
 
-      let serviciosSeleccionadosArr: { marcaId: number; servicioId: number }[] = [];
+      const serviciosSeleccionadosArr = stateToServiciosDraft(
+        esMultimarca,
+        seleccionadosGenericos,
+        seleccionados,
+      );
 
-      if (esMultimarca) {
-        // Para multimarca: servicios sin marca específica (marcaId = 0 como señal genérica)
-        for (const sId of Array.from(seleccionadosGenericos)) {
-          serviciosSeleccionadosArr.push({ marcaId: 0, servicioId: sId });
-        }
-      } else {
-        // Para especialistas: servicios por marca
-        for (const [mId, set] of Object.entries(seleccionados)) {
-          for (const sId of Array.from(set)) {
-            serviciosSeleccionadosArr.push({ marcaId: Number(mId), servicioId: sId });
-          }
-        }
-      }
+      const nextDraft = {
+        ...draft,
+        ...mergeRouteParamsIntoDraft(draft, rawParams as Record<string, string | string[] | undefined>),
+        servicios_seleccionados: serviciosSeleccionadosArr,
+      };
+      patchDraft({ servicios_seleccionados: serviciosSeleccionadosArr });
 
-      const params = new URLSearchParams();
-      Object.entries(rawParams).forEach(([key, value]) => {
-        if (value === undefined || value === null) return;
-        const valueStr = Array.isArray(value) ? value[0] : value;
-        if (valueStr !== undefined && valueStr !== '') params.append(key, String(valueStr));
-      });
-      if (!params.has('especialidades')) {
-        params.append('especialidades', JSON.stringify([]));
-      }
-      // Asegurarse de pasar es_multimarca al finalizar
-      params.set('es_multimarca', esMultimarca ? 'true' : 'false');
-      params.set('servicios_seleccionados', JSON.stringify(serviciosSeleccionadosArr));
-
-      router.push(`/(onboarding)/finalizar-basico?${params.toString()}` as any);
+      router.push(buildOnboardingHref('/(onboarding)/finalizar-basico', nextDraft) as any);
     } catch (e) {
       console.error(e);
       showAlert('Error', 'No se pudo continuar. Intenta nuevamente.');
@@ -341,6 +395,12 @@ export default function CatalogoServiciosMarcasScreen() {
           ? 'Marca los servicios que ofreces. En Mis servicios podrás fijar un precio base o precios distintos por marca de vehículo.'
           : 'Toca cada servicio para marcarlo. Usa el botón por marca para seleccionar o deseleccionar todos. Los precios los configuras al publicar cada servicio.'}
       </OnboardingNotice>
+
+      {loadError ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{loadError}</Text>
+        </View>
+      ) : null}
 
           {totalSeleccionados > 0 && (
             <View style={styles.resumenBox}>
@@ -586,4 +646,13 @@ const styles = StyleSheet.create({
   emptyBox: { padding: 24, alignItems: 'center' },
   emptyTitle: { fontSize: 16, fontWeight: '600', color: I.ink },
   emptySub: { fontSize: 14, color: I.mutedSoft, marginTop: 6, textAlign: 'center' },
+  errorBox: {
+    backgroundColor: 'rgba(207, 32, 47, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(207, 32, 47, 0.25)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  errorText: { fontSize: 14, color: I.semanticDown, textAlign: 'center' },
 });

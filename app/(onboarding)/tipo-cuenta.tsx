@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { authAPI, getAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { useOnboardingDraft } from '@/context/OnboardingDraftContext';
 import { deleteItem, getItem, setItem } from '@/utils/authStorage';
 import { showAlertButtons, showConfirm } from '@/utils/platformAlert';
 import OnboardingHeader from '@/components/OnboardingHeader';
@@ -23,6 +24,13 @@ export default function TipoCuentaScreen() {
   const [isCheckingCredentials, setIsCheckingCredentials] = useState(true);
   const router = useRouter();
   const { login, isAuthenticated, updateUser, refrescarEstadoProveedor } = useAuth();
+  const { draft, patchDraft } = useOnboardingDraft();
+
+  useFocusEffect(
+    useCallback(() => {
+      if (draft.tipo) setTipoSeleccionado(draft.tipo);
+    }, [draft.tipo]),
+  );
 
   // Verificar si hay credenciales pendientes de registro y hacer login automático
   useEffect(() => {
@@ -105,6 +113,7 @@ export default function TipoCuentaScreen() {
 
   const handleSeleccion = (tipo: 'taller' | 'mecanico') => {
     setTipoSeleccionado(tipo);
+    patchDraft({ tipo });
   };
 
   const handleContinuar = async () => {
@@ -182,10 +191,10 @@ export default function TipoCuentaScreen() {
         console.log('Onboarding inicializado:', response);
       }
       
-      // Navegar a la siguiente pantalla pasando el tipo seleccionado
+      patchDraft({ tipo: tipoSeleccionado });
       router.push({
         pathname: '/(onboarding)/informacion-basica' as any,
-        params: { tipo: tipoSeleccionado }
+        params: { tipo: tipoSeleccionado },
       });
     } catch (error: any) {
       if (__DEV__) {
@@ -210,9 +219,10 @@ export default function TipoCuentaScreen() {
         if (__DEV__) {
           console.log('Perfil ya existe, continuando con información básica');
         }
+        patchDraft({ tipo: tipoSeleccionado });
         router.push({
           pathname: '/(onboarding)/informacion-basica' as any,
-          params: { tipo: tipoSeleccionado }
+          params: { tipo: tipoSeleccionado },
         });
         return;
       }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,10 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { onboardingAPI, tallerAPI, mecanicoAPI, especialidadesAPI, authAPI, serviciosAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { useOnboardingDraft } from '@/context/OnboardingDraftContext';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import {
   OnboardingScreenLayout,
@@ -21,234 +22,96 @@ import { COLORS } from '@/app/design-system/tokens';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import { appendOnboardingParams, finalizarBasicoStep } from '@/utils/onboardingNavigation';
+import {
+  buildFinalizarDatosFromDraft,
+  mergeRouteParamsIntoDraft,
+  type FinalizarBasicoDatos,
+} from '@/utils/onboardingDraftParams';
 
 const I = COLORS.institutional;
 
 export default function FinalizarBasicoScreen() {
-  const { tipo, especialidades, marcas, servicios_seleccionados, es_multimarca, ...otherParams } = useLocalSearchParams();
+  const rawParams = useLocalSearchParams();
+  const { tipo, especialidades, marcas, servicios_seleccionados, es_multimarca, ...otherParams } = rawParams;
   const router = useRouter();
   const { usuario, refrescarEstadoProveedor } = useAuth();
+  const { draft, patchDraft, resetDraft } = useOnboardingDraft();
 
-  const esMultimarca = useMemo(() => {
-    const v = Array.isArray(es_multimarca) ? es_multimarca[0] : es_multimarca;
-    return v === 'true';
-  }, [es_multimarca]);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
 
+  useFocusEffect(
+    useCallback(() => {
+      const partial = mergeRouteParamsIntoDraft(
+        draftRef.current,
+        rawParams as Record<string, string | string[] | undefined>,
+      );
+      if (Object.keys(partial).length > 0) {
+        patchDraft(partial);
+      }
+    }, [patchDraft, rawParams]),
+  );
+
+  const datosCompletos = useMemo(
+    () =>
+      buildFinalizarDatosFromDraft(
+        draft,
+        rawParams as Record<string, string | string[] | undefined>,
+      ),
+    [draft, rawParams],
+  );
+
+  const esMultimarca = datosCompletos.es_multimarca;
   const pasoFinalizar = finalizarBasicoStep(esMultimarca);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [datosCompletos, setDatosCompletos] = useState<any>(null);
   const [progresoSubida, setProgresoSubida] = useState<string>('');
-  
-  // UseRef para evitar re-procesamiento innecesario
-  const dataProcessed = useRef(false);
 
-  useEffect(() => {
-    // Solo procesar una vez cuando todos los datos estén disponibles
-    if (dataProcessed.current) return;
-    
-    // Crear una clave estable basada en los valores primitivos de los parámetros
-    const tipoStr = Array.isArray(tipo) ? tipo[0] : tipo;
-    const especialidadesStr = Array.isArray(especialidades) ? especialidades[0] : especialidades;
-    const marcasStr = Array.isArray(marcas) ? marcas[0] : marcas;
-    const serviciosSeleccionadosStr = Array.isArray(servicios_seleccionados)
-      ? servicios_seleccionados[0]
-      : servicios_seleccionados;
-    
-    // Validar que los parámetros necesarios estén presentes
-    if (!tipoStr) {
-      console.warn('⚠️ Tipo no disponible, esperando...');
-      return;
-    }
-    
+  const validarDatos = (datos: FinalizarBasicoDatos) => {
     try {
-      console.log('Procesando datos del onboarding básico...');
-      
-      // Consolidar todos los datos del onboarding
-      let especialidadesParsed: number[] = [];
-      let marcasParsed: number[] = [];
-      
-      // Parseo seguro de especialidades
-      if (especialidadesStr) {
-        try {
-          if (typeof especialidadesStr === 'string') {
-            especialidadesParsed = JSON.parse(especialidadesStr) as number[];
-            console.log('Especialidades parseadas:', especialidadesParsed.length);
-          } else if (Array.isArray(especialidadesStr)) {
-            especialidadesParsed = especialidadesStr as number[];
-          } else {
-            console.warn('⚠️ especialidadesStr no es string ni array:', typeof especialidadesStr);
-            especialidadesParsed = [];
-          }
-        } catch (error: any) {
-          console.error('Error parseando especialidades:', error);
-          especialidadesParsed = [];
-        }
+      if (!datos.tipo || (datos.tipo !== 'taller' && datos.tipo !== 'mecanico')) {
+        showAlert('Datos incompletos', 'Tipo de proveedor no válido. Vuelve al paso 1.');
+        return false;
       }
-      
-      // Parseo seguro de marcas
-      if (marcasStr) {
-        try {
-          if (typeof marcasStr === 'string') {
-            marcasParsed = JSON.parse(marcasStr) as number[];
-            console.log('Marcas parseadas:', marcasParsed.length);
-          } else if (Array.isArray(marcasStr)) {
-            marcasParsed = marcasStr as number[];
-          } else {
-            console.warn('⚠️ marcasStr no es string ni array:', typeof marcasStr);
-            marcasParsed = [];
-          }
-        } catch (error: any) {
-          console.error('Error parseando marcas:', error);
-          marcasParsed = [];
-        }
-      }
-      
-      // Crear objeto de datos estable con validación segura
-      const getParamValue = (key: string) => {
-        if (!otherParams) {
-          return undefined;
-        }
-        const value = otherParams[key];
-        const result = Array.isArray(value) ? value[0] : value;
-        return result;
-      };
-      
-      const nombreValue = getParamValue('nombre');
-      const telefonoValue = getParamValue('telefono');
-      const descripcionValue = getParamValue('descripcion');
-      const rutValue = getParamValue('rut');
-      const direccionValue = getParamValue('direccion');
-      const direccionLatValue = getParamValue('direccion_lat');
-      const direccionLngValue = getParamValue('direccion_lng');
-      const comunaValue = getParamValue('comuna');
-      const regionValue = getParamValue('region');
-      const dniValue = getParamValue('dni');
-      const experienciaValue = getParamValue('experiencia_anos');
-      
-      const esMultimarcaStr = Array.isArray(es_multimarca) ? es_multimarca[0] : es_multimarca;
-      const esMultimarcaBool = esMultimarcaStr === 'true';
 
-      const datos = {
-        tipo: tipoStr || '',
-        nombre: (nombreValue ?? '') as string,
-        telefono: (telefonoValue ?? '') as string,
-        descripcion: (descripcionValue ?? '') as string,
-        rut: (rutValue ?? '') as string,
-        direccion: (direccionValue ?? '') as string,
-        direccion_lat: direccionLatValue ? parseFloat(String(direccionLatValue)) : undefined,
-        direccion_lng: direccionLngValue ? parseFloat(String(direccionLngValue)) : undefined,
-        comuna: (comunaValue ?? '') as string,
-        region: (regionValue ?? '') as string,
-        dni: (dniValue ?? '') as string,
-        experiencia_anos: (experienciaValue ?? '') as string,
-        especialidades: especialidadesParsed,
-        marcas: marcasParsed,
-        es_multimarca: esMultimarcaBool,
-        tipo_cobertura_marca: esMultimarcaBool ? 'multimarca' : 'especialista' as 'multimarca' | 'especialista',
-        servicios_seleccionados: (() => {
-          try {
-            if (serviciosSeleccionadosStr && typeof serviciosSeleccionadosStr === 'string') {
-              const parsed = JSON.parse(serviciosSeleccionadosStr);
-              if (Array.isArray(parsed)) return parsed as { marcaId: number; servicioId: number }[];
-            }
-          } catch { /* ignore */ }
-          return [] as { marcaId: number; servicioId: number }[];
-        })(),
-      };
-      
-      // Validar que especialidadesParsed y marcasParsed sean arrays antes de crear datos
-      if (!Array.isArray(especialidadesParsed)) {
-        console.warn('⚠️ especialidadesParsed no es un array, forzando array vacío:', typeof especialidadesParsed);
-        especialidadesParsed = [];
-      }
-      if (!Array.isArray(marcasParsed)) {
-        console.warn('⚠️ marcasParsed no es un array, forzando array vacío:', typeof marcasParsed);
-        marcasParsed = [];
-      }
-      
-      console.log('Datos consolidados:', {
-        tipo: datos.tipo,
-        serviciosSeleccionados: Array.isArray(datos.servicios_seleccionados)
-          ? datos.servicios_seleccionados.length
-          : 0,
-        tieneEspecialidades: Array.isArray(datos.especialidades) && datos.especialidades.length > 0,
-        tieneMarcas: Array.isArray(datos.marcas) && datos.marcas.length > 0,
-        esMultimarca: datos.es_multimarca,
-        nombre: !!datos.nombre,
-        telefono: !!datos.telefono,
-        descripcion: !!datos.descripcion,
-        rut: !!datos.rut,
-        direccion: !!datos.direccion,
-        dni: !!datos.dni,
-        experiencia_anos: !!datos.experiencia_anos
-      });
-      
-      setDatosCompletos(datos);
-      dataProcessed.current = true;
-      } catch (error: any) {
-      console.error('Error crítico procesando datos del onboarding:', error);
-      showAlertButtons('Error', 'Ocurrió un error al procesar los datos. Por favor, vuelve al inicio del onboarding.', [
-        {
-          text: 'Volver al inicio',
-          onPress: () => router.replace('/(onboarding)/tipo-cuenta'),
-        },
-      ]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipo, especialidades, marcas, servicios_seleccionados]);
+      const errores: string[] = [];
 
-  const validarDatos = () => {
-    try {
-      if (!datosCompletos) return false;
-      
-      // Validar que datosCompletos tenga la estructura esperada
-      if (typeof datosCompletos !== 'object') return false;
-      
-      const errores = [];
-      
-      // Validaciones básicas para ambos tipos
-      if (!datosCompletos.nombre || typeof datosCompletos.nombre !== 'string' || !datosCompletos.nombre.trim()) {
+      if (!datos.nombre?.trim()) {
         errores.push('Nombre es requerido');
       }
-      if (!datosCompletos.telefono || typeof datosCompletos.telefono !== 'string' || !datosCompletos.telefono.trim()) {
+      if (!datos.telefono?.trim()) {
         errores.push('Teléfono es requerido');
       }
-      
-      // Validaciones específicas para talleres
-      if (datosCompletos.tipo === 'taller') {
-        if (!datosCompletos.rut || typeof datosCompletos.rut !== 'string' || !datosCompletos.rut.trim()) {
+
+      if (datos.tipo === 'taller') {
+        if (!datos.rut?.trim()) {
           errores.push('RUT/CUIT es requerido para la identificación fiscal del taller');
         }
-        if (!datosCompletos.direccion || typeof datosCompletos.direccion !== 'string' || !datosCompletos.direccion.trim()) {
+        if (!datos.direccion?.trim()) {
           errores.push('Dirección es requerida para ubicar tu taller');
         }
       }
-      
-      // Validaciones específicas para mecánicos
-      if (datosCompletos.tipo === 'mecanico') {
-        if (!datosCompletos.dni || typeof datosCompletos.dni !== 'string' || !datosCompletos.dni.trim()) {
+
+      if (datos.tipo === 'mecanico') {
+        if (!datos.dni?.trim()) {
           errores.push('DNI/RUT personal es requerido para tu identificación');
         }
-        if (!datosCompletos.experiencia_anos || typeof datosCompletos.experiencia_anos !== 'string' || !datosCompletos.experiencia_anos.trim()) {
+        if (!datos.experiencia_anos?.trim()) {
           errores.push('Años de experiencia son requeridos para validar tu competencia');
         }
       }
 
-      const serviciosCount = Array.isArray(datosCompletos.servicios_seleccionados)
-        ? datosCompletos.servicios_seleccionados.length
-        : 0;
-      if (serviciosCount === 0) {
+      if (datos.servicios_seleccionados.length === 0) {
         errores.push(
-          'Debes seleccionar al menos un servicio en el paso de catálogo. Vuelve atrás y marca los servicios que ofreces.'
+          'Debes seleccionar al menos un servicio en el paso de catálogo. Vuelve atrás y marca los servicios que ofreces.',
         );
       }
-      
+
       if (errores.length > 0) {
         showAlert('Datos Incompletos', errores.join('\n\n'));
         return false;
       }
-      
+
       return true;
     } catch (error) {
       console.error('Error en validarDatos:', error);
@@ -257,86 +120,56 @@ export default function FinalizarBasicoScreen() {
     }
   };
 
-  const guardarEspecialidadesYMarcas = async () => {
+  const guardarEspecialidadesYMarcas = async (datos: FinalizarBasicoDatos) => {
     try {
-      if (!datosCompletos) {
-        throw new Error('Datos completos no disponibles');
-      }
-      
       console.log('Iniciando guardado de especialidades y marcas:', {
-        especialidades: Array.isArray(datosCompletos.especialidades) ? datosCompletos.especialidades.length : 0,
-        marcas: Array.isArray(datosCompletos.marcas) ? datosCompletos.marcas.length : 0,
-        tipo: datosCompletos.tipo
+        especialidades: datos.especialidades.length,
+        marcas: datos.marcas.length,
+        tipo: datos.tipo,
       });
-      
-      // Guardar especialidades
-      if (Array.isArray(datosCompletos.especialidades) && datosCompletos.especialidades.length > 0) {
+
+      if (datos.especialidades.length > 0) {
         try {
           setProgresoSubida('Guardando especialidades...');
-          console.log('Enviando especialidades:', datosCompletos.especialidades);
-          await especialidadesAPI.actualizarEspecialidades(datosCompletos.especialidades);
-          console.log('Especialidades guardadas exitosamente');
+          await especialidadesAPI.actualizarEspecialidades(datos.especialidades);
         } catch (error: any) {
-          console.error('Error guardando especialidades:', error);
-          console.error('Respuesta del error de especialidades:', error.response?.data);
           throw new Error(`Error al guardar especialidades: ${error.response?.data?.error || error.message || 'Error desconocido'}`);
         }
-      } else {
-        console.log('No hay especialidades para guardar');
       }
-      
-      // Guardar marcas atendidas (o tipo multimarca si corresponde)
-      const tipoCoberturasMarca = datosCompletos.tipo_cobertura_marca as 'multimarca' | 'especialista' | undefined;
-      const tieneCoberturaMarca = tipoCoberturasMarca === 'multimarca' || (Array.isArray(datosCompletos.marcas) && datosCompletos.marcas.length > 0);
+
+      const tipoCoberturasMarca = datos.tipo_cobertura_marca;
+      const tieneCoberturaMarca = tipoCoberturasMarca === 'multimarca' || datos.marcas.length > 0;
 
       if (tieneCoberturaMarca) {
         try {
           setProgresoSubida('Guardando cobertura de marcas...');
-          const marcasFinal = tipoCoberturasMarca === 'multimarca' ? [] : (datosCompletos.marcas || []);
-          console.log('Enviando marcas:', marcasFinal, 'tipo_cobertura:', tipoCoberturasMarca, 'para tipo proveedor:', datosCompletos.tipo);
-          
-          if (datosCompletos.tipo === 'taller') {
+          const marcasFinal = tipoCoberturasMarca === 'multimarca' ? [] : datos.marcas;
+
+          if (datos.tipo === 'taller') {
             await tallerAPI.actualizarMarcas(marcasFinal, tipoCoberturasMarca);
-            console.log('Marcas del taller guardadas exitosamente');
           } else {
             await mecanicoAPI.actualizarMarcas(marcasFinal, tipoCoberturasMarca);
-            console.log('Marcas del mecánico guardadas exitosamente');
           }
         } catch (error: any) {
-          console.error('Error guardando marcas:', error);
-          console.error('Respuesta del error de marcas:', error.response?.data);
           throw new Error(`Error al guardar marcas: ${error.response?.data?.error || error.message || 'Error desconocido'}`);
         }
-      } else {
-        console.log('No hay marcas para guardar');
       }
-      
-      console.log('Especialidades y marcas guardadas exitosamente');
 
-      // Guardar catálogo inicial de servicios por marca (si el proveedor seleccionó servicios)
-      const serviciosArr = Array.isArray(datosCompletos.servicios_seleccionados)
-        ? datosCompletos.servicios_seleccionados
-        : [];
-      if (serviciosArr.length > 0) {
+      if (datos.servicios_seleccionados.length > 0) {
         try {
           setProgresoSubida('Guardando catálogo de servicios…');
-          const payload = serviciosArr.map((item: { marcaId: number; servicioId: number }) => ({
+          const payload = datos.servicios_seleccionados.map((item) => ({
             servicio_id: item.servicioId,
-            // Multimarca usa marcaId=0 como señal en UI; backend espera null/ausente (no 0).
             marca_id: item.marcaId === 0 ? null : item.marcaId,
           }));
           await serviciosAPI.crearCatalogoInicial(payload);
-          console.log('Catálogo inicial guardado exitosamente:', payload.length, 'servicios');
         } catch (error: any) {
-          // No bloquear el onboarding si falla; el proveedor puede configurar servicios después
           console.warn('⚠️ No se pudo guardar el catálogo inicial:', error?.response?.data || error?.message);
         }
-      } else {
-        console.log('No hay servicios seleccionados para el catálogo inicial');
       }
     } catch (error: any) {
       console.error('Error en guardarEspecialidadesYMarcas:', error);
-      throw error; // Re-lanzar para que el caller lo maneje
+      throw error;
     }
   };
 
@@ -357,21 +190,14 @@ export default function FinalizarBasicoScreen() {
 
   const finalizarOnboardingBasico = async () => {
     console.log('🚀 Iniciando proceso de finalización de onboarding básico...');
-    
-    if (!validarDatos() || !usuario) {
+
+    if (!validarDatos(datosCompletos) || !usuario) {
       console.error('❌ Validación fallida o usuario no encontrado');
       showAlert('Error', 'Faltan datos requeridos o no se encontró información del usuario');
       return;
     }
 
-    console.log('✅ Validación exitosa, datos:', {
-      tipo: datosCompletos.tipo,
-      nombre: datosCompletos.nombre,
-      telefono: datosCompletos.telefono,
-      usuarioId: usuario?.id || 'N/A',
-      especialidades: Array.isArray(datosCompletos.especialidades) ? datosCompletos.especialidades.length : 0,
-      marcas: Array.isArray(datosCompletos.marcas) ? datosCompletos.marcas.length : 0,
-    });
+    const datos = datosCompletos;
 
     setIsSubmitting(true);
     let pasoCompletado = 0;
@@ -382,62 +208,49 @@ export default function FinalizarBasicoScreen() {
       setProgresoSubida('Verificando perfil existente...');
       console.log('🔍 Paso 1: Verificando perfil existente...');
       
-      let tienePerfilExistente = false;
-      
+      let tienePerfilDelTipo = false;
+      let estadoActual: { tiene_perfil?: boolean; tipo_proveedor?: string } | null = null;
+
       try {
-        const estadoActual = await authAPI.obtenerEstadoProveedor();
-        tienePerfilExistente = estadoActual.tiene_perfil;
-        console.log('✅ Perfil existente encontrado:', tienePerfilExistente);
+        estadoActual = await authAPI.obtenerEstadoProveedor();
+        tienePerfilDelTipo =
+          !!estadoActual?.tiene_perfil && estadoActual?.tipo_proveedor === datos.tipo;
+        console.log('✅ Estado proveedor:', estadoActual?.tipo_proveedor, 'objetivo:', datos.tipo);
       } catch (error: any) {
-        console.log('🔍 Error consultando estado:', error.response?.status);
-        // Si es 404, significa que no tiene perfil (caso normal para nuevos usuarios)
         if (error.response?.status === 404) {
-          console.log('✅ Usuario nuevo sin perfil - esto es normal');
-          tienePerfilExistente = false;
+          tienePerfilDelTipo = false;
         } else {
-          console.error('❌ Error inesperado verificando perfil:', error);
           throw error;
         }
       }
-      
+
       let perfilCreado = false;
-      
-      if (!tienePerfilExistente) {
+
+      if (!tienePerfilDelTipo) {
         // 2. Crear el perfil del proveedor solo si no existe
         pasoCompletado = 2;
         setProgresoSubida('Creando perfil...');
         console.log('🏗️ Paso 2: Creando perfil del proveedor...');
         
-        // Validar que la descripción no esté vacía antes de inicializar
-        const descripcionInicial = datosCompletos.descripcion?.trim() || 
-          (datosCompletos.tipo === 'taller' 
-            ? `Taller mecánico especializado en servicios automotrices`
-            : `Mecánico a domicilio con experiencia en servicios automotrices`);
-        
-        const datosInicializacion: any = {
-          tipo_proveedor: datosCompletos.tipo,
-          nombre: datosCompletos.nombre,
-          telefono: datosCompletos.telefono,
+        const descripcionInicial = datos.descripcion?.trim() ||
+          (datos.tipo === 'taller'
+            ? 'Taller mecánico especializado en servicios automotrices'
+            : 'Mecánico a domicilio con experiencia en servicios automotrices');
+
+        const datosInicializacion: Record<string, unknown> = {
+          tipo_proveedor: datos.tipo,
+          nombre: datos.nombre,
+          telefono: datos.telefono,
           descripcion: descripcionInicial,
         };
 
-        if (datosCompletos.tipo === 'taller') {
-          datosInicializacion.rut = datosCompletos.rut;
-          datosInicializacion.direccion = datosCompletos.direccion;
-          
-          console.log('🏪 Inicializando onboarding de taller:', datosInicializacion);
+        if (datos.tipo === 'taller') {
+          datosInicializacion.rut = datos.rut;
+          datosInicializacion.direccion = datos.direccion;
         } else {
-          datosInicializacion.dni = datosCompletos.dni;
-          // Parse seguro de experiencia_anos
-          const experienciaRaw = datosCompletos.experiencia_anos;
-          if (experienciaRaw) {
-            const experienciaParsed = parseInt(String(experienciaRaw));
-            datosInicializacion.experiencia_anos = isNaN(experienciaParsed) ? 0 : experienciaParsed;
-          } else {
-            datosInicializacion.experiencia_anos = 0;
-          }
-          
-          console.log('🔧 Inicializando onboarding de mecánico:', datosInicializacion);
+          datosInicializacion.dni = datos.dni;
+          const experienciaParsed = parseInt(String(datos.experiencia_anos), 10);
+          datosInicializacion.experiencia_anos = Number.isFinite(experienciaParsed) ? experienciaParsed : 0;
         }
         
         // Usar el método directo del API
@@ -464,11 +277,10 @@ export default function FinalizarBasicoScreen() {
       setProgresoSubida('Actualizando perfil con datos del onboarding...');
       console.log('📝 Paso 3: Actualizando perfil con datos completos del onboarding...');
       
-      // Validar que la descripción no esté vacía (requerida por el backend)
-      const descripcionValidada = datosCompletos.descripcion?.trim() || 
-        (datosCompletos.tipo === 'taller' 
-          ? `Taller mecánico especializado en servicios automotrices`
-          : `Mecánico a domicilio con experiencia en servicios automotrices`);
+      const descripcionValidada = datos.descripcion?.trim() ||
+        (datos.tipo === 'taller'
+          ? 'Taller mecánico especializado en servicios automotrices'
+          : 'Mecánico a domicilio con experiencia en servicios automotrices');
       
       if (!descripcionValidada || descripcionValidada.trim().length === 0) {
         throw new Error('La descripción es requerida para completar el onboarding. Por favor, vuelve a la pantalla de información básica y completa la descripción.');
@@ -476,53 +288,34 @@ export default function FinalizarBasicoScreen() {
       
       try {
         const datosActualizacion = {
-          nombre: datosCompletos.nombre,
-          telefono: datosCompletos.telefono,
+          nombre: datos.nombre,
+          telefono: datos.telefono,
           descripcion: descripcionValidada,
         };
 
-        if (datosCompletos.tipo === 'taller') {
-          const datosTaller = {
+        if (datos.tipo === 'taller') {
+          await tallerAPI.actualizarPerfilExistente({
             ...datosActualizacion,
-            rut: datosCompletos.rut,
-            direccion: datosCompletos.direccion,
-          };
-          
-          console.log('🏪 Actualizando datos del taller:', datosTaller);
-          await tallerAPI.actualizarPerfilExistente(datosTaller);
+            rut: datos.rut,
+            direccion: datos.direccion,
+          });
 
-          const lat = datosCompletos.direccion_lat;
-          const lng = datosCompletos.direccion_lng;
-          if (
-            typeof lat === 'number' &&
-            typeof lng === 'number' &&
-            Number.isFinite(lat) &&
-            Number.isFinite(lng)
-          ) {
+          const lat = datos.direccion_lat;
+          const lng = datos.direccion_lng;
+          if (typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)) {
             await tallerAPI.actualizarUbicacionDomicilio({
-              direccion: datosCompletos.direccion,
+              direccion: datos.direccion,
               latitud: lat,
               longitud: lng,
             });
           }
-          
         } else {
-          // Parse seguro de experiencia_anos
-          const experienciaRaw = datosCompletos.experiencia_anos;
-          let experienciaParsed = 0;
-          if (experienciaRaw) {
-            const parsed = parseInt(String(experienciaRaw));
-            experienciaParsed = isNaN(parsed) ? 0 : parsed;
-          }
-          
-          const datosMecanico = {
+          const experienciaParsed = parseInt(String(datos.experiencia_anos), 10);
+          await mecanicoAPI.actualizarPerfilExistente({
             ...datosActualizacion,
-            dni: datosCompletos.dni,
-            experiencia_anos: experienciaParsed,
-          };
-          
-          console.log('🔧 Actualizando datos del mecánico:', datosMecanico);
-          await mecanicoAPI.actualizarPerfilExistente(datosMecanico);
+            dni: datos.dni,
+            experiencia_anos: Number.isFinite(experienciaParsed) ? experienciaParsed : 0,
+          });
         }
         
         console.log('✅ Perfil actualizado con datos del onboarding');
@@ -539,7 +332,7 @@ export default function FinalizarBasicoScreen() {
       // 4. Guardar especialidades y marcas
       pasoCompletado = 4;
       console.log('🎯 Paso 4: Guardando especialidades y marcas...');
-      await guardarEspecialidadesYMarcas();
+      await guardarEspecialidadesYMarcas(datos);
       console.log('✅ Especialidades y marcas guardadas exitosamente');
 
       // 5. Completar el onboarding
@@ -550,7 +343,7 @@ export default function FinalizarBasicoScreen() {
       let onboardingCompletado = false;
       let resultadoOnboarding: any = null;
       try {
-        resultadoOnboarding = await onboardingAPI.completarOnboarding();
+        resultadoOnboarding = await onboardingAPI.completarOnboarding(datos.tipo);
         console.log('✅ Onboarding básico completado exitosamente:', resultadoOnboarding);
         onboardingCompletado = true;
       } catch (error: any) {
@@ -569,9 +362,9 @@ export default function FinalizarBasicoScreen() {
       // 7. Mostrar mensaje de éxito y redirigir a documentos
       console.log('🎉 Onboarding básico completado exitosamente');
       
-      const mensajeExito = perfilCreado 
-        ? `Tu perfil de ${datosCompletos.tipo === 'taller' ? 'taller mecánico' : 'mecánico a domicilio'} ha sido creado exitosamente.`
-        : `Tu información de onboarding ha sido actualizada exitosamente.`;
+      const mensajeExito = perfilCreado
+        ? `Tu perfil de ${datos.tipo === 'taller' ? 'taller mecánico' : 'mecánico a domicilio'} ha sido creado exitosamente.`
+        : 'Tu información de onboarding ha sido actualizada exitosamente.';
         
       showAlertButtons(
         '🎉 Onboarding Completado',
@@ -581,6 +374,7 @@ export default function FinalizarBasicoScreen() {
             text: 'Subir Documentos',
             onPress: () => {
               console.log('🏠 Navegando a subir documentos...');
+              resetDraft();
               router.replace('/(onboarding)/subir-documentos');
             },
           },
@@ -627,9 +421,9 @@ export default function FinalizarBasicoScreen() {
         // Si el perfil ya existe, intentar solo especialidades y marcas
         try {
           console.log('🎯 Guardando especialidades para perfil existente...');
-          await guardarEspecialidadesYMarcas();
+          await guardarEspecialidadesYMarcas(datos);
           console.log('🏁 Completando onboarding para perfil existente...');
-          await onboardingAPI.completarOnboarding();
+          await onboardingAPI.completarOnboarding(datos.tipo);
           console.log('🔄 Refrescando estado para perfil existente...');
           await refrescarEstadoProveedor();
           
@@ -661,7 +455,7 @@ export default function FinalizarBasicoScreen() {
     }
   };
 
-  if (!datosCompletos) {
+  if (!datosCompletos.tipo) {
     return (
       <OnboardingScreenLayout>
         <View style={onboardingStyles.loadingCenter}>

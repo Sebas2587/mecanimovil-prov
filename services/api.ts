@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 import { deleteItem, getItem, setItem } from '@/utils/authStorage';
+import { fetchAllPaginated } from '@/utils/fetchPaginated';
 import ServerConfig from './serverConfig';
 
 // Configuración dinámica del servidor
@@ -763,12 +764,20 @@ export const mecanicoAPI = {
 
 // Servicios para vehículos
 export const vehiculoAPI = {
-  // Obtener marcas de vehículos
-  obtenerMarcas: async () => {
+  // Obtener marcas de vehículos (todas las páginas; DRF pagina de 10 por defecto)
+  obtenerMarcas: async (): Promise<MarcaVehiculo[]> => {
     const api = await getAPI();
-    const response = await api.get('/vehiculos/marcas/');
-    const data = response.data;
-    return Array.isArray(data) ? data : (data?.results || []);
+    const baseURL = (api.defaults?.baseURL as string) || '';
+
+    const marcas = await fetchAllPaginated<MarcaVehiculo>(
+      (url) => api.get(url),
+      '/vehiculos/marcas/?page_size=100',
+      { baseURL },
+    );
+
+    return marcas.sort((a, b) =>
+      (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }),
+    );
   },
 };
 
@@ -1214,9 +1223,10 @@ export const onboardingAPI = {
   },
 
   // Mantener compatibilidad con nombres antiguos
-  completarOnboarding: async () => {
+  completarOnboarding: async (tipoProveedor?: 'taller' | 'mecanico') => {
     const api = await getAPI();
-    const response = await api.post('/usuarios/completar-onboarding/');
+    const body = tipoProveedor ? { tipo_proveedor: tipoProveedor } : {};
+    const response = await api.post('/usuarios/completar-onboarding/', body);
     return response.data;
   },
 

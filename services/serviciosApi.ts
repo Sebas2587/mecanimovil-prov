@@ -3,6 +3,7 @@
  */
 
 import { getAPI } from './api';
+import { fetchAllPaginated } from '@/utils/fetchPaginated';
 
 // Interfaces para TypeScript
 export interface ServicioOferta {
@@ -384,10 +385,17 @@ export const catalogosAPI = {
 
     try {
       const api = await getAPI();
-      const response = await api.get('/vehiculos/marcas/');
-      const marcas = response.data.results || response.data;
-      console.log(`✅ Marcas obtenidas: ${marcas.length} marcas`);
-      return marcas;
+      const baseURL = (api.defaults?.baseURL as string) || '';
+      const marcas = await fetchAllPaginated<MarcaVehiculo>(
+        (url) => api.get(url),
+        '/vehiculos/marcas/?page_size=100',
+        { baseURL },
+      );
+      const sorted = marcas.sort((a, b) =>
+        (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }),
+      );
+      console.log(`✅ Marcas obtenidas: ${sorted.length} marcas`);
+      return sorted;
     } catch (error) {
       console.error('❌ Error obteniendo marcas:', error);
       throw error;

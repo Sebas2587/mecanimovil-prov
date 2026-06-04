@@ -8,8 +8,10 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import { useOnboardingDraft } from '@/context/OnboardingDraftContext';
+import { buildOnboardingHref, mergeRouteParamsIntoDraft } from '@/utils/onboardingDraftParams';
 import OnboardingHeader from '@/components/OnboardingHeader';
 import {
   OnboardingScreenLayout,
@@ -55,9 +57,11 @@ function mensajeRutLocal(compact: string): string | null {
 }
 
 export default function InformacionBasicaScreen() {
-  const { tipo } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const { tipo } = params;
   const router = useRouter();
   const { usuario } = useAuth();
+  const { draft, patchDraft } = useOnboardingDraft();
 
   const tipoStr = useMemo(() => normalizarTipoParam(tipo), [tipo]);
   const esTaller = tipoStr === 'taller';
@@ -85,8 +89,59 @@ export default function InformacionBasicaScreen() {
 
   const docCompact = esTaller ? rutCompact : dniCompact;
 
+  const hydrateFromDraft = useCallback(() => {
+    const merged = { ...draft, ...mergeRouteParamsIntoDraft(draft, params as Record<string, string | string[] | undefined>) };
+    if (merged.tipo && merged.tipo !== tipoStr) {
+      // tipo viene por param; no sobrescribir pantalla si difiere
+    }
+    if (merged.nombre) {
+      setFormData((prev) => ({
+        ...prev,
+        nombre: merged.nombre || prev.nombre,
+        descripcion: merged.descripcion || prev.descripcion,
+        direccion: merged.direccion || prev.direccion,
+        experiencia_anos: merged.experiencia_anos || prev.experiencia_anos,
+      }));
+    } else if (merged.descripcion || merged.direccion || merged.experiencia_anos) {
+      setFormData((prev) => ({
+        ...prev,
+        descripcion: merged.descripcion || prev.descripcion,
+        direccion: merged.direccion || prev.direccion,
+        experiencia_anos: merged.experiencia_anos || prev.experiencia_anos,
+      }));
+    }
+    if (merged.rut) {
+      setRutCompact(mergeRutCompactInput(merged.rut.replace(/[.\-\s]/g, '')));
+    }
+    if (merged.dni) {
+      setDniCompact(mergeRutCompactInput(merged.dni.replace(/[.\-\s]/g, '')));
+    }
+    const nueve = extraerNueveDigitosDesdeGuardado(merged.telefono);
+    if (nueve) setTelefonoNacional(nueve);
+    if (merged.direccion && merged.direccion_lat && merged.direccion_lng) {
+      const lat = parseFloat(merged.direccion_lat);
+      const lon = parseFloat(merged.direccion_lng);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        setDireccionValidada({
+          line: merged.direccion,
+          lat,
+          lon,
+          comuna: merged.comuna || '',
+          region: merged.region || '',
+        });
+      }
+    }
+  }, [draft, params, tipoStr]);
+
+  useFocusEffect(
+    useCallback(() => {
+      hydrateFromDraft();
+    }, [hydrateFromDraft]),
+  );
+
   useEffect(() => {
     try {
+      if (draft.nombre || draft.telefono) return;
       if (usuario) {
         const nombreCompleto = usuario?.first_name
           ? `${usuario.first_name}${usuario?.last_name ? ` ${usuario.last_name}` : ''}`.trim()
@@ -105,7 +160,7 @@ export default function InformacionBasicaScreen() {
     } catch (error) {
       console.error('Error pre-llenando datos del usuario:', error);
     }
-  }, [usuario]);
+  }, [usuario, draft.nombre, draft.telefono]);
 
   const handleInputChange = useCallback((field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({
@@ -275,7 +330,7 @@ export default function InformacionBasicaScreen() {
     );
   };
 
-  const getBackPath = () => `/(onboarding)/tipo-cuenta`;
+  const getBackPath = () => buildOnboardingHref('/(onboarding)/tipo-cuenta', draft);
 
   const handleContinuar = async () => {
     if (!puedeContinuar) return;
@@ -345,6 +400,21 @@ export default function InformacionBasicaScreen() {
         paramsParaEnviar.dni = docFormatted;
         paramsParaEnviar.experiencia_anos = formData.experiencia_anos.trim();
       }
+
+      patchDraft({
+        tipo: tipoStr,
+        nombre: paramsParaEnviar.nombre,
+        descripcion: paramsParaEnviar.descripcion,
+        telefono: paramsParaEnviar.telefono,
+        rut: paramsParaEnviar.rut ?? '',
+        dni: paramsParaEnviar.dni ?? '',
+        direccion: paramsParaEnviar.direccion ?? '',
+        direccion_lat: paramsParaEnviar.direccion_lat ?? '',
+        direccion_lng: paramsParaEnviar.direccion_lng ?? '',
+        comuna: paramsParaEnviar.comuna ?? '',
+        region: paramsParaEnviar.region ?? '',
+        experiencia_anos: paramsParaEnviar.experiencia_anos ?? '',
+      });
 
       router.push({
         pathname: '/(onboarding)/cobertura-marcas' as any,

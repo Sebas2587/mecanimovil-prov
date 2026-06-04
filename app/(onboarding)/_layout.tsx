@@ -1,7 +1,9 @@
 import { Stack } from 'expo-router';
+import { OnboardingDraftProvider } from '@/context/OnboardingDraftContext';
 
 export default function OnboardingLayout() {
   return (
+    <OnboardingDraftProvider>
     <Stack>
       <Stack.Screen 
         name="tipo-cuenta" 
@@ -95,5 +97,6 @@ export default function OnboardingLayout() {
         }} 
       />
     </Stack>
+    </OnboardingDraftProvider>
   );
 } 
