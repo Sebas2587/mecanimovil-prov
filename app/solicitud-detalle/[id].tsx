@@ -18,7 +18,7 @@ import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, withOpacity, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
-import solicitudesService, { type SolicitudPublica, type OfertaProveedor, type MotivoRechazo } from '@/services/solicitudesService';
+import solicitudesService, { type SolicitudPublica, type OfertaProveedor, type MotivoRechazo, type DetalleServicioOferta } from '@/services/solicitudesService';
 import { RechazarSolicitudModal } from '@/components/solicitudes/RechazarSolicitudModal';
 import { ProponerFechaCatalogoModal } from '@/components/solicitudes/ProponerFechaCatalogoModal';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -407,6 +407,30 @@ export default function SolicitudDetalleScreen() {
     }
   };
 
+  const detallesOfertaPorServicio = useMemo(() => {
+    const map = new Map<number, DetalleServicioOferta>();
+    (miOferta?.detalles_servicios_detail ?? []).forEach((detalle) => {
+      if (detalle.servicio != null) {
+        map.set(Number(detalle.servicio), detalle);
+      }
+    });
+    return map;
+  }, [miOferta?.detalles_servicios_detail]);
+
+  const fmtRepuestoLinea = (rep: {
+    precio?: number;
+    precio_referencia?: number;
+    cantidad?: number;
+  }) => {
+    const unit = Number(rep.precio ?? rep.precio_referencia ?? 0);
+    const qty = Number(rep.cantidad ?? 1);
+    return (unit * qty).toLocaleString('es-CL', {
+      style: 'currency',
+      currency: 'CLP',
+      minimumFractionDigits: 0,
+    });
+  };
+
   const tienePieDecisionCatalogo = puedeGestionarCatalogo;
   const footerReserve =
     (tienePieDecisionCatalogo ? 72 : SPACING.fixed.lg) + (insets.bottom || 0);
@@ -689,14 +713,37 @@ export default function SolicitudDetalleScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionHeaderTitle}>Servicios solicitados</Text>
             {solicitud.servicios_solicitados_detail && solicitud.servicios_solicitados_detail.length > 0 ? (
-              <View style={styles.serviciosBadgesContainer}>
-                {solicitud.servicios_solicitados_detail.map((servicio, index) => (
-                  <View key={servicio.id || index} style={styles.servicioBadge}>
-                    <Text style={styles.servicioBadgeText} numberOfLines={3}>
-                      {servicio.nombre}
-                    </Text>
-                  </View>
-                ))}
+              <View style={styles.serviciosListaDetalle}>
+                {solicitud.servicios_solicitados_detail.map((servicio, index) => {
+                  const detalle = detallesOfertaPorServicio.get(Number(servicio.id));
+                  const repuestos = detalle?.repuestos_info ?? [];
+                  return (
+                    <View key={servicio.id || index} style={styles.servicioDetalleCard}>
+                      <Text style={styles.servicioDetalleNombre} numberOfLines={3}>
+                        {servicio.nombre}
+                      </Text>
+                      {repuestos.length > 0 ? (
+                        <View style={styles.repuestosOfertaBlock}>
+                          <Text style={styles.repuestosOfertaLabel}>Repuestos incluidos</Text>
+                          {repuestos.map((rep, repIdx) => (
+                            <View
+                              key={String(rep.id ?? repIdx)}
+                              style={styles.repuestoOfertaRow}
+                            >
+                              <Text style={styles.repuestoOfertaNombre} numberOfLines={2}>
+                                {rep.nombre}
+                                {(rep.cantidad ?? 1) > 1 ? ` × ${rep.cantidad}` : ''}
+                              </Text>
+                              <Text style={styles.repuestoOfertaPrecio}>
+                                {fmtRepuestoLinea(rep)}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })}
               </View>
             ) : (
               <Text style={styles.serviciosEmptyText}>No hay servicios especificados</Text>
@@ -1186,6 +1233,58 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
 
+  serviciosListaDetalle: {
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.md,
+  },
+  servicioDetalleCard: {
+    backgroundColor: I.surfaceStrong,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.sm + 2,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  servicioDetalleNombre: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.ink,
+  },
+  repuestosOfertaBlock: {
+    marginTop: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.sm,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+    gap: 6,
+  },
+  repuestosOfertaLabel: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    textTransform: 'uppercase',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+  },
+  repuestoOfertaRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.sm,
+  },
+  repuestoOfertaNombre: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.ink,
+  },
+  repuestoOfertaPrecio: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.primary,
+    fontVariant: ['tabular-nums'],
+  },
   serviciosBadgesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
