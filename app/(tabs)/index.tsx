@@ -45,6 +45,7 @@ import {
   parseHorariosApiResponse,
   proveedorTieneHorariosActivos,
 } from '@/utils/horariosProveedor';
+import { useEspecialidadesDesdeServicios } from '@/hooks/useEspecialidadesDesdeServicios';
 
 export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens
@@ -67,6 +68,13 @@ export default function HomeScreen() {
   } = useRadarOportunidades();
 
   const esMecanicoDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
+  const esMultimarca = useMemo(() => {
+    const cobertura =
+      estadoProveedor?.tipo_cobertura_marca
+      || (estadoProveedor?.datos_proveedor as { tipo_cobertura_marca?: string } | undefined)
+        ?.tipo_cobertura_marca;
+    return cobertura === 'multimarca';
+  }, [estadoProveedor]);
   /** Habilitado por admin para operar (≠ sello "Verificado" en perfil). */
   const cuentaAprobadaPorAdmin = estadoProveedor?.estado_verificacion === 'aprobado';
   const perfilProveedorKey = useMemo(
@@ -77,6 +85,8 @@ export default function HomeScreen() {
     enabled: Boolean(isAuthenticated && cuentaAprobadaPorAdmin && !isLoading),
     dias: 30,
   });
+  const { especialidades: especialidadesTags, refresh: refreshEspecialidadesTags } =
+    useEspecialidadesDesdeServicios(Boolean(cuentaAprobadaPorAdmin && !isLoading));
 
   /** Misma lectura que el hero de `RendimientoKpisContent` (ventana 30 días en home). */
   const rendimientoWidgetPeriod = useMemo(() => {
@@ -238,7 +248,8 @@ export default function HomeScreen() {
       verificarYGenerarAlertas();
       kpisResumen.refresh();
       verificarHorariosConfigurados();
-    }, [cuentaAprobadaPorAdmin, kpisResumen.refresh, verificarHorariosConfigurados])
+      refreshEspecialidadesTags();
+    }, [cuentaAprobadaPorAdmin, kpisResumen.refresh, verificarHorariosConfigurados, refreshEspecialidadesTags])
   );
 
   useEffect(() => {
@@ -598,6 +609,7 @@ export default function HomeScreen() {
       cargarSuscripcion(),
       kpisResumen.refresh(),
       verificarHorariosConfigurados(),
+      refreshEspecialidadesTags(),
     ];
     if (radarPreferenciaCargada && radarOportunidadesActivo) {
       tasks.push(cargarSolicitudesDisponibles());
@@ -714,6 +726,17 @@ export default function HomeScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={themedStyles.welcomeLabel}>Bienvenido</Text>
                 <Text style={themedStyles.providerName} numberOfLines={1}>{obtenerNombreProveedor()}</Text>
+                {especialidadesTags.length > 0 ? (
+                  <View style={themedStyles.especialidadesTagsRow}>
+                    {especialidadesTags.map((esp) => (
+                      <View key={esp.id} style={themedStyles.especialidadTag}>
+                        <Text style={themedStyles.especialidadTagText} numberOfLines={1}>
+                          {esp.nombre}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
               </View>
             </View>
             <TouchableOpacity
@@ -1022,23 +1045,23 @@ export default function HomeScreen() {
                   </View>
                   <View style={themedStyles.mgmtCardTextCol}>
                     <Text style={themedStyles.mgmtCardTitle}>Calendario</Text>
-                    
                   </View>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={themedStyles.mgmtCard}
-                  onPress={() => router.push('/especialidades-marcas')}
-                  activeOpacity={0.7}
-                >
-                  <View style={themedStyles.mgmtIconBox}>
-                    <Wrench size={22} color={palette.ink} />
-                  </View>
-                  <View style={themedStyles.mgmtCardTextCol}>
-                    <Text style={themedStyles.mgmtCardTitle}>Especialidad</Text>
-                    
-                  </View>
-                </TouchableOpacity>
+                {!esMultimarca ? (
+                  <TouchableOpacity
+                    style={themedStyles.mgmtCard}
+                    onPress={() => router.push('/especialidades-marcas')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={themedStyles.mgmtIconBox}>
+                      <Wrench size={22} color={palette.ink} />
+                    </View>
+                    <View style={themedStyles.mgmtCardTextCol}>
+                      <Text style={themedStyles.mgmtCardTitle}>Marcas</Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : null}
               </View>
 
               <View style={themedStyles.mgmtRow}>

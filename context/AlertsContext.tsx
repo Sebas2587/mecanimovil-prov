@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
 import serviceAreasApi from '@/services/serviceAreasApi';
@@ -45,6 +45,26 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [saludSuscripcion, setSaludSuscripcion] = useState<SaludSuscripcion | null>(null);
   const { estadoProveedor, usuario } = useAuth();
+  const verificarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const verificarInFlightRef = useRef(false);
+
+  const alertasContextKey = useMemo(
+    () =>
+      [
+        usuario?.id ?? '',
+        estadoProveedor?.tiene_perfil ?? false,
+        estadoProveedor?.onboarding_completado ?? false,
+        estadoProveedor?.tipo_proveedor ?? '',
+        estadoProveedor?.estado_verificacion ?? '',
+      ].join('|'),
+    [
+      usuario?.id,
+      estadoProveedor?.tiene_perfil,
+      estadoProveedor?.onboarding_completado,
+      estadoProveedor?.tipo_proveedor,
+      estadoProveedor?.estado_verificacion,
+    ],
+  );
 
   // Calcular alertas no leídas
   const alertasNoLeidas = alertas.filter(a => !a.leida).length;
@@ -94,13 +114,14 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   // Verificar y generar alertas automáticamente
   const verificarYGenerarAlertas = async () => {
-    if (!estadoProveedor || !usuario) {
-      // Si no hay proveedor o usuario, limpiar todas las alertas de configuración
-      eliminarAlertasDeConfiguracion(['mercado_pago_no_configurado', 'zonas_cobertura_no_configuradas']);
-      return;
-    }
-
+    if (verificarInFlightRef.current) return;
+    verificarInFlightRef.current = true;
     try {
+      if (!estadoProveedor || !usuario) {
+        eliminarAlertasDeConfiguracion(['mercado_pago_no_configurado', 'zonas_cobertura_no_configuradas']);
+        return;
+      }
+
       // Primero, eliminar alertas de configuración existentes para regenerarlas
       const alertasConfiguracion: TipoAlerta[] = [];
       let necesitaMercadoPago = false;
@@ -270,15 +291,27 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     } catch (error) {
       console.error('Error verificando alertas:', error);
+    } finally {
+      verificarInFlightRef.current = false;
     }
   };
 
-  // Verificar alertas cuando cambia el estado del proveedor
+  // Verificar alertas cuando cambia el estado relevante del proveedor (debounced)
   useEffect(() => {
-    if (estadoProveedor && usuario) {
-      verificarYGenerarAlertas();
+    if (!estadoProveedor || !usuario) return;
+    if (!estadoProveedor.onboarding_completado) return;
+    if (verificarTimerRef.current) {
+      clearTimeout(verificarTimerRef.current);
     }
-  }, [estadoProveedor, usuario]);
+    verificarTimerRef.current = setTimeout(() => {
+      verificarYGenerarAlertas();
+    }, 1500);
+    return () => {
+      if (verificarTimerRef.current) {
+        clearTimeout(verificarTimerRef.current);
+      }
+    };
+  }, [alertasContextKey]);
 
   return (
     <AlertsContext.Provider

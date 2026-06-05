@@ -1944,7 +1944,7 @@ const CrearServicioScreen = () => {
           <View style={styles.noDataContainer}>
             <InstitutionalIcon name="information-circle-outline" size={24} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.noDataText}>
-              Configura las marcas que atiendes en Especialidades y marcas antes de publicar servicios.
+              Configura las marcas que atiendes en Marcas antes de publicar servicios.
             </Text>
           </View>
         </View>

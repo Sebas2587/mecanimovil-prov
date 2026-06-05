@@ -16,18 +16,15 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '@/context/AuthContext';
 import { Stack, router } from 'expo-router';
 import {
-  especialidadesAPI,
   proveedorVerificadoAPI,
   vehiculoAPI,
   modelosAPI,
-  type CategoriaServicio,
   type MarcaVehiculo,
   type ModeloVehiculo,
 } from '@/services/api';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import Snackbar from '@/components/Snackbar';
-import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { INSTITUTIONAL_SELECTION } from '@/app/design-system/styles/institutionalSelection';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -39,86 +36,13 @@ const TS = TYPOGRAPHY.styles;
 const lh = (fontSize: number, ratio: number) => Math.round(fontSize * ratio);
 
 const hx = SPACING.container.horizontal;
-/** Padding horizontal de `panelBody` (debe coincidir con el estilo). */
 const PANEL_BODY_H_PAD = SPACING.fixed.sm;
-/** Hueco fijo entre las dos columnas. */
 const GRID_COL_GAP = SPACING.fixed.xs;
 
 function estimateGridSlotWidth(): number {
   const w = Dimensions.get('window').width;
   return Math.max(0, w - hx * 2 - PANEL_BODY_H_PAD * 2);
 }
-
-const EspecialidadCard = React.memo(function EspecialidadCard({
-  especialidad,
-  isSelected,
-  disabled,
-  cardWidth,
-  isLeftColumn,
-  onToggle,
-}: {
-  especialidad: CategoriaServicio;
-  isSelected: boolean;
-  disabled: boolean;
-  cardWidth: number;
-  isLeftColumn: boolean;
-  onToggle: (id: number) => void;
-}) {
-  const onPress = useCallback(() => onToggle(especialidad.id), [onToggle, especialidad.id]);
-
-  return (
-    <TouchableOpacity
-      style={[
-        INSTITUTIONAL_SELECTION.card,
-        styles.selectionCardLayout,
-        {
-          width: cardWidth,
-          marginRight: isLeftColumn ? GRID_COL_GAP : 0,
-        },
-        isSelected && INSTITUTIONAL_SELECTION.cardSelected,
-      ]}
-      onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.85}
-    >
-      <View
-        style={[
-          INSTITUTIONAL_SELECTION.checkbox,
-          isSelected && INSTITUTIONAL_SELECTION.checkboxSelected,
-        ]}
-      >
-        {isSelected ? <InstitutionalIcon name="checkmark" size={12} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} /> : null}
-      </View>
-
-      <View
-        style={[
-          INSTITUTIONAL_SELECTION.iconPlate,
-          styles.cardIconPlateSpacing,
-          isSelected && INSTITUTIONAL_SELECTION.iconPlateSelected,
-        ]}
-      >
-        <InstitutionalIcon name="build" size={16} color={isSelected ? I.primary : I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-      </View>
-
-      <View style={styles.cardTextBlock}>
-        <Text
-          style={[INSTITUTIONAL_SELECTION.title, isSelected && INSTITUTIONAL_SELECTION.titleSelected]}
-          numberOfLines={2}
-        >
-          {especialidad.nombre}
-        </Text>
-        {especialidad.descripcion ? (
-          <Text
-            style={[styles.cardDescription, isSelected ? styles.cardDescriptionSelected : styles.cardDescriptionIdle]}
-            numberOfLines={2}
-          >
-            {especialidad.descripcion}
-          </Text>
-        ) : null}
-      </View>
-    </TouchableOpacity>
-  );
-});
 
 const MarcaCard = React.memo(function MarcaCard({
   marca,
@@ -167,7 +91,9 @@ const MarcaCard = React.memo(function MarcaCard({
           isSelected && INSTITUTIONAL_SELECTION.checkboxSelected,
         ]}
       >
-        {isSelected ? <InstitutionalIcon name="checkmark" size={12} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} /> : null}
+        {isSelected ? (
+          <InstitutionalIcon name="checkmark" size={12} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+        ) : null}
       </View>
 
       <View
@@ -177,7 +103,12 @@ const MarcaCard = React.memo(function MarcaCard({
           isSelected && INSTITUTIONAL_SELECTION.iconPlateSelected,
         ]}
       >
-        <InstitutionalIcon name="directions-car" size={16} color={isSelected ? I.primary : I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
+        <InstitutionalIcon
+          name="directions-car"
+          size={16}
+          color={isSelected ? I.primary : I.muted}
+          strokeWidth={ICON_STROKE_WIDTH}
+        />
       </View>
 
       <View style={styles.cardTextBlock}>
@@ -217,7 +148,6 @@ export default function EspecialidadesMarcasScreen() {
     return cobertura === 'multimarca';
   }, [estadoProveedor]);
 
-  /** Ancho real del hueco del grid (panelBody); `onLayout` corrige el estimado por bordes / fuente. */
   const [gridSlotWidth, setGridSlotWidth] = useState(estimateGridSlotWidth);
   const onGridSlotLayout = useCallback((e: LayoutChangeEvent) => {
     const { width } = e.nativeEvent.layout;
@@ -228,7 +158,7 @@ export default function EspecialidadesMarcasScreen() {
 
   const cardWidth = useMemo(
     () => Math.max(96, Math.floor((gridSlotWidth - GRID_COL_GAP) / 2)),
-    [gridSlotWidth]
+    [gridSlotWidth],
   );
 
   const [loading, setLoading] = useState(true);
@@ -236,33 +166,26 @@ export default function EspecialidadesMarcasScreen() {
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  const [todasEspecialidades, setTodasEspecialidades] = useState<CategoriaServicio[]>([]);
-  const [especialidadesActuales, setEspecialidadesActuales] = useState<CategoriaServicio[]>([]);
-  const [especialidadesSeleccionadas, setEspecialidadesSeleccionadas] = useState<number[]>([]);
-
   const [todasMarcas, setTodasMarcas] = useState<MarcaVehiculo[]>([]);
   const [marcasActuales, setMarcasActuales] = useState<MarcaVehiculo[]>([]);
   const [marcasSeleccionadas, setMarcasSeleccionadas] = useState<number[]>([]);
   const [modelosPorMarca, setModelosPorMarca] = useState<{ [key: number]: ModeloVehiculo[] }>({});
 
-  const [busquedaEspecialidades, setBusquedaEspecialidades] = useState('');
   const [busquedaMarcas, setBusquedaMarcas] = useState('');
-  const [tabActiva, setTabActiva] = useState<'especialidades' | 'marcas'>('especialidades');
   const [modoEdicion, setModoEdicion] = useState(false);
 
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVariant, setSnackbarVariant] = useState<'success' | 'warning' | 'error' | 'info'>('warning');
 
-  const MAX_ESPECIALIDADES = 6;
   const MAX_MARCAS = 3;
 
   useEffect(() => {
     if (estadoProveedor?.estado_verificacion !== 'aprobado') {
       Alert.alert(
         'Acceso Restringido',
-        'Solo los proveedores con cuenta aprobada pueden configurar sus especialidades y marcas.',
-        [{ text: 'Entendido', onPress: () => router.back() }]
+        'Solo los proveedores con cuenta aprobada pueden configurar sus marcas.',
+        [{ text: 'Entendido', onPress: () => router.back() }],
       );
       return;
     }
@@ -270,18 +193,9 @@ export default function EspecialidadesMarcasScreen() {
     cargarDatos();
   }, [estadoProveedor]);
 
-  useEffect(() => {
-    if (isMultimarca && tabActiva === 'marcas') {
-      setTabActiva('especialidades');
-    }
-  }, [isMultimarca, tabActiva]);
-
   const cargarDatos = async () => {
     try {
       setLoading(true);
-
-      const especialidadesData = await especialidadesAPI.obtenerCategorias();
-      setTodasEspecialidades(especialidadesData);
 
       const marcasData = await vehiculoAPI.obtenerMarcas();
       setTodasMarcas(marcasData);
@@ -300,35 +214,16 @@ export default function EspecialidadesMarcasScreen() {
       try {
         const datosProveedor = await proveedorVerificadoAPI.obtenerDatosCompletos();
 
-        if (datosProveedor.data.especialidades && Array.isArray(datosProveedor.data.especialidades)) {
-          if (
-            datosProveedor.data.especialidades.length > 0 &&
-            typeof datosProveedor.data.especialidades[0] === 'object'
-          ) {
-            setEspecialidadesActuales(datosProveedor.data.especialidades);
-            setEspecialidadesSeleccionadas(datosProveedor.data.especialidades.map((esp: any) => esp.id));
-          } else {
-            const especialidadesActualesObj = especialidadesData.filter((esp) =>
-              datosProveedor.data.especialidades.includes(esp.id)
-            );
-            setEspecialidadesActuales(especialidadesActualesObj);
-            setEspecialidadesSeleccionadas(datosProveedor.data.especialidades);
-          }
-        } else {
-          setEspecialidadesActuales([]);
-          setEspecialidadesSeleccionadas([]);
-        }
-
         if (datosProveedor.data.marcas_atendidas && Array.isArray(datosProveedor.data.marcas_atendidas)) {
           if (
-            datosProveedor.data.marcas_atendidas.length > 0 &&
-            typeof datosProveedor.data.marcas_atendidas[0] === 'object'
+            datosProveedor.data.marcas_atendidas.length > 0
+            && typeof datosProveedor.data.marcas_atendidas[0] === 'object'
           ) {
             setMarcasActuales(datosProveedor.data.marcas_atendidas);
-            setMarcasSeleccionadas(datosProveedor.data.marcas_atendidas.map((marca: any) => marca.id));
+            setMarcasSeleccionadas(datosProveedor.data.marcas_atendidas.map((marca: MarcaVehiculo) => marca.id));
           } else {
             const marcasActualesObj = marcasData.filter((marca: MarcaVehiculo) =>
-              datosProveedor.data.marcas_atendidas.includes(marca.id)
+              datosProveedor.data.marcas_atendidas.includes(marca.id),
             );
             setMarcasActuales(marcasActualesObj);
             setMarcasSeleccionadas(datosProveedor.data.marcas_atendidas);
@@ -339,9 +234,7 @@ export default function EspecialidadesMarcasScreen() {
         }
       } catch (error) {
         console.warn('⚠️ No se pudieron cargar datos actuales del proveedor:', error);
-        setEspecialidadesActuales([]);
         setMarcasActuales([]);
-        setEspecialidadesSeleccionadas([]);
         setMarcasSeleccionadas([]);
       }
     } catch (error) {
@@ -364,32 +257,7 @@ export default function EspecialidadesMarcasScreen() {
       setSnackbarVariant(variant);
       setSnackbarVisible(true);
     },
-    []
-  );
-
-  const toggleEspecialidad = useCallback(
-    (especialidadId: number) => {
-      if (!modoEdicion) {
-        setModoEdicion(true);
-      }
-
-      setEspecialidadesSeleccionadas((prev) => {
-        if (prev.includes(especialidadId)) {
-          setHasChanges(true);
-          return prev.filter((id) => id !== especialidadId);
-        }
-        if (prev.length >= MAX_ESPECIALIDADES) {
-          mostrarSnackbar(
-            `Has alcanzado el límite máximo de ${MAX_ESPECIALIDADES} especialidades. Deselecciona una para agregar otra.`,
-            'warning'
-          );
-          return prev;
-        }
-        setHasChanges(true);
-        return [...prev, especialidadId];
-      });
-    },
-    [modoEdicion, mostrarSnackbar]
+    [],
   );
 
   const toggleMarca = useCallback(
@@ -406,7 +274,7 @@ export default function EspecialidadesMarcasScreen() {
         if (prev.length >= MAX_MARCAS) {
           mostrarSnackbar(
             `Has alcanzado el límite máximo de ${MAX_MARCAS} marcas de vehículos. Deselecciona una para agregar otra.`,
-            'warning'
+            'warning',
           );
           return prev;
         }
@@ -414,15 +282,13 @@ export default function EspecialidadesMarcasScreen() {
         return [...prev, marcaId];
       });
     },
-    [modoEdicion, mostrarSnackbar]
+    [modoEdicion, mostrarSnackbar],
   );
 
   const cancelarEdicion = () => {
-    setEspecialidadesSeleccionadas(especialidadesActuales.map((esp) => esp.id));
     setMarcasSeleccionadas(marcasActuales.map((marca) => marca.id));
     setModoEdicion(false);
     setHasChanges(false);
-    setBusquedaEspecialidades('');
     setBusquedaMarcas('');
   };
 
@@ -436,7 +302,7 @@ export default function EspecialidadesMarcasScreen() {
     if (todasLasMarcasIds.length > MAX_MARCAS) {
       mostrarSnackbar(
         `Solo puedes seleccionar un máximo de ${MAX_MARCAS} marcas. Se han seleccionado las primeras ${MAX_MARCAS}.`,
-        'info'
+        'info',
       );
     }
   };
@@ -447,95 +313,48 @@ export default function EspecialidadesMarcasScreen() {
     setHasChanges(true);
   };
 
-  const limpiarSeleccionEspecialidades = () => {
-    setModoEdicion(true);
-    setEspecialidadesSeleccionadas([]);
-    setHasChanges(true);
-  };
-
-  const seleccionarTodasLasEspecialidades = () => {
-    setModoEdicion(true);
-    const todasLasEspecialidadesIds = todasEspecialidades.map((e) => e.id);
-    const especialidadesLimitadas = todasLasEspecialidadesIds.slice(0, MAX_ESPECIALIDADES);
-    setEspecialidadesSeleccionadas(especialidadesLimitadas);
-    setHasChanges(true);
-
-    if (todasLasEspecialidadesIds.length > MAX_ESPECIALIDADES) {
-      mostrarSnackbar(
-        `Solo puedes seleccionar un máximo de ${MAX_ESPECIALIDADES} especialidades. Se han seleccionado las primeras ${MAX_ESPECIALIDADES}.`,
-        'info'
-      );
-    }
-  };
-
   const guardarCambios = async () => {
     try {
       setSaving(true);
 
-      if (especialidadesSeleccionadas.length === 0) {
-        Alert.alert('Error', 'Debes seleccionar al menos una especialidad.');
+      if (marcasSeleccionadas.length === 0) {
+        Alert.alert('Error', 'Debes seleccionar al menos una marca de vehículo.');
         setSaving(false);
         return;
       }
 
-      if (especialidadesSeleccionadas.length > MAX_ESPECIALIDADES) {
-        mostrarSnackbar(
-          `Has excedido el límite de ${MAX_ESPECIALIDADES} especialidades. Por favor, deselecciona algunas.`,
-          'error'
-        );
+      if (marcasSeleccionadas.length > MAX_MARCAS) {
+        mostrarSnackbar(`Has excedido el límite de ${MAX_MARCAS} marcas. Por favor, deselecciona algunas.`, 'error');
         setSaving(false);
         return;
       }
 
-      if (!isMultimarca) {
-        if (marcasSeleccionadas.length === 0) {
-          Alert.alert('Error', 'Debes seleccionar al menos una marca de vehículo.');
-          setSaving(false);
-          return;
-        }
-
-        if (marcasSeleccionadas.length > MAX_MARCAS) {
-          mostrarSnackbar(`Has excedido el límite de ${MAX_MARCAS} marcas. Por favor, deselecciona algunas.`, 'error');
-          setSaving(false);
-          return;
-        }
-      }
-
-      await especialidadesAPI.actualizarEspecialidades(especialidadesSeleccionadas);
       await proveedorVerificadoAPI.actualizarMarcas(
-        isMultimarca ? [] : marcasSeleccionadas,
+        marcasSeleccionadas,
         estadoProveedor?.tipo_proveedor || '',
-        isMultimarca ? 'multimarca' : 'especialista',
+        'especialista',
       );
 
       Alert.alert(
         '✅ Configuración Guardada',
-        isMultimarca
-          ? `Se han actualizado ${especialidadesSeleccionadas.length} especialidades. Tu perfil sigue como proveedor multimarca.`
-          : `Se han actualizado ${especialidadesSeleccionadas.length} especialidades y ${marcasSeleccionadas.length} marcas de vehículos.`,
-        [{ text: 'Perfecto', style: 'default' }]
+        `Se han actualizado ${marcasSeleccionadas.length} marcas de vehículos.`,
+        [{ text: 'Perfecto', style: 'default' }],
       );
 
       setHasChanges(false);
       setModoEdicion(false);
-      setBusquedaEspecialidades('');
       setBusquedaMarcas('');
       await cargarDatos();
     } catch (error: any) {
       console.error('Error guardando configuración:', error);
       Alert.alert(
         'Error',
-        error.response?.data?.error || 'No se pudo guardar la configuración. Intenta nuevamente.'
+        error.response?.data?.error || 'No se pudo guardar la configuración. Intenta nuevamente.',
       );
     } finally {
       setSaving(false);
     }
   };
-
-  const especialidadesMostrar = useMemo(() => {
-    const list = modoEdicion ? todasEspecialidades : especialidadesActuales;
-    return list.filter((esp) => esp.nombre.toLowerCase().includes(busquedaEspecialidades.toLowerCase()));
-  }, [modoEdicion, todasEspecialidades, especialidadesActuales, busquedaEspecialidades]);
 
   const marcasMostrar = useMemo(() => {
     const list = modoEdicion ? todasMarcas : marcasActuales;
@@ -546,7 +365,7 @@ export default function EspecialidadesMarcasScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <Header
-          title={isMultimarca ? 'Especialidades' : 'Especialidades y Marcas'}
+          title="Marcas"
           showBack
           onBackPress={() => router.back()}
           backgroundColor={I.canvas}
@@ -562,15 +381,10 @@ export default function EspecialidadesMarcasScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <Stack.Screen
-        options={{
-          title: 'Especialidades y Marcas',
-          headerShown: false,
-        }}
-      />
+      <Stack.Screen options={{ title: 'Marcas', headerShown: false }} />
 
       <Header
-        title={isMultimarca ? 'Especialidades' : 'Especialidades y Marcas'}
+        title="Marcas"
         showBack
         onBackPress={() => router.back()}
         backgroundColor={I.canvas}
@@ -581,20 +395,18 @@ export default function EspecialidadesMarcasScreen() {
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 88 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + (isMultimarca ? 24 : 88) }}
       >
         <View style={[styles.content, { paddingHorizontal: hx }]}>
           <View style={styles.infoNotice}>
             <View style={styles.infoCardContent}>
-              <InstitutionalIcon name="information-circle" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="information-circle" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>
                 {isMultimarca
-                  ? modoEdicion
-                    ? 'Eres proveedor multimarca: configura solo tus especialidades de servicio. Atiendes vehículos de cualquier marca.'
-                    : 'Perfil multimarca: atiendes todas las marcas. Aquí puedes revisar y editar tus especialidades.'
+                  ? 'Perfil multimarca: atiendes vehículos de cualquier marca. Tus especialidades se muestran en el inicio según los servicios que configures.'
                   : modoEdicion
-                    ? 'Selecciona las especialidades que ofreces y las marcas de vehículos que atiendes. Esto define tu perfil de servicios.'
-                    : 'Esta es tu configuración actual. Toca «Configurar» abajo para modificar.'}
+                    ? 'Selecciona las marcas de vehículos que atiendes. Tus especialidades se derivan automáticamente de los servicios en «Mis servicios».'
+                    : 'Esta es tu configuración actual de marcas. Toca «Configurar marcas» abajo para modificar.'}
               </Text>
             </View>
           </View>
@@ -609,238 +421,122 @@ export default function EspecialidadesMarcasScreen() {
                 </Text>
               </View>
             </View>
-          ) : null}
-
-          <View style={styles.mainPanel}>
-            <InstitutionalScreenTabs
-              style={styles.tabsInPanel}
-              activeKey={tabActiva}
-              onChange={setTabActiva}
-              tabs={
-                isMultimarca
-                  ? [
-                      {
-                        key: 'especialidades',
-                        label: 'Especialidades',
-                        leading: (
-                          <InstitutionalIcon
-                            name="build"
-                            size={18}
-                            color={I.onPrimary}
-                            strokeWidth={ICON_STROKE_WIDTH}
-                          />
-                        ),
-                      },
-                    ]
-                  : [
-                      {
-                        key: 'especialidades',
-                        label: 'Especialidades',
-                        leading: (
-                          <InstitutionalIcon
-                            name="build"
-                            size={18}
-                            color={tabActiva === 'especialidades' ? I.onPrimary : I.muted}
-                            strokeWidth={ICON_STROKE_WIDTH}
-                          />
-                        ),
-                      },
-                      {
-                        key: 'marcas',
-                        label: 'Marcas',
-                        leading: (
-                          <InstitutionalIcon
-                            name="directions-car"
-                            size={18}
-                            color={tabActiva === 'marcas' ? I.onPrimary : I.muted}
-                            strokeWidth={ICON_STROKE_WIDTH}
-                          />
-                        ),
-                      },
-                    ]
-              }
-            />
-            <View style={styles.panelDivider} />
-            <View style={styles.panelBody}>
-              {tabActiva === 'especialidades' && (
-                <>
-                  {modoEdicion && (
-                    <View style={styles.toolBlock}>
-                      <View style={styles.searchRow}>
-                        <InstitutionalIcon name="search" size={18} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-                        <TextInput
-                          style={styles.searchInput}
-                          placeholder="Buscar especialidades…"
-                          value={busquedaEspecialidades}
-                          onChangeText={setBusquedaEspecialidades}
-                          placeholderTextColor={I.mutedSoft}
-                        />
-                        {busquedaEspecialidades.length > 0 ? (
-                          <TouchableOpacity onPress={() => setBusquedaEspecialidades('')} hitSlop={12}>
-                            <InstitutionalIcon name="close-circle" size={20} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-                          </TouchableOpacity>
-                        ) : null}
-                      </View>
-                    </View>
-                  )}
-
-                  {modoEdicion && (
-                    <View style={[styles.toolBlock, styles.toolBlockNoTopPad]}>
-                      <View style={styles.quickActionsRow}>
-                        <TouchableOpacity
-                          style={styles.quickChip}
-                          onPress={seleccionarTodasLasEspecialidades}
-                          activeOpacity={0.85}
-                        >
-                          <InstitutionalIcon name="checkmark-done" size={16} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
-                          <Text style={styles.quickChipTextUp}>Seleccionar todas</Text>
+          ) : (
+            <View style={styles.mainPanel}>
+              <View style={styles.panelHeader}>
+                <InstitutionalIcon name="directions-car" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.panelHeaderTitle}>Marcas que atiendes</Text>
+              </View>
+              <View style={styles.panelDivider} />
+              <View style={styles.panelBody}>
+                {modoEdicion && (
+                  <View style={styles.toolBlock}>
+                    <View style={styles.searchRow}>
+                      <InstitutionalIcon name="search" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="Buscar marcas…"
+                        value={busquedaMarcas}
+                        onChangeText={setBusquedaMarcas}
+                        placeholderTextColor={I.mutedSoft}
+                      />
+                      {busquedaMarcas.length > 0 ? (
+                        <TouchableOpacity onPress={() => setBusquedaMarcas('')} hitSlop={12}>
+                          <InstitutionalIcon name="close-circle" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                         </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.quickChip}
-                          onPress={limpiarSeleccionEspecialidades}
-                          activeOpacity={0.85}
-                        >
-                          <InstitutionalIcon name="close" size={16} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
-                          <Text style={styles.quickChipTextDown}>Limpiar</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-
-                  <View style={styles.counterRow}>
-                    <InstitutionalIcon name="list" size={18} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.counterLabel}>
-                      <Text style={styles.counterMono}>{especialidadesSeleccionadas.length}</Text>
-                      <Text style={styles.counterSlash}> / </Text>
-                      <Text style={styles.counterMono}>{MAX_ESPECIALIDADES}</Text>
-                      <Text style={styles.counterRest}> especialidades</Text>
-                    </Text>
-                  </View>
-
-                  <View style={styles.gridSlot} onLayout={onGridSlotLayout}>
-                    <View style={styles.itemsGrid}>
-                      {especialidadesMostrar.map((esp, index) => (
-                        <EspecialidadCard
-                          key={esp.id}
-                          especialidad={esp}
-                          isSelected={especialidadesSeleccionadas.includes(esp.id)}
-                          disabled={!modoEdicion && !especialidadesSeleccionadas.includes(esp.id)}
-                          cardWidth={cardWidth}
-                          isLeftColumn={index % 2 === 0}
-                          onToggle={toggleEspecialidad}
-                        />
-                      ))}
+                      ) : null}
                     </View>
                   </View>
-                </>
-              )}
+                )}
 
-              {tabActiva === 'marcas' && !isMultimarca && (
-                <>
-                  {modoEdicion && (
-                    <View style={styles.toolBlock}>
-                      <View style={styles.searchRow}>
-                        <InstitutionalIcon name="search" size={18} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-                        <TextInput
-                          style={styles.searchInput}
-                          placeholder="Buscar marcas…"
-                          value={busquedaMarcas}
-                          onChangeText={setBusquedaMarcas}
-                          placeholderTextColor={I.mutedSoft}
-                        />
-                        {busquedaMarcas.length > 0 ? (
-                          <TouchableOpacity onPress={() => setBusquedaMarcas('')} hitSlop={12}>
-                            <InstitutionalIcon name="close-circle" size={20} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-                          </TouchableOpacity>
-                        ) : null}
-                      </View>
-                    </View>
-                  )}
-
-                  {modoEdicion && (
-                    <View style={[styles.toolBlock, styles.toolBlockNoTopPad]}>
-                      <View style={styles.quickActionsRow}>
-                        <TouchableOpacity style={styles.quickChip} onPress={seleccionarTodasLasMarcas} activeOpacity={0.85}>
-                          <InstitutionalIcon name="checkmark-done" size={16} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
-                          <Text style={styles.quickChipTextUp}>Seleccionar todas</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.quickChip} onPress={limpiarSeleccionMarcas} activeOpacity={0.85}>
-                          <InstitutionalIcon name="close" size={16} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
-                          <Text style={styles.quickChipTextDown}>Limpiar</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-
-                  <View style={styles.counterRow}>
-                    <InstitutionalIcon name="directions-car" size={18} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.counterLabel}>
-                      <Text style={styles.counterMono}>{marcasSeleccionadas.length}</Text>
-                      <Text style={styles.counterSlash}> / </Text>
-                      <Text style={styles.counterMono}>{MAX_MARCAS}</Text>
-                      <Text style={styles.counterRest}> marcas</Text>
-                    </Text>
-                  </View>
-
-                  <View style={styles.gridSlot} onLayout={onGridSlotLayout}>
-                    <View style={styles.itemsGrid}>
-                      {marcasMostrar.map((marca, index) => (
-                        <MarcaCard
-                          key={marca.id}
-                          marca={marca}
-                          modelosDeMarca={modelosPorMarca[marca.id] || []}
-                          isSelected={marcasSeleccionadas.includes(marca.id)}
-                          disabled={!modoEdicion && !marcasSeleccionadas.includes(marca.id)}
-                          cardWidth={cardWidth}
-                          isLeftColumn={index % 2 === 0}
-                          onToggle={toggleMarca}
-                        />
-                      ))}
+                {modoEdicion && (
+                  <View style={[styles.toolBlock, styles.toolBlockNoTopPad]}>
+                    <View style={styles.quickActionsRow}>
+                      <TouchableOpacity style={styles.quickChip} onPress={seleccionarTodasLasMarcas} activeOpacity={0.85}>
+                        <InstitutionalIcon name="checkmark-done" size={16} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.quickChipTextUp}>Seleccionar todas</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.quickChip} onPress={limpiarSeleccionMarcas} activeOpacity={0.85}>
+                        <InstitutionalIcon name="close" size={16} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.quickChipTextDown}>Limpiar</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
-                </>
-              )}
+                )}
+
+                <View style={styles.counterRow}>
+                  <InstitutionalIcon name="directions-car" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.counterLabel}>
+                    <Text style={styles.counterMono}>{marcasSeleccionadas.length}</Text>
+                    <Text style={styles.counterSlash}> / </Text>
+                    <Text style={styles.counterMono}>{MAX_MARCAS}</Text>
+                    <Text style={styles.counterRest}> marcas</Text>
+                  </Text>
+                </View>
+
+                <View style={styles.gridSlot} onLayout={onGridSlotLayout}>
+                  <View style={styles.itemsGrid}>
+                    {marcasMostrar.map((marca, index) => (
+                      <MarcaCard
+                        key={marca.id}
+                        marca={marca}
+                        modelosDeMarca={modelosPorMarca[marca.id] || []}
+                        isSelected={marcasSeleccionadas.includes(marca.id)}
+                        disabled={!modoEdicion && !marcasSeleccionadas.includes(marca.id)}
+                        cardWidth={cardWidth}
+                        isLeftColumn={index % 2 === 0}
+                        onToggle={toggleMarca}
+                      />
+                    ))}
+                  </View>
+                </View>
+              </View>
             </View>
-          </View>
+          )}
         </View>
       </ScrollView>
 
-      <View style={[styles.floatingBottomBar, { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) }]}>
-        {!modoEdicion ? (
-          <TouchableOpacity
-            style={styles.primaryCta}
-            onPress={() => setModoEdicion(true)}
-            activeOpacity={0.88}
-          >
-            <InstitutionalIcon name="edit" size={20} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.primaryCtaText}>
-              {isMultimarca ? 'Configurar especialidades' : 'Configurar especialidades y marcas'}
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.editingButtonsFloat}>
-            <TouchableOpacity style={styles.secondaryCta} onPress={cancelarEdicion} activeOpacity={0.88}>
-              <Text style={styles.secondaryCtaText}>Cancelar</Text>
-            </TouchableOpacity>
-
+      {!isMultimarca ? (
+        <View style={[styles.floatingBottomBar, { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) }]}>
+          {!modoEdicion ? (
             <TouchableOpacity
-              style={[styles.saveCta, (!hasChanges || saving) && styles.saveCtaDisabled]}
-              onPress={guardarCambios}
-              disabled={saving || !hasChanges}
+              style={styles.primaryCta}
+              onPress={() => setModoEdicion(true)}
               activeOpacity={0.88}
             >
-              {saving ? (
-                <ActivityIndicator size="small" color={I.onPrimary} />
-              ) : (
-                <InstitutionalIcon name="checkmark" size={20} color={hasChanges ? I.onPrimary : I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-              )}
-              <Text style={[styles.saveCtaText, (!hasChanges || saving) && styles.saveCtaTextDisabled]}>
-                {saving ? 'Guardando…' : 'Guardar cambios'}
-              </Text>
+              <InstitutionalIcon name="edit" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.primaryCtaText}>Configurar marcas</Text>
             </TouchableOpacity>
-          </View>
-        )}
-      </View>
+          ) : (
+            <View style={styles.editingButtonsFloat}>
+              <TouchableOpacity style={styles.secondaryCta} onPress={cancelarEdicion} activeOpacity={0.88}>
+                <Text style={styles.secondaryCtaText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.saveCta, (!hasChanges || saving) && styles.saveCtaDisabled]}
+                onPress={guardarCambios}
+                disabled={saving || !hasChanges}
+                activeOpacity={0.88}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color={I.onPrimary} />
+                ) : (
+                  <InstitutionalIcon
+                    name="checkmark"
+                    size={20}
+                    color={hasChanges ? I.onPrimary : I.muted}
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
+                )}
+                <Text style={[styles.saveCtaText, (!hasChanges || saving) && styles.saveCtaTextDisabled]}>
+                  {saving ? 'Guardando…' : 'Guardar cambios'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      ) : null}
 
       <Snackbar
         visible={snackbarVisible}
@@ -896,14 +592,22 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: SPACING.fixed.sm,
   },
-  tabsInPanel: {
+  panelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
     marginHorizontal: SPACING.fixed.sm,
     marginTop: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.xs,
+  },
+  panelHeaderTitle: {
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
   },
   panelDivider: {
     height: BORDERS.width.thin,
     backgroundColor: I.hairline,
-    marginTop: SPACING.fixed.sm,
     marginHorizontal: SPACING.fixed.sm,
   },
   panelBody: {
@@ -1028,17 +732,6 @@ const styles = StyleSheet.create({
   cardTextBlock: {
     width: '100%',
     paddingRight: 24,
-  },
-  cardDescription: {
-    fontSize: TS.caption.fontSize,
-    fontFamily: FF.sansRegular,
-    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
-  },
-  cardDescriptionIdle: {
-    color: I.muted,
-  },
-  cardDescriptionSelected: {
-    color: I.body,
   },
   cardMeta: {
     fontSize: TS.caption.fontSize,

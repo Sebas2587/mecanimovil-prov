@@ -130,6 +130,27 @@ export function createHomeScreenStyles(
       fontFamily: f.sansSemiBold,
       color: c.ink,
     },
+    especialidadesTagsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: SPACING.fixed.xxs,
+      marginTop: SPACING.fixed.xxs,
+    },
+    especialidadTag: {
+      paddingVertical: 2,
+      paddingHorizontal: SPACING.fixed.xs,
+      borderRadius: BORDERS.radius.pill,
+      backgroundColor: c.surfaceStrong,
+      borderWidth: 1,
+      borderColor: c.hairline,
+      maxWidth: '100%',
+    },
+    especialidadTagText: {
+      fontSize: small.fontSize,
+      lineHeight: lineHeightPx(small.fontSize, small.lineHeight),
+      fontFamily: f.sansMedium,
+      color: c.primary,
+    },
     bellOuter: {
       position: 'relative',
     },

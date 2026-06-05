@@ -15,6 +15,7 @@ export interface ServicioOferta {
     descripcion: string;
     requiere_repuestos: boolean;
     foto: string | null;
+    categorias_info?: Array<{ id: number; nombre: string }>;
   };
   tipo_servicio: 'con_repuestos' | 'sin_repuestos';
   disponible: boolean;

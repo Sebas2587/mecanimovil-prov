@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   Linking,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRootNavigationState, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useAuth } from '@/context/AuthContext';
@@ -138,7 +138,10 @@ interface DocumentoSubido {
 
 export default function SubirDocumentosScreen() {
   const router = useRouter();
-  const { estadoProveedor, refrescarEstadoProveedor } = useAuth();
+  const rootNavigationState = useRootNavigationState();
+  const { estadoProveedor, refrescarEstadoProveedor, isLoading: authLoading, isAuthenticated } = useAuth();
+
+  const navigationReady = Boolean(rootNavigationState?.key);
   
   const [documentosSubidos, setDocumentosSubidos] = useState<{ [key: string]: DocumentoSubido }>({});
   const [modalVisible, setModalVisible] = useState(false);
@@ -152,24 +155,13 @@ export default function SubirDocumentosScreen() {
     [estadoProveedor?.tipo_proveedor],
   );
 
-  useEffect(() => {
-    refrescarEstadoProveedor();
-  }, [refrescarEstadoProveedor]);
+  const didInitialRefresh = useRef(false);
 
   useEffect(() => {
-    if (__DEV__) {
-      console.log('🔍 SubirDocumentosScreen - Estado del proveedor:', estadoProveedor);
-    }
-
-    if (!estadoProveedor?.tiene_perfil) {
-      router.replace('/(onboarding)/tipo-cuenta');
-      return;
-    }
-
-    if (estadoProveedor?.estado_verificacion === 'aprobado') {
-      router.replace('/(onboarding)/cuenta-en-revision');
-    }
-  }, [estadoProveedor, router]);
+    if (authLoading || !isAuthenticated || didInitialRefresh.current) return;
+    didInitialRefresh.current = true;
+    refrescarEstadoProveedor().catch(() => null);
+  }, [refrescarEstadoProveedor, authLoading, isAuthenticated]);
 
   const abrirSelectorDocumento = (documentoInfo: DocumentoInfo) => {
     setTipoDocumentoActual(documentoInfo);
@@ -700,6 +692,40 @@ export default function SubirDocumentosScreen() {
       </TouchableOpacity>
     </View>
   );
+
+  if (!navigationReady || authLoading) {
+    return (
+      <OnboardingScreenLayout>
+        <View style={onboardingStyles.loadingCenter}>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={onboardingStyles.loadingText}>Cargando…</Text>
+        </View>
+      </OnboardingScreenLayout>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  if (!estadoProveedor) {
+    return (
+      <OnboardingScreenLayout>
+        <View style={onboardingStyles.loadingCenter}>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={onboardingStyles.loadingText}>Cargando estado…</Text>
+        </View>
+      </OnboardingScreenLayout>
+    );
+  }
+
+  if (!estadoProveedor.tiene_perfil) {
+    return <Redirect href="/(onboarding)/tipo-cuenta" />;
+  }
+
+  if (estadoProveedor.estado_verificacion === 'aprobado') {
+    return <Redirect href="/(onboarding)/cuenta-en-revision" />;
+  }
 
   return (
     <>

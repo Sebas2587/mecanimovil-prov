@@ -15,7 +15,7 @@ const ChatsContext = createContext<ChatsContextType | undefined>(undefined);
 
 export const ChatsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [totalMensajesNoLeidos, setTotalMensajesNoLeidos] = useState(0);
-  const { usuario } = useAuth();
+  const { usuario, estadoProveedor } = useAuth();
 
   // Cargar el total inicial de mensajes no leídos
   const cargarTotalNoLeidos = async () => {
@@ -42,18 +42,21 @@ export const ChatsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Cargar al iniciar y cuando cambie el usuario
+  // Cargar al iniciar y cuando cambie el usuario autenticado (por id, no por objeto completo)
+  const usuarioId = usuario?.id;
+  const onboardingListo = estadoProveedor?.onboarding_completado === true;
+
   useEffect(() => {
-    if (usuario) {
+    if (usuarioId && onboardingListo) {
       cargarTotalNoLeidos();
     } else {
       setTotalMensajesNoLeidos(0);
     }
-  }, [usuario]);
+  }, [usuarioId, onboardingListo]);
 
   // Suscribirse a WebSocket para actualizaciones en tiempo real
   useEffect(() => {
-    if (!usuario) return;
+    if (!usuarioId || !onboardingListo) return;
 
     console.log('📨 [CHATS CONTEXT PROVEEDOR] Suscribiendo a nuevo_mensaje_chat');
     
@@ -74,7 +77,7 @@ export const ChatsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.log('📨 [CHATS CONTEXT PROVEEDOR] Desuscribiendo de nuevo_mensaje_chat');
       unsubscribe();
     };
-  }, [usuario]);
+  }, [usuarioId, onboardingListo]);
 
   // Función para decrementar el contador (cuando se leen mensajes)
   const decrementarNoLeidos = (cantidad: number) => {

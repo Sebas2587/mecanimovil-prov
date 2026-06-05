@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { authAPI, EstadoProveedor } from '@/services/api';
@@ -98,6 +98,7 @@ interface AuthProviderProps {
 
 function isTransientEstadoProveedorError(error: any): boolean {
   if (!error) return false;
+  if (isAuthSessionError(error)) return false;
   const status = error.response?.status;
   if (status === 401 || status === 403 || status === 404) return false;
   const code = error.code as string | undefined;
@@ -108,9 +109,22 @@ function isTransientEstadoProveedorError(error: any): boolean {
   return false;
 }
 
+function isAuthSessionError(error: any): boolean {
+  return error?.message === 'No autenticado' || error?.response?.status === 401;
+}
+
+async function clearStoredAuthSession(): Promise<void> {
+  try {
+    await deleteItem('authToken');
+    await deleteItem('userData');
+  } catch {
+    /* no crítico */
+  }
+}
+
 /** Reintentos ante timeouts / 503 / red intermitente (Render lento). */
 async function obtenerEstadoProveedorWithRetries(): Promise<EstadoProveedor | null> {
-  const maxAttempts = 3;
+  const maxAttempts = 2;
   let lastError: any;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -131,6 +145,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [estadoProveedor, setEstadoProveedor] = useState<EstadoProveedor | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const refreshEstadoInFlight = useRef<Promise<EstadoProveedor | null> | null>(null);
 
   // Función helper para obtener nombre del proveedor con fallbacks robustos
   const obtenerNombreProveedor = (): string => {
@@ -816,46 +831,82 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsAuthenticated(true); // Si hay datos de usuario, está autenticado
   };
 
-  const refrescarEstadoProveedor = async (): Promise<EstadoProveedor | null> => {
-    try {
-      const estado = await obtenerEstadoProveedorWithRetries();
-      setEstadoProveedor(estado);
+  const refrescarEstadoProveedor = useCallback(async (): Promise<EstadoProveedor | null> => {
+    if (refreshEstadoInFlight.current) {
+      return refreshEstadoInFlight.current;
+    }
 
-      try {
-        const datosUsuario = await authAPI.obtenerDatosUsuario();
-        setUsuario(datosUsuario);
-        await setItem('userData', JSON.stringify(datosUsuario));
-      } catch (userError) {
-        if (__DEV__) {
-          console.log('No se pudieron actualizar los datos del usuario (detalles solo en desarrollo):', userError);
-        }
-      }
-
-      return estado;
-    } catch (error: any) {
-      if (error.response?.status === 403 || error.response?.status === 404) {
-        if (__DEV__) {
-          console.log('ℹ️ Usuario aún no tiene perfil de proveedor (normal después del registro)');
-        }
-        const sinPerfil = {
-          tiene_perfil: false,
-          estado_verificacion: 'pendiente' as const,
-          verificado: false,
-          onboarding_iniciado: false,
-          onboarding_completado: false,
-          activo: false,
-          necesita_onboarding: true,
-        } as EstadoProveedor;
-        setEstadoProveedor(sinPerfil);
+    const run = (async (): Promise<EstadoProveedor | null> => {
+      const token = await getItem('authToken');
+      if (!token) {
+        setUsuario(null);
+        setIsAuthenticated(false);
+        setEstadoProveedor(null);
         return null;
       }
 
-      if (__DEV__) {
-        console.error('Error refrescando estado del proveedor (detalles solo en desarrollo):', error);
+      try {
+        const estado = await obtenerEstadoProveedorWithRetries();
+        setEstadoProveedor(estado);
+
+        try {
+          const datosUsuario = await authAPI.obtenerDatosUsuario();
+          setUsuario(datosUsuario);
+          await setItem('userData', JSON.stringify(datosUsuario));
+        } catch (userError) {
+          if (isAuthSessionError(userError)) {
+            await clearStoredAuthSession();
+            setUsuario(null);
+            setIsAuthenticated(false);
+            setEstadoProveedor(null);
+            return null;
+          }
+          if (__DEV__) {
+            console.log('No se pudieron actualizar los datos del usuario (detalles solo en desarrollo):', userError);
+          }
+        }
+
+        return estado;
+      } catch (error: any) {
+        if (isAuthSessionError(error)) {
+          await clearStoredAuthSession();
+          setUsuario(null);
+          setIsAuthenticated(false);
+          setEstadoProveedor(null);
+          return null;
+        }
+
+        if (error.response?.status === 403 || error.response?.status === 404) {
+          if (__DEV__) {
+            console.log('ℹ️ Usuario aún no tiene perfil de proveedor (normal después del registro)');
+          }
+          const sinPerfil = {
+            tiene_perfil: false,
+            estado_verificacion: 'pendiente' as const,
+            verificado: false,
+            onboarding_iniciado: false,
+            onboarding_completado: false,
+            activo: false,
+            necesita_onboarding: true,
+          } as EstadoProveedor;
+          setEstadoProveedor(sinPerfil);
+          return sinPerfil;
+        }
+
+        if (__DEV__) {
+          console.error('Error refrescando estado del proveedor (detalles solo en desarrollo):', error);
+        }
+        throw error;
       }
-      throw error;
+    })();
+
+    refreshEstadoInFlight.current = run;
+    try {
+      return await run;
+    } finally {
+      refreshEstadoInFlight.current = null;
     }
-  };
+  }, []);
 
   const limpiarStorage = async () => {
     await authAPI.clearStorage();
