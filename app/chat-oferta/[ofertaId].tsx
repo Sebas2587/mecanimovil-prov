@@ -125,8 +125,44 @@ export default function ChatOfertaScreen() {
       return;
     }
     setMensajes((prev) => {
-      if (prev.some((m) => String(m.id) === String(msg.id))) return prev;
-      if (mensajesEnviadosRef.current.has(String(msg.id))) return prev;
+      const idStr = String(msg.id);
+
+      // Si ya existe, enriquecer con attachment si el nuevo lo trae
+      const existingIdx = prev.findIndex((m) => String(m.id) === idStr);
+      if (existingIdx !== -1) {
+        const existing = prev[existingIdx];
+        const hasNewAttachment =
+          (msg.archivo_adjunto) && !existing.archivo_adjunto;
+        if (hasNewAttachment) {
+          const updated = [...prev];
+          updated[existingIdx] = {
+            ...existing,
+            archivo_adjunto: msg.archivo_adjunto,
+          };
+          return updated;
+        }
+        return prev;
+      }
+
+      // Ignorar eco de mensajes propios (optimistic), salvo para actualizar attachment
+      if (mensajesEnviadosRef.current.has(idStr)) {
+        const optimIdx = prev.findIndex(
+          (m) => m.is_temp && msg.archivo_adjunto &&
+                 !String(msg.archivo_adjunto ?? '').startsWith('file://')
+        );
+        if (optimIdx !== -1 && msg.archivo_adjunto) {
+          const updated = [...prev];
+          updated[optimIdx] = {
+            ...updated[optimIdx],
+            id: msg.id,
+            archivo_adjunto: msg.archivo_adjunto,
+            is_temp: false,
+          };
+          return updated;
+        }
+        return prev;
+      }
+
       return [...prev, msg];
     });
   }, []);
@@ -523,6 +559,15 @@ export default function ChatOfertaScreen() {
               multiline
               maxLength={500}
               editable={!enviando}
+              blurOnSubmit={false}
+              returnKeyType="send"
+              onSubmitEditing={Platform.OS !== 'web' ? handleEnviarMensaje : undefined}
+              onKeyPress={Platform.OS === 'web' ? (e: any) => {
+                if (e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
+                  e.preventDefault?.();
+                  handleEnviarMensaje();
+                }
+              } : undefined}
             />
             <TouchableOpacity
               style={[styles.sendBtn, (!nuevoMensaje.trim() && !attachment || enviando) && styles.sendBtnDisabled]}
