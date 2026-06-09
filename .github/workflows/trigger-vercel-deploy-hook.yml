@@ -1,15 +1,32 @@
-# Dispara el Deploy Hook de Vercel en cada push a main.
-# URL definida en package.json → deploy:vercel:hook (no requiere secret en GitHub).
-name: Trigger Vercel deploy hook (prov)
+# Build y deploy real en Vercel en cada push a main (no deploy hook: sin Git conectado cancelaba el build).
+name: Deploy to Vercel (prov)
 on:
   push:
     branches: [main]
 
 jobs:
-  deploy-hook:
+  deploy:
     runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: team_Ku9TorGrXCybLMQ8aYsGujdf
+      VERCEL_PROJECT_ID: prj_p5ArLTR43TKeYVxNtrNBd3RDEXRW
     steps:
       - uses: actions/checkout@v4
 
-      - name: POST deploy hook (mecanimovil-prov-web)
-        run: npm run deploy:vercel:hook
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "VERCEL_TOKEN no definido en GitHub Secrets."
+            exit 1
+          fi
+          npx vercel@53.2.0 deploy --prod --yes --token "$VERCEL_TOKEN"
