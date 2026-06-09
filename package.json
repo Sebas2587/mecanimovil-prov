@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "export": "expo export --platform web",
     "export:web": "expo export --platform web",
+    "deploy:vercel:hook": "curl -fsS -X POST https://api.vercel.com/v1/integrations/deploy/prj_p5ArLTR43TKeYVxNtrNBd3RDEXRW/ncckJ5aige -H 'Content-Type: application/json'",
     "deploy:vercel:cli": "npx vercel@53.2.0 deploy --prod --yes",
     "lint": "expo lint"
   },
