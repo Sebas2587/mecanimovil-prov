@@ -197,6 +197,51 @@ export interface ChecklistFinalizationData {
   ubicacion_lng: number;
 }
 
+// ── Tipos para recomendaciones ML post-checklist (checklist-inteligente-v2) ─
+
+export type ChecklistRecomendacionPrioridad = 'URGENTE' | 'ATENCION' | 'PROACTIVA';
+export type ChecklistRecomendacionFuente = 'ANOMALIA' | 'ML' | 'COLABORATIVO';
+
+export interface ChecklistServicioSugerido {
+  id: number;
+  nombre: string;
+  descripcion?: string;
+  precio_referencia?: number | null;
+}
+
+export interface ChecklistRecomendacion {
+  prioridad: ChecklistRecomendacionPrioridad;
+  componente_id: number;
+  componente_slug: string;
+  componente_nombre: string;
+  razon: string;
+  confianza: number;
+  fuente: ChecklistRecomendacionFuente;
+  servicios_sugeridos: ChecklistServicioSugerido[];
+}
+
+export interface ChecklistComponenteActualizado {
+  componente_id: number;
+  nombre: string;
+  slug: string;
+  icono?: string;
+  tipo_actualizacion: ChecklistTipoActualizacion;
+  salud_nueva: number | null;
+  nivel_alerta_nueva: ChecklistNivelAlerta | null;
+  km_ultimo_servicio?: number | null;
+  fecha_ultimo_servicio?: string | null;
+}
+
+export interface ChecklistRecomendacionesResponse {
+  checklist_id: number;
+  vehiculo_id: number;
+  generado_en: string;
+  componentes_actualizados: ChecklistComponenteActualizado[];
+  recomendaciones: ChecklistRecomendacion[];
+  salud_general_antes: number | null;
+  salud_general_despues: number | null;
+}
+
 export interface ServiceResponse<T> {
   success: boolean;
   data: T;
@@ -1350,6 +1395,19 @@ class ChecklistService {
       return { success: true, data: response.data };
     } catch (error) {
       return this.handleServiceError(error, 'obtener preview de impacto');
+    }
+  }
+
+  async getRecomendaciones(
+    instanceId: number,
+  ): Promise<ServiceResponse<ChecklistRecomendacionesResponse>> {
+    try {
+      const response = await api.get(
+        `${this.baseUrl}/instances/${instanceId}/recomendaciones/`,
+      );
+      return { success: true, data: response.data };
+    } catch (error) {
+      return this.handleServiceError(error, 'obtener recomendaciones del checklist');
     }
   }
 

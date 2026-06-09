@@ -12,7 +12,13 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { checklistService, ChecklistInstance, ChecklistItemResponse } from '@/services/checklistService';
+import {
+  checklistService,
+  ChecklistInstance,
+  ChecklistItemResponse,
+  ChecklistRecomendacion,
+  ChecklistRecomendacionesResponse,
+} from '@/services/checklistService';
 import { signatureStoredToImageUri } from '@/utils/signatureImageUri';
 import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
@@ -21,6 +27,12 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
+
+const REC_COLORS: Record<string, string> = {
+  URGENTE:  '#cf202f',
+  ATENCION: '#fd7e14',
+  PROACTIVA: '#007bff',
+};
 
 interface ChecklistCompletedViewProps {
   visible: boolean;
@@ -36,6 +48,8 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
   const insets = useSafeAreaInsets();
   const [instance, setInstance] = useState<ChecklistInstance | null>(null);
   const [loading, setLoading] = useState(false);
+  const [recomendaciones, setRecomendaciones] = useState<ChecklistRecomendacion[]>([]);
+  const [loadingRec, setLoadingRec] = useState(false);
 
   useEffect(() => {
     if (visible && ordenId) {
@@ -49,6 +63,10 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
       const result = await checklistService.getInstanceByOrder(ordenId);
       if (result.success) {
         setInstance(result.data);
+        // Cargar recomendaciones ML si el checklist está completado
+        if (result.data?.estado === 'COMPLETADO' && result.data?.id) {
+          loadRecomendaciones(result.data.id);
+        }
       } else {
         Alert.alert('Error', 'No se pudo cargar el checklist completado');
       }
@@ -57,6 +75,20 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
       Alert.alert('Error', 'Error al cargar el checklist');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRecomendaciones = async (instanceId: number) => {
+    setLoadingRec(true);
+    try {
+      const result = await checklistService.getRecomendaciones(instanceId);
+      if (result.success && result.data?.recomendaciones) {
+        setRecomendaciones(result.data.recomendaciones);
+      }
+    } catch (error) {
+      console.warn('No se pudieron cargar las recomendaciones ML:', error);
+    } finally {
+      setLoadingRec(false);
     }
   };
 
@@ -308,6 +340,62 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
                   <Text style={styles.emptyItems}>No hay respuestas registradas</Text>
                 )}
               </View>
+
+              {/* Sección de Recomendaciones ML */}
+              {loadingRec ? (
+                <View style={styles.card}>
+                  <ActivityIndicator color={I.primary} style={{ marginVertical: SPACING.md }} />
+                  <Text style={[styles.emptyItems, { textAlign: 'center' }]}>
+                    Analizando checklist con IA...
+                  </Text>
+                </View>
+              ) : recomendaciones.length > 0 ? (
+                <View style={styles.card}>
+                  <View style={styles.sectionPillWrap}>
+                    <View style={styles.sectionPill}>
+                      <Text style={styles.sectionPillText}>
+                        Recomendaciones para el cliente ({recomendaciones.length})
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={{ fontSize: 12, color: I.muted, marginBottom: SPACING.sm }}>
+                    Generadas por análisis ML basado en el estado de los componentes evaluados.
+                  </Text>
+                  {recomendaciones.map((rec, idx) => (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.recCard,
+                        { borderLeftColor: REC_COLORS[rec.prioridad] ?? '#888' },
+                      ]}
+                    >
+                      <View style={styles.recHeader}>
+                        <View
+                          style={[
+                            styles.recBadge,
+                            { backgroundColor: REC_COLORS[rec.prioridad] ?? '#888' },
+                          ]}
+                        >
+                          <Text style={styles.recBadgeText}>{rec.prioridad}</Text>
+                        </View>
+                        <Text style={styles.recComponente}>{rec.componente_nombre}</Text>
+                      </View>
+                      <Text style={styles.recRazon}>{rec.razon}</Text>
+                      {rec.servicios_sugeridos.length > 0 && (
+                        <Text style={styles.recServicio}>
+                          Servicio sugerido: {rec.servicios_sugeridos[0].nombre}
+                          {rec.servicios_sugeridos[0].precio_referencia
+                            ? ` — $${rec.servicios_sugeridos[0].precio_referencia.toLocaleString('es-CL')}`
+                            : ''}
+                        </Text>
+                      )}
+                      <Text style={styles.recFuente}>
+                        Fuente: {rec.fuente} · Confianza: {Math.round(rec.confianza * 100)}%
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
             </ScrollView>
           ) : (
             <View style={styles.loadingBox}>
@@ -638,5 +726,57 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: SPACING.md,
     lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
+  },
+  // ── Estilos para cards de recomendaciones ML ─────────────────────────────
+  recCard: {
+    borderLeftWidth: 4,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.surfaceSoft,
+    padding: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  recHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginBottom: SPACING.xs,
+  },
+  recBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BORDERS.radius.pill,
+  },
+  recBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
+  },
+  recComponente: {
+    flex: 1,
+    fontSize: T.bodyBold?.fontSize ?? T.body.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    color: I.ink,
+  },
+  recRazon: {
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.body,
+    lineHeight: Math.round(T.caption.fontSize * 1.5),
+    marginBottom: SPACING.xs,
+  },
+  recServicio: {
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    color: I.primary ?? '#007bff',
+    marginBottom: 2,
+  },
+  recFuente: {
+    fontSize: 11,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.muted,
   },
 });
