@@ -119,6 +119,7 @@ const SOLICITUD_ESTADOS_ACTIVOS = [
   'adjudicada',
   'pendiente_pago',
   'pagada',
+  'pagada_parcialmente', // pago parcial (repuestos): válido en oferta, puede llegar por dato obsoleto en solicitud
   'en_ejecucion',
 ];
 /** Éxito: solo estos van al tab Completadas */
