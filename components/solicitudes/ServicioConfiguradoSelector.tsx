@@ -9,6 +9,7 @@ import {
 import { ServicioConfiguradoParaOferta } from '@/services/serviciosApi';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { platformShadow } from '@/app/design-system/tokens';
 
 interface ServicioConfiguradoSelectorProps {
   servicioConfigurado: ServicioConfiguradoParaOferta | null;
@@ -175,11 +176,13 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderWidth: 2,
     borderColor: '#0061FF',
-    shadowColor: '#0061FF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    ...platformShadow({
+      shadowColor: '#0061FF',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 3,
+    }),
   },
   cardHeader: {
     flexDirection: 'row',

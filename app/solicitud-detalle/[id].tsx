@@ -17,7 +17,7 @@ import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, withOpacity, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, withOpacity, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow, noShadow } from '@/app/design-system/tokens';
 import solicitudesService, { type SolicitudPublica, type OfertaProveedor, type MotivoRechazo, type DetalleServicioOferta } from '@/services/solicitudesService';
 import { RechazarSolicitudModal } from '@/components/solicitudes/RechazarSolicitudModal';
 import { ProponerFechaCatalogoModal } from '@/components/solicitudes/ProponerFechaCatalogoModal';
@@ -30,13 +30,13 @@ const TS = TYPOGRAPHY.styles;
 const hx = SPACING.container.horizontal;
 const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
-const shadowFooter = {
+const shadowFooter = platformShadow({
   shadowColor: '#000',
   shadowOffset: { width: 0, height: -2 },
   shadowOpacity: 0.06,
   shadowRadius: 8,
   elevation: 8,
-};
+});
 
 function textoEstadoOferta(estado: string): string {
   switch (estado) {
@@ -457,8 +457,7 @@ export default function SolicitudDetalleScreen() {
     headerStyle: {
       backgroundColor: I.canvas,
       borderBottomWidth: 0,
-      elevation: 0,
-      shadowOpacity: 0,
+      ...noShadow,
     },
     headerTintColor: I.ink,
   };

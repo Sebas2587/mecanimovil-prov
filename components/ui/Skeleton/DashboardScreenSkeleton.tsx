@@ -7,6 +7,7 @@ import { RadarOfferCardSkeleton } from '@/components/ui/Skeleton/RadarOfferCardS
 import { OrdenTicketCardSkeleton } from '@/components/ui/Skeleton/OrdenTicketCardSkeleton';
 import { useDashboardCarouselMetrics } from '@/app/components/dashboard/useDashboardCarouselMetrics';
 import { SKELETON_BASE, SKELETON_MUTED, SKELETON_STRIP } from '@/components/ui/Skeleton/skeletonTokens';
+import { platformShadow } from '@/app/design-system/tokens';
 
 const PLACEHOLDER_KEYS = [0, 1, 2] as const;
 
@@ -287,11 +288,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.6)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 3,
+    }),
   },
   glassInner: {
     padding: 20,

@@ -20,7 +20,7 @@ import {
 import { Buffer } from 'buffer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { COLORS } from '@/app/design-system/tokens';
+import {COLORS, platformShadow} from '@/app/design-system/tokens';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 
@@ -362,14 +362,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: I.hairline,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: {
       width: 0,
       height: 1,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    }),
   },
   documentoHeader: {
     flexDirection: 'row',

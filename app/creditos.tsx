@@ -27,7 +27,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Wallet, CreditCard, Store, History, Receipt, ScrollText } from 'lucide-react-native';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, withOpacity, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import {COLORS, SPACING, TYPOGRAPHY, withOpacity, BORDERS, SHADOWS, platformShadow} from '@/app/design-system/tokens';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -1997,11 +1997,13 @@ const styles = StyleSheet.create({
     borderColor: '#F3F4F6',
     padding: SPACING.lg,
     marginBottom: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
+      elevation: 2,
+    }),
     overflow: 'hidden',
   },
   badgeDestacado: {
@@ -2233,11 +2235,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: SPACING.md,
     marginBottom: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 2,
+    }),
   },
   cobrosHeader: {
     flexDirection: 'row',

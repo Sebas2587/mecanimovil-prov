@@ -23,6 +23,7 @@ import { ChecklistCompletedView } from '@/components/checklist/ChecklistComplete
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { platformShadow } from '@/app/design-system/tokens';
 
 interface OrdenConChecklist extends Orden {
   checklist_instance?: ChecklistInstance;
@@ -558,14 +559,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 3.84,
+      elevation: 5,
+    }),
   },
   header: {
     flexDirection: 'row',
@@ -885,11 +885,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   checklistButtonUrgente: {
-    elevation: 2,
-    shadowColor: '#dc3545',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    ...platformShadow({
+      shadowColor: '#dc3545',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 2,
+    }),
   },
   checklistButtonText: {
     color: '#ffffff',

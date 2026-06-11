@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, platformShadow, pointerEventsNone } from '@/app/design-system/tokens';
 
 interface HeaderProps {
   title: string;
@@ -53,13 +53,16 @@ export default function Header({
 
   // Espaciado - Usar el mismo padding que otras pantallas (18px) para consistencia
   const containerHorizontal = safeSpacing?.container?.horizontal || SPACING?.container?.horizontal || SPACING?.content?.horizontal || 18;
-  const shadowSm = safeShadows?.sm || SHADOWS?.sm || {
-    shadowColor: '#00171F',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
-  };
+  const shadowSm =
+    safeShadows?.sm ||
+    SHADOWS?.sm ||
+    platformShadow({
+      shadowColor: '#00171F',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 3,
+      elevation: 2,
+    });
 
   // Tipografía
   const titleSize = safeTypography?.fontSize?.xl || TYPOGRAPHY?.fontSize?.xl || 20;
@@ -90,7 +93,7 @@ export default function Header({
         ]}
       >
         {/* Título centrado respecto al ancho del header (independiente del ancho del CTA derecho) */}
-        <View style={styles.titleAbsoluteLayer} pointerEvents="none">
+        <View style={[styles.titleAbsoluteLayer, pointerEventsNone]}>
           <Text
             style={[
               styles.title,

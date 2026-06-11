@@ -9,6 +9,7 @@ import {
 import { OfertaProveedor } from '@/services/solicitudesService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { platformShadow } from '@/app/design-system/tokens';
 
 interface OfertaCardProps {
   oferta: OfertaProveedor;
@@ -383,11 +384,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    }),
   },
   badgeSecundaria: {
     flexDirection: 'row',

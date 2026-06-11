@@ -24,6 +24,7 @@ import Header from '@/components/Header';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { platformShadow, noShadow } from '@/app/design-system/tokens';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -810,7 +811,7 @@ export default function GestionarTallerScreen() {
           showBack={true}
           onBackPress={() => router.back()}
           backgroundColor={headerBg}
-          style={{ borderBottomWidth: 0, shadowOpacity: 0, elevation: 0 }}
+          style={{ borderBottomWidth: 0, ...noShadow }}
         />
 
         <ScrollView
@@ -1203,11 +1204,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.62)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    elevation: 4,
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.07,
+      shadowRadius: 10,
+      elevation: 4,
+    }),
   },
   glassInner: {
     padding: 18,

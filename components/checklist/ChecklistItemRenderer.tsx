@@ -32,6 +32,7 @@ import {
 } from '@/services/checklistService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { platformShadow } from '@/app/design-system/tokens';
 
 interface ChecklistItemRendererProps {
   item: ChecklistItemTemplate;
@@ -2155,15 +2156,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#619FF0',
     gap: 12,
     marginTop: 16,
-    shadowColor: '#619FF0',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    ...platformShadow({
+      shadowColor: '#619FF0',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 4,
+    }),
   },
   modernSaveButtonDisabled: {
     backgroundColor: '#6c757d',
-    shadowOpacity: 0.1,
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    }),
   },
   modernSaveButtonText: {
     fontSize: 17,

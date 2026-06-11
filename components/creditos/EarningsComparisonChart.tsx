@@ -7,6 +7,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
+import { platformShadow } from '@/app/design-system/tokens';
 
 const BLUE = '#2563EB';
 const GREEN = '#22C55E';
@@ -160,9 +161,12 @@ const st = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.9)',
     overflow: 'hidden',
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
-      android: { elevation: 2 },
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 2,
     }),
   },
   header: {
@@ -194,9 +198,12 @@ const st = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(229,231,235,0.5)',
     marginBottom: 10,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6 },
-      android: { elevation: 3 },
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 3,
     }),
   },
   tooltipLabel: { fontSize: 10, color: '#6B7280', textAlign: 'center', textTransform: 'capitalize' },

@@ -15,6 +15,7 @@ import { COLORS } from '@/app/design-system/tokens/colors';
 import { SPACING } from '@/app/design-system/tokens/spacing';
 import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
 import { SHADOWS } from '@/app/design-system/tokens/shadows';
+import { pointerEventsNone } from '@/app/design-system/tokens';
 import { BORDERS } from '@/app/design-system/tokens/borders';
 
 const I = COLORS.institutional;
@@ -88,7 +89,7 @@ export function PerformanceWidget({
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
       >
-        <View style={styles.decorWrap} pointerEvents="none">
+        <View style={[styles.decorWrap, pointerEventsNone]}>
           <View style={[styles.glowOuter, { backgroundColor: ACCENT_GLOW.soft }]} />
           <View style={[styles.glowInner, { backgroundColor: ACCENT_GLOW.strong }]} />
         </View>
@@ -102,7 +103,7 @@ export function PerformanceWidget({
 
             <View style={styles.chevronCircle}>
               <BlurView intensity={32} tint="light" style={StyleSheet.absoluteFill} />
-              <View style={styles.chevronIcon} pointerEvents="none">
+              <View style={[styles.chevronIcon, pointerEventsNone]}>
                 <ChevronRight size={18} color={I.onDark} strokeWidth={2.5} />
               </View>
             </View>

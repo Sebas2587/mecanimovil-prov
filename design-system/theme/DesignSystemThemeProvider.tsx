@@ -8,6 +8,7 @@
 
 import React, { createContext, useMemo, ReactNode } from 'react';
 import { TOKENS } from '../tokens';
+import { SHADOWS } from '../tokens/shadows';
 
 // Fallback completo para TOKENS si no está disponible
 const FALLBACK_TOKENS = {
@@ -95,27 +96,9 @@ const FALLBACK_TOKENS = {
     },
   },
   shadows: {
-    none: {
-      shadowColor: 'transparent',
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0,
-      shadowRadius: 0,
-      elevation: 0,
-    },
-    sm: {
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 1,
-    },
-    md: {
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
+    none: SHADOWS.none,
+    sm: SHADOWS.sm,
+    md: SHADOWS.md,
   },
   animations: {
     duration: {

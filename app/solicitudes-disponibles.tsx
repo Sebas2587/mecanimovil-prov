@@ -16,7 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { obtenerSolicitudesDisponibles, type SolicitudPublica } from '@/services/solicitudesService';
 import { SolicitudCard } from '@/components/solicitudes/SolicitudCard';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import {COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow} from '@/app/design-system/tokens';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -265,13 +265,13 @@ export default function SolicitudesDisponiblesScreen() {
   );
 }
 
-const shadowSm = SHADOWS?.sm || {
+const shadowSm = platformShadow({
   shadowColor: '#000',
   shadowOffset: { width: 0, height: 1 },
   shadowOpacity: 0.06,
   shadowRadius: 4,
   elevation: 2,
-};
+});
 
 const styles = StyleSheet.create({
   root: {

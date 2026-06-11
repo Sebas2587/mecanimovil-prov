@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { platformShadow } from '@/app/design-system/tokens';
 
 /**
  * Réplica numérica de `app/(tabs)/index.tsx` para radar y ticket.
@@ -31,11 +32,13 @@ export const dashboardMirrorStyles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
+      elevation: 2,
+    }),
     borderWidth: 1,
     borderColor: '#F3F4F6',
     minHeight: 198,

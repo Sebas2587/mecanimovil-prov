@@ -4,7 +4,7 @@ import { BlurView } from 'expo-blur';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SolicitudPublica } from '@/services/solicitudesService';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS } from '@/app/design-system/tokens';
+import {COLORS, platformShadow} from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
@@ -160,15 +160,23 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.62)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    elevation: 4,
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.07,
+      shadowRadius: 10,
+      elevation: 4,
+    }),
   },
   glassOuterDark: {
     borderColor: 'rgba(255,255,255,0.1)',
-    shadowOpacity: 0.2,
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 10,
+      elevation: 4,
+    }),
   },
   glassBlur: {
     overflow: 'hidden',

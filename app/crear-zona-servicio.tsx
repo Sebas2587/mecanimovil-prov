@@ -15,7 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Stack, router } from 'expo-router';
 import serviceAreasApi, { Commune, Region } from '@/services/serviceAreasApi';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import {COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow} from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -227,8 +227,8 @@ export default function CrearZonaServicioScreen() {
   const fontWeightMedium = safeTypography?.fontWeight?.medium || '500';
   const fontWeightSemibold = safeTypography?.fontWeight?.semibold || '600';
   const fontWeightBold = safeTypography?.fontWeight?.bold || '700';
-  const shadowSm = safeShadows?.sm || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-  const shadowMd = safeShadows?.md || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
+  const shadowSm = safeShadows?.sm || platformShadow({ shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 });
+  const shadowMd = safeShadows?.md || platformShadow({ shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 });
 
   // Renderizar comuna en la lista de selección
   const renderCommuneItem = ({ item }: { item: Commune }) => (
@@ -508,8 +508,8 @@ const createStyles = () => {
   const fontWeightMedium = TYPOGRAPHY?.fontWeight?.medium || '500';
   const fontWeightSemibold = TYPOGRAPHY?.fontWeight?.semibold || '600';
   const fontWeightBold = TYPOGRAPHY?.fontWeight?.bold || '700';
-  const shadowSm = SHADOWS?.sm || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-  const shadowMd = SHADOWS?.md || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
+  const shadowSm = SHADOWS?.sm || platformShadow({ shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 });
+  const shadowMd = SHADOWS?.md || platformShadow({ shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 });
 
   return StyleSheet.create({
     container: {

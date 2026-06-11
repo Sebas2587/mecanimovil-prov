@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import {COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow} from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
@@ -67,7 +67,7 @@ export default function Snackbar({
   const fontWeightMedium = safeTypography?.fontWeight?.medium || '500';
   const fontWeightSemibold = safeTypography?.fontWeight?.semibold || '600';
   const radiusLg = safeBorders?.radius?.lg || 12;
-  const shadowMd = safeShadows?.md || { shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
+  const shadowMd = safeShadows?.md || platformShadow({ shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 });
 
   const getVariantColors = () => {
     switch (variant) {

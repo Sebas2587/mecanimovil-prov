@@ -10,6 +10,7 @@ import websocketService from '@/app/services/websocketService';
 import connectionService from '@/services/connectionService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '@/app/design-system/tokens/colors';
+import { platformShadow } from '@/app/design-system/tokens';
 import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
 
 const I = COLORS.institutional;
@@ -87,11 +88,13 @@ export default function TabLayout() {
           height: tabH + insets.bottom,
           paddingBottom: insets.bottom,
           paddingTop: 6,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: Platform.OS === 'ios' ? 0.04 : 0.06,
-          shadowRadius: 8,
-          elevation: 8,
+          ...platformShadow({
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: Platform.OS === 'ios' ? 0.04 : 0.06,
+            shadowRadius: 8,
+            elevation: 8,
+          }),
         },
         tabBarLabelStyle: {
           fontSize: 11,

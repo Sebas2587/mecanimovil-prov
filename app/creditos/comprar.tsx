@@ -12,7 +12,7 @@ import {
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import {COLORS, SPACING, TYPOGRAPHY, platformShadow} from '@/app/design-system/tokens';
 import creditosService, {
   type PaqueteCreditos,
   type CompraCreditos,
@@ -458,11 +458,13 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     borderRadius: 12,
     marginBottom: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    }),
   },
   paqueteNombre: {
     fontSize: TYPOGRAPHY.fontSize['2xl'],
@@ -515,11 +517,13 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderRadius: 12,
     marginBottom: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 2,
+    }),
   },
   metodoPagoTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
@@ -570,11 +574,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 3,
+    }),
   },
   comprarButtonDisabled: {
     opacity: 0.6,

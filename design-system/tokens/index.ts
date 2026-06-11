@@ -25,6 +25,14 @@ export { default as ANIMATIONS_DEFAULT } from './animations';
 
 // Exportar helpers seguros
 export { getSafeTypography, isValidTypography } from './safeHelpers';
+export {
+  platformShadow,
+  platformShadowMap,
+  createBoxShadowString,
+  pointerEventsNone,
+  noShadow,
+} from './platformShadow';
+export type { ShadowStyleInput } from './platformShadow';
 
 // Importaciones con manejo seguro para el objeto TOKENS consolidado
 import { COLORS as COLORS_IMPORT } from './colors';

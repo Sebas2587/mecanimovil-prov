@@ -27,7 +27,7 @@ import {
 import ServerConfig from '@/services/serverConfig';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Header from '@/components/Header';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import {COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow} from '@/app/design-system/tokens';
 import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -1256,8 +1256,8 @@ const createStyles = () => {
   const radiusLg = BORDERS?.radius?.lg || 12;
   const radiusXl = BORDERS?.radius?.xl || 16;
   const radius2xl = BORDERS?.radius?.['2xl'] || 20;
-  const shadowSm = SHADOWS?.sm || { shadowColor: '#000000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 };
-  const shadowMd = SHADOWS?.md || { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 };
+  const shadowSm = SHADOWS?.sm || platformShadow({ shadowColor: '#000000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 });
+  const shadowMd = SHADOWS?.md || platformShadow({ shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 });
 
   return StyleSheet.create({
     screenRoot: {

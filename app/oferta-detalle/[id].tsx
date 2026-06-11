@@ -15,7 +15,7 @@ import {
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { obtenerDetalleOferta, iniciarServicio, terminarServicio, type OfertaProveedor } from '@/services/solicitudesService';
-import { COLORS, withOpacity, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import {COLORS, withOpacity, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, platformShadow} from '@/app/design-system/tokens';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { Alert } from 'react-native';
 import { checklistService, type ChecklistInstance } from '@/services/checklistService';
@@ -1228,13 +1228,13 @@ export default function OfertaDetalleScreen() {
   );
 }
 
-const shadowFooterOferta = {
+const shadowFooterOferta = platformShadow({
   shadowColor: '#000',
   shadowOffset: { width: 0, height: -2 },
   shadowOpacity: 0.06,
   shadowRadius: 8,
   elevation: 8,
-};
+});
 
 const styles = StyleSheet.create({
   screenRoot: {

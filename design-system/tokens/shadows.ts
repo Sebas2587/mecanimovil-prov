@@ -2,7 +2,10 @@
  * Sombras — App Proveedores (elevación mínima; tier editorial suave)
  */
 
-export const SHADOWS = {
+import { Platform } from 'react-native';
+import { platformShadowMap } from './platformShadow';
+
+const BASE_SHADOWS = {
   // ============================================
   // SIN SOMBRA
   // ============================================
@@ -111,5 +114,7 @@ export const SHADOWS = {
   },
 } as const;
 
-export default SHADOWS;
+export const SHADOWS =
+  Platform.OS === 'web' ? platformShadowMap(BASE_SHADOWS) : BASE_SHADOWS;
 
+export default SHADOWS;

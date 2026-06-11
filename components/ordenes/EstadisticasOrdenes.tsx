@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { type EstadisticasProveedor } from '@/services/ordenesProveedor';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { platformShadow } from '@/app/design-system/tokens';
 
 interface EstadisticasOrdenesProps {
   estadisticas: EstadisticasProveedor;
@@ -88,14 +89,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginVertical: 12,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+      shadowOpacity: 0.1,
+      shadowRadius: 3.84,
+      elevation: 5,
+    }),
   },
   statsGrid: {
     flexDirection: 'row',

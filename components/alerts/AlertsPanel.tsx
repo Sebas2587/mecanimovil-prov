@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAlerts, Alerta } from '@/context/AlertsContext';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS } from '@/app/design-system/tokens';
+import {COLORS, platformShadow} from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
@@ -292,14 +292,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#4E4FEB',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: {
       width: 0,
       height: 4,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
+    }),
     zIndex: 1000,
   },
   badge: {
@@ -375,14 +377,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderBottomLeftRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: {
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: {
       width: -2,
       height: 0,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 10,
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      elevation: 10,
+    }),
   },
   modalHeader: {
     flexDirection: 'row',
@@ -430,14 +434,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#EEEEEE',
-    shadowColor: '#000',
-    shadowOffset: {
+    ...platformShadow({
+      shadowColor: '#000',
+      shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    }),
   },
   alertaLeida: {
     opacity: 0.6,

@@ -15,7 +15,7 @@ import { SolicitudPublica, ServicioSolicitado, DetalleServicioOferta } from '@/s
 import { serviciosProveedorAPI, ServicioConfiguradoParaOferta, RepuestoDetallado } from '@/services/serviciosApi';
 import { ServicioConfiguradoSelector } from './ServicioConfiguradoSelector';
 import { RepuestosLista } from './RepuestosLista';
-import { COLORS, withOpacity, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import {COLORS, withOpacity, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, platformShadow} from '@/app/design-system/tokens';
 import { useAuth } from '@/context/AuthContext';
 import { useAlerts } from '@/context/AlertsContext';
 import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
@@ -2380,13 +2380,13 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
   );
 };
 
-const shadowFooter = {
+const shadowFooter = platformShadow({
   shadowColor: '#000',
   shadowOffset: { width: 0, height: -2 },
   shadowOpacity: 0.06,
   shadowRadius: 8,
   elevation: 8,
-};
+});
 
 const styles = StyleSheet.create({
   wrapper: {
