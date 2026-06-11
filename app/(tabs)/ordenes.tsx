@@ -314,7 +314,8 @@ export default function OrdenesScreen() {
   );
 
   const ofertasTabRechazadas = useMemo(() => ofertas.filter(oferta => {
-    if (oferta.estado === 'completada' || oferta.estado === 'pagada' || oferta.estado === 'en_ejecucion') {
+    // Nunca considerar como rechazada una oferta activa (con pago total, parcial o en ejecución)
+    if (['completada', 'pagada', 'pagada_parcialmente', 'en_ejecucion'].includes(oferta.estado)) {
       return false;
     }
     if (['rechazada', 'retirada', 'expirada'].includes(oferta.estado)) return true;
