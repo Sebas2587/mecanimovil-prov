@@ -5,14 +5,18 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+
 interface InventoryChecklistComponentProps {
-  item: any;
-  respuesta: any;
-  onResponseChange: (response: any) => void;
+  item: { opciones_seleccion?: string[] };
+  respuesta: { respuesta_seleccion?: InventoryItem[] } | null;
+  onResponseChange: (response: Record<string, unknown>) => void;
   disabled?: boolean;
 }
 
@@ -22,6 +26,13 @@ interface InventoryItem {
   condition?: 'BUENO' | 'REGULAR' | 'MALO' | 'FALTANTE';
   notes?: string;
 }
+
+const CONDITION_COLORS: Record<string, string> = {
+  BUENO: I.semanticUp,
+  REGULAR: I.accentYellow,
+  MALO: I.semanticDown,
+  FALTANTE: I.muted,
+};
 
 export const InventoryChecklistComponent: React.FC<InventoryChecklistComponentProps> = ({
   item,
@@ -40,28 +51,54 @@ export const InventoryChecklistComponent: React.FC<InventoryChecklistComponentPr
     let initialState: InventoryItem[] = [];
 
     if (respuesta?.respuesta_seleccion) {
-      // Cargar estado existente
       const savedState = respuesta.respuesta_seleccion;
       initialState = opciones.map((opcion: string) => {
-        const saved = savedState.find((s: any) => s.name === opcion);
-        return saved || {
-          name: opcion,
-          checked: false,
-          condition: 'BUENO',
-          notes: ''
-        };
+        const saved = savedState.find((s) => s.name === opcion);
+        return (
+          saved || {
+            name: opcion,
+            checked: false,
+            condition: 'BUENO' as const,
+            notes: '',
+          }
+        );
       });
     } else {
-      // Estado inicial
       initialState = opciones.map((opcion: string) => ({
         name: opcion,
         checked: false,
         condition: 'BUENO' as const,
-        notes: ''
+        notes: '',
       }));
     }
 
     setInventoryState(initialState);
+  };
+
+  const generateInventorySummary = (state: InventoryItem[]): string => {
+    const checkedItems = state.filter((entry) => entry.checked);
+    const faltantes = state.filter((entry) => !entry.checked);
+
+    let summary = '';
+
+    if (checkedItems.length > 0) {
+      summary += `Presentes: ${checkedItems
+        .map((entry) => {
+          let itemText = entry.name;
+          if (entry.condition && entry.condition !== 'BUENO') {
+            itemText += ` (${entry.condition})`;
+          }
+          return itemText;
+        })
+        .join(', ')}`;
+    }
+
+    if (faltantes.length > 0) {
+      if (summary) summary += ' | ';
+      summary += `Faltantes: ${faltantes.map((entry) => entry.name).join(', ')}`;
+    }
+
+    return summary || 'Inventario sin completar';
   };
 
   const updateInventoryItem = (index: number, updates: Partial<InventoryItem>) => {
@@ -71,62 +108,28 @@ export const InventoryChecklistComponent: React.FC<InventoryChecklistComponentPr
     newState[index] = { ...newState[index], ...updates };
     setInventoryState(newState);
 
-    // Calcular si está completado
-    const checkedItems = newState.filter(item => item.checked);
+    const checkedItems = newState.filter((entry) => entry.checked);
     const isCompleted = checkedItems.length > 0;
 
-    // Generar resumen textual
-    const summary = generateInventorySummary(newState);
-
-    // Actualizar respuesta
     onResponseChange({
       respuesta_seleccion: newState,
-      respuesta_texto: summary,
+      respuesta_texto: generateInventorySummary(newState),
       completado: isCompleted,
     });
   };
 
-  const generateInventorySummary = (state: InventoryItem[]): string => {
-    const checkedItems = state.filter(item => item.checked);
-    const faltantes = state.filter(item => !item.checked);
-    
-    let summary = '';
-    
-    if (checkedItems.length > 0) {
-      summary += `Presentes: ${checkedItems.map(item => {
-        let itemText = item.name;
-        if (item.condition && item.condition !== 'BUENO') {
-          itemText += ` (${item.condition})`;
-        }
-        return itemText;
-      }).join(', ')}`;
-    }
-    
-    if (faltantes.length > 0) {
-      if (summary) summary += ' | ';
-      summary += `Faltantes: ${faltantes.map(item => item.name).join(', ')}`;
-    }
-    
-    return summary || 'Inventario sin completar';
-  };
-
-  const getConditionColor = (condition: string) => {
-    switch (condition) {
-      case 'BUENO': return '#28a745';
-      case 'REGULAR': return '#ffc107';
-      case 'MALO': return '#dc3545';
-      case 'FALTANTE': return '#6c757d';
-      default: return '#28a745';
-    }
-  };
-
   const getConditionIcon = (condition: string) => {
     switch (condition) {
-      case 'BUENO': return 'check-circle';
-      case 'REGULAR': return 'warning';
-      case 'MALO': return 'error';
-      case 'FALTANTE': return 'remove-circle';
-      default: return 'check-circle';
+      case 'BUENO':
+        return 'check-circle';
+      case 'REGULAR':
+        return 'warning';
+      case 'MALO':
+        return 'error';
+      case 'FALTANTE':
+        return 'remove-circle';
+      default:
+        return 'check-circle';
     }
   };
 
@@ -142,108 +145,92 @@ export const InventoryChecklistComponent: React.FC<InventoryChecklistComponentPr
     updateInventoryItem(index, { condition: nextCondition });
   };
 
-  const renderInventoryItem = (inventoryItem: InventoryItem, index: number) => {
-    return (
-      <View key={index} style={styles.inventoryItem}>
-        <TouchableOpacity
-          style={[
-            styles.inventoryCheckbox,
-            inventoryItem.checked && styles.inventoryCheckboxChecked,
-            disabled && styles.inventoryCheckboxDisabled,
-          ]}
-          onPress={() => updateInventoryItem(index, { checked: !inventoryItem.checked })}
-          disabled={disabled}
-        >
-          {inventoryItem.checked && (
-            <InstitutionalIcon name="check" size={16} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
-          )}
-        </TouchableOpacity>
-
-        <View style={styles.inventoryContent}>
-          <Text style={[
-            styles.inventoryName,
-            !inventoryItem.checked && styles.inventoryNameUnchecked,
-            disabled && styles.inventoryNameDisabled,
-          ]}>
-            {inventoryItem.name}
-          </Text>
-          
-          {inventoryItem.checked && (
-            <TouchableOpacity
-              style={[
-                styles.conditionButton,
-                { backgroundColor: getConditionColor(inventoryItem.condition || 'BUENO') },
-                disabled && styles.conditionButtonDisabled,
-              ]}
-              onPress={() => toggleCondition(index)}
-              disabled={disabled}
-            >
-              <InstitutionalIcon 
-                name={getConditionIcon(inventoryItem.condition || 'BUENO') as any} 
-                size={12} 
-                color="#fff" 
-               strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.conditionText}>
-                {inventoryItem.condition || 'BUENO'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    );
-  };
-
-  const checkedCount = inventoryState.filter(item => item.checked).length;
+  const checkedCount = inventoryState.filter((entry) => entry.checked).length;
   const totalCount = inventoryState.length;
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{item.pregunta_texto}</Text>
-        {item.descripcion_ayuda && (
-          <Text style={styles.description}>{item.descripcion_ayuda}</Text>
-        )}
-        <View style={styles.progress}>
-          <Text style={styles.progressText}>
-            {checkedCount} de {totalCount} elementos verificados
-          </Text>
-          <View style={styles.progressBar}>
-            <View 
-              style={[
-                styles.progressFill, 
-                { width: `${totalCount > 0 ? (checkedCount / totalCount) * 100 : 0}%` }
-              ]} 
-            />
-          </View>
+      <View style={styles.progressHeader}>
+        <Text style={styles.progressText}>
+          {checkedCount} de {totalCount} verificados
+        </Text>
+        <View style={styles.progressBar}>
+          <View
+            style={[
+              styles.progressFill,
+              { width: `${totalCount > 0 ? (checkedCount / totalCount) * 100 : 0}%` },
+            ]}
+          />
         </View>
       </View>
 
       <ScrollView style={styles.inventoryList} showsVerticalScrollIndicator={false}>
-        {inventoryState.map((inventoryItem, index) => 
-          renderInventoryItem(inventoryItem, index)
-        )}
+        {inventoryState.map((inventoryItem, index) => (
+          <View key={inventoryItem.name} style={styles.inventoryItem}>
+            <TouchableOpacity
+              style={[
+                styles.inventoryCheckbox,
+                inventoryItem.checked && styles.inventoryCheckboxChecked,
+                disabled && styles.inventoryCheckboxDisabled,
+              ]}
+              onPress={() => updateInventoryItem(index, { checked: !inventoryItem.checked })}
+              disabled={disabled}
+            >
+              {inventoryItem.checked ? (
+                <InstitutionalIcon name="check" size={14} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              ) : null}
+            </TouchableOpacity>
+
+            <View style={styles.inventoryContent}>
+              <Text
+                style={[
+                  styles.inventoryName,
+                  !inventoryItem.checked && styles.inventoryNameUnchecked,
+                  disabled && styles.inventoryNameDisabled,
+                ]}
+              >
+                {inventoryItem.name}
+              </Text>
+
+              {inventoryItem.checked ? (
+                <TouchableOpacity
+                  style={[
+                    styles.conditionButton,
+                    {
+                      backgroundColor:
+                        CONDITION_COLORS[inventoryItem.condition || 'BUENO'] || I.semanticUp,
+                    },
+                    disabled && styles.conditionButtonDisabled,
+                  ]}
+                  onPress={() => toggleCondition(index)}
+                  disabled={disabled}
+                >
+                  <InstitutionalIcon
+                    name={getConditionIcon(inventoryItem.condition || 'BUENO') as 'check-circle'}
+                    size={12}
+                    color={I.onPrimary}
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
+                  <Text style={styles.conditionText}>{inventoryItem.condition || 'BUENO'}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        ))}
       </ScrollView>
 
       <View style={styles.legend}>
-        <Text style={styles.legendTitle}>Estados:</Text>
-        <View style={styles.legendItems}>
-          <View style={styles.legendItem}>
-            <InstitutionalIcon name="check-circle" size={16} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.legendText}>Bueno</Text>
+        {(['BUENO', 'REGULAR', 'MALO', 'FALTANTE'] as const).map((state) => (
+          <View key={state} style={styles.legendItem}>
+            <InstitutionalIcon
+              name={getConditionIcon(state) as 'check-circle'}
+              size={14}
+              color={CONDITION_COLORS[state]}
+              strokeWidth={ICON_STROKE_WIDTH}
+            />
+            <Text style={styles.legendText}>{state.charAt(0) + state.slice(1).toLowerCase()}</Text>
           </View>
-          <View style={styles.legendItem}>
-            <InstitutionalIcon name="warning" size={16} color="#ffc107"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.legendText}>Regular</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <InstitutionalIcon name="error" size={16} color="#dc3545"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.legendText}>Malo</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <InstitutionalIcon name="remove-circle" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.legendText}>Faltante</Text>
-          </View>
-        </View>
+        ))}
       </View>
     </View>
   );
@@ -251,67 +238,51 @@ export const InventoryChecklistComponent: React.FC<InventoryChecklistComponentPr
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 8,
+    gap: SPACING.fixed.sm,
   },
-  header: {
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2A4065',
-    marginBottom: 8,
-  },
-  description: {
-    fontSize: 14,
-    color: '#6c757d',
-    marginBottom: 12,
-  },
-  progress: {
-    marginBottom: 8,
+  progressHeader: {
+    gap: SPACING.fixed.xxs,
   },
   progressText: {
-    fontSize: 12,
-    color: '#495057',
-    marginBottom: 4,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansMedium,
+    color: I.muted,
   },
   progressBar: {
-    height: 4,
-    backgroundColor: '#e9ecef',
-    borderRadius: 2,
+    height: 3,
+    backgroundColor: I.hairlineSoft,
+    borderRadius: BORDERS.radius.pill,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#28a745',
-    borderRadius: 2,
+    backgroundColor: I.semanticUp,
+    borderRadius: BORDERS.radius.pill,
   },
   inventoryList: {
-    maxHeight: 300,
+    maxHeight: 280,
   },
   inventoryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f8f9fa',
+    paddingVertical: SPACING.fixed.xs,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairlineSoft,
   },
   inventoryCheckbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#dee2e6',
-    marginRight: 12,
+    width: 22,
+    height: 22,
+    borderRadius: BORDERS.radius.sm,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    marginRight: SPACING.fixed.sm,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: I.canvas,
   },
   inventoryCheckboxChecked: {
-    backgroundColor: '#28a745',
-    borderColor: '#28a745',
+    backgroundColor: I.semanticUp,
+    borderColor: I.semanticUp,
   },
   inventoryCheckboxDisabled: {
     opacity: 0.5,
@@ -321,14 +292,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: SPACING.fixed.xs,
   },
   inventoryName: {
-    fontSize: 14,
-    color: '#212529',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    color: I.ink,
     flex: 1,
   },
   inventoryNameUnchecked: {
-    color: '#6c757d',
+    color: I.muted,
   },
   inventoryNameDisabled: {
     opacity: 0.5,
@@ -336,35 +309,26 @@ const styles = StyleSheet.create({
   conditionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: SPACING.fixed.xs,
+    paddingVertical: 3,
+    borderRadius: BORDERS.radius.pill,
     gap: 4,
   },
   conditionButtonDisabled: {
     opacity: 0.5,
   },
   conditionText: {
-    fontSize: 10,
-    color: '#fff',
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    color: I.onPrimary,
   },
   legend: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
-  },
-  legendTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#495057',
-    marginBottom: 8,
-  },
-  legendItems: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.xs,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairlineSoft,
   },
   legendItem: {
     flexDirection: 'row',
@@ -372,7 +336,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   legendText: {
-    fontSize: 10,
-    color: '#6c757d',
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
   },
-}); 
+});

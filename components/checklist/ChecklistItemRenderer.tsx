@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Alert,
   Switch,
   ScrollView,
@@ -32,8 +31,15 @@ import {
 } from '@/services/checklistService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { platformShadow } from '@/app/design-system/tokens';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
+import {
+  checklistItemStyles as styles,
+  saludStyles,
+  sliderStyles,
+  SALUD_NIVEL_COLORS,
+  SALUD_NIVEL_LABEL,
+  I,
+} from '@/components/checklist/checklistItemStyles';
 
 interface ChecklistItemRendererProps {
   item: ChecklistItemTemplate;
@@ -55,22 +61,9 @@ interface ChecklistItemRendererProps {
   saludSnapshot?: ChecklistSaludSnapshotItem | null;
   /** Kilometraje actual del vehículo (root del snapshot de salud). */
   kmActual?: number | null;
+  /** Oculta el header interno cuando la pantalla padre ya muestra el título. */
+  hideHeader?: boolean;
 }
-
-// ── Helpers de salud ───────────────────────────────────────────────────────
-const SALUD_NIVEL_COLORS: Record<string, string> = {
-  OPTIMO: '#05b169',
-  ATENCION: '#f4b000',
-  URGENTE: '#fd7e14',
-  CRITICO: '#cf202f',
-};
-
-const SALUD_NIVEL_LABEL: Record<string, string> = {
-  OPTIMO: 'Óptimo',
-  ATENCION: 'Atención',
-  URGENTE: 'Urgente',
-  CRITICO: 'Crítico',
-};
 
 function nivelDesdePct(pct: number): keyof typeof SALUD_NIVEL_COLORS {
   if (pct >= 80) return 'OPTIMO';
@@ -99,7 +92,7 @@ const SaludActualBanner: React.FC<SaludActualBannerProps> = ({ snapshot }) => {
   const tieneDato = snapshot.salud_actual !== null;
   const pct = snapshot.salud_actual ?? 0;
   const nivel = snapshot.nivel_alerta_actual ?? (tieneDato ? nivelDesdePct(pct) : null);
-  const color = nivel ? SALUD_NIVEL_COLORS[nivel] : '#a8acb3';
+  const color = nivel ? SALUD_NIVEL_COLORS[nivel] : I.mutedSoft;
   const label = nivel ? SALUD_NIVEL_LABEL[nivel] : 'Sin datos';
   const cuando = diasDesde(snapshot.fecha_ultimo_servicio);
   const intencionLabel =
@@ -128,7 +121,7 @@ const SaludActualBanner: React.FC<SaludActualBannerProps> = ({ snapshot }) => {
           </View>
         )}
         {!tieneDato && (
-          <View style={[saludStyles.badge, { backgroundColor: '#a8acb3' }]}>
+          <View style={[saludStyles.badge, { backgroundColor: I.mutedSoft }]}>
             <Text style={saludStyles.badgeText}>S/D</Text>
           </View>
         )}
@@ -153,72 +146,6 @@ const SaludActualBanner: React.FC<SaludActualBannerProps> = ({ snapshot }) => {
     </View>
   );
 };
-
-const saludStyles = StyleSheet.create({
-  container: {
-    backgroundColor: '#f7f7f7',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#dee1e6',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  iconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#eef0f3',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0a0b0d',
-  },
-  intencionTag: {
-    fontSize: 11,
-    color: '#7c828a',
-    marginTop: 2,
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  badgeText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  barTrack: {
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: '#eef0f3',
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 999,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 6,
-  },
-  metaText: {
-    fontSize: 11,
-    color: '#7c828a',
-    marginRight: 4,
-  },
-});
 
 // ── Slider COMPONENT_HEALTH (sin dependencias nuevas) ───────────────────────
 interface ComponentHealthSliderProps {
@@ -309,7 +236,7 @@ const ComponentHealthSlider: React.FC<ComponentHealthSliderProps> = ({
                 sliderStyles.presetButton,
                 active && {
                   borderColor: color,
-                  backgroundColor: '#eef0f3',
+                  backgroundColor: I.surfaceStrong,
                 },
               ]}
               onPress={() => onChange(preset)}
@@ -332,76 +259,6 @@ const ComponentHealthSlider: React.FC<ComponentHealthSliderProps> = ({
   );
 };
 
-const sliderStyles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 4,
-    paddingTop: 4,
-  },
-  valueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  valueText: {
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  nivelText: {
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  barTrack: {
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: '#eef0f3',
-    overflow: 'hidden',
-    marginBottom: 14,
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 999,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-    marginBottom: 12,
-  },
-  stepButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#0052ff',
-    alignItems: 'center',
-  },
-  stepButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  presetRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 6,
-  },
-  presetButton: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#dee1e6',
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-  },
-  presetText: {
-    fontSize: 13,
-    color: '#5b616e',
-  },
-});
-
 export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   item,
   response,
@@ -415,6 +272,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   deletePhoto,
   saludSnapshot,
   kmActual,
+  hideHeader = false,
 }) => {
   const [inputValue, setInputValue] = useState<any>('');
   const [isModified, setIsModified] = useState(false);
@@ -979,7 +837,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           }}
         >
           {selected && (
-            <InstitutionalIcon name="check-circle" size={18} color="#ffffff" style={styles.optionCheckIcon}  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="check-circle" size={18} color={I.onPrimary} style={styles.optionCheckIcon}  strokeWidth={ICON_STROKE_WIDTH} />
           )}
           <Text style={[
             styles.modernOptionText,
@@ -1007,7 +865,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
             <InstitutionalIcon
               name={star <= rating ? 'star' : 'star-border'}
               size={32}
-              color={star <= rating ? '#ffc107' : '#dee2e6'}
+              color={star <= rating ? I.accentYellow : I.hairline}
              strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
         ))}
@@ -1045,7 +903,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                     <InstitutionalIcon
                       name={isSynced ? 'cloud-done' : 'cloud-off'}
                       size={12}
-                      color="#fff"
+                      color={I.onPrimary}
                      strokeWidth={ICON_STROKE_WIDTH} />
                   </View>
                   {/* Botón eliminar */}
@@ -1054,7 +912,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                     onPress={() => handleDeletePhoto(photo, index)}
                     disabled={uploadingPhoto}
                   >
-                    <InstitutionalIcon name="delete" size={16} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
+                    <InstitutionalIcon name="delete" size={16} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.photoCardDesc} numberOfLines={2}>{desc}</Text>
@@ -1091,7 +949,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
             value={inputValue}
             onChangeText={handleInputChange}
             placeholder={item.placeholder || 'Ingrese su respuesta...'}
-            placeholderTextColor="#adb5bd"
+            placeholderTextColor={I.mutedSoft}
             multiline={item.tipo_pregunta === 'FINAL_NOTES' || item.tipo_pregunta === 'WORK_SUMMARY'}
             textAlignVertical={item.tipo_pregunta === 'FINAL_NOTES' || item.tipo_pregunta === 'WORK_SUMMARY' ? 'top' : 'center'}
             editable={!false}
@@ -1107,7 +965,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
               value={inputValue}
               onChangeText={handleInputChange}
               placeholder={item.placeholder || '0'}
-              placeholderTextColor="#adb5bd"
+              placeholderTextColor={I.mutedSoft}
               keyboardType="numeric"
               editable={!false}
             />
@@ -1227,7 +1085,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                 onPress={handleTakePicture}
                 disabled={uploadingPhoto}
               >
-                <InstitutionalIcon name="camera-alt" size={22} color="#003459"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="camera-alt" size={22} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.modernPhotoButtonText}>Tomar Foto</Text>
               </TouchableOpacity>
 
@@ -1236,7 +1094,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                 onPress={handlePickFromGallery}
                 disabled={uploadingPhoto}
               >
-                <InstitutionalIcon name="photo-library" size={22} color="#003459"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="photo-library" size={22} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.modernPhotoButtonText}>Galería</Text>
               </TouchableOpacity>
             </View>
@@ -1244,7 +1102,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
             {/* Spinner mientras sube */}
             {uploadingPhoto && (
               <View style={styles.uploadingContainer}>
-                <ActivityIndicator size="small" color="#003459" />
+                <ActivityIndicator size="small" color={I.primary} />
                 <Text style={styles.uploadingText}>Subiendo foto al servidor...</Text>
               </View>
             )}
@@ -1255,7 +1113,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                 <InstitutionalIcon
                   name={photos.length >= item.min_fotos ? 'check-circle' : 'info'}
                   size={14}
-                  color={photos.length >= item.min_fotos ? '#00C9A7' : '#6c757d'}
+                  color={photos.length >= item.min_fotos ? I.semanticUp : I.muted}
                  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[
                   styles.photoRequirement,
@@ -1309,7 +1167,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                     value={photoDescriptionInput}
                     onChangeText={setPhotoDescriptionInput}
                     placeholder="Descripción de la foto..."
-                    placeholderTextColor="#adb5bd"
+                    placeholderTextColor={I.mutedSoft}
                     maxLength={120}
                     autoFocus
                     returnKeyType="done"
@@ -1337,10 +1195,10 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                       disabled={uploadingPhoto}
                     >
                       {uploadingPhoto ? (
-                        <ActivityIndicator size="small" color="#fff" />
+                        <ActivityIndicator size="small" color={I.onPrimary} />
                       ) : (
                         <>
-                          <InstitutionalIcon name="cloud-upload" size={18} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
+                          <InstitutionalIcon name="cloud-upload" size={18} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
                           <Text style={styles.descriptionConfirmText}>Guardar foto</Text>
                         </>
                       )}
@@ -1375,7 +1233,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                   setShowSignatureModal(true);
                 }}
               >
-                <InstitutionalIcon name="gesture" size={22} color="#619FF0"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="gesture" size={22} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.modernSignatureButtonText}>
                   {signatureButtonLabel}
                 </Text>
@@ -1400,11 +1258,11 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
               handleInputChange(now);
             }}
           >
-            <InstitutionalIcon name="schedule" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="schedule" size={20} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modernSelectButtonText}>
               {inputValue ? new Date(inputValue).toLocaleString('es-ES') : 'Seleccionar fecha y hora'}
             </Text>
-            <InstitutionalIcon name="arrow-drop-down" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="arrow-drop-down" size={20} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
         );
 
@@ -1420,7 +1278,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
               handleInputChange({ lat: -34.6037, lng: -58.3816 });
             }}
           >
-            <InstitutionalIcon name="location-on" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="location-on" size={20} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modernSelectButtonText}>
               {inputValue ? 'Ubicación capturada ✓' : 'Obtener ubicación GPS'}
             </Text>
@@ -1430,7 +1288,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       case 'VEHICLE_DIAGRAM':
         return (
           <View style={styles.notImplementedContainer}>
-            <InstitutionalIcon name="directions-car" size={24} color="#ffc107"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="directions-car" size={24} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.notImplementedText}>
               Diagrama de vehículo - En desarrollo
             </Text>
@@ -1444,7 +1302,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
             value={inputValue}
             onChangeText={handleInputChange}
             placeholder={item.placeholder || 'Describa los daños encontrados durante el diagnóstico...'}
-            placeholderTextColor="#adb5bd"
+            placeholderTextColor={I.mutedSoft}
             multiline={true}
             numberOfLines={6}
             textAlignVertical="top"
@@ -1465,7 +1323,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
               <InstitutionalIcon
                 name="check-circle"
                 size={20}
-                color={inputValue === true ? '#fff' : '#28a745'}
+                color={inputValue === true ? I.onPrimary : I.semanticUp}
                strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={[
                 styles.modernBooleanButtonText,
@@ -1485,7 +1343,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
               <InstitutionalIcon
                 name="cancel"
                 size={20}
-                color={inputValue === false ? '#fff' : '#dc3545'}
+                color={inputValue === false ? I.onPrimary : I.semanticDown}
                strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={[
                 styles.modernBooleanButtonText,
@@ -1500,7 +1358,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       default:
         return (
           <View style={styles.unsupportedContainer}>
-            <InstitutionalIcon name="help" size={24} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="help" size={24} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
             <View>
               <Text style={styles.unsupportedText}>
                 Tipo: {item.tipo_pregunta}
@@ -1612,25 +1470,26 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header del item - Mejorado según imagen */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.questionNumberBadge}>
-            <Text style={styles.questionNumber}>{item.orden_visual || '?'}</Text>
+      {!hideHeader && (
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <View style={styles.questionNumberBadge}>
+              <Text style={styles.questionNumber}>{item.orden_visual || '?'}</Text>
+            </View>
+            <View style={styles.questionContent}>
+              <Text style={styles.questionText}>{item.pregunta_texto}</Text>
+              {item.descripcion_ayuda && (
+                <Text style={styles.helpText}>{item.descripcion_ayuda}</Text>
+              )}
+            </View>
           </View>
-          <View style={styles.questionContent}>
-            <Text style={styles.questionText}>{item.pregunta_texto}</Text>
-            {item.descripcion_ayuda && (
-              <Text style={styles.helpText}>{item.descripcion_ayuda}</Text>
-            )}
-          </View>
+          {item.es_obligatorio_efectivo && (
+            <View style={styles.requiredBadgeContainer}>
+              <InstitutionalIcon name="star" size={14} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+            </View>
+          )}
         </View>
-        {item.es_obligatorio_efectivo && (
-          <View style={styles.requiredBadgeContainer}>
-            <InstitutionalIcon name="star" size={16} color="#dc3545"  strokeWidth={ICON_STROKE_WIDTH} />
-          </View>
-        )}
-      </View>
+      )}
 
       {/* Banner de salud actual del componente vinculado (refactor 2026) */}
       {saludSnapshot && saludSnapshot.componente && (
@@ -1644,18 +1503,18 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         {/* FECHA Y HORA */}
         {item.tipo_pregunta === 'DATETIME' && (
           <TouchableOpacity style={styles.modernSelectButton}>
-            <InstitutionalIcon name="schedule" size={20} color="#619FF0"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="schedule" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modernSelectButtonText}>
               {inputValue ? new Date(inputValue).toLocaleString('es-ES') : 'Seleccionar fecha y hora'}
             </Text>
-            <InstitutionalIcon name="arrow-drop-down" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="arrow-drop-down" size={20} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
         )}
 
         {/* UBICACIÓN GPS */}
         {item.tipo_pregunta === 'LOCATION' && (
           <TouchableOpacity style={styles.modernSelectButton}>
-            <InstitutionalIcon name="location-on" size={20} color="#619FF0"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="location-on" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modernSelectButtonText}>
               {inputValue ? 'Ubicación capturada ✓' : 'Obtener ubicación GPS'}
             </Text>
@@ -1691,7 +1550,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           'SIGNATURE',
         ].includes(item.tipo_pregunta) && (
           <View style={styles.notImplementedContainer}>
-            <InstitutionalIcon name="warning" size={20} color="#ffc107"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="warning" size={20} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.notImplementedText}>
               Tipo de pregunta '{item.tipo_pregunta}' no implementado aún
             </Text>
@@ -1707,10 +1566,10 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={I.onPrimary} />
           ) : (
             <>
-              <InstitutionalIcon name="save" size={18} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="save" size={18} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.modernSaveButtonText}>Guardar y Continuar</Text>
             </>
           )}
@@ -1720,7 +1579,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       {/* Indicador de completado */}
       {response?.completado && (
         <View style={styles.completedIndicator}>
-          <InstitutionalIcon name="check-circle" size={18} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="check-circle" size={18} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.completedText}>Completado</Text>
         </View>
       )}
@@ -1743,527 +1602,3 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 24,
-    paddingHorizontal: 0,
-  },
-  headerLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  questionNumberBadge: {
-    backgroundColor: '#619FF0',
-    borderRadius: 8,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  questionNumber: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  questionContent: {
-    flex: 1,
-  },
-  questionText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#212529',
-    lineHeight: 28,
-    letterSpacing: -0.3,
-    marginBottom: 8,
-  },
-  helpText: {
-    fontSize: 15,
-    color: '#6c757d',
-    lineHeight: 22,
-  },
-  requiredIcon: {
-    marginLeft: 6,
-    marginTop: 2,
-  },
-  requiredBadgeContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#fff5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-    borderWidth: 1.5,
-    borderColor: '#ffe0e0',
-  },
-  inputContainer: {
-    marginBottom: 24,
-  },
-  // Inputs compactos y rápidos - diseño claro mejorado
-  modernTextInput: {
-    borderWidth: 2,
-    borderColor: '#e9ecef',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    fontSize: 16,
-    color: '#212529',
-    backgroundColor: '#ffffff',
-  },
-  singleLineTextInput: {
-    height: 50,
-  },
-  multilineTextInput: {
-    minHeight: 100,
-    paddingTop: 14,
-    textAlignVertical: 'top',
-  },
-  // Botones booleanos compactos - diseño claro mejorado
-  modernBooleanContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modernBooleanButton: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#dee2e6',
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 50,
-  },
-  modernBooleanButtonSelected: {
-    backgroundColor: '#619FF0',
-    borderColor: '#619FF0',
-  },
-  modernBooleanButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#6c757d',
-  },
-  modernBooleanButtonTextSelected: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  // Select compacto - diseño claro mejorado
-  modernSelectContainer: {
-    gap: 10,
-  },
-  modernOptionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#dee2e6',
-    backgroundColor: '#ffffff',
-    minHeight: 50,
-  },
-  modernOptionButtonSelected: {
-    backgroundColor: '#619FF0',
-    borderColor: '#619FF0',
-  },
-  optionCheckIcon: {
-    marginRight: 12,
-  },
-  modernOptionText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#212529',
-    fontWeight: '500',
-  },
-  modernOptionTextSelected: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  // Select button (para dropdowns) - Compacto - diseño claro mejorado
-  modernSelectButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#dee2e6',
-    backgroundColor: '#ffffff',
-    minHeight: 50,
-    justifyContent: 'space-between',
-  },
-  modernSelectButtonText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#212529',
-    marginLeft: 12,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  starButton: {
-    padding: 4,
-  },
-  ratingText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: '#212529',
-    fontWeight: '500',
-  },
-  // Photo container
-  modernPhotoContainer: {
-    gap: 14,
-  },
-  modernPhotoButtonsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modernPhotoButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#003459',
-    backgroundColor: '#E6F2F7',
-    gap: 10,
-    minHeight: 52,
-  },
-  modernPhotoButtonDisabled: {
-    opacity: 0.5,
-  },
-  modernPhotoButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#003459',
-  },
-  uploadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    backgroundColor: '#f0f9ff',
-    borderRadius: 10,
-  },
-  uploadingText: {
-    fontSize: 14,
-    color: '#003459',
-    fontWeight: '500',
-  },
-  photoRequirementRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  photoRequirement: {
-    fontSize: 12,
-    color: '#6c757d',
-  },
-  photoRequirementMet: {
-    color: '#00C9A7',
-    fontWeight: '500',
-  },
-  photoPreviewContainer: {
-    gap: 10,
-  },
-  photoPreviewTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#212529',
-  },
-  photoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  photoCard: {
-    width: 100,
-    gap: 4,
-  },
-  photoCardImageWrapper: {
-    position: 'relative',
-    width: 100,
-    height: 100,
-    borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#dee2e6',
-  },
-  photoCardImage: {
-    width: '100%',
-    height: '100%',
-  },
-  photoSyncBadge: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  photoSyncBadgeSynced: {
-    backgroundColor: '#00C9A7',
-  },
-  photoSyncBadgePending: {
-    backgroundColor: '#adb5bd',
-  },
-  photoDeleteButton: {
-    position: 'absolute',
-    bottom: 4,
-    right: 4,
-    backgroundColor: '#dc3545',
-    borderRadius: 14,
-    width: 26,
-    height: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  photoCardDesc: {
-    fontSize: 11,
-    color: '#495057',
-    fontWeight: '500',
-    lineHeight: 14,
-  },
-  // Modal de descripción de foto
-  descriptionModalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  descriptionModalSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 32,
-    gap: 12,
-  },
-  descriptionModalHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#dee2e6',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 4,
-  },
-  descriptionModalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#003459',
-    textAlign: 'center',
-  },
-  descriptionModalSubtitle: {
-    fontSize: 13,
-    color: '#6c757d',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  descriptionModalPreview: {
-    width: '100%',
-    height: 160,
-    borderRadius: 12,
-    backgroundColor: '#f8f9fa',
-  },
-  descriptionInput: {
-    borderWidth: 2,
-    borderColor: '#003459',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: '#212529',
-    backgroundColor: '#f8f9fa',
-    marginTop: 4,
-  },
-  descriptionCharCount: {
-    fontSize: 11,
-    color: '#adb5bd',
-    textAlign: 'right',
-    marginTop: -6,
-  },
-  descriptionModalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
-  },
-  descriptionCancelButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#dee2e6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  descriptionCancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#6c757d',
-  },
-  descriptionConfirmButton: {
-    flex: 2,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#003459',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  descriptionConfirmText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  // Number input wrapper
-  numberInputWrapper: {
-    gap: 8,
-  },
-  rangeHint: {
-    fontSize: 13,
-    color: '#6c757d',
-    fontStyle: 'italic',
-    marginTop: 4,
-  },
-  // Signature compacto - diseño claro mejorado
-  modernSignatureContainer: {
-    gap: 12,
-  },
-  modernSignatureButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#dee2e6',
-    backgroundColor: '#ffffff',
-    gap: 10,
-    minHeight: 50,
-  },
-  modernSignatureButtonText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#212529',
-  },
-  modernSignatureHelp: {
-    fontSize: 12,
-    color: '#6c757d',
-    paddingHorizontal: 4,
-    lineHeight: 16,
-  },
-  // Botón guardar - diseño mejorado según imagen
-  modernSaveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    backgroundColor: '#619FF0',
-    gap: 12,
-    marginTop: 16,
-    ...platformShadow({
-      shadowColor: '#619FF0',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 4,
-    }),
-  },
-  modernSaveButtonDisabled: {
-    backgroundColor: '#6c757d',
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 2,
-    }),
-  },
-  modernSaveButtonText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#ffffff',
-    letterSpacing: 0.2,
-  },
-  completedIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    gap: 8,
-    backgroundColor: '#d4edda',
-    borderRadius: 12,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#c3e6cb',
-  },
-  completedText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#155724',
-  },
-  notImplementedContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ffc107',
-    backgroundColor: '#fff9e6',
-    gap: 8,
-  },
-  notImplementedText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#856404',
-  },
-  unsupportedContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ffc107',
-    backgroundColor: '#fff9e6',
-    gap: 8,
-  },
-  unsupportedText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#856404',
-  },
-  unsupportedSubtext: {
-    fontSize: 12,
-    color: '#6c757d',
-    fontStyle: 'italic',
-  },
-}); 

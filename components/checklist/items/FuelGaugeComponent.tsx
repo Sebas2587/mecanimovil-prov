@@ -7,23 +7,27 @@ import {
 } from 'react-native';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+
 interface FuelGaugeComponentProps {
-  item: any;
-  respuesta: any;
-  onResponseChange: (response: any) => void;
+  item: { pregunta_texto: string; descripcion_ayuda?: string };
+  respuesta: { respuesta_seleccion?: string } | null;
+  onResponseChange: (response: Record<string, unknown>) => void;
   disabled?: boolean;
 }
 
 const FUEL_LEVELS = [
-  { key: 'E', label: 'E (Vacío)', value: 0, color: '#dc3545', icon: 'battery-0-bar' },
-  { key: '1/4', label: '1/4', value: 25, color: '#fd7e14', icon: 'battery-1-bar' },
-  { key: '1/2', label: '1/2', value: 50, color: '#ffc107', icon: 'battery-3-bar' },
-  { key: '3/4', label: '3/4', value: 75, color: '#28a745', icon: 'battery-5-bar' },
-  { key: 'F', label: 'F (Lleno)', value: 100, color: '#007bff', icon: 'battery-full' },
+  { key: 'E', label: 'E (Vacío)', value: 0, color: I.semanticDown, icon: 'battery-0-bar' },
+  { key: '1/4', label: '1/4', value: 25, color: I.accentYellow, icon: 'battery-1-bar' },
+  { key: '1/2', label: '1/2', value: 50, color: I.accentYellow, icon: 'battery-3-bar' },
+  { key: '3/4', label: '3/4', value: 75, color: I.semanticUp, icon: 'battery-5-bar' },
+  { key: 'F', label: 'F (Lleno)', value: 100, color: I.primary, icon: 'battery-full' },
 ];
 
 export const FuelGaugeComponent: React.FC<FuelGaugeComponentProps> = ({
-  item,
   respuesta,
   onResponseChange,
   disabled = false,
@@ -40,9 +44,9 @@ export const FuelGaugeComponent: React.FC<FuelGaugeComponentProps> = ({
     if (disabled) return;
 
     setSelectedLevel(level);
-    
-    const fuelLevel = FUEL_LEVELS.find(f => f.key === level);
-    
+
+    const fuelLevel = FUEL_LEVELS.find((f) => f.key === level);
+
     onResponseChange({
       respuesta_seleccion: level,
       respuesta_texto: fuelLevel?.label || level,
@@ -51,24 +55,16 @@ export const FuelGaugeComponent: React.FC<FuelGaugeComponentProps> = ({
     });
   };
 
-  const selectedFuelLevel = FUEL_LEVELS.find(f => f.key === selectedLevel);
+  const selectedFuelLevel = FUEL_LEVELS.find((f) => f.key === selectedLevel);
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{item.pregunta_texto}</Text>
-        {item.descripcion_ayuda && (
-          <Text style={styles.description}>{item.descripcion_ayuda}</Text>
-        )}
-      </View>
-
-      {/* Medidor visual simplificado */}
       <View style={styles.gaugeContainer}>
         <View style={styles.gaugeHeader}>
-          <InstitutionalIcon name="local-gas-station" size={24} color="#495057"  strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.gaugeTitle}>Nivel de Combustible</Text>
+          <InstitutionalIcon name="local-gas-station" size={20} color={I.body} strokeWidth={ICON_STROKE_WIDTH} />
+          <Text style={styles.gaugeTitle}>Nivel de combustible</Text>
         </View>
-        
+
         <View style={styles.gaugeBar}>
           {FUEL_LEVELS.map((level, index) => (
             <View
@@ -78,61 +74,50 @@ export const FuelGaugeComponent: React.FC<FuelGaugeComponentProps> = ({
                 index === 0 && styles.gaugeSegmentFirst,
                 index === FUEL_LEVELS.length - 1 && styles.gaugeSegmentLast,
                 {
-                  backgroundColor: selectedLevel === level.key 
-                    ? level.color 
-                    : selectedFuelLevel && FUEL_LEVELS.findIndex(f => f.key === selectedFuelLevel.key) >= index
+                  backgroundColor:
+                    selectedLevel === level.key
                       ? level.color
-                      : '#e9ecef'
-                }
+                      : selectedFuelLevel &&
+                          FUEL_LEVELS.findIndex((f) => f.key === selectedFuelLevel.key) >= index
+                        ? level.color
+                        : I.hairlineSoft,
+                },
               ]}
             >
-              <Text style={[
-                styles.gaugeSegmentText,
-                {
-                  color: selectedLevel === level.key || 
-                         (selectedFuelLevel && FUEL_LEVELS.findIndex(f => f.key === selectedFuelLevel.key) >= index)
-                    ? '#fff' 
-                    : '#6c757d'
-                }
-              ]}>
+              <Text
+                style={[
+                  styles.gaugeSegmentText,
+                  {
+                    color:
+                      selectedLevel === level.key ||
+                      (selectedFuelLevel &&
+                        FUEL_LEVELS.findIndex((f) => f.key === selectedFuelLevel.key) >= index)
+                        ? I.onPrimary
+                        : I.muted,
+                  },
+                ]}
+              >
                 {level.key}
               </Text>
             </View>
           ))}
         </View>
-        
-        {/* Indicador de nivel seleccionado */}
-        {selectedLevel && (
+
+        {selectedLevel && selectedFuelLevel ? (
           <View style={styles.gaugeIndicator}>
-            <InstitutionalIcon 
-              name={selectedFuelLevel?.icon as any || 'battery-unknown'} 
-              size={20} 
-              color={selectedFuelLevel?.color || '#28a745'} 
-             strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[
-              styles.gaugeIndicatorText,
-              { color: selectedFuelLevel?.color || '#28a745' }
-            ]}>
-              {selectedFuelLevel?.value || 0}%
+            <InstitutionalIcon
+              name={selectedFuelLevel.icon as 'battery-full'}
+              size={18}
+              color={selectedFuelLevel.color}
+              strokeWidth={ICON_STROKE_WIDTH}
+            />
+            <Text style={[styles.gaugeIndicatorText, { color: selectedFuelLevel.color }]}>
+              {selectedFuelLevel.value}%
             </Text>
           </View>
-        )}
+        ) : null}
       </View>
 
-      {/* Valor seleccionado */}
-      {selectedLevel && (
-        <View style={[
-          styles.selectedValue,
-          { backgroundColor: selectedFuelLevel?.color || '#28a745' }
-        ]}>
-          <InstitutionalIcon name="speed" size={16} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.selectedValueText}>
-            {selectedFuelLevel?.label || selectedLevel}
-          </Text>
-        </View>
-      )}
-
-      {/* Botones de selección */}
       <View style={styles.buttonsContainer}>
         {FUEL_LEVELS.map((level) => (
           <TouchableOpacity
@@ -140,43 +125,45 @@ export const FuelGaugeComponent: React.FC<FuelGaugeComponentProps> = ({
             style={[
               styles.levelButton,
               selectedLevel === level.key && styles.levelButtonSelected,
-              selectedLevel === level.key && { backgroundColor: level.color },
+              selectedLevel === level.key && { backgroundColor: level.color, borderColor: level.color },
               disabled && styles.levelButtonDisabled,
             ]}
             onPress={() => handleLevelSelect(level.key)}
             disabled={disabled}
           >
-            <InstitutionalIcon 
-              name={level.icon as any} 
-              size={20} 
-              color={selectedLevel === level.key ? '#fff' : level.color} 
-             strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[
-              styles.levelButtonText,
-              selectedLevel === level.key && styles.levelButtonTextSelected,
-              disabled && styles.levelButtonTextDisabled,
-            ]}>
+            <InstitutionalIcon
+              name={level.icon as 'battery-full'}
+              size={18}
+              color={selectedLevel === level.key ? I.onPrimary : level.color}
+              strokeWidth={ICON_STROKE_WIDTH}
+            />
+            <Text
+              style={[
+                styles.levelButtonText,
+                selectedLevel === level.key && styles.levelButtonTextSelected,
+                disabled && styles.levelButtonTextDisabled,
+              ]}
+            >
               {level.label}
             </Text>
-            <Text style={[
-              styles.levelButtonValue,
-              selectedLevel === level.key && styles.levelButtonValueSelected,
-              disabled && styles.levelButtonTextDisabled,
-            ]}>
+            <Text
+              style={[
+                styles.levelButtonValue,
+                selectedLevel === level.key && styles.levelButtonValueSelected,
+                disabled && styles.levelButtonTextDisabled,
+              ]}
+            >
               {level.value}%
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Información adicional */}
       <View style={styles.infoContainer}>
-        <View style={styles.infoItem}>
-          <InstitutionalIcon name="info" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.infoText}>
-            Selecciona el nivel según el medidor del tablero del vehículo
-          </Text>
-        </View>
+        <InstitutionalIcon name="info" size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+        <Text style={styles.infoText}>
+          Selecciona el nivel según el medidor del tablero del vehículo
+        </Text>
       </View>
     </View>
   );
@@ -184,109 +171,80 @@ export const FuelGaugeComponent: React.FC<FuelGaugeComponentProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 8,
-  },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2A4065',
-    marginBottom: 8,
-  },
-  description: {
-    fontSize: 14,
-    color: '#6c757d',
+    gap: SPACING.fixed.sm,
   },
   gaugeContainer: {
-    marginBottom: 16,
-    padding: 16,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
+    padding: SPACING.fixed.sm,
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   gaugeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: SPACING.fixed.sm,
+    gap: SPACING.fixed.xs,
   },
   gaugeTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#495057',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
   },
   gaugeBar: {
     flexDirection: 'row',
-    height: 40,
-    borderRadius: 20,
+    height: 32,
+    borderRadius: BORDERS.radius.pill,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#dee2e6',
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   gaugeSegment: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     borderRightWidth: 1,
-    borderRightColor: '#fff',
+    borderRightColor: I.canvas,
   },
   gaugeSegmentFirst: {
-    borderTopLeftRadius: 18,
-    borderBottomLeftRadius: 18,
+    borderTopLeftRadius: BORDERS.radius.pill,
+    borderBottomLeftRadius: BORDERS.radius.pill,
   },
   gaugeSegmentLast: {
-    borderTopRightRadius: 18,
-    borderBottomRightRadius: 18,
+    borderTopRightRadius: BORDERS.radius.pill,
+    borderBottomRightRadius: BORDERS.radius.pill,
     borderRightWidth: 0,
   },
   gaugeSegmentText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
   },
   gaugeIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
-    gap: 6,
+    marginTop: SPACING.fixed.xs,
+    gap: SPACING.fixed.xxs,
   },
   gaugeIndicatorText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  selectedValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginBottom: 16,
-    gap: 6,
-  },
-  selectedValueText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
   },
   buttonsContainer: {
-    gap: 8,
+    gap: SPACING.fixed.xs,
   },
   levelButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#dee2e6',
-    backgroundColor: '#f8f9fa',
-    gap: 12,
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
+    gap: SPACING.fixed.sm,
+    minHeight: 44,
   },
   levelButtonSelected: {
     borderColor: 'transparent',
@@ -296,40 +254,38 @@ const styles = StyleSheet.create({
   },
   levelButtonText: {
     flex: 1,
-    fontSize: 14,
-    color: '#495057',
-    fontWeight: '500',
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    color: I.ink,
   },
   levelButtonTextSelected: {
-    color: '#fff',
-    fontWeight: '600',
+    color: I.onPrimary,
+    fontFamily: FF.sansSemiBold,
   },
   levelButtonValue: {
-    fontSize: 12,
-    color: '#6c757d',
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    color: I.muted,
   },
   levelButtonValueSelected: {
-    color: '#fff',
+    color: I.onPrimary,
   },
   levelButtonTextDisabled: {
     opacity: 0.5,
   },
   infoContainer: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
-  },
-  infoItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: SPACING.fixed.xs,
+    paddingTop: SPACING.fixed.xs,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairlineSoft,
   },
   infoText: {
     flex: 1,
-    fontSize: 12,
-    color: '#6c757d',
-    lineHeight: 18,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    lineHeight: 16,
   },
-}); 
+});

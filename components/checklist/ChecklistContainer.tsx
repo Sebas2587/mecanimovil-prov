@@ -362,21 +362,14 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
       {/* Header Coinbase: canvas blanco + hairline */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleCancel} style={styles.closeButton} accessibilityLabel="Cerrar checklist">
-          <InstitutionalIcon name="close" size={ICON_SIZE.lg} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="close" size={ICON_SIZE.md} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
 
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle} numberOfLines={2}>{template.nombre}</Text>
-          <View style={styles.headerSubtitleRow}>
-            <Text style={styles.headerSubtitle}>
-              {totalCompletados} de {totalSteps} completados
-            </Text>
-            <View style={styles.headerStatusBadge}>
-              <Text style={styles.headerStatusBadgeText}>
-                {labelEstadoChecklist(instance.estado)}
-              </Text>
-            </View>
-          </View>
+          <Text style={styles.headerTitle} numberOfLines={1}>{template.nombre}</Text>
+          <Text style={styles.headerSubtitle}>
+            {totalCompletados}/{totalSteps} · {labelEstadoChecklist(instance.estado)}
+          </Text>
         </View>
       </View>
 
@@ -386,8 +379,6 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           currentStep={totalCompletados}
           totalSteps={totalSteps}
           progreso={progreso}
-          items={template.items}
-          completedItemIds={instance.respuestas?.filter(r => r.completado).map(r => r.item_template) || []}
         />
       )}
 
@@ -612,7 +603,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xs,
+    minHeight: 48,
     backgroundColor: I.canvas,
     borderBottomWidth: BORDERS.width.thin,
     borderBottomColor: I.hairline,
@@ -627,34 +619,15 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   headerTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontFamily: FF.sansBold,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
     color: I.ink,
-    marginBottom: SPACING.fixed.xxs,
   },
   headerSubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansMedium,
     color: I.muted,
-  },
-  headerSubtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: SPACING.fixed.sm,
-  },
-  headerStatusBadge: {
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: SPACING.fixed.xxs,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.surfaceStrong,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
-  headerStatusBadgeText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansSemiBold,
-    color: I.primary,
+    marginTop: 1,
   },
   content: {
     flex: 1,

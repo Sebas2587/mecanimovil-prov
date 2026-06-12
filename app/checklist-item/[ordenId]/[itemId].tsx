@@ -13,13 +13,14 @@ import { useChecklist } from '@/hooks/useChecklist';
 import { ChecklistItemRenderer } from '@/components/checklist/ChecklistItemRenderer';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
-import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { COLORS } from '@/app/design-system/tokens';
+import { ICON_STROKE_WIDTH, ICON_SIZE } from '@/app/design-system/iconography';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { checklistQueryKeys } from '@/hooks/checklistQueryKeys';
 import { checklistService } from '@/services/checklistService';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
 
 export default function ChecklistItemDetailScreen() {
   const { ordenId, itemId } = useLocalSearchParams<{ ordenId: string; itemId: string }>();
@@ -81,8 +82,6 @@ export default function ChecklistItemDetailScreen() {
     setLocalResponse(response);
   }, [response]);
 
-  // Para items de tipo FOTO: asegurar que exista una respuesta en backend
-  // antes de intentar subir fotos, de modo que se puedan asociar múltiples evidencias.
   useEffect(() => {
     const ensurePhotoResponse = async () => {
       if (!item || !instance) return;
@@ -150,7 +149,7 @@ export default function ChecklistItemDetailScreen() {
         <View style={styles.errorContainer}>
           <InstitutionalIcon
             name="error"
-            size={64}
+            size={48}
             color={I.semanticDown}
             strokeWidth={ICON_STROKE_WIDTH}
           />
@@ -172,21 +171,27 @@ export default function ChecklistItemDetailScreen() {
         <TouchableOpacity onPress={handleGoBack} style={styles.closeButton}>
           <InstitutionalIcon
             name="arrow-back"
-            size={24}
+            size={ICON_SIZE.md}
             color={I.ink}
             strokeWidth={ICON_STROKE_WIDTH}
           />
         </TouchableOpacity>
 
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <Text style={styles.headerTitle} numberOfLines={2}>
             {item.pregunta_texto}
           </Text>
           <Text style={styles.headerSubtitle}>
-            Item {item.orden_visual || 'N/A'} de {template.items?.length || 0}
+            Ítem {item.orden_visual || '—'} de {template.items?.length || 0}
           </Text>
         </View>
       </View>
+
+      {item.descripcion_ayuda ? (
+        <View style={styles.helpBanner}>
+          <Text style={styles.helpText}>{item.descripcion_ayuda}</Text>
+        </View>
+      ) : null}
 
       <ScrollView
         style={styles.content}
@@ -196,22 +201,21 @@ export default function ChecklistItemDetailScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.rendererWrapper}>
-          <ChecklistItemRenderer
-            item={item}
-            response={localResponse}
-            onSave={handleSave}
-            saving={saving}
-            instance={instance}
-            finalizeChecklist={finalizeChecklist}
-            takePicture={takePicture}
-            pickFromGallery={pickFromGallery}
-            uploadPhoto={uploadPhoto}
-            deletePhoto={deletePhoto}
-            saludSnapshot={saludSnapshot}
-            kmActual={kmActual}
-          />
-        </View>
+        <ChecklistItemRenderer
+          item={item}
+          response={localResponse}
+          onSave={handleSave}
+          saving={saving}
+          instance={instance}
+          finalizeChecklist={finalizeChecklist}
+          takePicture={takePicture}
+          pickFromGallery={pickFromGallery}
+          uploadPhoto={uploadPhoto}
+          deletePhoto={deletePhoto}
+          saludSnapshot={saludSnapshot}
+          kmActual={kmActual}
+          hideHeader
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -225,73 +229,92 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.xs,
+    minHeight: 48,
     backgroundColor: I.canvas,
-    borderBottomWidth: 1,
+    borderBottomWidth: BORDERS.width.thin,
     borderBottomColor: I.hairline,
   },
   closeButton: {
-    padding: 6,
-    marginRight: 10,
+    padding: SPACING.fixed.xxs,
+    marginRight: SPACING.fixed.sm,
   },
   headerContent: {
     flex: 1,
+    minWidth: 0,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
     color: I.ink,
-    marginBottom: 2,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.base * TYPOGRAPHY.lineHeight.normal),
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansMedium,
     color: I.muted,
+    marginTop: 1,
+  },
+  helpBanner: {
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.xs,
+    backgroundColor: I.surfaceSoft,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairlineSoft,
+  },
+  helpText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.sm * TYPOGRAPHY.lineHeight.normal),
   },
   content: {
     flex: 1,
     backgroundColor: I.canvas,
   },
   contentContainer: {
-    paddingTop: 8,
-  },
-  rendererWrapper: {
-    paddingHorizontal: 20,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.sm,
   },
   loadingText: {
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansMedium,
     color: I.muted,
-    marginTop: 16,
+    marginTop: SPACING.fixed.md,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: SPACING.fixed.xl,
   },
   errorTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: FF.sansSemiBold,
     color: I.ink,
-    marginTop: 16,
+    marginTop: SPACING.fixed.sm,
   },
   errorMessage: {
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
     color: I.muted,
     textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 24,
+    marginTop: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.lg,
   },
   backButton: {
     backgroundColor: I.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: SPACING.fixed.lg,
+    paddingVertical: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.pill,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   backButtonText: {
     color: I.onPrimary,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
   },
 });
