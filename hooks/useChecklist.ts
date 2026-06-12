@@ -13,6 +13,7 @@ import { checklistQueryKeys } from '@/hooks/checklistQueryKeys';
 import {
   fetchChecklistBundle,
   calcProgreso,
+  respuestaCompletadaParaItem,
   type ChecklistBundle,
 } from '@/hooks/fetchChecklistBundle';
 
@@ -94,29 +95,37 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
   const calculateLocalCanFinalize = useCallback(() => {
     if (!instance || !template) return false;
 
-    if (instance.estado !== 'EN_PROGRESO') return false;
+    if (instance.estado !== 'EN_PROGRESO' && instance.estado !== 'PAUSADO') return false;
 
     const respuestas = instance.respuestas || [];
     const respuestasCompletadas = respuestas.filter((r) => r.completado);
 
     if (respuestasCompletadas.length === 0) return false;
 
+    const totalItems = template.items?.length ?? template.total_items ?? 0;
+    const progresoLocal =
+      totalItems > 0
+        ? checklistService.calcularProgreso(respuestas, totalItems)
+        : progreso;
+
     const itemsObligatorios = template.items.filter(
       (item) => item.es_obligatorio_efectivo || item.es_obligatorio,
     );
 
     if (itemsObligatorios.length === 0) {
-      return progreso >= 80;
+      return progresoLocal >= 80;
     }
 
     for (const item of itemsObligatorios) {
-      const respuesta = respuestas.find((r) => r.item_template === item.id && r.completado);
-      if (!respuesta) {
+      if (!respuestaCompletadaParaItem(respuestas, item.id)) {
         return false;
       }
     }
 
-    return progreso >= 80;
+    if (progresoLocal >= 80) return true;
+
+    // Fallback: confiar en flag del backend tras guardar respuestas
+    return instance.puede_finalizar_check === true;
   }, [instance, template, progreso]);
 
   const initializeChecklist = useCallback(async () => {
@@ -270,6 +279,15 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
             updatedInstance.respuestas.push(result.data);
           }
 
+          const totalItems =
+            template?.items?.length ?? template?.total_items ?? 0;
+          if (totalItems > 0) {
+            updatedInstance.progreso_porcentaje = checklistService.calcularProgreso(
+              updatedInstance.respuestas,
+              totalItems,
+            );
+          }
+
           patchInstance(updatedInstance);
           updateUi({ pendingSync: result.message?.includes('localmente') || false });
           await invalidateChecklist();
@@ -284,7 +302,7 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
         updateUi({ saving: false });
       }
     },
-    [instance, patchInstance, invalidateChecklist, updateUi],
+    [instance, template, patchInstance, invalidateChecklist, updateUi],
   );
 
   const takePicture = useCallback(async () => {

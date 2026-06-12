@@ -183,15 +183,38 @@ export function getTemplateIdFromInstance(instance: ChecklistInstance | null | u
   }
 }
 
+/** Coincide item_template con id de template (API puede devolver number o string). */
+export function respuestaCompletadaParaItem(
+  respuestas: ChecklistInstance['respuestas'] | undefined,
+  itemTemplateId: number,
+): boolean {
+  if (!Array.isArray(respuestas)) return false;
+  const idStr = String(itemTemplateId);
+  return respuestas.some(
+    (r) =>
+      r.completado &&
+      (r.item_template === itemTemplateId || String(r.item_template) === idStr),
+  );
+}
+
 export function calcProgreso(
   instance: ChecklistInstance | null,
   template: ChecklistTemplate | null,
 ): number {
   if (!instance) return 0;
+
+  const totalItems =
+    template?.items?.length ??
+    template?.total_items ??
+    0;
+
+  // Tras reabrir checklist, progreso_porcentaje del servidor puede quedar en 0%
+  // aunque las respuestas locales ya estén completas — calcular desde respuestas.
+  if (template && Array.isArray(instance.respuestas) && totalItems > 0) {
+    return checklistService.calcularProgreso(instance.respuestas, totalItems);
+  }
+
   if (instance.progreso_calculado != null) return instance.progreso_calculado;
   if (instance.progreso_porcentaje != null) return instance.progreso_porcentaje;
-  if (template && Array.isArray(instance.respuestas)) {
-    return checklistService.calcularProgreso(instance.respuestas, template.total_items || 0);
-  }
   return 0;
 }

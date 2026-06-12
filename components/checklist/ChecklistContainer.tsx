@@ -11,6 +11,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useChecklist } from '@/hooks/useChecklist';
+import { respuestaCompletadaParaItem } from '@/hooks/fetchChecklistBundle';
 import { ChecklistProgressBar } from '@/components/checklist/ChecklistProgressBar';
 import { ChecklistSignatureModal } from '@/components/checklist/ChecklistSignatureModal';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
@@ -204,13 +205,11 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
       });
 
       // Revisar qué campos faltan por completar usando el campo correcto
-      const camposIncompletos = template?.items.filter((item, index) => {
-        const respuesta = instance?.respuestas.find(r => r.item_template === item.id);
-        // Usar es_obligatorio_efectivo que viene del catálogo
+      const camposIncompletos = template?.items.filter((item) => {
         const esObligatorio = item.es_obligatorio_efectivo !== undefined
           ? item.es_obligatorio_efectivo
           : item.es_obligatorio;
-        return esObligatorio && (!respuesta || !respuesta.completado);
+        return esObligatorio && !respuestaCompletadaParaItem(instance?.respuestas, item.id);
       }) || [];
 
       console.log('📋 Campos incompletos encontrados:', camposIncompletos.map(item => ({
@@ -477,8 +476,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             {template.items
               .sort((a, b) => (a.orden_visual || 0) - (b.orden_visual || 0))
               .map((item) => {
-                const response = instance.respuestas?.find(r => r.item_template === item.id);
-                const itemCompleted = response?.completado || false;
+                const itemCompleted = respuestaCompletadaParaItem(instance.respuestas, item.id);
                 const isRequired = item.es_obligatorio_efectivo;
 
                 return (
