@@ -2,6 +2,7 @@
  * Tarifas publicadas por marca (oferta) — vista proveedor y resumen.
  */
 import type { ServicioOfertaLike } from './agruparOfertasServicio';
+import { formatearMontoCLP } from './formatearMontoCLP';
 
 export type TarifaPorMarca = {
   ofertaId: number;
@@ -56,10 +57,5 @@ export function buildTarifasPorMarca<T extends ServicioOfertaLike>(ofertas: T[])
 }
 
 export function formatearPrecioCLP(valor: number | null | undefined): string {
-  if (valor == null || !Number.isFinite(valor)) return '—';
-  return new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-    maximumFractionDigits: 0,
-  }).format(Math.round(valor));
+  return formatearMontoCLP(valor);
 }

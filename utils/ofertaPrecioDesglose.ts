@@ -21,22 +21,28 @@ export function calcularDesgloseIvaOferta({
   const mo = parseFloat(String(costoManoObra ?? '0')) || 0;
   const rep = parseFloat(String(costoRepuestos ?? '0')) || 0;
   const gest = parseFloat(String(costoGestionCompra ?? '0')) || 0;
-  const totalCliente = Math.round(parseFloat(String(precioTotalOfrecido ?? '0')) || 0);
+  const totalCliente = parseFloat(String(precioTotalOfrecido ?? '0')) || 0;
   const sumSinIva = mo + rep + gest;
   const tieneMontosProveedor = mo > 0 || rep > 0 || gest > 0;
-  const TOL = 2;
-  const totalDesdeLineas = Math.round(sumSinIva * 1.19);
+  const TOL = 0.02;
+  const totalDesdeLineas = sumSinIva * 1.19;
   const lineasCuadranConTotal =
     sumSinIva > 0 && Math.abs(totalDesdeLineas - totalCliente) <= TOL;
 
-  // IVA y subtotal SIEMPRE derivados del total — única fuente de verdad
-  const subSinIvaDisplay = totalCliente > 0 ? Math.round(totalCliente / 1.19) : 0;
-  const ivaDisplay = totalCliente > 0 ? totalCliente - subSinIvaDisplay : 0;
+  const usarLineasComoBase = tieneMontosProveedor && sumSinIva > 0 && !lineasCuadranConTotal;
+
+  const subSinIvaDisplay = usarLineasComoBase
+    ? sumSinIva
+    : (totalCliente > 0 ? totalCliente / 1.19 : 0);
+  const ivaDisplay = usarLineasComoBase
+    ? sumSinIva * 0.19
+    : (totalCliente > 0 ? totalCliente - subSinIvaDisplay : 0);
+  const totalMostrar = usarLineasComoBase ? totalDesdeLineas : totalCliente;
 
   return {
     subSinIvaDisplay,
     ivaDisplay,
-    totalCliente,
+    totalCliente: totalMostrar,
     lineasCuadranConTotal,
     sumSinIva,
     tieneMontosProveedor,
@@ -63,14 +69,12 @@ export function resolverDesgloseIvaMostrado(
   dApi: DesgloseIvaApi,
   calc: CalcDesglose
 ): { subSinIva: number; iva: number; total: number } {
-  // Usar el IVA del API solo cuando venga positivo y coherente con su propio total.
-  // En cualquier otro caso (iva=0, faltante, incoherente) usamos el cálculo local
-  // que siempre deriva IVA de precio_total_ofrecido → nunca puede ser $0 si total > 0.
+  const TOL = 0.02;
   const apiIva = dApi != null && dApi.iva != null ? Number(dApi.iva) : null;
   const apiSub = dApi != null && dApi.subtotal_sin_iva != null ? Number(dApi.subtotal_sin_iva) : null;
   const apiTotal = dApi != null && dApi.total != null ? Number(dApi.total) : null;
 
-  const apiValida =
+  const apiCoherente =
     apiIva !== null &&
     Number.isFinite(apiIva) &&
     apiIva > 0 &&
@@ -78,15 +82,16 @@ export function resolverDesgloseIvaMostrado(
     Number.isFinite(apiSub) &&
     apiTotal !== null &&
     Number.isFinite(apiTotal) &&
-    apiTotal > 0;
+    apiTotal > 0 &&
+    Math.abs(apiSub + apiIva - apiTotal) <= TOL;
 
-  if (apiValida) {
-    return { subSinIva: apiSub as number, iva: apiIva as number, total: apiTotal as number };
+  if (apiCoherente) {
+    return { subSinIva: apiSub as number, iva: apiIva as number, total: apiSub + apiIva };
   }
 
   return {
     subSinIva: calc.subSinIvaDisplay,
     iva: calc.ivaDisplay,
-    total: calc.totalCliente,
+    total: calc.subSinIvaDisplay + calc.ivaDisplay,
   };
 }

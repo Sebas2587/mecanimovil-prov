@@ -19,6 +19,7 @@ import { ChecklistCompletedView } from '@/components/checklist/ChecklistComplete
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { platformShadow } from '@/app/design-system/tokens';
+import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 
 export default function ServicioDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -777,13 +778,13 @@ export default function ServicioDetalleScreen() {
                 <View style={styles.desgloseRow}>
                   <Text style={styles.desgloseLabel}>Precio del servicio (sin IVA)</Text>
                   <Text style={styles.desgloseValue}>
-                    ${Math.round(costoTotalSinIva).toLocaleString('es-CL')}
+                    {formatearMontoCLP(costoTotalSinIva)}
                   </Text>
                 </View>
                 <View style={styles.desgloseRow}>
                   <Text style={styles.desgloseLabel}>IVA (19%)</Text>
                   <Text style={styles.desgloseValue}>
-                    ${Math.round(ivaTotal).toLocaleString('es-CL')}
+                    {formatearMontoCLP(ivaTotal)}
                   </Text>
                 </View>
                 <View style={[styles.desgloseRow, styles.desgloseRowHighlight]}>
@@ -791,7 +792,7 @@ export default function ServicioDetalleScreen() {
                     Precio final al cliente
                   </Text>
                   <Text style={[styles.desgloseValue, styles.desgloseValueBold]}>
-                    ${Math.round(precioFinalCliente).toLocaleString('es-CL')}
+                    {formatearMontoCLP(precioFinalCliente)}
                   </Text>
                 </View>
 
@@ -801,13 +802,13 @@ export default function ServicioDetalleScreen() {
                 <View style={styles.desgloseRow}>
                   <Text style={styles.desgloseLabel}>Comisión MecaniMóvil (20%)</Text>
                   <Text style={[styles.desgloseValue, styles.desgloseValueNegative]}>
-                    -${Math.round(comisionTotal).toLocaleString('es-CL')}
+                    -{formatearMontoCLP(comisionTotal)}
                   </Text>
                 </View>
                 <View style={styles.desgloseRow}>
                   <Text style={styles.desgloseLabel}>IVA sobre comisión</Text>
                   <Text style={[styles.desgloseValue, styles.desgloseValueNegative]}>
-                    -${Math.round(ivaComisionTotal).toLocaleString('es-CL')}
+                    -{formatearMontoCLP(ivaComisionTotal)}
                   </Text>
                 </View>
 
@@ -819,7 +820,7 @@ export default function ServicioDetalleScreen() {
                     Ganancia real del proveedor
                   </Text>
                   <Text style={[styles.desgloseValue, styles.desgloseValueFinal]}>
-                    ${Math.round(gananciaNetaTotal).toLocaleString('es-CL')}
+                    {formatearMontoCLP(gananciaNetaTotal)}
                   </Text>
                 </View>
               </View>

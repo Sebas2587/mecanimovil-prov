@@ -10,6 +10,7 @@ import { OfertaProveedor } from '@/services/solicitudesService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { platformShadow } from '@/app/design-system/tokens';
+import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 
 interface OfertaCardProps {
   oferta: OfertaProveedor;
@@ -147,19 +148,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
     }
   };
 
-  // Formatear precio
-  const formatearPrecio = (precio: string): string => {
-    try {
-      const num = parseFloat(precio);
-      return new Intl.NumberFormat('es-CL', {
-        style: 'currency',
-        currency: 'CLP',
-        minimumFractionDigits: 0,
-      }).format(num);
-    } catch {
-      return precio;
-    }
-  };
+  const formatearPrecio = (precio: string | number): string => formatearMontoCLP(precio);
 
   return (
     <TouchableOpacity
@@ -241,11 +230,10 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
               <View style={styles.pagoParcialInfoRow}>
                 <Text style={styles.pagoParcialLabel}>✅ Repuestos y gestión de compra:</Text>
                 <Text style={styles.pagoParcialMonto}>
-                  ${(() => {
-                    const costoRepuestos = parseFloat(oferta.costo_repuestos || '0');
-                    const costoGestion = parseFloat(oferta.costo_gestion_compra || '0');
-                    return Math.round(costoRepuestos + (costoGestion * 1.19)).toLocaleString('es-CL');
-                  })()}
+                  {formatearPrecio(
+                    parseFloat(String(oferta.costo_repuestos || '0'))
+                    + parseFloat(String(oferta.costo_gestion_compra || '0')) * 1.19,
+                  )}
                 </Text>
               </View>
               
@@ -253,7 +241,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
                 <View style={styles.pagoParcialInfoRow}>
                   <Text style={styles.pagoParcialLabel}>⏳ Pendiente (mano de obra):</Text>
                   <Text style={[styles.pagoParcialMonto, { color: '#F59E0B' }]}>
-                    ${Math.round(parseFloat(oferta.costo_mano_obra) * 1.19).toLocaleString('es-CL')}
+                    {formatearPrecio(parseFloat(String(oferta.costo_mano_obra)) * 1.19)}
                   </Text>
                 </View>
               )}
@@ -302,11 +290,10 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
            oferta.estado_pago_servicio === 'pendiente' ? (
             <View style={styles.precioParcialContainer}>
               <Text style={styles.precio}>
-                {formatearPrecio((() => {
-                  const costoRepuestos = parseFloat(oferta.costo_repuestos || '0');
-                  const costoGestion = parseFloat(oferta.costo_gestion_compra || '0');
-                  return Math.round(costoRepuestos + (costoGestion * 1.19));
-                })())}
+                {formatearPrecio(
+                  parseFloat(String(oferta.costo_repuestos || '0'))
+                  + parseFloat(String(oferta.costo_gestion_compra || '0')) * 1.19,
+                )}
               </Text>
               <Text style={styles.precioParcialLabel}>Pagado (parcial)</Text>
               <Text style={styles.precioTotalLabel}>

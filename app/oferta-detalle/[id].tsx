@@ -22,6 +22,7 @@ import { checklistService, type ChecklistInstance } from '@/services/checklistSe
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { calcularDesgloseIvaOferta, resolverDesgloseIvaMostrado } from '@/utils/ofertaPrecioDesglose';
 import { TipoPagoClienteChip } from '@/components/solicitudes/TipoPagoClienteChip';
 import { getResumenTipoPagoCliente } from '@/utils/tipoPagoClienteLabel';
@@ -142,19 +143,7 @@ export default function OfertaDetalleScreen() {
     }
   };
 
-  // Formatear precio
-  const formatearPrecio = (precio: string): string => {
-    try {
-      const num = parseFloat(precio);
-      return new Intl.NumberFormat('es-CL', {
-        style: 'currency',
-        currency: 'CLP',
-        minimumFractionDigits: 0,
-      }).format(num);
-    } catch {
-      return precio;
-    }
-  };
+  const formatearPrecio = (precio: string | number): string => formatearMontoCLP(precio);
 
   // Formatear fecha
   const formatearFecha = (fecha: string): string => {
@@ -849,19 +838,19 @@ export default function OfertaDetalleScreen() {
                     {mo > 0 && (
                       <View style={styles.precioDesgloseRow}>
                         <Text style={styles.precioDesgloseLabel}>Mano de obra (sin IVA)</Text>
-                        <Text style={styles.precioDesgloseValue}>{formatearPrecio(String(Math.round(mo)))}</Text>
+                        <Text style={styles.precioDesgloseValue}>{formatearPrecio(mo)}</Text>
                       </View>
                     )}
                     {rep > 0 && (
                       <View style={styles.precioDesgloseRow}>
                         <Text style={styles.precioDesgloseLabel}>Repuestos (sin IVA)</Text>
-                        <Text style={styles.precioDesgloseValue}>{formatearPrecio(String(Math.round(rep)))}</Text>
+                        <Text style={styles.precioDesgloseValue}>{formatearPrecio(rep)}</Text>
                       </View>
                     )}
                     {(oferta.incluye_repuestos || gest > 0) && (
                       <View style={styles.precioDesgloseRow}>
                         <Text style={styles.precioDesgloseLabel}>Gestión de compra (sin IVA)</Text>
-                        <Text style={styles.precioDesgloseValue}>{formatearPrecio(String(Math.round(gest)))}</Text>
+                        <Text style={styles.precioDesgloseValue}>{formatearPrecio(gest)}</Text>
                       </View>
                     )}
                     <View style={styles.precioDesgloseDivider} />
@@ -935,11 +924,10 @@ export default function OfertaDetalleScreen() {
                   <View style={styles.pagoParcialRow}>
                     <Text style={styles.pagoParcialLabel}>Repuestos y gestión de compra</Text>
                     <Text style={styles.pagoParcialMonto}>
-                      {formatearPrecio((() => {
-                        const costoRepuestos = parseFloat(oferta.costo_repuestos || '0');
-                        const costoGestion = parseFloat(oferta.costo_gestion_compra || '0');
-                        return Math.round(costoRepuestos + (costoGestion * 1.19));
-                      })())}
+                      {formatearPrecio(
+                        parseFloat(String(oferta.costo_repuestos || '0'))
+                        + parseFloat(String(oferta.costo_gestion_compra || '0')) * 1.19,
+                      )}
                     </Text>
                   </View>
 
@@ -947,7 +935,7 @@ export default function OfertaDetalleScreen() {
                     <View style={styles.pagoParcialRow}>
                       <Text style={styles.pagoParcialLabel}>Pendiente (mano de obra)</Text>
                       <Text style={[styles.pagoParcialMonto, { color: I.accentYellow }]}>
-                        {formatearPrecio(Math.round(parseFloat(oferta.costo_mano_obra) * 1.19))}
+                        {formatearPrecio(parseFloat(String(oferta.costo_mano_obra)) * 1.19)}
                       </Text>
                     </View>
                   )}

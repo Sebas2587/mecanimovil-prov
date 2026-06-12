@@ -24,6 +24,7 @@ import type { VerificacionCreditosOferta } from '@/services/creditosService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -2280,14 +2281,14 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                   <View style={styles.resumenRow}>
                     <Text style={styles.resumenLabel}>📦 Repuestos (sin IVA)</Text>
                     <Text style={styles.resumenValue}>
-                      ${calcularCostoRepuestos().toLocaleString('es-CL')}
+                      {formatearMontoCLP(calcularCostoRepuestos())}
                     </Text>
                   </View>
 
                   <View style={styles.resumenRow}>
                     <Text style={styles.resumenLabel}>🔧 Mano de obra (sin IVA)</Text>
                     <Text style={styles.resumenValue}>
-                      ${calcularCostoManoObra().toLocaleString('es-CL')}
+                      {formatearMontoCLP(calcularCostoManoObra())}
                     </Text>
                   </View>
 
@@ -2295,7 +2296,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                     <View style={styles.resumenRow}>
                       <Text style={styles.resumenLabel}>🚚 Gestión de compra (sin IVA)</Text>
                       <Text style={styles.resumenValue}>
-                        ${gestionCompraValor.toLocaleString('es-CL')}
+                        {formatearMontoCLP(gestionCompraValor)}
                       </Text>
                     </View>
                   )}
@@ -2303,14 +2304,14 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                   <View style={[styles.resumenRow, styles.resumenRowDivider]}>
                     <Text style={[styles.resumenLabel, { fontWeight: '600' }]}>Subtotal (sin IVA)</Text>
                     <Text style={[styles.resumenValue, { fontWeight: '600' }]}>
-                      ${(calcularCostoRepuestos() + calcularCostoManoObra() + gestionCompraValor).toLocaleString('es-CL')}
+                      {formatearMontoCLP(calcularCostoRepuestos() + calcularCostoManoObra() + gestionCompraValor)}
                     </Text>
                   </View>
 
                   <View style={styles.resumenRow}>
                     <Text style={styles.resumenLabel}>📋 IVA (19%)</Text>
                     <Text style={styles.resumenValue}>
-                      ${Math.round((calcularCostoRepuestos() + calcularCostoManoObra() + gestionCompraValor) * 0.19).toLocaleString('es-CL')}
+                      {formatearMontoCLP((calcularCostoRepuestos() + calcularCostoManoObra() + gestionCompraValor) * 0.19)}
                     </Text>
                   </View>
 
@@ -2328,7 +2329,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
               <View style={[styles.resumenRow, styles.resumenPrecioRow]}>
                 <Text style={styles.resumenPrecioLabel}>Precio Total</Text>
                 <Text style={styles.resumenPrecioValue}>
-                  ${precioTotal.toLocaleString('es-CL')}
+                  {formatearMontoCLP(precioTotal)}
                 </Text>
               </View>
             </View>

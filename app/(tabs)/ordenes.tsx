@@ -33,6 +33,7 @@ import Header from '@/components/Header';
 import { COLORS, withOpacity, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '@/app/design-system/tokens';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { TipoPagoClienteChip } from '@/components/solicitudes/TipoPagoClienteChip';
+import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -445,12 +446,7 @@ export default function OrdenesScreen() {
 
   const formatearFecha = (fecha: string) => new Date(fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const formatearPrecio = (precio: string | number) => {
-    try {
-      const num = typeof precio === 'string' ? parseFloat(precio.toString().replace(/[^0-9.-]+/g, '')) : precio;
-      return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-    } catch { return `$${precio}`; }
-  };
+  const formatearPrecio = (precio: string | number) => formatearMontoCLP(precio);
 
   const obtenerNombreCompleto = (cliente: any): string => {
     if (cliente?.nombre && cliente?.apellido) return `${cliente.nombre} ${cliente.apellido}`.trim();
