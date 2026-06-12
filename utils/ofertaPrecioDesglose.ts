@@ -5,6 +5,8 @@
  * Los costos individuales (mo, rep, gest) se usan solo como contexto de líneas,
  * nunca para calcular el IVA final (evita que costo_mano_obra=0 produzca IVA=$0).
  */
+import { redondearCLP } from './formatearMontoCLP';
+
 export type OfertaDesgloseInput = {
   costoManoObra?: string | number | null;
   costoRepuestos?: string | number | null;
@@ -31,13 +33,12 @@ export function calcularDesgloseIvaOferta({
 
   const usarLineasComoBase = tieneMontosProveedor && sumSinIva > 0 && !lineasCuadranConTotal;
 
-  const subSinIvaDisplay = usarLineasComoBase
-    ? sumSinIva
-    : (totalCliente > 0 ? totalCliente / 1.19 : 0);
-  const ivaDisplay = usarLineasComoBase
-    ? sumSinIva * 0.19
-    : (totalCliente > 0 ? totalCliente - subSinIvaDisplay : 0);
-  const totalMostrar = usarLineasComoBase ? totalDesdeLineas : totalCliente;
+  // CLP no admite decimales. Mostramos todo en pesos enteros y derivamos el IVA como
+  // (total − subtotal) para que subtotal + IVA == total EXACTO (sin descuadres de ±1
+  // al redondear cada parte por separado).
+  const totalMostrar = redondearCLP(usarLineasComoBase ? totalDesdeLineas : totalCliente);
+  const subSinIvaDisplay = totalMostrar > 0 ? redondearCLP(totalMostrar / 1.19) : 0;
+  const ivaDisplay = totalMostrar > 0 ? totalMostrar - subSinIvaDisplay : 0;
 
   return {
     subSinIvaDisplay,

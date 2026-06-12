@@ -24,7 +24,7 @@ import type { VerificacionCreditosOferta } from '@/services/creditosService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { formatearMontoCLP, redondearCLP } from '@/utils/formatearMontoCLP';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -563,7 +563,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
             const iva = costoTotalSinIva * 0.19;
             const precioTotal = costoTotalSinIva + iva;
 
-            const nuevoPrecio = precioTotal.toFixed(2);
+            const nuevoPrecio = redondearCLP(precioTotal).toFixed(2);
             if (servicio.precio !== nuevoPrecio) {
               nuevos[index].precio = nuevoPrecio;
               hayCambios = true;
@@ -903,7 +903,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     const iva = costoTotalSinIva * 0.19;
     const precioTotal = costoTotalSinIva + iva;
 
-    nuevos[index].precio = precioTotal.toFixed(2);
+    nuevos[index].precio = redondearCLP(precioTotal).toFixed(2);
 
     // Pre-cargar tiempo estimado desde duracion_estimada (formato HH:MM:SS o HH:MM)
     if (configurado.duracion_estimada) {
@@ -974,7 +974,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     const iva = costoTotalSinIva * 0.19;
     const precioTotal = costoTotalSinIva + iva;
 
-    nuevos[index].precio = precioTotal.toFixed(2);
+    nuevos[index].precio = redondearCLP(precioTotal).toFixed(2);
     setServiciosOferta(nuevos);
   };
 
@@ -1008,7 +1008,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
     const iva = costoTotalSinIva * 0.19;
     const precioTotal = costoTotalSinIva + iva;
 
-    nuevos[index].precio = precioTotal.toFixed(2);
+    nuevos[index].precio = redondearCLP(precioTotal).toFixed(2);
     setServiciosOferta(nuevos);
   };
 
@@ -1045,7 +1045,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
           const iva = costoTotalSinIva * 0.19;
           const precioTotal = costoTotalSinIva + iva;
 
-          const nuevoPrecio = precioTotal.toFixed(2);
+          const nuevoPrecio = redondearCLP(precioTotal).toFixed(2);
           if (servicio.precio !== nuevoPrecio) {
             nuevos[index].precio = nuevoPrecio;
             hayCambios = true;
@@ -1340,7 +1340,10 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       costoManoObra = precioTotalCalculado / 1.19;
     }
 
-    const precioTotalFinal = precioTotalCalculado;
+    // CLP no admite decimales: el total que pagará el cliente se redondea a peso entero
+    // (igual que backend, Mercado Pago y la boleta del SII). Los costos netos por
+    // componente se conservan para que el backend calcule el IVA de cada parte.
+    const precioTotalFinal = redondearCLP(precioTotalCalculado);
     const gestionCompra = incluyeRepuestos ? parseFloat(costoGestionCompra || '0') : 0;
 
     const usaFechaAlternativa = esOfertaSecundaria || !puedeFechaSolicitada;
@@ -2311,7 +2314,8 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                   <View style={styles.resumenRow}>
                     <Text style={styles.resumenLabel}>📋 IVA (19%)</Text>
                     <Text style={styles.resumenValue}>
-                      {formatearMontoCLP((calcularCostoRepuestos() + calcularCostoManoObra() + gestionCompraValor) * 0.19)}
+                      {/* IVA derivado como (total − subtotal) para que subtotal + IVA = total exacto en pesos enteros */}
+                      {formatearMontoCLP(redondearCLP(precioTotal) - redondearCLP(calcularCostoRepuestos() + calcularCostoManoObra() + gestionCompraValor))}
                     </Text>
                   </View>
 
