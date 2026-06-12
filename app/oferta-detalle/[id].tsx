@@ -33,7 +33,9 @@ import {
   checklistEsperandoFirmaCliente,
   checklistCompletadoTotal,
   puedeTerminarServicioManual,
+  checklistBloqueaCierre,
   mensajeEsperaCierreCliente,
+  mensajeProximoPasoProveedor,
 } from '@/utils/ofertaFlujoServicio';
 
 const I = COLORS.institutional;
@@ -53,6 +55,7 @@ export default function OfertaDetalleScreen() {
   const [showChecklistContainer, setShowChecklistContainer] = useState(false);
   const [showCompletedChecklistModal, setShowCompletedChecklistModal] = useState(false);
   const [loadingChecklist, setLoadingChecklist] = useState(false);
+  const [checklistLoadError, setChecklistLoadError] = useState(false);
   const [fotoAmpliadaUrl, setFotoAmpliadaUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -85,19 +88,21 @@ export default function OfertaDetalleScreen() {
   const cargarChecklist = async (solicitudServicioId: number) => {
     try {
       setLoadingChecklist(true);
+      setChecklistLoadError(false);
       const result = await checklistService.getInstanceByOrder(solicitudServicioId);
 
       if (result.success && result.data) {
         setChecklistInstance(result.data);
       } else {
-        // ✅ No hay checklist disponible - esto es normal, no es un error
+        // No hay checklist configurado para este servicio — situación normal
         setChecklistInstance(null);
-        console.log('ℹ️ No hay checklist disponible para solicitud:', solicitudServicioId);
+        setChecklistLoadError(false);
       }
     } catch (error) {
-      // ✅ Manejar error sin mostrar al usuario - simplemente no hay checklist
-      console.log('ℹ️ No se encontró checklist para solicitud:', solicitudServicioId);
+      // Error de red o servidor: no sabemos si hay checklist → bloquear cierre manual
+      console.warn('Error cargando checklist para solicitud:', solicitudServicioId, error);
       setChecklistInstance(null);
+      setChecklistLoadError(true);
     } finally {
       setLoadingChecklist(false);
     }
@@ -294,7 +299,7 @@ export default function OfertaDetalleScreen() {
     if (!oferta || procesando) return;
     showConfirm(
       'Terminar Servicio',
-      'Este servicio no tiene checklist. ¿Confirmas marcarlo como terminado?',
+      'Este servicio no tiene checklist configurado. ¿Confirmas que el trabajo está completado y deseas cerrar la orden?',
       { confirmText: 'Terminar', onConfirm: ejecutarTerminarServicio },
     );
   };
@@ -347,12 +352,17 @@ export default function OfertaDetalleScreen() {
   const esperandoFirmaCliente = checklistEsperandoFirmaCliente(checklistInstance);
   const checklistCerrado = checklistCompletadoTotal(checklistInstance);
   const saldoManoObraPendiente = tieneManoObraPendientePago(oferta);
+  const checklistPendienteCompletar = checklistBloqueaCierre(checklistInstance);
   const mostrarBotonTerminar = puedeTerminarServicioManual(
     oferta,
     checklistInstance,
     loadingChecklist,
+    checklistLoadError,
   );
   const mostrarBotonIniciar = puedeIniciarServicioOferta(oferta);
+  const proximoPasoMsg = oferta.estado === 'en_ejecucion'
+    ? mensajeProximoPasoProveedor(oferta, checklistInstance, loadingChecklist, checklistLoadError)
+    : null;
 
   // Calcular altura dinámica del contenedor de botones fijos según el estado
   const calcularAlturaBotonesFijos = (): number => {
@@ -574,20 +584,31 @@ export default function OfertaDetalleScreen() {
 
         {oferta.estado === 'en_ejecucion' && (
           <EstadoBanner
-            type="info"
+            type={
+              esperandoFirmaCliente || checklistCerrado ? 'success'
+              : checklistLoadError ? 'error'
+              : checklistPendienteCompletar ? 'warning'
+              : 'info'
+            }
             title={
               esperandoFirmaCliente
                 ? 'Esperando firma del cliente'
                 : checklistCerrado
-                  ? 'Checklist completado'
-                  : 'Servicio en progreso'
+                  ? 'Ambas firmas registradas'
+                  : checklistLoadError
+                    ? 'Error al cargar el checklist'
+                    : checklistPendienteCompletar
+                      ? 'Checklist requerido'
+                      : 'Servicio en progreso'
             }
-            message={
-              esperandoFirmaCliente || checklistCerrado
-                ? mensajeEsperaCierreCliente(oferta)
-                : 'Completa el checklist y registra tu firma. El cliente cerrará la orden firmando desde su app.'
+            message={proximoPasoMsg ?? ''}
+            icon={
+              esperandoFirmaCliente ? 'schedule'
+              : checklistCerrado ? 'check-circle'
+              : checklistLoadError ? 'error-outline'
+              : checklistPendienteCompletar ? 'assignment'
+              : 'build'
             }
-            icon={esperandoFirmaCliente ? 'schedule' : 'build'}
           />
         )}
 
@@ -1071,25 +1092,39 @@ export default function OfertaDetalleScreen() {
 
         {oferta.estado === 'en_ejecucion' && (
           <>
+            {/* Esperando firma del cliente (proveedor ya firmó checklist) */}
             {(esperandoFirmaCliente || checklistCerrado) && (
               <View style={styles.waitingClosureCard}>
-                <InstitutionalIcon name="info-outline" size={22} color={I.primary} />
+                <InstitutionalIcon name="schedule" size={22} color={I.primary} />
                 <Text style={styles.waitingClosureText}>{mensajeEsperaCierreCliente(oferta)}</Text>
               </View>
             )}
 
-            {!esperandoFirmaCliente && !checklistCerrado && checklistInstance &&
-              checklistInstance.estado !== 'COMPLETADO' &&
-              checklistInstance.estado !== 'PENDIENTE_FIRMA_CLIENTE' && (
+            {/* Error al cargar checklist — bloquear cierre y pedir recarga */}
+            {checklistLoadError && (
+              <View style={[styles.waitingClosureCard, { borderColor: I.semanticDown, backgroundColor: withOpacity(I.semanticDown, 0.06) }]}>
+                <InstitutionalIcon name="error-outline" size={22} color={I.semanticDown} />
+                <Text style={[styles.waitingClosureText, { color: I.semanticDown }]}>
+                  No se pudo verificar el checklist. Recarga la pantalla antes de continuar.
+                </Text>
+              </View>
+            )}
+
+            {/* Checklist en progreso o pendiente — botón principal de acción */}
+            {!esperandoFirmaCliente && !checklistCerrado && !checklistLoadError &&
+              checklistInstance && checklistPendienteCompletar && (
               <TouchableOpacity
                 style={[styles.fixedActionButton, styles.fixedActionButtonPrimary]}
                 onPress={() => setShowChecklistContainer(true)}
               >
                 <InstitutionalIcon name="assignment" size={20} color={I.onPrimary} />
-                <Text style={styles.fixedActionButtonText}>Continuar Checklist</Text>
+                <Text style={styles.fixedActionButtonText}>
+                  {checklistInstance.estado === 'PENDIENTE' ? 'Iniciar Checklist' : 'Continuar Checklist'}
+                </Text>
               </TouchableOpacity>
             )}
 
+            {/* Sin checklist configurado — cierre manual del proveedor (solo si pagos OK) */}
             {mostrarBotonTerminar && (
               <TouchableOpacity
                 style={[styles.fixedActionButton, styles.fixedActionButtonSuccess]}
@@ -1101,6 +1136,17 @@ export default function OfertaDetalleScreen() {
                   {procesando ? 'Terminando...' : 'Terminar Servicio'}
                 </Text>
               </TouchableOpacity>
+            )}
+
+            {/* Pago pendiente — aviso bloqueante (sin checklist y con mano de obra pendiente) */}
+            {!esperandoFirmaCliente && !checklistCerrado && !checklistInstance &&
+              !checklistLoadError && !loadingChecklist && saldoManoObraPendiente && (
+              <View style={[styles.waitingClosureCard, { borderColor: I.accentYellow, backgroundColor: withOpacity(I.accentYellow, 0.08) }]}>
+                <InstitutionalIcon name="payment" size={22} color={I.accentYellow} />
+                <Text style={[styles.waitingClosureText, { color: I.body }]}>
+                  El cliente debe pagar la mano de obra pendiente desde su app antes de que puedas cerrar la orden.
+                </Text>
+              </View>
             )}
           </>
         )}
