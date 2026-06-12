@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { obtenerDetalleOferta, iniciarServicio, terminarServicio, type OfertaProveedor } from '@/services/solicitudesService';
 import {COLORS, withOpacity, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, platformShadow} from '@/app/design-system/tokens';
@@ -34,15 +34,31 @@ import {
   checklistCompletadoTotal,
   puedeTerminarServicioManual,
   checklistBloqueaCierre,
-  mensajeEsperaCierreCliente,
-  mensajeProximoPasoProveedor,
 } from '@/utils/ofertaFlujoServicio';
+import {
+  resolverBadgeEstadoOferta,
+  resolverBannerPrincipal,
+  resolverBannerChecklistAccion,
+  mostrarSeccionPlanPago,
+  mostrarDetallePago,
+  type OfertaDetalleUiContext,
+} from '@/utils/ofertaDetalleProveedorUi';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const TS = TYPOGRAPHY.styles;
 const hx = SPACING.container.horizontal;
 const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
+
+const ACCENT_BY_KEY = {
+  primary: I.primary,
+  semanticUp: I.semanticUp,
+  accentYellow: I.accentYellow,
+  muted: I.muted,
+  semanticDown: I.semanticDown,
+  primaryActive: I.primaryActive,
+  body: I.body,
+} as const;
 
 export default function OfertaDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -57,33 +73,7 @@ export default function OfertaDetalleScreen() {
   const [loadingChecklist, setLoadingChecklist] = useState(false);
   const [checklistLoadError, setChecklistLoadError] = useState(false);
   const [fotoAmpliadaUrl, setFotoAmpliadaUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (id) {
-      cargarOferta();
-    }
-  }, [id]);
-
-  const cargarOferta = async () => {
-    try {
-      setLoading(true);
-      const result = await obtenerDetalleOferta(id);
-
-      if (result.success && result.data) {
-        setOferta(result.data);
-
-        // Cargar checklist si la oferta está en ejecución o completada y tiene solicitud_servicio_id
-        if ((result.data.estado === 'en_ejecucion' || result.data.estado === 'completada') &&
-          (result.data as any).solicitud_servicio_id) {
-          await cargarChecklist((result.data as any).solicitud_servicio_id);
-        }
-      }
-    } catch (error) {
-      console.error('Error cargando oferta:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const isFirstFocus = useRef(true);
 
   const cargarChecklist = async (solicitudServicioId: number) => {
     try {
@@ -108,6 +98,38 @@ export default function OfertaDetalleScreen() {
     }
   };
 
+  const cargarOferta = async (opts?: { silent?: boolean }) => {
+    try {
+      if (!opts?.silent) {
+        setLoading(true);
+      }
+      const result = await obtenerDetalleOferta(id);
+
+      if (result.success && result.data) {
+        setOferta(result.data);
+
+        if ((result.data.estado === 'en_ejecucion' || result.data.estado === 'completada') &&
+          (result.data as any).solicitud_servicio_id) {
+          await cargarChecklist((result.data as any).solicitud_servicio_id);
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando oferta:', error);
+    } finally {
+      if (!opts?.silent) {
+        setLoading(false);
+      }
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!id) return;
+      void cargarOferta({ silent: !isFirstFocus.current });
+      isFirstFocus.current = false;
+    }, [id]),
+  );
+
   const handleChecklistComplete = () => {
     setShowChecklistContainer(false);
     cargarOferta();
@@ -119,47 +141,6 @@ export default function OfertaDetalleScreen() {
 
   const handleChecklistCancel = () => {
     setShowChecklistContainer(false);
-  };
-
-  const getEstadoInfo = () => {
-    if (!oferta) {
-      return { accent: I.muted, text: 'Desconocido', icon: 'info' as const };
-    }
-
-    switch (oferta.estado) {
-      case 'enviada':
-        return { accent: I.primary, text: 'Enviada', icon: 'send' as const };
-      case 'vista':
-        return { accent: I.primary, text: 'Vista por cliente', icon: 'visibility' as const };
-      case 'en_chat':
-        return { accent: I.primaryActive, text: 'En conversación', icon: 'chat' as const };
-      case 'pendiente_creditos':
-        return {
-          accent: I.accentYellow,
-          text: 'Pendiente créditos',
-          icon: 'account-balance-wallet' as const,
-        };
-      case 'aceptada':
-        return { accent: I.semanticUp, text: 'Aceptada', icon: 'check-circle' as const };
-      case 'pendiente_pago':
-        return { accent: I.accentYellow, text: 'Cliente pagando…', icon: 'payment' as const };
-      case 'pagada':
-        return { accent: I.semanticUp, text: 'Pagada', icon: 'paid' as const };
-      case 'pagada_parcialmente':
-        return { accent: I.accentYellow, text: 'Pago parcial', icon: 'payment' as const };
-      case 'en_ejecucion':
-        return { accent: I.primary, text: 'En ejecución', icon: 'build' as const };
-      case 'completada':
-        return { accent: I.semanticUp, text: 'Completada', icon: 'check-circle' as const };
-      case 'rechazada':
-        return { accent: I.semanticDown, text: 'Rechazada', icon: 'cancel' as const };
-      case 'retirada':
-        return { accent: I.muted, text: 'Retirada', icon: 'undo' as const };
-      case 'expirada':
-        return { accent: I.muted, text: 'Expirada', icon: 'schedule' as const };
-      default:
-        return { accent: I.body, text: oferta.estado, icon: 'info' as const };
-    }
   };
 
   const formatearPrecio = (precio: string | number): string => formatearMontoCLP(precio);
@@ -348,7 +329,20 @@ export default function OfertaDetalleScreen() {
     );
   }
 
-  const estadoInfo = getEstadoInfo();
+  const uiCtx: OfertaDetalleUiContext = {
+    oferta,
+    checklist: checklistInstance,
+    loadingChecklist,
+    checklistLoadError,
+  };
+  const badgeEstado = resolverBadgeEstadoOferta(uiCtx);
+  const estadoInfo = {
+    accent: ACCENT_BY_KEY[badgeEstado.accentKey],
+    text: badgeEstado.text,
+    icon: badgeEstado.icon,
+  };
+  const bannerPrincipal = resolverBannerPrincipal(uiCtx);
+  const bannerChecklistAccion = resolverBannerChecklistAccion(uiCtx);
   const esperandoFirmaCliente = checklistEsperandoFirmaCliente(checklistInstance);
   const checklistCerrado = checklistCompletadoTotal(checklistInstance);
   const saldoManoObraPendiente = tieneManoObraPendientePago(oferta);
@@ -360,9 +354,6 @@ export default function OfertaDetalleScreen() {
     checklistLoadError,
   );
   const mostrarBotonIniciar = puedeIniciarServicioOferta(oferta);
-  const proximoPasoMsg = oferta.estado === 'en_ejecucion'
-    ? mensajeProximoPasoProveedor(oferta, checklistInstance, loadingChecklist, checklistLoadError)
-    : null;
 
   // Calcular altura dinámica del contenedor de botones fijos según el estado
   const calcularAlturaBotonesFijos = (): number => {
@@ -381,14 +372,29 @@ export default function OfertaDetalleScreen() {
 
     // Estado: en_ejecucion
     if (oferta.estado === 'en_ejecucion') {
-      if (esperandoFirmaCliente || checklistCerrado) {
+      if (mostrarBotonTerminar) {
+        altura += 52;
+        altura += 12;
+      } else if (
+        !esperandoFirmaCliente
+        && !checklistCerrado
+        && checklistInstance
+        && checklistInstance.estado !== 'COMPLETADO'
+      ) {
+        altura += 52;
+        altura += 12;
+      } else if (
+        !esperandoFirmaCliente
+        && !checklistCerrado
+        && !checklistInstance
+        && !checklistLoadError
+        && !loadingChecklist
+        && saldoManoObraPendiente
+      ) {
         altura += 72;
         altura += 12;
-      } else if (mostrarBotonTerminar) {
-        altura += 52;
-        altura += 12;
-      } else if (checklistInstance && checklistInstance.estado !== 'COMPLETADO') {
-        altura += 52;
+      } else if (checklistLoadError) {
+        altura += 72;
         altura += 12;
       }
     }
@@ -491,187 +497,29 @@ export default function OfertaDetalleScreen() {
           </View>
         </View>
 
-        {/* Banner informativo según el estado */}
-        {oferta.estado === 'pendiente_creditos' && (
+        {/* Banner contextual único según estado + checklist + pagos */}
+        {bannerPrincipal && (
           <EstadoBanner
-            type="warning"
-            title="Confirmá con créditos"
-            message={(() => {
-              const nec = oferta.creditos_necesarios_adjudicacion;
-              const sal = oferta.saldo_creditos_proveedor;
-              const falt = oferta.creditos_faltantes_para_confirmar;
-              const plazo = oferta.fecha_limite_confirmacion_creditos;
-              const partes: string[] = [];
-              if (typeof nec === 'number' && nec > 0) {
-                partes.push(`Requeridos: ${nec}`);
-              }
-              if (typeof sal === 'number') {
-                partes.push(`Saldo: ${sal}`);
-              }
-              if (typeof falt === 'number' && falt > 0) {
-                partes.push(`Comprá ≥${falt}`);
-              }
-              let plazoTxt = '';
-              if (plazo) {
-                try {
-                  plazoTxt = new Date(plazo).toLocaleDateString('es-CL', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  });
-                } catch {
-                  plazoTxt = plazo;
-                }
-              }
-              const cuerpo =
-                partes.length > 0
-                  ? `${partes.join(' · ')}${plazoTxt ? ` · hasta ${plazoTxt}` : ''}.`
-                  : plazoTxt
-                    ? `Comprá en la tienda antes del ${plazoTxt}.`
-                    : 'Comprá en la tienda los créditos necesarios antes del plazo.';
-              return `${cuerpo} Usá el botón inferior.`;
-            })()}
-            icon="account-balance-wallet"
-          />
-        )}
-
-        {oferta.estado === 'aceptada' && (
-          <EstadoBanner
-            type="warning"
-            title="Esperando Confirmación de Pago"
-            message="El cliente aceptó tu oferta. Te notificaremos cuando complete el pago para que puedas dirigirte al servicio. NO te dirijas hasta confirmar el pago."
-            icon="info"
-          />
-        )}
-
-        {oferta.estado === 'pendiente_pago' && (
-          <EstadoBanner
-            type="warning"
-            title="Cliente Procesando el Pago"
-            message="El pago está siendo procesado. Esto puede tomar algunos minutos. Te notificaremos inmediatamente cuando se confirme el pago."
-            icon="payment"
-          />
-        )}
-
-        {oferta.estado === 'pagada' && (
-          <EstadoBanner
-            type="success"
-            title="¡Pago Confirmado! Listo para Iniciar"
-            message="El cliente completó el pago exitosamente. Ahora puedes iniciar el servicio cuando estés listo para comenzar el trabajo."
-            icon="check-circle"
-          />
-        )}
-
-        {oferta.estado === 'pagada_parcialmente' && (
-          <EstadoBanner
-            type="warning"
-            title="Pago Parcial Realizado"
-            message={
-              oferta.estado_pago_repuestos === 'pagado' && oferta.estado_pago_servicio === 'pendiente'
-                ? 'El cliente eligió pagar repuestos ahora. Ya pagó repuestos y gestión; la mano de obra queda para el final del servicio.'
-                : 'El cliente realizó un pago parcial. Revisa el plan de pago a continuación.'
+            type={bannerPrincipal.type}
+            title={bannerPrincipal.title}
+            message={bannerPrincipal.message}
+            icon={bannerPrincipal.icon}
+            action={
+              oferta.estado === 'en_chat'
+                ? {
+                    text: 'Abrir Chat',
+                    onPress: () => router.push(`/chat-oferta/${oferta.id}`),
+                  }
+                : undefined
             }
-            icon="payment"
           />
         )}
 
-        {oferta && getResumenTipoPagoCliente(oferta).visible && (
+        {mostrarSeccionPlanPago(uiCtx) && (
           <View style={styles.planPagoSection}>
             <Text style={styles.planPagoTitulo}>Plan de pago del cliente</Text>
             <TipoPagoClienteChip oferta={oferta} />
           </View>
-        )}
-
-        {oferta.estado === 'en_ejecucion' && (
-          <EstadoBanner
-            type={
-              esperandoFirmaCliente || checklistCerrado ? 'success'
-              : checklistLoadError ? 'error'
-              : checklistPendienteCompletar ? 'warning'
-              : 'info'
-            }
-            title={
-              esperandoFirmaCliente
-                ? 'Esperando firma del cliente'
-                : checklistCerrado
-                  ? 'Ambas firmas registradas'
-                  : checklistLoadError
-                    ? 'Error al cargar el checklist'
-                    : checklistPendienteCompletar
-                      ? 'Checklist requerido'
-                      : 'Servicio en progreso'
-            }
-            message={proximoPasoMsg ?? ''}
-            icon={
-              esperandoFirmaCliente ? 'schedule'
-              : checklistCerrado ? 'check-circle'
-              : checklistLoadError ? 'error-outline'
-              : checklistPendienteCompletar ? 'assignment'
-              : 'build'
-            }
-          />
-        )}
-
-        {oferta.estado === 'en_ejecucion' && saldoManoObraPendiente && (
-          <EstadoBanner
-            type="warning"
-            title="Mano de obra pendiente de pago"
-            message="El cliente pagó solo repuestos. Debe abonar la mano de obra desde la app de usuarios antes de cerrar la orden."
-            icon="payment"
-          />
-        )}
-
-        {oferta.estado === 'completada' && (
-          <EstadoBanner
-            type="success"
-            title="Servicio completado"
-            message="La orden se cerró cuando el cliente firmó desde su app. Podrá calificar tu trabajo."
-            icon="check-circle"
-          />
-        )}
-
-        {oferta.estado === 'vista' && (
-          <EstadoBanner
-            type="info"
-            title="Cliente Revisando tu Oferta"
-            message="El cliente ha visto tu oferta. Pronto recibirás una respuesta o podrías iniciar una conversación para aclarar dudas."
-            icon="visibility"
-          />
-        )}
-
-        {oferta.estado === 'en_chat' && (
-          <EstadoBanner
-            type="info"
-            title="En conversación con el cliente"
-            message="Estás conversando con el cliente. Responde sus preguntas para que pueda tomar una decisión."
-            icon="chat"
-            action={{
-              text: 'Abrir Chat',
-              onPress: () => router.push(`/chat-oferta/${oferta.id}`),
-            }}
-          />
-        )}
-
-        {oferta.estado === 'rechazada' && (
-          <EstadoBanner
-            type="error"
-            title="Oferta Rechazada"
-            message={
-              oferta.rechazada_por_expiracion
-                ? "Esta oferta fue rechazada automáticamente porque el cliente no completó el pago dentro del plazo establecido (48 horas desde la aceptación). Sigue ofertando en otras solicitudes para conseguir más servicios."
-                : "El cliente seleccionó otra oferta. Sigue ofertando en otras solicitudes para conseguir más servicios."
-            }
-            icon="cancel"
-          />
-        )}
-
-        {oferta.estado === 'expirada' && (
-          <EstadoBanner
-            type="error"
-            title="Oferta Expirada"
-            message="Esta oferta expiró sin ser aceptada. Intenta responder más rápido en futuras solicitudes."
-            icon="schedule"
-          />
         )}
 
         {/* Información de la Solicitud */}
@@ -941,9 +789,7 @@ export default function OfertaDetalleScreen() {
           })()}
 
           {/* Desglose de pagos según plan elegido */}
-          {(oferta.estado === 'pagada_parcialmente' ||
-            oferta.estado === 'pagada' ||
-            getResumenTipoPagoCliente(oferta).visible) && (
+          {mostrarDetallePago(uiCtx) && (
             <View style={styles.pagoParcialInfoCard}>
               <View style={styles.pagoParcialHeader}>
                 <InstitutionalIcon name="payment" size={20} color={I.accentYellow} />
@@ -1050,29 +896,21 @@ export default function OfertaDetalleScreen() {
                       onPress: () => setShowCompletedChecklistModal(true),
                     }}
                   />
-                ) : checklistInstance.estado === 'PENDIENTE_FIRMA_CLIENTE' ? (
+                ) : bannerChecklistAccion ? (
                   <EstadoBanner
-                    type="info"
-                    title="Esperando firma del cliente"
-                    message="Tu firma ya está registrada. El cliente debe firmar desde su app para cerrar la orden."
-                    icon="schedule"
-                  />
-                ) : (
-                  <EstadoBanner
-                    type="warning"
-                    title={
-                      checklistInstance.estado === 'PENDIENTE'
-                        ? 'Checklist pendiente'
-                        : 'Checklist en progreso'
-                    }
-                    message="Inicia o continúa el checklist antes de cerrar el servicio."
-                    icon="assignment"
+                    type={bannerChecklistAccion.type}
+                    title={bannerChecklistAccion.title}
+                    message={bannerChecklistAccion.message}
+                    icon={bannerChecklistAccion.icon}
                     action={{
-                      text: checklistInstance.estado === 'PENDIENTE' ? 'Iniciar checklist' : 'Continuar checklist',
+                      text:
+                        checklistInstance.estado === 'PENDIENTE'
+                          ? 'Iniciar checklist'
+                          : 'Continuar checklist',
                       onPress: () => setShowChecklistContainer(true),
                     }}
                   />
-                )
+                ) : null
               ) : null}
             </View>
           )}
@@ -1098,14 +936,6 @@ export default function OfertaDetalleScreen() {
 
         {oferta.estado === 'en_ejecucion' && (
           <>
-            {/* Esperando firma del cliente (proveedor ya firmó checklist) */}
-            {(esperandoFirmaCliente || checklistCerrado) && (
-              <View style={styles.waitingClosureCard}>
-                <InstitutionalIcon name="schedule" size={22} color={I.primary} />
-                <Text style={styles.waitingClosureText}>{mensajeEsperaCierreCliente(oferta)}</Text>
-              </View>
-            )}
-
             {/* Error al cargar checklist — bloquear cierre y pedir recarga */}
             {checklistLoadError && (
               <View style={[styles.waitingClosureCard, { borderColor: I.semanticDown, backgroundColor: withOpacity(I.semanticDown, 0.06) }]}>
