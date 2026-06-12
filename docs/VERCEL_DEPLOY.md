@@ -67,15 +67,34 @@ Google OAuth (obligatorio para «Usar Google»): ver **`docs/GOOGLE_AUTH_SETUP.m
 ## Deploy manual (CLI)
 
 ```bash
-npx vercel link
-npx vercel --prod
+cd mecanimovil-prov
+npm install
+npx expo export --platform web
+mkdir -p .vercel/output/static && cp -r dist/* .vercel/output/static/
+# config.json SPA (igual que en CI)
+export VERCEL_TOKEN="tu_token"
+export VERCEL_ORG_ID="team_Ku9TorGrXCybLMQ8aYsGujdf"
+export VERCEL_PROJECT_ID="prj_p5ArLTR43TKeYVxNtrNBd3RDEXRW"
+npx vercel@53.2.0 deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN"
 ```
 
-## Deploy Hook (opcional)
+## Deploy desde GitHub Actions (recomendado)
+
+El workflow `.github/workflows/trigger-vercel-deploy-hook.yml`:
+
+1. Ejecuta `expo export --platform web` → `dist/`
+2. Empaqueta `dist/` en `.vercel/output/static/` (formato **prebuilt**)
+3. Ejecuta `vercel deploy --prebuilt --prod`
+
+**Requisito:** secret `VERCEL_TOKEN` en GitHub → Settings → Secrets → Actions.
+
+Sin token, el workflow falla y el dominio puede quedar en un deploy vacío anterior (`404 NOT_FOUND`).
+
+Tras añadir el token: Actions → «Deploy to Vercel (prov)» → **Run workflow**.
+
+## Deploy Hook (opcional — no usar solo)
 
 **No usar el hook como único método de deploy** si el proyecto **no tiene Git conectado** en Vercel: dispara un redeploy vacío y el dominio responde `404 NOT_FOUND`.
-
-Para CI sin Git en Vercel, usar GitHub Actions con `VERCEL_TOKEN` (ver workflow `.github/workflows/trigger-vercel-deploy-hook.yml`).
 
 Vercel → Settings → Git → Deploy Hooks (solo si Git está conectado al repo):
 

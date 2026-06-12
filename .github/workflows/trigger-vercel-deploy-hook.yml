@@ -31,6 +31,22 @@ jobs:
       - name: Verify build output
         run: test -f dist/index.html
 
+      - name: Pack static output for Vercel (--prebuilt)
+        run: |
+          mkdir -p .vercel/output/static
+          cp -r dist/* .vercel/output/static/
+          cat > .vercel/output/config.json <<'EOF'
+          {
+            "version": 3,
+            "routes": [
+              { "handle": "filesystem" },
+              { "src": "/(.*)", "dest": "/index.html" }
+            ]
+          }
+          EOF
+          test -f .vercel/output/static/index.html
+          echo "Prebuilt static files: $(find .vercel/output/static -type f | wc -l)"
+
       - name: Deploy to Vercel production
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -41,4 +57,4 @@ jobs:
             echo "y añádelo en Settings → Secrets → Actions → VERCEL_TOKEN"
             exit 1
           fi
-          npx vercel@53.2.0 deploy --prod --yes --token "$VERCEL_TOKEN"
+          npx vercel@53.2.0 deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN"
