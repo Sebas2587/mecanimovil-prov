@@ -69,6 +69,16 @@ export function resolverDesgloseIvaMostrado(
   dApi: DesgloseIvaApi,
   calc: CalcDesglose
 ): { subSinIva: number; iva: number; total: number } {
+  const fromCalc = {
+    subSinIva: calc.subSinIvaDisplay,
+    iva: calc.ivaDisplay,
+    total: calc.subSinIvaDisplay + calc.ivaDisplay,
+  };
+
+  if (calc.tieneMontosProveedor && calc.sumSinIva > 0) {
+    return fromCalc;
+  }
+
   const TOL = 0.02;
   const apiIva = dApi != null && dApi.iva != null ? Number(dApi.iva) : null;
   const apiSub = dApi != null && dApi.subtotal_sin_iva != null ? Number(dApi.subtotal_sin_iva) : null;
@@ -86,12 +96,8 @@ export function resolverDesgloseIvaMostrado(
     Math.abs(apiSub + apiIva - apiTotal) <= TOL;
 
   if (apiCoherente) {
-    return { subSinIva: apiSub as number, iva: apiIva as number, total: apiSub + apiIva };
+    return { subSinIva: apiSub as number, iva: apiIva as number, total: (apiSub as number) + (apiIva as number) };
   }
 
-  return {
-    subSinIva: calc.subSinIvaDisplay,
-    iva: calc.ivaDisplay,
-    total: calc.subSinIvaDisplay + calc.ivaDisplay,
-  };
+  return fromCalc;
 }
