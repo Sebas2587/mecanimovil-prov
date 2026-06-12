@@ -21,6 +21,7 @@ import { ICON_STROKE_WIDTH, ICON_SIZE } from '@/app/design-system/iconography';
 import { ChecklistDiffModal } from '@/components/checklist/ChecklistDiffModal';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { showAlert, showConfirm, showAlertButtons } from '@/utils/platformAlert';
+import { useOrdenSignatureDisplay } from '@/hooks/useOrdenSignatureDisplay';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -97,6 +98,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   } = useChecklist({ ordenId });
 
   const esperandoFirmaCliente = instance?.estado === 'PENDIENTE_FIRMA_CLIENTE';
+  const ordenSignatureDisplay = useOrdenSignatureDisplay(instance?.orden);
 
   console.log('📊 Estado del hook useChecklist:', {
     template: template ? `Template cargado: ${template.nombre}` : 'No template',
@@ -570,8 +572,8 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         signatureMode="tecnico_only"
         ordenInfo={{
           id: instance.orden,
-          cliente: `Orden #${instance.orden}`,
-          vehiculo: 'Vehículo de la orden',
+          cliente: ordenSignatureDisplay.cliente,
+          vehiculo: ordenSignatureDisplay.vehiculo,
         }}
       />
 

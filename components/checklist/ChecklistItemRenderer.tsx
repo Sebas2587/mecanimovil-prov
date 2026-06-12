@@ -32,6 +32,7 @@ import {
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
+import { useOrdenSignatureDisplay } from '@/hooks/useOrdenSignatureDisplay';
 import {
   checklistItemStyles as styles,
   saludStyles,
@@ -740,6 +741,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   };
 
   const signatureMode = getSignatureMode();
+  const ordenSignatureDisplay = useOrdenSignatureDisplay(instance?.orden);
 
   // Función para manejar el resultado de la firma digital
   const handleSignatureComplete = async (firmaTecnico: string, firmaCliente: string, ubicacion: { lat: number; lng: number }) => {
@@ -1593,8 +1595,8 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           signatureMode={signatureMode}
           ordenInfo={{
             id: instance?.orden_info?.id || instance?.orden || 0,
-            cliente: `Cliente - Orden #${instance?.orden_info?.id || instance?.orden || 0}`,
-            vehiculo: `Servicio programado: ${instance?.orden_info?.fecha_servicio || 'Sin fecha'} ${instance?.orden_info?.hora_servicio || ''}`.trim(),
+            cliente: ordenSignatureDisplay.cliente,
+            vehiculo: ordenSignatureDisplay.vehiculo,
           }}
         />
       )}

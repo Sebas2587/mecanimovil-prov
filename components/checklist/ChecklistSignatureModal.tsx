@@ -9,7 +9,7 @@ import {
   Dimensions,
   ScrollView,
 } from 'react-native';
-import SignatureScreen from 'react-native-signature-canvas';
+import SignaturePad, { type SignaturePadRef } from '@/components/signature/SignaturePad';
 import * as Location from 'expo-location';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -68,7 +68,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [hasDrawnSignature, setHasDrawnSignature] = useState(false);
   
-  const signatureRef = useRef<any>(null);
+  const signatureRef = useRef<SignaturePadRef>(null);
 
   // Al abrir el modal, resetear estado y paso según modo
   React.useEffect(() => {
@@ -448,20 +448,16 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
         {/* Canvas de firma */}
         <View style={styles.signatureContainer}>
           <View style={[styles.signatureCanvas, { height: CANVAS_HEIGHT }]}>
-            <SignatureScreen
+            <SignaturePad
               ref={signatureRef}
               onOK={handleSignature}
               onEmpty={handleEmpty}
               onBegin={handleBeginDraw}
-              descriptionText=""
-              clearText=""
-              confirmText=""
               webStyle={signatureStyle}
-              autoClear={false}
               backgroundColor="rgba(255,255,255,0)"
               penColor="#000"
-              minWidth={3}
-              maxWidth={5}
+              height={CANVAS_HEIGHT}
+              style={{ flex: 1 }}
             />
           </View>
 
