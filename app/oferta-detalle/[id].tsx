@@ -1036,36 +1036,42 @@ export default function OfertaDetalleScreen() {
               {loadingChecklist ? (
                 <View style={styles.checklistStatusCard}>
                   <ActivityIndicator size="small" color={I.primary} />
-                  <Text style={styles.checklistStatusText}>Cargando checklist...</Text>
+                  <Text style={styles.checklistStatusText}>Cargando checklist…</Text>
                 </View>
               ) : checklistInstance ? (
                 checklistInstance.estado === 'COMPLETADO' ? (
-                  <TouchableOpacity
-                    style={[styles.checklistStatusCard, styles.checklistCompletedCard]}
-                    onPress={() => setShowCompletedChecklistModal(true)}
-                  >
-                    <InstitutionalIcon name="check-circle" size={24} color={I.semanticUp} />
-                    <Text style={[styles.checklistStatusText, { color: I.semanticUp }]}>
-                      Checklist completado — ver resumen
-                    </Text>
-                  </TouchableOpacity>
+                  <EstadoBanner
+                    type="success"
+                    title="Checklist completado"
+                    message="El servicio tiene un checklist finalizado."
+                    icon="check-circle"
+                    action={{
+                      text: 'Ver resumen',
+                      onPress: () => setShowCompletedChecklistModal(true),
+                    }}
+                  />
                 ) : checklistInstance.estado === 'PENDIENTE_FIRMA_CLIENTE' ? (
-                  <View style={[styles.checklistStatusCard, styles.checklistWaitingCard]}>
-                    <InstitutionalIcon name="schedule" size={24} color={I.accentYellow} />
-                    <Text style={[styles.checklistStatusText, { color: I.accentYellow }]}>
-                      Firma del técnico registrada. Esperando firma del cliente.
-                    </Text>
-                  </View>
+                  <EstadoBanner
+                    type="info"
+                    title="Esperando firma del cliente"
+                    message="Tu firma ya está registrada. El cliente debe firmar desde su app para cerrar la orden."
+                    icon="schedule"
+                  />
                 ) : (
-                  <TouchableOpacity
-                    style={styles.checklistStatusCard}
-                    onPress={() => setShowChecklistContainer(true)}
-                  >
-                    <InstitutionalIcon name="assignment" size={24} color={I.primary} />
-                    <Text style={styles.checklistStatusText}>
-                      Checklist en progreso - Toca para continuar
-                    </Text>
-                  </TouchableOpacity>
+                  <EstadoBanner
+                    type="warning"
+                    title={
+                      checklistInstance.estado === 'PENDIENTE'
+                        ? 'Checklist pendiente'
+                        : 'Checklist en progreso'
+                    }
+                    message="Inicia o continúa el checklist antes de cerrar el servicio."
+                    icon="assignment"
+                    action={{
+                      text: checklistInstance.estado === 'PENDIENTE' ? 'Iniciar checklist' : 'Continuar checklist',
+                      onPress: () => setShowChecklistContainer(true),
+                    }}
+                  />
                 )
               ) : null}
             </View>
@@ -1967,24 +1973,7 @@ const styles = StyleSheet.create({
     color: I.onPrimary,
   },
   checklistStatusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.fixed.sm,
-    paddingVertical: SPACING.fixed.md,
-    paddingHorizontal: SPACING.fixed.lg,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
-  checklistCompletedCard: {
-    borderColor: I.semanticUp,
-    backgroundColor: withOpacity(I.semanticUp, 0.08),
-  },
-  checklistWaitingCard: {
-    borderColor: I.accentYellow,
-    backgroundColor: withOpacity(I.accentYellow, 0.1),
+    width: '100%',
   },
   waitingClosureCard: {
     flexDirection: 'row',

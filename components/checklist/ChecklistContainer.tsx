@@ -5,23 +5,42 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { useChecklist } from '@/hooks/useChecklist';
 import { ChecklistProgressBar } from '@/components/checklist/ChecklistProgressBar';
 import { ChecklistSignatureModal } from '@/components/checklist/ChecklistSignatureModal';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
-import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { ICON_STROKE_WIDTH, ICON_SIZE } from '@/app/design-system/iconography';
 import { ChecklistDiffModal } from '@/components/checklist/ChecklistDiffModal';
-import { showAlert, showConfirm } from '@/utils/platformAlert';
+import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
+import { showAlert, showConfirm, showAlertButtons } from '@/utils/platformAlert';
+
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+
+function labelEstadoChecklist(estado?: string): string {
+  switch (estado) {
+    case 'PENDIENTE':
+      return 'Pendiente';
+    case 'EN_PROGRESO':
+      return 'En progreso';
+    case 'PAUSADO':
+      return 'Pausado';
+    case 'PENDIENTE_FIRMA_CLIENTE':
+      return 'Esperando firma del cliente';
+    case 'COMPLETADO':
+      return 'Completado';
+    default:
+      return estado ?? '—';
+  }
+}
 
 interface ChecklistContainerProps {
   ordenId: number;
@@ -36,7 +55,6 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
 }) => {
   console.log('🚀 ChecklistContainer montado para orden:', ordenId);
 
-  const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const {
     // Estado
@@ -79,6 +97,8 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     uploadPhoto,
   } = useChecklist({ ordenId });
 
+  const esperandoFirmaCliente = instance?.estado === 'PENDIENTE_FIRMA_CLIENTE';
+
   // Recargar datos cuando la pantalla recibe foco (cuando se regresa del detalle)
   useFocusEffect(
     React.useCallback(() => {
@@ -110,7 +130,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   const handleStart = async () => {
     const result = await startChecklist();
     if (!result.success) {
-      Alert.alert('Error', result.message || 'No se pudo iniciar el checklist');
+      showAlert('Error', result.message || 'No se pudo iniciar el checklist');
     }
   };
 
@@ -133,7 +153,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   const handleResume = async () => {
     const result = await resumeChecklist();
     if (!result.success) {
-      Alert.alert('Error', result.message || 'No se pudo reanudar el checklist');
+      showAlert('Error', result.message || 'No se pudo reanudar el checklist');
     }
   };
 
@@ -150,17 +170,14 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         }, 500);
       }
     } else {
-      Alert.alert('Error', result.message || 'No se pudo guardar la respuesta');
+      showAlert('Error', result.message || 'No se pudo guardar la respuesta');
     }
   };
 
   const handleNext = () => {
     // Verificar que el step actual esté completo si es obligatorio
     if (currentItem?.es_obligatorio && !currentResponse?.completado) {
-      Alert.alert(
-        'Campo Obligatorio',
-        'Debes completar este campo antes de continuar.'
-      );
+      showAlert('Campo obligatorio', 'Debes completar este campo antes de continuar.');
       return;
     }
 
@@ -215,7 +232,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         ? `Debes completar estos campos obligatorios:\n${camposIncompletos.map(item => `• ${item.pregunta_texto}`).join('\n')}`
         : 'Debes completar todos los campos obligatorios antes de finalizar.';
 
-      Alert.alert('Checklist Incompleto', mensaje);
+      showAlert('Checklist incompleto', mensaje);
       return;
     }
 
@@ -287,19 +304,17 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   };
 
   const handleCancel = () => {
-    Alert.alert(
-      'Cancelar Checklist',
+    showAlertButtons(
+      'Salir del checklist',
       '¿Estás seguro de que quieres salir? Se guardará tu progreso.',
       [
         { text: 'Continuar', style: 'cancel' },
         {
           text: 'Salir',
           style: 'destructive',
-          onPress: () => {
-            onCancel?.();
-          },
+          onPress: () => onCancel?.(),
         },
-      ]
+      ],
     );
   };
 
@@ -310,7 +325,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <LoadingSpinner />
-          <Text style={styles.loadingText}>Cargando checklist...</Text>
+          <Text style={styles.loadingText}>Cargando checklist…</Text>
         </View>
       </SafeAreaView>
     );
@@ -320,11 +335,11 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <InstitutionalIcon name="error" size={64} color={COLORS.error.main}  strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.errorTitle}>Error</Text>
+          <InstitutionalIcon name="error" size={64} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+          <Text style={styles.errorTitle}>No se pudo cargar</Text>
           <Text style={styles.errorMessage}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => onCancel?.()}>
-            <Text style={styles.retryButtonText}>Volver</Text>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => onCancel?.()}>
+            <Text style={styles.primaryButtonText}>Volver</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -335,13 +350,13 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <InstitutionalIcon name="assignment" size={64} color={COLORS.neutral.gray[400]}  strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.errorTitle}>No hay checklist disponible</Text>
+          <InstitutionalIcon name="assignment" size={64} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+          <Text style={styles.errorTitle}>Sin checklist configurado</Text>
           <Text style={styles.errorMessage}>
-            Este servicio no tiene checklist configurado. Puedes continuar con el servicio normalmente.
+            Este servicio no tiene checklist. Puedes continuar con el servicio normalmente.
           </Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => onCancel?.()}>
-            <Text style={styles.retryButtonText}>Volver</Text>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => onCancel?.()}>
+            <Text style={styles.primaryButtonText}>Volver</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -353,22 +368,22 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   const totalCompletados = instance.respuestas?.filter(r => r.completado).length || 0;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: COLORS.background.default }]} edges={[]}>
-      {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header Coinbase: canvas blanco + hairline */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleCancel} style={styles.closeButton}>
-          <InstitutionalIcon name="close" size={24} color={COLORS.neutral.white}  strokeWidth={ICON_STROKE_WIDTH} />
+        <TouchableOpacity onPress={handleCancel} style={styles.closeButton} accessibilityLabel="Cerrar checklist">
+          <InstitutionalIcon name="close" size={ICON_SIZE.lg} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
 
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>{template.nombre}</Text>
+          <Text style={styles.headerTitle} numberOfLines={2}>{template.nombre}</Text>
           <View style={styles.headerSubtitleRow}>
             <Text style={styles.headerSubtitle}>
               {totalCompletados} de {totalSteps} completados
             </Text>
             <View style={styles.headerStatusBadge}>
               <Text style={styles.headerStatusBadgeText}>
-                {instance.estado || 'PENDIENTE'}
+                {labelEstadoChecklist(instance.estado)}
               </Text>
             </View>
           </View>
@@ -377,28 +392,28 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
 
       {/* Progress Bar Section */}
       {instance.estado === 'EN_PROGRESO' && (
-        <View style={styles.progressSection}>
-          <ChecklistProgressBar
-            currentStep={totalCompletados}
-            totalSteps={totalSteps}
-            progreso={progreso}
-            items={template.items}
-            completedItemIds={instance.respuestas?.filter(r => r.completado).map(r => r.item_template) || []}
-          />
-        </View>
+        <ChecklistProgressBar
+          currentStep={totalCompletados}
+          totalSteps={totalSteps}
+          progreso={progreso}
+          items={template.items}
+          completedItemIds={instance.respuestas?.filter(r => r.completado).map(r => r.item_template) || []}
+        />
       )}
 
       {/* Offline/Sync Status */}
       {(isOffline || pendingSync) && (
-        <View style={styles.statusBanner}>
-          <InstitutionalIcon
-            name={isOffline ? "cloud-off" : "sync"}
-            size={16}
-            color={COLORS.warning.dark}
-           strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.statusText}>
-            {isOffline ? 'Modo offline' : 'Pendiente de sincronización'}
-          </Text>
+        <View style={styles.bannerWrapCompact}>
+          <EstadoBanner
+          type="warning"
+          title={isOffline ? 'Modo sin conexión' : 'Sincronización pendiente'}
+          message={
+            isOffline
+              ? 'Tus respuestas se guardarán localmente hasta recuperar conexión.'
+              : 'Hay cambios por sincronizar con el servidor.'
+          }
+          icon={isOffline ? 'cloud-off' : 'sync'}
+        />
         </View>
       )}
 
@@ -407,46 +422,70 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         style={styles.content}
         contentContainerStyle={[
           styles.contentContainer,
-          instance.estado === 'EN_PROGRESO' && !isCompleted && { paddingBottom: 100 }
+          instance.estado === 'EN_PROGRESO' && !isCompleted && { paddingBottom: 100 },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Estado del checklist */}
+        {esperandoFirmaCliente && (
+          <View style={styles.bannerWrap}>
+            <EstadoBanner
+              type="info"
+              title="Esperando firma del cliente"
+              message="Ya registraste tu firma como técnico. El cliente debe firmar desde su app para cerrar el servicio."
+              icon="schedule"
+            />
+            <TouchableOpacity
+              style={styles.secondaryOutlineButton}
+              onPress={() => setShowCompletedView(true)}
+            >
+              <InstitutionalIcon name="visibility" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.secondaryOutlineButtonText}>Ver resumen del checklist</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {canStart && (
-          <View style={styles.startCard}>
-            <View style={styles.startIconContainer}>
-              <InstitutionalIcon name="play-arrow" size={40} color={COLORS.primary[500]}  strokeWidth={ICON_STROKE_WIDTH} />
+          <View style={styles.onboardingCard}>
+            <View style={styles.onboardingIconWrap}>
+              <InstitutionalIcon name="play-arrow" size={28} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
-            <Text style={styles.startTitle}>Listo para iniciar</Text>
-            <Text style={styles.startDescription}>
-              Presiona "Iniciar" para comenzar con el checklist de pre-servicio.
+            <Text style={styles.onboardingTitle}>Listo para iniciar</Text>
+            <Text style={styles.onboardingDescription}>
+              Completa el checklist paso a paso antes de finalizar el servicio. El cliente firmará al cierre.
             </Text>
-            <TouchableOpacity style={styles.startButton} onPress={handleStart}>
-              <InstitutionalIcon name="play-arrow" size={18} color={COLORS.neutral.white}  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.startButtonText}>Iniciar Checklist</Text>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleStart}>
+              <InstitutionalIcon name="play-arrow" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.primaryButtonText}>Iniciar checklist</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {canResume && (
-          <View style={styles.resumeCard}>
-            <View style={styles.resumeIconContainer}>
-              <InstitutionalIcon name="play-arrow" size={40} color={COLORS.warning.dark}  strokeWidth={ICON_STROKE_WIDTH} />
+          <View style={styles.onboardingCard}>
+            <View style={[styles.onboardingIconWrap, styles.onboardingIconWrapWarning]}>
+              <InstitutionalIcon name="pause-circle" size={28} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
-            <Text style={styles.resumeTitle}>Checklist pausado</Text>
-            <Text style={styles.resumeDescription}>
-              Puedes continuar donde lo dejaste.
+            <Text style={styles.onboardingTitle}>Checklist pausado</Text>
+            <Text style={styles.onboardingDescription}>
+              Puedes continuar donde lo dejaste. Revisa los ítems pendientes antes de finalizar.
             </Text>
-            <TouchableOpacity style={styles.resumeButton} onPress={handleResume}>
-              <InstitutionalIcon name="play-circle-filled" size={18} color={COLORS.text.onWarning}  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.resumeButtonText}>Continuar</Text>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleResume}>
+              <InstitutionalIcon name="play-circle-filled" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.primaryButtonText}>Continuar checklist</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Lista de items del checklist - diseño to-do list */}
         {instance.estado === 'EN_PROGRESO' && !isCompleted && template.items && (
           <View style={styles.checklistItemsList}>
+            {!canFinalize && totalCompletados > 0 && (
+              <EstadoBanner
+                type="warning"
+                title="Ítems pendientes"
+                message="Completa todos los campos obligatorios para habilitar la finalización."
+                icon="assignment"
+              />
+            )}
             <View style={styles.checklistSummary}>
               <Text style={styles.checklistSummaryText}>
                 {totalCompletados} de {totalSteps} completados
@@ -456,7 +495,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
               .sort((a, b) => (a.orden_visual || 0) - (b.orden_visual || 0))
               .map((item) => {
                 const response = instance.respuestas?.find(r => r.item_template === item.id);
-                const isCompleted = response?.completado || false;
+                const itemCompleted = response?.completado || false;
                 const isRequired = item.es_obligatorio_efectivo;
 
                 return (
@@ -464,86 +503,78 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                     key={item.id}
                     style={[
                       styles.checklistItem,
-                      isCompleted && styles.checklistItemCompleted,
-                      isRequired && !isCompleted && styles.checklistItemRequired,
+                      itemCompleted && styles.checklistItemCompleted,
+                      isRequired && !itemCompleted && styles.checklistItemRequired,
                     ]}
                     onPress={() => router.push(`/checklist-item/${ordenId}/${item.id}`)}
                   >
-                    {/* Checkbox */}
-                    <View style={[styles.checkbox, isCompleted && styles.checkboxCompleted]}>
-                      {isCompleted && (
-                        <InstitutionalIcon name="check" size={20} color={COLORS.neutral.white}  strokeWidth={ICON_STROKE_WIDTH} />
-                      )}
+                    <View style={[styles.checkbox, itemCompleted && styles.checkboxCompleted]}>
+                      {itemCompleted ? (
+                        <InstitutionalIcon name="check" size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                      ) : null}
                     </View>
 
-                    {/* Info del item */}
                     <View style={styles.checklistItemInfo}>
-                      <Text style={[styles.checklistItemTitle, isCompleted && styles.checklistItemTitleCompleted]}>
+                      <Text style={[styles.checklistItemTitle, itemCompleted && styles.checklistItemTitleCompleted]}>
                         {item.pregunta_texto}
                       </Text>
-                      {item.descripcion_ayuda && (
-                        <Text style={styles.checklistItemDescription} numberOfLines={1}>
+                      {item.descripcion_ayuda ? (
+                        <Text style={styles.checklistItemDescription} numberOfLines={2}>
                           {item.descripcion_ayuda}
                         </Text>
-                      )}
+                      ) : null}
                     </View>
 
-                    {/* Badge obligatorio si aplica */}
-                    {item.es_obligatorio_efectivo && (
+                    {isRequired ? (
                       <View style={styles.requiredBadge}>
-                        <InstitutionalIcon name="star" size={14} color={COLORS.error.main}  strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.requiredBadgeText}>Req.</Text>
                       </View>
-                    )}
+                    ) : null}
 
-                    {/* Icono de flecha */}
-                    <InstitutionalIcon name="chevron-right" size={24} color={COLORS.neutral.gray[400]}  strokeWidth={ICON_STROKE_WIDTH} />
+                    <InstitutionalIcon name="chevron-right" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                   </TouchableOpacity>
                 );
               })}
           </View>
         )}
 
-        {/* Checklist completado */}
         {isCompleted && (
           <View style={styles.completedCard}>
-            <View style={styles.completedIconContainer}>
-              <InstitutionalIcon name="check-circle" size={64} color={COLORS.success.main}  strokeWidth={ICON_STROKE_WIDTH} />
-            </View>
-            <Text style={styles.completedTitle}>Checklist Completado</Text>
+            <InstitutionalIcon name="check-circle" size={48} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={styles.completedTitle}>Checklist completado</Text>
             <Text style={styles.completedDescription}>
-              El checklist ha sido finalizado exitosamente.
+              El checklist fue finalizado correctamente.
             </Text>
-            {instance.tiempo_total_minutos && (
+            {instance.tiempo_total_minutos ? (
               <Text style={styles.completedTime}>
-                Tiempo total: {instance.tiempo_total_minutos} minutos
+                Tiempo total: {instance.tiempo_total_minutos} min
               </Text>
-            )}
+            ) : null}
             <TouchableOpacity
-              style={[styles.finalizeButton, styles.completedFinalizeButton]}
+              style={styles.primaryButton}
               onPress={() => setShowCompletedView(true)}
             >
-              <InstitutionalIcon name="visibility" size={20} color={COLORS.neutral.white}  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.finalizeButtonText}>Ver checklist completado</Text>
+              <InstitutionalIcon name="visibility" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.primaryButtonText}>Ver resumen</Text>
             </TouchableOpacity>
           </View>
         )}
       </ScrollView>
 
-      {/* Footer con botón finalizar - Solo cuando todos están completos */}
       {instance.estado === 'EN_PROGRESO' && !isCompleted && canFinalize && (
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <TouchableOpacity
-            style={[styles.finalizeButton, finalizing && styles.finalizeButtonDisabled]}
+            style={[styles.primaryButton, styles.footerPrimaryButton, finalizing && styles.buttonDisabled]}
             onPress={handleFinalize}
             disabled={finalizing}
-            activeOpacity={0.7}
+            activeOpacity={0.85}
           >
             {finalizing ? (
-              <ActivityIndicator size="small" color={COLORS.neutral.white} />
+              <ActivityIndicator size="small" color={I.onPrimary} />
             ) : (
               <>
-                <InstitutionalIcon name="done-all" size={20} color={COLORS.neutral.white}  strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.finalizeButtonText}>Finalizar Checklist</Text>
+                <InstitutionalIcon name="done-all" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.primaryButtonText}>Finalizar checklist</Text>
               </>
             )}
           </TouchableOpacity>
@@ -585,411 +616,289 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background.default,
+    backgroundColor: I.canvas,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.primary[500],
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.sm,
+    backgroundColor: I.canvas,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairline,
   },
   closeButton: {
-    padding: SPACING.xs,
-    marginRight: SPACING.sm,
+    padding: SPACING.fixed.xs,
+    marginRight: SPACING.fixed.sm,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : {}),
   },
   headerContent: {
     flex: 1,
+    minWidth: 0,
   },
   headerTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.neutral.white,
-    marginBottom: SPACING.xs / 2,
+    fontFamily: FF.sansBold,
+    color: I.ink,
+    marginBottom: SPACING.fixed.xxs,
   },
   headerSubtitle: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.neutral.white,
-    opacity: 0.75,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    fontFamily: FF.sansMedium,
+    color: I.muted,
   },
   headerSubtitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: SPACING.sm,
+    gap: SPACING.fixed.sm,
   },
   headerStatusBadge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs / 2,
-    borderRadius: BORDERS.radius.lg,
-    backgroundColor: COLORS.neutral.white,
-    opacity: 0.85,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xxs,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   headerStatusBadgeText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.primary[500],
-  },
-  progressSection: {
-    backgroundColor: COLORS.primary[600],
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.sm,
-  },
-  statusBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.background.warning,
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.md,
-    borderBottomWidth: BORDERS.width.thin,
-    borderBottomColor: COLORS.warning.light,
-  },
-  statusText: {
-    marginLeft: SPACING.xs,
-    fontSize: TYPOGRAPHY.fontSize.sm - 1,
-    color: COLORS.warning.text,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
   },
   content: {
     flex: 1,
-    backgroundColor: COLORS.background.default,
+    backgroundColor: I.canvas,
   },
   contentContainer: {
-    paddingBottom: SPACING.xl,
-    paddingTop: SPACING.xs, // Reducido para minimizar gap
+    paddingBottom: SPACING.fixed.xl,
+    paddingTop: SPACING.fixed.xs,
+  },
+  bannerWrap: {
+    paddingHorizontal: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.md,
+    gap: SPACING.fixed.sm,
+  },
+  bannerWrapCompact: {
+    paddingHorizontal: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.sm,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: SPACING.xl,
+    paddingHorizontal: SPACING.fixed.xl,
   },
   loadingText: {
     textAlign: 'center',
     fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.text.secondary,
-    marginTop: SPACING.md,
+    fontFamily: FF.sansMedium,
+    color: I.muted,
+    marginTop: SPACING.fixed.md,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: SPACING['2xl'],
+    paddingHorizontal: SPACING.fixed.xl,
+    gap: SPACING.fixed.sm,
   },
   errorTitle: {
     fontSize: TYPOGRAPHY.fontSize.xl,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.text.primary,
-    marginTop: SPACING.md,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    marginTop: SPACING.fixed.sm,
   },
   errorMessage: {
     fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.text.secondary,
+    fontFamily: FF.sansRegular,
+    color: I.body,
     textAlign: 'center',
-    marginTop: SPACING.xs,
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.fixed.lg,
   },
-  retryButton: {
-    backgroundColor: COLORS.primary[500],
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.sm + SPACING.xs,
-    borderRadius: BORDERS.radius.md,
-  },
-  retryButtonText: {
-    color: COLORS.text.onPrimary,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-  },
-  // Cards compactas - diseño claro
-  startCard: {
-    backgroundColor: COLORS.background.paper,
-    borderRadius: BORDERS.radius.xl,
-    padding: SPACING.xl,
-    margin: SPACING.lg,
-    alignItems: 'flex-start',
+  onboardingCard: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.fixed.lg,
+    marginHorizontal: SPACING.fixed.md,
+    marginTop: SPACING.fixed.md,
     borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.border.light,
-    ...SHADOWS.sm,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.accent[500],
+    borderColor: I.hairline,
+    gap: SPACING.fixed.sm,
   },
-  startIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.primary[50],
-    borderWidth: 2,
-    borderColor: COLORS.accent[200],
+  onboardingIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: withOpacity(I.primary, 0.08),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SPACING.md,
   },
-  startTitle: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text.primary,
-    marginBottom: SPACING.xs,
+  onboardingIconWrapWarning: {
+    backgroundColor: withOpacity(I.accentYellow, 0.15),
   },
-  startDescription: {
+  onboardingTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: FF.sansBold,
+    color: I.ink,
+  },
+  onboardingDescription: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.text.secondary,
-    textAlign: 'center',
-    marginBottom: SPACING.lg,
-    lineHeight: 20,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.sm * TYPOGRAPHY.lineHeight.normal),
   },
-  startButton: {
+  primaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.primary[500],
-    paddingVertical: SPACING.md,
-    borderRadius: BORDERS.radius.xl,
-    width: '100%',
-    gap: SPACING.xs,
+    backgroundColor: I.primary,
+    paddingVertical: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.lg,
+    borderRadius: BORDERS.radius.pill,
+    gap: SPACING.fixed.xs,
+    minHeight: 48,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : {}),
   },
-  startButtonText: {
-    color: COLORS.neutral.white,
+  primaryButtonText: {
+    color: I.onPrimary,
     fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontFamily: FF.sansSemiBold,
   },
-  resumeCard: {
-    backgroundColor: COLORS.background.paper,
-    borderRadius: BORDERS.radius.xl,
-    padding: SPACING.xl,
-    margin: SPACING.lg,
-    alignItems: 'flex-start',
-    borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.border.light,
-    ...SHADOWS.sm,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.warning.main,
-  },
-  resumeIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.warning.light,
-    borderWidth: 2,
-    borderColor: COLORS.warning.main,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  resumeTitle: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text.primary,
-    marginBottom: SPACING.xs,
-  },
-  resumeDescription: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.text.secondary,
-    textAlign: 'center',
-    marginBottom: SPACING.lg,
-    lineHeight: 20,
-  },
-  resumeButton: {
+  secondaryOutlineButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.warning.main,
-    paddingVertical: SPACING.md,
-    borderRadius: BORDERS.radius.xl,
-    width: '100%',
-    gap: SPACING.xs,
+    gap: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.lg,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.surfaceSoft,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : {}),
   },
-  resumeButtonText: {
-    color: COLORS.text.onWarning,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  secondaryOutlineButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
+  },
+  buttonDisabled: {
+    opacity: 0.55,
   },
   completedCard: {
-    backgroundColor: COLORS.success.light,
-    borderRadius: BORDERS.radius.xl,
-    padding: SPACING.xl,
-    margin: SPACING.lg,
+    backgroundColor: withOpacity(I.semanticUp, 0.08),
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.fixed.lg,
+    marginHorizontal: SPACING.fixed.md,
+    marginTop: SPACING.fixed.md,
     alignItems: 'center',
     borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.success.main,
-    ...SHADOWS.md,
-  },
-  completedIconContainer: {
-    marginBottom: SPACING.md,
+    borderColor: I.hairline,
+    gap: SPACING.fixed.sm,
   },
   completedTitle: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.success.dark,
-    marginBottom: SPACING.xs,
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: FF.sansBold,
+    color: I.ink,
   },
   completedDescription: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.text.secondary,
+    fontFamily: FF.sansRegular,
+    color: I.body,
     textAlign: 'center',
-    marginBottom: SPACING.sm,
-    lineHeight: 20,
   },
   completedTime: {
-    fontSize: TYPOGRAPHY.fontSize.sm - 1,
-    color: COLORS.success.main,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    marginTop: SPACING.xs,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.semanticUp,
   },
   footer: {
-    backgroundColor: COLORS.background.paper,
+    backgroundColor: I.canvas,
     borderTopWidth: BORDERS.width.thin,
-    borderTopColor: COLORS.border.light,
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
-    ...SHADOWS.lg,
+    borderTopColor: I.hairline,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.md,
   },
-  navigationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: SPACING.sm + SPACING.xs,
-  },
-  navButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm + SPACING.xs / 2,
-    borderRadius: BORDERS.radius.lg,
-    backgroundColor: COLORS.background.default,
-    borderWidth: BORDERS.width.medium,
-    borderColor: COLORS.border.main,
-    gap: SPACING.xs,
-    minHeight: 52,
-  },
-  navButtonDisabled: {
-    backgroundColor: COLORS.background.default,
-    borderColor: COLORS.border.light,
-    opacity: 0.5,
-  },
-  navButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.text.primary,
-  },
-  navButtonTextDisabled: {
-    color: COLORS.text.disabled,
-  },
-  nextButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.sm + SPACING.xs / 2,
-    borderRadius: BORDERS.radius.lg,
-    backgroundColor: COLORS.accent[500],
-    gap: SPACING.xs,
-    minHeight: 52,
-    ...SHADOWS.md,
-  },
-  nextButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.text.onAccent,
-  },
-  finalizeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.sm + SPACING.xs / 2,
-    borderRadius: BORDERS.radius.xl,
-    backgroundColor: COLORS.success.main,
-    gap: SPACING.xs,
-    minHeight: 56,
+  footerPrimaryButton: {
     width: '100%',
-    ...SHADOWS.lg,
   },
-  finalizeButtonDisabled: {
-    backgroundColor: COLORS.neutral.gray[400],
-    ...SHADOWS.sm,
-  },
-  finalizeButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.neutral.white,
-  },
-  // Estilos para lista tipo to-do
   checklistItemsList: {
-    padding: SPACING.lg,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.sm,
+    gap: SPACING.fixed.sm,
   },
   checklistSummary: {
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.fixed.xxs,
   },
   checklistSummaryText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.text.secondary,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    fontFamily: FF.sansMedium,
+    color: I.muted,
   },
   checklistItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: SPACING.md,
-    backgroundColor: COLORS.background.paper,
-    borderRadius: BORDERS.radius.xl,
-    marginBottom: SPACING.sm + SPACING.xs,
-    gap: SPACING.sm + SPACING.xs,
-    ...SHADOWS.sm,
+    padding: SPACING.fixed.md,
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    gap: SPACING.fixed.sm,
     borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.border.light,
+    borderColor: I.hairline,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : {}),
   },
   checkbox: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: COLORS.neutral.gray[300],
-    backgroundColor: 'transparent',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxCompleted: {
-    backgroundColor: COLORS.success.main,
-    borderColor: COLORS.success.main,
+    backgroundColor: I.semanticUp,
+    borderColor: I.semanticUp,
   },
   checklistItemCompleted: {
-    backgroundColor: COLORS.success.light,
-    borderColor: COLORS.success.main,
+    backgroundColor: withOpacity(I.semanticUp, 0.06),
+    borderColor: withOpacity(I.semanticUp, 0.35),
   },
   checklistItemRequired: {
     borderLeftWidth: 3,
-    borderLeftColor: COLORS.error.main,
+    borderLeftColor: I.accentYellow,
   },
   checklistItemInfo: {
     flex: 1,
+    minWidth: 0,
   },
   checklistItemTitle: {
     fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text.primary,
-    marginBottom: SPACING.xs,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
   },
   checklistItemTitleCompleted: {
-    color: COLORS.text.secondary,
+    color: I.muted,
     textDecorationLine: 'line-through',
   },
   checklistItemDescription: {
-    fontSize: TYPOGRAPHY.fontSize.sm - 1,
-    color: COLORS.text.secondary,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+    marginTop: 2,
   },
   requiredBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.error.light,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BORDERS.radius.sm,
+    backgroundColor: withOpacity(I.accentYellow, 0.15),
     borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.error.main,
+    borderColor: withOpacity(I.accentYellow, 0.4),
   },
-  completedFinalizeButton: {
-    width: '100%',
-    marginTop: SPACING.lg,
-    justifyContent: 'center',
+  requiredBadgeText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    color: I.body,
   },
 }); 

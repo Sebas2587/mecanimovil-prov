@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Dimensions,
   ScrollView,
@@ -14,6 +13,11 @@ import SignatureScreen from 'react-native-signature-canvas';
 import * as Location from 'expo-location';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
 
 export type SignatureMode = 'both' | 'tecnico_only' | 'cliente_only';
 
@@ -169,7 +173,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
   // Detectar cuando el canvas está vacío
   const handleEmpty = () => {
     setHasDrawnSignature(false);
-    Alert.alert('Firma requerida', 'Por favor firma antes de continuar');
+    showAlert('Firma requerida', 'Por favor firma antes de continuar');
   };
 
   // Obtener ubicación GPS
@@ -183,13 +187,12 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
       const enabled = await Location.hasServicesEnabledAsync();
       if (!enabled) {
         console.log('⚠️ Servicios de ubicación deshabilitados');
-        Alert.alert(
-          'Servicios de Ubicación',
+        showAlertButtons(
+          'Servicios de ubicación',
           'Los servicios de ubicación están deshabilitados. ¿Deseas continuar sin ubicación GPS?',
           [
-            { text: 'Ir a Configuración', onPress: () => Location.enableNetworkProviderAsync() },
-            { text: 'Continuar sin GPS', onPress: () => finalizarSinUbicacion(finalSignatures) }
-          ]
+            { text: 'Continuar sin GPS', onPress: () => finalizarSinUbicacion(finalSignatures) },
+          ],
         );
         return;
       }
@@ -201,13 +204,12 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
       
       if (status !== 'granted') {
         console.log('❌ Permisos de ubicación denegados:', status);
-        Alert.alert(
-          'Permisos de Ubicación',
-          'Se requieren permisos de ubicación para finalizar el checklist. Sin ubicación GPS, el checklist se guardará con coordenadas por defecto.',
+        showAlertButtons(
+          'Permisos de ubicación',
+          'Se requieren permisos de ubicación para finalizar el checklist. Sin GPS, se usarán coordenadas por defecto.',
           [
-            { text: 'Reintentar', onPress: () => obtenerUbicacion(finalSignatures) },
-            { text: 'Continuar sin GPS', onPress: () => finalizarSinUbicacion(finalSignatures) }
-          ]
+            { text: 'Continuar sin GPS', onPress: () => finalizarSinUbicacion(finalSignatures) },
+          ],
         );
         return;
       }
@@ -254,25 +256,15 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
         errorMessage = 'Servicios de ubicación no disponibles.';
       }
       
-      Alert.alert(
-        'Error de Ubicación',
-        `${errorMessage}\n\n¿Deseas continuar sin ubicación GPS? El checklist se guardará con coordenadas por defecto.`,
+      showAlertButtons(
+        'Error de ubicación',
+        `${errorMessage}\n\n¿Deseas continuar sin ubicación GPS?`,
         [
-          { 
-            text: 'Reintentar', 
-            onPress: () => {
-              console.log('🔄 Usuario eligió reintentar obtención de ubicación');
-              obtenerUbicacion(finalSignatures);
-            }
+          {
+            text: 'Continuar sin GPS',
+            onPress: () => finalizarSinUbicacion(finalSignatures),
           },
-          { 
-            text: 'Continuar sin GPS', 
-            onPress: () => {
-              console.log('⚠️ Usuario eligió continuar sin GPS');
-              finalizarSinUbicacion(finalSignatures);
-            }
-          }
-        ]
+        ],
       );
     } finally {
       setObtainingLocation(false);
@@ -304,22 +296,22 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
 
   // Cancelar y cerrar modal
   const cancelar = () => {
-    Alert.alert(
-      'Cancelar Firmas',
+    showAlertButtons(
+      'Cancelar firmas',
       '¿Estás seguro de que quieres cancelar? Se perderán las firmas capturadas.',
       [
         { text: 'Continuar firmando', style: 'cancel' },
-        { 
-          text: 'Cancelar', 
+        {
+          text: 'Cancelar',
           style: 'destructive',
           onPress: () => {
             setSignatures({});
             setCurrentStep(signatureMode === 'cliente_only' ? 'cliente' : 'tecnico');
             setLocation(null);
             onClose();
-          }
-        }
-      ]
+          },
+        },
+      ],
     );
   };
 
@@ -506,16 +498,16 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    paddingHorizontal: SPACING.fixed.lg,
+    paddingVertical: SPACING.fixed.md,
+    backgroundColor: I.canvas,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairline,
   },
   cancelButton: {
     padding: 8,
@@ -526,9 +518,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#212529',
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: FF.sansBold,
+    color: I.ink,
   },
   headerRight: {
     width: 40,
@@ -554,41 +546,41 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   progressCircleCompleted: {
-    backgroundColor: '#28a745',
-    borderColor: '#28a745',
+    backgroundColor: I.semanticUp,
+    borderColor: I.semanticUp,
   },
   progressCircleCurrent: {
-    backgroundColor: '#619FF0',
-    borderColor: '#619FF0',
+    backgroundColor: I.primary,
+    borderColor: I.primary,
   },
   progressCirclePending: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e9ecef',
+    backgroundColor: I.canvas,
+    borderColor: I.hairline,
   },
   progressNumber: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#6c757d',
+    fontFamily: FF.sansBold,
+    color: I.muted,
   },
   progressNumberCurrent: {
-    color: '#ffffff',
+    color: I.onPrimary,
   },
   progressLabel: {
     fontSize: 12,
-    color: '#6c757d',
+    color: I.muted,
     marginTop: 6,
-    fontWeight: '500',
+    fontFamily: FF.sansMedium,
   },
   progressLine: {
     width: 60,
     height: 2,
-    backgroundColor: '#e9ecef',
+    backgroundColor: I.hairline,
     marginHorizontal: 16,
     borderRadius: 1,
   },
   content: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
   },
   contentContainer: {
     paddingBottom: 20,
@@ -709,15 +701,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: '#619FF0',
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.primary,
     gap: 8,
     flex: 1,
     justifyContent: 'center',
   },
   manualConfirmButtonText: {
-    fontSize: 15,
-    color: '#fff',
-    fontWeight: '700',
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: I.onPrimary,
+    fontFamily: FF.sansSemiBold,
   },
 }); 

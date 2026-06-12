@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   primaryButton: {
-    backgroundColor: COLORS.success.main,
+    backgroundColor: COLORS.institutional.primary,
   },
   primaryButtonText: {
     color: COLORS.neutral.white,

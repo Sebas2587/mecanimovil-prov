@@ -6,12 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
-  Alert,
   Image,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   checklistService,
   ChecklistInstance,
@@ -20,13 +18,14 @@ import {
   ChecklistRecomendacionesResponse,
 } from '@/services/checklistService';
 import { signatureStoredToImageUri } from '@/utils/signatureImageUri';
-import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { showAlert } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
+const INSET = SPACING.fixed.md;
 
 const REC_COLORS: Record<string, string> = {
   URGENTE:  '#cf202f',
@@ -68,11 +67,11 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
           loadRecomendaciones(result.data.id);
         }
       } else {
-        Alert.alert('Error', 'No se pudo cargar el checklist completado');
+        showAlert('Error', 'No se pudo cargar el checklist completado');
       }
     } catch (error) {
       console.error('Error loading completed checklist:', error);
-      Alert.alert('Error', 'Error al cargar el checklist');
+      showAlert('Error', 'Error al cargar el checklist');
     } finally {
       setLoading(false);
     }
@@ -199,13 +198,6 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={styles.screenRoot}>
-        <LinearGradient
-          colors={BLANK_GLASS.gradient}
-          locations={BLANK_GLASS.gradientLocations}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
           <View style={[styles.header, { paddingTop: Math.max(insets.top, SPACING.sm) }]}>
             <TouchableOpacity onPress={onClose} style={styles.headerIconBtn} accessibilityRole="button" accessibilityLabel="Cerrar">
@@ -422,7 +414,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: GLASS_INSET,
+    paddingHorizontal: INSET,
     paddingBottom: SPACING.sm + 2,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: I.hairline,
@@ -467,7 +459,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollInner: {
-    paddingHorizontal: GLASS_INSET,
+    paddingHorizontal: INSET,
     paddingTop: SPACING.md,
     gap: SPACING.md,
   },
@@ -475,7 +467,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: GLASS_INSET,
+    paddingHorizontal: INSET,
   },
   loadingHint: {
     marginTop: SPACING.sm,
