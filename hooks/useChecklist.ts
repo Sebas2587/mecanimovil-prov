@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
@@ -381,11 +381,25 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
       try {
         const formData = new FormData();
         formData.append('response', responseId.toString());
-        formData.append('imagen', {
-          uri: photoUri,
-          type: 'image/jpeg',
-          name: `checklist_photo_${Date.now()}.jpg`,
-        } as unknown as Blob);
+        const fileName = `checklist_photo_${Date.now()}.jpg`;
+
+        if (Platform.OS === 'web') {
+          // En web el patrón { uri, type, name } NO produce un archivo real:
+          // se serializa como "[object Object]" y el backend recibe FILES vacío.
+          // Convertir el URI (blob:/data:/http) a Blob real antes de adjuntar.
+          const resp = await fetch(photoUri);
+          const blob = await resp.blob();
+          const file = new File([blob], fileName, {
+            type: blob.type || 'image/jpeg',
+          });
+          formData.append('imagen', file);
+        } else {
+          formData.append('imagen', {
+            uri: photoUri,
+            type: 'image/jpeg',
+            name: fileName,
+          } as unknown as Blob);
+        }
         formData.append('orden_en_respuesta', String(ordenEnRespuesta));
 
         if (descripcion) {

@@ -701,12 +701,13 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
-            // Si tiene ID del servidor, eliminar en backend
+            // Si tiene ID del servidor, intentar eliminar en backend.
+            // Tolerante: si el registro ya no existe (404) o falla, igual lo
+            // quitamos localmente para no dejar fotos "en blanco" atascadas.
             if (photo.id && deletePhoto) {
               const result = await deletePhoto(photo.id);
               if (!result.success) {
-                Alert.alert('Error', 'No se pudo eliminar la foto del servidor.');
-                return;
+                console.warn('⚠️ No se pudo eliminar la foto en backend, se quita localmente:', result.message);
               }
             }
             // Si es foto local pendiente, eliminar del storage offline
