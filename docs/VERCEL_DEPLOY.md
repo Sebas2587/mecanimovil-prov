@@ -73,7 +73,11 @@ npx vercel --prod
 
 ## Deploy Hook (opcional)
 
-Vercel → Settings → Git → Deploy Hooks → crea hook y en `package.json`:
+**No usar el hook como único método de deploy** si el proyecto **no tiene Git conectado** en Vercel: dispara un redeploy vacío y el dominio responde `404 NOT_FOUND`.
+
+Para CI sin Git en Vercel, usar GitHub Actions con `VERCEL_TOKEN` (ver workflow `.github/workflows/trigger-vercel-deploy-hook.yml`).
+
+Vercel → Settings → Git → Deploy Hooks (solo si Git está conectado al repo):
 
 ```json
 "deploy:vercel": "curl -fsS -X POST <URL_DEL_HOOK> -H 'Content-Type: application/json'"
