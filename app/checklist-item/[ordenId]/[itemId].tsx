@@ -1,32 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { useChecklist } from '@/hooks/useChecklist';
 import { ChecklistItemRenderer } from '@/components/checklist/ChecklistItemRenderer';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import {
-  checklistService,
-  ChecklistSaludSnapshotItem,
-} from '@/services/checklistService';
+import { COLORS } from '@/app/design-system/tokens';
+import { checklistQueryKeys } from '@/hooks/checklistQueryKeys';
+import { checklistService } from '@/services/checklistService';
+import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+
+const I = COLORS.institutional;
 
 export default function ChecklistItemDetailScreen() {
   const { ordenId, itemId } = useLocalSearchParams<{ ordenId: string; itemId: string }>();
   const insets = useSafeAreaInsets();
-  
+
   const ordenIdNum = parseInt(ordenId || '0', 10);
   const itemIdNum = parseInt(itemId || '0', 10);
-  
+
   const {
     template,
     instance,
@@ -40,66 +41,45 @@ export default function ChecklistItemDetailScreen() {
     finalizeChecklist,
   } = useChecklist({ ordenId: ordenIdNum });
 
-  const [item, setItem] = useState<any>(null);
-  const [response, setResponse] = useState<any>(null);
-  const [saludSnapshot, setSaludSnapshot] = useState<ChecklistSaludSnapshotItem | null>(null);
-
-  // Recargar datos cuando la pantalla recibe foco
-  useFocusEffect(
-    React.useCallback(() => {
-      if (template && itemIdNum) {
-        const foundItem = template.items?.find((i: any) => i.id === itemIdNum);
-        setItem(foundItem);
-        
-        if (instance?.respuestas) {
-          const foundResponse = instance.respuestas.find((r: any) => r.item_template === itemIdNum);
-          setResponse(foundResponse);
-        }
-      }
-    }, [template, instance, itemIdNum])
+  const item = useMemo(
+    () => template?.items?.find((i) => i.id === itemIdNum) ?? null,
+    [template, itemIdNum],
   );
 
-  useEffect(() => {
-    if (template && itemIdNum) {
-      const foundItem = template.items?.find((i: any) => i.id === itemIdNum);
-      setItem(foundItem);
-      
-      if (instance?.respuestas) {
-        const foundResponse = instance.respuestas.find((r: any) => r.item_template === itemIdNum);
-        setResponse(foundResponse);
-      }
-    }
-  }, [template, instance, itemIdNum]);
+  const response = useMemo(() => {
+    if (!instance?.respuestas) return null;
+    return instance.respuestas.find((r) => r.item_template === itemIdNum) ?? null;
+  }, [instance, itemIdNum]);
 
-  // Cargar snapshot de salud para mostrar el estado actual del componente
-  // vinculado al item antes de que el técnico lo actualice.
-  useEffect(() => {
-    const loadSaludSnapshot = async () => {
-      if (!instance?.id || !item) {
-        setSaludSnapshot(null);
-        return;
+  const { data: snapshotRoot } = useQuery({
+    queryKey: checklistQueryKeys.saludSnapshot(instance?.id ?? 0),
+    queryFn: async () => {
+      const res = await checklistService.getSaludSnapshot(instance!.id);
+      if (!res.success || !res.data) {
+        throw new Error(res.message || 'No se pudo cargar el snapshot de salud');
       }
-      // El snapshot solo incluye ítems con componente en BD; pedimos siempre
-      // para no depender de que el template en caché traiga `componente_salud_asociado`.
-      try {
-        const res = await checklistService.getSaludSnapshot(instance.id);
-        if (!res.success || !res.data?.items) {
-          setSaludSnapshot(null);
-          return;
-        }
-        const found =
-          res.data.items.find(
-            (s) => Number(s.item_template_id) === Number(item.id),
-          ) || null;
-        setSaludSnapshot(found);
-      } catch (error) {
-        console.warn('No se pudo cargar el snapshot de salud:', error);
-        setSaludSnapshot(null);
-      }
-    };
+      return res.data;
+    },
+    staleTime: 60_000,
+    enabled: !!instance?.id,
+  });
 
-    loadSaludSnapshot();
-  }, [instance?.id, item]);
+  const kmActual = snapshotRoot?.kilometraje_actual ?? null;
+
+  const saludSnapshot = useMemo(() => {
+    if (!snapshotRoot?.items || !item) return null;
+    return (
+      snapshotRoot.items.find(
+        (s) => Number(s.item_template_id) === Number(item.id),
+      ) ?? null
+    );
+  }, [snapshotRoot, item]);
+
+  const [localResponse, setLocalResponse] = useState<typeof response>(null);
+
+  useEffect(() => {
+    setLocalResponse(response);
+  }, [response]);
 
   // Para items de tipo FOTO: asegurar que exista una respuesta en backend
   // antes de intentar subir fotos, de modo que se puedan asociar múltiples evidencias.
@@ -107,39 +87,37 @@ export default function ChecklistItemDetailScreen() {
     const ensurePhotoResponse = async () => {
       if (!item || !instance) return;
       if (item.tipo_pregunta !== 'PHOTO') return;
-      if (response) return;
+      if (localResponse) return;
 
       const result = await saveResponse(item.id, { completado: false });
       if (result.success) {
-        setResponse(result.data);
+        setLocalResponse(result.data ?? null);
       } else {
         console.error('❌ No se pudo inicializar respuesta para item PHOTO:', result.message);
       }
     };
 
     ensurePhotoResponse();
-  }, [item, instance, response, saveResponse]);
+  }, [item, instance, localResponse, saveResponse]);
 
-  const handleSave = async (responseData: any, options?: { silent?: boolean }) => {
+  const handleSave = async (responseData: Record<string, unknown>, options?: { silent?: boolean }) => {
     if (!item) return { success: false, message: 'Item no disponible' };
-    
+
     const result = await saveResponse(item.id, responseData);
-    
+
     if (result.success) {
       if (result.data) {
-        setResponse(result.data);
+        setLocalResponse(result.data ?? null);
       }
       if (!options?.silent) {
-        Alert.alert(
+        showAlertButtons(
           'Guardado',
           'Tu respuesta ha sido guardada exitosamente.',
-          [{ text: 'OK', onPress: () => router.back() }]
+          [{ text: 'OK', onPress: () => router.back() }],
         );
       }
-    } else {
-      if (!options?.silent) {
-        Alert.alert('Error', result.message || 'No se pudo guardar la respuesta');
-      }
+    } else if (!options?.silent) {
+      showAlert('Error', result.message || 'No se pudo guardar la respuesta');
     }
     return result;
   };
@@ -148,7 +126,16 @@ export default function ChecklistItemDetailScreen() {
     router.back();
   };
 
-  if (loading || !template || !instance) {
+  if (loading && !instance) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <LoadingSpinner />
+        <Text style={styles.loadingText}>Cargando item del checklist...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!template || !instance) {
     return (
       <SafeAreaView style={styles.container}>
         <LoadingSpinner />
@@ -161,7 +148,12 @@ export default function ChecklistItemDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <InstitutionalIcon name="error" size={64} color="#dc3545"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon
+            name="error"
+            size={64}
+            color={I.semanticDown}
+            strokeWidth={ICON_STROKE_WIDTH}
+          />
           <Text style={styles.errorTitle}>Item no encontrado</Text>
           <Text style={styles.errorMessage}>
             No se pudo encontrar el item del checklist solicitado.
@@ -176,12 +168,16 @@ export default function ChecklistItemDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleGoBack} style={styles.closeButton}>
-          <InstitutionalIcon name="arrow-back" size={24} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon
+            name="arrow-back"
+            size={24}
+            color={I.ink}
+            strokeWidth={ICON_STROKE_WIDTH}
+          />
         </TouchableOpacity>
-        
+
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle} numberOfLines={1}>
             {item.pregunta_texto}
@@ -192,16 +188,18 @@ export default function ChecklistItemDetailScreen() {
         </View>
       </View>
 
-      {/* Content */}
-      <ScrollView 
-        style={styles.content} 
-        contentContainerStyle={[styles.contentContainer, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={[
+          styles.contentContainer,
+          { paddingBottom: Math.max(insets.bottom, 20) + 20 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.rendererWrapper}>
           <ChecklistItemRenderer
             item={item}
-            response={response}
+            response={localResponse}
             onSave={handleSave}
             saving={saving}
             instance={instance}
@@ -211,6 +209,7 @@ export default function ChecklistItemDetailScreen() {
             uploadPhoto={uploadPhoto}
             deletePhoto={deletePhoto}
             saludSnapshot={saludSnapshot}
+            kmActual={kmActual}
           />
         </View>
       </ScrollView>
@@ -221,16 +220,16 @@ export default function ChecklistItemDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: I.hairline,
   },
   closeButton: {
     padding: 6,
@@ -242,16 +241,16 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#212529',
+    color: I.ink,
     marginBottom: 2,
   },
   headerSubtitle: {
     fontSize: 13,
-    color: '#6c757d',
+    color: I.muted,
   },
   content: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
   },
   contentContainer: {
     paddingTop: 8,
@@ -262,7 +261,7 @@ const styles = StyleSheet.create({
   loadingText: {
     textAlign: 'center',
     fontSize: 16,
-    color: '#6c757d',
+    color: I.muted,
     marginTop: 16,
   },
   errorContainer: {
@@ -274,26 +273,25 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#212529',
+    color: I.ink,
     marginTop: 16,
   },
   errorMessage: {
     fontSize: 16,
-    color: '#6c757d',
+    color: I.muted,
     textAlign: 'center',
     marginTop: 8,
     marginBottom: 24,
   },
   backButton: {
-    backgroundColor: '#619FF0',
+    backgroundColor: I.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   backButtonText: {
-    color: '#ffffff',
+    color: I.onPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
 });
-

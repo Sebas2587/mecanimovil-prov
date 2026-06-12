@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useChecklist } from '@/hooks/useChecklist';
 import { ChecklistProgressBar } from '@/components/checklist/ChecklistProgressBar';
 import { ChecklistSignatureModal } from '@/components/checklist/ChecklistSignatureModal';
@@ -76,7 +76,6 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     resumeChecklist,
     finalizeChecklist,
     saveResponse,
-    initializeChecklist,
 
     // Navegación
     nextStep,
@@ -98,15 +97,6 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   } = useChecklist({ ordenId });
 
   const esperandoFirmaCliente = instance?.estado === 'PENDIENTE_FIRMA_CLIENTE';
-
-  // Recargar datos cuando la pantalla recibe foco (cuando se regresa del detalle)
-  useFocusEffect(
-    React.useCallback(() => {
-      if (ordenId) {
-        initializeChecklist();
-      }
-    }, [ordenId, initializeChecklist])
-  );
 
   console.log('📊 Estado del hook useChecklist:', {
     template: template ? `Template cargado: ${template.nombre}` : 'No template',
@@ -865,10 +855,7 @@ const styles = StyleSheet.create({
     backgroundColor: withOpacity(I.semanticUp, 0.06),
     borderColor: withOpacity(I.semanticUp, 0.35),
   },
-  checklistItemRequired: {
-    borderLeftWidth: 3,
-    borderLeftColor: I.accentYellow,
-  },
+  checklistItemRequired: {},
   checklistItemInfo: {
     flex: 1,
     minWidth: 0,

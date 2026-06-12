@@ -33,6 +33,7 @@ import {
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { platformShadow } from '@/app/design-system/tokens';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
 
 interface ChecklistItemRendererProps {
   item: ChecklistItemTemplate;
@@ -52,6 +53,8 @@ interface ChecklistItemRendererProps {
   deletePhoto?: (photoId: number) => Promise<any>;
   /** Snapshot de salud actual del componente vinculado (refactor 2026). */
   saludSnapshot?: ChecklistSaludSnapshotItem | null;
+  /** Kilometraje actual del vehículo (root del snapshot de salud). */
+  kmActual?: number | null;
 }
 
 // ── Helpers de salud ───────────────────────────────────────────────────────
@@ -411,6 +414,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   uploadPhoto,
   deletePhoto,
   saludSnapshot,
+  kmActual,
 }) => {
   const [inputValue, setInputValue] = useState<any>('');
   const [isModified, setIsModified] = useState(false);
@@ -585,9 +589,14 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
     }
   }, [response, item]);
 
+  const proceedSave = async (responseData: Record<string, unknown>) => {
+    await onSave(responseData);
+    setIsModified(false);
+  };
+
   // Función para guardar la respuesta
   const handleSave = async () => {
-    let responseData: any = {};
+    let responseData: Record<string, unknown> = {};
 
     switch (item.tipo_pregunta) {
       case 'TEXT':
@@ -663,8 +672,28 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         break;
     }
 
-    await onSave(responseData);
-    setIsModified(false);
+    if (item.tipo_pregunta === 'KILOMETER_INPUT') {
+      const n = responseData.respuesta_numero as number | null | undefined;
+      if (Number.isFinite(n)) {
+        if (kmActual != null && n! < kmActual) {
+          showAlert(
+            'Kilometraje inválido',
+            `El km ingresado (${n!.toLocaleString()}) es menor al registrado en el vehículo (${kmActual.toLocaleString()} km). Verifica el valor.`,
+          );
+          return;
+        }
+        if (kmActual != null && n === kmActual) {
+          showConfirm(
+            'Mismo kilometraje',
+            `El km ingresado es igual al actual (${kmActual.toLocaleString()} km). ¿Deseas continuar?`,
+            { confirmText: 'Continuar', onConfirm: () => proceedSave(responseData) },
+          );
+          return;
+        }
+      }
+    }
+
+    await proceedSave(responseData);
   };
 
   // Manejar cambios en el input
