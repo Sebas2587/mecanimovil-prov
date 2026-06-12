@@ -7,7 +7,7 @@ iniciar, completar y comunicarse con el usuario durante el servicio.
 ## Requirements
 
 ### Requirement: Lista de órdenes del proveedor
-El proveedor ve sus órdenes activas e históricas.
+El proveedor MUST ver sus órdenes activas e históricas.
 
 #### Scenario: Órdenes activas visibles
 - GIVEN un proveedor con órdenes en estado=confirmada o en_progreso
@@ -20,7 +20,7 @@ El proveedor ve sus órdenes activas e históricas.
 - THEN ve lista paginada de órdenes pasadas con fecha y monto cobrado
 
 ### Requirement: Avanzar estado de la orden
-El proveedor controla el avance del estado de cada orden.
+El proveedor MUST controlar el avance del estado de cada orden sin cerrar la oferta marketplace antes de la firma del cliente.
 
 #### Scenario: Confirmar orden pendiente
 - GIVEN una orden en estado=pendiente
@@ -28,20 +28,30 @@ El proveedor controla el avance del estado de cada orden.
 - THEN la orden pasa a estado=confirmada
 - AND el usuario recibe notificación push
 
-#### Scenario: Iniciar servicio
-- GIVEN una orden en estado=confirmada
-- CUANDO el proveedor toca "Iniciar servicio"
-- THEN la orden pasa a estado=en_progreso
-- AND el canal WebSocket queda activo para comunicación
+#### Scenario: Iniciar servicio desde oferta pagada (web)
+- GIVEN una oferta en estado `pagada` o `pagada_parcialmente` con repuestos pagados
+- WHEN el proveedor confirma «Iniciar servicio» en web
+- THEN la app MUST ejecutar `POST /ordenes/ofertas/{id}/iniciar-servicio/` (confirmación compatible con web)
+- AND la oferta pasa a `en_ejecucion`
 
-#### Scenario: Completar servicio
-- GIVEN una orden en estado=en_progreso
+#### Scenario: Checklist completado por técnico sin cerrar oferta
+- GIVEN una oferta en `en_ejecucion` con checklist en `PENDIENTE_FIRMA_CLIENTE`
+- WHEN el proveedor ve el detalle de oferta
+- THEN MUST NOT mostrar «Terminar servicio» como acción principal
+- AND MUST mostrar aviso de espera de firma del cliente
+
+#### Scenario: Pago parcial mano de obra pendiente
+- GIVEN oferta con `estado_pago_repuestos=pagado` y `estado_pago_servicio=pendiente`
+- WHEN el servicio está en ejecución o esperando firma
+- THEN MUST informar que el cliente debe pagar la mano de obra restante desde su app
+
+#### Scenario: Completar servicio sin checklist
+- GIVEN una orden en estado=en_progreso sin plantilla de checklist
 - CUANDO el proveedor toca "Completar servicio" y confirma
 - THEN la orden pasa a estado=completada
-- AND se dispara el proceso de cobro al usuario
 
 ### Requirement: Comunicación durante la orden
-El proveedor puede enviar mensajes al usuario vía WebSocket.
+El proveedor MUST poder enviar mensajes al usuario vía WebSocket.
 
 #### Scenario: Enviar mensaje al usuario
 - GIVEN una orden en_progreso con WebSocket activo

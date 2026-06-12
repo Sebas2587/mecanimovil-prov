@@ -26,6 +26,15 @@ import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { calcularDesgloseIvaOferta, resolverDesgloseIvaMostrado } from '@/utils/ofertaPrecioDesglose';
 import { TipoPagoClienteChip } from '@/components/solicitudes/TipoPagoClienteChip';
 import { getResumenTipoPagoCliente } from '@/utils/tipoPagoClienteLabel';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
+import {
+  puedeIniciarServicioOferta,
+  tieneManoObraPendientePago,
+  checklistEsperandoFirmaCliente,
+  checklistCompletadoTotal,
+  puedeTerminarServicioManual,
+  mensajeEsperaCierreCliente,
+} from '@/utils/ofertaFlujoServicio';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -96,8 +105,11 @@ export default function OfertaDetalleScreen() {
 
   const handleChecklistComplete = () => {
     setShowChecklistContainer(false);
-    // Recargar oferta para obtener estado actualizado
     cargarOferta();
+    showAlert(
+      'Checklist registrado',
+      'El cliente recibirá una notificación para firmar desde su app y cerrar la orden.',
+    );
   };
 
   const handleChecklistCancel = () => {
@@ -128,6 +140,8 @@ export default function OfertaDetalleScreen() {
         return { accent: I.accentYellow, text: 'Cliente pagando…', icon: 'payment' as const };
       case 'pagada':
         return { accent: I.semanticUp, text: 'Pagada', icon: 'paid' as const };
+      case 'pagada_parcialmente':
+        return { accent: I.accentYellow, text: 'Pago parcial', icon: 'payment' as const };
       case 'en_ejecucion':
         return { accent: I.primary, text: 'En ejecución', icon: 'build' as const };
       case 'completada':
@@ -209,92 +223,79 @@ export default function OfertaDetalleScreen() {
     });
   };
 
-  const handleIniciarServicio = async () => {
+  const ejecutarIniciarServicio = async () => {
     if (!oferta) return;
+    try {
+      setProcesando(true);
+      const result = await iniciarServicio(String(oferta.id));
 
-    Alert.alert(
+      if (result.success && result.data) {
+        const ofertaActualizada = result.data;
+        if (result.solicitud_servicio_id) {
+          (ofertaActualizada as { solicitud_servicio_id?: number }).solicitud_servicio_id =
+            result.solicitud_servicio_id;
+        }
+        setOferta(ofertaActualizada);
+
+        const ordenId = (ofertaActualizada as { solicitud_servicio_id?: number }).solicitud_servicio_id;
+        if (ordenId) {
+          await cargarChecklist(ordenId);
+        }
+
+        showAlert(
+          'Servicio iniciado',
+          'El servicio está en ejecución. Completa el checklist cuando corresponda.',
+        );
+      } else {
+        showAlert('Error', result.error || 'No se pudo iniciar el servicio');
+      }
+    } catch (error) {
+      console.error('Error iniciando servicio:', error);
+      showAlert('Error', 'No se pudo iniciar el servicio');
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const handleIniciarServicio = () => {
+    if (!oferta || procesando) return;
+    showConfirm(
       'Iniciar Servicio',
-      '¿Estás seguro de que deseas iniciar el servicio? Esto cambiará el estado a "En Ejecución" y habilitará el checklist si está disponible.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Iniciar',
-          style: 'default',
-          onPress: async () => {
-            try {
-              setProcesando(true);
-              const result = await iniciarServicio(oferta.id);
-
-              if (result.success && result.data) {
-                const ofertaActualizada = result.data;
-                // Asegurar que solicitud_servicio_id esté en la oferta
-                if ((result as any).solicitud_servicio_id) {
-                  (ofertaActualizada as any).solicitud_servicio_id = (result as any).solicitud_servicio_id;
-                }
-                setOferta(ofertaActualizada);
-
-                // Cargar checklist si existe solicitud_servicio_id
-                if ((ofertaActualizada as any).solicitud_servicio_id) {
-                  await cargarChecklist((ofertaActualizada as any).solicitud_servicio_id);
-                }
-
-                Alert.alert(
-                  'Servicio Iniciado',
-                  'El servicio ha sido iniciado exitosamente. El checklist está disponible si está configurado.',
-                  [{ text: 'OK' }]
-                );
-              } else {
-                Alert.alert('Error', result.error || 'No se pudo iniciar el servicio');
-              }
-            } catch (error) {
-              console.error('Error iniciando servicio:', error);
-              Alert.alert('Error', 'No se pudo iniciar el servicio');
-            } finally {
-              setProcesando(false);
-            }
-          },
-        },
-      ]
+      '¿Confirmas iniciar el servicio? Pasará a «En ejecución» y podrás usar el checklist si está configurado.',
+      { confirmText: 'Iniciar', onConfirm: ejecutarIniciarServicio },
     );
   };
 
-  const handleTerminarServicio = async () => {
+  const ejecutarTerminarServicio = async () => {
     if (!oferta) return;
+    try {
+      setProcesando(true);
+      const result = await terminarServicio(String(oferta.id));
 
-    Alert.alert(
+      if (result.success && result.data) {
+        setOferta(result.data);
+        showAlert(
+          'Servicio terminado',
+          'El servicio fue marcado como terminado. El cliente será notificado.',
+        );
+        cargarOferta();
+      } else {
+        showAlert('Error', result.error || 'No se pudo terminar el servicio');
+      }
+    } catch (error) {
+      console.error('Error terminando servicio:', error);
+      showAlert('Error', 'No se pudo terminar el servicio');
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const handleTerminarServicio = () => {
+    if (!oferta || procesando) return;
+    showConfirm(
       'Terminar Servicio',
-      '¿Estás seguro de que deseas terminar el servicio? Asegúrate de haber completado el checklist si está disponible.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Terminar',
-          style: 'default',
-          onPress: async () => {
-            try {
-              setProcesando(true);
-              const result = await terminarServicio(oferta.id);
-
-              if (result.success && result.data) {
-                setOferta(result.data);
-                Alert.alert(
-                  'Servicio Terminado',
-                  'El servicio ha sido terminado exitosamente. El cliente será notificado.',
-                  [{ text: 'OK' }]
-                );
-                // Recargar para obtener datos actualizados
-                cargarOferta();
-              } else {
-                Alert.alert('Error', result.error || 'No se pudo terminar el servicio');
-              }
-            } catch (error) {
-              console.error('Error terminando servicio:', error);
-              Alert.alert('Error', 'No se pudo terminar el servicio');
-            } finally {
-              setProcesando(false);
-            }
-          },
-        },
-      ]
+      'Este servicio no tiene checklist. ¿Confirmas marcarlo como terminado?',
+      { confirmText: 'Terminar', onConfirm: ejecutarTerminarServicio },
     );
   };
 
@@ -343,6 +344,15 @@ export default function OfertaDetalleScreen() {
   }
 
   const estadoInfo = getEstadoInfo();
+  const esperandoFirmaCliente = checklistEsperandoFirmaCliente(checklistInstance);
+  const checklistCerrado = checklistCompletadoTotal(checklistInstance);
+  const saldoManoObraPendiente = tieneManoObraPendientePago(oferta);
+  const mostrarBotonTerminar = puedeTerminarServicioManual(
+    oferta,
+    checklistInstance,
+    loadingChecklist,
+  );
+  const mostrarBotonIniciar = puedeIniciarServicioOferta(oferta);
 
   // Calcular altura dinámica del contenedor de botones fijos según el estado
   const calcularAlturaBotonesFijos = (): number => {
@@ -353,31 +363,23 @@ export default function OfertaDetalleScreen() {
     // Altura base del contenedor
     altura += 12; // paddingTop del contenedor
 
-    // Estado: pagada - 1 botón principal
-    if (oferta.estado === 'pagada') {
-      altura += 52; // botón principal (paddingVertical 16 * 2 + texto ~20px)
-      altura += 12; // marginBottom del botón
+    // Estado: pagada o pago parcial con repuestos pagados → Iniciar
+    if (mostrarBotonIniciar) {
+      altura += 52;
+      altura += 12;
     }
 
-    // Estado: en_ejecucion - puede tener múltiples botones
+    // Estado: en_ejecucion
     if (oferta.estado === 'en_ejecucion') {
-      altura += 50; // botones secundarios row (paddingVertical 14 * 2 + contenido)
-
-      // Botón principal o mensaje pendiente
-      if (loadingChecklist) {
-        // No mostrar botón mientras carga
-      } else if (checklistInstance && checklistInstance.estado === 'COMPLETADO') {
-        altura += 12; // marginTop
-        altura += 52; // botón terminar
-        altura += 12; // marginBottom
-      } else if (checklistInstance || (oferta as any).solicitud_servicio_id) {
-        altura += 12; // marginTop
-        altura += 52; // mensaje pendiente
-        altura += 12; // marginBottom
-      } else {
-        altura += 12; // marginTop
-        altura += 52; // botón terminar (sin checklist)
-        altura += 12; // marginBottom
+      if (esperandoFirmaCliente || checklistCerrado) {
+        altura += 72;
+        altura += 12;
+      } else if (mostrarBotonTerminar) {
+        altura += 52;
+        altura += 12;
+      } else if (checklistInstance && checklistInstance.estado !== 'COMPLETADO') {
+        altura += 52;
+        altura += 12;
       }
     }
 
@@ -400,7 +402,9 @@ export default function OfertaDetalleScreen() {
 
     // Botón secundario (oferta secundaria) - puede aparecer en varios estados
     if (!oferta.es_oferta_secundaria &&
-      (oferta.estado === 'pagada' || oferta.estado === 'en_ejecucion') &&
+      (oferta.estado === 'pagada' ||
+        oferta.estado === 'pagada_parcialmente' ||
+        oferta.estado === 'en_ejecucion') &&
       oferta.estado !== 'completada') {
       altura += 12; // marginTop
       altura += 52; // botón oferta secundaria
@@ -571,17 +575,36 @@ export default function OfertaDetalleScreen() {
         {oferta.estado === 'en_ejecucion' && (
           <EstadoBanner
             type="info"
-            title="Servicio en progreso"
-            message="El servicio está en ejecución. Completa el checklist asociado y luego podrás terminar el servicio."
-            icon="build"
+            title={
+              esperandoFirmaCliente
+                ? 'Esperando firma del cliente'
+                : checklistCerrado
+                  ? 'Checklist completado'
+                  : 'Servicio en progreso'
+            }
+            message={
+              esperandoFirmaCliente || checklistCerrado
+                ? mensajeEsperaCierreCliente(oferta)
+                : 'Completa el checklist y registra tu firma. El cliente cerrará la orden firmando desde su app.'
+            }
+            icon={esperandoFirmaCliente ? 'schedule' : 'build'}
+          />
+        )}
+
+        {oferta.estado === 'en_ejecucion' && saldoManoObraPendiente && (
+          <EstadoBanner
+            type="warning"
+            title="Mano de obra pendiente de pago"
+            message="El cliente pagó solo repuestos. Debe abonar la mano de obra desde la app de usuarios antes de cerrar la orden."
+            icon="payment"
           />
         )}
 
         {oferta.estado === 'completada' && (
           <EstadoBanner
             type="success"
-            title="Servicio Completado"
-            message="El servicio ha sido completado exitosamente. El cliente podrá calificar tu trabajo."
+            title="Servicio completado"
+            message="La orden se cerró cuando el cliente firmó desde su app. Podrá calificar tu trabajo."
             icon="check-circle"
           />
         )}
@@ -998,13 +1021,20 @@ export default function OfertaDetalleScreen() {
                 checklistInstance.estado === 'COMPLETADO' ? (
                   <TouchableOpacity
                     style={[styles.checklistStatusCard, styles.checklistCompletedCard]}
-                    onPress={() => setShowChecklistContainer(true)}
+                    onPress={() => setShowCompletedChecklistModal(true)}
                   >
                     <InstitutionalIcon name="check-circle" size={24} color={I.semanticUp} />
                     <Text style={[styles.checklistStatusText, { color: I.semanticUp }]}>
-                      Checklist completado
+                      Checklist completado — ver resumen
                     </Text>
                   </TouchableOpacity>
+                ) : checklistInstance.estado === 'PENDIENTE_FIRMA_CLIENTE' ? (
+                  <View style={[styles.checklistStatusCard, styles.checklistWaitingCard]}>
+                    <InstitutionalIcon name="schedule" size={24} color={I.accentYellow} />
+                    <Text style={[styles.checklistStatusText, { color: I.accentYellow }]}>
+                      Firma del técnico registrada. Esperando firma del cliente.
+                    </Text>
+                  </View>
                 ) : (
                   <TouchableOpacity
                     style={styles.checklistStatusCard}
@@ -1026,10 +1056,7 @@ export default function OfertaDetalleScreen() {
       {/* Botones fijos en la parte inferior */}
       <SafeAreaView edges={['bottom']} style={styles.fixedActionsContainer}>
         {/* Botón principal para estado pagada */}
-        {(oferta.estado === 'pagada' ||
-          (oferta.estado === 'pagada_parcialmente' &&
-            oferta.estado_pago_repuestos === 'pagado' &&
-            oferta.estado_pago_servicio === 'pendiente')) && (
+        {mostrarBotonIniciar && (
             <TouchableOpacity
               style={[styles.fixedActionButton, styles.fixedActionButtonPrimary]}
               onPress={handleIniciarServicio}
@@ -1044,53 +1071,37 @@ export default function OfertaDetalleScreen() {
 
         {oferta.estado === 'en_ejecucion' && (
           <>
-            {/* Botón principal: Terminar Servicio - Solo mostrar si checklist está completado o no hay checklist */}
-            {(() => {
-              // Si está cargando el checklist, no mostrar nada
-              if (loadingChecklist) {
-                return null;
-              }
+            {(esperandoFirmaCliente || checklistCerrado) && (
+              <View style={styles.waitingClosureCard}>
+                <InstitutionalIcon name="info-outline" size={22} color={I.primary} />
+                <Text style={styles.waitingClosureText}>{mensajeEsperaCierreCliente(oferta)}</Text>
+              </View>
+            )}
 
-              // Si hay checklist y está completado, mostrar botón de terminar
-              if (checklistInstance && checklistInstance.estado === 'COMPLETADO') {
-                return (
-                  <TouchableOpacity
-                    style={[styles.fixedActionButton, styles.fixedActionButtonSuccess]}
-                    onPress={handleTerminarServicio}
-                    disabled={procesando}
-                  >
-                    <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} />
-                    <Text style={styles.fixedActionButtonText}>
-                      {procesando ? 'Terminando...' : 'Terminar Servicio'}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }
+            {!esperandoFirmaCliente && !checklistCerrado && checklistInstance &&
+              checklistInstance.estado !== 'COMPLETADO' &&
+              checklistInstance.estado !== 'PENDIENTE_FIRMA_CLIENTE' && (
+              <TouchableOpacity
+                style={[styles.fixedActionButton, styles.fixedActionButtonPrimary]}
+                onPress={() => setShowChecklistContainer(true)}
+              >
+                <InstitutionalIcon name="assignment" size={20} color={I.onPrimary} />
+                <Text style={styles.fixedActionButtonText}>Continuar Checklist</Text>
+              </TouchableOpacity>
+            )}
 
-              // Si hay checklist pero NO está completado, no mostrar botón (mensaje ya está en el contenido)
-              if (checklistInstance && checklistInstance.estado !== 'COMPLETADO') {
-                return null;
-              }
-
-              // Si NO hay checklist pero hay solicitud_servicio_id, esperar (mensaje en contenido)
-              if (!checklistInstance && (oferta as any).solicitud_servicio_id) {
-                return null;
-              }
-
-              // Si NO hay checklist y NO hay solicitud_servicio_id, permitir terminar
-              return (
-                <TouchableOpacity
-                  style={[styles.fixedActionButton, styles.fixedActionButtonSuccess]}
-                  onPress={handleTerminarServicio}
-                  disabled={procesando}
-                >
-                  <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} />
-                  <Text style={styles.fixedActionButtonText}>
-                    {procesando ? 'Terminando...' : 'Terminar Servicio'}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })()}
+            {mostrarBotonTerminar && (
+              <TouchableOpacity
+                style={[styles.fixedActionButton, styles.fixedActionButtonSuccess]}
+                onPress={handleTerminarServicio}
+                disabled={procesando}
+              >
+                <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} />
+                <Text style={styles.fixedActionButtonText}>
+                  {procesando ? 'Terminando...' : 'Terminar Servicio'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </>
         )}
 
@@ -1924,6 +1935,29 @@ const styles = StyleSheet.create({
   checklistCompletedCard: {
     borderColor: I.semanticUp,
     backgroundColor: withOpacity(I.semanticUp, 0.08),
+  },
+  checklistWaitingCard: {
+    borderColor: I.accentYellow,
+    backgroundColor: withOpacity(I.accentYellow, 0.1),
+  },
+  waitingClosureCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.sm,
+    backgroundColor: withOpacity(I.primary, 0.06),
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  waitingClosureText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.body,
   },
   checklistStatusText: {
     fontSize: TYPOGRAPHY.fontSize.base,

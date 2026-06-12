@@ -21,6 +21,7 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-syst
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { ChecklistDiffModal } from '@/components/checklist/ChecklistDiffModal';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
 
 interface ChecklistContainerProps {
   ordenId: number;
@@ -114,21 +115,18 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   };
 
   const handlePause = async () => {
-    Alert.alert(
+    showConfirm(
       'Pausar Checklist',
       '¿Estás seguro de que quieres pausar el checklist? Podrás continuar más tarde.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Pausar',
-          onPress: async () => {
-            const result = await pauseChecklist();
-            if (!result.success) {
-              Alert.alert('Error', result.message || 'No se pudo pausar el checklist');
-            }
-          },
+      {
+        confirmText: 'Pausar',
+        onConfirm: async () => {
+          const result = await pauseChecklist();
+          if (!result.success) {
+            showAlert('Error', result.message || 'No se pudo pausar el checklist');
+          }
         },
-      ]
+      },
     );
   };
 
@@ -260,44 +258,30 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         const requiereFirmaCliente = !firmaCliente;
 
         if (requiereFirmaCliente) {
-          Alert.alert(
+          showAlert(
             'Firma enviada',
             'Tu firma quedó registrada. El cliente recibirá una notificación para firmar desde su app y cerrar el servicio.',
-            [
-              {
-                text: 'Entendido',
-                onPress: () => {
-                  onComplete?.();
-                },
-              },
-            ]
           );
+          onComplete?.();
         } else {
-          Alert.alert(
-            '🎉 Checklist Completado',
+          showAlert(
+            'Checklist completado',
             'El checklist ha sido finalizado exitosamente. Las firmas digitales y la ubicación GPS han sido registradas.',
-            [
-              {
-                text: 'Excelente',
-                onPress: () => {
-                  onComplete?.();
-                },
-              },
-            ]
           );
+          onComplete?.();
         }
       } else {
         console.error('❌ Error en finalización:', result.message);
-        Alert.alert(
+        showAlert(
           'Error al Finalizar',
-          result.message || 'No se pudo finalizar el checklist. Por favor, intenta nuevamente.'
+          result.message || 'No se pudo finalizar el checklist. Por favor, intenta nuevamente.',
         );
       }
     } catch (error: any) {
       console.error('❌ Error inesperado en finalización:', error);
-      Alert.alert(
+      showAlert(
         'Error Inesperado',
-        'Ocurrió un error al finalizar el checklist. Verifica tu conexión e intenta nuevamente.'
+        'Ocurrió un error al finalizar el checklist. Verifica tu conexión e intenta nuevamente.',
       );
     }
   };

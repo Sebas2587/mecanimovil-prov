@@ -125,7 +125,13 @@ export interface ChecklistInstance {
     version: string;
     servicio_nombre: string;
   };
-  estado: 'PENDIENTE' | 'EN_PROGRESO' | 'PAUSADO' | 'COMPLETADO' | 'CANCELADO';
+  estado:
+    | 'PENDIENTE'
+    | 'EN_PROGRESO'
+    | 'PAUSADO'
+    | 'COMPLETADO'
+    | 'CANCELADO'
+    | 'PENDIENTE_FIRMA_CLIENTE';
   fecha_creacion: string;
   fecha_inicio?: string;
   fecha_finalizacion?: string;
@@ -138,6 +144,8 @@ export interface ChecklistInstance {
   version_offline: number;
   ultima_sincronizacion?: string;
   requiere_sincronizacion: boolean;
+  requiere_firma_cliente?: boolean;
+  firma_cliente_disponible?: boolean;
   puede_finalizar_check: boolean;
   respuestas: ChecklistItemResponse[];
 }
