@@ -93,9 +93,31 @@ export const puedeContactarCliente = (orden: Orden): boolean => {
   return orden.informacion_disponible.puede_contactar;
 };
 
+/** Estados terminales (finales) de SolicitudServicio: deben ganar sobre estados intermedios en desduplicación */
+const ESTADOS_TERMINALES_ORDEN = new Set([
+  'completado',
+  'cancelado',
+  'rechazada_por_proveedor',
+  'devuelto',
+]);
+
+/**
+ * Determina si la orden `a` es "mejor" que `b` para mostrar.
+ * Prioridad: estado terminal > estado intermedio; en empate, id mayor (más reciente).
+ * Esto evita que un SolicitudServicio en 'confirmado' recién creado tape a uno ya 'completado'
+ * cuando el endpoint activas genera filas adicionales en carreras de concurrencia.
+ */
+function esMejorOrden<T extends Orden>(a: T, b: T): boolean {
+  const aTerminal = ESTADOS_TERMINALES_ORDEN.has(a.estado);
+  const bTerminal = ESTADOS_TERMINALES_ORDEN.has(b.estado);
+  if (aTerminal !== bTerminal) return aTerminal; // terminal siempre gana
+  return a.id > b.id; // igual finalidad: el más reciente
+}
+
 /**
  * El endpoint activas puede devolver varias filas para la misma oferta (FK no única + carreras al crear SolicitudServicio)
- * o la misma orden repetida en listas combinadas. Mantiene un registro por id y, si hay oferta_proveedor_id, el de mayor id.
+ * o la misma orden repetida en listas combinadas. Mantiene un registro por id y, si hay oferta_proveedor_id,
+ * prefiere el estado más terminal; en empate, el de mayor id.
  */
 export function dedupeOrdenesPorIdYOferta<T extends Orden>(list: T[]): T[] {
   const byId = new Map<number, T>();
@@ -113,7 +135,7 @@ export function dedupeOrdenesPorIdYOferta<T extends Orden>(list: T[]): T[] {
     }
     const key = String(ofertaId);
     const prev = porOferta.get(key);
-    if (!prev || o.id > prev.id) {
+    if (!prev || esMejorOrden(o, prev)) {
       porOferta.set(key, o);
     }
   }
