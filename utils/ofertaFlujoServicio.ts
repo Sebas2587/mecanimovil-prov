@@ -45,6 +45,8 @@ export function puedeTerminarServicioManual(
   checklistLoadError?: boolean,
 ): boolean {
   if (oferta.estado !== 'en_ejecucion') return false;
+  if (oferta.estado_solicitud_servicio === 'completado') return false;
+  if (checklist?.estado === 'COMPLETADO') return false;
   if (loadingChecklist) return false;
   if (checklistLoadError) return false;
   if (checklist) return false;

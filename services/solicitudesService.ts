@@ -253,6 +253,8 @@ export interface OfertaProveedor {
     estado: string;
   } | null;
   solicitud_servicio_id?: number | null;
+  /** Estado de la SolicitudServicio (orden) vinculada — prioridad sobre oferta.estado en UI */
+  estado_solicitud_servicio?: string | null;
   rechazada_por_expiracion?: boolean;
   // Campos de desglose de costos
   costo_repuestos?: string;

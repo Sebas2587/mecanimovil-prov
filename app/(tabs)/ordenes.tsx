@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import {
   Briefcase, CheckCircle, Inbox, User, Car, Clock,
-  AlertTriangle, Shield, CreditCard,
+  AlertTriangle, Shield,
   PlusCircle, Package, XCircle,
 } from 'lucide-react-native';
 import {
@@ -34,6 +34,13 @@ import { COLORS, withOpacity, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '@/ap
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { TipoPagoClienteChip } from '@/components/solicitudes/TipoPagoClienteChip';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import {
+  resolveEstadoEfectivoMarketplace,
+  resolveEstadoEfectivoOrden,
+  resolveTextoEstadoActividad,
+  isActividadCompletada,
+  isActividadRechazada,
+} from '@/utils/estadoActividadProveedor';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -65,6 +72,9 @@ const ESTADO_VARIANT: Record<string, EstadoBadgeVariant> = {
   rechazada: 'error',
   retirada: 'error',
   expirada: 'neutral',
+  rechazada_por_proveedor: 'error',
+  devuelto: 'error',
+  pendiente_confirmacion: 'warning',
 };
 
 function getEstadoBadgeColors(variant: EstadoBadgeVariant) {
@@ -266,12 +276,33 @@ export default function OrdenesScreen() {
   }, [ofertas]);
 
   const getEstadoEfectivo = useCallback((orden: Orden): string => {
-    if (ESTADOS_ORDEN_PRECEDENCIA_OFERTA.includes(orden.estado)) {
-      return orden.estado;
-    }
-    const ofertaId = orden.oferta_proveedor_id ? String(orden.oferta_proveedor_id) : null;
-    return (ofertaId && ofertasMap[ofertaId]) ? ofertasMap[ofertaId] : orden.estado;
+    const raw = resolveEstadoEfectivoOrden(orden, ofertasMap);
+    return raw === 'completado' ? 'completada' : raw;
   }, [ofertasMap]);
+
+  const ordenPorOfertaId = useMemo(() => {
+    const map = new Map<string, Orden>();
+    for (const orden of ordenesCompletas) {
+      if (!orden.oferta_proveedor_id) continue;
+      const k = String(orden.oferta_proveedor_id);
+      const prev = map.get(k);
+      if (!prev || orden.id > prev.id) {
+        map.set(k, orden);
+      }
+    }
+    return map;
+  }, [ordenesCompletas]);
+
+  const getEstadoEfectivoOferta = useCallback(
+    (oferta: OfertaProveedor): string => {
+      const orden = ordenPorOfertaId.get(String(oferta.id));
+      const ordenRef = orden ?? (oferta.estado_solicitud_servicio
+        ? { estado: oferta.estado_solicitud_servicio }
+        : null);
+      return resolveEstadoEfectivoMarketplace(oferta, ordenRef);
+    },
+    [ordenPorOfertaId],
+  );
 
   const getTextoEstado = useCallback((orden: Orden): string => {
     if (ESTADOS_ORDEN_PRECEDENCIA_OFERTA.includes(orden.estado)) {
@@ -290,15 +321,21 @@ export default function OrdenesScreen() {
     () =>
       ofertas.filter((oferta) => {
         if (oferta.es_oferta_secundaria) {
-          // Secundarias activas: mismo criterio de estado de oferta
           if (!ESTADOS_ACTIVOS.includes(oferta.estado)) return false;
         } else if (!ESTADOS_ACTIVOS.includes(oferta.estado)) {
           return false;
         }
+
+        const efectivo = getEstadoEfectivoOferta(oferta);
+        if (isActividadCompletada(efectivo) || isActividadRechazada(efectivo)) {
+          return false;
+        }
+
         if (!oferta.solicitud_estado) return true;
+        if (oferta.solicitud_estado === 'completada') return false;
         return SOLICITUD_ESTADOS_ACTIVOS.includes(oferta.solicitud_estado);
       }),
-    [ofertas],
+    [ofertas, getEstadoEfectivoOferta],
   );
 
   const ofertasById = useMemo(() => {
@@ -310,8 +347,11 @@ export default function OrdenesScreen() {
   }, [ofertas]);
 
   const ofertasTabCompletadas = useMemo(
-    () => ofertas.filter(o => o.estado === 'completada'),
-    [ofertas]
+    () => ofertas.filter((o) => {
+      if (o.estado === 'completada') return true;
+      return isActividadCompletada(getEstadoEfectivoOferta(o));
+    }),
+    [ofertas, getEstadoEfectivoOferta],
   );
 
   const ofertasTabRechazadas = useMemo(() => ofertas.filter(oferta => {
@@ -363,7 +403,9 @@ export default function OrdenesScreen() {
         key: orden ? `u-${orden.id}` : `u-oferta-${id}`,
         oferta,
         orden,
-        estadoEfectivo: orden ? getEstadoEfectivo(orden) : oferta.estado,
+        estadoEfectivo: orden
+          ? getEstadoEfectivo(orden)
+          : getEstadoEfectivoOferta(oferta),
       });
     }
 
@@ -388,8 +430,12 @@ export default function OrdenesScreen() {
       return raw ? new Date(raw).getTime() : 0;
     };
     items.sort((a, b) => ts(b) - ts(a));
-    return items;
-  }, [ofertasActivas, ordenesActivas, ofertasById, getEstadoEfectivo]);
+    return items.filter(
+      (item) =>
+        !isActividadCompletada(item.estadoEfectivo)
+        && !isActividadRechazada(item.estadoEfectivo),
+    );
+  }, [ofertasActivas, ordenesActivas, ofertasById, getEstadoEfectivo, getEstadoEfectivoOferta]);
 
   // In completadas tab, de-duplicate: if an order references an offer via oferta_proveedor_id,
   // don't show that offer separately -- the order card already shows the effective state.
@@ -455,8 +501,10 @@ export default function OrdenesScreen() {
   };
 
   const renderOfertaCard = useCallback((oferta: OfertaProveedor) => {
-    const estadoStyle = getEstadoBadgeColors(ESTADO_VARIANT[oferta.estado] || 'neutral');
-    const textoEstado = OFERTA_LABELS[oferta.estado] || oferta.estado;
+    const orden = ordenPorOfertaId.get(String(oferta.id));
+    const estadoEfectivo = getEstadoEfectivoOferta(oferta);
+    const estadoStyle = getEstadoBadgeColors(ESTADO_VARIANT[estadoEfectivo] || 'neutral');
+    const textoEstado = resolveTextoEstadoActividad(estadoEfectivo, orden);
     const clienteFoto = oferta.solicitud_detail?.cliente_foto;
     const nombreCliente = oferta.solicitud_detail?.cliente_nombre || 'Cliente';
     const vehiculo = oferta.solicitud_detail?.vehiculo;
@@ -535,7 +583,7 @@ export default function OrdenesScreen() {
         </View>
       </TouchableOpacity>
     );
-  }, [handleOfertaPress]);
+  }, [handleOfertaPress, getEstadoEfectivoOferta, ordenPorOfertaId]);
 
   const renderOrdenCard = useCallback((orden: Orden) => {
     const estadoEfectivo = getEstadoEfectivo(orden);
@@ -623,16 +671,6 @@ export default function OrdenesScreen() {
                   <Text style={styles.repuestosText}>Repuestos</Text>
                 </View>
               )}
-              {orden.metodo_pago && (
-                <View style={styles.pagoBadge}>
-                  <CreditCard size={10} color={I.muted} />
-                  <Text style={styles.pagoText}>
-                    {orden.metodo_pago === 'mercadopago' ? 'MP' :
-                     orden.metodo_pago === 'transferencia' ? 'Transf.' :
-                     orden.metodo_pago === 'efectivo' ? 'Efectivo' : orden.metodo_pago}
-                  </Text>
-                </View>
-              )}
             </View>
           </View>
         </View>
@@ -646,7 +684,7 @@ export default function OrdenesScreen() {
       const estadoStyle = getEstadoBadgeColors(ESTADO_VARIANT[estadoEfectivo] || 'neutral');
       const textoEstado = orden
         ? getTextoEstado(orden)
-        : OFERTA_LABELS[estadoEfectivo] || estadoEfectivo;
+        : resolveTextoEstadoActividad(estadoEfectivo);
 
       const onPress = () => {
         if (orden) {
@@ -781,20 +819,6 @@ export default function OrdenesScreen() {
                   <View style={styles.repuestosBadge}>
                     <Package size={10} color={I.semanticUp} />
                     <Text style={styles.repuestosText}>Repuestos</Text>
-                  </View>
-                ) : null}
-                {orden?.metodo_pago ? (
-                  <View style={styles.pagoBadge}>
-                    <CreditCard size={10} color={I.muted} />
-                    <Text style={styles.pagoText}>
-                      {orden.metodo_pago === 'mercadopago'
-                        ? 'MP'
-                        : orden.metodo_pago === 'transferencia'
-                          ? 'Transf.'
-                          : orden.metodo_pago === 'efectivo'
-                            ? 'Efectivo'
-                            : orden.metodo_pago}
-                    </Text>
                   </View>
                 ) : null}
               </View>

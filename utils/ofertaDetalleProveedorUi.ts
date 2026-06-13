@@ -8,6 +8,7 @@ import {
   tieneManoObraPendientePago,
   mensajeProximoPasoProveedor,
 } from '@/utils/ofertaFlujoServicio';
+import { isServicioCerradoProveedor } from '@/utils/estadoActividadProveedor';
 
 export type BannerTipo = 'success' | 'warning' | 'info' | 'error';
 
@@ -27,7 +28,13 @@ export type OfertaDetalleUiContext = {
 
 function ctxFlags(ctx: OfertaDetalleUiContext) {
   const { oferta, checklist, loadingChecklist, checklistLoadError } = ctx;
+  const servicioCerrado = isServicioCerradoProveedor({
+    ofertaEstado: oferta.estado,
+    estadoSolicitudServicio: oferta.estado_solicitud_servicio,
+    checklistEstado: checklist?.estado,
+  });
   return {
+    servicioCerrado,
     esperandoFirma: checklistEsperandoFirmaCliente(checklist),
     checklistCerrado: checklistCompletadoTotal(checklist),
     saldoMOPendiente: tieneManoObraPendientePago(oferta),
@@ -46,6 +53,10 @@ export function resolverBadgeEstadoOferta(ctx: OfertaDetalleUiContext): {
 } {
   const { oferta } = ctx;
   const f = ctxFlags(ctx);
+
+  if (f.servicioCerrado || oferta.estado === 'completada') {
+    return { text: 'Completada', accentKey: 'semanticUp', icon: 'check-circle' };
+  }
 
   if (oferta.estado === 'en_ejecucion') {
     if (f.esperandoFirma) {
@@ -85,6 +96,17 @@ export function resolverBadgeEstadoOferta(ctx: OfertaDetalleUiContext): {
 export function resolverBannerPrincipal(ctx: OfertaDetalleUiContext): BannerConfig | null {
   const { oferta, loadingChecklist, checklistLoadError } = ctx;
   const f = ctxFlags(ctx);
+
+  const f = ctxFlags(ctx);
+
+  if (f.servicioCerrado || oferta.estado === 'completada') {
+    return {
+      type: 'success',
+      title: 'Servicio completado',
+      message: 'La orden se cerró cuando el cliente firmó desde su app.',
+      icon: 'check-circle',
+    };
+  }
 
   switch (oferta.estado) {
     case 'pendiente_creditos':
@@ -177,12 +199,7 @@ export function resolverBannerPrincipal(ctx: OfertaDetalleUiContext): BannerConf
       };
     }
     case 'completada':
-      return {
-        type: 'success',
-        title: 'Servicio completado',
-        message: 'La orden se cerró cuando el cliente firmó desde su app.',
-        icon: 'check-circle',
-      };
+      return null;
     case 'vista':
       return {
         type: 'info',
@@ -225,7 +242,7 @@ export function mostrarSeccionPlanPago(ctx: OfertaDetalleUiContext): boolean {
   if (!resumen.visible) return false;
 
   const f = ctxFlags(ctx);
-  if (oferta.estado === 'completada') return false;
+  if (oferta.estado === 'completada' || f.servicioCerrado) return false;
   if (oferta.estado === 'en_ejecucion' && f.pagoCompleto && !f.saldoMOPendiente) {
     return false;
   }
@@ -237,7 +254,7 @@ export function mostrarDetallePago(ctx: OfertaDetalleUiContext): boolean {
   const { oferta } = ctx;
   const f = ctxFlags(ctx);
 
-  if (oferta.estado === 'completada') return false;
+  if (oferta.estado === 'completada' || f.servicioCerrado) return false;
   if (oferta.estado === 'en_ejecucion' && f.pagoCompleto && !f.saldoMOPendiente) {
     return false;
   }
@@ -262,6 +279,7 @@ export function resolverBannerChecklistAccion(ctx: OfertaDetalleUiContext): Bann
   const { checklist, loadingChecklist } = ctx;
   const f = ctxFlags(ctx);
 
+  if (f.servicioCerrado) return null;
   if (loadingChecklist || !checklist) return null;
   if (f.esperandoFirma || f.checklistCerrado) return null;
 

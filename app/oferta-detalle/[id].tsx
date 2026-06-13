@@ -35,6 +35,7 @@ import {
   puedeTerminarServicioManual,
   checklistBloqueaCierre,
 } from '@/utils/ofertaFlujoServicio';
+import { isServicioCerradoProveedor } from '@/utils/estadoActividadProveedor';
 import {
   resolverBadgeEstadoOferta,
   resolverBannerPrincipal,
@@ -335,6 +336,13 @@ export default function OfertaDetalleScreen() {
     loadingChecklist,
     checklistLoadError,
   };
+  const servicioCerrado = isServicioCerradoProveedor({
+    ofertaEstado: oferta.estado,
+    estadoSolicitudServicio: oferta.estado_solicitud_servicio,
+    checklistEstado: checklistInstance?.estado,
+  });
+  const enEjecucionAbierto = oferta.estado === 'en_ejecucion' && !servicioCerrado;
+  const servicioCompletadoUi = oferta.estado === 'completada' || servicioCerrado;
   const badgeEstado = resolverBadgeEstadoOferta(uiCtx);
   const estadoInfo = {
     accent: ACCENT_BY_KEY[badgeEstado.accentKey],
@@ -371,7 +379,7 @@ export default function OfertaDetalleScreen() {
     }
 
     // Estado: en_ejecucion
-    if (oferta.estado === 'en_ejecucion') {
+    if (enEjecucionAbierto) {
       if (mostrarBotonTerminar) {
         altura += 52;
         altura += 12;
@@ -409,7 +417,7 @@ export default function OfertaDetalleScreen() {
     }
 
     // Estado: completada - botón para ver checklist si está disponible
-    if (oferta.estado === 'completada') {
+    if (servicioCompletadoUi) {
       if (checklistInstance) {
         altura += 52; // botón ver checklist
         altura += 12; // marginBottom
@@ -420,8 +428,8 @@ export default function OfertaDetalleScreen() {
     if (!oferta.es_oferta_secundaria &&
       (oferta.estado === 'pagada' ||
         oferta.estado === 'pagada_parcialmente' ||
-        oferta.estado === 'en_ejecucion') &&
-      oferta.estado !== 'completada') {
+        enEjecucionAbierto) &&
+      !servicioCompletadoUi) {
       altura += 12; // marginTop
       altura += 52; // botón oferta secundaria
       altura += 12; // marginBottom
@@ -572,8 +580,8 @@ export default function OfertaDetalleScreen() {
             {/* Dirección de Servicio - Solo mostrar si la oferta está pagada o en estados posteriores */}
             {(oferta.estado === 'pagada' ||
               oferta.estado === 'pagada_parcialmente' ||
-              oferta.estado === 'en_ejecucion' ||
-              oferta.estado === 'completada') &&
+              enEjecucionAbierto ||
+              servicioCompletadoUi) &&
               oferta.solicitud_detail?.direccion_servicio_texto && (
                 <View style={styles.section}>
                   <Text style={styles.sectionHeaderTitle}>Dirección de servicio</Text>
@@ -867,7 +875,7 @@ export default function OfertaDetalleScreen() {
           )}
 
           {/* Sección de servicio en ejecución */}
-          {oferta.estado === 'en_ejecucion' && (
+          {enEjecucionAbierto && (
             <View style={styles.serviceActionsContainer}>
               {/* Botón de Chat */}
               <TouchableOpacity
@@ -934,7 +942,7 @@ export default function OfertaDetalleScreen() {
             </TouchableOpacity>
           )}
 
-        {oferta.estado === 'en_ejecucion' && (
+        {enEjecucionAbierto && (
           <>
             {/* Error al cargar checklist — bloquear cierre y pedir recarga */}
             {checklistLoadError && (
@@ -1059,7 +1067,7 @@ export default function OfertaDetalleScreen() {
         )}
 
         {/* Botón para ver checklist cuando la oferta está completada */}
-        {oferta.estado === 'completada' && checklistInstance && (oferta as any).solicitud_servicio_id && (
+        {servicioCompletadoUi && checklistInstance && (oferta as any).solicitud_servicio_id && (
           <TouchableOpacity
             style={[styles.fixedActionButton, styles.fixedActionButtonSuccess]}
             onPress={() => setShowCompletedChecklistModal(true)}
@@ -1071,7 +1079,7 @@ export default function OfertaDetalleScreen() {
 
         {/* Botón para crear oferta secundaria en estado en_ejecucion */}
         {!oferta.es_oferta_secundaria &&
-          oferta.estado === 'en_ejecucion' && (
+          enEjecucionAbierto && (
             <TouchableOpacity
               style={[styles.fixedActionButton, styles.fixedActionButtonOutline]}
               onPress={() => {
