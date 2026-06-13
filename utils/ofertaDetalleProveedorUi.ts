@@ -97,8 +97,6 @@ export function resolverBannerPrincipal(ctx: OfertaDetalleUiContext): BannerConf
   const { oferta, loadingChecklist, checklistLoadError } = ctx;
   const f = ctxFlags(ctx);
 
-  const f = ctxFlags(ctx);
-
   if (f.servicioCerrado || oferta.estado === 'completada') {
     return {
       type: 'success',
