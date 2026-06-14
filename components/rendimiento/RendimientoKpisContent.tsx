@@ -164,7 +164,7 @@ export function RendimientoKpisContent() {
       ],
       [
         { label: 'Órdenes con actividad', value: `${data.ordenes_mercado_en_periodo}` },
-        { label: 'Órdenes completadas', value: `${data.ordenes_mercado_completadas}` },
+        { label: 'Servicios terminados', value: `${data.servicios_terminados_en_periodo ?? data.ordenes_mercado_completadas}` },
       ],
       [
         {
@@ -175,9 +175,16 @@ export function RendimientoKpisContent() {
       ],
       [
         { label: 'Ejec. vs estimado (ø)', value: formatRatio(data.tiempo_ejecucion_vs_estimado_promedio) },
+        { label: 'Arranque checklist (ø)', value: formatMinutos(data.tiempo_inicio_checklist_promedio_minutos ?? null) },
+      ],
+      [
         {
-          label: 'Calificación (servicios)',
-          value: formatEstrellas(data.calificacion_servicios_promedio),
+          label: 'Racha máx. días consec.',
+          value: data.max_racha_dias_consecutivos != null ? `${data.max_racha_dias_consecutivos} días` : '—',
+        },
+        {
+          label: 'Reseñas en periodo',
+          value: `${data.resenas_muestra} / ${data.resenas_totales_proveedor} total`,
         },
       ],
       [
@@ -186,8 +193,8 @@ export function RendimientoKpisContent() {
           value: formatEstrellas(data.calificacion_cliente_promedio),
         },
         {
-          label: 'Líneas serv. calif. (periodo)',
-          value: `${data.calificacion_servicios_lineas_muestra ?? 0}`,
+          label: 'Calificación (servicios)',
+          value: formatEstrellas(data.calificacion_servicios_promedio),
         },
       ],
     ];
@@ -282,8 +289,9 @@ export function RendimientoKpisContent() {
                 <Text style={styles.heroPct}>{data.score_rendimiento}%</Text>
                 <Text style={styles.heroTier}>Nivel: {tierName}</Text>
                 <Text style={styles.heroFoot}>
-                  Combina respuesta en ofertas, reseñas de clientes, checklist y cumplimiento de tiempos estimados en
-                  ofertas aceptadas (últimos {data.ventana_dias} días con actividad).
+                  Combina: velocidad de respuesta, satisfacción del cliente (reseñas), checklist,
+                  tiempo real vs estimado, consistencia de días activos y velocidad de arranque
+                  (últimos {data.ventana_dias} días). Sin reseñas el score se limita automáticamente.
                 </Text>
               </DsCard>
             </View>
@@ -312,26 +320,71 @@ export function RendimientoKpisContent() {
                 <ScoreBlock
                   title="Tiempo de respuesta"
                   score={data.score_tiempo_respuesta}
-                  description="Tiempo desde que la solicitud quedó publicada hasta que enviaste la oferta (dirigidas priorizadas)."
+                  description="Velocidad para enviar la oferta desde que la solicitud quedó publicada (dirigidas priorizadas). 0 min → 100 pts, ≥120 min → 0 pts."
                 />
                 <ScoreBlock
                   title="Satisfacción del cliente"
                   score={data.score_calificacion_cliente}
-                  description="Basado en reseñas al proveedor en el periodo; si no hay, promedio histórico. En datos del periodo ver también Calificación (servicios) por líneas contratadas."
+                  description="Reseñas de clientes en el periodo. SIEMPRE entra al promedio: sin reseñas = 0 pts. Es la señal que más impacta en el nivel."
                 />
                 <ScoreBlock
                   title="Checklist"
                   score={data.score_checklist}
-                  description="Órdenes marketplace con checklist: % completados según actividad en el periodo."
+                  description="% de checklists completados sobre las órdenes terminadas en el periodo."
                 />
                 <ScoreBlock
                   title="Tiempo vs estimado"
                   score={data.score_tiempo_ejecucion}
-                  description="Relación tiempo real del checklist vs tiempo total estimado en la oferta (1,0 = cumple)."
-                  isLast
+                  description="Tiempo real tuyo en el checklist (inicio → tu firma) vs el tiempo estimado en la oferta. 1,0 = cumpliste; ≥2,0 = el doble → 0 pts."
                 />
+                <ScoreBlock
+                  title="Consistencia de actividad"
+                  score={data.score_consistencia}
+                  description={`Racha máxima de días consecutivos con ≥1 servicio terminado. Racha actual: ${data.max_racha_dias_consecutivos ?? 0} días. 10 días seguidos → 100 pts. SIEMPRE entra al promedio.`}
+                />
+                <ScoreBlock
+                  title="Velocidad de arranque"
+                  score={data.score_inicio_checklist}
+                  description="Tiempo promedio entre que se crea el checklist (servicio iniciado) y que pulsas 'Iniciar'. ≤5 min → 100 pts, ≥90 min → 0 pts."
+                />
+                {data.score_calidad_servicio != null && (
+                  <ScoreBlock
+                    title="Calidad del servicio"
+                    score={data.score_calidad_servicio}
+                    description="Aspectos estructurados en reseñas: puntualidad, limpieza, claridad, trato y entrega de repuestos. Solo suma si los clientes completaron los aspectos."
+                    isLast
+                  />
+                )}
               </DsCard>
             </View>
+
+            {data.aspectos_resena && Object.values(data.aspectos_resena).some((v) => v != null) && (
+              <View style={styles.sectionWrap}>
+                <SectionTitle>ASPECTOS DE RESEÑAS (PERIODO)</SectionTitle>
+                <DsCard>
+                  <TwoColumnMetricGrid
+                    rows={[
+                      [
+                        { label: 'Puntualidad', value: data.aspectos_resena.puntualidad != null ? `${data.aspectos_resena.puntualidad.toFixed(1)} / 5` : '—' },
+                        { label: 'Entrega a tiempo', value: data.aspectos_resena.recepcion_a_tiempo != null ? `${data.aspectos_resena.recepcion_a_tiempo.toFixed(1)} / 5` : '—' },
+                      ],
+                      [
+                        { label: 'Limpieza auto', value: data.aspectos_resena.limpieza_auto != null ? `${data.aspectos_resena.limpieza_auto.toFixed(1)} / 5` : '—' },
+                        { label: 'Zona limpia', value: data.aspectos_resena.zona_limpia != null ? `${data.aspectos_resena.zona_limpia.toFixed(1)} / 5` : '—' },
+                      ],
+                      [
+                        { label: 'Claridad', value: data.aspectos_resena.claridad_explicacion != null ? `${data.aspectos_resena.claridad_explicacion.toFixed(1)} / 5` : '—' },
+                        { label: 'Info. relevante', value: data.aspectos_resena.informacion_relevante != null ? `${data.aspectos_resena.informacion_relevante.toFixed(1)} / 5` : '—' },
+                      ],
+                      [
+                        { label: 'Trato', value: data.aspectos_resena.trato != null ? `${data.aspectos_resena.trato.toFixed(1)} / 5` : '—' },
+                        { label: '% Entregó repuestos', value: data.aspectos_resena.pct_entrego_repuestos != null ? `${data.aspectos_resena.pct_entrego_repuestos.toFixed(0)}%` : '—' },
+                      ],
+                    ]}
+                  />
+                </DsCard>
+              </View>
+            )}
 
             <View style={styles.sectionWrap}>
               <SectionTitle>DATOS EN ESTE PERIODO</SectionTitle>
@@ -340,9 +393,10 @@ export function RendimientoKpisContent() {
 
             <View style={styles.sectionWrap}>
               <Text style={styles.disclaimer}>
-                Los datos se calculan en el servidor. “Actividad” incluye órdenes con checklist o reseña en el periodo,
-                no solo la fecha de creación. Las calificaciones se toman por orden en esa ventana (Resena y reseñas de la
-                app de usuarios); “servicios” repite esa nota por cada línea con tu OfertaServicio.
+                {'Los datos se calculan en el servidor con una ventana móvil de ' + data.ventana_dias + ' días. '
+                + 'El tiempo de checklist mide solo tu trabajo (inicio → tu firma), sin incluir la espera de firma del cliente. '
+                + 'La consistencia mide tu racha máxima de días consecutivos con ≥1 servicio terminado. '
+                + 'Sin reseñas de clientes el score es limitado automáticamente; pide a tus clientes que califiquen.'}
               </Text>
             </View>
           </>
