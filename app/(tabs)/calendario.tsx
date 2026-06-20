@@ -7,13 +7,18 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
-import { ordenesProveedorService, type Orden, obtenerNombreSeguro } from '@/services/ordenesProveedor';
+import {
+  agendaProveedorService,
+  nombreServicioEvento,
+  type EventoAgendaUnificado,
+} from '@/services/agendaProveedorService';
+import { formatDateApi } from '@/components/solicitudes/CatalogoFechaHoraPickers';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
+import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -94,6 +99,101 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
   );
 });
 
+const AgendaEventCard = React.memo(function AgendaEventCard({
+  evento,
+  onPress,
+}: {
+  evento: EventoAgendaUnificado;
+  onPress: (evento: EventoAgendaUnificado) => void;
+}) {
+  const handlePress = useCallback(() => {
+    onPress(evento);
+  }, [onPress, evento]);
+
+  const nombreServicio = nombreServicioEvento(evento);
+  const precio = evento.precio_referencia
+    ? formatearMontoCLP(evento.precio_referencia)
+    : '';
+  const esPersonal = evento.origen === 'personal';
+  const badgeBg = esPersonal ? withOpacity(I.primary, 0.12) : withOpacity(I.semanticUp, 0.12);
+  const badgeText = esPersonal ? I.primaryActive : I.semanticUp;
+
+  return (
+    <TouchableOpacity
+      style={styles.orderListCard}
+      onPress={handlePress}
+      activeOpacity={0.8}
+    >
+      <View style={styles.orderListCardContent}>
+        <View style={styles.cardTitleRow}>
+          <Text style={styles.orderListCardTitle} numberOfLines={2}>
+            {nombreServicio}
+          </Text>
+          <View style={[styles.origenBadge, { backgroundColor: badgeBg }]}>
+            <Text style={[styles.origenBadgeText, { color: badgeText }]}>
+              {evento.etiqueta}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.orderListCardDate}>
+          {formatearFechaStr(evento.fecha_servicio)}
+          {evento.hora_servicio && ` • ${formatearHoraStr(evento.hora_servicio)}`}
+        </Text>
+
+        <View style={styles.orderListCardUserSection}>
+          <View style={styles.orderListCardUserPhotoPlaceholder}>
+            <InstitutionalIcon name="person" size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+          </View>
+          <View style={styles.orderListCardUserInfo}>
+            <Text style={styles.orderListCardUserName} numberOfLines={1}>
+              {evento.cliente_nombre || 'Cliente'}
+            </Text>
+            <Text style={styles.orderListCardVehicle} numberOfLines={1}>
+              {evento.vehiculo_marca} {evento.vehiculo_modelo}
+              {evento.vehiculo_anio ? ` (${evento.vehiculo_anio})` : ''}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.orderListCardRight}>
+        <Text style={styles.orderListCardServiceType}>
+          {evento.tipo_servicio === 'domicilio' ? 'A domicilio' : 'En taller'}
+        </Text>
+        {precio ? <Text style={styles.orderListCardPrice}>{precio}</Text> : null}
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+function formatearFechaStr(fecha: string) {
+  return new Date(fecha).toLocaleDateString('es-CL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+function formatearHoraStr(hora: string) {
+  return hora.substring(0, 5);
+}
+
+function rangoMesCalendario(mes: Date): { desde: string; hasta: string } {
+  const year = mes.getFullYear();
+  const month = mes.getMonth();
+  const primerDia = new Date(year, month, 1);
+  const diaInicioSemana = primerDia.getDay();
+  const diaInicioAjustado = diaInicioSemana === 0 ? 6 : diaInicioSemana - 1;
+  const inicioGrid = new Date(year, month, 1 - diaInicioAjustado);
+  const finGrid = new Date(inicioGrid);
+  finGrid.setDate(inicioGrid.getDate() + 41);
+  return {
+    desde: formatDateApi(inicioGrid),
+    hasta: formatDateApi(finGrid),
+  };
+}
+
 export default function CalendarioScreen() {
   const insets = useSafeAreaInsets();
   const { estadoProveedor } = useAuth();
@@ -102,59 +202,52 @@ export default function CalendarioScreen() {
     [estadoProveedor]
   );
 
-  const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const [eventos, setEventos] = useState<EventoAgendaUnificado[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [fechaSeleccionada, setFechaSeleccionada] = useState<Date>(new Date());
   const [mesActual, setMesActual] = useState(new Date());
 
-  useEffect(() => {
-    if (estadoProveedor?.estado_verificacion === 'aprobado') {
-      cargarOrdenes();
-    }
-  }, [perfilKey]);
-
-  const cargarOrdenes = async () => {
+  const cargarAgenda = useCallback(async () => {
     setLoading(true);
     try {
-      const [activasResult, completadasResult] = await Promise.all([
-        ordenesProveedorService.obtenerActivas(),
-        ordenesProveedorService.obtenerCompletadas(),
-      ]);
-
-      const todasLasOrdenes: Orden[] = [];
-
-      if (activasResult.success && activasResult.data) {
-        todasLasOrdenes.push(...activasResult.data);
+      const { desde, hasta } = rangoMesCalendario(mesActual);
+      const result = await agendaProveedorService.obtenerAgendaUnificada({
+        fecha_desde: desde,
+        fecha_hasta: hasta,
+        incluir: 'activas,cerradas,mecanimovil',
+      });
+      if (result.success && result.data) {
+        setEventos(result.data);
       }
-
-      if (completadasResult.success && completadasResult.data) {
-        todasLasOrdenes.push(...completadasResult.data);
-      }
-
-      setOrdenes(todasLasOrdenes);
     } catch (error) {
-      console.error('Error cargando órdenes:', error);
+      console.error('Error cargando agenda:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [mesActual]);
+
+  useEffect(() => {
+    if (estadoProveedor?.estado_verificacion === 'aprobado') {
+      cargarAgenda();
+    }
+  }, [perfilKey, cargarAgenda]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await cargarOrdenes();
+    await cargarAgenda();
     setRefreshing(false);
   };
 
   const tieneOrdenesEnFecha = useCallback(
     (fecha: Date): boolean => {
       const fechaStr = formatearFechaParaComparar(fecha);
-      return ordenes.some((orden) => {
-        const fechaOrden = new Date(orden.fecha_servicio);
-        return formatearFechaParaComparar(fechaOrden) === fechaStr;
+      return eventos.some((evento) => {
+        const fechaEvento = new Date(evento.fecha_servicio);
+        return formatearFechaParaComparar(fechaEvento) === fechaStr;
       });
     },
-    [ordenes]
+    [eventos]
   );
 
   const calendario = useMemo(() => {
@@ -211,15 +304,21 @@ export default function CalendarioScreen() {
     return dias;
   }, [mesActual, fechaSeleccionada, tieneOrdenesEnFecha]);
 
-  const obtenerOrdenesDeFecha = useCallback(
-    (fecha: Date): Orden[] => {
+  const obtenerEventosDeFecha = useCallback(
+    (fecha: Date): EventoAgendaUnificado[] => {
       const fechaStr = formatearFechaParaComparar(fecha);
-      return ordenes.filter((orden) => {
-        const fechaOrden = new Date(orden.fecha_servicio);
-        return formatearFechaParaComparar(fechaOrden) === fechaStr;
-      });
+      return eventos
+        .filter((evento) => {
+          const fechaEvento = new Date(evento.fecha_servicio);
+          return formatearFechaParaComparar(fechaEvento) === fechaStr;
+        })
+        .sort((a, b) => {
+          const ha = a.hora_servicio || '00:00';
+          const hb = b.hora_servicio || '00:00';
+          return ha.localeCompare(hb);
+        });
     },
-    [ordenes]
+    [eventos]
   );
 
   const cambiarMes = (direccion: 'anterior' | 'siguiente') => {
@@ -254,7 +353,7 @@ export default function CalendarioScreen() {
     'Diciembre',
   ];
 
-  const ordenesFechaSeleccionada = obtenerOrdenesDeFecha(fechaSeleccionada);
+  const eventosFechaSeleccionada = obtenerEventosDeFecha(fechaSeleccionada);
 
   const onSelectDay = useCallback((d: Date) => {
     setFechaSeleccionada(d);
@@ -269,25 +368,20 @@ export default function CalendarioScreen() {
     });
   };
 
-  const formatearFecha = (fecha: string) => {
-    return new Date(fecha).toLocaleDateString('es-CL', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  };
-
-  const formatearHora = (hora: string) => {
-    return hora.substring(0, 5);
-  };
-
-  const handleOrdenPress = useCallback((orden: Orden) => {
-    const ofertaId = (orden as any).oferta_proveedor_id;
-    if (ofertaId) {
-      router.push(`/oferta-detalle/${ofertaId}`);
-    } else {
-      router.push(`/servicio-detalle/${orden.id}`);
+  const handleEventoPress = useCallback((evento: EventoAgendaUnificado) => {
+    if (evento.origen === 'personal') {
+      router.push(`/cita-agenda-personal/${evento.id}`);
+      return;
     }
+    if (evento.oferta_proveedor_id) {
+      router.push(`/oferta-detalle/${evento.oferta_proveedor_id}`);
+    } else if (evento.orden_id) {
+      router.push(`/servicio-detalle/${evento.orden_id}`);
+    }
+  }, []);
+
+  const handleAgendarCita = useCallback(() => {
+    router.push('/agendar-cita-personal');
   }, []);
 
   return (
@@ -365,88 +459,36 @@ export default function CalendarioScreen() {
             <View style={styles.ordenesSection}>
               <Text style={styles.ordenesSectionTitle}>{formatearFechaCompleta(fechaSeleccionada)}</Text>
 
-              {ordenesFechaSeleccionada.length > 0 ? (
-                ordenesFechaSeleccionada.map((orden) => {
-                  const clienteFoto = (orden.cliente_detail as any)?.foto_perfil;
-                  const nombreCompleto = obtenerNombreSeguro(orden.cliente_detail);
-
-                  const serviciosNombres = orden.lineas.map((linea) => linea.servicio_nombre);
-                  const nombreServicio =
-                    serviciosNombres.length > 0
-                      ? serviciosNombres.length === 1
-                        ? serviciosNombres[0]
-                        : serviciosNombres.join(', ')
-                      : 'Servicio';
-
-                  const precioFormateado = orden.total
-                    ? parseFloat(orden.total.toString().replace(/[^0-9.-]+/g, '')).toLocaleString('es-CL')
-                    : '';
-                  const precioConSimbolo = precioFormateado ? `$${precioFormateado}` : '';
-
-                  return (
-                    <TouchableOpacity
-                      key={orden.id}
-                      style={styles.orderListCard}
-                      onPress={() => handleOrdenPress(orden)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.orderListCardContent}>
-                        <Text style={styles.orderListCardTitle} numberOfLines={2}>
-                          {nombreServicio}
-                        </Text>
-
-                        <Text style={styles.orderListCardDate}>
-                          {formatearFecha(orden.fecha_servicio)}
-                          {orden.hora_servicio && ` • ${formatearHora(orden.hora_servicio)}`}
-                        </Text>
-
-                        <View style={styles.orderListCardUserSection}>
-                          {clienteFoto ? (
-                            <Image
-                              source={{ uri: clienteFoto }}
-                              style={styles.orderListCardUserPhoto}
-                              onError={() => console.log('Error cargando foto del cliente')}
-                            />
-                          ) : (
-                            <View style={styles.orderListCardUserPhotoPlaceholder}>
-                              <InstitutionalIcon name="person" size={16} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
-                            </View>
-                          )}
-
-                          <View style={styles.orderListCardUserInfo}>
-                            <Text style={styles.orderListCardUserName} numberOfLines={1}>
-                              {nombreCompleto}
-                            </Text>
-                            <Text style={styles.orderListCardVehicle} numberOfLines={1}>
-                              {orden.vehiculo_detail?.marca} {orden.vehiculo_detail?.modelo}
-                              {orden.vehiculo_detail?.año && ` (${orden.vehiculo_detail.año})`}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-
-                      <View style={styles.orderListCardRight}>
-                        <Text style={styles.orderListCardServiceType}>
-                          {orden.tipo_servicio === 'domicilio' ? 'A domicilio' : 'En taller'}
-                        </Text>
-
-                        {precioConSimbolo ? (
-                          <Text style={styles.orderListCardPrice}>{precioConSimbolo}</Text>
-                        ) : null}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
+              {eventosFechaSeleccionada.length > 0 ? (
+                eventosFechaSeleccionada.map((evento) => (
+                  <AgendaEventCard
+                    key={`${evento.origen}-${evento.id}`}
+                    evento={evento}
+                    onPress={handleEventoPress}
+                  />
+                ))
               ) : (
                 <View style={styles.emptyState}>
                   <InstitutionalIcon name="event-busy" size={48} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.emptyStateText}>No hay órdenes para esta fecha</Text>
+                  <Text style={styles.emptyStateText}>No hay citas para esta fecha</Text>
                 </View>
               )}
             </View>
           </>
         )}
       </ScrollView>
+
+      {estadoProveedor?.estado_verificacion === 'aprobado' && (
+        <TouchableOpacity
+          style={[styles.fab, { bottom: insets.bottom + SPACING.fixed.md }]}
+          onPress={handleAgendarCita}
+          activeOpacity={0.88}
+          accessibilityRole="button"
+          accessibilityLabel="Agendar cita personal"
+        >
+          <InstitutionalIcon name="add" size={28} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -621,6 +663,23 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.sm,
     minWidth: 0,
   },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.xs,
+  },
+  origenBadge: {
+    paddingHorizontal: SPACING.fixed.xs + 2,
+    paddingVertical: 2,
+    borderRadius: BORDERS.radius.sm,
+    flexShrink: 0,
+  },
+  origenBadgeText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
   orderListCardTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg + 2,
     fontFamily: FF.sansSemiBold,
@@ -698,5 +757,18 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     color: I.body,
     marginTop: SPACING.fixed.md,
+  },
+  fab: {
+    position: 'absolute',
+    right: hx,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: I.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS.editorial,
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.2),
   },
 });
