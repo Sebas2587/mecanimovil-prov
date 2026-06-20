@@ -41,6 +41,11 @@ import {
   isActividadCompletada,
   isActividadRechazada,
 } from '@/utils/estadoActividadProveedor';
+import {
+  agendaProveedorService,
+  nombreServicioCita,
+  type CitaAgendaPersonal,
+} from '@/services/agendaProveedorService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -197,6 +202,17 @@ async function fetchOfertas(): Promise<OfertaProveedor[]> {
   return [];
 }
 
+async function fetchCitasAgenda(): Promise<{ cerradas: CitaAgendaPersonal[]; canceladas: CitaAgendaPersonal[] }> {
+  const [cerradasRes, canceladasRes] = await Promise.all([
+    agendaProveedorService.obtenerCitasCerradas(),
+    agendaProveedorService.obtenerCitasCanceladas(),
+  ]);
+  return {
+    cerradas: cerradasRes.success && cerradasRes.data ? cerradasRes.data : [],
+    canceladas: canceladasRes.success && canceladasRes.data ? canceladasRes.data : [],
+  };
+}
+
 export default function OrdenesScreen() {
   const params = useLocalSearchParams<{ tab?: string }>();
   const { estadoProveedor } = useAuth();
@@ -213,6 +229,7 @@ export default function OrdenesScreen() {
   const invalidateOrdenesYOfertas = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['ordenes-proveedor'] });
     queryClient.invalidateQueries({ queryKey: ['ofertas-proveedor'] });
+    queryClient.invalidateQueries({ queryKey: ['citas-agenda-proveedor'] });
   }, [queryClient]);
 
   useEffect(() => {
@@ -249,7 +266,19 @@ export default function OrdenesScreen() {
     placeholderData: (prev) => prev,
   });
 
-  const loading = (loadingOrdenes || loadingOfertas) && ordenesCompletas.length === 0 && ofertas.length === 0;
+  const {
+    data: citasAgenda = { cerradas: [], canceladas: [] },
+    isLoading: loadingCitas,
+    refetch: refetchCitas,
+  } = useQuery({
+    queryKey: ['citas-agenda-proveedor'],
+    queryFn: fetchCitasAgenda,
+    enabled: !!isVerified,
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
+  });
+
+  const loading = (loadingOrdenes || loadingOfertas || loadingCitas) && ordenesCompletas.length === 0 && ofertas.length === 0;
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
@@ -257,15 +286,16 @@ export default function OrdenesScreen() {
       if (isVerified) {
         refetchOrdenes();
         refetchOfertas();
+        refetchCitas();
       }
-    }, [isVerified, refetchOrdenes, refetchOfertas])
+    }, [isVerified, refetchOrdenes, refetchOfertas, refetchCitas])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchOrdenes(), refetchOfertas()]);
+    await Promise.all([refetchOrdenes(), refetchOfertas(), refetchCitas()]);
     setRefreshing(false);
-  }, [refetchOrdenes, refetchOfertas]);
+  }, [refetchOrdenes, refetchOfertas, refetchCitas]);
 
   const ofertasMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -457,9 +487,12 @@ export default function OrdenesScreen() {
     [ofertasTabRechazadas, ofertaIdsConOrden]
   );
 
+  const citasCompletadasTab = citasAgenda.cerradas ?? [];
+  const citasRechazadasTab = citasAgenda.canceladas ?? [];
+
   const activasCount = activasUnificadas.length;
-  const completadasCount = ordenesCompletadasTab.length + ofertasCompletadasSinDuplicar.length;
-  const rechazadasCount = ordenesRechazadasTab.length + ofertasRechazadasSinDuplicar.length;
+  const completadasCount = ordenesCompletadasTab.length + ofertasCompletadasSinDuplicar.length + citasCompletadasTab.length;
+  const rechazadasCount = ordenesRechazadasTab.length + ofertasRechazadasSinDuplicar.length + citasRechazadasTab.length;
 
   const ordenesMostrar =
     tabActivo === 'activas'
@@ -476,7 +509,9 @@ export default function OrdenesScreen() {
   const tieneDatos =
     tabActivo === 'activas'
       ? activasUnificadas.length > 0
-      : ordenesMostrar.length > 0 || ofertasMostrar.length > 0;
+      : tabActivo === 'completadas'
+        ? ordenesMostrar.length > 0 || ofertasMostrar.length > 0 || citasCompletadasTab.length > 0
+        : ordenesMostrar.length > 0 || ofertasMostrar.length > 0 || citasRechazadasTab.length > 0;
 
   const handleOrdenPress = useCallback((orden: Orden) => {
     if (orden.oferta_proveedor_id) {
@@ -488,6 +523,10 @@ export default function OrdenesScreen() {
 
   const handleOfertaPress = useCallback((oferta: OfertaProveedor) => {
     router.push(`/oferta-detalle/${oferta.id}`);
+  }, []);
+
+  const handleCitaPress = useCallback((cita: CitaAgendaPersonal) => {
+    router.push(`/cita-agenda-personal/${cita.id}`);
   }, []);
 
   const formatearFecha = (fecha: string) => new Date(fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -677,6 +716,74 @@ export default function OrdenesScreen() {
       </TouchableOpacity>
     );
   }, [getEstadoEfectivo, getTextoEstado, handleOrdenPress]);
+
+  const renderCitaPersonalCard = useCallback((cita: CitaAgendaPersonal) => {
+    const esCompletada = cita.estado === 'cerrada';
+    const estadoStyle = getEstadoBadgeColors(esCompletada ? 'success' : 'error');
+    const textoEstado = esCompletada ? 'Completada' : 'Cancelada';
+    const nombreServicio = nombreServicioCita(cita);
+    const precioFormateado = cita.detalle.precio_referencia
+      ? formatearPrecio(cita.detalle.precio_referencia)
+      : '';
+
+    return (
+      <TouchableOpacity
+        key={`cita-${cita.id}`}
+        style={styles.listCardOuter}
+        onPress={() => handleCitaPress(cita)}
+        activeOpacity={0.88}
+      >
+        <View style={styles.listCardInner}>
+          <View style={styles.cardTop}>
+            <View style={[styles.statusBadge, { backgroundColor: estadoStyle.bg }]}>
+              <View style={[styles.statusDot, { backgroundColor: estadoStyle.dot }]} />
+              <Text style={[styles.statusText, { color: estadoStyle.text }]}>{textoEstado}</Text>
+            </View>
+            <View style={styles.personalBadge}>
+              <Text style={styles.personalBadgeText}>Personal</Text>
+            </View>
+            <View style={{ flex: 1 }} />
+            {precioFormateado ? <Text style={styles.cardPrice}>{precioFormateado}</Text> : null}
+          </View>
+
+          <Text style={styles.cardTitle} numberOfLines={2}>{nombreServicio}</Text>
+
+          <View style={styles.cardMeta}>
+            <Clock size={13} color={I.muted} />
+            <Text style={styles.cardMetaText}>
+              {formatearFecha(cita.fecha_servicio)}
+              {cita.hora_servicio && ` · ${cita.hora_servicio.substring(0, 5)}`}
+            </Text>
+            <View style={styles.serviceTypePill}>
+              <Text style={styles.serviceTypeText}>
+                {cita.tipo_servicio === 'domicilio' ? 'Domicilio' : 'Taller'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.cardDivider} />
+
+          <View style={styles.cardBottom}>
+            <View style={styles.cardUser}>
+              <View style={styles.avatarPlaceholder}>
+                <User size={14} color={I.onPrimary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.userName} numberOfLines={1}>{cita.detalle.cliente_nombre}</Text>
+                <View style={styles.vehicleRow}>
+                  <Car size={12} color={I.muted} />
+                  <Text style={styles.vehicleText} numberOfLines={1}>
+                    {cita.detalle.vehiculo_marca} {cita.detalle.vehiculo_modelo}
+                    {cita.detalle.vehiculo_anio ? ` (${cita.detalle.vehiculo_anio})` : ''}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [handleCitaPress]);
 
   const renderActividadUnificadaCard = useCallback(
     (item: ActividadActivaItem) => {
@@ -943,6 +1050,7 @@ export default function OrdenesScreen() {
                   </View>
                   {ordenesMostrar.map(renderOrdenCard)}
                   {ofertasMostrar.map(renderOfertaCard)}
+                  {citasCompletadasTab.map(renderCitaPersonalCard)}
                 </View>
               ) : (
                 <View style={styles.section}>
@@ -953,6 +1061,7 @@ export default function OrdenesScreen() {
                   </View>
                   {ordenesMostrar.map(renderOrdenCard)}
                   {ofertasMostrar.map(renderOfertaCard)}
+                  {citasRechazadasTab.map(renderCitaPersonalCard)}
                 </View>
               )}
             </>
@@ -1251,6 +1360,22 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
     lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.tight),
     color: I.onPrimary,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  personalBadge: {
+    backgroundColor: withOpacity(I.primary, 0.12),
+    paddingHorizontal: SPACING.fixed.xs + 2,
+    paddingVertical: 2,
+    borderRadius: BORDERS.radius.sm,
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.2),
+  },
+  personalBadgeText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.tight),
+    color: I.primaryActive,
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },

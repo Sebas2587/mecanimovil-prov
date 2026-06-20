@@ -209,6 +209,8 @@ export default function RootLayout() {
                     }}
                   />
                   <Stack.Screen name="checklist-item/[ordenId]/[itemId]" options={{ headerShown: false }} />
+                  <Stack.Screen name="agendar-cita-personal" options={{ headerShown: false }} />
+                  <Stack.Screen name="cita-agenda-personal/[id]" options={{ headerShown: false }} />
                   <Stack.Screen name="+not-found" />
                   </Stack>
                   <StatusBar style="auto" />
