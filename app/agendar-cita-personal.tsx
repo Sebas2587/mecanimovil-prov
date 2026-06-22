@@ -19,7 +19,7 @@ import { MontoCLPField, parsePrecioReferencia } from '@/components/forms/MontoCL
 import { ChilePhoneField, getChilePhoneError } from '@/components/forms/ChilePhoneField';
 import ChileAddressField from '@/components/forms/ChileAddressField';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
-import { extraerNueveDigitosDesdeGuardado } from '@/utils/chilePhone';
+import { extraerNueveDigitosDesdeGuardado, normalizarTelefonoChileParaGuardar } from '@/utils/chilePhone';
 import { esRangoHorarioValido, calcularDuracionMinutos } from '@/utils/citaPersonalHorario';
 import {
   CatalogoFechaHoraPickers,
@@ -162,7 +162,7 @@ export default function AgendarCitaPersonalScreen() {
   const construirPayload = useCallback((): CitaAgendaPersonalCreatePayload => {
     const detalle: CitaAgendaPersonalCreatePayload['detalle'] = {
       cliente_nombre: clienteNombre.trim(),
-      cliente_telefono: clienteTelefono.trim(),
+      cliente_telefono: normalizarTelefonoChileParaGuardar(clienteTelefono),
       vehiculo_marca: vehiculoMarca.trim(),
       vehiculo_modelo: vehiculoModelo.trim(),
     };

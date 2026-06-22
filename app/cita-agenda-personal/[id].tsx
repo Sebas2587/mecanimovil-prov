@@ -34,7 +34,7 @@ import { MontoCLPField, parsePrecioReferencia, formatMontoInputLocalized } from 
 import { ChilePhoneField, getChilePhoneError } from '@/components/forms/ChilePhoneField';
 import ChileAddressField from '@/components/forms/ChileAddressField';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
-import { extraerNueveDigitosDesdeGuardado } from '@/utils/chilePhone';
+import { extraerNueveDigitosDesdeGuardado, normalizarTelefonoChileParaGuardar } from '@/utils/chilePhone';
 import { calcularDuracionMinutos, esRangoHorarioValido, sumarMinutosAHora } from '@/utils/citaPersonalHorario';
 import { parseFechaLocal } from '@/utils/fechaLocal';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
@@ -239,7 +239,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
     const detalle: CitaAgendaPersonalCreatePayload['detalle'] = {
       cliente_nombre: clienteNombre.trim(),
-      cliente_telefono: clienteTelefono.trim(),
+      cliente_telefono: normalizarTelefonoChileParaGuardar(clienteTelefono),
       vehiculo_marca: vehiculoMarca.trim(),
       vehiculo_modelo: vehiculoModelo.trim(),
       servicio_nombre: servicioNombre.trim(),

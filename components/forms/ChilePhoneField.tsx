@@ -6,7 +6,6 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens
 import { onboardingInputPlaceholder, onboardingStyles } from '@/app/design-system/styles/onboarding';
 import {
   mergeNineMobileDigits,
-  telefonoCompletoDesdeNacional,
   telefonoMovilChileValido,
   extraerNueveDigitosDesdeGuardado,
 } from '@/utils/chilePhone';
@@ -27,7 +26,10 @@ export function getChilePhoneError(nueveDigitos: string, required = true): strin
   if (!nueveDigitos.trim()) {
     return required ? 'Ingresa el teléfono del cliente.' : null;
   }
-  if (!telefonoMovilChileValido(nueveDigitos)) {
+  if (nueveDigitos[0] !== '9') {
+    return 'Debe comenzar en 9.';
+  }
+  if (nueveDigitos.length === 9 && !telefonoMovilChileValido(nueveDigitos)) {
     return 'Debe ser un móvil chileno de 9 dígitos que comience en 9.';
   }
   return null;
@@ -52,8 +54,8 @@ export function ChilePhoneField({
   }, [nueveDigitos, error, isValid]);
 
   const handleChange = (text: string) => {
-    const digits = mergeNineMobileDigits(text);
-    onChangeValue(digits ? telefonoCompletoDesdeNacional(digits) : '');
+    // Guardar dígitos nacionales (parciales OK) para no borrar mientras se escribe.
+    onChangeValue(mergeNineMobileDigits(text));
   };
 
   return (
@@ -69,6 +71,7 @@ export function ChilePhoneField({
           placeholder="912345678"
           placeholderTextColor={onboardingInputPlaceholder}
           keyboardType="number-pad"
+          inputMode="numeric"
           maxLength={9}
         />
         {isValid ? (
