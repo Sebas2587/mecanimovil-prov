@@ -32,7 +32,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { agendaProveedorService, type CitaAgendaPersonalCreatePayload } from '@/services/agendaProveedorService';
 import { serviciosProveedorAPI, type ServicioOferta } from '@/services/serviciosApi';
-import equipoTallerService, { type MiembroTaller } from '@/services/equipoTallerService';
+import equipoTallerService, { type MiembroTaller, etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 import { useAuth } from '@/context/AuthContext';
 
 const I = COLORS.institutional;
@@ -381,6 +381,7 @@ export default function AgendarCitaPersonalScreen() {
                 </TouchableOpacity>
                 {mecanicos.map((m) => {
                   const selected = miembroSeleccionado === m.id;
+                  const modalidadLabel = etiquetaModalidadMecanico(m);
                   return (
                     <TouchableOpacity
                       key={m.id}
@@ -388,7 +389,24 @@ export default function AgendarCitaPersonalScreen() {
                       onPress={() => setMiembroSeleccionado(m.id)}
                       activeOpacity={0.85}
                     >
-                      <Text style={[styles.catalogoItemTitle, selected && styles.catalogoItemTitleOn]}>{m.nombre}</Text>
+                      <View style={styles.catalogoItemContent}>
+                        <Text
+                          style={[styles.catalogoItemTitle, selected && styles.catalogoItemTitleOn]}
+                          numberOfLines={1}
+                        >
+                          {m.nombre}
+                        </Text>
+                        {modalidadLabel ? (
+                          <View style={[styles.modalidadBadge, selected && styles.modalidadBadgeOn]}>
+                            <Text
+                              style={[styles.modalidadBadgeText, selected && styles.modalidadBadgeTextOn]}
+                              numberOfLines={1}
+                            >
+                              {modalidadLabel}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
                       {selected && (
                         <InstitutionalIcon name="check-circle" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                       )}
@@ -605,12 +623,37 @@ const styles = StyleSheet.create({
     borderColor: I.primary,
   },
   catalogoItemTitle: {
-    flex: 1,
+    flexShrink: 1,
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansMedium,
     color: I.ink,
   },
   catalogoItemTitleOn: {
+    color: I.onPrimary,
+  },
+  catalogoItemContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.xs,
+    paddingRight: SPACING.fixed.xs,
+  },
+  modalidadBadge: {
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: 2,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+  },
+  modalidadBadgeOn: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  modalidadBadgeText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansMedium,
+    color: I.muted,
+  },
+  modalidadBadgeTextOn: {
     color: I.onPrimary,
   },
   loader: {

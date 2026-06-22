@@ -3,6 +3,22 @@ import { getAPI } from './api';
 export type RolMiembro = 'mandante' | 'supervisor' | 'mecanico';
 export type ModalidadTecnico = 'en_taller' | 'a_domicilio' | 'ambas';
 
+/** Etiqueta corta de la modalidad del mecánico para chips y listas. */
+export function etiquetaModalidadMecanico(
+  m: Pick<MiembroTaller, 'modalidad_tecnico' | 'modalidad_tecnico_display'>,
+): string {
+  switch (m.modalidad_tecnico) {
+    case 'en_taller':
+      return 'En taller';
+    case 'a_domicilio':
+      return 'A domicilio';
+    case 'ambas':
+      return 'Taller y domicilio';
+    default:
+      return m.modalidad_tecnico_display || '';
+  }
+}
+
 /** Permisos de gestión que el mandante otorga a un supervisor. */
 export interface PermisosSupervisor {
   servicios?: boolean;
