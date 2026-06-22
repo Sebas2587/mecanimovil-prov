@@ -61,6 +61,14 @@ export function mergeRouteParamsIntoDraft(
   const tipo = pickString(params, 'tipo');
   if ((tipo === 'taller' || tipo === 'mecanico') && !draft.tipo) partial.tipo = tipo;
 
+  const modalidadParam = pickString(params, 'modalidad_atencion');
+  if (
+    (modalidadParam === 'en_taller' || modalidadParam === 'a_domicilio' || modalidadParam === 'ambas') &&
+    !draft.modalidad_atencion
+  ) {
+    partial.modalidad_atencion = modalidadParam as OnboardingDraft['modalidad_atencion'];
+  }
+
   const nombre = pickString(params, 'nombre');
   if (nombre && !draft.nombre.trim()) partial.nombre = nombre;
 
@@ -148,6 +156,7 @@ export function draftToRouteParams(draft: OnboardingDraft): Record<string, strin
   const params: Record<string, string> = {};
 
   if (draft.tipo) params.tipo = draft.tipo;
+  if (draft.modalidad_atencion) params.modalidad_atencion = draft.modalidad_atencion;
   if (draft.nombre) params.nombre = draft.nombre;
   if (draft.descripcion) params.descripcion = draft.descripcion;
   if (draft.telefono) params.telefono = draft.telefono;
@@ -218,6 +227,7 @@ export function stateToServiciosDraft(
 
 export type FinalizarBasicoDatos = {
   tipo: 'taller' | 'mecanico' | '';
+  modalidad_atencion: 'en_taller' | 'a_domicilio' | 'ambas' | null;
   nombre: string;
   telefono: string;
   descripcion: string;
@@ -256,6 +266,7 @@ export function buildFinalizarDatosFromDraft(
 
   return {
     tipo,
+    modalidad_atencion: merged.modalidad_atencion,
     nombre: merged.nombre,
     telefono: merged.telefono,
     descripcion: merged.descripcion,

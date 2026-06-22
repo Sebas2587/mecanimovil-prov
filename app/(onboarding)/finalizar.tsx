@@ -25,7 +25,7 @@ import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 const I = COLORS.institutional;
 
 export default function FinalizarOnboardingScreen() {
-  const { tipo, especialidades, marcas, documentos, ...otherParams } = useLocalSearchParams();
+  const { tipo, modalidad_atencion, especialidades, marcas, documentos, ...otherParams } = useLocalSearchParams();
   const router = useRouter();
   const { usuario, refrescarEstadoProveedor } = useAuth();
   
@@ -123,7 +123,7 @@ export default function FinalizarOnboardingScreen() {
     // Crear objeto de datos estable
     const datos = {
       tipo: tipo as string,
-      // Copiar parámetros uno por uno para evitar referencias cambiantes
+      modalidad_atencion: (modalidad_atencion as string) || null,
       nombre: otherParams.nombre,
       telefono: otherParams.telefono,
       descripcion: otherParams.descripcion,
@@ -424,6 +424,10 @@ export default function FinalizarOnboardingScreen() {
           descripcion: datosCompletos.descripcion,
         };
 
+        if (datosCompletos.modalidad_atencion) {
+          datosInicializacion.modalidad_atencion = datosCompletos.modalidad_atencion;
+        }
+
         if (datosCompletos.tipo === 'taller') {
           datosInicializacion.rut = datosCompletos.rut;
           datosInicializacion.direccion = datosCompletos.direccion;
@@ -721,6 +725,19 @@ export default function FinalizarOnboardingScreen() {
               {datosCompletos.tipo === 'taller' ? 'Taller Mecánico' : 'Mecánico a Domicilio'}
             </Text>
           </View>
+
+          {datosCompletos.modalidad_atencion && (
+            <View style={styles.datoContainer}>
+              <Text style={styles.datoLabel}>Modalidad de Atención:</Text>
+              <Text style={styles.datoValor}>
+                {datosCompletos.modalidad_atencion === 'en_taller'
+                  ? 'En taller (lugar físico)'
+                  : datosCompletos.modalidad_atencion === 'a_domicilio'
+                  ? 'A domicilio'
+                  : 'En taller y a domicilio'}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.datoContainer}>
             <Text style={styles.datoLabel}>Nombre:</Text>

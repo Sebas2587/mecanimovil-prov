@@ -200,7 +200,10 @@ export default function TipoCuentaScreen() {
       if (__DEV__) {
         console.log('Inicializando onboarding para tipo:', tipoSeleccionado);
       }
-      const response = await authAPI.inicializarOnboarding(tipoSeleccionado);
+      const response = await authAPI.inicializarOnboarding({
+        tipo_proveedor: tipoSeleccionado,
+        modalidad_atencion: modalidadSeleccionada,
+      });
       if (__DEV__) {
         console.log('Onboarding inicializado:', response);
       }
