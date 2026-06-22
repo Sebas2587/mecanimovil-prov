@@ -10,6 +10,7 @@ import OnboardingHeader from '@/components/OnboardingHeader';
 import {
   OnboardingScreenLayout,
   OnboardingPrimaryButton,
+  OnboardingNotice,
 } from '@/components/onboarding';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -267,13 +268,19 @@ export default function TipoCuentaScreen() {
       }
     >
       <OnboardingHeader
-        title="¿Cómo atiendes a tus clientes?"
-        subtitle="Elige tu modalidad de atención. Podrás configurar tu equipo después."
+        title="Registra tu taller"
+        subtitle="¿Dónde realizas los servicios a tus clientes? Elige una opción."
         currentStep={1}
         totalSteps={5}
         canGoBack={false}
         icon="business-outline"
       />
+
+      <OnboardingNotice>
+        En Mecanimovil todos los proveedores se registran como taller mecánico. Esta
+        elección solo indica si atiendes en local, a domicilio o en ambos lugares.
+        Podrás cambiarla y configurar a tu equipo más adelante.
+      </OnboardingNotice>
 
       <View style={onboardingStyles.optionsStack}>
         {MODALIDAD_OPCIONES.map((opcion) => {
@@ -323,20 +330,23 @@ const MODALIDAD_OPCIONES: {
 }[] = [
   {
     value: 'en_taller',
-    title: 'En taller (lugar físico)',
-    description: 'Tengo un taller físico donde los clientes traen sus vehículos para reparación y mantenimiento.',
+    title: 'Solo en mi taller',
+    description:
+      'Los clientes traen el vehículo a tu local. Deberás indicar la dirección de tu taller.',
     icon: 'business',
   },
   {
     value: 'a_domicilio',
-    title: 'A domicilio',
-    description: 'Ofrezco servicios de mecánica móvil, yendo directamente a la ubicación del cliente.',
+    title: 'Solo a domicilio',
+    description:
+      'Tus técnicos van donde está el cliente. No necesitas un local físico; definirás tu zona de cobertura después.',
     icon: 'car-sport',
   },
   {
     value: 'ambas',
     title: 'En taller y a domicilio',
-    description: 'Atiendo en mi taller y también ofrezco servicio a domicilio. Podrás asignar a cada mecánico su modalidad.',
+    description:
+      'Ofreces servicios en tu local y también a domicilio. Luego podrás indicar qué hace cada miembro de tu equipo.',
     icon: 'swap-horizontal',
   },
 ];

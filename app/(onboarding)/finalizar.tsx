@@ -173,16 +173,11 @@ export default function FinalizarOnboardingScreen() {
     if (!datosCompletos.nombre) errores.push('Nombre es requerido');
     if (!datosCompletos.telefono) errores.push('Teléfono es requerido');
     
-    // Validaciones específicas para talleres
-    if (datosCompletos.tipo === 'taller') {
-      if (!datosCompletos.rut) errores.push('RUT/CUIT es requerido para la identificación fiscal del taller');
-      if (!datosCompletos.direccion) errores.push('Dirección es requerida para ubicar tu taller');
-    }
-    
-    // Validaciones específicas para mecánicos
-    if (datosCompletos.tipo === 'mecanico') {
-      if (!datosCompletos.dni) errores.push('DNI/RUT personal es requerido para tu identificación');
-      if (!datosCompletos.experiencia_anos) errores.push('Años de experiencia son requeridos para validar tu competencia');
+    // Validaciones del taller (todos los proveedores son talleres)
+    if (!datosCompletos.rut) errores.push('RUT/CUIT es requerido para la identificación fiscal del taller');
+    const soloDomicilio = datosCompletos.modalidad_atencion === 'a_domicilio';
+    if (!soloDomicilio && !datosCompletos.direccion) {
+      errores.push('Dirección es requerida cuando atiendes en tu taller o en ambas modalidades');
     }
     
     // CRÍTICO: Validar documentos obligatorios
@@ -571,7 +566,7 @@ export default function FinalizarOnboardingScreen() {
       // 9. Mostrar mensaje de éxito (solo si todo está bien)
       console.log('🎉 Registro completado exitosamente');
       const mensajeExito = perfilCreado 
-        ? `Tu perfil de ${datosCompletos.tipo === 'taller' ? 'taller mecánico' : 'mecánico a domicilio'} ha sido registrado exitosamente.`
+        ? 'Tu taller mecánico ha sido registrado exitosamente.'
         : `Tu información de onboarding ha sido actualizada exitosamente.`;
         
       let mensajeCompleto = mensajeExito;
@@ -720,20 +715,18 @@ export default function FinalizarOnboardingScreen() {
           <Text style={styles.resumenTitle}>Resumen de tu perfil</Text>
           
           <View style={styles.datoContainer}>
-            <Text style={styles.datoLabel}>Tipo de Proveedor:</Text>
-            <Text style={styles.datoValor}>
-              {datosCompletos.tipo === 'taller' ? 'Taller Mecánico' : 'Mecánico a Domicilio'}
-            </Text>
+            <Text style={styles.datoLabel}>Perfil:</Text>
+            <Text style={styles.datoValor}>Taller mecánico</Text>
           </View>
 
           {datosCompletos.modalidad_atencion && (
             <View style={styles.datoContainer}>
-              <Text style={styles.datoLabel}>Modalidad de Atención:</Text>
+              <Text style={styles.datoLabel}>Dónde atiendes:</Text>
               <Text style={styles.datoValor}>
                 {datosCompletos.modalidad_atencion === 'en_taller'
-                  ? 'En taller (lugar físico)'
+                  ? 'Solo en mi taller (lugar físico)'
                   : datosCompletos.modalidad_atencion === 'a_domicilio'
-                  ? 'A domicilio'
+                  ? 'Solo a domicilio'
                   : 'En taller y a domicilio'}
               </Text>
             </View>
@@ -749,62 +742,31 @@ export default function FinalizarOnboardingScreen() {
             <Text style={styles.datoValor}>{datosCompletos.telefono}</Text>
           </View>
 
-          {datosCompletos.tipo === 'taller' && (
-            <>
-              <View style={styles.datoContainer}>
-                <Text style={styles.datoLabel}>RUT/CUIT:</Text>
-                <Text style={styles.datoValor}>{datosCompletos.rut}</Text>
-              </View>
-              <View style={styles.datoContainer}>
-                <Text style={styles.datoLabel}>Dirección:</Text>
-                <Text style={styles.datoValor}>{datosCompletos.direccion}</Text>
-              </View>
-              {datosCompletos.especialidades && datosCompletos.especialidades.length > 0 && (
-                <View style={styles.datoContainer}>
-                  <Text style={styles.datoLabel}>Especialidades:</Text>
-                  <Text style={styles.datoValor}>
-                    {datosCompletos.especialidades.length} especialidad(es) seleccionada(s)
-                  </Text>
-                </View>
-              )}
-              {datosCompletos.marcas && datosCompletos.marcas.length > 0 && (
-                <View style={styles.datoContainer}>
-                  <Text style={styles.datoLabel}>Marcas Atendidas:</Text>
-                  <Text style={styles.datoValor}>
-                    {datosCompletos.marcas.length} marca(s) de vehículos
-                  </Text>
-                </View>
-              )}
-            </>
+          <View style={styles.datoContainer}>
+            <Text style={styles.datoLabel}>RUT/CUIT:</Text>
+            <Text style={styles.datoValor}>{datosCompletos.rut}</Text>
+          </View>
+          {datosCompletos.direccion ? (
+            <View style={styles.datoContainer}>
+              <Text style={styles.datoLabel}>Dirección:</Text>
+              <Text style={styles.datoValor}>{datosCompletos.direccion}</Text>
+            </View>
+          ) : null}
+          {datosCompletos.especialidades && datosCompletos.especialidades.length > 0 && (
+            <View style={styles.datoContainer}>
+              <Text style={styles.datoLabel}>Especialidades:</Text>
+              <Text style={styles.datoValor}>
+                {datosCompletos.especialidades.length} especialidad(es) seleccionada(s)
+              </Text>
+            </View>
           )}
-
-          {datosCompletos.tipo === 'mecanico' && (
-            <>
-              <View style={styles.datoContainer}>
-                <Text style={styles.datoLabel}>DNI:</Text>
-                <Text style={styles.datoValor}>{datosCompletos.dni}</Text>
-              </View>
-              <View style={styles.datoContainer}>
-                <Text style={styles.datoLabel}>Años de Experiencia:</Text>
-                <Text style={styles.datoValor}>{datosCompletos.experiencia_anos} años</Text>
-              </View>
-              {datosCompletos.especialidades && datosCompletos.especialidades.length > 0 && (
-                <View style={styles.datoContainer}>
-                  <Text style={styles.datoLabel}>Especialidades:</Text>
-                  <Text style={styles.datoValor}>
-                    {datosCompletos.especialidades.length} especialidad(es) seleccionada(s)
-                  </Text>
-                </View>
-              )}
-              {datosCompletos.marcas && datosCompletos.marcas.length > 0 && (
-                <View style={styles.datoContainer}>
-                  <Text style={styles.datoLabel}>Marcas Atendidas:</Text>
-                  <Text style={styles.datoValor}>
-                    {datosCompletos.marcas.length} marca(s) de vehículos
-                  </Text>
-                </View>
-              )}
-            </>
+          {datosCompletos.marcas && datosCompletos.marcas.length > 0 && (
+            <View style={styles.datoContainer}>
+              <Text style={styles.datoLabel}>Marcas Atendidas:</Text>
+              <Text style={styles.datoValor}>
+                {datosCompletos.marcas.length} marca(s) de vehículos
+              </Text>
+            </View>
           )}
 
           {datosCompletos.descripcion && (

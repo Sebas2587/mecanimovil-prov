@@ -63,8 +63,12 @@ export default function InformacionBasicaScreen() {
   const { usuario } = useAuth();
   const { draft, patchDraft } = useOnboardingDraft();
 
-  const tipoStr = useMemo(() => normalizarTipoParam(tipo), [tipo]);
-  const esTaller = tipoStr === 'taller';
+  const tipoStr = useMemo(() => {
+    const fromParam = normalizarTipoParam(tipo);
+    // Unificación: todo proveedor es taller; el param legacy 'mecanico' ya no aplica.
+    return fromParam === 'mecanico' ? 'taller' : fromParam || 'taller';
+  }, [tipo]);
+  const esTaller = true;
 
   // Modalidad de atención (en_taller / a_domicilio / ambas). Unificación: todo proveedor
   // es taller; la dirección física solo es obligatoria si atiende en local (en_taller/ambas).
@@ -205,7 +209,7 @@ export default function InformacionBasicaScreen() {
   }, [formData, telefonoNacional, docCompact, esTaller, direccionValidada, requiereDireccion]);
 
   const puedeContinuar = useMemo(() => {
-    if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) return false;
+    if (!tipoStr) return false;
     return (
       camposLocalesCompletos &&
       rutRemoto === 'free' &&
@@ -237,7 +241,7 @@ export default function InformacionBasicaScreen() {
         const res = await authAPI.verificarDatosOnboarding({
           tipo: 'rut',
           valor,
-          contexto: tipoStr === 'mecanico' ? 'mecanico' : 'taller',
+          contexto: 'taller',
         });
         if (seq !== rutVerifySeq.current) return;
         const data = res.data as { disponible?: boolean; mensaje?: string };
@@ -280,7 +284,7 @@ export default function InformacionBasicaScreen() {
         const res = await authAPI.verificarDatosOnboarding({
           tipo: 'telefono',
           valor,
-          contexto: tipoStr === 'mecanico' ? 'mecanico' : 'taller',
+          contexto: 'taller',
         });
         if (seq !== telVerifySeq.current) return;
         const data = res.data as { disponible?: boolean; mensaje?: string };
@@ -345,7 +349,7 @@ export default function InformacionBasicaScreen() {
   const handleContinuar = async () => {
     if (!puedeContinuar) return;
 
-    if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) {
+    if (!tipoStr) {
       showAlert('Error', 'Tipo de proveedor no válido. Por favor, vuelve al inicio.');
       router.replace('/(onboarding)/tipo-cuenta');
       return;
@@ -599,7 +603,7 @@ export default function InformacionBasicaScreen() {
     </>
   );
 
-  if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) {
+  if (!tipoStr) {
     return (
       <OnboardingScreenLayout>
         <View style={onboardingStyles.loadingCenter}>
@@ -624,20 +628,26 @@ export default function InformacionBasicaScreen() {
       }
     >
       <OnboardingHeader
-        title={`Información de tu ${soloDomicilio ? 'servicio a domicilio' : 'taller'}`}
-        subtitle="Completa la información básica para continuar"
+        title="Datos de tu taller"
+        subtitle={
+          soloDomicilio
+            ? 'Completa la información de tu taller (operas solo a domicilio)'
+            : 'Completa la información básica de tu taller'
+        }
         currentStep={2}
         totalSteps={5}
         canGoBack
         backPath={getBackPath()}
-        icon={soloDomicilio ? 'car-sport-outline' : 'business-outline'}
+        icon="business-outline"
       />
 
       <View style={styles.form}>
         <OnboardingNotice>
-          Los campos con * son obligatorios. RUT y teléfono se validan en tiempo real antes de continuar.
+          {soloDomicilio
+            ? 'Los campos con * son obligatorios. La dirección es opcional porque atiendes solo a domicilio.'
+            : 'Los campos con * son obligatorios. RUT y teléfono se validan en tiempo real antes de continuar.'}
         </OnboardingNotice>
-        {esTaller ? renderTallerForm() : renderMecanicoForm()}
+        {renderTallerForm()}
       </View>
     </OnboardingScreenLayout>
   );
