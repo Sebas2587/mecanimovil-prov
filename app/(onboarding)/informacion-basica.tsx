@@ -66,6 +66,15 @@ export default function InformacionBasicaScreen() {
   const tipoStr = useMemo(() => normalizarTipoParam(tipo), [tipo]);
   const esTaller = tipoStr === 'taller';
 
+  // Modalidad de atención (en_taller / a_domicilio / ambas). Unificación: todo proveedor
+  // es taller; la dirección física solo es obligatoria si atiende en local (en_taller/ambas).
+  const modalidadStr = useMemo(() => {
+    const fromParam = normalizarTipoParam(params.modalidad_atencion);
+    return fromParam || draft.modalidad_atencion || '';
+  }, [params.modalidad_atencion, draft.modalidad_atencion]);
+  const soloDomicilio = modalidadStr === 'a_domicilio';
+  const requiereDireccion = esTaller && !soloDomicilio;
+
   const [formData, setFormData] = useState({
     nombre: '',
     direccion: '',
@@ -185,14 +194,15 @@ export default function InformacionBasicaScreen() {
     if (!rutCompactoEsValido(docCompact)) return false;
 
     if (esTaller) {
-      if (!direccionValidada?.line?.trim()) return false;
+      // La dirección física solo es obligatoria si atiende en local (en_taller/ambas).
+      if (requiereDireccion && !direccionValidada?.line?.trim()) return false;
     } else {
       if (!formData.experiencia_anos.trim()) return false;
       const exp = parseInt(formData.experiencia_anos, 10);
       if (Number.isNaN(exp) || exp < 0) return false;
     }
     return true;
-  }, [formData, telefonoNacional, docCompact, esTaller, direccionValidada]);
+  }, [formData, telefonoNacional, docCompact, esTaller, direccionValidada, requiereDireccion]);
 
   const puedeContinuar = useMemo(() => {
     if (!tipoStr || (tipoStr !== 'taller' && tipoStr !== 'mecanico')) return false;
@@ -381,9 +391,13 @@ export default function InformacionBasicaScreen() {
         descripcion: formData.descripcion.trim(),
         telefono: telCompleto,
       };
+      if (modalidadStr) {
+        paramsParaEnviar.modalidad_atencion = modalidadStr;
+      }
 
       if (tipoStr === 'taller') {
-        if (!direccionValidada) {
+        // La dirección física solo es obligatoria si atiende en local (en_taller/ambas).
+        if (requiereDireccion && !direccionValidada) {
           showAlert(
             'Dirección no confirmada',
             'Selecciona una dirección de la lista para validar comuna y región en Chile.'
@@ -391,11 +405,13 @@ export default function InformacionBasicaScreen() {
           return;
         }
         paramsParaEnviar.rut = docFormatted;
-        paramsParaEnviar.direccion = direccionValidada.line;
-        paramsParaEnviar.direccion_lat = String(direccionValidada.lat);
-        paramsParaEnviar.direccion_lng = String(direccionValidada.lon);
-        paramsParaEnviar.comuna = direccionValidada.comuna;
-        paramsParaEnviar.region = direccionValidada.region;
+        if (direccionValidada) {
+          paramsParaEnviar.direccion = direccionValidada.line;
+          paramsParaEnviar.direccion_lat = String(direccionValidada.lat);
+          paramsParaEnviar.direccion_lng = String(direccionValidada.lon);
+          paramsParaEnviar.comuna = direccionValidada.comuna;
+          paramsParaEnviar.region = direccionValidada.region;
+        }
       } else {
         paramsParaEnviar.dni = docFormatted;
         paramsParaEnviar.experiencia_anos = formData.experiencia_anos.trim();
@@ -403,6 +419,7 @@ export default function InformacionBasicaScreen() {
 
       patchDraft({
         tipo: tipoStr,
+        modalidad_atencion: (modalidadStr || undefined) as any,
         nombre: paramsParaEnviar.nombre,
         descripcion: paramsParaEnviar.descripcion,
         telefono: paramsParaEnviar.telefono,
@@ -494,12 +511,14 @@ export default function InformacionBasicaScreen() {
   const renderTallerForm = () => (
     <>
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Nombre del Taller *</Text>
+        <Text style={styles.label}>
+          {soloDomicilio ? 'Nombre del negocio *' : 'Nombre del Taller *'}
+        </Text>
         <TextInput
           style={styles.input}
           value={formData.nombre}
           onChangeText={(value) => handleInputChange('nombre', value)}
-          placeholder="Ej. Taller Mecánico San Juan"
+          placeholder={soloDomicilio ? 'Ej. Mecánica Express a domicilio' : 'Ej. Taller Mecánico San Juan'}
           placeholderTextColor="#95a5a6"
         />
       </View>
@@ -507,8 +526,12 @@ export default function InformacionBasicaScreen() {
       {renderRutBlock(rutCompact, onRutChange, 'RUT/CUIT/ID Fiscal *')}
 
       <ChileAddressField
-        label="Dirección del taller *"
-        hint="Escribe calle y número; elige un resultado con comuna y región en Chile."
+        label={soloDomicilio ? 'Dirección base (opcional)' : 'Dirección del taller *'}
+        hint={
+          soloDomicilio
+            ? 'Como atiendes solo a domicilio, la dirección es opcional. Define tu zona de cobertura más adelante.'
+            : 'Escribe calle y número; elige un resultado con comuna y región en Chile.'
+        }
         value={formData.direccion}
         validated={direccionValidada}
         onChangeText={(value) => handleInputChange('direccion', value)}
@@ -601,13 +624,13 @@ export default function InformacionBasicaScreen() {
       }
     >
       <OnboardingHeader
-        title={`Información de tu ${esTaller ? 'taller' : 'servicio'}`}
+        title={`Información de tu ${soloDomicilio ? 'servicio a domicilio' : 'taller'}`}
         subtitle="Completa la información básica para continuar"
         currentStep={2}
         totalSteps={5}
         canGoBack
         backPath={getBackPath()}
-        icon={esTaller ? 'business-outline' : 'car-sport-outline'}
+        icon={soloDomicilio ? 'car-sport-outline' : 'business-outline'}
       />
 
       <View style={styles.form}>

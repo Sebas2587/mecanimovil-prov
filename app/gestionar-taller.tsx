@@ -96,6 +96,11 @@ export default function GestionarTallerScreen() {
     fotos: [],
   });
 
+  // Modalidad de atención: en_taller / a_domicilio / ambas. Editable tras el registro.
+  type Modalidad = 'en_taller' | 'a_domicilio' | 'ambas';
+  const [modalidad, setModalidad] = useState<Modalidad>('en_taller');
+  const soloDomicilio = modalidad === 'a_domicilio';
+
   // Estados para búsqueda de direcciones
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -185,6 +190,11 @@ export default function GestionarTallerScreen() {
           fotos: [], // Las fotos se cargarán desde el backend
         });
 
+        const modalidadActual = estadoProveedor.datos_proveedor.modalidad_atencion;
+        if (modalidadActual === 'en_taller' || modalidadActual === 'a_domicilio' || modalidadActual === 'ambas') {
+          setModalidad(modalidadActual);
+        }
+
         console.log('📍 Datos de dirección cargados:', {
           direccion_completa: direccionCompleta,
           comuna: comuna,
@@ -207,6 +217,18 @@ export default function GestionarTallerScreen() {
     setDatosTaller(prev => ({ ...prev, [field]: value }));
     setHasChanges(true);
   };
+
+  const handleModalidadChange = (value: Modalidad) => {
+    if (value === modalidad) return;
+    setModalidad(value);
+    setHasChanges(true);
+  };
+
+  const MODALIDAD_OPCIONES: { value: Modalidad; titulo: string; descripcion: string; icon: string }[] = [
+    { value: 'en_taller', titulo: 'En taller', descripcion: 'Los clientes llevan su vehículo a tu local físico.', icon: 'business' },
+    { value: 'a_domicilio', titulo: 'A domicilio', descripcion: 'Tus mecánicos atienden donde está el cliente.', icon: 'directions-car' },
+    { value: 'ambas', titulo: 'Ambas', descripcion: 'Atiendes en tu local y también a domicilio.', icon: 'sync' },
+  ];
 
   // ✅ MANEJAR CAMBIOS EN LA BÚSQUEDA DE DIRECCIÓN
   const handleSearchQueryChange = (value: string) => {
@@ -700,11 +722,12 @@ export default function GestionarTallerScreen() {
   // ✅ FUNCIÓN CORREGIDA: Ahora guarda realmente en el backend
   const handleGuardar = async () => {
     if (!datosTaller.nombre.trim()) {
-      Alert.alert('Error', 'El nombre del taller es obligatorio');
+      Alert.alert('Error', 'El nombre es obligatorio');
       return;
     }
 
-    if (!datosTaller.direccion.trim()) {
+    // La dirección física solo es obligatoria si atiende en local (en_taller/ambas).
+    if (!soloDomicilio && !datosTaller.direccion.trim()) {
       Alert.alert('Error', 'La dirección del taller es obligatoria');
       return;
     }
@@ -712,10 +735,10 @@ export default function GestionarTallerScreen() {
     try {
       setSaving(true);
 
-      console.log('💾 Guardando datos del taller:', datosTaller);
+      console.log('💾 Guardando datos del taller:', { ...datosTaller, modalidad });
 
-      // ✅ VERIFICAR QUE TENEMOS COORDENADAS VÁLIDAS
-      if (!datosTaller.latitud || !datosTaller.longitud) {
+      // ✅ VERIFICAR QUE TENEMOS COORDENADAS VÁLIDAS (solo si hay dirección)
+      if (datosTaller.direccion.trim() && (!datosTaller.latitud || !datosTaller.longitud)) {
         console.log('⚠️ No hay coordenadas válidas, geocodificando dirección...');
 
         // ✅ GEOCODIFICAR LA DIRECCIÓN SI NO TENEMOS COORDENADAS
@@ -724,23 +747,26 @@ export default function GestionarTallerScreen() {
           datosTaller.latitud = coordenadas.lat;
           datosTaller.longitud = coordenadas.lng;
           console.log('📍 Coordenadas obtenidas por geocodificación:', coordenadas);
-        } else {
+        } else if (!soloDomicilio) {
           throw new Error('No se pudo obtener las coordenadas de la dirección');
         }
       }
 
-      // ✅ ACTUALIZAR EN EL BACKEND REAL (INCLUYENDO COORDENADAS)
+      // ✅ ACTUALIZAR EN EL BACKEND REAL (INCLUYENDO COORDENADAS Y MODALIDAD)
       // Usar la API real para actualizar el perfil del proveedor
-      const datosActualizados = {
+      const datosActualizados: Record<string, any> = {
         nombre: datosTaller.nombre,
         descripcion: datosTaller.descripcion,
-        direccion: datosTaller.direccion,
-        comuna: datosTaller.comuna,
-        ciudad: datosTaller.ciudad,
-        region: datosTaller.region,
-        latitud: datosTaller.latitud,
-        longitud: datosTaller.longitud,
+        modalidad_atencion: modalidad,
       };
+      if (datosTaller.direccion.trim()) {
+        datosActualizados.direccion = datosTaller.direccion;
+        datosActualizados.comuna = datosTaller.comuna;
+        datosActualizados.ciudad = datosTaller.ciudad;
+        datosActualizados.region = datosTaller.region;
+        datosActualizados.latitud = datosTaller.latitud;
+        datosActualizados.longitud = datosTaller.longitud;
+      }
 
       console.log('📤 Enviando datos al backend (CON COORDENADAS):', datosActualizados);
 
@@ -758,12 +784,14 @@ export default function GestionarTallerScreen() {
       // ✅ CONFIRMAR QUE LOS DATOS SE GUARDARON
       console.log('🔄 Estado del proveedor refrescado');
 
-      // ✅ MOSTRAR CONFIRMACIÓN DE LA NUEVA DIRECCIÓN
-      Alert.alert(
-        'Dirección Actualizada',
-        `La dirección del taller se ha actualizado a:\n\n${datosTaller.direccion}`,
-        [{ text: 'Perfecto', style: 'default' }]
-      );
+      // ✅ MOSTRAR CONFIRMACIÓN DE LA NUEVA DIRECCIÓN (solo si hay dirección)
+      if (datosTaller.direccion.trim()) {
+        Alert.alert(
+          'Dirección Actualizada',
+          `La dirección del taller se ha actualizado a:\n\n${datosTaller.direccion}`,
+          [{ text: 'Perfecto', style: 'default' }]
+        );
+      }
 
     } catch (error) {
       console.error('❌ Error guardando datos del taller:', error);
@@ -823,6 +851,51 @@ export default function GestionarTallerScreen() {
             paddingTop: 8,
           }}
         >
+          {/* Modalidad de atención */}
+          <View style={styles.glassOuter}>
+            <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
+            <View style={styles.glassInner}>
+              <Text style={[styles.sectionTitle, { color: textPrimary }]}>Modalidad de atención</Text>
+              <Text style={[styles.sectionSubtitle, { color: textMuted }]}>
+                Elige cómo atiendes a tus clientes. Puedes cambiarlo cuando quieras.
+              </Text>
+              {MODALIDAD_OPCIONES.map((op) => {
+                const seleccionada = modalidad === op.value;
+                return (
+                  <TouchableOpacity
+                    key={op.value}
+                    activeOpacity={0.85}
+                    onPress={() => handleModalidadChange(op.value)}
+                    style={[
+                      styles.modalidadOption,
+                      {
+                        backgroundColor: seleccionada ? validBg : inputBg,
+                        borderColor: seleccionada ? '#22C55E' : inputBorder,
+                      },
+                    ]}
+                  >
+                    <InstitutionalIcon
+                      name={op.icon as any}
+                      size={22}
+                      color={seleccionada ? '#15803D' : textMuted}
+                      strokeWidth={ICON_STROKE_WIDTH}
+                    />
+                    <View style={styles.modalidadTextWrap}>
+                      <Text style={[styles.modalidadTitulo, { color: textPrimary }]}>{op.titulo}</Text>
+                      <Text style={[styles.modalidadDescripcion, { color: textMuted }]}>{op.descripcion}</Text>
+                    </View>
+                    <InstitutionalIcon
+                      name={seleccionada ? 'radio-button-checked' : 'radio-button-unchecked'}
+                      size={22}
+                      color={seleccionada ? '#22C55E' : textSubtle}
+                      strokeWidth={ICON_STROKE_WIDTH}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
           {/* Información del Taller */}
           <View style={styles.glassOuter}>
             <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
@@ -877,7 +950,9 @@ export default function GestionarTallerScreen() {
             <View style={styles.glassInner}>
                 <Text style={[styles.sectionTitle, { color: textPrimary }]}>Ubicación del Taller</Text>
                 <Text style={[styles.sectionSubtitle, { color: textMuted }]}>
-                  Ingresa la dirección exacta de tu taller. Solo se aceptan direcciones reales y existentes en Chile.
+                  {soloDomicilio
+                    ? 'Como atiendes solo a domicilio, la dirección es opcional. Sirve como punto de referencia de tu zona.'
+                    : 'Ingresa la dirección exacta de tu taller. Solo se aceptan direcciones reales y existentes en Chile.'}
                 </Text>
                 <TouchableOpacity
                   onPress={() => router.push('/actualizar-ubicacion')}
@@ -890,7 +965,9 @@ export default function GestionarTallerScreen() {
                 </TouchableOpacity>
 
                 <View style={styles.inputGroup}>
-                  <Text style={[styles.inputLabel, { color: textPrimary }]}>Dirección *</Text>
+                  <Text style={[styles.inputLabel, { color: textPrimary }]}>
+                    {soloDomicilio ? 'Dirección (opcional)' : 'Dirección *'}
+                  </Text>
 
                   <View style={styles.addressInputContainer}>
                     <TextInput
@@ -1227,6 +1304,27 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 18,
+  },
+  modalidadOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 10,
+    gap: 12,
+  },
+  modalidadTextWrap: {
+    flex: 1,
+  },
+  modalidadTitulo: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  modalidadDescripcion: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   inputLabel: {
     fontSize: 15,

@@ -20,10 +20,10 @@ const I = COLORS.institutional;
 
 type ModalidadAtencion = 'en_taller' | 'a_domicilio' | 'ambas';
 
-// La modalidad se mapea a `tipo` (taller/mecanico) por compatibilidad con el backend
-// (estrategia strangler). `ambas` y `en_taller` son talleres; `a_domicilio` es mecánico.
-const modalidadToTipo = (m: ModalidadAtencion): 'taller' | 'mecanico' =>
-  m === 'a_domicilio' ? 'mecanico' : 'taller';
+// Unificación de proveedores: TODO proveedor es un taller. La modalidad de atención
+// (en_taller / a_domicilio / ambas) define si ofrece servicio en local, a domicilio o ambos.
+// `tipo` se mantiene en 'taller' siempre por compatibilidad con el backend.
+const modalidadToTipo = (_m: ModalidadAtencion): 'taller' | 'mecanico' => 'taller';
 
 export default function TipoCuentaScreen() {
   const [modalidadSeleccionada, setModalidadSeleccionada] = useState<ModalidadAtencion | null>(null);
