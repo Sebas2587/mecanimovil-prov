@@ -180,6 +180,9 @@ export function createHomeScreenStyles(
       paddingHorizontal: L.horizontalPadding,
       marginBottom: L.sectionMarginBottom,
     },
+    alertsStack: {
+      gap: SPACING.fixed.xs,
+    },
     sectionTitleRow: {
       flexDirection: 'row',
       alignItems: 'center',

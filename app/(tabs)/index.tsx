@@ -7,17 +7,16 @@ import {
   RefreshControl,
   TouchableOpacity,
   Image,
-  Switch,
   Animated,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Bell, Wallet, DollarSign, Radar, Calendar,
+  Bell, Wallet, DollarSign, Calendar,
   ShieldCheck, Clock,
-  TrendingUp, TrendingDown, ChevronRight, Search,
+  TrendingUp, TrendingDown, ChevronRight,
   Wrench, Settings, Map, MapPin, AlertTriangle, CreditCard,
-  Wifi, Users,
+  Users,
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
@@ -31,7 +30,8 @@ import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import creditosService, { type CreditoProveedor } from '@/services/creditosService';
 import mercadoPagoProveedorService, { type EstadisticasPagosMP } from '@/services/mercadoPagoProveedorService';
-import { HomeRadarSolicitudItem } from '@/components/solicitudes/HomeRadarSolicitudItem';
+import { HomeInlineAlert } from '@/components/dashboard/HomeInlineAlert';
+import { HomeSolicitudesSection } from '@/components/dashboard/HomeSolicitudesSection';
 import AlertaPagoExpirado from '@/components/alerts/AlertaPagoExpirado';
 import { useAlerts } from '@/context/AlertsContext';
 import suscripcionesService, { type SuscripcionProveedor, type SaludSuscripcion } from '@/services/suscripcionesService';
@@ -764,27 +764,47 @@ export default function HomeScreen() {
             paddingBottom: insets.bottom + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl),
           }}
         >
-          {necesitaConfigurarHorarios === true ? (
-            <View style={themedStyles.sectionWrap}>
-              <TouchableOpacity
-                style={[themedStyles.suscBanner, themedStyles.suscBannerWarning]}
-                activeOpacity={0.7}
-                onPress={() => router.push('/configuracion-horarios')}
-              >
-                <View style={[themedStyles.suscBannerIcon, { backgroundColor: `${palette.accentYellow}22` }]}>
-                  <Clock size={18} color={palette.warningEmphasis} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[themedStyles.suscBannerTitle, { color: palette.warningEmphasis }]}>
-                    Configura tus horarios de atención
-                  </Text>
-                  <Text style={themedStyles.suscBannerMsg} numberOfLines={3}>
-                    Los clientes no pueden agendar contigo hasta que actives tus días de trabajo y guardes la
-                    configuración.
-                  </Text>
-                </View>
-                <ChevronRight size={18} color={palette.muted} />
-              </TouchableOpacity>
+          {(necesitaConfigurarHorarios === true
+            || (!esSupervisor && saludSuscripcion && saludSuscripcion.estado_salud !== 'ok')) ? (
+            <View style={[themedStyles.sectionWrap, themedStyles.alertsStack]}>
+              {necesitaConfigurarHorarios === true ? (
+                <HomeInlineAlert
+                  variant="warning"
+                  Icon={Clock}
+                  title="Configura tus horarios"
+                  message="Los clientes no pueden agendar contigo aún."
+                  onPress={() => router.push('/configuracion-horarios')}
+                />
+              ) : null}
+              {!esSupervisor && saludSuscripcion && saludSuscripcion.estado_salud !== 'ok' ? (
+                <HomeInlineAlert
+                  variant={
+                    saludSuscripcion.estado_salud === 'por_vencer' ? 'warning' : 'danger'
+                  }
+                  Icon={
+                    saludSuscripcion.estado_salud === 'por_vencer'
+                      ? Clock
+                      : saludSuscripcion.estado_salud === 'pago_fallido'
+                        ? CreditCard
+                        : AlertTriangle
+                  }
+                  title={
+                    saludSuscripcion.estado_salud === 'por_vencer'
+                      ? 'Renovación próxima'
+                      : saludSuscripcion.estado_salud === 'pago_fallido'
+                        ? 'Pago fallido'
+                        : saludSuscripcion.estado_salud === 'sin_suscripcion'
+                          ? 'Sin suscripción'
+                          : 'Suscripción vencida'
+                  }
+                  message={saludSuscripcion.mensaje ?? undefined}
+                  onPress={
+                    saludSuscripcion.accion
+                      ? () => router.push(saludSuscripcion.accion as any)
+                      : undefined
+                  }
+                />
+              ) : null}
             </View>
           ) : null}
 
@@ -889,152 +909,18 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* BANNER ESTADO SUSCRIPCIÓN (solo dueño: la suscripción es módulo del mandante) */}
-          {!esSupervisor && saludSuscripcion && saludSuscripcion.estado_salud !== 'ok' && (
-            <View style={themedStyles.sectionWrap}>
-              <TouchableOpacity
-                style={[
-                  themedStyles.suscBanner,
-                  saludSuscripcion.estado_salud === 'pago_fallido' && themedStyles.suscBannerDanger,
-                  saludSuscripcion.estado_salud === 'vencida' && themedStyles.suscBannerDanger,
-                  saludSuscripcion.estado_salud === 'sin_suscripcion' && themedStyles.suscBannerDanger,
-                  saludSuscripcion.estado_salud === 'por_vencer' && themedStyles.suscBannerWarning,
-                ]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  if (saludSuscripcion.accion) {
-                    router.push(saludSuscripcion.accion as any);
-                  }
-                }}
-              >
-                <View style={[
-                  themedStyles.suscBannerIcon,
-                  saludSuscripcion.estado_salud === 'por_vencer'
-                    ? { backgroundColor: `${palette.accentYellow}22` }
-                    : { backgroundColor: `${palette.semanticDown}18` },
-                ]}>
-                  {saludSuscripcion.estado_salud === 'por_vencer' ? (
-                    <Clock size={18} color={palette.warningEmphasis} />
-                  ) : saludSuscripcion.estado_salud === 'pago_fallido' ? (
-                    <CreditCard size={18} color={palette.semanticDown} />
-                  ) : (
-                    <AlertTriangle size={18} color={palette.semanticDown} />
-                  )}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[
-                    themedStyles.suscBannerTitle,
-                    saludSuscripcion.estado_salud !== 'por_vencer' && { color: palette.semanticDown },
-                  ]}>
-                    {saludSuscripcion.estado_salud === 'por_vencer'
-                      ? 'Renovación próxima'
-                      : saludSuscripcion.estado_salud === 'pago_fallido'
-                        ? 'Pago fallido'
-                        : saludSuscripcion.estado_salud === 'sin_suscripcion'
-                          ? 'Sin suscripción'
-                          : 'Suscripción vencida'}
-                  </Text>
-                  <Text style={themedStyles.suscBannerMsg} numberOfLines={2}>
-                    {saludSuscripcion.mensaje}
-                  </Text>
-                </View>
-                {saludSuscripcion.accion && (
-                  <ChevronRight size={18} color={palette.muted} />
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* 3a. Disponibilidad en la plataforma (conexión / visibilidad para clientes) */}
+          {/* Solicitudes disponibles (toggle + listado unificado) */}
           <View style={themedStyles.sectionWrap}>
-            <View style={themedStyles.radarAvailabilityCard}>
-              <View style={themedStyles.radarAvailabilityIcon}>
-                <Wifi size={22} color={palette.primary} />
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={themedStyles.radarAvailabilityTitle}>Disponible para solicitudes</Text>
-                <Text style={themedStyles.radarAvailabilitySub}>
-                  Activa esta opción para conectarte.
-                </Text>
-              </View>
-              {radarSwitchLoading ? (
-                <ActivityIndicator size="small" color={palette.primary} />
-              ) : (
-                <Switch
-                  value={radarOportunidadesActivo}
-                  onValueChange={handleRadarOportunidadesToggle}
-                  disabled={!radarPreferenciaCargada}
-                  trackColor={{
-                    false: palette.hairlineSoft,
-                    true: COLORS.primary[100],
-                  }}
-                  thumbColor={radarOportunidadesActivo ? palette.primary : palette.mutedSoft}
-                />
-              )}
-            </View>
-          </View>
-
-          {/* 3b. RADAR DE OPORTUNIDADES (listado) */}
-          <View style={themedStyles.sectionWrap}>
-            <View style={themedStyles.sectionTitleRow}>
-              
-              <Text style={themedStyles.sectionTitleText}>Solicitudes disponibles</Text>
-            </View>
-
-            {!radarPreferenciaCargada ? (
-              <View style={themedStyles.radarSearching}>
-                <ActivityIndicator size="small" color={palette.primary} />
-              </View>
-            ) : !radarOportunidadesActivo ? (
-              <View style={themedStyles.radarInactiveBox}>
-                <Radar size={36} color={palette.hairline} />
-                <Text style={themedStyles.radarInactiveTitle}>Radar apagado</Text>
-                <Text style={themedStyles.radarInactiveSub}>
-                  Activa «Disponible para oportunidades» arriba para ver solicitudes aquí.
-                </Text>
-              </View>
-            ) : (
-            <View style={themedStyles.cardOuter}>
-                <View style={themedStyles.cardInner}>
-                <View style={themedStyles.radarBody}>
-                  {loadingSolicitudes ? (
-                      <View style={themedStyles.radarSearching}>
-                        <ActivityIndicator size="small" color={palette.primary} />
-                      </View>
-                    ) : solicitudesDisponibles.length > 0 ? (
-                      <>
-                        {solicitudesDisponibles.slice(0, 3).map((solicitud) => (
-                          <HomeRadarSolicitudItem
-                            key={solicitud.id}
-                            solicitud={solicitud}
-                            onOpenDetail={handleOpenSolicitudDetalle}
-                          />
-                        ))}
-                        {solicitudesDisponibles.length > 3 && (
-                          <TouchableOpacity
-                            style={themedStyles.seeAllBtn}
-                            onPress={handleVerSolicitudesDisponibles}
-                          >
-                            <Text style={themedStyles.seeAllBtnText}>
-                              Ver todas ({solicitudesDisponibles.length})
-                            </Text>
-                            <ChevronRight size={14} color={palette.primary} />
-                          </TouchableOpacity>
-                        )}
-                      </>
-                    ) : (
-                      <View style={themedStyles.radarEmpty}>
-                        <Search size={36} color={palette.hairline} />
-                        <Text style={themedStyles.radarEmptyTitle}>No hay oportunidades</Text>
-                        <Text style={themedStyles.radarEmptySub}>
-                          Revisa más tarde para encontrar nuevas oportunidades
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-            </View>
-            )}
+            <HomeSolicitudesSection
+              radarActivo={radarOportunidadesActivo}
+              radarPreferenciaCargada={radarPreferenciaCargada}
+              radarSwitchLoading={radarSwitchLoading}
+              loadingSolicitudes={loadingSolicitudes}
+              solicitudes={solicitudesDisponibles}
+              onToggleRadar={handleRadarOportunidadesToggle}
+              onOpenDetail={handleOpenSolicitudDetalle}
+              onVerTodas={handleVerSolicitudesDisponibles}
+            />
           </View>
 
           {/* 4. CATEGORÍAS DE GESTIÓN (filtradas por rol/permisos del supervisor) */}

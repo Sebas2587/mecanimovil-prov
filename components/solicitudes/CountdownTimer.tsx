@@ -7,9 +7,10 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 interface CountdownTimerProps {
     targetDate: string;
     onExpire?: () => void;
+    compact?: boolean;
 }
 
-export const CountdownTimer: React.FC<CountdownTimerProps> = ({ targetDate, onExpire }) => {
+export const CountdownTimer: React.FC<CountdownTimerProps> = ({ targetDate, onExpire, compact = false }) => {
     const [timeLeft, setTimeLeft] = useState('');
     const [isUrgent, setIsUrgent] = useState(false);
     const [isExpired, setIsExpired] = useState(false);
@@ -60,16 +61,16 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({ targetDate, onEx
 
     if (isExpired) {
         return (
-            <View style={[styles.container, { backgroundColor: COLORS?.neutral?.gray?.[100] || '#F3F4F6' }]}>
-                <InstitutionalIcon name="timer-off" size={14} color={grayColor}  strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[styles.text, { color: grayColor }]}>Expirada</Text>
+            <View style={[compact ? styles.containerCompact : styles.container, { backgroundColor: COLORS?.neutral?.gray?.[100] || '#F3F4F6' }]}>
+                <InstitutionalIcon name="timer-off" size={compact ? 11 : 14} color={grayColor}  strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={[compact ? styles.textCompact : styles.text, { color: grayColor }]}>Expirada</Text>
             </View>
         );
     }
 
     return (
         <View style={[
-            styles.container,
+            compact ? styles.containerCompact : styles.container,
             {
                 backgroundColor: isUrgent
                     ? (COLORS?.error?.light || '#FEE2E2')
@@ -81,11 +82,11 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({ targetDate, onEx
         ]}>
             <InstitutionalIcon
                 name="timer"
-                size={14}
+                size={compact ? 11 : 14}
                 color={isUrgent ? (COLORS?.error?.main || '#EF4444') : (COLORS?.info?.main || '#3B82F6')}
              strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[
-                styles.text,
+                compact ? styles.textCompact : styles.text,
                 {
                     color: isUrgent ? (COLORS?.error?.main || '#EF4444') : (COLORS?.info?.main || '#3B82F6'),
                     fontWeight: isUrgent ? '700' : '600'
@@ -107,8 +108,22 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         borderWidth: 1,
     },
+    containerCompact: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+        borderRadius: 8,
+        borderWidth: 1,
+        flexShrink: 0,
+    },
     text: {
         fontSize: 12,
-        fontVariant: ['tabular-nums'], // Helps prevent jitter when numbers change
-    }
+        fontVariant: ['tabular-nums'],
+    },
+    textCompact: {
+        fontSize: 10,
+        fontVariant: ['tabular-nums'],
+    },
 });
