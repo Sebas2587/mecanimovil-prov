@@ -80,3 +80,19 @@ export function formatMontoForInput(value: unknown): string {
   if (n <= 0) return '';
   return String(Math.round(n));
 }
+
+/** Formato visible en inputs CLP (es-CL: 170.000). */
+export function formatMontoInputLocalized(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+
+  const n = parseMontoDecimal(value);
+  if (n > 0) {
+    return Math.round(n).toLocaleString('es-CL', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+  }
+
+  return raw.replace(/[^\d,.]/g, '');
+}

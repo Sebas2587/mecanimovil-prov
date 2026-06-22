@@ -61,6 +61,8 @@ export interface EventoAgendaUnificado {
   tipo_servicio?: string;
   oferta_proveedor_id?: string | null;
   orden_id?: number | null;
+  miembro_taller_id?: number | null;
+  mecanico_nombre?: string | null;
 }
 
 export interface CitaAgendaPersonalCreatePayload {
@@ -68,6 +70,7 @@ export interface CitaAgendaPersonalCreatePayload {
   hora_servicio: string;
   duracion_minutos?: number;
   tipo_servicio: TipoServicioAgenda;
+  miembro_taller?: number | null;
   detalle: Partial<CitaAgendaPersonalDetalle> & {
     cliente_nombre: string;
     cliente_telefono: string;
@@ -146,11 +149,13 @@ class AgendaProveedorService {
     fecha_desde?: string;
     fecha_hasta?: string;
     incluir?: string;
+    miembro_taller?: number | null;
   }): Promise<ServiceResponse<EventoAgendaUnificado[]>> {
     try {
       const search = new URLSearchParams();
       if (params?.fecha_desde) search.append('fecha_desde', params.fecha_desde);
       if (params?.fecha_hasta) search.append('fecha_hasta', params.fecha_hasta);
+      if (params?.miembro_taller) search.append('miembro_taller', String(params.miembro_taller));
       search.append('incluir', params?.incluir ?? 'activas,cerradas,mecanimovil');
 
       const qs = search.toString();

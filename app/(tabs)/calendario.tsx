@@ -7,9 +7,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import {
   agendaProveedorService,
@@ -17,30 +18,34 @@ import {
   type EventoAgendaUnificado,
 } from '@/services/agendaProveedorService';
 import { formatDateApi } from '@/components/solicitudes/CatalogoFechaHoraPickers';
+import {
+  parseFechaLocal,
+  isSameDay,
+  esHoy as esHoyLocal,
+  esPasada,
+  startOfDay,
+} from '@/utils/fechaLocal';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import equipoTallerService, { type MiembroTaller } from '@/services/equipoTallerService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 
 function formatearFechaParaComparar(fecha: Date): string {
-  const year = fecha.getFullYear();
-  const month = String(fecha.getMonth() + 1).padStart(2, '0');
-  const day = String(fecha.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return formatDateApi(fecha);
 }
 
 function esMismaFecha(fecha1: Date, fecha2: Date): boolean {
-  return formatearFechaParaComparar(fecha1) === formatearFechaParaComparar(fecha2);
+  return isSameDay(fecha1, fecha2);
 }
 
 function esHoy(fecha: Date): boolean {
-  const hoy = new Date();
-  return formatearFechaParaComparar(fecha) === formatearFechaParaComparar(hoy);
+  return esHoyLocal(fecha);
 }
 
 type DiaCalendario = {
@@ -50,6 +55,7 @@ type DiaCalendario = {
   esHoy: boolean;
   esSeleccionado: boolean;
   esOtroMes: boolean;
+  esPasada: boolean;
 };
 
 const CalendarDayCell = React.memo(function CalendarDayCell({
@@ -62,29 +68,35 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
   onSelect: (d: Date) => void;
 }) {
   const esSeleccionado = esMismaFecha(diaCalendario.fecha, fechaSeleccionada);
+  const deshabilitado = diaCalendario.esPasada && !diaCalendario.esOtroMes;
   const handlePress = useCallback(() => {
+    if (deshabilitado) return;
     onSelect(diaCalendario.fecha);
-  }, [onSelect, diaCalendario.fecha]);
+  }, [onSelect, diaCalendario.fecha, deshabilitado]);
 
   return (
     <TouchableOpacity
       style={[
         styles.calendarDay,
         diaCalendario.esOtroMes && styles.calendarDayOtherMonth,
+        deshabilitado && styles.calendarDayPast,
         diaCalendario.esHoy && !esSeleccionado && styles.calendarDayToday,
         esSeleccionado && styles.calendarDaySelected,
         diaCalendario.tieneOrdenes &&
           !esSeleccionado &&
           !diaCalendario.esOtroMes &&
+          !deshabilitado &&
           styles.calendarDayWithOrders,
       ]}
       onPress={handlePress}
-      activeOpacity={0.7}
+      activeOpacity={deshabilitado ? 1 : 0.7}
+      disabled={deshabilitado}
     >
       <Text
         style={[
           styles.calendarDayText,
           diaCalendario.esOtroMes && styles.calendarDayTextOtherMonth,
+          deshabilitado && styles.calendarDayTextPast,
           diaCalendario.esHoy && !esSeleccionado && styles.calendarDayTextToday,
           esSeleccionado && styles.calendarDayTextSelected,
           diaCalendario.tieneOrdenes &&
@@ -168,7 +180,9 @@ const AgendaEventCard = React.memo(function AgendaEventCard({
 });
 
 function formatearFechaStr(fecha: string) {
-  return new Date(fecha).toLocaleDateString('es-CL', {
+  const parsed = parseFechaLocal(fecha);
+  if (!parsed) return fecha;
+  return parsed.toLocaleDateString('es-CL', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -197,6 +211,7 @@ function rangoMesCalendario(mes: Date): { desde: string; hasta: string } {
 export default function CalendarioScreen() {
   const insets = useSafeAreaInsets();
   const { estadoProveedor } = useAuth();
+  const { fecha: fechaParam } = useLocalSearchParams<{ fecha?: string }>();
   const perfilKey = useMemo(
     () => estadoProveedorReloadKey(estadoProveedor ?? null),
     [estadoProveedor]
@@ -205,8 +220,10 @@ export default function CalendarioScreen() {
   const [eventos, setEventos] = useState<EventoAgendaUnificado[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [fechaSeleccionada, setFechaSeleccionada] = useState<Date>(new Date());
-  const [mesActual, setMesActual] = useState(new Date());
+  const [fechaSeleccionada, setFechaSeleccionada] = useState<Date>(() => startOfDay(new Date()));
+  const [mesActual, setMesActual] = useState(() => startOfDay(new Date()));
+  const [mecanicos, setMecanicos] = useState<MiembroTaller[]>([]);
+  const [miembroFiltro, setMiembroFiltro] = useState<number | null>(null);
 
   const cargarAgenda = useCallback(async () => {
     setLoading(true);
@@ -216,6 +233,7 @@ export default function CalendarioScreen() {
         fecha_desde: desde,
         fecha_hasta: hasta,
         incluir: 'activas,cerradas,mecanimovil',
+        miembro_taller: miembroFiltro,
       });
       if (result.success && result.data) {
         setEventos(result.data);
@@ -225,7 +243,37 @@ export default function CalendarioScreen() {
     } finally {
       setLoading(false);
     }
-  }, [mesActual]);
+  }, [mesActual, miembroFiltro]);
+
+  useEffect(() => {
+    let activo = true;
+    equipoTallerService
+      .listar({ rol: 'mecanico' })
+      .then((equipo) => {
+        if (activo) setMecanicos(equipo);
+      })
+      .catch(() => {
+        if (activo) setMecanicos([]);
+      });
+    return () => {
+      activo = false;
+    };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (fechaParam && typeof fechaParam === 'string') {
+        const parsed = parseFechaLocal(fechaParam);
+        if (parsed) {
+          setFechaSeleccionada(parsed);
+          setMesActual(new Date(parsed.getFullYear(), parsed.getMonth(), 1));
+        }
+      }
+      if (estadoProveedor?.estado_verificacion === 'aprobado') {
+        cargarAgenda();
+      }
+    }, [fechaParam, estadoProveedor?.estado_verificacion, cargarAgenda]),
+  );
 
   useEffect(() => {
     if (estadoProveedor?.estado_verificacion === 'aprobado') {
@@ -243,7 +291,8 @@ export default function CalendarioScreen() {
     (fecha: Date): boolean => {
       const fechaStr = formatearFechaParaComparar(fecha);
       return eventos.some((evento) => {
-        const fechaEvento = new Date(evento.fecha_servicio);
+        const fechaEvento = parseFechaLocal(evento.fecha_servicio);
+        if (!fechaEvento) return false;
         return formatearFechaParaComparar(fechaEvento) === fechaStr;
       });
     },
@@ -273,6 +322,7 @@ export default function CalendarioScreen() {
         esHoy: esHoy(fecha),
         esSeleccionado: false,
         esOtroMes: true,
+        esPasada: esPasada(fecha),
       });
     }
 
@@ -285,6 +335,7 @@ export default function CalendarioScreen() {
         esHoy: esHoy(fecha),
         esSeleccionado: esMismaFecha(fecha, fechaSeleccionada),
         esOtroMes: false,
+        esPasada: esPasada(fecha),
       });
     }
 
@@ -298,6 +349,7 @@ export default function CalendarioScreen() {
         esHoy: esHoy(fecha),
         esSeleccionado: false,
         esOtroMes: true,
+        esPasada: esPasada(fecha),
       });
     }
 
@@ -309,7 +361,8 @@ export default function CalendarioScreen() {
       const fechaStr = formatearFechaParaComparar(fecha);
       return eventos
         .filter((evento) => {
-          const fechaEvento = new Date(evento.fecha_servicio);
+          const fechaEvento = parseFechaLocal(evento.fecha_servicio);
+          if (!fechaEvento) return false;
           return formatearFechaParaComparar(fechaEvento) === fechaStr;
         })
         .sort((a, b) => {
@@ -332,7 +385,7 @@ export default function CalendarioScreen() {
   };
 
   const irAHoy = () => {
-    const hoy = new Date();
+    const hoy = startOfDay(new Date());
     setMesActual(hoy);
     setFechaSeleccionada(hoy);
   };
@@ -356,8 +409,24 @@ export default function CalendarioScreen() {
   const eventosFechaSeleccionada = obtenerEventosDeFecha(fechaSeleccionada);
 
   const onSelectDay = useCallback((d: Date) => {
-    setFechaSeleccionada(d);
+    setFechaSeleccionada(startOfDay(d));
   }, []);
+
+  const puedeAgendarEnSeleccion = !esPasada(fechaSeleccionada);
+
+  const handleAgendarCita = useCallback(() => {
+    if (!puedeAgendarEnSeleccion) {
+      Alert.alert(
+        'Fecha no disponible',
+        'Solo puedes agendar citas en el día de hoy o en fechas futuras.',
+      );
+      return;
+    }
+    router.push({
+      pathname: '/agendar-cita-personal',
+      params: { fecha: formatDateApi(fechaSeleccionada) },
+    });
+  }, [fechaSeleccionada, puedeAgendarEnSeleccion]);
 
   const formatearFechaCompleta = (fecha: Date): string => {
     return fecha.toLocaleDateString('es-CL', {
@@ -378,10 +447,6 @@ export default function CalendarioScreen() {
     } else if (evento.orden_id) {
       router.push(`/servicio-detalle/${evento.orden_id}`);
     }
-  }, []);
-
-  const handleAgendarCita = useCallback(() => {
-    router.push('/agendar-cita-personal');
   }, []);
 
   return (
@@ -435,6 +500,37 @@ export default function CalendarioScreen() {
               </TouchableOpacity>
             </View>
 
+            {mecanicos.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filtroMecanicoRow}
+              >
+                <TouchableOpacity
+                  style={[styles.filtroChip, miembroFiltro === null && styles.filtroChipActive]}
+                  onPress={() => setMiembroFiltro(null)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.filtroChipText, miembroFiltro === null && styles.filtroChipTextActive]}>
+                    Todos
+                  </Text>
+                </TouchableOpacity>
+                {mecanicos.map((m) => {
+                  const activo = miembroFiltro === m.id;
+                  return (
+                    <TouchableOpacity
+                      key={m.id}
+                      style={[styles.filtroChip, activo && styles.filtroChipActive]}
+                      onPress={() => setMiembroFiltro(m.id)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[styles.filtroChipText, activo && styles.filtroChipTextActive]}>{m.nombre}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
             <View style={styles.calendarContainer}>
               <View style={styles.diasSemanaContainer}>
                 {diasSemana.map((dia, index) => (
@@ -471,6 +567,16 @@ export default function CalendarioScreen() {
                 <View style={styles.emptyState}>
                   <InstitutionalIcon name="event-busy" size={48} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.emptyStateText}>No hay citas para esta fecha</Text>
+                  {puedeAgendarEnSeleccion && (
+                    <TouchableOpacity
+                      style={styles.agendarDiaBtn}
+                      onPress={handleAgendarCita}
+                      activeOpacity={0.85}
+                    >
+                      <InstitutionalIcon name="add" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                      <Text style={styles.agendarDiaBtnText}>Agendar cita en este día</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
             </View>
@@ -529,6 +635,32 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
   },
+  filtroMecanicoRow: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.sm,
+    paddingHorizontal: hx,
+    paddingTop: SPACING.fixed.md,
+  },
+  filtroChip: {
+    paddingVertical: SPACING.fixed.xs + 2,
+    paddingHorizontal: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  filtroChipActive: {
+    backgroundColor: I.primary,
+    borderColor: I.primary,
+  },
+  filtroChipText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.body,
+  },
+  filtroChipTextActive: {
+    color: I.onPrimary,
+  },
   monthButton: {
     width: 40,
     height: 40,
@@ -586,15 +718,19 @@ const styles = StyleSheet.create({
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    width: '100%',
   },
   calendarDay: {
-    width: '14.28%',
+    width: `${100 / 7}%`,
     aspectRatio: 1,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
     borderRadius: BORDERS.radius.md,
-    margin: 2,
+    padding: 2,
+  },
+  calendarDayPast: {
+    opacity: 0.35,
   },
   calendarDayOtherMonth: {
     opacity: 0.32,
@@ -620,6 +756,9 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
   calendarDayTextOtherMonth: {
+    color: I.muted,
+  },
+  calendarDayTextPast: {
     color: I.muted,
   },
   calendarDayTextToday: {
@@ -757,6 +896,21 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     color: I.body,
     marginTop: SPACING.fixed.md,
+  },
+  agendarDiaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    marginTop: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: I.primary,
+  },
+  agendarDiaBtnText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.onPrimary,
   },
   fab: {
     position: 'absolute',

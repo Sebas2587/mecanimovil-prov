@@ -1284,13 +1284,14 @@ export interface ActualizarPerfilRequest {
 
 // Servicios para horarios de proveedor
 export const horariosAPI = {
-  obtenerMisHorarios: async (): Promise<HorarioProveedor[]> => {
+  obtenerMisHorarios: async (miembroTallerId?: number | null): Promise<HorarioProveedor[]> => {
     const api = await getAPI();
-    const response = await api.get('/usuarios/horarios-proveedor/mis_horarios/');
+    const query = miembroTallerId ? `?miembro_taller=${miembroTallerId}` : '';
+    const response = await api.get(`/usuarios/horarios-proveedor/mis_horarios/${query}`);
     return response.data;
   },
 
-  configurarSemanaCompleta: async (configuracion: ConfiguracionSemanal) => {
+  configurarSemanaCompleta: async (configuracion: ConfiguracionSemanal, miembroTallerId?: number | null) => {
     const api = await getAPI();
     // Función helper para convertir hora a formato HH:MM (eliminar segundos)
     const formatearHora = (hora: string): string => {
@@ -1311,6 +1312,10 @@ export const horariosAPI = {
       dias_habilitados: configuracion.dias_habilitados,
       eliminar_existente: configuracion.eliminar_existente || true,
     };
+
+    if (miembroTallerId) {
+      payload.miembro_taller = miembroTallerId;
+    }
 
     // Agregar configuración por día si existe (con formato de hora corregido)
     if (configuracion.configuracion_por_dia) {

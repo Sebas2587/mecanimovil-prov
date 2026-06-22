@@ -24,6 +24,7 @@ import {
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import equipoTallerService, { type MiembroTaller } from '@/services/equipoTallerService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -370,6 +371,9 @@ export default function ConfiguracionHorariosScreen() {
 
   // Estados principales
   const [horarios, setHorarios] = useState<HorarioDia[]>([]);
+  // Agenda por mecánico: null => horario general del taller (fallback)
+  const [mecanicos, setMecanicos] = useState<MiembroTaller[]>([]);
+  const [miembroSeleccionado, setMiembroSeleccionado] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -435,7 +439,26 @@ export default function ConfiguracionHorariosScreen() {
     }
 
     cargarHorarios();
+    cargarMecanicos();
   }, [estadoProveedor]);
+
+  // Recargar la agenda al cambiar de mecánico (o volver al horario general)
+  useEffect(() => {
+    if (estadoProveedor?.estado_verificacion === 'aprobado') {
+      cargarHorarios();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [miembroSeleccionado]);
+
+  const cargarMecanicos = async () => {
+    try {
+      const equipo = await equipoTallerService.listar({ rol: 'mecanico' });
+      setMecanicos(equipo);
+    } catch (error) {
+      // El proveedor puede no ser taller o no tener equipo: silencioso
+      setMecanicos([]);
+    }
+  };
 
   const formatearHoraApi = (hora: string | undefined, fallback: string): string => {
     if (!hora) return fallback;
@@ -450,7 +473,7 @@ export default function ConfiguracionHorariosScreen() {
   const cargarHorarios = async () => {
     try {
       setLoading(true);
-      const raw = await horariosAPI.obtenerMisHorarios();
+      const raw = await horariosAPI.obtenerMisHorarios(miembroSeleccionado);
       const horariosData = parseHorariosApiResponse(raw);
       const necesitaConfigurar = !proveedorTieneHorariosActivos(horariosData);
       setSinHorariosEnServidor(necesitaConfigurar);
@@ -641,7 +664,7 @@ export default function ConfiguracionHorariosScreen() {
         configuracion.configuracion_por_dia = configuracionPorDia;
       }
 
-      const resultado = await horariosAPI.configurarSemanaCompleta(configuracion);
+      const resultado = await horariosAPI.configurarSemanaCompleta(configuracion, miembroSeleccionado);
 
       Alert.alert(
         'Horarios guardados',
@@ -888,6 +911,47 @@ export default function ConfiguracionHorariosScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + (hasChanges ? 100 : 20) }}
       >
         <View style={[styles.content, { paddingHorizontal: hx }]}>
+          {mecanicos.length > 0 && (
+            <View style={styles.uiCard}>
+              <Text style={styles.sectionTitle}>Agenda de</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mecanicoSelectorRow}>
+                <TouchableOpacity
+                  style={[styles.mecanicoChip, miembroSeleccionado === null && styles.mecanicoChipActive]}
+                  onPress={() => setMiembroSeleccionado(null)}
+                  activeOpacity={0.85}
+                >
+                  <InstitutionalIcon
+                    name="business"
+                    size={16}
+                    color={miembroSeleccionado === null ? I.onPrimary : I.body}
+                  />
+                  <Text style={[styles.mecanicoChipText, miembroSeleccionado === null && styles.mecanicoChipTextActive]}>
+                    Taller (general)
+                  </Text>
+                </TouchableOpacity>
+                {mecanicos.map((m) => {
+                  const activo = miembroSeleccionado === m.id;
+                  return (
+                    <TouchableOpacity
+                      key={m.id}
+                      style={[styles.mecanicoChip, activo && styles.mecanicoChipActive]}
+                      onPress={() => setMiembroSeleccionado(m.id)}
+                      activeOpacity={0.85}
+                    >
+                      <InstitutionalIcon name="person" size={16} color={activo ? I.onPrimary : I.body} />
+                      <Text style={[styles.mecanicoChipText, activo && styles.mecanicoChipTextActive]}>{m.nombre}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <Text style={styles.mecanicoSelectorHint}>
+                {miembroSeleccionado === null
+                  ? 'Horario general del taller (se usa cuando un mecánico no tiene agenda propia).'
+                  : 'Configura la agenda individual de este mecánico.'}
+              </Text>
+            </View>
+          )}
+
           <View style={[styles.uiCard, sinHorariosEnServidor && styles.uiCardHighlight]}>
             <View style={styles.infoCardContent}>
               <InstitutionalIcon
@@ -1045,6 +1109,40 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
 
+  mecanicoSelectorRow: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xxs,
+  },
+  mecanicoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.xs + 2,
+    paddingHorizontal: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  mecanicoChipActive: {
+    backgroundColor: I.primary,
+    borderColor: I.primary,
+  },
+  mecanicoChipText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.body,
+  },
+  mecanicoChipTextActive: {
+    color: I.onPrimary,
+  },
+  mecanicoSelectorHint: {
+    marginTop: SPACING.fixed.sm,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+  },
   modernPresetsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',

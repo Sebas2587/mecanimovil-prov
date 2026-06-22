@@ -11,8 +11,12 @@ export type MarcaMetaDraft = { id: number; nombre: string };
 
 export type ServicioSeleccionadoDraft = { marcaId: number; servicioId: number };
 
+export type ModalidadAtencion = 'en_taller' | 'a_domicilio' | 'ambas';
+
 export type OnboardingDraft = {
   tipo: 'taller' | 'mecanico' | null;
+  /** Modalidad de atención unificada (en taller / a domicilio / ambas) */
+  modalidad_atencion: ModalidadAtencion | null;
   nombre: string;
   descripcion: string;
   telefono: string;
@@ -34,6 +38,7 @@ export type OnboardingDraft = {
 
 export const INITIAL_ONBOARDING_DRAFT: OnboardingDraft = {
   tipo: null,
+  modalidad_atencion: null,
   nombre: '',
   descripcion: '',
   telefono: '',
