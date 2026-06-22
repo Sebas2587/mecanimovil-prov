@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Linking,
   KeyboardAvoidingView,
@@ -14,6 +13,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import Header from '@/components/Header';
+import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
@@ -38,10 +38,17 @@ import { extraerNueveDigitosDesdeGuardado, normalizarTelefonoChileParaGuardar } 
 import { calcularDuracionMinutos, esRangoHorarioValido, sumarMinutosAHora } from '@/utils/citaPersonalHorario';
 import { parseFechaLocal } from '@/utils/fechaLocal';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const hx = SPACING.container.horizontal;
+
+type FeedbackAccion = {
+  tipo: 'success' | 'error' | 'warning';
+  titulo: string;
+  mensaje: string;
+};
 
 function estadoLabel(estado: string): string {
   switch (estado) {
@@ -72,12 +79,21 @@ function estadoColors(estado: string) {
 export default function CitaAgendaPersonalDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
   const citaId = Number(id);
 
   const [cita, setCita] = useState<CitaAgendaPersonal | null>(null);
   const [loading, setLoading] = useState(true);
   const [procesando, setProcesando] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [feedbackAccion, setFeedbackAccion] = useState<FeedbackAccion | null>(null);
+
+  const mostrarFeedback = useCallback((feedback: FeedbackAccion) => {
+    setFeedbackAccion(feedback);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    });
+  }, []);
 
   const [clienteNombre, setClienteNombre] = useState('');
   const [clienteTelefono, setClienteTelefono] = useState('');
@@ -94,18 +110,18 @@ export default function CitaAgendaPersonalDetalleScreen() {
     resolveInitialPickerValue(),
   );
 
-  const cargarCita = useCallback(async () => {
+  const cargarCita = useCallback(async (opts?: { silent?: boolean }) => {
     if (!citaId || Number.isNaN(citaId)) return;
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     const res = await agendaProveedorService.obtenerCita(citaId);
     if (res.success && res.data) {
       setCita(res.data);
       poblarFormulario(res.data);
-    } else {
-      Alert.alert('Error', res.message || 'No se pudo cargar la cita.');
+    } else if (!opts?.silent) {
+      showAlert('Error', res.message || 'No se pudo cargar la cita.');
       router.back();
     }
-    setLoading(false);
+    if (!opts?.silent) setLoading(false);
   }, [citaId]);
 
   const poblarFormulario = (data: CitaAgendaPersonal) => {
@@ -149,90 +165,158 @@ export default function CitaAgendaPersonalDetalleScreen() {
     if (tel) Linking.openURL(`tel:${tel}`);
   }, [cita]);
 
+  const ejecutarCerrar = useCallback(async () => {
+    setFeedbackAccion(null);
+    setProcesando(true);
+    try {
+      const res = await agendaProveedorService.cerrarCita(citaId);
+      if (res.success) {
+        setEditando(false);
+        await cargarCita({ silent: true });
+        mostrarFeedback({
+          tipo: 'success',
+          titulo: 'Cita completada',
+          mensaje: 'La cita fue marcada como completada correctamente.',
+        });
+      } else {
+        mostrarFeedback({
+          tipo: 'error',
+          titulo: 'No se pudo completar',
+          mensaje: res.message || 'Ocurrió un error al cerrar la cita.',
+        });
+      }
+    } catch {
+      mostrarFeedback({
+        tipo: 'error',
+        titulo: 'Error',
+        mensaje: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      });
+    } finally {
+      setProcesando(false);
+    }
+  }, [citaId, cargarCita, mostrarFeedback]);
+
   const handleCerrar = useCallback(() => {
-    Alert.alert('Cerrar cita', '¿Marcar esta cita como completada?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Completar',
-        onPress: async () => {
-          setProcesando(true);
-          const res = await agendaProveedorService.cerrarCita(citaId);
-          setProcesando(false);
-          if (res.success) {
-            await cargarCita();
-            setEditando(false);
-          } else {
-            Alert.alert('Error', res.message || 'No se pudo cerrar la cita.');
-          }
-        },
-      },
-    ]);
-  }, [citaId, cargarCita]);
+    showConfirm('Cerrar cita', '¿Marcar esta cita como completada?', {
+      confirmText: 'Completar',
+      onConfirm: ejecutarCerrar,
+    });
+  }, [ejecutarCerrar]);
+
+  const ejecutarCancelar = useCallback(async () => {
+    setFeedbackAccion(null);
+    setProcesando(true);
+    try {
+      const res = await agendaProveedorService.cancelarCita(citaId);
+      if (res.success) {
+        setEditando(false);
+        await cargarCita({ silent: true });
+        mostrarFeedback({
+          tipo: 'success',
+          titulo: 'Cita cancelada',
+          mensaje: 'La cita fue cancelada. El horario quedó liberado en tu agenda.',
+        });
+      } else {
+        mostrarFeedback({
+          tipo: 'error',
+          titulo: 'No se pudo cancelar',
+          mensaje: res.message || 'Ocurrió un error al cancelar la cita.',
+        });
+      }
+    } catch {
+      mostrarFeedback({
+        tipo: 'error',
+        titulo: 'Error',
+        mensaje: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      });
+    } finally {
+      setProcesando(false);
+    }
+  }, [citaId, cargarCita, mostrarFeedback]);
 
   const handleCancelar = useCallback(() => {
-    Alert.alert('Cancelar cita', '¿Confirmas que deseas cancelar esta cita?', [
-      { text: 'No', style: 'cancel' },
-      {
-        text: 'Sí, cancelar',
-        style: 'destructive',
-        onPress: async () => {
-          setProcesando(true);
-          const res = await agendaProveedorService.cancelarCita(citaId);
-          setProcesando(false);
-          if (res.success) {
-            await cargarCita();
-            setEditando(false);
-          } else {
-            Alert.alert('Error', res.message || 'No se pudo cancelar la cita.');
-          }
-        },
-      },
-    ]);
-  }, [citaId, cargarCita]);
+    showConfirm('Cancelar cita', '¿Confirmas que deseas cancelar esta cita?', {
+      confirmText: 'Sí, cancelar',
+      onConfirm: ejecutarCancelar,
+    });
+  }, [ejecutarCancelar]);
+
+  const ejecutarEliminar = useCallback(async () => {
+    setFeedbackAccion(null);
+    setProcesando(true);
+    try {
+      const res = await agendaProveedorService.eliminarCita(citaId);
+      if (res.success) {
+        if (Platform.OS === 'web') {
+          showAlert('Cita eliminada', 'La cita fue eliminada correctamente.');
+        }
+        router.back();
+      } else {
+        mostrarFeedback({
+          tipo: 'error',
+          titulo: 'No se pudo eliminar',
+          mensaje: res.message || 'Ocurrió un error al eliminar la cita.',
+        });
+      }
+    } catch {
+      mostrarFeedback({
+        tipo: 'error',
+        titulo: 'Error',
+        mensaje: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      });
+    } finally {
+      setProcesando(false);
+    }
+  }, [citaId, mostrarFeedback]);
 
   const handleEliminar = useCallback(() => {
-    Alert.alert('Eliminar cita', 'Esta acción no se puede deshacer.', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: async () => {
-          setProcesando(true);
-          const res = await agendaProveedorService.eliminarCita(citaId);
-          setProcesando(false);
-          if (res.success) {
-            router.back();
-          } else {
-            Alert.alert('Error', res.message || 'No se pudo eliminar la cita.');
-          }
-        },
-      },
-    ]);
-  }, [citaId]);
+    showConfirm('Eliminar cita', 'Esta acción no se puede deshacer.', {
+      confirmText: 'Eliminar',
+      onConfirm: ejecutarEliminar,
+    });
+  }, [ejecutarEliminar]);
 
   const handleGuardarEdicion = useCallback(async () => {
+    setFeedbackAccion(null);
+
     const telError = getChilePhoneError(extraerNueveDigitosDesdeGuardado(clienteTelefono), true);
     if (telError) {
-      Alert.alert('Datos incompletos', telError);
+      mostrarFeedback({ tipo: 'warning', titulo: 'Datos incompletos', mensaje: telError });
       return;
     }
     if (!fechaHora.hora || !fechaHora.horaFin) {
-      Alert.alert('Datos incompletos', 'Selecciona hora de inicio y término para la cita.');
+      mostrarFeedback({
+        tipo: 'warning',
+        titulo: 'Datos incompletos',
+        mensaje: 'Selecciona hora de inicio y término para la cita.',
+      });
       return;
     }
     if (!esRangoHorarioValido(fechaHora.hora, fechaHora.horaFin)) {
-      Alert.alert('Datos incompletos', 'La hora de término debe ser al menos 15 minutos después del inicio.');
+      mostrarFeedback({
+        tipo: 'warning',
+        titulo: 'Datos incompletos',
+        mensaje: 'La hora de término debe ser al menos 15 minutos después del inicio.',
+      });
       return;
     }
     if (tipoServicio === 'domicilio') {
       if (!direccion.trim()) {
-        Alert.alert('Datos incompletos', 'Ingresa la dirección para servicio a domicilio.');
+        mostrarFeedback({
+          tipo: 'warning',
+          titulo: 'Datos incompletos',
+          mensaje: 'Ingresa la dirección para servicio a domicilio.',
+        });
         return;
       }
       const direccionOriginal = cita?.detalle.direccion?.trim();
       const sinCambio = direccionOriginal && direccionOriginal === direccion.trim();
       if (!direccionValidada && !sinCambio) {
-        Alert.alert('Dirección no confirmada', 'Selecciona una dirección válida de la lista de sugerencias.');
+        mostrarFeedback({
+          tipo: 'warning',
+          titulo: 'Dirección no confirmada',
+          mensaje: 'Selecciona una dirección válida de la lista de sugerencias.',
+        });
         return;
       }
     }
@@ -266,28 +350,46 @@ export default function CitaAgendaPersonalDetalleScreen() {
     };
 
     setProcesando(true);
-    const validacion = await agendaProveedorService.validarSlot({
-      ...payload,
-      excluir_cita_id: citaId,
-    });
-    if (!validacion.success || !validacion.data?.valido) {
+    try {
+      const validacion = await agendaProveedorService.validarSlot({
+        ...payload,
+        excluir_cita_id: citaId,
+      });
+      if (!validacion.success || !validacion.data?.valido) {
+        mostrarFeedback({
+          tipo: 'error',
+          titulo: 'Horario no disponible',
+          mensaje:
+            validacion.data?.error || validacion.message || 'El horario seleccionado no está disponible.',
+        });
+        return;
+      }
+
+      const res = await agendaProveedorService.actualizarCita(citaId, payload);
+
+      if (res.success) {
+        setEditando(false);
+        await cargarCita({ silent: true });
+        mostrarFeedback({
+          tipo: 'success',
+          titulo: 'Cambios guardados',
+          mensaje: 'La cita personal fue actualizada correctamente.',
+        });
+      } else {
+        mostrarFeedback({
+          tipo: 'error',
+          titulo: 'No se pudo guardar',
+          mensaje: res.message || 'No se pudo actualizar la cita.',
+        });
+      }
+    } catch {
+      mostrarFeedback({
+        tipo: 'error',
+        titulo: 'Error',
+        mensaje: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      });
+    } finally {
       setProcesando(false);
-      Alert.alert(
-        'Horario no disponible',
-        validacion.data?.error || validacion.message || 'El horario seleccionado no está disponible.',
-      );
-      return;
-    }
-
-    const res = await agendaProveedorService.actualizarCita(citaId, payload);
-    setProcesando(false);
-
-    if (res.success) {
-      setEditando(false);
-      await cargarCita();
-      Alert.alert('Guardado', 'Los cambios fueron guardados.');
-    } else {
-      Alert.alert('Error', res.message || 'No se pudo actualizar la cita.');
     }
   }, [
     citaId,
@@ -305,6 +407,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     fechaHora,
     cargarCita,
     cita,
+    mostrarFeedback,
   ]);
 
   const formatearFecha = (fecha: string) => {
@@ -357,6 +460,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={{ paddingHorizontal: hx, paddingBottom: insets.bottom + SPACING.fixed.xl }}
           showsVerticalScrollIndicator={false}
@@ -464,7 +568,16 @@ export default function CitaAgendaPersonalDetalleScreen() {
           <View style={styles.actions}>
             {esActiva && !editando && (
               <>
-                <ActionButton label="Editar" icon="create" variant="secondary" onPress={() => setEditando(true)} disabled={procesando} />
+                <ActionButton
+                  label="Editar"
+                  icon="create"
+                  variant="secondary"
+                  onPress={() => {
+                    setFeedbackAccion(null);
+                    setEditando(true);
+                  }}
+                  disabled={procesando}
+                />
                 <ActionButton label="Completar" icon="check-circle" variant="success" onPress={handleCerrar} disabled={procesando} />
                 <ActionButton label="Cancelar cita" icon="close-circle" variant="danger" onPress={handleCancelar} disabled={procesando} />
               </>
@@ -480,6 +593,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                   onPress={() => {
                     poblarFormulario(cita);
                     setEditando(false);
+                    setFeedbackAccion(null);
                   }}
                   disabled={procesando}
                 />
@@ -489,10 +603,23 @@ export default function CitaAgendaPersonalDetalleScreen() {
             {esCancelada && (
               <ActionButton label="Eliminar" icon="trash" variant="danger" onPress={handleEliminar} disabled={procesando} />
             )}
+
+            {procesando && (
+              <View style={styles.processingRow}>
+                <ActivityIndicator color={I.primary} />
+                <Text style={styles.processingText}>Procesando…</Text>
+              </View>
+            )}
           </View>
 
-          {procesando && (
-            <ActivityIndicator color={I.primary} style={styles.processing} />
+          {feedbackAccion && (
+            <View style={styles.feedbackWrap}>
+              <EstadoBanner
+                type={feedbackAccion.tipo}
+                title={feedbackAccion.titulo}
+                message={feedbackAccion.mensaje}
+              />
+            </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -726,7 +853,19 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansSemiBold,
   },
-  processing: {
-    marginTop: SPACING.fixed.md,
+  processingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xs,
+  },
+  processingText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    color: I.muted,
+  },
+  feedbackWrap: {
+    marginTop: SPACING.fixed.sm,
   },
 });

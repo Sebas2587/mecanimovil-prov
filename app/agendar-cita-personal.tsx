@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -32,8 +31,13 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { agendaProveedorService, type CitaAgendaPersonalCreatePayload } from '@/services/agendaProveedorService';
 import { serviciosProveedorAPI, type ServicioOferta } from '@/services/serviciosApi';
-import equipoTallerService, { type MiembroTaller, etiquetaModalidadMecanico } from '@/services/equipoTallerService';
+import equipoTallerService, {
+  type MiembroTaller,
+  etiquetaModalidadMecanico,
+  mecanicoCompatibleConTipoServicio,
+} from '@/services/equipoTallerService';
 import { useAuth } from '@/context/AuthContext';
+import { showAlert } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -41,9 +45,14 @@ const hx = SPACING.container.horizontal;
 
 type ModoServicio = 'catalogo' | 'manual';
 
+type ResultadoEnvio =
+  | { tipo: 'success'; citaId: number; fechaGuardada: string; mensaje?: string }
+  | { tipo: 'error' | 'warning'; titulo: string; mensaje: string };
+
 export default function AgendarCitaPersonalScreen() {
   const insets = useSafeAreaInsets();
-  const { estadoProveedor } = useAuth();
+  const scrollRef = useRef<ScrollView>(null);
+  const { estadoProveedor, puede, esSupervisor } = useAuth();
   const { fecha: fechaParam } = useLocalSearchParams<{ fecha?: string }>();
 
   const [clienteNombre, setClienteNombre] = useState('');
@@ -75,6 +84,9 @@ export default function AgendarCitaPersonalScreen() {
   const [ofertaSeleccionada, setOfertaSeleccionada] = useState<number | null>(null);
   const [loadingServicios, setLoadingServicios] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  const [resultadoEnvio, setResultadoEnvio] = useState<ResultadoEnvio | null>(null);
+
+  const puedeAgendar = !esSupervisor || puede('agenda');
 
   const esMecanico = useMemo(
     () => estadoProveedor?.tipo_proveedor === 'mecanico',
@@ -86,6 +98,17 @@ export default function AgendarCitaPersonalScreen() {
       setTipoServicio('domicilio');
     }
   }, [esMecanico]);
+
+  const mecanicosCompatibles = useMemo(
+    () => mecanicos.filter((m) => mecanicoCompatibleConTipoServicio(m, tipoServicio)),
+    [mecanicos, tipoServicio],
+  );
+
+  useEffect(() => {
+    if (miembroSeleccionado == null) return;
+    const sigueCompatible = mecanicosCompatibles.some((m) => m.id === miembroSeleccionado);
+    if (!sigueCompatible) setMiembroSeleccionado(null);
+  }, [mecanicosCompatibles, miembroSeleccionado]);
 
   useEffect(() => {
     let mounted = true;
@@ -144,6 +167,9 @@ export default function AgendarCitaPersonalScreen() {
     if (!esRangoHorarioValido(fechaHora.hora, fechaHora.horaFin)) {
       return 'La hora de término debe ser al menos 15 minutos después del inicio.';
     }
+    if (mecanicos.length > 0 && mecanicosCompatibles.length === 0) {
+      return 'No hay mecánicos compatibles con el tipo de servicio seleccionado.';
+    }
     return null;
   }, [
     clienteNombre,
@@ -157,6 +183,8 @@ export default function AgendarCitaPersonalScreen() {
     ofertaSeleccionada,
     servicioManual,
     fechaHora,
+    mecanicos,
+    mecanicosCompatibles,
   ]);
 
   const construirPayload = useCallback((): CitaAgendaPersonalCreatePayload => {
@@ -218,49 +246,69 @@ export default function AgendarCitaPersonalScreen() {
     miembroSeleccionado,
   ]);
 
+  const mostrarResultado = useCallback((resultado: ResultadoEnvio) => {
+    setResultadoEnvio(resultado);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    });
+  }, []);
+
   const handleGuardar = useCallback(async () => {
+    setResultadoEnvio(null);
+
+    if (!puedeAgendar) {
+      mostrarResultado({
+        tipo: 'error',
+        titulo: 'Sin permiso',
+        mensaje: 'No tienes permiso para agendar citas. Contacta al mandante del taller.',
+      });
+      return;
+    }
+
     const error = validarFormulario();
     if (error) {
-      Alert.alert('Datos incompletos', error);
+      mostrarResultado({ tipo: 'warning', titulo: 'Datos incompletos', mensaje: error });
       return;
     }
 
     const payload = construirPayload();
     setGuardando(true);
 
-    const validacion = await agendaProveedorService.validarSlot(payload);
-    if (!validacion.success || !validacion.data?.valido) {
+    try {
+      const validacion = await agendaProveedorService.validarSlot(payload);
+      if (!validacion.success || !validacion.data?.valido) {
+        const mensaje =
+          validacion.data?.error || validacion.message || 'El horario seleccionado no está disponible.';
+        mostrarResultado({ tipo: 'error', titulo: 'Horario no disponible', mensaje });
+        return;
+      }
+
+      const res = await agendaProveedorService.crearCita(payload);
+
+      if (res.success && res.data) {
+        const fechaGuardada = formatDateApi(fechaHora.fecha);
+        const mecanicoAsignado = res.data.mecanico_nombre?.trim();
+        const mensajeExito = mecanicoAsignado
+          ? `La cita fue creada y asignada a ${mecanicoAsignado}.`
+          : 'La cita personal fue creada correctamente.';
+        mostrarResultado({ tipo: 'success', citaId: res.data.id, fechaGuardada, mensaje: mensajeExito });
+        if (Platform.OS !== 'web') {
+          showAlert('Cita agendada', 'La cita personal fue creada correctamente.');
+        }
+      } else {
+        const mensaje = res.message || 'No se pudo crear la cita. Revisa los datos e inténtalo de nuevo.';
+        mostrarResultado({ tipo: 'error', titulo: 'No se pudo agendar', mensaje });
+      }
+    } catch (e) {
+      const mensaje =
+        e instanceof Error && e.message.trim()
+          ? e.message
+          : 'Ocurrió un error inesperado. Comprueba tu conexión e inténtalo de nuevo.';
+      mostrarResultado({ tipo: 'error', titulo: 'Error al agendar', mensaje });
+    } finally {
       setGuardando(false);
-      Alert.alert(
-        'Horario no disponible',
-        validacion.data?.error || validacion.message || 'El horario seleccionado no está disponible.',
-      );
-      return;
     }
-
-    const res = await agendaProveedorService.crearCita(payload);
-    setGuardando(false);
-
-    if (res.success && res.data) {
-      const fechaGuardada = formatDateApi(fechaHora.fecha);
-      Alert.alert('Cita agendada', 'La cita personal fue creada correctamente.', [
-        {
-          text: 'Ver calendario',
-          onPress: () =>
-            router.replace({
-              pathname: '/(tabs)/calendario',
-              params: { fecha: fechaGuardada },
-            }),
-        },
-        {
-          text: 'Ver detalle',
-          onPress: () => router.replace(`/cita-agenda-personal/${res.data!.id}`),
-        },
-      ]);
-    } else {
-      Alert.alert('Error', res.message || 'No se pudo crear la cita.');
-    }
-  }, [validarFormulario, construirPayload]);
+  }, [puedeAgendar, validarFormulario, construirPayload, fechaHora.fecha, mostrarResultado]);
 
   const toggleOferta = useCallback((id: number) => {
     setOfertaSeleccionada((prev) => (prev === id ? null : id));
@@ -281,6 +329,7 @@ export default function AgendarCitaPersonalScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={{
             paddingHorizontal: hx,
@@ -364,22 +413,29 @@ export default function AgendarCitaPersonalScreen() {
           {mecanicos.length > 0 && (
             <Section title="Mecánico asignado">
               <Text style={styles.helperText}>
-                Déjalo en automático para que el sistema asigne al mejor mecánico disponible, o elige uno específico.
+                {mecanicosCompatibles.length > 0
+                  ? 'En automático el sistema asigna al mejor mecánico disponible compatible con el tipo de servicio. También puedes elegir uno específico.'
+                  : 'No hay mecánicos compatibles con este tipo de servicio. Cambia a "En taller" o "A domicilio" según corresponda.'}
               </Text>
               <View style={styles.catalogoList}>
                 <TouchableOpacity
-                  style={[styles.catalogoItem, miembroSeleccionado === null && styles.catalogoItemSelected]}
-                  onPress={() => setMiembroSeleccionado(null)}
+                  style={[
+                    styles.catalogoItem,
+                    miembroSeleccionado === null && styles.catalogoItemSelected,
+                    mecanicosCompatibles.length === 0 && styles.catalogoItemDisabled,
+                  ]}
+                  onPress={() => mecanicosCompatibles.length > 0 && setMiembroSeleccionado(null)}
+                  disabled={mecanicosCompatibles.length === 0}
                   activeOpacity={0.85}
                 >
                   <Text style={[styles.catalogoItemTitle, miembroSeleccionado === null && styles.catalogoItemTitleOn]}>
                     Automático
                   </Text>
-                  {miembroSeleccionado === null && (
+                  {miembroSeleccionado === null && mecanicosCompatibles.length > 0 && (
                     <InstitutionalIcon name="check-circle" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                   )}
                 </TouchableOpacity>
-                {mecanicos.map((m) => {
+                {mecanicosCompatibles.map((m) => {
                   const selected = miembroSeleccionado === m.id;
                   const modalidadLabel = etiquetaModalidadMecanico(m);
                   return (
@@ -479,6 +535,17 @@ export default function AgendarCitaPersonalScreen() {
             <MontoCLPField value={precioReferencia} onChangeValue={setPrecioReferencia} />
           </Section>
 
+          {!puedeAgendar && (
+            <View style={styles.bannerWrap}>
+              <EstadoBanner
+                type="error"
+                title="Sin permiso de agenda"
+                message="Tu cuenta de supervisor no puede agendar citas. Pide al mandante que active el permiso de agenda."
+                icon="lock"
+              />
+            </View>
+          )}
+
           <Section title="Fecha y hora">
             <CatalogoFechaHoraPickers value={fechaHora} onChange={setFechaHora} modo="rango" />
             {(!fechaHora.hora || !fechaHora.horaFin) && (
@@ -486,10 +553,55 @@ export default function AgendarCitaPersonalScreen() {
             )}
           </Section>
 
+          {resultadoEnvio?.tipo === 'success' ? (
+            <View style={styles.resultadoWrap}>
+              <EstadoBanner
+                type="success"
+                title="Cita agendada"
+                message={resultadoEnvio.mensaje ?? 'La cita personal fue creada correctamente.'}
+                icon="check-circle"
+              />
+              <View style={styles.successActions}>
+                <TouchableOpacity
+                  style={styles.successActionBtn}
+                  onPress={() =>
+                    router.replace({
+                      pathname: '/(tabs)/calendario',
+                      params: { fecha: resultadoEnvio.fechaGuardada },
+                    })
+                  }
+                  activeOpacity={0.88}
+                >
+                  <InstitutionalIcon name="calendar" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.successActionText}>Ver calendario</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.successActionBtn}
+                  onPress={() => router.replace(`/cita-agenda-personal/${resultadoEnvio.citaId}`)}
+                  activeOpacity={0.88}
+                >
+                  <InstitutionalIcon name="eye-outline" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.successActionText}>Ver detalle</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : resultadoEnvio ? (
+            <View style={styles.resultadoWrap}>
+              <EstadoBanner
+                type={resultadoEnvio.tipo === 'warning' ? 'warning' : 'error'}
+                title={resultadoEnvio.titulo}
+                message={resultadoEnvio.mensaje}
+              />
+            </View>
+          ) : null}
+
           <TouchableOpacity
-            style={[styles.submitBtn, guardando && styles.submitBtnDisabled]}
+            style={[
+              styles.submitBtn,
+              (guardando || !puedeAgendar) && styles.submitBtnDisabled,
+            ]}
             onPress={handleGuardar}
-            disabled={guardando}
+            disabled={guardando || !puedeAgendar}
             activeOpacity={0.88}
           >
             {guardando ? (
@@ -622,6 +734,9 @@ const styles = StyleSheet.create({
     backgroundColor: I.primary,
     borderColor: I.primary,
   },
+  catalogoItemDisabled: {
+    opacity: 0.45,
+  },
   catalogoItemTitle: {
     flexShrink: 1,
     fontSize: TYPOGRAPHY.fontSize.base,
@@ -670,6 +785,31 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansMedium,
     color: I.accentYellow,
     marginTop: SPACING.fixed.xxs,
+  },
+  resultadoWrap: {
+    marginTop: SPACING.fixed.lg,
+    gap: SPACING.fixed.sm,
+  },
+  successActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.sm,
+  },
+  successActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xxs,
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.primary,
+    backgroundColor: withOpacity(I.primary, 0.06),
+  },
+  successActionText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
   },
   submitBtn: {
     flexDirection: 'row',

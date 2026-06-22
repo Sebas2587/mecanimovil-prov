@@ -19,6 +19,23 @@ export function etiquetaModalidadMecanico(
   }
 }
 
+/** Modalidad requerida según tipo de servicio de la cita. */
+export function modalidadRequeridaPorTipoServicio(
+  tipoServicio: 'taller' | 'domicilio',
+): ModalidadTecnico {
+  return tipoServicio === 'domicilio' ? 'a_domicilio' : 'en_taller';
+}
+
+/** True si el mecánico puede atender el tipo de servicio indicado. */
+export function mecanicoCompatibleConTipoServicio(
+  m: Pick<MiembroTaller, 'modalidad_tecnico'>,
+  tipoServicio: 'taller' | 'domicilio',
+): boolean {
+  const req = modalidadRequeridaPorTipoServicio(tipoServicio);
+  if (m.modalidad_tecnico === 'ambas') return true;
+  return m.modalidad_tecnico === req;
+}
+
 /** Permisos de gestión que el mandante otorga a un supervisor. */
 export interface PermisosSupervisor {
   servicios?: boolean;

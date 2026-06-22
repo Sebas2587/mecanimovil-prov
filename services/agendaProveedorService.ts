@@ -1,4 +1,5 @@
 import api from './api';
+import { extraerMensajeErrorApi } from '@/utils/extraerMensajeErrorApi';
 
 export type OrigenAgenda = 'mecanimovil' | 'personal';
 export type EstadoCitaPersonal = 'activa' | 'cerrada' | 'cancelada';
@@ -37,6 +38,8 @@ export interface CitaAgendaPersonal {
   etiqueta: string;
   editable: boolean;
   tiene_checklist: boolean;
+  mecanico_nombre?: string | null;
+  miembro_taller?: number | null;
 }
 
 export interface EventoAgendaUnificado {
@@ -118,11 +121,7 @@ function handleServiceError(error: unknown, action: string): ServiceResponse<nev
 
   if (err.response) {
     const data = err.response.data;
-    const msg =
-      data?.message
-      || data?.error
-      || (typeof data?.detail === 'string' ? data.detail : undefined)
-      || `Error al ${action}`;
+    const msg = extraerMensajeErrorApi(err as Parameters<typeof extraerMensajeErrorApi>[0], `Error al ${action}`);
     return { success: false, message: msg, error: data };
   }
 
