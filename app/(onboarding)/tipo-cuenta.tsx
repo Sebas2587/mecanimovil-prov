@@ -244,7 +244,7 @@ export default function TipoCuentaScreen() {
       // Mostrar error con opción de reintentar
       showConfirm('Error', mensajeError, {
         confirmText: 'Reintentar',
-        onConfirm: () => setTimeout(() => handleContinuar(), 500),
+        onConfirm: () => { setTimeout(() => handleContinuar(), 500); },
       });
     } finally {
       setIsLoading(false);
