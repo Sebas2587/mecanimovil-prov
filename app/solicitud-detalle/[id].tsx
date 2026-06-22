@@ -18,7 +18,8 @@ import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, withOpacity, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow, noShadow } from '@/app/design-system/tokens';
-import solicitudesService, { type SolicitudPublica, type OfertaProveedor, type MotivoRechazo, type DetalleServicioOferta } from '@/services/solicitudesService';
+import solicitudesService, { type SolicitudPublica, type OfertaProveedor, type MotivoRechazo, type DetalleServicioOferta, type MiembroTallerResumen } from '@/services/solicitudesService';
+import equipoTallerService, { type MiembroTaller, mecanicoCompatibleConTipoServicio } from '@/services/equipoTallerService';
 import { RechazarSolicitudModal } from '@/components/solicitudes/RechazarSolicitudModal';
 import { ProponerFechaCatalogoModal } from '@/components/solicitudes/ProponerFechaCatalogoModal';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -128,6 +129,7 @@ export default function SolicitudDetalleScreen() {
   const [mostrarModalFecha, setMostrarModalFecha] = useState(false);
   const [proponiendoFecha, setProponiendoFecha] = useState(false);
   const [fotoAmpliadaUrl, setFotoAmpliadaUrl] = useState<string | null>(null);
+  const [mecanicosEquipo, setMecanicosEquipo] = useState<MiembroTaller[]>([]);
 
   const cargarDatos = useCallback(async (opts?: { silent?: boolean }) => {
     if (!id) return;
@@ -206,6 +208,23 @@ export default function SolicitudDetalleScreen() {
     [solicitud, miOferta],
   );
 
+  const tecnicoSolicitud = useMemo((): MiembroTallerResumen | null => {
+    if (miOferta?.miembro_taller_detail) return miOferta.miembro_taller_detail;
+    if (miOferta?.es_fecha_alternativa && miOferta.miembro_taller_detail) {
+      return miOferta.miembro_taller_detail;
+    }
+    return solicitud?.miembro_taller_preferido_detail ?? null;
+  }, [solicitud, miOferta]);
+
+  const miembroInicialPropuesta = useMemo(() => {
+    return (
+      miOferta?.miembro_taller_asignado
+      ?? solicitud?.miembro_taller_preferido
+      ?? tecnicoSolicitud?.id
+      ?? null
+    );
+  }, [miOferta, solicitud, tecnicoSolicitud]);
+
   const formatearFecha = (fecha: string) => {
     const parsed = parseFechaLocal(fecha);
     if (!parsed) return '—';
@@ -272,6 +291,29 @@ export default function SolicitudDetalleScreen() {
     esAsignacionCatalogo &&
     (miOferta?.estado === 'pendiente_confirmacion' || miOferta?.estado === 'en_chat');
 
+  useEffect(() => {
+    if (!esAsignacionCatalogo) {
+      setMecanicosEquipo([]);
+      return;
+    }
+    let mounted = true;
+    equipoTallerService
+      .listar({ rol: 'mecanico', activo: true })
+      .then((equipo) => {
+        if (!mounted) return;
+        const tipoServicio = miOferta?.tipo_proveedor === 'mecanico' ? 'domicilio' : 'taller';
+        setMecanicosEquipo(
+          equipo.filter((m) => mecanicoCompatibleConTipoServicio(m, tipoServicio)),
+        );
+      })
+      .catch(() => {
+        if (mounted) setMecanicosEquipo([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [esAsignacionCatalogo, miOferta?.tipo_proveedor]);
+
   const ejecutarConfirmarCatalogo = async () => {
     if (!miOferta?.id) return;
     setConfirmandoCatalogo(true);
@@ -309,7 +351,12 @@ export default function SolicitudDetalleScreen() {
     );
   };
 
-  const handleProponerFechaCatalogo = async (fecha: string, hora: string, motivo: string) => {
+  const handleProponerFechaCatalogo = async (
+    fecha: string,
+    hora: string,
+    motivo: string,
+    miembroTallerId?: number | null,
+  ) => {
     if (!miOferta?.id) return;
     setProponiendoFecha(true);
     try {
@@ -317,7 +364,8 @@ export default function SolicitudDetalleScreen() {
         miOferta.id,
         fecha,
         hora || undefined,
-        motivo
+        motivo,
+        miembroTallerId,
       );
       if (result.success) {
         const payload = result.data as {
@@ -787,6 +835,35 @@ export default function SolicitudDetalleScreen() {
             ) : null}
           </View>
 
+          {tecnicoSolicitud ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionHeaderTitle}>Técnico preferido</Text>
+              <View style={styles.tecnicoCard}>
+                {tecnicoSolicitud.foto_url ? (
+                  <Image source={{ uri: tecnicoSolicitud.foto_url }} style={styles.tecnicoAvatar} />
+                ) : (
+                  <View style={styles.tecnicoAvatarPlaceholder}>
+                    <InstitutionalIcon name="person" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                  </View>
+                )}
+                <View style={styles.tecnicoInfo}>
+                  <Text style={styles.tecnicoNombre}>{tecnicoSolicitud.nombre}</Text>
+                  {tecnicoSolicitud.modalidad_display ? (
+                    <Text style={styles.tecnicoSub}>{tecnicoSolicitud.modalidad_display}</Text>
+                  ) : null}
+                  {tecnicoSolicitud.especialidades?.length ? (
+                    <Text style={styles.tecnicoSub} numberOfLines={2}>
+                      {tecnicoSolicitud.especialidades.map((e) => e.nombre).join(' · ')}
+                    </Text>
+                  ) : null}
+                  {miOferta?.es_cambio_tecnico ? (
+                    <Text style={styles.tecnicoCambio}>Cambio de técnico propuesto al cliente</Text>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+          ) : null}
+
           <View style={styles.section}>
             <Text style={styles.sectionHeaderTitle}>Fecha y hora preferida</Text>
             {fechaHoraPantalla.propuestaPendiente ? (
@@ -1003,6 +1080,13 @@ export default function SolicitudDetalleScreen() {
           fechaReferencia={fechaHoraPantalla.fecha || solicitud?.fecha_preferida}
           horaReferencia={fechaHoraPantalla.hora ?? solicitud?.hora_preferida}
           loading={proponiendoFecha}
+          mecanicos={mecanicosEquipo.map((m) => ({
+            id: m.id,
+            nombre: m.nombre,
+            foto_url: m.foto_url,
+            modalidad_display: m.modalidad_tecnico_display,
+          }))}
+          miembroInicial={miembroInicialPropuesta}
           onClose={() => setMostrarModalFecha(false)}
           onConfirm={handleProponerFechaCatalogo}
         />
@@ -1378,6 +1462,50 @@ const styles = StyleSheet.create({
     width: '100%' as const,
     height: '100%' as const,
     maxHeight: 640,
+  },
+
+  tecnicoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.canvas,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    gap: SPACING.fixed.sm,
+  },
+  tecnicoAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  tecnicoAvatarPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: I.surfaceStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tecnicoInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  tecnicoNombre: {
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  tecnicoSub: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+  },
+  tecnicoCambio: {
+    marginTop: 4,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
   },
 
   dateTimeRow: {

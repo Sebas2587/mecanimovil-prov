@@ -19,6 +19,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import {
   agendaProveedorService,
+  enriquecerCitaConTecnico,
   nombreServicioCita,
   type CitaAgendaPersonal,
   type CitaAgendaPersonalCreatePayload,
@@ -39,6 +40,7 @@ import { calcularDuracionMinutos, esRangoHorarioValido, sumarMinutosAHora } from
 import { parseFechaLocal } from '@/utils/fechaLocal';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
+import { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -115,8 +117,9 @@ export default function CitaAgendaPersonalDetalleScreen() {
     if (!opts?.silent) setLoading(true);
     const res = await agendaProveedorService.obtenerCita(citaId);
     if (res.success && res.data) {
-      setCita(res.data);
-      poblarFormulario(res.data);
+      const data = await enriquecerCitaConTecnico(res.data);
+      setCita(data);
+      poblarFormulario(data);
     } else if (!opts?.silent) {
       showAlert('Error', res.message || 'No se pudo cargar la cita.');
       router.back();
@@ -447,6 +450,17 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const precio = cita.detalle.precio_referencia
     ? formatearMontoCLP(cita.detalle.precio_referencia)
     : null;
+  const tecnicoModalidad =
+    cita.mecanico_modalidad_tecnico != null
+      ? etiquetaModalidadMecanico({
+          modalidad_tecnico: cita.mecanico_modalidad_tecnico,
+          modalidad_tecnico_display: cita.mecanico_modalidad_display ?? '',
+        })
+      : null;
+  const tecnicoEspecialidades =
+    cita.mecanico_especialidades && cita.mecanico_especialidades.length > 0
+      ? cita.mecanico_especialidades.join(', ')
+      : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -554,6 +568,23 @@ export default function CitaAgendaPersonalDetalleScreen() {
                 />
                 {cita.detalle.vehiculo_patente ? (
                   <InfoRow icon="document" label={cita.detalle.vehiculo_patente} />
+                ) : null}
+              </InfoSection>
+
+              <InfoSection title="Técnico asignado">
+                <InfoRow
+                  icon="construct"
+                  label={cita.mecanico_nombre?.trim() || 'Sin técnico asignado'}
+                />
+                {cita.miembro_taller ? (
+                  <>
+                    {tecnicoEspecialidades ? (
+                      <InfoRow icon="star" label={tecnicoEspecialidades} />
+                    ) : null}
+                    {tecnicoModalidad ? (
+                      <InfoRow icon="build" label={`Atiende: ${tecnicoModalidad}`} />
+                    ) : null}
+                  </>
                 ) : null}
               </InfoSection>
 

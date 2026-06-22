@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
@@ -30,13 +32,22 @@ const hx = SPACING.container.horizontal;
 
 const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
+export type MecanicoPropuestaOption = {
+  id: number;
+  nombre: string;
+  foto_url?: string | null;
+  modalidad_display?: string;
+};
+
 type Props = {
   visible: boolean;
   fechaReferencia?: string;
   horaReferencia?: string | null;
   loading?: boolean;
+  mecanicos?: MecanicoPropuestaOption[];
+  miembroInicial?: number | null;
   onClose: () => void;
-  onConfirm: (fecha: string, hora: string, motivo: string) => void;
+  onConfirm: (fecha: string, hora: string, motivo: string, miembroTallerId?: number | null) => void;
 };
 
 export function ProponerFechaCatalogoModal({
@@ -44,6 +55,8 @@ export function ProponerFechaCatalogoModal({
   fechaReferencia = '',
   horaReferencia = '',
   loading = false,
+  mecanicos = [],
+  miembroInicial = null,
   onClose,
   onConfirm,
 }: Props) {
@@ -52,20 +65,22 @@ export function ProponerFechaCatalogoModal({
     resolveInitialPickerValue(fechaReferencia, horaReferencia),
   );
   const [motivo, setMotivo] = useState('');
+  const [miembroSeleccionado, setMiembroSeleccionado] = useState<number | null>(miembroInicial);
 
   useEffect(() => {
     if (visible) {
       setPickerValue(resolveInitialPickerValue(fechaReferencia, horaReferencia));
       setMotivo('');
+      setMiembroSeleccionado(miembroInicial ?? null);
     }
-  }, [visible, fechaReferencia, horaReferencia]);
+  }, [visible, fechaReferencia, horaReferencia, miembroInicial]);
 
   const handleSubmit = useCallback(() => {
     if (loading) return;
     const fecha = formatDateApi(pickerValue.fecha);
     const hora = pickerValue.hora ?? '';
-    onConfirm(fecha, hora, motivo.trim());
-  }, [pickerValue, motivo, loading, onConfirm]);
+    onConfirm(fecha, hora, motivo.trim(), miembroSeleccionado);
+  }, [pickerValue, motivo, loading, onConfirm, miembroSeleccionado]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -104,6 +119,36 @@ export function ProponerFechaCatalogoModal({
           </View>
 
           <View style={styles.body}>
+            {mecanicos.length > 0 ? (
+              <>
+                <Text style={styles.fieldLabel}>Técnico asignado</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mecanicosRow}>
+                  {mecanicos.map((m) => {
+                    const sel = miembroSeleccionado === m.id;
+                    return (
+                      <TouchableOpacity
+                        key={m.id}
+                        style={[styles.mecanicoChip, sel && styles.mecanicoChipSelected]}
+                        onPress={() => setMiembroSeleccionado(m.id)}
+                        activeOpacity={0.85}
+                      >
+                        {m.foto_url ? (
+                          <Image source={{ uri: m.foto_url }} style={styles.mecanicoAvatar} />
+                        ) : (
+                          <View style={styles.mecanicoAvatarPlaceholder}>
+                            <InstitutionalIcon name="person" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                          </View>
+                        )}
+                        <Text style={[styles.mecanicoNombre, sel && styles.mecanicoNombreSelected]} numberOfLines={2}>
+                          {m.nombre}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </>
+            ) : null}
+
             <CatalogoFechaHoraPickers value={pickerValue} onChange={setPickerValue} />
 
             <Text style={styles.fieldLabel}>Motivo (opcional)</Text>
@@ -290,5 +335,47 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
     lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),
     color: I.onPrimary,
+  },
+  mecanicosRow: {
+    gap: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.sm,
+  },
+  mecanicoChip: {
+    width: 96,
+    alignItems: 'center',
+    padding: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
+  },
+  mecanicoChipSelected: {
+    borderColor: I.primary,
+    backgroundColor: withOpacity(I.primary, 0.08),
+  },
+  mecanicoAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginBottom: 4,
+  },
+  mecanicoAvatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginBottom: 4,
+    backgroundColor: I.surfaceStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mecanicoNombre: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+    textAlign: 'center',
+  },
+  mecanicoNombreSelected: {
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
   },
 });

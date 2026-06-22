@@ -1,4 +1,7 @@
+import { Platform } from 'react-native';
 import { getAPI } from './api';
+import { getItem } from '@/utils/authStorage';
+import ServerConfig from './serverConfig';
 
 export type RolMiembro = 'mandante' | 'supervisor' | 'mecanico';
 export type ModalidadTecnico = 'en_taller' | 'a_domicilio' | 'ambas';
@@ -46,11 +49,18 @@ export interface PermisosSupervisor {
   finanzas?: boolean;
 }
 
+export interface ArchivoFotoMiembro {
+  uri: string;
+  type?: string;
+  name?: string;
+}
+
 export interface MiembroTaller {
   id: number;
   rol: RolMiembro;
   rol_display: string;
   nombre: string;
+  foto_url?: string | null;
   usuario: number | null;
   especialidades: number[];
   especialidades_detalle: Array<{ id: number; nombre: string }>;
@@ -111,6 +121,12 @@ const equipoTallerService = {
     return response.data?.results || response.data || [];
   },
 
+  async obtener(id: number): Promise<MiembroTaller> {
+    const api = await getAPI();
+    const response = await api.get(`${BASE}${id}/`);
+    return response.data;
+  },
+
   async crear(data: CrearMiembroData): Promise<MiembroTaller> {
     const api = await getAPI();
     const response = await api.post(BASE, data);
@@ -149,6 +165,69 @@ const equipoTallerService = {
     const api = await getAPI();
     const response = await api.get(`${BASE}rendimiento/${buildQuery(params)}`);
     return response.data || [];
+  },
+
+  /** Sube o reemplaza la foto de perfil de un mecánico (campo multipart `foto`). */
+  async subirFoto(id: number, archivo: ArchivoFotoMiembro): Promise<MiembroTaller> {
+    const token = await getItem('authToken');
+    if (!token) {
+      throw new Error('No hay token de autenticación disponible');
+    }
+
+    await ServerConfig.getInstance().initialize();
+    const baseURL = await ServerConfig.getInstance().getBaseURL();
+    const uploadURL = `${baseURL}${BASE}${id}/subir-foto/`;
+
+    const type = archivo.type || 'image/jpeg';
+    let name = archivo.name || `foto_mecanico_${Date.now()}.jpg`;
+    if (!name.includes('.')) {
+      name = `${name}.jpg`;
+    }
+
+    const formData = new FormData();
+    if (Platform.OS === 'web') {
+      const res = await fetch(archivo.uri);
+      if (!res.ok) {
+        throw new Error('No se pudo leer la imagen seleccionada');
+      }
+      const blob = await res.blob();
+      formData.append('foto', blob, name);
+    } else {
+      formData.append(
+        'foto',
+        {
+          uri: archivo.uri,
+          type,
+          name,
+        } as any,
+      );
+    }
+
+    const headers: Record<string, string> = {
+      Authorization: `Token ${token}`,
+    };
+    if (baseURL.includes('ngrok-free.app') || baseURL.includes('ngrok.io')) {
+      headers['ngrok-skip-browser-warning'] = 'true';
+    }
+
+    const response = await fetch(uploadURL, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let message = 'No se pudo subir la foto';
+      try {
+        const data = await response.json();
+        message = data?.error || data?.detail || message;
+      } catch {
+        /* ignore */
+      }
+      throw new Error(message);
+    }
+
+    return response.json();
   },
 };
 

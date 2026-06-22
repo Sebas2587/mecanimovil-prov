@@ -46,7 +46,7 @@ const hx = SPACING.container.horizontal;
 type ModoServicio = 'catalogo' | 'manual';
 
 type ResultadoEnvio =
-  | { tipo: 'success'; citaId: number; fechaGuardada: string; mensaje?: string }
+  | { tipo: 'success'; citaId: number; mensaje?: string }
   | { tipo: 'error' | 'warning'; titulo: string; mensaje: string };
 
 export default function AgendarCitaPersonalScreen() {
@@ -286,12 +286,11 @@ export default function AgendarCitaPersonalScreen() {
       const res = await agendaProveedorService.crearCita(payload);
 
       if (res.success && res.data) {
-        const fechaGuardada = formatDateApi(fechaHora.fecha);
         const mecanicoAsignado = res.data.mecanico_nombre?.trim();
         const mensajeExito = mecanicoAsignado
           ? `La cita fue creada y asignada a ${mecanicoAsignado}.`
           : 'La cita personal fue creada correctamente.';
-        mostrarResultado({ tipo: 'success', citaId: res.data.id, fechaGuardada, mensaje: mensajeExito });
+        mostrarResultado({ tipo: 'success', citaId: res.data.id, mensaje: mensajeExito });
         if (Platform.OS !== 'web') {
           showAlert('Cita agendada', 'La cita personal fue creada correctamente.');
         }
@@ -562,19 +561,6 @@ export default function AgendarCitaPersonalScreen() {
                 icon="check-circle"
               />
               <View style={styles.successActions}>
-                <TouchableOpacity
-                  style={styles.successActionBtn}
-                  onPress={() =>
-                    router.replace({
-                      pathname: '/(tabs)/calendario',
-                      params: { fecha: resultadoEnvio.fechaGuardada },
-                    })
-                  }
-                  activeOpacity={0.88}
-                >
-                  <InstitutionalIcon name="calendar" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.successActionText}>Ver calendario</Text>
-                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.successActionBtn}
                   onPress={() => router.replace(`/cita-agenda-personal/${resultadoEnvio.citaId}`)}

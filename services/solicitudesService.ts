@@ -50,6 +50,15 @@ export interface RechazoSolicitud {
   tiempo_respuesta?: string | null;
 }
 
+export interface MiembroTallerResumen {
+  id: number;
+  nombre: string;
+  foto_url?: string | null;
+  modalidad_tecnico?: string;
+  modalidad_display?: string;
+  especialidades?: Array<{ id: number; nombre: string }>;
+}
+
 export interface SolicitudPublica {
   id: string;
   cliente?: number | null;
@@ -83,6 +92,8 @@ export interface SolicitudPublica {
   detalles_ubicacion?: string;
   fecha_preferida: string;
   hora_preferida?: string | null;
+  miembro_taller_preferido?: number | null;
+  miembro_taller_preferido_detail?: MiembroTallerResumen | null;
   estado:
     | 'creada'
     | 'seleccionando_servicios'
@@ -222,6 +233,9 @@ export interface OfertaProveedor {
   hora_disponible: string;
   es_fecha_alternativa?: boolean;
   motivo_fecha_alternativa?: string | null;
+  es_cambio_tecnico?: boolean;
+  miembro_taller_asignado?: number | null;
+  miembro_taller_detail?: MiembroTallerResumen | null;
   origen?: 'manual' | 'catalogo' | 'secundaria';
   estado:
     | 'enviada'
@@ -984,13 +998,15 @@ export const proponerFechaCatalogo = async (
   ofertaId: string,
   fecha: string,
   hora?: string,
-  motivo?: string
+  motivo?: string,
+  miembroTallerId?: number | null,
 ): Promise<ApiResponse<Record<string, unknown>>> => {
   try {
     const response = await api.post(`/ordenes/ofertas/${ofertaId}/proponer-fecha-catalogo/`, {
       fecha_disponible: fecha,
       hora_disponible: hora,
       motivo,
+      miembro_taller_id: miembroTallerId ?? undefined,
     });
     return { success: true, data: response.data };
   } catch (error: any) {

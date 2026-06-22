@@ -1,5 +1,6 @@
 import api from './api';
 import { extraerMensajeErrorApi } from '@/utils/extraerMensajeErrorApi';
+import equipoTallerService from './equipoTallerService';
 
 export type OrigenAgenda = 'mecanimovil' | 'personal';
 export type EstadoCitaPersonal = 'activa' | 'cerrada' | 'cancelada';
@@ -39,6 +40,9 @@ export interface CitaAgendaPersonal {
   editable: boolean;
   tiene_checklist: boolean;
   mecanico_nombre?: string | null;
+  mecanico_especialidades?: string[];
+  mecanico_modalidad_tecnico?: 'en_taller' | 'a_domicilio' | 'ambas' | null;
+  mecanico_modalidad_display?: string | null;
   miembro_taller?: number | null;
 }
 
@@ -273,4 +277,34 @@ export function nombreServicioCita(cita: CitaAgendaPersonal): string {
 
 export function nombreServicioEvento(evento: EventoAgendaUnificado): string {
   return (evento.servicio_nombre || 'Servicio').trim();
+}
+
+/** Completa nombre, especialidades y modalidad del técnico desde el equipo del taller. */
+export async function enriquecerCitaConTecnico(
+  cita: CitaAgendaPersonal,
+): Promise<CitaAgendaPersonal> {
+  if (!cita.miembro_taller) return cita;
+
+  const tieneEspecialidades = (cita.mecanico_especialidades?.length ?? 0) > 0;
+  const tieneModalidad = cita.mecanico_modalidad_tecnico != null;
+  if (tieneEspecialidades && tieneModalidad) return cita;
+
+  try {
+    const miembro = await equipoTallerService.obtener(cita.miembro_taller);
+    return {
+      ...cita,
+      mecanico_nombre: cita.mecanico_nombre?.trim() || miembro.nombre,
+      mecanico_especialidades: tieneEspecialidades
+        ? cita.mecanico_especialidades!
+        : miembro.especialidades_detalle.map((e) => e.nombre),
+      mecanico_modalidad_tecnico: tieneModalidad
+        ? cita.mecanico_modalidad_tecnico
+        : miembro.modalidad_tecnico,
+      mecanico_modalidad_display: tieneModalidad
+        ? cita.mecanico_modalidad_display
+        : miembro.modalidad_tecnico_display,
+    };
+  } catch {
+    return cita;
+  }
 }

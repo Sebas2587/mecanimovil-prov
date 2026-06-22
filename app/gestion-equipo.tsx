@@ -11,7 +11,9 @@ import {
   TextInput,
   Modal,
   Switch,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Stack } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -82,6 +84,8 @@ type FormState = {
   email: string;
   tieneAcceso: boolean;
   permisos: PermisosSupervisor;
+  fotoUri: string | null;
+  fotoUrlExistente: string | null;
 };
 
 const EMPTY_FORM: FormState = {
@@ -95,6 +99,8 @@ const EMPTY_FORM: FormState = {
   email: '',
   tieneAcceso: false,
   permisos: { ...DEFAULT_PERMISOS },
+  fotoUri: null,
+  fotoUrlExistente: null,
 };
 
 export default function GestionEquipoScreen() {
@@ -163,6 +169,8 @@ export default function GestionEquipoScreen() {
       email: m.usuario_email || '',
       tieneAcceso: Boolean(m.tiene_acceso),
       permisos: { ...DEFAULT_PERMISOS, ...(m.permisos || {}) },
+      fotoUri: null,
+      fotoUrlExistente: m.foto_url || null,
     });
     setModalVisible(true);
   };
@@ -181,6 +189,32 @@ export default function GestionEquipoScreen() {
         ? prev.especialidades.filter((e) => e !== id)
         : [...prev.especialidades, id],
     }));
+  };
+
+  const seleccionarFotoMecanico = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso requerido', 'Necesitamos acceso a tus fotos para subir la imagen del mecánico.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        setForm((prev) => ({
+          ...prev,
+          fotoUri: asset.uri,
+          fotoUrlExistente: null,
+        }));
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudo seleccionar la foto.');
+    }
   };
 
   const guardar = async () => {
@@ -217,10 +251,19 @@ export default function GestionEquipoScreen() {
         if (!form.tieneAcceso && form.username.trim()) payload.username = form.username.trim();
         if (form.password.trim()) payload.password = form.password.trim();
       }
+      let miembroId = form.id;
       if (form.id) {
         await equipoTallerService.actualizar(form.id, payload);
       } else {
-        await equipoTallerService.crear(payload);
+        const creado = await equipoTallerService.crear(payload);
+        miembroId = creado.id;
+      }
+      if (form.rol === 'mecanico' && form.fotoUri && miembroId) {
+        await equipoTallerService.subirFoto(miembroId, {
+          uri: form.fotoUri,
+          type: 'image/jpeg',
+          name: `mecanico_${miembroId}.jpg`,
+        });
       }
       setModalVisible(false);
       await cargar();
@@ -270,7 +313,13 @@ export default function GestionEquipoScreen() {
     <View key={m.id} style={[styles.card, !m.activo && styles.cardInactiva]}>
       <View style={styles.cardHeader}>
         <View style={styles.cardHeaderLeft}>
-          <InstitutionalIcon name="person" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+          {m.foto_url ? (
+            <Image source={{ uri: m.foto_url }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <InstitutionalIcon name="person" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            </View>
+          )}
           <View style={{ marginLeft: SPACING.sm, flex: 1 }}>
             <Text style={styles.cardTitle}>{m.nombre}</Text>
             <Text style={styles.cardSubtitle}>
@@ -471,6 +520,26 @@ export default function GestionEquipoScreen() {
 
               {form.rol === 'mecanico' && (
                 <>
+                  <Text style={styles.label}>Foto de perfil</Text>
+                  <View style={styles.fotoRow}>
+                    {form.fotoUri || form.fotoUrlExistente ? (
+                      <Image
+                        source={{ uri: form.fotoUri || form.fotoUrlExistente || undefined }}
+                        style={styles.fotoPreview}
+                      />
+                    ) : (
+                      <View style={styles.fotoPreviewPlaceholder}>
+                        <InstitutionalIcon name="person" size={28} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                      </View>
+                    )}
+                    <TouchableOpacity style={styles.fotoPickerBtn} onPress={seleccionarFotoMecanico}>
+                      <InstitutionalIcon name="camera" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                      <Text style={styles.fotoPickerText}>
+                        {form.fotoUri || form.fotoUrlExistente ? 'Cambiar foto' : 'Agregar foto'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
                   <Text style={styles.label}>Modalidad de atención</Text>
                   <View style={styles.chipsRow}>
                     {MODALIDADES.map((mod) => {
@@ -570,6 +639,46 @@ const styles = StyleSheet.create({
   cardInactiva: { opacity: 0.6 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: withOpacity(I.primary, 0.08),
+  },
+  avatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: withOpacity(I.primary, 0.08),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fotoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm },
+  fotoPreview: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: withOpacity(I.text, 0.06),
+  },
+  fotoPreviewPlaceholder: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: withOpacity(I.text, 0.06),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fotoPickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: 1,
+    borderColor: withOpacity(I.primary, 0.35),
+  },
+  fotoPickerText: { color: I.primary, fontFamily: FF.semibold, marginLeft: 6, fontSize: 13 },
   cardTitle: { fontFamily: FF.semibold, fontSize: 15, color: I.text },
   cardSubtitle: { fontFamily: FF.regular, fontSize: 12, color: I.muted, marginTop: 2 },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACING.sm },
