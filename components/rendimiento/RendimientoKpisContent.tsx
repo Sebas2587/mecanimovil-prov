@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,15 @@ import {
   useProveedorKpisResumen,
   targetTierNameForScore,
 } from '@/hooks/useProveedorKpisResumen';
+import equipoTallerService, { type RendimientoMecanico } from '@/services/equipoTallerService';
+
+function rangoFechas(dias: number): { desde: string; hasta: string } {
+  const hasta = new Date();
+  const desde = new Date();
+  desde.setDate(desde.getDate() - dias);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return { desde: fmt(desde), hasta: fmt(hasta) };
+}
 
 const DIAS_OPCIONES = [7, 30, 90] as const;
 
@@ -147,6 +156,25 @@ export function RendimientoKpisContent() {
     () => (data != null ? targetTierNameForScore(data.score_rendimiento) : '—'),
     [data]
   );
+
+  const [mecanicoKpis, setMecanicoKpis] = useState<RendimientoMecanico[]>([]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let activo = true;
+    const { desde, hasta } = rangoFechas(diasVentana);
+    equipoTallerService
+      .rendimiento({ desde, hasta })
+      .then((lista) => {
+        if (activo) setMecanicoKpis(lista);
+      })
+      .catch(() => {
+        if (activo) setMecanicoKpis([]);
+      });
+    return () => {
+      activo = false;
+    };
+  }, [enabled, diasVentana]);
 
   const metricRows = useMemo((): [MetricItem, MetricItem][] | null => {
     if (!data) return null;
@@ -390,6 +418,34 @@ export function RendimientoKpisContent() {
               <SectionTitle>DATOS EN ESTE PERIODO</SectionTitle>
               <DsCard>{metricRows ? <TwoColumnMetricGrid rows={metricRows} /> : null}</DsCard>
             </View>
+
+            {mecanicoKpis.length > 0 && (
+              <View style={styles.sectionWrap}>
+                <SectionTitle>RENDIMIENTO POR MECÁNICO</SectionTitle>
+                <DsCard>
+                  <View style={[styles.mecRow, styles.mecHeaderRow]}>
+                    <Text style={[styles.mecNombre, styles.mecHeaderText]}>Mecánico</Text>
+                    <Text style={[styles.mecNum, styles.mecHeaderText]}>Asign.</Text>
+                    <Text style={[styles.mecNum, styles.mecHeaderText]}>Compl.</Text>
+                    <Text style={[styles.mecNum, styles.mecHeaderText]}>En proc.</Text>
+                  </View>
+                  {mecanicoKpis.map((m, idx) => (
+                    <View
+                      key={m.mecanico_id}
+                      style={[styles.mecRow, idx < mecanicoKpis.length - 1 && styles.metricGridRowBorder]}
+                    >
+                      <Text style={[styles.mecNombre, !m.activo && styles.mecInactivo]} numberOfLines={1}>
+                        {m.nombre}
+                        {!m.activo ? ' (off)' : ''}
+                      </Text>
+                      <Text style={styles.mecNum}>{m.ordenes_asignadas}</Text>
+                      <Text style={styles.mecNum}>{m.ordenes_completadas}</Text>
+                      <Text style={styles.mecNum}>{m.ordenes_en_proceso}</Text>
+                    </View>
+                  ))}
+                </DsCard>
+              </View>
+            )}
 
             <View style={styles.sectionWrap}>
               <Text style={styles.disclaimer}>
@@ -648,5 +704,37 @@ const styles = StyleSheet.create({
     lineHeight: lh(caption.fontSize, caption.lineHeight),
     fontFamily: FF.sansRegular,
     color: I.muted,
+  },
+  mecRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.fixed.sm,
+  },
+  mecHeaderRow: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+  },
+  mecHeaderText: {
+    color: I.muted,
+    fontFamily: FF.sansSemiBold,
+  },
+  mecNombre: {
+    flex: 1,
+    paddingRight: SPACING.fixed.sm,
+    fontSize: small.fontSize,
+    lineHeight: lh(small.fontSize, small.lineHeight),
+    fontFamily: FF.sansMedium,
+    color: I.ink,
+  },
+  mecInactivo: {
+    color: I.muted,
+  },
+  mecNum: {
+    width: 56,
+    textAlign: 'center',
+    fontSize: caption.fontSize,
+    lineHeight: lh(caption.fontSize, caption.lineHeight),
+    fontFamily: FF.monoMedium,
+    color: I.ink,
   },
 });

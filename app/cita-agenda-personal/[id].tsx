@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -30,6 +29,14 @@ import {
   resolveInitialPickerValue,
   type CatalogoFechaHoraValue,
 } from '@/components/solicitudes/CatalogoFechaHoraPickers';
+import { InstitutionalField } from '@/components/forms/InstitutionalField';
+import { MontoCLPField, parsePrecioReferencia, formatMontoInputLocalized } from '@/components/forms/MontoCLPField';
+import { ChilePhoneField, getChilePhoneError } from '@/components/forms/ChilePhoneField';
+import ChileAddressField from '@/components/forms/ChileAddressField';
+import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
+import { extraerNueveDigitosDesdeGuardado } from '@/utils/chilePhone';
+import { calcularDuracionMinutos, esRangoHorarioValido, sumarMinutosAHora } from '@/utils/citaPersonalHorario';
+import { parseFechaLocal } from '@/utils/fechaLocal';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 
 const I = COLORS.institutional;
@@ -75,6 +82,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const [clienteNombre, setClienteNombre] = useState('');
   const [clienteTelefono, setClienteTelefono] = useState('');
   const [direccion, setDireccion] = useState('');
+  const [direccionValidada, setDireccionValidada] = useState<ChileFormattedAddress | null>(null);
   const [vehiculoMarca, setVehiculoMarca] = useState('');
   const [vehiculoModelo, setVehiculoModelo] = useState('');
   const [vehiculoPatente, setVehiculoPatente] = useState('');
@@ -111,11 +119,16 @@ export default function CitaAgendaPersonalDetalleScreen() {
     setServicioNombre(det.servicio_nombre || det.servicio_nombre_resuelto || '');
     setDescripcion(det.descripcion || '');
     setPrecioReferencia(
-      det.precio_referencia != null ? String(det.precio_referencia) : '',
+      det.precio_referencia != null ? formatMontoInputLocalized(det.precio_referencia) : '',
     );
     setTipoServicio(data.tipo_servicio);
+    setDireccionValidada(null);
     setFechaHora(
-      resolveInitialPickerValue(data.fecha_servicio, data.hora_servicio),
+      resolveInitialPickerValue(
+        data.fecha_servicio,
+        data.hora_servicio,
+        data.duracion_minutos ?? 60,
+      ),
     );
   };
 
@@ -198,9 +211,30 @@ export default function CitaAgendaPersonalDetalleScreen() {
   }, [citaId]);
 
   const handleGuardarEdicion = useCallback(async () => {
-    if (!fechaHora.hora) {
-      Alert.alert('Datos incompletos', 'Selecciona una hora para la cita.');
+    const telError = getChilePhoneError(extraerNueveDigitosDesdeGuardado(clienteTelefono), true);
+    if (telError) {
+      Alert.alert('Datos incompletos', telError);
       return;
+    }
+    if (!fechaHora.hora || !fechaHora.horaFin) {
+      Alert.alert('Datos incompletos', 'Selecciona hora de inicio y término para la cita.');
+      return;
+    }
+    if (!esRangoHorarioValido(fechaHora.hora, fechaHora.horaFin)) {
+      Alert.alert('Datos incompletos', 'La hora de término debe ser al menos 15 minutos después del inicio.');
+      return;
+    }
+    if (tipoServicio === 'domicilio') {
+      if (!direccion.trim()) {
+        Alert.alert('Datos incompletos', 'Ingresa la dirección para servicio a domicilio.');
+        return;
+      }
+      const direccionOriginal = cita?.detalle.direccion?.trim();
+      const sinCambio = direccionOriginal && direccionOriginal === direccion.trim();
+      if (!direccionValidada && !sinCambio) {
+        Alert.alert('Dirección no confirmada', 'Selecciona una dirección válida de la lista de sugerencias.');
+        return;
+      }
     }
 
     const detalle: CitaAgendaPersonalCreatePayload['detalle'] = {
@@ -215,17 +249,18 @@ export default function CitaAgendaPersonalDetalleScreen() {
     if (descripcion.trim()) detalle.descripcion = descripcion.trim();
 
     if (tipoServicio === 'domicilio') {
-      detalle.direccion = direccion.trim();
+      detalle.direccion = (direccionValidada?.line ?? direccion).trim();
     }
 
     if (precioReferencia.trim()) {
-      const precio = parseFloat(precioReferencia.replace(/[^0-9.,]/g, '').replace(',', '.'));
-      if (!Number.isNaN(precio)) detalle.precio_referencia = precio;
+      const precio = parsePrecioReferencia(precioReferencia);
+      if (precio != null) detalle.precio_referencia = precio;
     }
 
     const payload: CitaAgendaPersonalCreatePayload = {
       fecha_servicio: formatDateApi(fechaHora.fecha),
       hora_servicio: `${fechaHora.hora}:00`,
+      duracion_minutos: calcularDuracionMinutos(fechaHora.hora, fechaHora.horaFin),
       tipo_servicio: tipoServicio,
       detalle,
     };
@@ -266,17 +301,29 @@ export default function CitaAgendaPersonalDetalleScreen() {
     precioReferencia,
     tipoServicio,
     direccion,
+    direccionValidada,
     fechaHora,
     cargarCita,
+    cita,
   ]);
 
-  const formatearFecha = (fecha: string) =>
-    new Date(fecha).toLocaleDateString('es-CL', {
+  const formatearFecha = (fecha: string) => {
+    const parsed = parseFechaLocal(fecha);
+    if (!parsed) return fecha;
+    return parsed.toLocaleDateString('es-CL', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
       year: 'numeric',
     });
+  };
+
+  const formatearRangoHora = (horaInicio: string, duracionMinutos?: number) => {
+    const inicio = formatearHora(horaInicio);
+    if (!duracionMinutos || duracionMinutos <= 0) return inicio;
+    const fin = sumarMinutosAHora(inicio, duracionMinutos);
+    return `${inicio} – ${fin}`;
+  };
 
   const formatearHora = (hora: string) => hora.substring(0, 5);
 
@@ -332,7 +379,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
             <View style={styles.heroMeta}>
               <InstitutionalIcon name="calendar" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.heroMetaText}>
-                {formatearFecha(cita.fecha_servicio)} · {formatearHora(cita.hora_servicio)}
+                {formatearFecha(cita.fecha_servicio)} · {formatearRangoHora(cita.hora_servicio, cita.duracion_minutos)}
               </Text>
             </View>
 
@@ -351,26 +398,37 @@ export default function CitaAgendaPersonalDetalleScreen() {
           {editando && esActiva ? (
             <>
               <EditSection title="Cliente">
-                <EditField label="Nombre" value={clienteNombre} onChangeText={setClienteNombre} />
-                <EditField label="Teléfono" value={clienteTelefono} onChangeText={setClienteTelefono} keyboardType="phone-pad" />
+                <InstitutionalField label="Nombre" value={clienteNombre} onChangeText={setClienteNombre} />
+                <ChilePhoneField value={clienteTelefono} onChangeValue={setClienteTelefono} />
               </EditSection>
               <EditSection title="Vehículo">
-                <EditField label="Marca" value={vehiculoMarca} onChangeText={setVehiculoMarca} />
-                <EditField label="Modelo" value={vehiculoModelo} onChangeText={setVehiculoModelo} />
-                <EditField label="Patente" value={vehiculoPatente} onChangeText={setVehiculoPatente} autoCapitalize="characters" />
+                <InstitutionalField label="Marca" value={vehiculoMarca} onChangeText={setVehiculoMarca} />
+                <InstitutionalField label="Modelo" value={vehiculoModelo} onChangeText={setVehiculoModelo} />
+                <InstitutionalField label="Patente" value={vehiculoPatente} onChangeText={setVehiculoPatente} autoCapitalize="characters" />
               </EditSection>
               {tipoServicio === 'domicilio' && (
                 <EditSection title="Dirección">
-                  <EditField label="Dirección" value={direccion} onChangeText={setDireccion} multiline />
+                  <ChileAddressField
+                    label="Dirección del servicio *"
+                    hint="Busca una dirección real en Chile. Escribe al menos 4 caracteres y elige un resultado."
+                    value={direccion}
+                    validated={direccionValidada}
+                    onChangeText={setDireccion}
+                    onValidatedChange={setDireccionValidada}
+                  />
                 </EditSection>
               )}
               <EditSection title="Servicio">
-                <EditField label="Nombre servicio" value={servicioNombre} onChangeText={setServicioNombre} />
-                <EditField label="Descripción" value={descripcion} onChangeText={setDescripcion} multiline />
-                <EditField label="Precio referencia" value={precioReferencia} onChangeText={setPrecioReferencia} keyboardType="numeric" />
+                <InstitutionalField label="Nombre servicio" value={servicioNombre} onChangeText={setServicioNombre} />
+                <InstitutionalField label="Descripción" value={descripcion} onChangeText={setDescripcion} multiline />
+                <MontoCLPField
+                  label="Precio referencia"
+                  value={precioReferencia}
+                  onChangeValue={setPrecioReferencia}
+                />
               </EditSection>
               <EditSection title="Fecha y hora">
-                <CatalogoFechaHoraPickers value={fechaHora} onChange={setFechaHora} />
+                <CatalogoFechaHoraPickers value={fechaHora} onChange={setFechaHora} modo="rango" />
               </EditSection>
             </>
           ) : (
@@ -482,37 +540,6 @@ function EditSection({ title, children }: { title: string; children: React.React
     <View style={styles.infoSection}>
       <Text style={styles.infoSectionTitle}>{title}</Text>
       <View style={styles.infoCard}>{children}</View>
-    </View>
-  );
-}
-
-function EditField({
-  label,
-  value,
-  onChangeText,
-  keyboardType,
-  multiline,
-  autoCapitalize,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (t: string) => void;
-  keyboardType?: 'default' | 'phone-pad' | 'number-pad' | 'numeric';
-  multiline?: boolean;
-  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
-}) {
-  return (
-    <View style={styles.editField}>
-      <Text style={styles.editLabel}>{label}</Text>
-      <TextInput
-        style={[styles.editInput, multiline && styles.editInputMulti]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholderTextColor={I.muted}
-        keyboardType={keyboardType}
-        multiline={multiline}
-        autoCapitalize={autoCapitalize ?? 'sentences'}
-      />
     </View>
   );
 }
@@ -656,7 +683,7 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     ...SHADOWS.editorial,
-    gap: SPACING.fixed.sm,
+    gap: SPACING.fixed.md,
   },
   infoRow: {
     flexDirection: 'row',
@@ -678,29 +705,6 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     color: I.body,
     lineHeight: Math.round(TYPOGRAPHY.fontSize.base * 1.45),
-  },
-  editField: {
-    gap: SPACING.fixed.xxs,
-  },
-  editLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansMedium,
-    color: I.body,
-  },
-  editInput: {
-    backgroundColor: I.surfaceStrong,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    paddingHorizontal: SPACING.fixed.sm + 4,
-    paddingVertical: SPACING.fixed.sm,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansRegular,
-    color: I.ink,
-  },
-  editInputMulti: {
-    minHeight: 72,
-    textAlignVertical: 'top',
   },
   actions: {
     marginTop: SPACING.fixed.lg,

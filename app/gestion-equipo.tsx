@@ -1,0 +1,474 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  Alert,
+  ActivityIndicator,
+  TextInput,
+  Modal,
+  Switch,
+} from 'react-native';
+import { Stack } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Header from '@/components/Header';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { navigateBack } from '@/utils/navigateBack';
+import equipoTallerService, {
+  type MiembroTaller,
+  type ModalidadTecnico,
+  type RolMiembro,
+  type CrearMiembroData,
+} from '@/services/equipoTallerService';
+import { especialidadesAPI, type CategoriaServicio } from '@/services/api';
+
+const INST = COLORS.institutional;
+const I = {
+  primary: INST.primary,
+  white: INST.onPrimary,
+  text: INST.ink,
+  muted: INST.muted,
+  background: INST.surfaceSoft,
+  danger: INST.semanticDown,
+};
+const FF = {
+  regular: TYPOGRAPHY.fontFamily.regular,
+  semibold: TYPOGRAPHY.fontFamily.sansSemiBold,
+  bold: TYPOGRAPHY.fontFamily.bold,
+};
+const hx = SPACING.container.horizontal;
+
+const MODALIDADES: { value: ModalidadTecnico; label: string }[] = [
+  { value: 'en_taller', label: 'En taller' },
+  { value: 'a_domicilio', label: 'A domicilio' },
+  { value: 'ambas', label: 'Ambas' },
+];
+
+type FormState = {
+  id: number | null;
+  rol: RolMiembro;
+  nombre: string;
+  especialidades: number[];
+  modalidad_tecnico: ModalidadTecnico;
+};
+
+const EMPTY_FORM: FormState = {
+  id: null,
+  rol: 'mecanico',
+  nombre: '',
+  especialidades: [],
+  modalidad_tecnico: 'en_taller',
+};
+
+export default function GestionEquipoScreen() {
+  const [miembros, setMiembros] = useState<MiembroTaller[]>([]);
+  const [categorias, setCategorias] = useState<CategoriaServicio[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+
+  const cargar = useCallback(async () => {
+    try {
+      const [equipo, cats] = await Promise.all([
+        equipoTallerService.listar(),
+        especialidadesAPI.obtenerCategorias().catch(() => []),
+      ]);
+      setMiembros(equipo);
+      setCategorias(cats);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo cargar el equipo del taller.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      cargar();
+    }, [cargar]),
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    cargar();
+  }, [cargar]);
+
+  const mecanicos = useMemo(() => miembros.filter((m) => m.rol === 'mecanico'), [miembros]);
+  const supervisor = useMemo(() => miembros.find((m) => m.rol === 'supervisor') || null, [miembros]);
+
+  const abrirCrearMecanico = () => {
+    setForm({ ...EMPTY_FORM, rol: 'mecanico' });
+    setModalVisible(true);
+  };
+
+  const abrirCrearSupervisor = () => {
+    setForm({ ...EMPTY_FORM, rol: 'supervisor' });
+    setModalVisible(true);
+  };
+
+  const abrirEditar = (m: MiembroTaller) => {
+    setForm({
+      id: m.id,
+      rol: m.rol,
+      nombre: m.nombre,
+      especialidades: m.especialidades || [],
+      modalidad_tecnico: m.modalidad_tecnico,
+    });
+    setModalVisible(true);
+  };
+
+  const toggleEspecialidad = (id: number) => {
+    setForm((prev) => ({
+      ...prev,
+      especialidades: prev.especialidades.includes(id)
+        ? prev.especialidades.filter((e) => e !== id)
+        : [...prev.especialidades, id],
+    }));
+  };
+
+  const guardar = async () => {
+    if (!form.nombre.trim()) {
+      Alert.alert('Falta el nombre', 'Ingresa el nombre del miembro.');
+      return;
+    }
+    if (form.rol === 'mecanico' && form.especialidades.length === 0) {
+      Alert.alert('Falta especialidad', 'Un mecánico debe tener al menos una especialidad.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload: CrearMiembroData = {
+        rol: form.rol,
+        nombre: form.nombre.trim(),
+        especialidades: form.especialidades,
+        modalidad_tecnico: form.modalidad_tecnico,
+      };
+      if (form.id) {
+        await equipoTallerService.actualizar(form.id, payload);
+      } else {
+        await equipoTallerService.crear(payload);
+      }
+      setModalVisible(false);
+      await cargar();
+    } catch (error: any) {
+      const detalle =
+        error?.response?.data?.rol?.[0] ||
+        error?.response?.data?.especialidades?.[0] ||
+        error?.response?.data?.detail ||
+        'No se pudo guardar el miembro.';
+      Alert.alert('Error', String(detalle));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmarEliminar = (m: MiembroTaller) => {
+    Alert.alert('Eliminar', `¿Eliminar a ${m.nombre} del equipo?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await equipoTallerService.eliminar(m.id);
+            await cargar();
+          } catch {
+            Alert.alert('Error', 'No se pudo eliminar.');
+          }
+        },
+      },
+    ]);
+  };
+
+  const toggleActivo = async (m: MiembroTaller) => {
+    try {
+      await equipoTallerService.toggleActivo(m);
+      await cargar();
+    } catch {
+      Alert.alert('Error', 'No se pudo cambiar el estado del mecánico.');
+    }
+  };
+
+  const renderMecanico = (m: MiembroTaller) => (
+    <View key={m.id} style={[styles.card, !m.activo && styles.cardInactiva]}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardHeaderLeft}>
+          <InstitutionalIcon name="person" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+          <View style={{ marginLeft: SPACING.sm, flex: 1 }}>
+            <Text style={styles.cardTitle}>{m.nombre}</Text>
+            <Text style={styles.cardSubtitle}>
+              {m.modalidad_tecnico_display}
+              {!m.activo ? ' · Deshabilitado' : ''}
+            </Text>
+          </View>
+        </View>
+        <Switch value={m.activo} onValueChange={() => toggleActivo(m)} />
+      </View>
+
+      {m.especialidades_detalle?.length > 0 && (
+        <View style={styles.chipsRow}>
+          {m.especialidades_detalle.map((e) => (
+            <View key={e.id} style={styles.chipReadonly}>
+              <Text style={styles.chipReadonlyText}>{e.nombre}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={styles.cardActions}>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => abrirEditar(m)}>
+          <InstitutionalIcon name="create" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+          <Text style={styles.actionBtnText}>Editar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => confirmarEliminar(m)}>
+          <InstitutionalIcon name="trash" size={18} color={I.danger} strokeWidth={ICON_STROKE_WIDTH} />
+          <Text style={[styles.actionBtnText, { color: I.danger }]}>Eliminar</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <Header title="Gestión de Equipo" showBack onBackPress={() => navigateBack('/(tabs)')} />
+
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={I.primary} />
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          {/* Supervisor */}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Supervisor</Text>
+          </View>
+          {supervisor ? (
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardHeaderLeft}>
+                  <InstitutionalIcon name="shield-checkmark" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                  <View style={{ marginLeft: SPACING.sm, flex: 1 }}>
+                    <Text style={styles.cardTitle}>{supervisor.nombre}</Text>
+                    <Text style={styles.cardSubtitle}>Habilita/deshabilita mecánicos</Text>
+                  </View>
+                </View>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => abrirEditar(supervisor)}>
+                  <InstitutionalIcon name="create" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.addInline} onPress={abrirCrearSupervisor}>
+              <InstitutionalIcon name="add-circle" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.addInlineText}>Designar supervisor</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Mecánicos */}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Mecánicos ({mecanicos.length})</Text>
+            <TouchableOpacity style={styles.addBtn} onPress={abrirCrearMecanico}>
+              <InstitutionalIcon name="add" size={18} color={I.white} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.addBtnText}>Agregar</Text>
+            </TouchableOpacity>
+          </View>
+
+          {mecanicos.length === 0 ? (
+            <Text style={styles.emptyText}>
+              Aún no tienes mecánicos. Agrega uno para asignar servicios automáticamente.
+            </Text>
+          ) : (
+            mecanicos.map(renderMecanico)
+          )}
+        </ScrollView>
+      )}
+
+      {/* Modal de formulario */}
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              {form.id ? 'Editar' : 'Agregar'} {form.rol === 'supervisor' ? 'supervisor' : 'mecánico'}
+            </Text>
+
+            <ScrollView style={{ maxHeight: 420 }}>
+              <Text style={styles.label}>Nombre</Text>
+              <TextInput
+                style={styles.input}
+                value={form.nombre}
+                onChangeText={(t) => setForm((p) => ({ ...p, nombre: t }))}
+                placeholder="Nombre del miembro"
+                placeholderTextColor={I.muted}
+              />
+
+              {form.rol === 'mecanico' && (
+                <>
+                  <Text style={styles.label}>Modalidad de atención</Text>
+                  <View style={styles.chipsRow}>
+                    {MODALIDADES.map((mod) => {
+                      const sel = form.modalidad_tecnico === mod.value;
+                      return (
+                        <TouchableOpacity
+                          key={mod.value}
+                          style={[styles.chip, sel && styles.chipSelected]}
+                          onPress={() => setForm((p) => ({ ...p, modalidad_tecnico: mod.value }))}
+                        >
+                          <Text style={[styles.chipText, sel && styles.chipTextSelected]}>{mod.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={styles.label}>Especialidades</Text>
+                  <View style={styles.chipsRow}>
+                    {categorias.map((cat) => {
+                      const sel = form.especialidades.includes(cat.id);
+                      return (
+                        <TouchableOpacity
+                          key={cat.id}
+                          style={[styles.chip, sel && styles.chipSelected]}
+                          onPress={() => toggleEspecialidad(cat.id)}
+                        >
+                          <Text style={[styles.chipText, sel && styles.chipTextSelected]}>{cat.nombre}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnGhost]}
+                onPress={() => setModalVisible(false)}
+                disabled={saving}
+              >
+                <Text style={styles.modalBtnGhostText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={guardar} disabled={saving}>
+                {saving ? (
+                  <ActivityIndicator color={I.white} />
+                ) : (
+                  <Text style={styles.modalBtnPrimaryText}>Guardar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: I.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scroll: { paddingHorizontal: hx, paddingBottom: SPACING['2xl'] },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
+  },
+  sectionTitle: { fontFamily: FF.semibold, fontSize: 16, color: I.text },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: I.primary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDERS.radius.md,
+  },
+  addBtnText: { color: I.white, fontFamily: FF.semibold, marginLeft: 4 },
+  addInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: 1,
+    borderColor: withOpacity(I.primary, 0.3),
+    borderStyle: 'dashed',
+  },
+  addInlineText: { color: I.primary, fontFamily: FF.semibold, marginLeft: SPACING.sm },
+  card: {
+    backgroundColor: I.white,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    ...SHADOWS.sm,
+  },
+  cardInactiva: { opacity: 0.6 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  cardTitle: { fontFamily: FF.semibold, fontSize: 15, color: I.text },
+  cardSubtitle: { fontFamily: FF.regular, fontSize: 12, color: I.muted, marginTop: 2 },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACING.sm },
+  chip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 6,
+    borderRadius: BORDERS.radius.full,
+    borderWidth: 1,
+    borderColor: withOpacity(I.primary, 0.4),
+    marginRight: SPACING.xs,
+    marginBottom: SPACING.xs,
+  },
+  chipSelected: { backgroundColor: I.primary, borderColor: I.primary },
+  chipText: { color: I.primary, fontFamily: FF.regular, fontSize: 13 },
+  chipTextSelected: { color: I.white, fontFamily: FF.semibold },
+  chipReadonly: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.full,
+    backgroundColor: withOpacity(I.primary, 0.1),
+    marginRight: SPACING.xs,
+    marginBottom: SPACING.xs,
+  },
+  chipReadonlyText: { color: I.primary, fontFamily: FF.regular, fontSize: 12 },
+  cardActions: { flexDirection: 'row', marginTop: SPACING.md },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', marginRight: SPACING.lg },
+  actionBtnText: { color: I.primary, fontFamily: FF.semibold, marginLeft: 4, fontSize: 13 },
+  emptyText: { color: I.muted, fontFamily: FF.regular, fontSize: 14, paddingVertical: SPACING.md },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: I.white,
+    borderTopLeftRadius: BORDERS.radius.lg,
+    borderTopRightRadius: BORDERS.radius.lg,
+    padding: SPACING.lg,
+  },
+  modalTitle: { fontFamily: FF.bold, fontSize: 18, color: I.text, marginBottom: SPACING.md },
+  label: { fontFamily: FF.semibold, fontSize: 13, color: I.text, marginTop: SPACING.md, marginBottom: SPACING.xs },
+  input: {
+    borderWidth: 1,
+    borderColor: withOpacity(I.text, 0.15),
+    borderRadius: BORDERS.radius.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    fontFamily: FF.regular,
+    color: I.text,
+  },
+  modalActions: { flexDirection: 'row', marginTop: SPACING.lg },
+  modalBtn: { flex: 1, paddingVertical: SPACING.md, borderRadius: BORDERS.radius.md, alignItems: 'center' },
+  modalBtnGhost: { marginRight: SPACING.sm, backgroundColor: withOpacity(I.text, 0.06) },
+  modalBtnGhostText: { color: I.text, fontFamily: FF.semibold },
+  modalBtnPrimary: { backgroundColor: I.primary },
+  modalBtnPrimaryText: { color: I.white, fontFamily: FF.semibold },
+});

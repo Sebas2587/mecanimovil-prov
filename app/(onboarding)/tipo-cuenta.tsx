@@ -18,8 +18,15 @@ import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 
 const I = COLORS.institutional;
 
+type ModalidadAtencion = 'en_taller' | 'a_domicilio' | 'ambas';
+
+// La modalidad se mapea a `tipo` (taller/mecanico) por compatibilidad con el backend
+// (estrategia strangler). `ambas` y `en_taller` son talleres; `a_domicilio` es mecánico.
+const modalidadToTipo = (m: ModalidadAtencion): 'taller' | 'mecanico' =>
+  m === 'a_domicilio' ? 'mecanico' : 'taller';
+
 export default function TipoCuentaScreen() {
-  const [tipoSeleccionado, setTipoSeleccionado] = useState<'taller' | 'mecanico' | null>(null);
+  const [modalidadSeleccionada, setModalidadSeleccionada] = useState<ModalidadAtencion | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingCredentials, setIsCheckingCredentials] = useState(true);
   const router = useRouter();
@@ -28,8 +35,14 @@ export default function TipoCuentaScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (draft.tipo) setTipoSeleccionado(draft.tipo);
-    }, [draft.tipo]),
+      if (draft.modalidad_atencion) {
+        setModalidadSeleccionada(draft.modalidad_atencion);
+      } else if (draft.tipo === 'mecanico') {
+        setModalidadSeleccionada('a_domicilio');
+      } else if (draft.tipo === 'taller') {
+        setModalidadSeleccionada('en_taller');
+      }
+    }, [draft.modalidad_atencion, draft.tipo]),
   );
 
   // Verificar si hay credenciales pendientes de registro y hacer login automático
@@ -111,13 +124,14 @@ export default function TipoCuentaScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Solo ejecutar una vez al montar
 
-  const handleSeleccion = (tipo: 'taller' | 'mecanico') => {
-    setTipoSeleccionado(tipo);
-    patchDraft({ tipo });
+  const handleSeleccion = (modalidad: ModalidadAtencion) => {
+    setModalidadSeleccionada(modalidad);
+    patchDraft({ modalidad_atencion: modalidad, tipo: modalidadToTipo(modalidad) });
   };
 
   const handleContinuar = async () => {
-    if (!tipoSeleccionado || isLoading || isCheckingCredentials) return;
+    if (!modalidadSeleccionada || isLoading || isCheckingCredentials) return;
+    const tipoSeleccionado = modalidadToTipo(modalidadSeleccionada);
     
     // Si no está autenticado, intentar hacer login con credenciales pendientes
     if (!isAuthenticated) {
@@ -191,10 +205,10 @@ export default function TipoCuentaScreen() {
         console.log('Onboarding inicializado:', response);
       }
       
-      patchDraft({ tipo: tipoSeleccionado });
+      patchDraft({ tipo: tipoSeleccionado, modalidad_atencion: modalidadSeleccionada });
       router.push({
         pathname: '/(onboarding)/informacion-basica' as any,
-        params: { tipo: tipoSeleccionado },
+        params: { tipo: tipoSeleccionado, modalidad_atencion: modalidadSeleccionada },
       });
     } catch (error: any) {
       if (__DEV__) {
@@ -219,10 +233,10 @@ export default function TipoCuentaScreen() {
         if (__DEV__) {
           console.log('Perfil ya existe, continuando con información básica');
         }
-        patchDraft({ tipo: tipoSeleccionado });
+        patchDraft({ tipo: tipoSeleccionado, modalidad_atencion: modalidadSeleccionada });
         router.push({
           pathname: '/(onboarding)/informacion-basica' as any,
-          params: { tipo: tipoSeleccionado },
+          params: { tipo: tipoSeleccionado, modalidad_atencion: modalidadSeleccionada },
         });
         return;
       }
@@ -241,17 +255,17 @@ export default function TipoCuentaScreen() {
     <OnboardingScreenLayout
       footer={
         <OnboardingPrimaryButton
-          label={tipoSeleccionado ? 'Continuar' : 'Selecciona una opción'}
+          label={modalidadSeleccionada ? 'Continuar' : 'Selecciona una opción'}
           onPress={handleContinuar}
-          disabled={!tipoSeleccionado}
+          disabled={!modalidadSeleccionada}
           loading={isLoading || isCheckingCredentials}
           loadingLabel={isCheckingCredentials ? 'Verificando…' : 'Inicializando…'}
         />
       }
     >
       <OnboardingHeader
-        title="¿Qué tipo de servicio ofreces?"
-        subtitle="Selecciona la opción que mejor describa tu negocio"
+        title="¿Cómo atiendes a tus clientes?"
+        subtitle="Elige tu modalidad de atención. Podrás configurar tu equipo después."
         currentStep={1}
         totalSteps={5}
         canGoBack={false}
@@ -259,68 +273,67 @@ export default function TipoCuentaScreen() {
       />
 
       <View style={onboardingStyles.optionsStack}>
-        <TouchableOpacity
-          style={[
-            onboardingStyles.optionCard,
-            tipoSeleccionado === 'taller' && onboardingStyles.optionCardSelected,
-          ]}
-          onPress={() => handleSeleccion('taller')}
-          activeOpacity={0.85}
-        >
-          <View style={onboardingStyles.optionCardBody}>
-            <View style={onboardingStyles.optionHeaderRow}>
-              <InstitutionalIcon
-                name="business"
-                size={28}
-                color={tipoSeleccionado === 'taller' ? I.primary : I.muted}
-                strokeWidth={ICON_STROKE_WIDTH}
-              />
-              <Text
-                style={[
-                  onboardingStyles.optionTitle,
-                  tipoSeleccionado === 'taller' && onboardingStyles.optionTitleSelected,
-                ]}
-              >
-                Taller Mecánico
-              </Text>
-            </View>
-            <Text style={onboardingStyles.optionDescription}>
-              Tengo un taller físico donde los clientes traen sus vehículos para reparación y mantenimiento.
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            onboardingStyles.optionCard,
-            tipoSeleccionado === 'mecanico' && onboardingStyles.optionCardSelected,
-          ]}
-          onPress={() => handleSeleccion('mecanico')}
-          activeOpacity={0.85}
-        >
-          <View style={onboardingStyles.optionCardBody}>
-            <View style={onboardingStyles.optionHeaderRow}>
-              <InstitutionalIcon
-                name="car-sport"
-                size={28}
-                color={tipoSeleccionado === 'mecanico' ? I.primary : I.muted}
-                strokeWidth={ICON_STROKE_WIDTH}
-              />
-              <Text
-                style={[
-                  onboardingStyles.optionTitle,
-                  tipoSeleccionado === 'mecanico' && onboardingStyles.optionTitleSelected,
-                ]}
-              >
-                Mecánico a Domicilio
-              </Text>
-            </View>
-            <Text style={onboardingStyles.optionDescription}>
-              Ofrezco servicios de mecánica móvil, yendo directamente a la ubicación del cliente.
-            </Text>
-          </View>
-        </TouchableOpacity>
+        {MODALIDAD_OPCIONES.map((opcion) => {
+          const seleccionada = modalidadSeleccionada === opcion.value;
+          return (
+            <TouchableOpacity
+              key={opcion.value}
+              style={[
+                onboardingStyles.optionCard,
+                seleccionada && onboardingStyles.optionCardSelected,
+              ]}
+              onPress={() => handleSeleccion(opcion.value)}
+              activeOpacity={0.85}
+            >
+              <View style={onboardingStyles.optionCardBody}>
+                <View style={onboardingStyles.optionHeaderRow}>
+                  <InstitutionalIcon
+                    name={opcion.icon}
+                    size={28}
+                    color={seleccionada ? I.primary : I.muted}
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
+                  <Text
+                    style={[
+                      onboardingStyles.optionTitle,
+                      seleccionada && onboardingStyles.optionTitleSelected,
+                    ]}
+                  >
+                    {opcion.title}
+                  </Text>
+                </View>
+                <Text style={onboardingStyles.optionDescription}>{opcion.description}</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </OnboardingScreenLayout>
   );
-} 
+}
+
+const MODALIDAD_OPCIONES: {
+  value: ModalidadAtencion;
+  title: string;
+  description: string;
+  icon: string;
+}[] = [
+  {
+    value: 'en_taller',
+    title: 'En taller (lugar físico)',
+    description: 'Tengo un taller físico donde los clientes traen sus vehículos para reparación y mantenimiento.',
+    icon: 'business',
+  },
+  {
+    value: 'a_domicilio',
+    title: 'A domicilio',
+    description: 'Ofrezco servicios de mecánica móvil, yendo directamente a la ubicación del cliente.',
+    icon: 'car-sport',
+  },
+  {
+    value: 'ambas',
+    title: 'En taller y a domicilio',
+    description: 'Atiendo en mi taller y también ofrezco servicio a domicilio. Podrás asignar a cada mecánico su modalidad.',
+    icon: 'swap-horizontal',
+  },
+];

@@ -197,6 +197,7 @@ export default function RootLayout() {
                   <Stack.Screen name="zonas-servicio" options={{ headerShown: false }} />
                   <Stack.Screen name="configuracion-perfil" options={{ headerShown: false }} />
                   <Stack.Screen name="gestionar-taller" options={{ headerShown: false }} />
+                  <Stack.Screen name="gestion-equipo" options={{ headerShown: false }} />
                   <Stack.Screen name="rendimiento-kpis" options={{ headerShown: false }} />
                   <Stack.Screen name="actualizar-ubicacion" options={{ headerShown: false }} />
                   <Stack.Screen name="orden-detalle/[id]" options={{ headerShown: false }} />

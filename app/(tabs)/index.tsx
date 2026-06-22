@@ -17,7 +17,7 @@ import {
   ShieldCheck, Clock,
   TrendingUp, TrendingDown, ChevronRight, Search,
   Wrench, Settings, Map, MapPin, AlertTriangle, CreditCard,
-  Wifi,
+  Wifi, Users,
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
@@ -1093,6 +1093,23 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               </View>
+
+              {!esMecanicoDomicilio && (
+                <View style={themedStyles.mgmtRow}>
+                  <TouchableOpacity
+                    style={themedStyles.mgmtCard}
+                    onPress={() => router.push('/gestion-equipo')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={themedStyles.mgmtIconBox}>
+                      <Users size={22} color={palette.ink} />
+                    </View>
+                    <View style={themedStyles.mgmtCardTextCol}>
+                      <Text style={themedStyles.mgmtCardTitle}>Equipo</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {esMecanicoDomicilio && (
                 <View style={themedStyles.mgmtRow}>

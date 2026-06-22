@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -12,9 +11,16 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import Header from '@/components/Header';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
+import { InstitutionalField } from '@/components/forms/InstitutionalField';
+import { MontoCLPField, parsePrecioReferencia } from '@/components/forms/MontoCLPField';
+import { ChilePhoneField, getChilePhoneError } from '@/components/forms/ChilePhoneField';
+import ChileAddressField from '@/components/forms/ChileAddressField';
+import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
+import { extraerNueveDigitosDesdeGuardado } from '@/utils/chilePhone';
+import { esRangoHorarioValido, calcularDuracionMinutos } from '@/utils/citaPersonalHorario';
 import {
   CatalogoFechaHoraPickers,
   formatDateApi,
@@ -26,6 +32,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { agendaProveedorService, type CitaAgendaPersonalCreatePayload } from '@/services/agendaProveedorService';
 import { serviciosProveedorAPI, type ServicioOferta } from '@/services/serviciosApi';
+import equipoTallerService, { type MiembroTaller } from '@/services/equipoTallerService';
 import { useAuth } from '@/context/AuthContext';
 
 const I = COLORS.institutional;
@@ -37,10 +44,12 @@ type ModoServicio = 'catalogo' | 'manual';
 export default function AgendarCitaPersonalScreen() {
   const insets = useSafeAreaInsets();
   const { estadoProveedor } = useAuth();
+  const { fecha: fechaParam } = useLocalSearchParams<{ fecha?: string }>();
 
   const [clienteNombre, setClienteNombre] = useState('');
   const [clienteTelefono, setClienteTelefono] = useState('');
   const [direccion, setDireccion] = useState('');
+  const [direccionValidada, setDireccionValidada] = useState<ChileFormattedAddress | null>(null);
   const [vehiculoMarca, setVehiculoMarca] = useState('');
   const [vehiculoModelo, setVehiculoModelo] = useState('');
   const [vehiculoPatente, setVehiculoPatente] = useState('');
@@ -50,9 +59,17 @@ export default function AgendarCitaPersonalScreen() {
   const [descripcion, setDescripcion] = useState('');
   const [precioReferencia, setPrecioReferencia] = useState('');
   const [tipoServicio, setTipoServicio] = useState<'taller' | 'domicilio'>('taller');
+  const [mecanicos, setMecanicos] = useState<MiembroTaller[]>([]);
+  const [miembroSeleccionado, setMiembroSeleccionado] = useState<number | null>(null);
   const [fechaHora, setFechaHora] = useState<CatalogoFechaHoraValue>(() =>
-    resolveInitialPickerValue(),
+    resolveInitialPickerValue(typeof fechaParam === 'string' ? fechaParam : undefined),
   );
+
+  useEffect(() => {
+    if (typeof fechaParam === 'string' && fechaParam.trim()) {
+      setFechaHora(resolveInitialPickerValue(fechaParam));
+    }
+  }, [fechaParam]);
 
   const [serviciosCatalogo, setServiciosCatalogo] = useState<ServicioOferta[]>([]);
   const [ofertaSeleccionada, setOfertaSeleccionada] = useState<number | null>(null);
@@ -69,6 +86,21 @@ export default function AgendarCitaPersonalScreen() {
       setTipoServicio('domicilio');
     }
   }, [esMecanico]);
+
+  useEffect(() => {
+    let mounted = true;
+    equipoTallerService
+      .listar({ rol: 'mecanico' })
+      .then((equipo) => {
+        if (mounted) setMecanicos(equipo);
+      })
+      .catch(() => {
+        if (mounted) setMecanicos([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -92,11 +124,13 @@ export default function AgendarCitaPersonalScreen() {
 
   const validarFormulario = useCallback((): string | null => {
     if (!clienteNombre.trim()) return 'Ingresa el nombre del cliente.';
-    if (!clienteTelefono.trim()) return 'Ingresa el teléfono del cliente.';
+    const telError = getChilePhoneError(extraerNueveDigitosDesdeGuardado(clienteTelefono), true);
+    if (telError) return telError;
     if (!vehiculoMarca.trim()) return 'Ingresa la marca del vehículo.';
     if (!vehiculoModelo.trim()) return 'Ingresa el modelo del vehículo.';
-    if (tipoServicio === 'domicilio' && !direccion.trim()) {
-      return 'Ingresa la dirección para servicio a domicilio.';
+    if (tipoServicio === 'domicilio') {
+      if (!direccion.trim()) return 'Ingresa la dirección para servicio a domicilio.';
+      if (!direccionValidada) return 'Selecciona una dirección válida de la lista de sugerencias.';
     }
     if (modoServicio === 'catalogo' && !ofertaSeleccionada) {
       return 'Selecciona un servicio de tu catálogo.';
@@ -104,7 +138,12 @@ export default function AgendarCitaPersonalScreen() {
     if (modoServicio === 'manual' && !servicioManual.trim()) {
       return 'Ingresa el nombre del servicio.';
     }
-    if (!fechaHora.hora) return 'Selecciona una hora para la cita.';
+    if (!fechaHora.hora || !fechaHora.horaFin) {
+      return 'Selecciona hora de inicio y término para la cita.';
+    }
+    if (!esRangoHorarioValido(fechaHora.hora, fechaHora.horaFin)) {
+      return 'La hora de término debe ser al menos 15 minutos después del inicio.';
+    }
     return null;
   }, [
     clienteNombre,
@@ -113,10 +152,11 @@ export default function AgendarCitaPersonalScreen() {
     vehiculoModelo,
     tipoServicio,
     direccion,
+    direccionValidada,
     modoServicio,
     ofertaSeleccionada,
     servicioManual,
-    fechaHora.hora,
+    fechaHora,
   ]);
 
   const construirPayload = useCallback((): CitaAgendaPersonalCreatePayload => {
@@ -135,7 +175,7 @@ export default function AgendarCitaPersonalScreen() {
     }
 
     if (tipoServicio === 'domicilio') {
-      detalle.direccion = direccion.trim();
+      detalle.direccion = (direccionValidada?.line ?? direccion).trim();
     }
 
     if (modoServicio === 'catalogo' && ofertaSeleccionada) {
@@ -147,14 +187,16 @@ export default function AgendarCitaPersonalScreen() {
     if (descripcion.trim()) detalle.descripcion = descripcion.trim();
 
     if (precioReferencia.trim()) {
-      const precio = parseFloat(precioReferencia.replace(/[^0-9.,]/g, '').replace(',', '.'));
-      if (!Number.isNaN(precio)) detalle.precio_referencia = precio;
+      const precio = parsePrecioReferencia(precioReferencia);
+      if (precio != null) detalle.precio_referencia = precio;
     }
 
     return {
       fecha_servicio: formatDateApi(fechaHora.fecha),
       hora_servicio: `${fechaHora.hora}:00`,
+      duracion_minutos: calcularDuracionMinutos(fechaHora.hora!, fechaHora.horaFin!),
       tipo_servicio: tipoServicio,
+      miembro_taller: miembroSeleccionado,
       detalle,
     };
   }, [
@@ -166,12 +208,14 @@ export default function AgendarCitaPersonalScreen() {
     vehiculoAnio,
     tipoServicio,
     direccion,
+    direccionValidada,
     modoServicio,
     ofertaSeleccionada,
     servicioManual,
     descripcion,
     precioReferencia,
     fechaHora,
+    miembroSeleccionado,
   ]);
 
   const handleGuardar = useCallback(async () => {
@@ -198,7 +242,16 @@ export default function AgendarCitaPersonalScreen() {
     setGuardando(false);
 
     if (res.success && res.data) {
+      const fechaGuardada = formatDateApi(fechaHora.fecha);
       Alert.alert('Cita agendada', 'La cita personal fue creada correctamente.', [
+        {
+          text: 'Ver calendario',
+          onPress: () =>
+            router.replace({
+              pathname: '/(tabs)/calendario',
+              params: { fecha: fechaGuardada },
+            }),
+        },
         {
           text: 'Ver detalle',
           onPress: () => router.replace(`/cita-agenda-personal/${res.data!.id}`),
@@ -246,25 +299,36 @@ export default function AgendarCitaPersonalScreen() {
           </View>
 
           <Section title="Cliente">
-            <Field label="Nombre *" value={clienteNombre} onChangeText={setClienteNombre} placeholder="Nombre completo" />
-            <Field
-              label="Teléfono *"
-              value={clienteTelefono}
-              onChangeText={setClienteTelefono}
-              placeholder="+56 9 1234 5678"
-              keyboardType="phone-pad"
+            <InstitutionalField
+              label="Nombre *"
+              value={clienteNombre}
+              onChangeText={setClienteNombre}
+              placeholder="Nombre completo"
             />
+            <ChilePhoneField value={clienteTelefono} onChangeValue={setClienteTelefono} />
           </Section>
 
           <Section title="Vehículo">
-            <Field label="Marca *" value={vehiculoMarca} onChangeText={setVehiculoMarca} placeholder="Toyota" />
-            <Field label="Modelo *" value={vehiculoModelo} onChangeText={setVehiculoModelo} placeholder="Corolla" />
+            <InstitutionalField label="Marca *" value={vehiculoMarca} onChangeText={setVehiculoMarca} placeholder="Toyota" />
+            <InstitutionalField label="Modelo *" value={vehiculoModelo} onChangeText={setVehiculoModelo} placeholder="Corolla" />
             <View style={styles.rowFields}>
               <View style={styles.halfField}>
-                <Field label="Patente" value={vehiculoPatente} onChangeText={setVehiculoPatente} placeholder="AA1234" autoCapitalize="characters" />
+                <InstitutionalField
+                  label="Patente"
+                  value={vehiculoPatente}
+                  onChangeText={setVehiculoPatente}
+                  placeholder="AA1234"
+                  autoCapitalize="characters"
+                />
               </View>
               <View style={styles.halfField}>
-                <Field label="Año" value={vehiculoAnio} onChangeText={setVehiculoAnio} placeholder="2020" keyboardType="number-pad" />
+                <InstitutionalField
+                  label="Año"
+                  value={vehiculoAnio}
+                  onChangeText={setVehiculoAnio}
+                  placeholder="2020"
+                  keyboardType="number-pad"
+                />
               </View>
             </View>
           </Section>
@@ -285,15 +349,55 @@ export default function AgendarCitaPersonalScreen() {
               />
             </View>
             {tipoServicio === 'domicilio' && (
-              <Field
-                label="Dirección *"
+              <ChileAddressField
+                label="Dirección del servicio *"
+                hint="Busca una dirección real en Chile. Escribe al menos 4 caracteres y elige un resultado."
                 value={direccion}
+                validated={direccionValidada}
                 onChangeText={setDireccion}
-                placeholder="Calle, número, comuna"
-                multiline
+                onValidatedChange={setDireccionValidada}
+                placeholder="Ej: Av. Providencia 1200, Providencia"
               />
             )}
           </Section>
+
+          {mecanicos.length > 0 && (
+            <Section title="Mecánico asignado">
+              <Text style={styles.helperText}>
+                Déjalo en automático para que el sistema asigne al mejor mecánico disponible, o elige uno específico.
+              </Text>
+              <View style={styles.catalogoList}>
+                <TouchableOpacity
+                  style={[styles.catalogoItem, miembroSeleccionado === null && styles.catalogoItemSelected]}
+                  onPress={() => setMiembroSeleccionado(null)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.catalogoItemTitle, miembroSeleccionado === null && styles.catalogoItemTitleOn]}>
+                    Automático
+                  </Text>
+                  {miembroSeleccionado === null && (
+                    <InstitutionalIcon name="check-circle" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                  )}
+                </TouchableOpacity>
+                {mecanicos.map((m) => {
+                  const selected = miembroSeleccionado === m.id;
+                  return (
+                    <TouchableOpacity
+                      key={m.id}
+                      style={[styles.catalogoItem, selected && styles.catalogoItemSelected]}
+                      onPress={() => setMiembroSeleccionado(m.id)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[styles.catalogoItemTitle, selected && styles.catalogoItemTitleOn]}>{m.nombre}</Text>
+                      {selected && (
+                        <InstitutionalIcon name="check-circle" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </Section>
+          )}
 
           <Section title="Servicio">
             <View style={styles.segmentRow}>
@@ -339,7 +443,7 @@ export default function AgendarCitaPersonalScreen() {
                 </View>
               )
             ) : (
-              <Field
+              <InstitutionalField
                 label="Nombre del servicio *"
                 value={servicioManual}
                 onChangeText={setServicioManual}
@@ -347,26 +451,20 @@ export default function AgendarCitaPersonalScreen() {
               />
             )}
 
-            <Field
+            <InstitutionalField
               label="Descripción (opcional)"
               value={descripcion}
               onChangeText={setDescripcion}
               placeholder="Notas adicionales del servicio"
               multiline
             />
-            <Field
-              label="Precio referencia (opcional)"
-              value={precioReferencia}
-              onChangeText={setPrecioReferencia}
-              placeholder="Ej. 45000"
-              keyboardType="numeric"
-            />
+            <MontoCLPField value={precioReferencia} onChangeValue={setPrecioReferencia} />
           </Section>
 
           <Section title="Fecha y hora">
-            <CatalogoFechaHoraPickers value={fechaHora} onChange={setFechaHora} />
-            {!fechaHora.hora && (
-              <Text style={styles.helperTextWarn}>Selecciona una hora para confirmar la cita.</Text>
+            <CatalogoFechaHoraPickers value={fechaHora} onChange={setFechaHora} modo="rango" />
+            {(!fechaHora.hora || !fechaHora.horaFin) && (
+              <Text style={styles.helperTextWarn}>Selecciona hora de inicio y término para confirmar la cita.</Text>
             )}
           </Section>
 
@@ -396,40 +494,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
       <View style={styles.sectionCard}>{children}</View>
-    </View>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  keyboardType,
-  multiline,
-  autoCapitalize,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (t: string) => void;
-  placeholder?: string;
-  keyboardType?: 'default' | 'phone-pad' | 'number-pad' | 'numeric';
-  multiline?: boolean;
-  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
-}) {
-  return (
-    <View style={styles.fieldWrap}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        style={[styles.input, multiline && styles.inputMultiline]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={I.muted}
-        keyboardType={keyboardType}
-        multiline={multiline}
-        autoCapitalize={autoCapitalize ?? 'sentences'}
-      />
     </View>
   );
 }
@@ -488,30 +552,7 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     ...SHADOWS.editorial,
-    gap: SPACING.fixed.sm,
-  },
-  fieldWrap: {
-    gap: SPACING.fixed.xxs,
-  },
-  fieldLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansMedium,
-    color: I.body,
-  },
-  input: {
-    backgroundColor: I.surfaceStrong,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    paddingHorizontal: SPACING.fixed.sm + 4,
-    paddingVertical: SPACING.fixed.sm,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansRegular,
-    color: I.ink,
-  },
-  inputMultiline: {
-    minHeight: 72,
-    textAlignVertical: 'top',
+    gap: SPACING.fixed.md,
   },
   rowFields: {
     flexDirection: 'row',
@@ -528,7 +569,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: SPACING.fixed.sm,
     borderRadius: BORDERS.radius.md,
-    backgroundColor: I.surfaceStrong,
+    backgroundColor: I.canvas,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     alignItems: 'center',
@@ -555,7 +596,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.fixed.sm,
     paddingHorizontal: SPACING.fixed.sm + 4,
     borderRadius: BORDERS.radius.md,
-    backgroundColor: I.surfaceStrong,
+    backgroundColor: I.canvas,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
   },
