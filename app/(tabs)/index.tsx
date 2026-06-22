@@ -58,7 +58,9 @@ export default function HomeScreen() {
     isLoading,
     estadoProveedor,
     usuario,
-    obtenerNombreProveedor
+    obtenerNombreProveedor,
+    esSupervisor,
+    puede,
   } = useAuth();
 
   const {
@@ -798,13 +800,14 @@ export default function HomeScreen() {
           </View>
 
           {/* 2. RESUMEN FINANCIERO */}
-          {saldoCreditos && (
+          {saldoCreditos && puede('finanzas') && (
             <View style={themedStyles.sectionWrap}>
               <View style={themedStyles.cardOuter}>
                 <View style={themedStyles.cardInner}>
                   <View style={themedStyles.finHeader}>
                     <Text style={themedStyles.finHeaderTitle}>FINANZAS DEL TALLER</Text>
-                    {suscripcion?.esta_activa ? (
+                    {/* La suscripción es módulo del dueño; el supervisor no la gestiona. */}
+                    {suscripcion?.esta_activa && !esSupervisor ? (
                       <TouchableOpacity
                         style={[
                           themedStyles.planBadge,
@@ -832,17 +835,21 @@ export default function HomeScreen() {
                   </View>
 
                   <View style={themedStyles.finBody}>
+                    {/* El supervisor ve el saldo pero no compra créditos (comprar = Mercado Pago). */}
                     <TouchableOpacity
                       style={themedStyles.finCol}
-                      onPress={() => router.push('/creditos')}
-                      activeOpacity={0.7}
+                      onPress={() => { if (!esSupervisor) router.push('/creditos'); }}
+                      activeOpacity={esSupervisor ? 1 : 0.7}
+                      disabled={esSupervisor}
                     >
                       <View style={themedStyles.finIconAmber}>
                         <Wallet size={20} color={palette.accentYellow} />
                       </View>
                       <Text style={themedStyles.finLabel}>Créditos</Text>
                       <Text style={themedStyles.finCreditsVal}>{saldoCreditos.saldo_creditos}</Text>
-                      <Text style={themedStyles.finBuyMore}>Comprar más +</Text>
+                      {!esSupervisor ? (
+                        <Text style={themedStyles.finBuyMore}>Comprar más +</Text>
+                      ) : null}
                     </TouchableOpacity>
 
                     <View style={themedStyles.finDivider} />
@@ -882,8 +889,8 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* BANNER ESTADO SUSCRIPCIÓN */}
-          {saludSuscripcion && saludSuscripcion.estado_salud !== 'ok' && (
+          {/* BANNER ESTADO SUSCRIPCIÓN (solo dueño: la suscripción es módulo del mandante) */}
+          {!esSupervisor && saludSuscripcion && saludSuscripcion.estado_salud !== 'ok' && (
             <View style={themedStyles.sectionWrap}>
               <TouchableOpacity
                 style={[
@@ -1030,119 +1037,81 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* 4. CATEGORÍAS DE GESTIÓN */}
-          <View style={themedStyles.sectionWrap}>
-            <Text style={themedStyles.mgmtTitle}>Gestión del Taller</Text>
-            <View style={themedStyles.mgmtGrid}>
-              <View style={themedStyles.mgmtRow}>
-                <TouchableOpacity
-                  style={themedStyles.mgmtCard}
-                  onPress={() => router.push('/(tabs)/calendario')}
-                  activeOpacity={0.7}
-                >
-                  <View style={themedStyles.mgmtIconBox}>
-                    <Calendar size={22} color={palette.primary} />
-                  </View>
-                  <View style={themedStyles.mgmtCardTextCol}>
-                    <Text style={themedStyles.mgmtCardTitle}>Calendario</Text>
-                  </View>
-                </TouchableOpacity>
+          {/* 4. CATEGORÍAS DE GESTIÓN (filtradas por rol/permisos del supervisor) */}
+          {(() => {
+            const mgmtItems: {
+              key: string;
+              title: string;
+              Icon: typeof Calendar;
+              color: string;
+              route: string;
+            }[] = [];
 
-                {!esMultimarca ? (
-                  <TouchableOpacity
-                    style={themedStyles.mgmtCard}
-                    onPress={() => router.push('/especialidades-marcas')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={themedStyles.mgmtIconBox}>
-                      <Wrench size={22} color={palette.ink} />
-                    </View>
-                    <View style={themedStyles.mgmtCardTextCol}>
-                      <Text style={themedStyles.mgmtCardTitle}>Marcas</Text>
-                    </View>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
+            // Calendario / agenda
+            if (puede('agenda')) {
+              mgmtItems.push({ key: 'calendario', title: 'Calendario', Icon: Calendar, color: palette.primary, route: '/(tabs)/calendario' });
+            }
+            // Marcas (parte de servicios) solo si es especialista
+            if (!esMultimarca && puede('servicios')) {
+              mgmtItems.push({ key: 'marcas', title: 'Marcas', Icon: Wrench, color: palette.ink, route: '/especialidades-marcas' });
+            }
+            // Servicios
+            if (puede('servicios')) {
+              mgmtItems.push({ key: 'servicios', title: 'Servicios', Icon: Settings, color: palette.ink, route: '/mis-servicios' });
+            }
+            // Horarios
+            if (puede('horarios')) {
+              mgmtItems.push({ key: 'horarios', title: 'Horarios', Icon: Clock, color: palette.ink, route: '/configuracion-horarios' });
+            }
+            // Equipo (mecánicos)
+            if (!esMecanicoDomicilio && puede('mecanicos')) {
+              mgmtItems.push({ key: 'equipo', title: 'Equipo', Icon: Users, color: palette.ink, route: '/gestion-equipo' });
+            }
+            // Ubicación / zonas (modalidad a domicilio)
+            if (esMecanicoDomicilio) {
+              // 'Mi ubicación' es del dueño legacy; no se muestra al supervisor.
+              if (!esSupervisor) {
+                mgmtItems.push({ key: 'ubicacion', title: 'Mi ubicación', Icon: MapPin, color: palette.ink, route: '/actualizar-ubicacion' });
+              }
+              if (puede('zonas_cobertura')) {
+                mgmtItems.push({ key: 'zonas', title: 'Zonas', Icon: Map, color: palette.ink, route: '/zonas-servicio' });
+              }
+            }
 
-              <View style={themedStyles.mgmtRow}>
-                <TouchableOpacity
-                  style={themedStyles.mgmtCard}
-                  onPress={() => router.push('/mis-servicios')}
-                  activeOpacity={0.7}
-                >
-                  <View style={themedStyles.mgmtIconBox}>
-                    <Settings size={22} color={palette.ink} />
-                  </View>
-                  <View style={themedStyles.mgmtCardTextCol}>
-                    <Text style={themedStyles.mgmtCardTitle}>Servicios</Text>
-                    
-                  </View>
-                </TouchableOpacity>
+            if (mgmtItems.length === 0) return null;
 
-                <TouchableOpacity
-                  style={themedStyles.mgmtCard}
-                  onPress={() => router.push('/configuracion-horarios')}
-                  activeOpacity={0.7}
-                >
-                  <View style={themedStyles.mgmtIconBox}>
-                    <Clock size={22} color={palette.ink} />
-                  </View>
-                  <View style={themedStyles.mgmtCardTextCol}>
-                    <Text style={themedStyles.mgmtCardTitle}>Horarios</Text>
-                    
-                  </View>
-                </TouchableOpacity>
-              </View>
+            const filas: (typeof mgmtItems)[] = [];
+            for (let i = 0; i < mgmtItems.length; i += 2) {
+              filas.push(mgmtItems.slice(i, i + 2));
+            }
 
-              {!esMecanicoDomicilio && (
-                <View style={themedStyles.mgmtRow}>
-                  <TouchableOpacity
-                    style={themedStyles.mgmtCard}
-                    onPress={() => router.push('/gestion-equipo')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={themedStyles.mgmtIconBox}>
-                      <Users size={22} color={palette.ink} />
+            return (
+              <View style={themedStyles.sectionWrap}>
+                <Text style={themedStyles.mgmtTitle}>Gestión del Taller</Text>
+                <View style={themedStyles.mgmtGrid}>
+                  {filas.map((fila, idx) => (
+                    <View style={themedStyles.mgmtRow} key={`mgmt-row-${idx}`}>
+                      {fila.map((item) => (
+                        <TouchableOpacity
+                          key={item.key}
+                          style={themedStyles.mgmtCard}
+                          onPress={() => router.push(item.route as any)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={themedStyles.mgmtIconBox}>
+                            <item.Icon size={22} color={item.color} />
+                          </View>
+                          <View style={themedStyles.mgmtCardTextCol}>
+                            <Text style={themedStyles.mgmtCardTitle}>{item.title}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                    <View style={themedStyles.mgmtCardTextCol}>
-                      <Text style={themedStyles.mgmtCardTitle}>Equipo</Text>
-                    </View>
-                  </TouchableOpacity>
+                  ))}
                 </View>
-              )}
-
-              {esMecanicoDomicilio && (
-                <View style={themedStyles.mgmtRow}>
-                  <TouchableOpacity
-                    style={themedStyles.mgmtCard}
-                    onPress={() => router.push('/actualizar-ubicacion')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={themedStyles.mgmtIconBox}>
-                      <MapPin size={22} color={palette.ink} />
-                    </View>
-                    <View style={themedStyles.mgmtCardTextCol}>
-                      <Text style={themedStyles.mgmtCardTitle}>Mi ubicación</Text>
-                      
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={themedStyles.mgmtCard}
-                    onPress={() => router.push('/zonas-servicio')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={themedStyles.mgmtIconBox}>
-                      <Map size={22} color={palette.ink} />
-                    </View>
-                    <View style={themedStyles.mgmtCardTextCol}>
-                      <Text style={themedStyles.mgmtCardTitle}>Zonas</Text>
-                      
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          </View>
+              </View>
+            );
+          })()}
         </ScrollView>
 
         <AlertaPagoExpirado

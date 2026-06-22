@@ -77,6 +77,12 @@ interface AuthContextType {
     descripcion: string;
     direccion: string;
   };
+  /** Rol del usuario dentro del taller. 'mandante' por defecto. */
+  rolTaller: 'mandante' | 'supervisor';
+  /** True si la sesión actual es de un supervisor (acceso restringido). */
+  esSupervisor: boolean;
+  /** True si el usuario puede gestionar el recurso (mandante siempre puede). */
+  puede: (recurso: keyof import('@/services/api').PermisosSupervisor) => boolean;
 }
 
 // Crear contexto
@@ -915,6 +921,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setEstadoProveedor(null);
   };
 
+  const rolTaller: 'mandante' | 'supervisor' =
+    estadoProveedor?.rol_taller === 'supervisor' ? 'supervisor' : 'mandante';
+  const esSupervisor = rolTaller === 'supervisor';
+
+  const puede = useCallback(
+    (recurso: keyof import('@/services/api').PermisosSupervisor): boolean => {
+      // El mandante (dueño) siempre puede. El supervisor depende de sus permisos.
+      if (rolTaller === 'mandante') return true;
+      const permisos = estadoProveedor?.permisos;
+      return Boolean(permisos && permisos[recurso]);
+    },
+    [rolTaller, estadoProveedor?.permisos],
+  );
+
   const value: AuthContextType = {
     usuario,
     estadoProveedor,
@@ -929,6 +949,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     limpiarStorage,
     obtenerNombreProveedor,
     obtenerDatosCompletosProveedor,
+    rolTaller,
+    esSupervisor,
+    puede,
   };
 
   return (

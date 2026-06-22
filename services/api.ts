@@ -307,9 +307,23 @@ export interface MarcaVehiculo {
   logo?: string;
 }
 
+/** Permisos de gestión que el mandante otorga a un supervisor. */
+export interface PermisosSupervisor {
+  servicios?: boolean;
+  mecanicos?: boolean;
+  horarios?: boolean;
+  agenda?: boolean;
+  zonas_cobertura?: boolean;
+  finanzas?: boolean;
+}
+
 export interface EstadoProveedor {
   tiene_perfil: boolean;
   tipo_proveedor?: 'taller' | 'mecanico';
+  /** Rol del usuario dentro del taller: dueño (mandante) o supervisor con login propio. */
+  rol_taller?: 'mandante' | 'supervisor';
+  /** Permisos del supervisor (null/undefined para el mandante, que tiene acceso total). */
+  permisos?: PermisosSupervisor | null;
   /** Cobertura de marcas: especialista en marcas específicas o multimarca */
   tipo_cobertura_marca?: 'especialista' | 'multimarca';
   nombre?: string;

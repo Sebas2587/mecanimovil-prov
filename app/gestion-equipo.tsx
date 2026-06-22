@@ -25,6 +25,7 @@ import equipoTallerService, {
   type ModalidadTecnico,
   type RolMiembro,
   type CrearMiembroData,
+  type PermisosSupervisor,
 } from '@/services/equipoTallerService';
 import { especialidadesAPI, type CategoriaServicio } from '@/services/api';
 
@@ -50,12 +51,36 @@ const MODALIDADES: { value: ModalidadTecnico; label: string }[] = [
   { value: 'ambas', label: 'Ambas' },
 ];
 
+// Permisos que el mandante puede otorgar al supervisor (manage = crear/editar/eliminar).
+const PERMISOS_OPCIONES: { key: keyof PermisosSupervisor; label: string; descripcion: string }[] = [
+  { key: 'servicios', label: 'Servicios', descripcion: 'Crear, editar y eliminar servicios' },
+  { key: 'mecanicos', label: 'Mecánicos', descripcion: 'Agregar, editar, habilitar y eliminar mecánicos' },
+  { key: 'horarios', label: 'Horarios', descripcion: 'Configurar horarios del taller y de cada mecánico' },
+  { key: 'agenda', label: 'Agenda y órdenes', descripcion: 'Gestionar la agenda y asignar mecánicos a las órdenes' },
+  { key: 'zonas_cobertura', label: 'Zonas de cobertura', descripcion: 'Definir zonas (solo si atienden a domicilio)' },
+  { key: 'finanzas', label: 'Finanzas y créditos', descripcion: 'Ver finanzas y consumir créditos (no comprar)' },
+];
+
+const DEFAULT_PERMISOS: PermisosSupervisor = {
+  servicios: true,
+  mecanicos: true,
+  horarios: true,
+  agenda: true,
+  zonas_cobertura: true,
+  finanzas: true,
+};
+
 type FormState = {
   id: number | null;
   rol: RolMiembro;
   nombre: string;
   especialidades: number[];
   modalidad_tecnico: ModalidadTecnico;
+  username: string;
+  password: string;
+  email: string;
+  tieneAcceso: boolean;
+  permisos: PermisosSupervisor;
 };
 
 const EMPTY_FORM: FormState = {
@@ -64,6 +89,11 @@ const EMPTY_FORM: FormState = {
   nombre: '',
   especialidades: [],
   modalidad_tecnico: 'en_taller',
+  username: '',
+  password: '',
+  email: '',
+  tieneAcceso: false,
+  permisos: { ...DEFAULT_PERMISOS },
 };
 
 export default function GestionEquipoScreen() {
@@ -111,7 +141,7 @@ export default function GestionEquipoScreen() {
   };
 
   const abrirCrearSupervisor = () => {
-    setForm({ ...EMPTY_FORM, rol: 'supervisor' });
+    setForm({ ...EMPTY_FORM, rol: 'supervisor', permisos: { ...DEFAULT_PERMISOS } });
     setModalVisible(true);
   };
 
@@ -122,8 +152,20 @@ export default function GestionEquipoScreen() {
       nombre: m.nombre,
       especialidades: m.especialidades || [],
       modalidad_tecnico: m.modalidad_tecnico,
+      username: m.usuario_username || '',
+      password: '',
+      email: m.usuario_email || '',
+      tieneAcceso: Boolean(m.tiene_acceso),
+      permisos: { ...DEFAULT_PERMISOS, ...(m.permisos || {}) },
     });
     setModalVisible(true);
+  };
+
+  const togglePermiso = (key: keyof PermisosSupervisor) => {
+    setForm((prev) => ({
+      ...prev,
+      permisos: { ...prev.permisos, [key]: !prev.permisos[key] },
+    }));
   };
 
   const toggleEspecialidad = (id: number) => {
@@ -144,6 +186,16 @@ export default function GestionEquipoScreen() {
       Alert.alert('Falta especialidad', 'Un mecánico debe tener al menos una especialidad.');
       return;
     }
+    if (form.rol === 'supervisor') {
+      const creandoAcceso = !form.tieneAcceso;
+      if (creandoAcceso && (!form.username.trim() || !form.password.trim())) {
+        Alert.alert(
+          'Faltan credenciales',
+          'El supervisor necesita un usuario y una contraseña para iniciar sesión.',
+        );
+        return;
+      }
+    }
     setSaving(true);
     try {
       const payload: CrearMiembroData = {
@@ -152,6 +204,13 @@ export default function GestionEquipoScreen() {
         especialidades: form.especialidades,
         modalidad_tecnico: form.modalidad_tecnico,
       };
+      if (form.rol === 'supervisor') {
+        payload.permisos = form.permisos;
+        if (form.email.trim()) payload.email = form.email.trim();
+        // Credenciales: en alta siempre; en edición, solo si se ingresan.
+        if (!form.tieneAcceso && form.username.trim()) payload.username = form.username.trim();
+        if (form.password.trim()) payload.password = form.password.trim();
+      }
       if (form.id) {
         await equipoTallerService.actualizar(form.id, payload);
       } else {
@@ -160,10 +219,13 @@ export default function GestionEquipoScreen() {
       setModalVisible(false);
       await cargar();
     } catch (error: any) {
+      const data = error?.response?.data;
       const detalle =
-        error?.response?.data?.rol?.[0] ||
-        error?.response?.data?.especialidades?.[0] ||
-        error?.response?.data?.detail ||
+        data?.username?.[0] ||
+        data?.email?.[0] ||
+        data?.rol?.[0] ||
+        data?.especialidades?.[0] ||
+        data?.detail ||
         'No se pudo guardar el miembro.';
       Alert.alert('Error', String(detalle));
     } finally {
@@ -262,12 +324,28 @@ export default function GestionEquipoScreen() {
                   <InstitutionalIcon name="shield-checkmark" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                   <View style={{ marginLeft: SPACING.sm, flex: 1 }}>
                     <Text style={styles.cardTitle}>{supervisor.nombre}</Text>
-                    <Text style={styles.cardSubtitle}>Habilita/deshabilita mecánicos</Text>
+                    <Text style={styles.cardSubtitle}>
+                      {supervisor.tiene_acceso && supervisor.usuario_username
+                        ? `Inicia sesión como @${supervisor.usuario_username}`
+                        : 'Sin acceso configurado'}
+                    </Text>
                   </View>
                 </View>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => abrirEditar(supervisor)}>
-                  <InstitutionalIcon name="create" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                </TouchableOpacity>
+                <View style={styles.cardActionsInline}>
+                  <TouchableOpacity style={styles.actionBtn} onPress={() => abrirEditar(supervisor)}>
+                    <InstitutionalIcon name="create" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.actionBtn} onPress={() => confirmarEliminar(supervisor)}>
+                    <InstitutionalIcon name="trash" size={18} color={I.danger} strokeWidth={ICON_STROKE_WIDTH} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.chipsRow}>
+                {PERMISOS_OPCIONES.filter((o) => supervisor.permisos?.[o.key]).map((o) => (
+                  <View key={o.key} style={styles.chipReadonly}>
+                    <Text style={styles.chipReadonlyText}>{o.label}</Text>
+                  </View>
+                ))}
               </View>
             </View>
           ) : (
@@ -313,6 +391,67 @@ export default function GestionEquipoScreen() {
                 placeholder="Nombre del miembro"
                 placeholderTextColor={I.muted}
               />
+
+              {form.rol === 'supervisor' && (
+                <>
+                  <Text style={styles.sectionMini}>Acceso del supervisor</Text>
+                  <Text style={styles.helperText}>
+                    {form.tieneAcceso
+                      ? 'Este supervisor ya tiene acceso. Cambia la contraseña solo si quieres reemplazarla.'
+                      : 'Crea un usuario y contraseña para que el supervisor inicie sesión.'}
+                  </Text>
+
+                  <Text style={styles.label}>Usuario</Text>
+                  <TextInput
+                    style={[styles.input, form.tieneAcceso && styles.inputDisabled]}
+                    value={form.username}
+                    onChangeText={(t) => setForm((p) => ({ ...p, username: t }))}
+                    placeholder="usuario.supervisor"
+                    placeholderTextColor={I.muted}
+                    autoCapitalize="none"
+                    editable={!form.tieneAcceso}
+                  />
+
+                  <Text style={styles.label}>Correo (opcional)</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={form.email}
+                    onChangeText={(t) => setForm((p) => ({ ...p, email: t }))}
+                    placeholder="correo@ejemplo.com"
+                    placeholderTextColor={I.muted}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                  />
+
+                  <Text style={styles.label}>{form.tieneAcceso ? 'Nueva contraseña' : 'Contraseña'}</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={form.password}
+                    onChangeText={(t) => setForm((p) => ({ ...p, password: t }))}
+                    placeholder={form.tieneAcceso ? 'Dejar en blanco para no cambiar' : 'Contraseña de acceso'}
+                    placeholderTextColor={I.muted}
+                    secureTextEntry
+                    autoCapitalize="none"
+                  />
+
+                  <Text style={styles.sectionMini}>Permisos</Text>
+                  <Text style={styles.helperText}>
+                    Elige qué puede gestionar. No tendrá acceso a suscripción, Mercado Pago ni al perfil del taller.
+                  </Text>
+                  {PERMISOS_OPCIONES.map((opcion) => (
+                    <View key={opcion.key} style={styles.permRow}>
+                      <View style={{ flex: 1, paddingRight: SPACING.sm }}>
+                        <Text style={styles.permLabel}>{opcion.label}</Text>
+                        <Text style={styles.permDesc}>{opcion.descripcion}</Text>
+                      </View>
+                      <Switch
+                        value={Boolean(form.permisos[opcion.key])}
+                        onValueChange={() => togglePermiso(opcion.key)}
+                      />
+                    </View>
+                  ))}
+                </>
+              )}
 
               {form.rol === 'mecanico' && (
                 <>
@@ -440,6 +579,20 @@ const styles = StyleSheet.create({
   },
   chipReadonlyText: { color: I.primary, fontFamily: FF.regular, fontSize: 12 },
   cardActions: { flexDirection: 'row', marginTop: SPACING.md },
+  cardActionsInline: { flexDirection: 'row', alignItems: 'center' },
+  sectionMini: { fontFamily: FF.bold, fontSize: 14, color: I.text, marginTop: SPACING.lg, marginBottom: SPACING.xs },
+  helperText: { fontFamily: FF.regular, fontSize: 12, color: I.muted, marginBottom: SPACING.xs },
+  inputDisabled: { backgroundColor: withOpacity(I.text, 0.05), color: I.muted },
+  permRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: withOpacity(I.text, 0.1),
+  },
+  permLabel: { fontFamily: FF.semibold, fontSize: 14, color: I.text },
+  permDesc: { fontFamily: FF.regular, fontSize: 12, color: I.muted, marginTop: 2 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', marginRight: SPACING.lg },
   actionBtnText: { color: I.primary, fontFamily: FF.semibold, marginLeft: 4, fontSize: 13 },
   emptyText: { color: I.muted, fontFamily: FF.regular, fontSize: 14, paddingVertical: SPACING.md },

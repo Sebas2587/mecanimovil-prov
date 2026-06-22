@@ -52,6 +52,7 @@ export default function PerfilScreen() {
     usuario,
     logout,
     obtenerNombreProveedor,
+    esSupervisor,
   } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -131,14 +132,19 @@ export default function PerfilScreen() {
     onPress: () => void;
   };
 
+  // El supervisor no gestiona suscripción ni la cuenta de Mercado Pago (módulos del dueño).
   const settingsRows: SettingRow[] = [
-    { Icon: CreditCard, title: 'Suscripción', subtitle: 'Plan y créditos', onPress: () => router.push('/creditos') },
-    {
-      Icon: Wallet,
-      title: 'Mercado Pago',
-      subtitle: 'Cobros y cuenta',
-      onPress: () => router.push('/configuracion-mercadopago'),
-    },
+    ...(esSupervisor
+      ? []
+      : [
+          { Icon: CreditCard, title: 'Suscripción', subtitle: 'Plan y créditos', onPress: () => router.push('/creditos') },
+          {
+            Icon: Wallet,
+            title: 'Mercado Pago',
+            subtitle: 'Cobros y cuenta',
+            onPress: () => router.push('/configuracion-mercadopago'),
+          },
+        ] as SettingRow[]),
     {
       Icon: Headphones,
       title: 'Soporte',
@@ -196,15 +202,17 @@ export default function PerfilScreen() {
         <Header
           title="Configuración"
           rightComponent={
-            <TouchableOpacity
-              onPress={() => router.push('/configuracion-perfil')}
-              style={styles.buttonTertiaryText}
-              activeOpacity={0.65}
-              accessibilityRole="button"
-              accessibilityLabel="Gestionar perfil"
-            >
-              <Text style={[styles.buttonTertiaryTextLabel, { color: I.primary }]}>Gestionar perfil</Text>
-            </TouchableOpacity>
+            esSupervisor ? undefined : (
+              <TouchableOpacity
+                onPress={() => router.push('/configuracion-perfil')}
+                style={styles.buttonTertiaryText}
+                activeOpacity={0.65}
+                accessibilityRole="button"
+                accessibilityLabel="Gestionar perfil"
+              >
+                <Text style={[styles.buttonTertiaryTextLabel, { color: I.primary }]}>Gestionar perfil</Text>
+              </TouchableOpacity>
+            )
           }
         />
 
@@ -236,6 +244,11 @@ export default function PerfilScreen() {
             </View>
             {/* Fila de badges: tipo proveedor + cobertura de marcas */}
             <View style={styles.badgesRow}>
+              {esSupervisor ? (
+                <View style={[styles.tipoProveedorPill, { backgroundColor: '#FFF3E0' }]}>
+                  <Text style={[styles.tipoProveedorPillText, { color: '#B26A00' }]}>SUPERVISOR</Text>
+                </View>
+              ) : null}
               {estadoProveedor?.tipo_proveedor ? (
                 <View style={[styles.tipoProveedorPill, { backgroundColor: I.surfaceStrong }]}>
                   <Text style={[styles.tipoProveedorPillText, { color: I.muted }]}>

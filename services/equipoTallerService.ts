@@ -3,6 +3,16 @@ import { getAPI } from './api';
 export type RolMiembro = 'mandante' | 'supervisor' | 'mecanico';
 export type ModalidadTecnico = 'en_taller' | 'a_domicilio' | 'ambas';
 
+/** Permisos de gestión que el mandante otorga a un supervisor. */
+export interface PermisosSupervisor {
+  servicios?: boolean;
+  mecanicos?: boolean;
+  horarios?: boolean;
+  agenda?: boolean;
+  zonas_cobertura?: boolean;
+  finanzas?: boolean;
+}
+
 export interface MiembroTaller {
   id: number;
   rol: RolMiembro;
@@ -14,6 +24,10 @@ export interface MiembroTaller {
   modalidad_tecnico: ModalidadTecnico;
   modalidad_tecnico_display: string;
   activo: boolean;
+  permisos?: PermisosSupervisor;
+  usuario_username?: string | null;
+  usuario_email?: string | null;
+  tiene_acceso?: boolean;
   fecha_creacion: string;
   fecha_actualizacion: string;
 }
@@ -24,6 +38,11 @@ export interface CrearMiembroData {
   especialidades?: number[];
   modalidad_tecnico?: ModalidadTecnico;
   activo?: boolean;
+  // Credenciales y permisos para supervisores
+  username?: string;
+  password?: string;
+  email?: string;
+  permisos?: PermisosSupervisor;
 }
 
 export type ActualizarMiembroData = Partial<CrearMiembroData>;

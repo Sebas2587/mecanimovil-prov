@@ -10,7 +10,6 @@ import OnboardingHeader from '@/components/OnboardingHeader';
 import {
   OnboardingScreenLayout,
   OnboardingPrimaryButton,
-  OnboardingNotice,
 } from '@/components/onboarding';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -269,18 +268,12 @@ export default function TipoCuentaScreen() {
     >
       <OnboardingHeader
         title="Registra tu taller"
-        subtitle="¿Dónde realizas los servicios a tus clientes? Elige una opción."
+        subtitle="Elige dónde atiendes: local, domicilio o ambos."
         currentStep={1}
         totalSteps={5}
         canGoBack={false}
         icon="business-outline"
       />
-
-      <OnboardingNotice>
-        En Mecanimovil todos los proveedores se registran como taller mecánico. Esta
-        elección solo indica si atiendes en local, a domicilio o en ambos lugares.
-        Podrás cambiarla y configurar a tu equipo más adelante.
-      </OnboardingNotice>
 
       <View style={onboardingStyles.optionsStack}>
         {MODALIDAD_OPCIONES.map((opcion) => {
