@@ -1051,8 +1051,8 @@ export default function HomeScreen() {
             if (puede('agenda')) {
               mgmtItems.push({ key: 'calendario', title: 'Calendario', Icon: Calendar, color: palette.primary, route: '/(tabs)/calendario' });
             }
-            // Marcas (parte de servicios) solo si es especialista
-            if (!esMultimarca && puede('servicios')) {
+            // Marcas (identidad del taller): solo el dueño la edita
+            if (!esMultimarca && !esSupervisor) {
               mgmtItems.push({ key: 'marcas', title: 'Marcas', Icon: Wrench, color: palette.ink, route: '/especialidades-marcas' });
             }
             // Servicios
