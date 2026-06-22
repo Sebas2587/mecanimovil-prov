@@ -28,6 +28,7 @@ import equipoTallerService, {
   type PermisosSupervisor,
 } from '@/services/equipoTallerService';
 import { especialidadesAPI, type CategoriaServicio } from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
 
 const INST = COLORS.institutional;
 const I = {
@@ -97,6 +98,7 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function GestionEquipoScreen() {
+  const { esSupervisor, puede } = useAuth();
   const [miembros, setMiembros] = useState<MiembroTaller[]>([]);
   const [categorias, setCategorias] = useState<CategoriaServicio[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,6 +148,10 @@ export default function GestionEquipoScreen() {
   };
 
   const abrirEditar = (m: MiembroTaller) => {
+    // El supervisor no puede editar mandante ni supervisor (solo mecánicos).
+    if (esSupervisor && m.rol !== 'mecanico') {
+      return;
+    }
     setForm({
       id: m.id,
       rol: m.rol,
@@ -313,58 +319,68 @@ export default function GestionEquipoScreen() {
           contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
-          {/* Supervisor */}
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Supervisor</Text>
-          </View>
-          {supervisor ? (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardHeaderLeft}>
-                  <InstitutionalIcon name="shield-checkmark" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  <View style={{ marginLeft: SPACING.sm, flex: 1 }}>
-                    <Text style={styles.cardTitle}>{supervisor.nombre}</Text>
-                    <Text style={styles.cardSubtitle}>
-                      {supervisor.tiene_acceso && supervisor.usuario_username
-                        ? `Inicia sesión como @${supervisor.usuario_username}`
-                        : 'Sin acceso configurado'}
-                    </Text>
+          {/* Supervisor: solo el mandante designa, edita credenciales y permisos */}
+          {!esSupervisor && (
+            <>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>Supervisor</Text>
+              </View>
+              {supervisor ? (
+                <View style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.cardHeaderLeft}>
+                      <InstitutionalIcon name="shield-checkmark" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                      <View style={{ marginLeft: SPACING.sm, flex: 1 }}>
+                        <Text style={styles.cardTitle}>{supervisor.nombre}</Text>
+                        <Text style={styles.cardSubtitle}>
+                          {supervisor.tiene_acceso && supervisor.usuario_username
+                            ? `Inicia sesión como @${supervisor.usuario_username}`
+                            : 'Sin acceso configurado'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.cardActionsInline}>
+                      <TouchableOpacity style={styles.actionBtn} onPress={() => abrirEditar(supervisor)}>
+                        <InstitutionalIcon name="create" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.actionBtn} onPress={() => confirmarEliminar(supervisor)}>
+                        <InstitutionalIcon name="trash" size={18} color={I.danger} strokeWidth={ICON_STROKE_WIDTH} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <View style={styles.chipsRow}>
+                    {PERMISOS_OPCIONES.filter((o) => supervisor.permisos?.[o.key]).map((o) => (
+                      <View key={o.key} style={styles.chipReadonly}>
+                        <Text style={styles.chipReadonlyText}>{o.label}</Text>
+                      </View>
+                    ))}
                   </View>
                 </View>
-                <View style={styles.cardActionsInline}>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => abrirEditar(supervisor)}>
-                    <InstitutionalIcon name="create" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => confirmarEliminar(supervisor)}>
-                    <InstitutionalIcon name="trash" size={18} color={I.danger} strokeWidth={ICON_STROKE_WIDTH} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <View style={styles.chipsRow}>
-                {PERMISOS_OPCIONES.filter((o) => supervisor.permisos?.[o.key]).map((o) => (
-                  <View key={o.key} style={styles.chipReadonly}>
-                    <Text style={styles.chipReadonlyText}>{o.label}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          ) : (
-            <TouchableOpacity style={styles.addInline} onPress={abrirCrearSupervisor}>
-              <InstitutionalIcon name="add-circle" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.addInlineText}>Designar supervisor</Text>
-            </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.addInline} onPress={abrirCrearSupervisor}>
+                  <InstitutionalIcon name="add-circle" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.addInlineText}>Designar supervisor</Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
 
           {/* Mecánicos */}
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Mecánicos ({mecanicos.length})</Text>
-            <TouchableOpacity style={styles.addBtn} onPress={abrirCrearMecanico}>
-              <InstitutionalIcon name="add" size={18} color={I.white} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.addBtnText}>Agregar</Text>
-            </TouchableOpacity>
+            {(!esSupervisor || puede('mecanicos')) && (
+              <TouchableOpacity style={styles.addBtn} onPress={abrirCrearMecanico}>
+                <InstitutionalIcon name="add" size={18} color={I.white} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.addBtnText}>Agregar</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
-          {mecanicos.length === 0 ? (
+          {esSupervisor && !puede('mecanicos') ? (
+            <Text style={styles.emptyText}>
+              No tienes permiso para gestionar mecánicos. Contacta al dueño del taller.
+            </Text>
+          ) : mecanicos.length === 0 ? (
             <Text style={styles.emptyText}>
               Aún no tienes mecánicos. Agrega uno para asignar servicios automáticamente.
             </Text>
