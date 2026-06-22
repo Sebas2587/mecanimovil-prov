@@ -31,6 +31,10 @@ import equipoTallerService, {
 } from '@/services/equipoTallerService';
 import { especialidadesAPI, type CategoriaServicio } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
+import { RendimientoEquipoTab } from '@/components/equipo/RendimientoEquipoTab';
+
+type TabEquipo = 'equipo' | 'rendimiento';
 
 const INST = COLORS.institutional;
 const I = {
@@ -105,6 +109,7 @@ const EMPTY_FORM: FormState = {
 
 export default function GestionEquipoScreen() {
   const { esSupervisor, puede } = useAuth();
+  const [tabActiva, setTabActiva] = useState<TabEquipo>('equipo');
   const [miembros, setMiembros] = useState<MiembroTaller[]>([]);
   const [categorias, setCategorias] = useState<CategoriaServicio[]>([]);
   const [loading, setLoading] = useState(true);
@@ -359,7 +364,20 @@ export default function GestionEquipoScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <Header title="Gestión de Equipo" showBack onBackPress={() => navigateBack('/(tabs)')} />
 
-      {loading ? (
+      <View style={styles.tabsWrap}>
+        <InstitutionalScreenTabs<TabEquipo>
+          tabs={[
+            { key: 'equipo', label: 'Equipo' },
+            { key: 'rendimiento', label: 'Rendimiento' },
+          ]}
+          activeKey={tabActiva}
+          onChange={setTabActiva}
+        />
+      </View>
+
+      {tabActiva === 'rendimiento' ? (
+        <RendimientoEquipoTab />
+      ) : loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={I.primary} />
         </View>
@@ -602,6 +620,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: I.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { paddingHorizontal: hx, paddingBottom: SPACING['2xl'] },
+  tabsWrap: {
+    paddingHorizontal: hx,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.xs,
+  },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',

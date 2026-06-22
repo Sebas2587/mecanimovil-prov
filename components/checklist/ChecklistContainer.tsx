@@ -23,6 +23,7 @@ import { ChecklistDiffModal } from '@/components/checklist/ChecklistDiffModal';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { showAlert, showConfirm, showAlertButtons } from '@/utils/platformAlert';
 import { useOrdenSignatureDisplay } from '@/hooks/useOrdenSignatureDisplay';
+import { MecanicoAsignadoCard } from '@/components/equipo/MecanicoAsignadoCard';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -408,6 +409,12 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {instance.mecanico_asignado ? (
+          <View style={styles.mecanicoHeaderWrap}>
+            <MecanicoAsignadoCard mecanico={instance.mecanico_asignado} />
+          </View>
+        ) : null}
+
         {esperandoFirmaCliente && (
           <View style={styles.bannerWrap}>
             <EstadoBanner
@@ -573,6 +580,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           cliente: ordenSignatureDisplay.cliente,
           vehiculo: ordenSignatureDisplay.vehiculo,
         }}
+        mecanicoAsignado={instance.mecanico_asignado ?? null}
       />
 
       {/* Vista de checklist completado (resumen para técnico y usuario) */}
@@ -641,6 +649,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.fixed.md,
     paddingTop: SPACING.fixed.md,
     gap: SPACING.fixed.sm,
+  },
+  mecanicoHeaderWrap: {
+    paddingHorizontal: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.md,
   },
   bannerWrapCompact: {
     paddingHorizontal: SPACING.fixed.md,

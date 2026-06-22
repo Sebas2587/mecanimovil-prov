@@ -99,6 +99,46 @@ export interface RendimientoMecanico {
   ordenes_en_proceso: number;
 }
 
+export interface MecanicoKpisComparativoMes {
+  completados: number;
+  tiempo_prom: number | null;
+  facturacion: number;
+}
+
+export interface MecanicoKpis {
+  mecanico_id: number;
+  nombre: string;
+  foto_url: string | null;
+  especialidades: { id: number; nombre: string }[];
+  activo: boolean;
+  servicios_completados: number;
+  servicios_en_proceso: number;
+  total_asignados: number;
+  pct_dentro_tiempo: number | null;
+  ratio_tiempo_promedio: number | null;
+  tiempo_promedio_minutos: number | null;
+  facturacion_periodo: number;
+  facturacion_mes_actual: number;
+  facturacion_mes_anterior: number;
+  facturacion_delta_pct: number | null;
+  comparativo: {
+    mes_actual: MecanicoKpisComparativoMes;
+    mes_anterior: MecanicoKpisComparativoMes;
+    delta_completados_pct: number | null;
+    delta_tiempo_pct: number | null;
+    delta_facturacion_pct: number | null;
+  };
+  ordenes_mecanimovil: number;
+  ordenes_personales: number;
+  score_productividad: number | null;
+  score_tiempo_ejecucion: number | null;
+  score_checklist: number | null;
+  score_puntualidad_inicio: number | null;
+  score_rendimiento_global: number | null;
+  ventana_desde?: string;
+  ventana_hasta?: string;
+}
+
 const BASE = '/usuarios/taller/equipo/';
 
 function buildQuery(params?: Record<string, string | number | boolean | undefined>): string {
@@ -164,6 +204,18 @@ const equipoTallerService = {
   async rendimiento(params?: { desde?: string; hasta?: string }): Promise<RendimientoMecanico[]> {
     const api = await getAPI();
     const response = await api.get(`${BASE}rendimiento/${buildQuery(params)}`);
+    return response.data || [];
+  },
+
+  /** KPIs granulares por mecánico (tiempos, facturación, scores, comparativo mensual). */
+  async rendimientoDetallado(params?: {
+    desde?: string;
+    hasta?: string;
+    dias?: number;
+    mecanico_id?: number;
+  }): Promise<MecanicoKpis[]> {
+    const api = await getAPI();
+    const response = await api.get(`${BASE}rendimiento-detallado/${buildQuery(params)}`);
     return response.data || [];
   },
 

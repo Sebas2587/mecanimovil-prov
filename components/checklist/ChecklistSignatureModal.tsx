@@ -15,6 +15,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+import { MecanicoAsignadoCard, type MecanicoAsignadoInfo } from '@/components/equipo/MecanicoAsignadoCard';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -42,6 +43,7 @@ interface ChecklistSignatureModalProps {
   };
   /** Si es un item de "solo técnico" o "solo cliente", capturar una sola firma. Por defecto 'both'. */
   signatureMode?: SignatureMode;
+  mecanicoAsignado?: MecanicoAsignadoInfo | null;
 }
 
 interface SignatureData {
@@ -59,6 +61,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
   onComplete,
   ordenInfo,
   signatureMode = 'both',
+  mecanicoAsignado = null,
 }) => {
   const initialStep: 'tecnico' | 'cliente' =
     signatureMode === 'cliente_only' ? 'cliente' : 'tecnico';
@@ -424,6 +427,12 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
             <Text style={styles.stepSubtitle}>{stepInfo.subtitle}</Text>
           </View>
 
+          {currentStep === 'tecnico' && mecanicoAsignado ? (
+            <View style={styles.mecanicoWrap}>
+              <MecanicoAsignadoCard mecanico={mecanicoAsignado} compact />
+            </View>
+          ) : null}
+
           {/* Información de la orden - minimalista */}
           <View style={styles.orderInfo}>
             <View style={[styles.orderInfoRow, styles.orderInfoRowFirst]}>
@@ -586,6 +595,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: '#ffffff',
     marginTop: 20,
+  },
+  mecanicoWrap: {
+    paddingHorizontal: 20,
+    marginBottom: 8,
   },
   stepTitle: {
     fontSize: 20,

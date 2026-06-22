@@ -148,6 +148,14 @@ export interface ChecklistInstance {
   firma_cliente_disponible?: boolean;
   puede_finalizar_check: boolean;
   respuestas: ChecklistItemResponse[];
+  mecanico_asignado?: {
+    id: number;
+    nombre: string;
+    foto_url?: string | null;
+    especialidades?: { id: number; nombre: string }[];
+    modalidad_tecnico?: string;
+    modalidad_display?: string;
+  } | null;
 }
 
 export interface ChecklistItemResponse {
