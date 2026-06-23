@@ -59,12 +59,12 @@ export function navigateByPushNotification(
     case 'cambio_estado':
     case 'pago_expirado':
     case 'solicitud_cancelada_cliente':
-      if (ofertaId) {
-        router.push(`/oferta-detalle/${ofertaId}`);
-        return true;
-      }
       if (solicitudId) {
         router.push(`/solicitud-detalle/${solicitudId}`);
+        return true;
+      }
+      if (ofertaId) {
+        router.push(`/oferta-detalle/${ofertaId}`);
         return true;
       }
       break;

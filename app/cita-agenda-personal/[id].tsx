@@ -9,14 +9,24 @@ import {
   Linking,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
-import Header from '@/components/Header';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import {
+  COLORS,
+  SPACING,
+  TYPOGRAPHY,
+  SHADOWS,
+  BORDERS,
+  withOpacity,
+  platformShadow,
+  noShadow,
+} from '@/app/design-system/tokens';
 import {
   agendaProveedorService,
   enriquecerCitaConTecnico,
@@ -41,10 +51,21 @@ import { parseFechaLocal } from '@/utils/fechaLocal';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
+import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
 const hx = SPACING.container.horizontal;
+const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
+
+const shadowFooter = platformShadow({
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: -2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 8,
+  elevation: 8,
+});
 
 type FeedbackAccion = {
   tipo: 'success' | 'error' | 'warning';
@@ -68,19 +89,41 @@ function estadoLabel(estado: string): string {
 function estadoColors(estado: string) {
   switch (estado) {
     case 'activa':
-      return { bg: withOpacity(I.primary, 0.1), text: I.primaryActive, dot: I.primary };
+      return { bg: withOpacity(I.primary, 0.1), text: I.primaryActive, border: withOpacity(I.primary, 0.28) };
     case 'cerrada':
-      return { bg: withOpacity(I.semanticUp, 0.12), text: I.semanticUp, dot: I.semanticUp };
+      return { bg: withOpacity(I.semanticUp, 0.12), text: I.semanticUp, border: withOpacity(I.semanticUp, 0.35) };
     case 'cancelada':
-      return { bg: withOpacity(I.semanticDown, 0.1), text: I.semanticDown, dot: I.semanticDown };
+      return { bg: withOpacity(I.semanticDown, 0.1), text: I.semanticDown, border: withOpacity(I.semanticDown, 0.35) };
     default:
-      return { bg: I.surfaceStrong, text: I.body, dot: I.muted };
+      return { bg: I.surfaceStrong, text: I.body, border: I.hairline };
   }
 }
+
+function formatDuracion(min?: number): string | null {
+  if (!min || min <= 0) return null;
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m > 0 ? `${h} h ${m} min` : `${h} h`;
+}
+
+const stackOptions = {
+  title: 'Cita personal',
+  headerBackTitle: '',
+  headerBackTitleVisible: false as const,
+  headerShadowVisible: false,
+  headerStyle: {
+    backgroundColor: I.canvas,
+    borderBottomWidth: 0,
+    ...noShadow,
+  },
+  headerTintColor: I.ink,
+};
 
 export default function CitaAgendaPersonalDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const scrollRef = useRef<ScrollView>(null);
   const citaId = Number(id);
 
@@ -163,6 +206,16 @@ export default function CitaAgendaPersonalDetalleScreen() {
     [cita],
   );
 
+  const footerBottomPad = Math.max(insets.bottom, Platform.OS === 'web' ? 12 : 0);
+
+  const muestraFooterAcciones = esActiva || esCancelada;
+
+  const footerReserve = useMemo(() => {
+    if (!muestraFooterAcciones) return SPACING.fixed.lg + footerBottomPad;
+    if (esActiva && !editando) return 132 + footerBottomPad + SPACING.fixed.md;
+    return 72 + footerBottomPad + SPACING.fixed.md;
+  }, [muestraFooterAcciones, esActiva, editando, footerBottomPad]);
+
   const handleLlamar = useCallback(() => {
     const tel = cita?.detalle.cliente_telefono;
     if (tel) Linking.openURL(`tel:${tel}`);
@@ -176,6 +229,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
       if (res.success) {
         setEditando(false);
         await cargarCita({ silent: true });
+        invalidateProveedorMarketplaceQueries(queryClient);
         mostrarFeedback({
           tipo: 'success',
           titulo: 'Cita completada',
@@ -197,7 +251,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     } finally {
       setProcesando(false);
     }
-  }, [citaId, cargarCita, mostrarFeedback]);
+  }, [citaId, cargarCita, mostrarFeedback, queryClient]);
 
   const handleCerrar = useCallback(() => {
     showConfirm('Cerrar cita', '¿Marcar esta cita como completada?', {
@@ -214,6 +268,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
       if (res.success) {
         setEditando(false);
         await cargarCita({ silent: true });
+        invalidateProveedorMarketplaceQueries(queryClient);
         mostrarFeedback({
           tipo: 'success',
           titulo: 'Cita cancelada',
@@ -235,7 +290,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     } finally {
       setProcesando(false);
     }
-  }, [citaId, cargarCita, mostrarFeedback]);
+  }, [citaId, cargarCita, mostrarFeedback, queryClient]);
 
   const handleCancelar = useCallback(() => {
     showConfirm('Cancelar cita', '¿Confirmas que deseas cancelar esta cita?', {
@@ -415,12 +470,12 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
   const formatearFecha = (fecha: string) => {
     const parsed = parseFechaLocal(fecha);
-    if (!parsed) return fecha;
-    return parsed.toLocaleDateString('es-CL', {
+    if (!parsed) return '—';
+    return parsed.toLocaleDateString('es-ES', {
       weekday: 'long',
-      day: 'numeric',
-      month: 'long',
       year: 'numeric',
+      month: 'long',
+      day: 'numeric',
     });
   };
 
@@ -435,21 +490,23 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-        <Header title="Cita personal" showBack onBackPress={() => router.back()} backgroundColor={I.canvas} titleColor={I.ink} />
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={I.primary} />
+      <View style={styles.container}>
+        <Stack.Screen options={stackOptions} />
+        <View style={styles.screenRoot}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={I.primary} />
+            <Text style={styles.loadingText}>Cargando…</Text>
+          </View>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!cita) return null;
 
+  const det = cita.detalle;
   const nombreServicio = nombreServicioCita(cita);
-  const precio = cita.detalle.precio_referencia
-    ? formatearMontoCLP(cita.detalle.precio_referencia)
-    : null;
+  const precio = det.precio_referencia ? formatearMontoCLP(det.precio_referencia) : null;
   const tecnicoModalidad =
     cita.mecanico_modalidad_tecnico != null
       ? etiquetaModalidadMecanico({
@@ -459,57 +516,81 @@ export default function CitaAgendaPersonalDetalleScreen() {
       : null;
   const tecnicoEspecialidades =
     cita.mecanico_especialidades && cita.mecanico_especialidades.length > 0
-      ? cita.mecanico_especialidades.join(', ')
+      ? cita.mecanico_especialidades.join(' · ')
       : null;
+  const duracionLabel = formatDuracion(cita.duracion_minutos);
+  const esDomicilio = cita.tipo_servicio === 'domicilio';
+  const textoUbicacion = esDomicilio
+    ? det.direccion?.trim() || 'Dirección no registrada'
+    : 'El cliente acudirá al taller';
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <Header
-        title="Cita personal"
-        showBack
-        onBackPress={() => router.back()}
-        backgroundColor={I.canvas}
-        titleColor={I.ink}
-      />
+    <View style={styles.container}>
+      <Stack.Screen options={stackOptions} />
 
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.screenRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           ref={scrollRef}
-          style={styles.scroll}
-          contentContainerStyle={{ paddingHorizontal: hx, paddingBottom: insets.bottom + SPACING.fixed.xl }}
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingHorizontal: hx, paddingBottom: footerReserve },
+          ]}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.heroCard}>
-            <View style={styles.heroTop}>
-              <View style={[styles.origenBadge, { backgroundColor: withOpacity(I.primary, 0.12) }]}>
-                <Text style={[styles.origenBadgeText, { color: I.primaryActive }]}>Personal</Text>
-              </View>
-              <View style={[styles.estadoBadge, { backgroundColor: estadoStyle.bg }]}>
-                <View style={[styles.estadoDot, { backgroundColor: estadoStyle.dot }]} />
-                <Text style={[styles.estadoText, { color: estadoStyle.text }]}>
-                  {estadoLabel(cita.estado)}
-                </Text>
-              </View>
+          <View style={styles.badgesContainer}>
+            <View
+              style={[
+                styles.metaBadge,
+                {
+                  backgroundColor: withOpacity(I.primary, 0.1),
+                  borderColor: withOpacity(I.primary, 0.28),
+                },
+              ]}
+            >
+              <InstitutionalIcon name="note" size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={[styles.metaBadgeText, { color: I.primary }]}>Personal</Text>
             </View>
 
-            <Text style={styles.heroTitle}>{nombreServicio}</Text>
-
-            <View style={styles.heroMeta}>
-              <InstitutionalIcon name="calendar" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.heroMetaText}>
-                {formatearFecha(cita.fecha_servicio)} · {formatearRangoHora(cita.hora_servicio, cita.duracion_minutos)}
+            <View
+              style={[
+                styles.metaBadge,
+                { backgroundColor: estadoStyle.bg, borderColor: estadoStyle.border },
+              ]}
+            >
+              <InstitutionalIcon name="ellipse-outline" size={10} color={estadoStyle.text} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={[styles.metaBadgeText, { color: estadoStyle.text }]}>
+                {estadoLabel(cita.estado)}
               </Text>
             </View>
 
-            <View style={styles.heroMeta}>
-              <InstitutionalIcon name="build" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.heroMetaText}>
-                {cita.tipo_servicio === 'domicilio' ? 'A domicilio' : 'En taller'}
+            <View
+              style={[
+                styles.metaBadge,
+                esDomicilio
+                  ? {
+                      backgroundColor: withOpacity(I.primary, 0.1),
+                      borderColor: withOpacity(I.primary, 0.28),
+                    }
+                  : styles.metaBadgeNeutral,
+              ]}
+            >
+              <InstitutionalIcon
+                name={esDomicilio ? 'home' : 'build'}
+                size={16}
+                color={esDomicilio ? I.primary : I.muted}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+              <Text style={[styles.metaBadgeText, { color: esDomicilio ? I.primary : I.muted }]}>
+                {esDomicilio ? 'A domicilio' : 'En taller'}
               </Text>
             </View>
 
-            {precio ? (
-              <Text style={styles.heroPrice}>{precio}</Text>
+            {duracionLabel ? (
+              <View style={[styles.metaBadge, styles.metaBadgeNeutral]}>
+                <InstitutionalIcon name="access-time" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={[styles.metaBadgeText, { color: I.muted }]}>{duracionLabel}</Text>
+              </View>
             ) : null}
           </View>
 
@@ -551,97 +632,169 @@ export default function CitaAgendaPersonalDetalleScreen() {
             </>
           ) : (
             <>
-              <InfoSection title="Cliente">
-                <InfoRow icon="person" label={cita.detalle.cliente_nombre} />
-                <InfoRow icon="call" label={cita.detalle.cliente_telefono} onPress={handleLlamar} />
-                {cita.detalle.direccion ? (
-                  <InfoRow icon="location" label={cita.detalle.direccion} />
-                ) : null}
-              </InfoSection>
-
-              <InfoSection title="Vehículo">
-                <InfoRow
-                  icon="car"
-                  label={`${cita.detalle.vehiculo_marca} ${cita.detalle.vehiculo_modelo}${
-                    cita.detalle.vehiculo_anio ? ` (${cita.detalle.vehiculo_anio})` : ''
-                  }`}
-                />
-                {cita.detalle.vehiculo_patente ? (
-                  <InfoRow icon="document" label={cita.detalle.vehiculo_patente} />
-                ) : null}
-              </InfoSection>
-
-              <InfoSection title="Técnico asignado">
-                <InfoRow
-                  icon="construct"
-                  label={cita.mecanico_nombre?.trim() || 'Sin técnico asignado'}
-                />
-                {cita.miembro_taller ? (
-                  <>
-                    {tecnicoEspecialidades ? (
-                      <InfoRow icon="star" label={tecnicoEspecialidades} />
+              <View style={styles.section}>
+                <Text style={styles.sectionHeaderTitle}>Cliente y vehículo</Text>
+                <View style={styles.clientInfoContainer}>
+                  <View style={styles.clientAvatarWrap}>
+                    <View style={styles.clientAvatarPlaceholder}>
+                      <InstitutionalIcon name="person" size={36} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                    </View>
+                  </View>
+                  <View style={styles.clientInfoTextos}>
+                    <Text style={styles.clientName} numberOfLines={2}>
+                      {det.cliente_nombre}
+                    </Text>
+                    {det.cliente_telefono ? (
+                      <TouchableOpacity onPress={handleLlamar} activeOpacity={0.75} style={styles.clientPhoneRow}>
+                        <InstitutionalIcon name="call" size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.clientPhoneText}>{det.cliente_telefono}</Text>
+                      </TouchableOpacity>
                     ) : null}
+                  </View>
+                </View>
+
+                <View style={styles.vehicleCard}>
+                  <View style={styles.vehicleCardHeader}>
+                    <InstitutionalIcon name="directions-car" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.vehicleCardTitle}>Vehículo</Text>
+                  </View>
+                  <View style={styles.vehicleTitleRow}>
+                    <Text style={styles.vehicleMarcaModelo} numberOfLines={2}>
+                      <Text style={styles.vehicleHighlight}>{det.vehiculo_marca}</Text> {det.vehiculo_modelo}
+                    </Text>
+                    {det.vehiculo_patente ? (
+                      <View style={styles.patentePill}>
+                        <InstitutionalIcon name="badge" size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.patentePillText}>{det.vehiculo_patente}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.vehiculoGrid}>
+                    <View style={styles.vehiculoGridItem}>
+                      <View style={styles.vehiculoGridItemHeader}>
+                        <InstitutionalIcon name="calendar-today" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.vehiculoGridItemLabel}>Año</Text>
+                      </View>
+                      <Text style={styles.vehiculoGridItemValue}>{det.vehiculo_anio ?? 'N/A'}</Text>
+                    </View>
+                    <View style={styles.vehiculoGridItem}>
+                      <View style={styles.vehiculoGridItemHeader}>
+                        <InstitutionalIcon name="speed" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.vehiculoGridItemLabel}>Kilometraje</Text>
+                      </View>
+                      <Text style={styles.vehiculoGridItemValue}>N/A</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.vehiculoGrid}>
+                    <View style={styles.vehiculoGridItem}>
+                      <View style={styles.vehiculoGridItemHeader}>
+                        <InstitutionalIcon name="settings" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.vehiculoGridItemLabel}>Motor</Text>
+                      </View>
+                      <Text style={styles.vehiculoGridItemValue}>N/A</Text>
+                    </View>
+                    <View style={styles.vehiculoGridItem}>
+                      <View style={styles.vehiculoGridItemHeader}>
+                        <InstitutionalIcon name="tune" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.vehiculoGridItemLabel}>Cilindraje</Text>
+                      </View>
+                      <Text style={styles.vehiculoGridItemValue}>{det.vehiculo_cilindraje || 'N/A'}</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionHeaderTitle}>Servicios solicitados</Text>
+                <View style={styles.serviciosListaDetalle}>
+                  <View style={styles.servicioDetalleCard}>
+                    <Text style={styles.servicioDetalleNombre} numberOfLines={3}>
+                      {nombreServicio}
+                    </Text>
+                  </View>
+                </View>
+
+                {precio ? <Text style={styles.ofertaPrecio}>{precio}</Text> : null}
+
+                {det.descripcion ? (
+                  <View style={styles.descripcionBlock}>
+                    <View style={styles.descripcionBlockHeader}>
+                      <InstitutionalIcon name="description" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                      <Text style={styles.descripcionBlockLabel}>Notas del servicio</Text>
+                    </View>
+                    <Text style={styles.descriptionText}>{det.descripcion}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionHeaderTitle}>Técnico asignado</Text>
+                <View style={styles.tecnicoCard}>
+                  <View style={styles.tecnicoAvatarPlaceholder}>
+                    <InstitutionalIcon name="person" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                  </View>
+                  <View style={styles.tecnicoInfo}>
+                    <Text style={styles.tecnicoNombre}>
+                      {cita.mecanico_nombre?.trim() || 'Sin técnico asignado'}
+                    </Text>
                     {tecnicoModalidad ? (
-                      <InfoRow icon="build" label={`Atiende: ${tecnicoModalidad}`} />
+                      <Text style={styles.tecnicoSub}>Atiende: {tecnicoModalidad}</Text>
                     ) : null}
-                  </>
-                ) : null}
-              </InfoSection>
+                    {tecnicoEspecialidades ? (
+                      <Text style={styles.tecnicoSub} numberOfLines={2}>
+                        {tecnicoEspecialidades}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
 
-              {cita.detalle.descripcion ? (
-                <InfoSection title="Notas">
-                  <Text style={styles.notesText}>{cita.detalle.descripcion}</Text>
-                </InfoSection>
-              ) : null}
+              <View style={styles.section}>
+                <Text style={styles.sectionHeaderTitle}>Fecha y hora</Text>
+                <View style={styles.dateTimeRow}>
+                  <InstitutionalIcon name="calendar-today" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                  <View style={styles.dateTimeTextos}>
+                    <Text style={styles.dateTimeLabel}>Fecha</Text>
+                    <Text style={styles.dateTimeValue}>{formatearFecha(cita.fecha_servicio)}</Text>
+                  </View>
+                </View>
+                <View style={styles.dateTimeDivider} />
+                <View style={styles.dateTimeRow}>
+                  <InstitutionalIcon name="access-time" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                  <View style={styles.dateTimeTextos}>
+                    <Text style={styles.dateTimeLabel}>Horario</Text>
+                    <Text style={styles.dateTimeValue}>
+                      {formatearRangoHora(cita.hora_servicio, cita.duracion_minutos)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionHeaderTitle}>Ubicación del servicio</Text>
+                <View style={styles.addressCard}>
+                  <View style={styles.addressHeader}>
+                    <InstitutionalIcon name="location-on" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <View style={styles.addressContent}>
+                      <Text style={styles.addressText}>{textoUbicacion}</Text>
+                      {!esDomicilio ? (
+                        <Text style={styles.addressDetailsText}>Servicio presencial en el taller</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                </View>
+              </View>
             </>
           )}
 
-          <View style={styles.actions}>
-            {esActiva && !editando && (
-              <>
-                <ActionButton
-                  label="Editar"
-                  icon="create"
-                  variant="secondary"
-                  onPress={() => {
-                    setFeedbackAccion(null);
-                    setEditando(true);
-                  }}
-                  disabled={procesando}
-                />
-                <ActionButton label="Completar" icon="check-circle" variant="success" onPress={handleCerrar} disabled={procesando} />
-                <ActionButton label="Cancelar cita" icon="close-circle" variant="danger" onPress={handleCancelar} disabled={procesando} />
-              </>
-            )}
-
-            {esActiva && editando && (
-              <>
-                <ActionButton label="Guardar cambios" icon="save" variant="primary" onPress={handleGuardarEdicion} disabled={procesando} />
-                <ActionButton
-                  label="Descartar"
-                  icon="close"
-                  variant="secondary"
-                  onPress={() => {
-                    poblarFormulario(cita);
-                    setEditando(false);
-                    setFeedbackAccion(null);
-                  }}
-                  disabled={procesando}
-                />
-              </>
-            )}
-
-            {esCancelada && (
-              <ActionButton label="Eliminar" icon="trash" variant="danger" onPress={handleEliminar} disabled={procesando} />
-            )}
-
-            {procesando && (
-              <View style={styles.processingRow}>
-                <ActivityIndicator color={I.primary} />
-                <Text style={styles.processingText}>Procesando…</Text>
-              </View>
-            )}
-          </View>
+          {procesando && (
+            <View style={styles.processingRow}>
+              <ActivityIndicator color={I.primary} />
+              <Text style={styles.processingText}>Procesando…</Text>
+            </View>
+          )}
 
           {feedbackAccion && (
             <View style={styles.feedbackWrap}>
@@ -653,243 +806,521 @@ export default function CitaAgendaPersonalDetalleScreen() {
             </View>
           )}
         </ScrollView>
+
+        {muestraFooterAcciones ? (
+          <CitaPersonalFooter
+            esActiva={esActiva}
+            esCancelada={esCancelada}
+            editando={editando}
+            procesando={procesando}
+            bottomPad={footerBottomPad}
+            onEditar={() => {
+              setFeedbackAccion(null);
+              setEditando(true);
+            }}
+            onCompletar={handleCerrar}
+            onCancelar={handleCancelar}
+            onGuardar={handleGuardarEdicion}
+            onDescartar={() => {
+              poblarFormulario(cita);
+              setEditando(false);
+              setFeedbackAccion(null);
+            }}
+            onEliminar={handleEliminar}
+          />
+        ) : null}
       </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
-}
-
-function InfoSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.infoSection}>
-      <Text style={styles.infoSectionTitle}>{title}</Text>
-      <View style={styles.infoCard}>{children}</View>
     </View>
   );
-}
-
-function InfoRow({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: string;
-  label: string;
-  onPress?: () => void;
-}) {
-  const content = (
-    <View style={styles.infoRow}>
-      <InstitutionalIcon name={icon} size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-      <Text style={[styles.infoRowText, onPress && styles.infoRowLink]}>{label}</Text>
-    </View>
-  );
-
-  if (onPress) {
-    return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
-        {content}
-      </TouchableOpacity>
-    );
-  }
-  return content;
 }
 
 function EditSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <View style={styles.infoSection}>
-      <Text style={styles.infoSectionTitle}>{title}</Text>
-      <View style={styles.infoCard}>{children}</View>
+    <View style={styles.section}>
+      <Text style={styles.sectionHeaderTitle}>{title}</Text>
+      <View style={styles.editFields}>{children}</View>
     </View>
   );
 }
 
-function ActionButton({
-  label,
-  icon,
-  variant,
-  onPress,
-  disabled,
-}: {
-  label: string;
-  icon: string;
-  variant: 'primary' | 'secondary' | 'success' | 'danger';
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  const variantStyle = {
-    primary: { bg: I.primary, text: I.onPrimary, border: I.primary },
-    secondary: { bg: I.canvas, text: I.ink, border: I.hairline },
-    success: { bg: I.semanticUp, text: I.onPrimary, border: I.semanticUp },
-    danger: { bg: withOpacity(I.semanticDown, 0.1), text: I.semanticDown, border: withOpacity(I.semanticDown, 0.25) },
-  }[variant];
+type CitaPersonalFooterProps = {
+  esActiva: boolean;
+  esCancelada: boolean;
+  editando: boolean;
+  procesando: boolean;
+  bottomPad: number;
+  onEditar: () => void;
+  onCompletar: () => void;
+  onCancelar: () => void;
+  onGuardar: () => void;
+  onDescartar: () => void;
+  onEliminar: () => void;
+};
 
+function CitaPersonalFooter({
+  esActiva,
+  esCancelada,
+  editando,
+  procesando,
+  bottomPad,
+  onEditar,
+  onCompletar,
+  onCancelar,
+  onGuardar,
+  onDescartar,
+  onEliminar,
+}: CitaPersonalFooterProps) {
   return (
-    <TouchableOpacity
-      style={[
-        styles.actionBtn,
-        { backgroundColor: variantStyle.bg, borderColor: variantStyle.border },
-        disabled && styles.actionBtnDisabled,
-      ]}
-      onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.85}
-    >
-      <InstitutionalIcon name={icon} size={18} color={variantStyle.text} strokeWidth={ICON_STROKE_WIDTH} />
-      <Text style={[styles.actionBtnText, { color: variantStyle.text }]}>{label}</Text>
-    </TouchableOpacity>
+    <View style={[styles.footer, { paddingBottom: bottomPad }]}>
+      {esActiva && !editando ? (
+        <>
+          <View style={styles.footerRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.footerBtnOutline,
+                (pressed || procesando) && styles.footerBtnPressed,
+                procesando && styles.footerBtnDisabled,
+              ]}
+              onPress={onEditar}
+              disabled={procesando}
+            >
+              <InstitutionalIcon name="create" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.footerBtnOutlineNeutralText} numberOfLines={1}>Editar</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.footerBtnSuccess,
+                (pressed || procesando) && styles.footerBtnPressed,
+                procesando && styles.footerBtnDisabled,
+              ]}
+              onPress={onCompletar}
+              disabled={procesando}
+            >
+              <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Completar</Text>
+            </Pressable>
+          </View>
+          <Pressable
+            style={({ pressed }) => [
+              styles.footerBtnCancel,
+              (pressed || procesando) && styles.footerBtnPressed,
+              procesando && styles.footerBtnDisabled,
+            ]}
+            onPress={onCancelar}
+            disabled={procesando}
+          >
+            <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Cancelar cita</Text>
+          </Pressable>
+        </>
+      ) : null}
+
+      {esActiva && editando ? (
+        <View style={styles.footerRow}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.footerBtnOutline,
+              (pressed || procesando) && styles.footerBtnPressed,
+              procesando && styles.footerBtnDisabled,
+            ]}
+            onPress={onDescartar}
+            disabled={procesando}
+          >
+            <InstitutionalIcon name="close" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={styles.footerBtnOutlineNeutralText} numberOfLines={1}>Descartar</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.footerBtnPrimary,
+              (pressed || procesando) && styles.footerBtnPressed,
+              procesando && styles.footerBtnDisabled,
+            ]}
+            onPress={onGuardar}
+            disabled={procesando}
+          >
+            {procesando ? (
+              <ActivityIndicator color={I.onPrimary} size="small" />
+            ) : (
+              <>
+                <InstitutionalIcon name="save" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Guardar cambios</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      ) : null}
+
+      {esCancelada ? (
+        <Pressable
+          style={({ pressed }) => [
+            styles.footerBtnCancel,
+            (pressed || procesando) && styles.footerBtnPressed,
+            procesando && styles.footerBtnDisabled,
+          ]}
+          onPress={onEliminar}
+          disabled={procesando}
+        >
+          <InstitutionalIcon name="delete" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+          <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Eliminar cita</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
+  },
+  screenRoot: {
+    flex: 1,
     backgroundColor: I.surfaceSoft,
   },
-  flex: {
+  scrollView: {
     flex: 1,
   },
-  scroll: {
-    flex: 1,
+  scrollContent: {
+    paddingTop: SPACING.fixed.sm,
   },
-  centered: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  heroCard: {
-    marginTop: SPACING.fixed.md,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.card.xl,
-    padding: SPACING.fixed.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    ...SHADOWS.editorial,
-    gap: SPACING.fixed.sm,
+  loadingText: {
+    marginTop: SPACING.fixed.sm,
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.ink,
   },
-  heroTop: {
+
+  badgesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.md,
+  },
+  metaBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.fixed.xs,
-  },
-  origenBadge: {
+    gap: 6,
     paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: SPACING.fixed.xxs,
+    paddingVertical: 6,
     borderRadius: BORDERS.radius.pill,
-  },
-  origenBadgeText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansSemiBold,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
-  estadoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: SPACING.fixed.xxs,
-    borderRadius: BORDERS.radius.pill,
-  },
-  estadoDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-  },
-  estadoText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-  },
-  heroTitle: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
-    lineHeight: Math.round(TYPOGRAPHY.fontSize.xl * 1.25),
-  },
-  heroMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xs,
-  },
-  heroMetaText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansRegular,
-    color: I.body,
-    flex: 1,
-    textTransform: 'capitalize',
-  },
-  heroPrice: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontFamily: FF.monoMedium,
-    color: I.ink,
-    marginTop: SPACING.fixed.xxs,
-  },
-  infoSection: {
-    marginTop: SPACING.fixed.md,
-  },
-  infoSectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: SPACING.fixed.xxs,
-    marginLeft: SPACING.fixed.xxs,
-  },
-  infoCard: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.card.xl,
-    padding: SPACING.fixed.md,
     borderWidth: BORDERS.width.thin,
+  },
+  metaBadgeNeutral: {
+    backgroundColor: I.surfaceStrong,
     borderColor: I.hairline,
-    ...SHADOWS.editorial,
-    gap: SPACING.fixed.md,
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.sm,
+  metaBadgeText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
   },
-  infoRowText: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansRegular,
-    color: I.ink,
-  },
-  infoRowLink: {
-    color: I.primaryActive,
-    fontFamily: FF.sansMedium,
-  },
-  notesText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansRegular,
-    color: I.body,
-    lineHeight: Math.round(TYPOGRAPHY.fontSize.base * 1.45),
-  },
-  actions: {
-    marginTop: SPACING.fixed.lg,
-    gap: SPACING.fixed.sm,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.fixed.sm,
-    paddingVertical: SPACING.fixed.sm + 4,
+
+  section: {
+    backgroundColor: I.canvas,
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    padding: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.md,
+    ...SHADOWS.editorial,
   },
-  actionBtnDisabled: {
-    opacity: 0.6,
+  sectionHeaderTitle: {
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    letterSpacing: TS.h4.letterSpacing,
+    color: I.ink,
+    marginBottom: SPACING.fixed.sm,
   },
-  actionBtnText: {
+  editFields: {
+    gap: SPACING.fixed.md,
+  },
+
+  clientInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.md,
+  },
+  clientAvatarWrap: {
+    borderRadius: 28,
+    overflow: 'hidden',
+  },
+  clientAvatarPlaceholder: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: withOpacity(I.primary, 0.12),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clientInfoTextos: {
+    flex: 1,
+    gap: 4,
+  },
+  clientName: {
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    color: I.ink,
+  },
+  clientPhoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+  },
+  clientPhoneText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.primary,
+  },
+
+  vehicleCard: {
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.sm + 2,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    gap: SPACING.fixed.sm,
+  },
+  vehicleCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+  },
+  vehicleCardTitle: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.muted,
   },
+  vehicleTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.sm,
+  },
+  vehicleMarcaModelo: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.ink,
+  },
+  vehicleHighlight: {
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
+  },
+  patentePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: withOpacity(I.primary, 0.1),
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.primary, 0.25),
+  },
+  patentePillText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.primary,
+    letterSpacing: 0.4,
+  },
+  vehiculoGrid: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.sm,
+  },
+  vehiculoGridItem: {
+    flex: 1,
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.sm + 2,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  vehiculoGridItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  vehiculoGridItemLabel: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    textTransform: 'uppercase',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+  },
+  vehiculoGridItemValue: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.ink,
+  },
+
+  serviciosListaDetalle: {
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+  },
+  servicioDetalleCard: {
+    backgroundColor: I.surfaceStrong,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.sm + 2,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  servicioDetalleNombre: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.ink,
+  },
+  ofertaPrecio: {
+    fontSize: TS.numberDisplay.fontSize,
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TS.numberDisplay.fontSize, TS.numberDisplay.lineHeight),
+    color: I.primary,
+    marginBottom: SPACING.fixed.sm,
+  },
+  descripcionBlock: {
+    marginTop: SPACING.fixed.xs,
+    paddingTop: SPACING.fixed.md,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+  },
+  descripcionBlockHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.sm,
+  },
+  descripcionBlockLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    textTransform: 'uppercase',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
+  },
+  descriptionText: {
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.ink,
+  },
+
+  tecnicoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.canvas,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    gap: SPACING.fixed.sm,
+  },
+  tecnicoAvatarPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: I.surfaceStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tecnicoInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  tecnicoNombre: {
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  tecnicoSub: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+  },
+
+  dateTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.sm,
+  },
+  dateTimeTextos: {
+    flex: 1,
+    gap: 2,
+  },
+  dateTimeLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    textTransform: 'uppercase',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
+  },
+  dateTimeValue: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
+    color: I.ink,
+    textTransform: 'capitalize',
+  },
+  dateTimeDivider: {
+    height: BORDERS.width.thin,
+    backgroundColor: I.hairline,
+    marginVertical: SPACING.fixed.sm,
+  },
+
+  addressCard: {
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    padding: SPACING.fixed.md,
+  },
+  addressHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.sm,
+  },
+  addressContent: {
+    flex: 1,
+  },
+  addressText: {
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansMedium,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.ink,
+  },
+  addressDetailsText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+    color: I.muted,
+    marginTop: SPACING.fixed.xxs,
+  },
+
   processingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.fixed.sm,
     paddingVertical: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.sm,
   },
   processingText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
@@ -897,6 +1328,86 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   feedbackWrap: {
-    marginTop: SPACING.fixed.sm,
+    marginTop: SPACING.fixed.xs,
   },
+
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: I.canvas,
+    paddingHorizontal: hx,
+    paddingTop: SPACING.fixed.sm,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+    gap: SPACING.fixed.sm,
+    ...shadowFooter,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.sm,
+  },
+  footerBtnOutline: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.sm + 2,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
+  },
+  footerBtnCancel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.sm + 2,
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.semanticDown, 0.35),
+    backgroundColor: I.canvas,
+  },
+  footerBtnPrimary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.sm + 2,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.primary,
+    ...SHADOWS.editorial,
+  },
+  footerBtnSuccess: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.sm + 2,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.semanticUp,
+    ...SHADOWS.editorial,
+  },
+  footerBtnOutlineText: {
+    fontSize: TS.button.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.semanticDown,
+  },
+  footerBtnOutlineNeutralText: {
+    fontSize: TS.button.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  footerBtnPrimaryText: {
+    fontSize: TS.button.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.onPrimary,
+  },
+  footerBtnPressed: { opacity: 0.85 },
+  footerBtnDisabled: { opacity: 0.55 },
 });

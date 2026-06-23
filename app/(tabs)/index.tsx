@@ -24,8 +24,11 @@ import { router, useFocusEffect } from 'expo-router';
 import EstadoRevisionScreen from '@/components/EstadoRevisionScreen';
 import { ordenesProveedorService } from '@/services/ordenesProveedor';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
-import solicitudesService, { type SolicitudPublica } from '@/services/solicitudesService';
 import websocketService, { type NuevaSolicitudEvent } from '@/app/services/websocketService';
+import {
+  useSolicitudesDisponiblesQuery,
+  useSolicitudesDisponiblesRealtime,
+} from '@/hooks/useSolicitudesDisponiblesQuery';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import creditosService, { type CreditoProveedor } from '@/services/creditosService';
@@ -42,8 +45,7 @@ import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
 import { horariosAPI } from '@/services/api';
 import {
-  parseHorariosApiResponse,
-  proveedorTieneHorariosActivos,
+  normalizarEstadoAgendaApi,
 } from '@/utils/horariosProveedor';
 import { useEspecialidadesDesdeServicios } from '@/hooks/useEspecialidadesDesdeServicios';
 
@@ -117,10 +119,16 @@ export default function HomeScreen() {
     cantidadServicios: number;
   }>({ dinero: 0, cantidadServicios: 0 });
 
-  // Estado para solicitudes disponibles
-  const [solicitudesDisponibles, setSolicitudesDisponibles] = useState<SolicitudPublica[]>([]);
-  const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
+  // Solicitudes del radar (TanStack Query + invalidación por WS/focus)
   const [nuevasSolicitudesIds, setNuevasSolicitudesIds] = useState<Set<string>>(new Set());
+  const solicitudesRadarEnabled =
+    cuentaAprobadaPorAdmin && radarPreferenciaCargada && radarOportunidadesActivo;
+  const {
+    data: solicitudesDisponibles = [],
+    isLoading: loadingSolicitudes,
+    refetch: refetchSolicitudesDisponibles,
+  } = useSolicitudesDisponiblesQuery(solicitudesRadarEnabled);
+  useSolicitudesDisponiblesRealtime({ enabled: solicitudesRadarEnabled });
 
   // Estado para suscripción
   const [suscripcion, setSuscripcion] = useState<SuscripcionProveedor | null>(null);
@@ -209,9 +217,9 @@ export default function HomeScreen() {
       return;
     }
     try {
-      const raw = await horariosAPI.obtenerMisHorarios();
-      const horarios = parseHorariosApiResponse(raw);
-      setNecesitaConfigurarHorarios(!proveedorTieneHorariosActivos(horarios));
+      const estado = await horariosAPI.obtenerEstadoConfiguracion();
+      const normalizado = normalizarEstadoAgendaApi(estado);
+      setNecesitaConfigurarHorarios(normalizado.necesita_configurar);
     } catch (error) {
       devWarn('No se pudo verificar horarios del proveedor:', error);
       setNecesitaConfigurarHorarios(null);
@@ -232,18 +240,14 @@ export default function HomeScreen() {
   useEffect(() => {
     if (cuentaAprobadaPorAdmin) {
       cargarEstadisticasSemanales();
-      if (radarPreferenciaCargada && radarOportunidadesActivo) {
-        cargarSolicitudesDisponibles();
-      }
       cargarCreditos();
       cargarEstadisticasMP();
       cargarSuscripcion();
       verificarHorariosConfigurados();
     }
-  }, [perfilProveedorKey, cuentaAprobadaPorAdmin, radarOportunidadesActivo, radarPreferenciaCargada, verificarHorariosConfigurados]);
+  }, [perfilProveedorKey, cuentaAprobadaPorAdmin, verificarHorariosConfigurados]);
 
-  // Al volver al tab: alertas + KPIs ligeros. La carga pesada (stats, MP, suscripción, solicitudes)
-  // queda en useEffect arriba para no duplicar peticiones al montar (useEffect + useFocusEffect).
+  // Al volver al tab: alertas + KPIs ligeros. Solicitudes: TanStack Query + useSolicitudesDisponiblesRealtime.
   useFocusEffect(
     React.useCallback(() => {
       if (!cuentaAprobadaPorAdmin) return;
@@ -253,12 +257,6 @@ export default function HomeScreen() {
       refreshEspecialidadesTags();
     }, [cuentaAprobadaPorAdmin, kpisResumen.refresh, verificarHorariosConfigurados, refreshEspecialidadesTags])
   );
-
-  useEffect(() => {
-    if (radarPreferenciaCargada && !radarOportunidadesActivo) {
-      setSolicitudesDisponibles([]);
-    }
-  }, [radarOportunidadesActivo, radarPreferenciaCargada]);
 
   // Cargar saldo de créditos
   const cargarCreditos = async () => {
@@ -305,32 +303,19 @@ export default function HomeScreen() {
     }
   };
 
-  // Suscribirse a eventos de nueva solicitud vía WebSocket
+  // Badge de novedad en header al recibir solicitud por WebSocket
   useEffect(() => {
     if (!cuentaAprobadaPorAdmin) return;
 
     const unsubscribe = websocketService.onNuevaSolicitud((event: NuevaSolicitudEvent) => {
       devLog('📬 Nueva solicitud recibida vía WebSocket:', event);
-
-      // Agregar ID a nuevas solicitudes
-      setNuevasSolicitudesIds(prev => new Set([...prev, event.solicitud_id]));
-
-      if (radarOportunidadesActivo) {
-        cargarSolicitudesDisponibles();
-      }
-
-      // Opcional: Mostrar notificación/alert
-      // Alert.alert(
-      //   'Nueva Solicitud',
-      //   `Nueva solicitud disponible: ${event.vehiculo}`,
-      //   [{ text: 'Ver', onPress: () => router.push(`/solicitud-detalle/${event.solicitud_id}`) }]
-      // );
+      setNuevasSolicitudesIds((prev) => new Set([...prev, event.solicitud_id]));
     });
 
     return () => {
       unsubscribe();
     };
-  }, [cuentaAprobadaPorAdmin, radarOportunidadesActivo]);
+  }, [cuentaAprobadaPorAdmin]);
 
   // Suscribirse a eventos de pago expirado y cancelación
   useEffect(() => {
@@ -485,24 +470,6 @@ export default function HomeScreen() {
     }
   }, [cuentaAprobadaPorAdmin]);
 
-  // Cargar solicitudes disponibles
-  const cargarSolicitudesDisponibles = async () => {
-    try {
-      setLoadingSolicitudes(true);
-      const result = await solicitudesService.obtenerSolicitudesDisponibles();
-
-      if (result.success && result.data) {
-        setSolicitudesDisponibles(result.data);
-      } else {
-        console.error('Error cargando solicitudes:', result.error);
-      }
-    } catch (error) {
-      console.error('Error cargando solicitudes disponibles:', error);
-    } finally {
-      setLoadingSolicitudes(false);
-    }
-  };
-
   // Función para calcular dinero de la semana según servicios realizados
   const cargarEstadisticasSemanales = async () => {
     try {
@@ -613,8 +580,8 @@ export default function HomeScreen() {
       verificarHorariosConfigurados(),
       refreshEspecialidadesTags(),
     ];
-    if (radarPreferenciaCargada && radarOportunidadesActivo) {
-      tasks.push(cargarSolicitudesDisponibles());
+    if (solicitudesRadarEnabled) {
+      tasks.push(refetchSolicitudesDisponibles());
     }
     await Promise.all(tasks);
     setRefreshing(false);
@@ -772,7 +739,7 @@ export default function HomeScreen() {
                   variant="warning"
                   Icon={Clock}
                   title="Configura tus horarios"
-                  message="Los clientes no pueden agendar contigo aún."
+                  message="Activa el horario del taller o de al menos un mecánico para que los clientes puedan agendar."
                   onPress={() => router.push('/configuracion-horarios')}
                 />
               ) : null}

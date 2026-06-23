@@ -8,7 +8,6 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
@@ -24,6 +23,10 @@ import {
   resolveInitialPickerValue,
   type CatalogoFechaHoraValue,
 } from '@/components/solicitudes/CatalogoFechaHoraPickers';
+import {
+  obtenerDisponibilidadConDuracion,
+  type DisponibilidadConDuracion,
+} from '@/services/disponibilidadProveedorService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -39,6 +42,13 @@ export type MecanicoPropuestaOption = {
   modalidad_display?: string;
 };
 
+export type AgendaPropuestaContext = {
+  tipoProveedor: 'taller' | 'mecanico';
+  proveedorId: number;
+  ofertaServicioId?: number | null;
+  modalidad?: 'a_domicilio' | 'en_taller';
+};
+
 type Props = {
   visible: boolean;
   fechaReferencia?: string;
@@ -46,6 +56,7 @@ type Props = {
   loading?: boolean;
   mecanicos?: MecanicoPropuestaOption[];
   miembroInicial?: number | null;
+  agendaContext?: AgendaPropuestaContext | null;
   onClose: () => void;
   onConfirm: (fecha: string, hora: string, motivo: string, miembroTallerId?: number | null) => void;
 };
@@ -57,6 +68,7 @@ export function ProponerFechaCatalogoModal({
   loading = false,
   mecanicos = [],
   miembroInicial = null,
+  agendaContext = null,
   onClose,
   onConfirm,
 }: Props) {
@@ -66,14 +78,76 @@ export function ProponerFechaCatalogoModal({
   );
   const [motivo, setMotivo] = useState('');
   const [miembroSeleccionado, setMiembroSeleccionado] = useState<number | null>(miembroInicial);
+  const [horasDisponibles, setHorasDisponibles] = useState<string[] | null>(null);
+  const [cargandoHoras, setCargandoHoras] = useState(false);
+  const [mensajeSinHoras, setMensajeSinHoras] = useState<string | undefined>();
 
   useEffect(() => {
     if (visible) {
       setPickerValue(resolveInitialPickerValue(fechaReferencia, horaReferencia));
       setMotivo('');
       setMiembroSeleccionado(miembroInicial ?? null);
+      setHorasDisponibles(null);
+      setMensajeSinHoras(undefined);
     }
   }, [visible, fechaReferencia, horaReferencia, miembroInicial]);
+
+  useEffect(() => {
+    if (!visible || !agendaContext?.proveedorId) {
+      setHorasDisponibles(null);
+      return;
+    }
+    if (mecanicos.length > 0 && !miembroSeleccionado) {
+      setHorasDisponibles([]);
+      setMensajeSinHoras('Selecciona un técnico para ver sus horarios.');
+      return;
+    }
+
+    let cancelled = false;
+    const fecha = formatDateApi(pickerValue.fecha);
+
+    setCargandoHoras(true);
+    obtenerDisponibilidadConDuracion({
+      tipoProveedor: agendaContext.tipoProveedor,
+      proveedorId: agendaContext.proveedorId,
+      fecha,
+      ofertaServicioId: agendaContext.ofertaServicioId ?? undefined,
+      miembroTallerId: miembroSeleccionado ?? undefined,
+      modalidad: agendaContext.modalidad,
+    })
+      .then((data: DisponibilidadConDuracion) => {
+        if (cancelled) return;
+        const horas = (data.slots_disponibles ?? [])
+          .map((slot) => slot.hora)
+          .filter((h): h is string => Boolean(h));
+        setHorasDisponibles(horas);
+        setMensajeSinHoras(
+          horas.length > 0 ? undefined : (data.mensaje || 'No hay horarios disponibles para esta fecha.'),
+        );
+        setPickerValue((prev) => {
+          if (!prev.hora || horas.includes(prev.hora)) return prev;
+          return { ...prev, hora: horas[0] ?? null };
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setHorasDisponibles([]);
+        setMensajeSinHoras('No se pudieron cargar los horarios.');
+      })
+      .finally(() => {
+        if (!cancelled) setCargandoHoras(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    visible,
+    agendaContext,
+    miembroSeleccionado,
+    pickerValue.fecha,
+    mecanicos.length,
+  ]);
 
   const handleSubmit = useCallback(() => {
     if (loading) return;
@@ -84,18 +158,14 @@ export function ProponerFechaCatalogoModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <View style={styles.overlay}>
         <Pressable style={styles.dismissHit} onPress={onClose} accessibilityLabel="Cerrar" />
-        <Pressable
+        <View
           style={[
             styles.sheet,
             { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) },
             SHADOWS.editorial,
           ]}
-          onPress={(e) => e.stopPropagation()}
         >
           <View style={styles.sheetHeader}>
             <View style={styles.headerTitleCol}>
@@ -118,11 +188,22 @@ export function ProponerFechaCatalogoModal({
             </TouchableOpacity>
           </View>
 
-          <View style={styles.body}>
+          <ScrollView
+            style={styles.bodyScroll}
+            contentContainerStyle={styles.body}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+          >
             {mecanicos.length > 0 ? (
               <>
                 <Text style={styles.fieldLabel}>Técnico asignado</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mecanicosRow}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.horizontalBleed}
+                  contentContainerStyle={styles.mecanicosRow}
+                >
                   {mecanicos.map((m) => {
                     const sel = miembroSeleccionado === m.id;
                     return (
@@ -149,7 +230,14 @@ export function ProponerFechaCatalogoModal({
               </>
             ) : null}
 
-            <CatalogoFechaHoraPickers value={pickerValue} onChange={setPickerValue} />
+            <CatalogoFechaHoraPickers
+              value={pickerValue}
+              onChange={setPickerValue}
+              horasDisponibles={agendaContext ? horasDisponibles : undefined}
+              cargandoHoras={agendaContext ? cargandoHoras : false}
+              mensajeSinHoras={mensajeSinHoras}
+              horizontalInset={hx}
+            />
 
             <Text style={styles.fieldLabel}>Motivo (opcional)</Text>
             <TextInput
@@ -161,7 +249,7 @@ export function ProponerFechaCatalogoModal({
               maxLength={160}
               returnKeyType="done"
             />
-          </View>
+          </ScrollView>
 
           <View style={styles.footer}>
             <TouchableOpacity
@@ -185,8 +273,8 @@ export function ProponerFechaCatalogoModal({
               )}
             </TouchableOpacity>
           </View>
-        </Pressable>
-      </KeyboardAvoidingView>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -196,11 +284,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: withOpacity(I.ink, 0.48),
+    // RN Web: sin altura explícita flex-end no ancla el sheet al fondo.
+    ...(Platform.OS === 'web'
+      ? ({ height: '100%', minHeight: '100%' } as const)
+      : null),
   },
   dismissHit: {
     ...StyleSheet.absoluteFillObject,
   },
   sheet: {
+    width: '100%',
+    maxHeight: '92%',
     backgroundColor: I.canvas,
     borderTopLeftRadius: BORDERS.radius.xl,
     borderTopRightRadius: BORDERS.radius.xl,
@@ -208,6 +302,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     borderColor: I.hairline,
     overflow: 'hidden',
+    flexDirection: 'column',
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -261,12 +356,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  bodyScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+    minHeight: 0,
+  },
   body: {
     backgroundColor: I.surfaceSoft,
     paddingHorizontal: hx,
     paddingTop: SPACING.fixed.sm,
     paddingBottom: SPACING.fixed.md,
     gap: SPACING.fixed.xs,
+  },
+  horizontalBleed: {
+    marginHorizontal: -hx,
   },
   fieldLabel: {
     fontSize: TS.caption.fontSize,
@@ -339,6 +442,7 @@ const styles = StyleSheet.create({
   mecanicosRow: {
     gap: SPACING.fixed.sm,
     paddingBottom: SPACING.fixed.sm,
+    paddingHorizontal: hx,
   },
   mecanicoChip: {
     width: 96,

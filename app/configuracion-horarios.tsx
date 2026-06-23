@@ -20,11 +20,14 @@ import {
   normalizarActivo,
   parseHorariosApiResponse,
   proveedorTieneHorariosActivos,
+  normalizarEstadoAgendaApi,
+  type EstadoAgendaProveedor,
 } from '@/utils/horariosProveedor';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import equipoTallerService, { type MiembroTaller } from '@/services/equipoTallerService';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -378,8 +381,10 @@ export default function ConfiguracionHorariosScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  /** Sin registros en BD: proveedor nuevo debe activar días y guardar. */
+  /** Sin registros en BD para la agenda seleccionada (general o mecánico). */
   const [sinHorariosEnServidor, setSinHorariosEnServidor] = useState(false);
+  /** Resumen global: horario general del taller + mecánicos con agenda propia. */
+  const [estadoAgenda, setEstadoAgenda] = useState<EstadoAgendaProveedor | null>(null);
 
   // Estados para modal de edición
   const [modalEditarDia, setModalEditarDia] = useState<ModalEditarDia>({
@@ -440,7 +445,17 @@ export default function ConfiguracionHorariosScreen() {
 
     cargarHorarios();
     cargarMecanicos();
+    cargarEstadoAgenda();
   }, [estadoProveedor]);
+
+  const cargarEstadoAgenda = async () => {
+    try {
+      const estado = await horariosAPI.obtenerEstadoConfiguracion();
+      setEstadoAgenda(normalizarEstadoAgendaApi(estado));
+    } catch {
+      setEstadoAgenda(null);
+    }
+  };
 
   // Recargar la agenda al cambiar de mecánico (o volver al horario general)
   useEffect(() => {
@@ -506,7 +521,7 @@ export default function ConfiguracionHorariosScreen() {
       setHorarios(horariosCompletos);
     } catch (error) {
       console.error('Error cargando horarios:', error);
-      Alert.alert('Error', 'No se pudieron cargar los horarios configurados.');
+      showAlert('Error', 'No se pudieron cargar los horarios configurados.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -516,6 +531,7 @@ export default function ConfiguracionHorariosScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     cargarHorarios();
+    cargarEstadoAgenda();
   };
 
 
@@ -566,7 +582,7 @@ export default function ConfiguracionHorariosScreen() {
 
     // Validar horarios
     if (horariosTemp.hora_inicio >= horariosTemp.hora_fin) {
-      Alert.alert('Error', 'La hora de inicio debe ser menor que la hora de fin.');
+      showAlert('Error', 'La hora de inicio debe ser menor que la hora de fin.');
       return;
     }
 
@@ -585,31 +601,104 @@ export default function ConfiguracionHorariosScreen() {
     cerrarModalEditarDia();
   };
 
+  const construirConfiguracionSemanal = (lista: HorarioDia[]): ConfiguracionSemanal | null => {
+    const diasActivos = lista.filter((h) => h.activo);
+    if (diasActivos.length === 0) return null;
+
+    const configuracion: ConfiguracionSemanal = {
+      hora_inicio_global: lista[0]?.hora_inicio || '08:00',
+      hora_fin_global: lista[0]?.hora_fin || '18:00',
+      duracion_slot_global: lista[0]?.duracion_slot || 60,
+      tiempo_descanso_global: lista[0]?.tiempo_descanso || 0,
+      dias_habilitados: diasActivos.map((h) => h.dia_semana),
+      eliminar_existente: true,
+    };
+
+    const configuracionPorDia: { [key: string]: {
+      hora_inicio: string;
+      hora_fin: string;
+      duracion_slot: number;
+      tiempo_descanso: number;
+    } } = {};
+    diasActivos.forEach((horario) => {
+      configuracionPorDia[horario.dia_semana.toString()] = {
+        hora_inicio: horario.hora_inicio,
+        hora_fin: horario.hora_fin,
+        duracion_slot: horario.duracion_slot,
+        tiempo_descanso: horario.tiempo_descanso,
+      };
+    });
+    configuracion.configuracion_por_dia = configuracionPorDia;
+    return configuracion;
+  };
+
+  const persistirHorarios = async (lista: HorarioDia[]): Promise<boolean> => {
+    const configuracion = construirConfiguracionSemanal(lista);
+    if (!configuracion) {
+      showAlert(
+        'Selecciona al menos un día',
+        'Activa los días en que atiendes y define el horario de cada uno antes de guardar.',
+      );
+      return false;
+    }
+
+    try {
+      setSaving(true);
+      const resultado = await horariosAPI.configurarSemanaCompleta(configuracion, miembroSeleccionado);
+      setHorarios(lista);
+      setHasChanges(false);
+      setSinHorariosEnServidor(false);
+      showAlert(
+        'Horarios guardados',
+        `Tus horarios han sido actualizados correctamente. ${resultado.dias_activos} días activos configurados.`,
+      );
+      await cargarHorarios();
+      await cargarEstadoAgenda();
+      return true;
+    } catch (error: unknown) {
+      console.error('Error guardando horarios:', error);
+      const err = error as { response?: { data?: { error?: string } } };
+      showAlert(
+        'Error',
+        err.response?.data?.error || 'No se pudieron guardar los horarios. Intenta nuevamente.',
+      );
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const presetLabels: Record<keyof typeof horariosPreset, string> = {
+    comercial: 'Comercial',
+    extendido: 'Extendido',
+    completo: '7 días',
+  };
+
   const aplicarPreset = (presetName: keyof typeof horariosPreset) => {
     const preset = horariosPreset[presetName];
+    const ambito =
+      miembroSeleccionado === null
+        ? 'taller (general)'
+        : mecanicos.find((m) => m.id === miembroSeleccionado)?.nombre || 'este mecánico';
 
-    Alert.alert(
-      'Aplicar Configuración Predefinida',
-      `¿Deseas aplicar la configuración "${presetName}"? Esto reemplazará tu configuración actual.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Aplicar',
-          onPress: () => {
-            const nuevosHorarios = horarios.map(horario => ({
-              ...horario,
-              activo: preset.dias.includes(horario.dia_semana),
-              hora_inicio: preset.hora_inicio,
-              hora_fin: preset.hora_fin,
-              duracion_slot: preset.duracion_slot,
-              tiempo_descanso: preset.tiempo_descanso,
-              editado: true,
-            }));
-            setHorarios(nuevosHorarios);
-            setHasChanges(true);
-          },
+    showConfirm(
+      'Aplicar configuración rápida',
+      `¿Aplicar "${presetLabels[presetName]}" en la agenda de ${ambito}? Se guardará de inmediato y reemplazará la configuración actual de esa agenda.`,
+      {
+        confirmText: 'Aplicar y guardar',
+        onConfirm: async () => {
+          const nuevosHorarios = horarios.map((horario) => ({
+            ...horario,
+            activo: preset.dias.includes(horario.dia_semana),
+            hora_inicio: preset.hora_inicio,
+            hora_fin: preset.hora_fin,
+            duracion_slot: preset.duracion_slot,
+            tiempo_descanso: preset.tiempo_descanso,
+            editado: true,
+          }));
+          await persistirHorarios(nuevosHorarios);
         },
-      ]
+      },
     );
   };
 
@@ -626,91 +715,31 @@ export default function ConfiguracionHorariosScreen() {
   };
 
   const guardarCambios = async () => {
-    const diasActivos = horarios.filter((h) => h.activo);
-    if (diasActivos.length === 0) {
-      Alert.alert(
-        'Selecciona al menos un día',
-        'Activa los días en que atiendes y define el horario de cada uno antes de guardar.'
-      );
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      const configuracion: ConfiguracionSemanal = {
-        hora_inicio_global: horarios[0]?.hora_inicio || '08:00',
-        hora_fin_global: horarios[0]?.hora_fin || '18:00',
-        duracion_slot_global: horarios[0]?.duracion_slot || 60,
-        tiempo_descanso_global: horarios[0]?.tiempo_descanso || 0,
-        dias_habilitados: horarios.filter(h => h.activo).map(h => h.dia_semana),
-        eliminar_existente: true,
-      };
-
-      // Si hay configuraciones específicas por día, agregarlas
-      const configuracionPorDia: { [key: string]: any } = {};
-      horarios.forEach(horario => {
-        if (horario.activo) {
-          configuracionPorDia[horario.dia_semana.toString()] = {
-            hora_inicio: horario.hora_inicio,
-            hora_fin: horario.hora_fin,
-            duracion_slot: horario.duracion_slot,
-            tiempo_descanso: horario.tiempo_descanso,
-          };
-        }
-      });
-
-      if (Object.keys(configuracionPorDia).length > 0) {
-        configuracion.configuracion_por_dia = configuracionPorDia;
-      }
-
-      const resultado = await horariosAPI.configurarSemanaCompleta(configuracion, miembroSeleccionado);
-
-      Alert.alert(
-        'Horarios guardados',
-        `Tus horarios han sido actualizados correctamente. ${resultado.dias_activos} días activos configurados.`,
-        [{ text: 'Perfecto', style: 'default' }]
-      );
-
-      setHasChanges(false);
-      setSinHorariosEnServidor(false);
-      await cargarHorarios();
-
-    } catch (error: any) {
-      console.error('Error guardando horarios:', error);
-      Alert.alert(
-        'Error',
-        error.response?.data?.error || 'No se pudieron guardar los horarios. Intenta nuevamente.'
-      );
-    } finally {
-      setSaving(false);
-    }
+    await persistirHorarios(horarios);
   };
 
   const renderDiaConfig = (horario: HorarioDia, index: number) => {
     const dia = diasSemana[index];
+    const diaActivo = normalizarActivo(horario.activo);
 
     return (
-      <TouchableOpacity
+      <View
         key={dia.id}
-        style={[styles.modernDiaCard, horario.activo && styles.modernDiaCardActive]}
-        onPress={() => horario.activo && abrirModalEditarDia(index)}
-        disabled={!horario.activo}
-        activeOpacity={0.88}
+        style={[styles.modernDiaCard, diaActivo && styles.modernDiaCardActive]}
       >
         <View style={styles.modernDiaHeader}>
           <View style={styles.modernDiaInfo}>
-            <View style={[styles.modernDiaIconContainer, horario.activo ? styles.modernDiaIconOn : styles.modernDiaIconOff]}>
-              <InstitutionalIcon name="event" size={16} color={horario.activo ? I.onPrimary : I.body} />
+            <View style={[styles.modernDiaIconContainer, diaActivo ? styles.modernDiaIconOn : styles.modernDiaIconOff]}>
+              <InstitutionalIcon name="event" size={16} color={diaActivo ? I.onPrimary : I.body} />
             </View>
             <View style={styles.modernDiaTexto}>
-              <Text style={[styles.modernDiaNombre, horario.activo && styles.modernDiaNombreActive]}>{dia.corto}</Text>
+              <Text style={[styles.modernDiaNombre, diaActivo && styles.modernDiaNombreActive]}>{dia.corto}</Text>
             </View>
           </View>
 
           <View style={styles.modernSwitchContainer}>
             <Switch
-              value={normalizarActivo(horario.activo)}
+              value={diaActivo}
               onValueChange={() => toggleDiaActivo(index)}
               trackColor={{ false: I.hairline, true: I.primary }}
               thumbColor={I.canvas}
@@ -719,13 +748,19 @@ export default function ConfiguracionHorariosScreen() {
           </View>
         </View>
 
-        {!horario.activo ? (
+        {!diaActivo ? (
           <View style={styles.modernDiaInactiveBanner}>
             <Text style={styles.modernDiaInactiveLabel}>Día deshabilitado</Text>
             <Text style={styles.modernDiaInactiveHint}>Activa el interruptor para configurar el horario</Text>
           </View>
         ) : (
-          <View style={styles.modernHorariosConfig}>
+          <TouchableOpacity
+            style={styles.modernHorariosConfig}
+            onPress={() => abrirModalEditarDia(index)}
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel={`Editar horario del ${dia.nombre}`}
+          >
             <View style={styles.modernTiemposContainer}>
               <View style={styles.modernTiempoCard}>
                 <InstitutionalIcon name="play" size={14} color={I.semanticUp} />
@@ -746,9 +781,9 @@ export default function ConfiguracionHorariosScreen() {
                 {horario.tiempo_descanso > 0 && ` • ${horario.tiempo_descanso} min desc`}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -928,9 +963,13 @@ export default function ConfiguracionHorariosScreen() {
                   <Text style={[styles.mecanicoChipText, miembroSeleccionado === null && styles.mecanicoChipTextActive]}>
                     Taller (general)
                   </Text>
+                  {estadoAgenda?.tiene_horario_general ? (
+                    <View style={[styles.mecanicoChipDot, miembroSeleccionado === null && styles.mecanicoChipDotOn]} />
+                  ) : null}
                 </TouchableOpacity>
                 {mecanicos.map((m) => {
                   const activo = miembroSeleccionado === m.id;
+                  const tieneAgendaPropia = estadoAgenda?.mecanicos_con_horario_ids.includes(m.id) ?? false;
                   return (
                     <TouchableOpacity
                       key={m.id}
@@ -940,15 +979,27 @@ export default function ConfiguracionHorariosScreen() {
                     >
                       <InstitutionalIcon name="person" size={16} color={activo ? I.onPrimary : I.body} />
                       <Text style={[styles.mecanicoChipText, activo && styles.mecanicoChipTextActive]}>{m.nombre}</Text>
+                      {tieneAgendaPropia ? (
+                        <View style={[styles.mecanicoChipDot, activo && styles.mecanicoChipDotOn]} />
+                      ) : null}
                     </TouchableOpacity>
                   );
                 })}
               </ScrollView>
               <Text style={styles.mecanicoSelectorHint}>
                 {miembroSeleccionado === null
-                  ? 'Horario general del taller (se usa cuando un mecánico no tiene agenda propia).'
-                  : 'Configura la agenda individual de este mecánico.'}
+                  ? 'Horario base del taller. Los mecánicos sin agenda propia lo heredan al agendar.'
+                  : estadoAgenda?.mecanicos_con_horario_ids.includes(miembroSeleccionado)
+                    ? 'Agenda individual de este mecánico (tiene prioridad sobre el horario general).'
+                    : estadoAgenda?.tiene_horario_general
+                      ? 'Este mecánico aún no tiene agenda propia; heredará el horario general del taller.'
+                      : 'Configura la agenda de este mecánico o define primero el horario general del taller.'}
               </Text>
+              {estadoAgenda && !estadoAgenda.agenda_configurada ? (
+                <Text style={styles.mecanicoSelectorWarning}>
+                  Aún no hay horario general ni de ningún mecánico. Los clientes no podrán agendar hasta que guardes al menos una agenda activa.
+                </Text>
+              ) : null}
             </View>
           )}
 
@@ -961,8 +1012,12 @@ export default function ConfiguracionHorariosScreen() {
               />
               <Text style={styles.infoText}>
                 {sinHorariosEnServidor
-                  ? 'Aún no has configurado tu horario de atención. Activa los días que trabajas, ajusta las horas si lo necesitas y pulsa «Guardar cambios» para que los clientes puedan agendar contigo.'
-                  : 'Define tus horarios de atención para cada día de la semana. Los clientes podrán agendar servicios en estos horarios.'}
+                  ? miembroSeleccionado === null
+                    ? 'Aún no has configurado el horario general del taller. Activa los días que atiendes y pulsa «Guardar cambios».'
+                    : 'Este mecánico no tiene agenda propia. Configúrala aquí o usa el horario general del taller como respaldo.'
+                  : miembroSeleccionado === null
+                    ? 'Horario general del taller. Los mecánicos sin agenda propia lo heredan.'
+                    : 'Agenda individual del mecánico. Tiene prioridad sobre el horario general del taller.'}
               </Text>
             </View>
           </View>
@@ -1137,11 +1192,27 @@ const styles = StyleSheet.create({
   mecanicoChipTextActive: {
     color: I.onPrimary,
   },
+  mecanicoChipDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: I.semanticUp,
+  },
+  mecanicoChipDotOn: {
+    backgroundColor: I.onPrimary,
+  },
   mecanicoSelectorHint: {
     marginTop: SPACING.fixed.sm,
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansRegular,
     color: I.muted,
+  },
+  mecanicoSelectorWarning: {
+    marginTop: SPACING.fixed.sm,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    color: I.accentYellow,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.sm * 1.4),
   },
   modernPresetsGrid: {
     flexDirection: 'row',

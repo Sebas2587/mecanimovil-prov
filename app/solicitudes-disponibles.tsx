@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,14 @@ import { Stack, router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { obtenerSolicitudesDisponibles, type SolicitudPublica } from '@/services/solicitudesService';
+import { type SolicitudPublica } from '@/services/solicitudesService';
 import { SolicitudCard } from '@/components/solicitudes/SolicitudCard';
+import { useAuth } from '@/context/AuthContext';
+import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
+import {
+  useSolicitudesDisponiblesQuery,
+  useSolicitudesDisponiblesRealtime,
+} from '@/hooks/useSolicitudesDisponiblesQuery';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import {COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow} from '@/app/design-system/tokens';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -31,40 +37,27 @@ export default function SolicitudesDisponiblesScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { estadoProveedor } = useAuth();
+  const { radarOportunidadesActivo, radarPreferenciaCargada } = useRadarOportunidades();
+  const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
+  const queryEnabled =
+    cuentaAprobada && radarPreferenciaCargada && radarOportunidadesActivo;
+
+  const {
+    data: solicitudes = [],
+    isLoading: loading,
+    isRefetching: refreshing,
+    refetch,
+  } = useSolicitudesDisponiblesQuery(queryEnabled);
+  useSolicitudesDisponiblesRealtime({ enabled: queryEnabled });
 
   const safeColors = useMemo(() => theme?.colors || COLORS || {}, [theme]);
   const safeSpacing = useMemo(() => theme?.spacing || SPACING || {}, [theme]);
 
-  const [solicitudes, setSolicitudes] = useState<SolicitudPublica[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [filtroUrgencia, setFiltroUrgencia] = useState<FiltroUrgencia>('todos');
 
-  useEffect(() => {
-    cargarSolicitudes();
-  }, []);
-
-  const cargarSolicitudes = async () => {
-    try {
-      setLoading(true);
-      const result = await obtenerSolicitudesDisponibles();
-
-      if (result.success && result.data) {
-        setSolicitudes(result.data);
-      } else {
-        console.error('Error cargando solicitudes:', result.error);
-      }
-    } catch (error) {
-      console.error('Error cargando solicitudes:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await cargarSolicitudes();
+  const onRefresh = () => {
+    void refetch();
   };
 
   const aplicarFiltro = (solicitudesList: SolicitudPublica[], filtro: FiltroUrgencia): SolicitudPublica[] => {

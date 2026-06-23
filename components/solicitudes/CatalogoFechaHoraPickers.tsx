@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -98,6 +99,12 @@ type Props = {
   minDate?: Date;
   /** simple: una hora opcional; rango: inicio + fin obligatorios */
   modo?: 'simple' | 'rango';
+  /** Horas reales del proveedor; undefined = slots genéricos 7:00–20:00 */
+  horasDisponibles?: string[] | null;
+  cargandoHoras?: boolean;
+  mensajeSinHoras?: string;
+  /** Inset del contenedor padre: permite scroll horizontal edge-to-edge dentro de padding. */
+  horizontalInset?: number;
 };
 
 export function CatalogoFechaHoraPickers({
@@ -105,12 +112,25 @@ export function CatalogoFechaHoraPickers({
   onChange,
   minDate,
   modo = 'simple',
+  horasDisponibles,
+  cargandoHoras = false,
+  mensajeSinHoras,
+  horizontalInset = 0,
 }: Props) {
   const esRango = modo === 'rango';
   const dayScrollRef = useRef<ScrollView>(null);
   const timeScrollRef = useRef<ScrollView>(null);
   const dayOptions = useMemo(() => buildDayOptions(minDate), [minDate]);
-  const timeSlots = useMemo(() => buildTimeSlots(!esRango), [esRango]);
+  const timeSlots = useMemo(() => {
+    const base = buildTimeSlots(!esRango);
+    if (horasDisponibles === undefined || horasDisponibles === null) {
+      return base;
+    }
+    if (esRango) {
+      return horasDisponibles;
+    }
+    return [SIN_HORA, ...horasDisponibles];
+  }, [esRango, horasDisponibles]);
   const horaInicioKey = value.hora ?? (esRango ? '' : SIN_HORA);
   const slotsRango = useMemo(
     () => timeSlots.filter((s) => s !== SIN_HORA),
@@ -204,6 +224,19 @@ export function CatalogoFechaHoraPickers({
     return null;
   };
 
+  const horizontalBleed = horizontalInset > 0
+    ? { marginHorizontal: -horizontalInset }
+    : undefined;
+  const chipsRowStyle = horizontalInset > 0
+    ? [
+        styles.chipsRow,
+        {
+          paddingLeft: horizontalInset,
+          paddingRight: horizontalInset + SPACING.fixed.md,
+        },
+      ]
+    : styles.chipsRow;
+
   return (
     <View style={styles.wrap}>
       <View style={styles.sectionHead}>
@@ -214,7 +247,8 @@ export function CatalogoFechaHoraPickers({
         ref={dayScrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipsRow}
+        style={horizontalBleed}
+        contentContainerStyle={chipsRowStyle}
         decelerationRate="fast"
         snapToInterval={DAY_CHIP_W + SPACING.fixed.xs}
       >
@@ -257,11 +291,22 @@ export function CatalogoFechaHoraPickers({
       {esRango && rangoHint ? (
         <Text style={styles.rangoHint}>{rangoHint}</Text>
       ) : null}
+      {cargandoHoras ? (
+        <View style={styles.horasLoading}>
+          <ActivityIndicator color={I.primary} />
+          <Text style={styles.horasLoadingText}>Cargando horarios…</Text>
+        </View>
+      ) : horasDisponibles !== undefined && horasDisponibles !== null && horasDisponibles.length === 0 ? (
+        <Text style={styles.sinHorasText}>
+          {mensajeSinHoras || 'No hay horarios disponibles para esta fecha.'}
+        </Text>
+      ) : null}
       <ScrollView
         ref={timeScrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipsRow}
+        style={horizontalBleed}
+        contentContainerStyle={chipsRowStyle}
         decelerationRate="fast"
         snapToInterval={TIME_CHIP_W + SPACING.fixed.xs}
       >
@@ -422,5 +467,22 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansMedium,
     color: I.accentYellow,
     marginTop: SPACING.fixed.xxs,
+  },
+  horasLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xs,
+  },
+  horasLoadingText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+  },
+  sinHorasText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    paddingVertical: SPACING.fixed.xs,
   },
 });

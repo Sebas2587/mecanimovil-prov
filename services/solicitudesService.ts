@@ -94,6 +94,12 @@ export interface SolicitudPublica {
   hora_preferida?: string | null;
   miembro_taller_preferido?: number | null;
   miembro_taller_preferido_detail?: MiembroTallerResumen | null;
+  modalidad_servicio?: {
+    tipo: 'taller' | 'mecanico';
+    label: string;
+    a_domicilio: boolean;
+  } | null;
+  tipo_proveedor_servicio?: 'taller' | 'mecanico' | null;
   estado:
     | 'creada'
     | 'seleccionando_servicios'
@@ -103,6 +109,9 @@ export interface SolicitudPublica {
     | 'esperando_creditos_proveedor'
     | 'adjudicada'
     | 'pendiente_pago'
+    | 'pagada'
+    | 'en_ejecucion'
+    | 'completada'
     | 'expirada'
     | 'cancelada';
   fecha_limite_confirmacion_creditos?: string | null;
@@ -221,7 +230,11 @@ export interface OfertaProveedor {
     }>;
   };
   proveedor: number;
+  /** ID del taller o mecánico a domicilio (no del usuario) para APIs de agenda. */
+  proveedor_id_detail?: number | null;
   tipo_proveedor: 'taller' | 'mecanico';
+  /** OfertaServicio de catálogo vinculada (duración y especialidad para agenda). */
+  oferta_servicio?: number | null;
   servicios_ofertados: number[];
   detalles_servicios_detail: DetalleServicioOferta[];
   precio_total_ofrecido: string;

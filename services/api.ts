@@ -1268,6 +1268,15 @@ export interface HorarioProveedor {
   tiempo_descanso: number;
   proveedor_nombre?: string;
   tipo_proveedor?: string;
+  miembro_taller?: number | null;
+}
+
+export interface EstadoHorariosProveedor {
+  agenda_configurada: boolean;
+  tiene_horario_general: boolean;
+  mecanicos_con_horario: number;
+  mecanicos_con_horario_ids: number[];
+  necesita_configurar: boolean;
 }
 
 export interface ConfiguracionSemanal {
@@ -1302,6 +1311,12 @@ export const horariosAPI = {
     const api = await getAPI();
     const query = miembroTallerId ? `?miembro_taller=${miembroTallerId}` : '';
     const response = await api.get(`/usuarios/horarios-proveedor/mis_horarios/${query}`);
+    return response.data;
+  },
+
+  obtenerEstadoConfiguracion: async (): Promise<EstadoHorariosProveedor> => {
+    const api = await getAPI();
+    const response = await api.get('/usuarios/horarios-proveedor/estado_configuracion/');
     return response.data;
   },
 

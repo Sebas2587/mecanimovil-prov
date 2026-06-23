@@ -28,6 +28,7 @@ import TabScreenWrapper from '@/components/TabScreenWrapper';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
 import websocketService from '@/app/services/websocketService';
 import Header from '@/components/Header';
 import { COLORS, withOpacity, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '@/app/design-system/tokens';
@@ -46,6 +47,14 @@ import {
   nombreServicioCita,
   type CitaAgendaPersonal,
 } from '@/services/agendaProveedorService';
+import { OrigenOrdenBadge } from '@/components/ordenes/OrigenOrdenBadge';
+import {
+  mergeOrdenesActivas,
+  navigateToOrdenActiva,
+  labelEstadoPersonal,
+  type OrdenActivaItem,
+  type ActividadMarketplaceItem,
+} from '@/utils/ordenProveedorUnificada';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -105,12 +114,7 @@ function getEstadoBadgeColors(variant: EstadoBadgeVariant) {
 type TabType = 'activas' | 'completadas' | 'rechazadas';
 
 /** Una card en Activas: oferta y/o orden del mismo flujo (estado unificado) */
-type ActividadActivaItem = {
-  key: string;
-  oferta?: OfertaProveedor;
-  orden?: Orden;
-  estadoEfectivo: string;
-};
+type ActividadActivaItem = ActividadMarketplaceItem;
 
 const ESTADOS_ACTIVOS = [
   'enviada',
@@ -202,6 +206,11 @@ async function fetchOfertas(): Promise<OfertaProveedor[]> {
   return [];
 }
 
+async function fetchCitasActivas(): Promise<CitaAgendaPersonal[]> {
+  const result = await agendaProveedorService.obtenerCitasActivas();
+  return result.success && result.data ? result.data : [];
+}
+
 async function fetchCitasAgenda(): Promise<{ cerradas: CitaAgendaPersonal[]; canceladas: CitaAgendaPersonal[] }> {
   const [cerradasRes, canceladasRes] = await Promise.all([
     agendaProveedorService.obtenerCitasCerradas(),
@@ -227,9 +236,7 @@ export default function OrdenesScreen() {
   const queryClient = useQueryClient();
 
   const invalidateOrdenesYOfertas = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['ordenes-proveedor'] });
-    queryClient.invalidateQueries({ queryKey: ['ofertas-proveedor'] });
-    queryClient.invalidateQueries({ queryKey: ['citas-agenda-proveedor'] });
+    invalidateProveedorMarketplaceQueries(queryClient);
   }, [queryClient]);
 
   useEffect(() => {
@@ -278,7 +285,22 @@ export default function OrdenesScreen() {
     placeholderData: (prev) => prev,
   });
 
-  const loading = (loadingOrdenes || loadingOfertas || loadingCitas) && ordenesCompletas.length === 0 && ofertas.length === 0;
+  const {
+    data: citasActivas = [],
+    isLoading: loadingCitasActivas,
+    refetch: refetchCitasActivas,
+  } = useQuery({
+    queryKey: ['citas-activas-proveedor'],
+    queryFn: fetchCitasActivas,
+    enabled: !!isVerified,
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
+  });
+
+  const loading =
+    (loadingOrdenes || loadingOfertas || loadingCitas || loadingCitasActivas)
+    && ordenesCompletas.length === 0
+    && ofertas.length === 0;
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
@@ -287,15 +309,16 @@ export default function OrdenesScreen() {
         refetchOrdenes();
         refetchOfertas();
         refetchCitas();
+        refetchCitasActivas();
       }
-    }, [isVerified, refetchOrdenes, refetchOfertas, refetchCitas])
+    }, [isVerified, refetchOrdenes, refetchOfertas, refetchCitas, refetchCitasActivas])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchOrdenes(), refetchOfertas(), refetchCitas()]);
+    await Promise.all([refetchOrdenes(), refetchOfertas(), refetchCitas(), refetchCitasActivas()]);
     setRefreshing(false);
-  }, [refetchOrdenes, refetchOfertas, refetchCitas]);
+  }, [refetchOrdenes, refetchOfertas, refetchCitas, refetchCitasActivas]);
 
   const ofertasMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -467,6 +490,11 @@ export default function OrdenesScreen() {
     );
   }, [ofertasActivas, ordenesActivas, ofertasById, getEstadoEfectivo, getEstadoEfectivoOferta]);
 
+  const activasUnificadasCompletas = useMemo(
+    () => mergeOrdenesActivas(activasUnificadas, citasActivas),
+    [activasUnificadas, citasActivas],
+  );
+
   // In completadas tab, de-duplicate: if an order references an offer via oferta_proveedor_id,
   // don't show that offer separately -- the order card already shows the effective state.
   const ofertaIdsConOrden = useMemo(() => {
@@ -490,7 +518,7 @@ export default function OrdenesScreen() {
   const citasCompletadasTab = citasAgenda.cerradas ?? [];
   const citasRechazadasTab = citasAgenda.canceladas ?? [];
 
-  const activasCount = activasUnificadas.length;
+  const activasCount = activasUnificadasCompletas.length;
   const completadasCount = ordenesCompletadasTab.length + ofertasCompletadasSinDuplicar.length + citasCompletadasTab.length;
   const rechazadasCount = ordenesRechazadasTab.length + ofertasRechazadasSinDuplicar.length + citasRechazadasTab.length;
 
@@ -508,7 +536,7 @@ export default function OrdenesScreen() {
         : ofertasRechazadasSinDuplicar;
   const tieneDatos =
     tabActivo === 'activas'
-      ? activasUnificadas.length > 0
+      ? activasUnificadasCompletas.length > 0
       : tabActivo === 'completadas'
         ? ordenesMostrar.length > 0 || ofertasMostrar.length > 0 || citasCompletadasTab.length > 0
         : ordenesMostrar.length > 0 || ofertasMostrar.length > 0 || citasRechazadasTab.length > 0;
@@ -522,7 +550,11 @@ export default function OrdenesScreen() {
   }, []);
 
   const handleOfertaPress = useCallback((oferta: OfertaProveedor) => {
-    router.push(`/oferta-detalle/${oferta.id}`);
+    if (oferta.solicitud) {
+      router.push(`/solicitud-detalle/${oferta.solicitud}`);
+    } else {
+      router.push(`/oferta-detalle/${oferta.id}`);
+    }
   }, []);
 
   const handleCitaPress = useCallback((cita: CitaAgendaPersonal) => {
@@ -569,6 +601,7 @@ export default function OrdenesScreen() {
               <View style={[styles.statusDot, { backgroundColor: estadoStyle.dot }]} />
               <Text style={[styles.statusText, { color: estadoStyle.text }]}>{textoEstado}</Text>
             </View>
+            <OrigenOrdenBadge origen="mecanimovil" />
             {oferta.es_oferta_secundaria && (
               <View style={styles.additionalBadge}>
                 <PlusCircle size={10} color={I.onPrimary} />
@@ -652,6 +685,7 @@ export default function OrdenesScreen() {
               <View style={[styles.statusDot, { backgroundColor: estadoStyle.dot }]} />
               <Text style={[styles.statusText, { color: estadoStyle.text }]}>{textoEstado}</Text>
             </View>
+            <OrigenOrdenBadge origen="mecanimovil" />
             {urgencia && (
               <View style={styles.urgentBadge}>
                 <AlertTriangle size={10} color={I.onPrimary} />
@@ -718,9 +752,10 @@ export default function OrdenesScreen() {
   }, [getEstadoEfectivo, getTextoEstado, handleOrdenPress]);
 
   const renderCitaPersonalCard = useCallback((cita: CitaAgendaPersonal) => {
-    const esCompletada = cita.estado === 'cerrada';
-    const estadoStyle = getEstadoBadgeColors(esCompletada ? 'success' : 'error');
-    const textoEstado = esCompletada ? 'Completada' : 'Cancelada';
+    const variant: EstadoBadgeVariant =
+      cita.estado === 'cerrada' ? 'success' : cita.estado === 'cancelada' ? 'error' : 'info';
+    const estadoStyle = getEstadoBadgeColors(variant);
+    const textoEstado = labelEstadoPersonal(cita.estado);
     const nombreServicio = nombreServicioCita(cita);
     const precioFormateado = cita.detalle.precio_referencia
       ? formatearPrecio(cita.detalle.precio_referencia)
@@ -739,9 +774,7 @@ export default function OrdenesScreen() {
               <View style={[styles.statusDot, { backgroundColor: estadoStyle.dot }]} />
               <Text style={[styles.statusText, { color: estadoStyle.text }]}>{textoEstado}</Text>
             </View>
-            <View style={styles.personalBadge}>
-              <Text style={styles.personalBadgeText}>Personal</Text>
-            </View>
+            <OrigenOrdenBadge origen="personal" />
             <View style={{ flex: 1 }} />
             {precioFormateado ? <Text style={styles.cardPrice}>{precioFormateado}</Text> : null}
           </View>
@@ -794,11 +827,7 @@ export default function OrdenesScreen() {
         : resolveTextoEstadoActividad(estadoEfectivo);
 
       const onPress = () => {
-        if (orden) {
-          handleOrdenPress(orden);
-        } else if (oferta) {
-          handleOfertaPress(oferta);
-        }
+        navigateToOrdenActiva(router, { origen: 'mecanimovil', ...item });
       };
 
       const precioRaw = orden?.total ?? oferta?.precio_total_ofrecido ?? '0';
@@ -850,6 +879,7 @@ export default function OrdenesScreen() {
                 <View style={[styles.statusDot, { backgroundColor: estadoStyle.dot }]} />
                 <Text style={[styles.statusText, { color: estadoStyle.text }]}>{textoEstado}</Text>
               </View>
+              <OrigenOrdenBadge origen="mecanimovil" />
               {oferta?.es_oferta_secundaria ? (
                 <View style={styles.additionalBadge}>
                   <PlusCircle size={10} color={I.onPrimary} />
@@ -934,19 +964,29 @@ export default function OrdenesScreen() {
         </TouchableOpacity>
       );
     },
-    [getTextoEstado, handleOrdenPress, handleOfertaPress],
+    [getTextoEstado],
+  );
+
+  const renderOrdenActivaCard = useCallback(
+    (item: OrdenActivaItem) => {
+      if (item.origen === 'personal') {
+        return renderCitaPersonalCard(item.cita);
+      }
+      return renderActividadUnificadaCard(item);
+    },
+    [renderCitaPersonalCard, renderActividadUnificadaCard],
   );
 
   if (!isVerified) {
     return (
       <TabScreenWrapper>
         <View style={styles.screenRoot}>
-          <Header title="Órdenes y Ofertas" backgroundColor={I.canvas} titleColor={I.ink} />
+          <Header title="Servicios" backgroundColor={I.canvas} titleColor={I.ink} />
           <View style={styles.centeredContainer}>
             <Shield size={64} color={I.muted} />
             <Text style={styles.noVerificadoTitle}>Perfil en Verificación</Text>
             <Text style={styles.noVerificadoMessage}>
-              Tu perfil de proveedor está siendo revisado. Una vez verificado podrás gestionar órdenes y ofertas.
+              Tu perfil de proveedor está siendo revisado. Una vez verificado podrás gestionar tus servicios.
             </Text>
           </View>
         </View>
@@ -957,7 +997,7 @@ export default function OrdenesScreen() {
   return (
     <TabScreenWrapper>
       <View style={styles.screenRoot}>
-        <Header title="Órdenes y Ofertas" backgroundColor={I.canvas} titleColor={I.ink} />
+        <Header title="Servicios" backgroundColor={I.canvas} titleColor={I.ink} />
 
         <View style={[styles.tabsOuter, { paddingHorizontal: hx }]}>
           <InstitutionalScreenTabs
@@ -1036,10 +1076,10 @@ export default function OrdenesScreen() {
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
                     <Briefcase size={18} color={I.ink} />
-                    <Text style={styles.sectionTitle}>Servicios activos</Text>
-                    <Text style={styles.sectionCount}>{activasUnificadas.length}</Text>
+                    <Text style={styles.sectionTitle}>Próximos servicios</Text>
+                    <Text style={styles.sectionCount}>{activasUnificadasCompletas.length}</Text>
                   </View>
-                  {activasUnificadas.map(renderActividadUnificadaCard)}
+                  {activasUnificadasCompletas.map(renderOrdenActivaCard)}
                 </View>
               ) : tabActivo === 'completadas' ? (
                 <View style={styles.section}>
@@ -1085,7 +1125,7 @@ export default function OrdenesScreen() {
               </Text>
               <Text style={styles.emptySubtitle}>
                 {tabActivo === 'activas'
-                  ? 'No hay servicios activos por el momento'
+                  ? 'No hay servicios programados. Las solicitudes Mecanimovil aparecerán aquí; también puedes agendar citas desde Calendario.'
                   : tabActivo === 'completadas'
                     ? 'Aquí verás servicios finalizados con éxito'
                     : 'Aquí verás ofertas rechazadas, expiradas u órdenes canceladas'}

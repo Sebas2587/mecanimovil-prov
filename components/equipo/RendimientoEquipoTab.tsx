@@ -9,24 +9,18 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
-import equipoTallerService, { type MecanicoKpis } from '@/services/equipoTallerService';
+import { useRendimientoEquipoDetalladoQuery } from '@/hooks/useRendimientoEquipoDetalladoQuery';
 import { MecanicoPickerHorizontal } from '@/components/equipo/MecanicoPickerHorizontal';
 import { ScoreCircle } from '@/components/equipo/ScoreCircle';
 import { KpiProgressRow } from '@/components/equipo/KpiProgressRow';
 import { ComparativoMensual } from '@/components/equipo/ComparativoMensual';
 import { FacturacionComparisonChart } from '@/components/equipo/FacturacionComparisonChart';
+import { TwoColumnMetricGrid } from '@/components/ui/TwoColumnMetricGrid';
+import type { MecanicoKpis } from '@/services/equipoTallerService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const DIAS_OPCIONES = [7, 30, 90] as const;
-
-function rangoFechas(dias: number): { desde: string; hasta: string } {
-  const hasta = new Date();
-  const desde = new Date();
-  desde.setDate(desde.getDate() - dias);
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  return { desde: fmt(desde), hasta: fmt(hasta) };
-}
 
 function fmtPct(v: number | null | undefined): string {
   if (v == null) return '—';
@@ -54,42 +48,49 @@ function MetricTile({ label, value }: MetricTileProps) {
   );
 }
 
+function completadosTotales(m: MecanicoKpis): number {
+  return m.servicios_completados_totales ?? m.servicios_completados ?? 0;
+}
+
+function completadosConChecklist(m: MecanicoKpis): number {
+  return m.servicios_completados_con_checklist ?? 0;
+}
+
+function rechazados(m: MecanicoKpis): number {
+  return m.servicios_rechazados ?? 0;
+}
+
+function demoradas(m: MecanicoKpis): number {
+  return m.ordenes_demoradas ?? 0;
+}
+
+function dentroTiempoCount(m: MecanicoKpis): number {
+  return m.ordenes_dentro_tiempo ?? 0;
+}
+
 export function RendimientoEquipoTab() {
   const [diasVentana, setDiasVentana] = useState<number>(30);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [kpis, setKpis] = useState<MecanicoKpis[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const cargar = useCallback(async () => {
-    try {
-      setError(null);
-      const { desde, hasta } = rangoFechas(diasVentana);
-      const data = await equipoTallerService.rendimientoDetallado({ desde, hasta, dias: diasVentana });
-      setKpis(data);
-      setSelectedId((prev) => {
-        if (prev != null && data.some((m) => m.mecanico_id === prev)) return prev;
-        return data[0]?.mecanico_id ?? null;
-      });
-    } catch {
-      setError('No se pudieron cargar las métricas.');
-      setKpis([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [diasVentana]);
+  const { data: kpis, loading, error, refresh } = useRendimientoEquipoDetalladoQuery({
+    dias: diasVentana,
+  });
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    cargar();
-  }, [cargar]);
+    setSelectedId((prev) => {
+      if (prev != null && kpis.some((m) => m.mecanico_id === prev)) return prev;
+      return kpis[0]?.mecanico_id ?? null;
+    });
+  }, [kpis]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    cargar();
-  }, [cargar]);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refresh]);
 
   const selected = useMemo(
     () => kpis.find((m) => m.mecanico_id === selectedId) ?? null,
@@ -133,7 +134,7 @@ export function RendimientoEquipoTab() {
       />
 
       {error ? (
-        <Text style={styles.error}>{error}</Text>
+        <Text style={styles.error}>{error || 'No se pudieron cargar las métricas.'}</Text>
       ) : null}
 
       {!selected ? (
@@ -145,8 +146,9 @@ export function RendimientoEquipoTab() {
           <View style={styles.scoreRow}>
             <ScoreCircle score={selected.score_rendimiento_global} label="Rendimiento" />
             <View style={styles.scoreSide}>
-              <MetricTile label="Completados" value={String(selected.servicios_completados)} />
-              <MetricTile label="Dentro de tiempo" value={fmtPct(selected.pct_dentro_tiempo)} />
+              <MetricTile label="Completadas" value={String(completadosTotales(selected))} />
+              <MetricTile label="Rechazadas" value={String(rechazados(selected))} />
+              <MetricTile label="A tiempo" value={fmtPct(selected.pct_dentro_tiempo)} />
             </View>
           </View>
 
@@ -154,6 +156,27 @@ export function RendimientoEquipoTab() {
             mesActual={selected.facturacion_mes_actual}
             mesAnterior={selected.facturacion_mes_anterior}
           />
+
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>Detalle de órdenes</Text>
+            <TwoColumnMetricGrid
+              rows={[
+                [
+                  { label: 'Con checklist', value: String(completadosConChecklist(selected)) },
+                  {
+                    label: 'Sin checklist',
+                    value: String(
+                      Math.max(0, completadosTotales(selected) - completadosConChecklist(selected)),
+                    ),
+                  },
+                ],
+                [
+                  { label: 'Demoradas', value: String(demoradas(selected)) },
+                  { label: 'Dentro de tiempo', value: String(dentroTiempoCount(selected)) },
+                ],
+              ]}
+            />
+          </View>
 
           <View style={styles.channelRow}>
             <MetricTile label="Mecanimovil" value={String(selected.ordenes_mecanimovil)} />
@@ -253,7 +276,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   metricValue: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontSize: TYPOGRAPHY.fontSize.lg,
     fontFamily: FF.monoMedium,
     color: I.ink,
   },

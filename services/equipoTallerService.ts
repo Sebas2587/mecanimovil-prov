@@ -111,7 +111,15 @@ export interface MecanicoKpis {
   foto_url: string | null;
   especialidades: { id: number; nombre: string }[];
   activo: boolean;
+  /** Todas las órdenes en estado completado (con o sin checklist). */
+  servicios_completados_totales: number;
+  /** Órdenes completadas con checklist cerrado por el proveedor. */
+  servicios_completados_con_checklist: number;
+  /** Alias de servicios_completados_totales (compatibilidad). */
   servicios_completados: number;
+  servicios_rechazados: number;
+  ordenes_demoradas: number;
+  ordenes_dentro_tiempo: number;
   servicios_en_proceso: number;
   total_asignados: number;
   pct_dentro_tiempo: number | null;

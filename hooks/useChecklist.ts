@@ -10,6 +10,7 @@ import {
   type ChecklistFinalizationData,
 } from '@/services/checklistService';
 import { checklistQueryKeys } from '@/hooks/checklistQueryKeys';
+import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
 import {
   fetchChecklistBundle,
   calcProgreso,
@@ -478,6 +479,7 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
         if (result.success) {
           patchInstance(result.data.checklist);
           await invalidateChecklist();
+          invalidateProveedorMarketplaceQueries(queryClient);
           return { success: true, data: result.data };
         }
 
@@ -488,7 +490,7 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
         updateUi({ finalizing: false });
       }
     },
-    [instance, uploadPhoto, patchInstance, invalidateChecklist, updateUi],
+    [instance, uploadPhoto, patchInstance, invalidateChecklist, queryClient, updateUi],
   );
 
   const goToStep = useCallback(

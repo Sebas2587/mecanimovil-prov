@@ -68,41 +68,49 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
   onSelect: (d: Date) => void;
 }) {
   const esSeleccionado = esMismaFecha(diaCalendario.fecha, fechaSeleccionada);
-  const deshabilitado = diaCalendario.esPasada && !diaCalendario.esOtroMes;
+  const esPasadaVisible = diaCalendario.esPasada && !diaCalendario.esOtroMes;
   const handlePress = useCallback(() => {
-    if (deshabilitado) return;
     onSelect(diaCalendario.fecha);
-  }, [onSelect, diaCalendario.fecha, deshabilitado]);
+  }, [onSelect, diaCalendario.fecha]);
 
   return (
     <TouchableOpacity
       style={[
         styles.calendarDay,
         diaCalendario.esOtroMes && styles.calendarDayOtherMonth,
-        deshabilitado && styles.calendarDayPast,
+        esPasadaVisible
+          && !esSeleccionado
+          && !diaCalendario.tieneOrdenes
+          && styles.calendarDayPast,
         diaCalendario.esHoy && !esSeleccionado && styles.calendarDayToday,
         esSeleccionado && styles.calendarDaySelected,
-        diaCalendario.tieneOrdenes &&
-          !esSeleccionado &&
-          !diaCalendario.esOtroMes &&
-          !deshabilitado &&
-          styles.calendarDayWithOrders,
+        diaCalendario.tieneOrdenes
+          && !esSeleccionado
+          && !diaCalendario.esOtroMes
+          && styles.calendarDayWithOrders,
+        diaCalendario.tieneOrdenes
+          && !esSeleccionado
+          && !diaCalendario.esOtroMes
+          && esPasadaVisible
+          && styles.calendarDayPastWithOrders,
       ]}
       onPress={handlePress}
-      activeOpacity={deshabilitado ? 1 : 0.7}
-      disabled={deshabilitado}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityState={{ selected: esSeleccionado }}
+      accessibilityLabel={`${diaCalendario.dia}${diaCalendario.tieneOrdenes ? ', con citas' : ''}`}
     >
       <Text
         style={[
           styles.calendarDayText,
           diaCalendario.esOtroMes && styles.calendarDayTextOtherMonth,
-          deshabilitado && styles.calendarDayTextPast,
+          esPasadaVisible && !esSeleccionado && !diaCalendario.tieneOrdenes && styles.calendarDayTextPast,
           diaCalendario.esHoy && !esSeleccionado && styles.calendarDayTextToday,
           esSeleccionado && styles.calendarDayTextSelected,
-          diaCalendario.tieneOrdenes &&
-            !esSeleccionado &&
-            !diaCalendario.esOtroMes &&
-            styles.calendarDayTextWithOrders,
+          diaCalendario.tieneOrdenes
+            && !esSeleccionado
+            && !diaCalendario.esOtroMes
+            && styles.calendarDayTextWithOrders,
         ]}
       >
         {diaCalendario.dia}
@@ -409,7 +417,14 @@ export default function CalendarioScreen() {
   const eventosFechaSeleccionada = obtenerEventosDeFecha(fechaSeleccionada);
 
   const onSelectDay = useCallback((d: Date) => {
-    setFechaSeleccionada(startOfDay(d));
+    const day = startOfDay(d);
+    setFechaSeleccionada(day);
+    setMesActual((prev) => {
+      if (day.getMonth() === prev.getMonth() && day.getFullYear() === prev.getFullYear()) {
+        return prev;
+      }
+      return new Date(day.getFullYear(), day.getMonth(), 1);
+    });
   }, []);
 
   const puedeAgendarEnSeleccion = !esPasada(fechaSeleccionada);
@@ -566,7 +581,11 @@ export default function CalendarioScreen() {
               ) : (
                 <View style={styles.emptyState}>
                   <InstitutionalIcon name="event-busy" size={48} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.emptyStateText}>No hay citas para esta fecha</Text>
+                  <Text style={styles.emptyStateText}>
+                    {puedeAgendarEnSeleccion
+                      ? 'No hay citas para esta fecha'
+                      : 'No hay citas registradas en esta fecha'}
+                  </Text>
                   {puedeAgendarEnSeleccion && (
                     <TouchableOpacity
                       style={styles.agendarDiaBtn}
@@ -584,7 +603,7 @@ export default function CalendarioScreen() {
         )}
       </ScrollView>
 
-      {estadoProveedor?.estado_verificacion === 'aprobado' && (
+      {estadoProveedor?.estado_verificacion === 'aprobado' && puedeAgendarEnSeleccion && (
         <TouchableOpacity
           style={[styles.fab, { bottom: insets.bottom + SPACING.fixed.md }]}
           onPress={handleAgendarCita}
@@ -730,7 +749,10 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   calendarDayPast: {
-    opacity: 0.35,
+    opacity: 0.45,
+  },
+  calendarDayPastWithOrders: {
+    opacity: 0.88,
   },
   calendarDayOtherMonth: {
     opacity: 0.32,

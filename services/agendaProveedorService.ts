@@ -226,6 +226,15 @@ class AgendaProveedorService {
     }
   }
 
+  async obtenerCitasActivas(): Promise<ServiceResponse<CitaAgendaPersonal[]>> {
+    try {
+      const response = await api.get(`${this.citasUrl}/?estado=activa`);
+      return { success: true, data: extractArray<CitaAgendaPersonal>(response.data) };
+    } catch (error) {
+      return handleServiceError(error, 'obtener citas activas');
+    }
+  }
+
   async obtenerCitasCerradas(): Promise<ServiceResponse<CitaAgendaPersonal[]>> {
     try {
       const response = await api.get(`${this.citasUrl}/cerradas/`);

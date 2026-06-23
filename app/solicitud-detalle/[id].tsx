@@ -16,14 +16,46 @@ import {
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, withOpacity, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow, noShadow } from '@/app/design-system/tokens';
-import solicitudesService, { type SolicitudPublica, type OfertaProveedor, type MotivoRechazo, type DetalleServicioOferta, type MiembroTallerResumen } from '@/services/solicitudesService';
-import equipoTallerService, { type MiembroTaller, mecanicoCompatibleConTipoServicio } from '@/services/equipoTallerService';
+import solicitudesService, {
+  obtenerDetalleOferta,
+  type SolicitudPublica,
+  type OfertaProveedor,
+  type MotivoRechazo,
+  type DetalleServicioOferta,
+  type MiembroTallerResumen,
+} from '@/services/solicitudesService';
+import equipoTallerService, { mecanicoCompatibleConTipoServicio } from '@/services/equipoTallerService';
 import { RechazarSolicitudModal } from '@/components/solicitudes/RechazarSolicitudModal';
-import { ProponerFechaCatalogoModal } from '@/components/solicitudes/ProponerFechaCatalogoModal';
+import { ProponerFechaCatalogoModal, type MecanicoPropuestaOption } from '@/components/solicitudes/ProponerFechaCatalogoModal';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { obtenerMecanicosAptosAgenda } from '@/services/disponibilidadProveedorService';
+import {
+  modalidadFiltroMecanico,
+  resolveModalidadServicio,
+  tipoServicioAgenda,
+} from '@/utils/modalidadServicioSolicitud';
+import { useOfertaEjecucion } from '@/components/solicitud-detalle/useOfertaEjecucion';
+import { SolicitudDetalleFooter } from '@/components/solicitud-detalle/SolicitudDetalleFooter';
+import { SolicitudDetalleEjecucion } from '@/components/solicitud-detalle/SolicitudDetalleEjecucion';
+import {
+  SolicitudDetalleChecklistOverlay,
+  SolicitudDetalleChecklistCompletedModal,
+} from '@/components/solicitud-detalle/SolicitudDetalleChecklistOverlay';
+import { calcularAlturaFooterEjecucion } from '@/utils/calcularAlturaFooterEjecucion';
+
+const ESTADOS_EJECUCION_UI = new Set([
+  'pendiente_creditos',
+  'aceptada',
+  'pendiente_pago',
+  'pagada',
+  'pagada_parcialmente',
+  'en_ejecucion',
+  'completada',
+]);
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -115,8 +147,7 @@ export default function SolicitudDetalleScreen() {
   const queryClient = useQueryClient();
 
   const invalidateOrdenesYOfertas = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['ordenes-proveedor'] });
-    queryClient.invalidateQueries({ queryKey: ['ofertas-proveedor'] });
+    invalidateProveedorMarketplaceQueries(queryClient);
   }, [queryClient]);
 
   const [solicitud, setSolicitud] = useState<SolicitudPublica | null>(null);
@@ -129,7 +160,7 @@ export default function SolicitudDetalleScreen() {
   const [mostrarModalFecha, setMostrarModalFecha] = useState(false);
   const [proponiendoFecha, setProponiendoFecha] = useState(false);
   const [fotoAmpliadaUrl, setFotoAmpliadaUrl] = useState<string | null>(null);
-  const [mecanicosEquipo, setMecanicosEquipo] = useState<MiembroTaller[]>([]);
+  const [mecanicosPropuesta, setMecanicosPropuesta] = useState<MecanicoPropuestaOption[]>([]);
 
   const cargarDatos = useCallback(async (opts?: { silent?: boolean }) => {
     if (!id) return;
@@ -158,14 +189,24 @@ export default function SolicitudDetalleScreen() {
         }
 
         if (ofertaPropia) {
-          setMiOferta(ofertaPropia);
+          const detalleOferta = await obtenerDetalleOferta(ofertaPropia.id);
+          const ofertaCompleta =
+            detalleOferta.success && detalleOferta.data ? detalleOferta.data : ofertaPropia;
+          setMiOferta(ofertaCompleta);
 
-          if (ofertaPropia.estado === 'aceptada' || ofertaPropia.estado === 'pagada') {
-            const ofertasSecResult = await solicitudesService.obtenerOfertasSecundarias(ofertaPropia.id);
+          if (
+            ofertaCompleta.estado === 'aceptada'
+            || ofertaCompleta.estado === 'pagada'
+            || ofertaCompleta.estado === 'en_ejecucion'
+          ) {
+            const ofertasSecResult = await solicitudesService.obtenerOfertasSecundarias(ofertaCompleta.id);
             if (ofertasSecResult.success && ofertasSecResult.data) {
               setOfertasSecundarias(ofertasSecResult.data);
             }
           }
+        } else {
+          setMiOferta(null);
+          setOfertasSecundarias([]);
         }
 
         if (result.data.ofertas_secundarias && result.data.ofertas_secundarias.length > 0) {
@@ -203,6 +244,21 @@ export default function SolicitudDetalleScreen() {
     return () => sub.remove();
   }, [id, cargarDatos]);
 
+  const handleOfertaUpdated = useCallback((oferta: OfertaProveedor) => {
+    setMiOferta(oferta);
+  }, []);
+
+  const ejecucion = useOfertaEjecucion({
+    miOferta,
+    onOfertaUpdated: handleOfertaUpdated,
+    onReload: () => cargarDatos({ silent: true }),
+  });
+
+  const solicitudEstado = useMemo(
+    () => miOferta?.solicitud_estado ?? solicitud?.estado,
+    [miOferta?.solicitud_estado, solicitud?.estado],
+  );
+
   const fechaHoraPantalla = useMemo(
     () => resolverFechaHoraPantalla(solicitud, miOferta),
     [solicitud, miOferta],
@@ -224,6 +280,57 @@ export default function SolicitudDetalleScreen() {
       ?? null
     );
   }, [miOferta, solicitud, tecnicoSolicitud]);
+
+  const modalidadServicio = useMemo(
+    () => resolveModalidadServicio(solicitud, miOferta),
+    [solicitud, miOferta],
+  );
+
+  const agendaPropuestaContext = useMemo(() => {
+    const proveedorId = miOferta?.proveedor_id_detail;
+    if (!proveedorId) return null;
+    return {
+      tipoProveedor: miOferta?.tipo_proveedor ?? 'taller',
+      proveedorId,
+      ofertaServicioId: miOferta?.oferta_servicio ?? null,
+      modalidad: modalidadFiltroMecanico(modalidadServicio),
+    };
+  }, [miOferta, modalidadServicio]);
+
+  async function asegurarMecanicoPreferido(
+    lista: MecanicoPropuestaOption[],
+    preferidoId: number | null,
+    preferidoDetail: MiembroTallerResumen | null,
+  ): Promise<MecanicoPropuestaOption[]> {
+    if (!preferidoId || lista.some((m) => m.id === preferidoId)) {
+      return lista;
+    }
+    if (preferidoDetail) {
+      return [
+        {
+          id: preferidoDetail.id,
+          nombre: preferidoDetail.nombre,
+          foto_url: preferidoDetail.foto_url,
+          modalidad_display: preferidoDetail.modalidad_display,
+        },
+        ...lista,
+      ];
+    }
+    try {
+      const miembro = await equipoTallerService.obtener(preferidoId);
+      return [
+        {
+          id: miembro.id,
+          nombre: miembro.nombre,
+          foto_url: miembro.foto_url,
+          modalidad_display: miembro.modalidad_tecnico_display,
+        },
+        ...lista,
+      ];
+    } catch {
+      return lista;
+    }
+  }
 
   const formatearFecha = (fecha: string) => {
     const parsed = parseFechaLocal(fecha);
@@ -293,26 +400,74 @@ export default function SolicitudDetalleScreen() {
 
   useEffect(() => {
     if (!esAsignacionCatalogo) {
-      setMecanicosEquipo([]);
+      setMecanicosPropuesta([]);
       return;
     }
     let mounted = true;
-    equipoTallerService
-      .listar({ rol: 'mecanico', activo: true })
-      .then((equipo) => {
+    const tipoServicio = tipoServicioAgenda(modalidadServicio);
+    const preferidoId = miembroInicialPropuesta;
+    const preferidoDetail = tecnicoSolicitud;
+
+    async function cargarMecanicos() {
+      try {
+        let opciones: MecanicoPropuestaOption[] = [];
+
+        if (miOferta?.tipo_proveedor === 'taller' && miOferta.proveedor_id_detail) {
+          const miembros = await obtenerMecanicosAptosAgenda({
+            tallerId: miOferta.proveedor_id_detail,
+            ofertaServicioId: miOferta.oferta_servicio ?? undefined,
+            modalidad: modalidadFiltroMecanico(modalidadServicio),
+          });
+          opciones = miembros.map((m) => ({
+            id: m.id,
+            nombre: m.nombre,
+            foto_url: m.foto_url ?? null,
+            modalidad_display: m.modalidad_display,
+          }));
+        } else {
+          const equipo = await equipoTallerService.listar({ rol: 'mecanico', activo: true });
+          opciones = equipo
+            .filter((m) => mecanicoCompatibleConTipoServicio(m, tipoServicio))
+            .map((m) => ({
+              id: m.id,
+              nombre: m.nombre,
+              foto_url: m.foto_url ?? null,
+              modalidad_display: m.modalidad_tecnico_display,
+            }));
+        }
+
+        const merged = await asegurarMecanicoPreferido(opciones, preferidoId, preferidoDetail);
+        if (mounted) setMecanicosPropuesta(merged);
+      } catch {
         if (!mounted) return;
-        const tipoServicio = miOferta?.tipo_proveedor === 'mecanico' ? 'domicilio' : 'taller';
-        setMecanicosEquipo(
-          equipo.filter((m) => mecanicoCompatibleConTipoServicio(m, tipoServicio)),
-        );
-      })
-      .catch(() => {
-        if (mounted) setMecanicosEquipo([]);
-      });
+        if (preferidoDetail) {
+          setMecanicosPropuesta([
+            {
+              id: preferidoDetail.id,
+              nombre: preferidoDetail.nombre,
+              foto_url: preferidoDetail.foto_url,
+              modalidad_display: preferidoDetail.modalidad_display,
+            },
+          ]);
+        } else {
+          setMecanicosPropuesta([]);
+        }
+      }
+    }
+
+    void cargarMecanicos();
     return () => {
       mounted = false;
     };
-  }, [esAsignacionCatalogo, miOferta?.tipo_proveedor]);
+  }, [
+    esAsignacionCatalogo,
+    miOferta?.tipo_proveedor,
+    miOferta?.proveedor_id_detail,
+    miOferta?.oferta_servicio,
+    modalidadServicio,
+    miembroInicialPropuesta,
+    tecnicoSolicitud,
+  ]);
 
   const ejecutarConfirmarCatalogo = async () => {
     if (!miOferta?.id) return;
@@ -406,6 +561,7 @@ export default function SolicitudDetalleScreen() {
     try {
       const result = await solicitudesService.rechazarCatalogo(miOferta.id);
       if (result.success) {
+        invalidateOrdenesYOfertas();
         showAlert('Rechazada', 'La solicitud fue cancelada.');
         router.back();
       } else {
@@ -435,6 +591,7 @@ export default function SolicitudDetalleScreen() {
       const result = await solicitudesService.rechazarSolicitud(id, motivo, detalle);
 
       if (result.success) {
+        invalidateOrdenesYOfertas();
         Alert.alert('Solicitud Rechazada', 'La solicitud ha sido rechazada exitosamente. El cliente será notificado.', [
           {
             text: 'OK',
@@ -480,8 +637,58 @@ export default function SolicitudDetalleScreen() {
   };
 
   const tienePieDecisionCatalogo = puedeGestionarCatalogo;
-  const footerReserve =
-    (tienePieDecisionCatalogo ? 72 : SPACING.fixed.lg) + (insets.bottom || 0);
+
+  const mostrarEjecucionUi =
+    !!miOferta
+    && !puedeGestionarCatalogo
+    && ESTADOS_EJECUCION_UI.has(miOferta.estado);
+
+  const showEjecucionFooter =
+    !!miOferta
+    && !puedeGestionarCatalogo
+    && (
+      ejecucion.mostrarBotonIniciar
+      || ejecucion.enEjecucionAbierto
+      || ejecucion.servicioCompletadoUi
+      || ejecucion.mostrarChatFijo
+      || miOferta.estado === 'pendiente_creditos'
+    );
+
+  const footerBottomPad = Math.max(insets.bottom, Platform.OS === 'web' ? 12 : 0);
+
+  const footerReserve = useMemo(() => {
+    if (tienePieDecisionCatalogo || (!miOferta && solicitud?.estado !== 'pendiente_confirmacion')) {
+      return 72 + footerBottomPad + SPACING.fixed.md;
+    }
+    if (showEjecucionFooter && miOferta) {
+      return calcularAlturaFooterEjecucion({
+        oferta: miOferta,
+        checklist: ejecucion.checklistInstance,
+        loadingChecklist: ejecucion.loadingChecklist,
+        checklistLoadError: ejecucion.checklistLoadError,
+        bottomInset: footerBottomPad,
+      }) + SPACING.fixed.md;
+    }
+    return SPACING.fixed.lg + footerBottomPad;
+  }, [
+    tienePieDecisionCatalogo,
+    miOferta,
+    solicitud?.estado,
+    showEjecucionFooter,
+    ejecucion.checklistInstance,
+    ejecucion.loadingChecklist,
+    ejecucion.checklistLoadError,
+    footerBottomPad,
+  ]);
+
+  const mostrarDireccionMaps =
+    !!miOferta
+    && (
+      miOferta.estado === 'pagada'
+      || miOferta.estado === 'pagada_parcialmente'
+      || ejecucion.enEjecucionAbierto
+      || ejecucion.servicioCompletadoUi
+    );
   const repuestosSegunOferta = (oferta: OfertaProveedor | null): boolean => {
     if (!oferta) return false;
     if (!oferta.incluye_repuestos) return false;
@@ -510,72 +717,6 @@ export default function SolicitudDetalleScreen() {
     headerTintColor: I.ink,
   };
 
-  const footerBottomPad = Math.max(insets.bottom, Platform.OS === 'web' ? 12 : 0);
-
-  const renderFooterActions = (
-    primary: {
-      label: string;
-      icon: string;
-      onPress: () => void;
-      loading?: boolean;
-      disabled?: boolean;
-    },
-    secondary: {
-      label: string;
-      icon: string;
-      onPress: () => void;
-      loading?: boolean;
-      disabled?: boolean;
-    },
-  ) => (
-    <View style={[styles.fixedActionsContainer, { paddingBottom: footerBottomPad }]}>
-      <View style={styles.fixedActionsRow}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.footerBtnOutline,
-            (pressed || secondary.loading) && styles.footerBtnPressed,
-            (secondary.disabled || secondary.loading) && styles.footerBtnDisabled,
-          ]}
-          onPress={secondary.onPress}
-          disabled={secondary.disabled || secondary.loading}
-          accessibilityRole="button"
-        >
-          {secondary.loading ? (
-            <ActivityIndicator color={I.semanticDown} size="small" />
-          ) : (
-            <>
-              <InstitutionalIcon name={secondary.icon} size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.footerBtnOutlineText} numberOfLines={1}>
-                {secondary.label}
-              </Text>
-            </>
-          )}
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [
-            styles.footerBtnPrimary,
-            (pressed || primary.loading) && styles.footerBtnPressed,
-            (primary.disabled || primary.loading) && styles.footerBtnDisabled,
-          ]}
-          onPress={primary.onPress}
-          disabled={primary.disabled || primary.loading}
-          accessibilityRole="button"
-        >
-          {primary.loading ? (
-            <ActivityIndicator color={I.onPrimary} size="small" />
-          ) : (
-            <>
-              <InstitutionalIcon name={primary.icon} size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>
-                {primary.label}
-              </Text>
-            </>
-          )}
-        </Pressable>
-      </View>
-    </View>
-  );
-
   if (loading) {
     return (
       <View style={styles.container}>
@@ -603,6 +744,19 @@ export default function SolicitudDetalleScreen() {
     );
   }
 
+  if (ejecucion.showChecklistContainer && miOferta?.solicitud_servicio_id) {
+    return (
+      <SolicitudDetalleChecklistOverlay
+        miOferta={miOferta}
+        showChecklistContainer
+        showCompletedChecklistModal={false}
+        onChecklistComplete={ejecucion.handleChecklistComplete}
+        onChecklistCancel={ejecucion.handleChecklistCancel}
+        onCloseCompletedModal={() => ejecucion.setShowCompletedChecklistModal(false)}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={stackOptions} />
@@ -612,7 +766,7 @@ export default function SolicitudDetalleScreen() {
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingHorizontal: hx, paddingBottom: footerReserve + SPACING.fixed.md },
+            { paddingHorizontal: hx, paddingBottom: footerReserve },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -901,6 +1055,7 @@ export default function SolicitudDetalleScreen() {
             ) : null}
           </View>
 
+          {!mostrarDireccionMaps ? (
           <View style={styles.section}>
             <Text style={styles.sectionHeaderTitle}>Ubicación del servicio</Text>
             <View style={styles.addressCard}>
@@ -915,8 +1070,9 @@ export default function SolicitudDetalleScreen() {
               </View>
             </View>
           </View>
+          ) : null}
 
-          {miOferta ? (
+          {miOferta && !mostrarEjecucionUi ? (
             <View style={styles.section}>
               <View style={styles.ofertaHighlightCard}>
                 <View style={styles.ofertaStatusHeader}>
@@ -964,7 +1120,7 @@ export default function SolicitudDetalleScreen() {
 
           {miOferta &&
           (miOferta.estado === 'aceptada' || miOferta.estado === 'pagada') &&
-          solicitud.estado === 'pagada' ? (
+          solicitudEstado === 'pagada' ? (
             <View style={styles.section}>
               <View style={styles.serviciosAdicionalesHeader}>
                 <InstitutionalIcon name="add-circle-outline" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -1031,42 +1187,62 @@ export default function SolicitudDetalleScreen() {
               </TouchableOpacity>
             </View>
           ) : null}
+
+          {mostrarEjecucionUi && miOferta ? (
+            <SolicitudDetalleEjecucion
+              miOferta={miOferta}
+              badgeEstado={ejecucion.badgeEstado}
+              bannerPrincipal={ejecucion.bannerPrincipal}
+              mostrarPlanPago={ejecucion.mostrarPlanPago}
+              mostrarDetallePago={ejecucion.mostrarDetallePago}
+              enEjecucionAbierto={ejecucion.enEjecucionAbierto}
+              servicioCompletadoUi={ejecucion.servicioCompletadoUi}
+              checklistInstance={ejecucion.checklistInstance}
+              loadingChecklist={ejecucion.loadingChecklist}
+              bannerChecklistAccion={ejecucion.bannerChecklistAccion}
+              direccionServicio={solicitud.direccion_servicio_texto}
+              detallesUbicacion={solicitud.detalles_ubicacion}
+              mostrarDireccionMaps={mostrarDireccionMaps}
+              onOpenChecklist={() => ejecucion.setShowChecklistContainer(true)}
+              onOpenCompletedChecklist={() => ejecucion.setShowCompletedChecklistModal(true)}
+            />
+          ) : null}
         </ScrollView>
 
-        {tienePieDecisionCatalogo
-          ? renderFooterActions(
-              {
-                label: 'Aceptar asignación',
-                icon: 'check-circle',
-                onPress: handleConfirmarCatalogo,
-                loading: confirmandoCatalogo,
-                disabled: rechazando,
-              },
-              {
-                label: 'Rechazar',
-                icon: 'cancel',
-                onPress: handleRechazarCatalogo,
-                loading: rechazando,
-                disabled: confirmandoCatalogo,
-              },
-            )
-          : null}
+        <SolicitudDetalleFooter
+          solicitud={solicitud}
+          miOferta={miOferta}
+          puedeGestionarCatalogo={puedeGestionarCatalogo}
+          onConfirmCatalogo={handleConfirmarCatalogo}
+          onRejectCatalogo={handleRechazarCatalogo}
+          confirmandoCatalogo={confirmandoCatalogo}
+          rechazando={rechazando}
+          onRejectSolicitud={() => setMostrarModalRechazo(true)}
+          bottomPad={footerBottomPad}
+          showEjecucionFooter={showEjecucionFooter}
+          checklistInstance={ejecucion.checklistInstance}
+          loadingChecklist={ejecucion.loadingChecklist}
+          checklistLoadError={ejecucion.checklistLoadError}
+          procesando={ejecucion.procesando}
+          enEjecucionAbierto={ejecucion.enEjecucionAbierto}
+          servicioCompletadoUi={ejecucion.servicioCompletadoUi}
+          esperandoFirmaCliente={ejecucion.esperandoFirmaCliente}
+          checklistCerrado={ejecucion.checklistCerrado}
+          saldoManoObraPendiente={ejecucion.saldoManoObraPendiente}
+          mostrarBotonIniciar={ejecucion.mostrarBotonIniciar}
+          mostrarBotonTerminar={ejecucion.mostrarBotonTerminar}
+          mostrarChatFijo={ejecucion.mostrarChatFijo}
+          onIniciarServicio={ejecucion.handleIniciarServicio}
+          onTerminarServicio={ejecucion.handleTerminarServicio}
+          onOpenChecklist={() => ejecucion.setShowChecklistContainer(true)}
+          onOpenCompletedChecklist={() => ejecucion.setShowCompletedChecklistModal(true)}
+        />
 
-        {!miOferta && solicitud.estado !== 'pendiente_confirmacion'
-          ? renderFooterActions(
-              {
-                label: 'Crear oferta',
-                icon: 'add-circle',
-                onPress: () => router.push(`/crear-oferta/${solicitud.id}`),
-              },
-              {
-                label: 'Rechazar oferta',
-                icon: 'cancel',
-                onPress: () => setMostrarModalRechazo(true),
-                loading: rechazando,
-              },
-            )
-          : null}
+        <SolicitudDetalleChecklistCompletedModal
+          miOferta={miOferta}
+          visible={ejecucion.showCompletedChecklistModal}
+          onClose={() => ejecucion.setShowCompletedChecklistModal(false)}
+        />
 
         <RechazarSolicitudModal
           visible={mostrarModalRechazo}
@@ -1080,13 +1256,9 @@ export default function SolicitudDetalleScreen() {
           fechaReferencia={fechaHoraPantalla.fecha || solicitud?.fecha_preferida}
           horaReferencia={fechaHoraPantalla.hora ?? solicitud?.hora_preferida}
           loading={proponiendoFecha}
-          mecanicos={mecanicosEquipo.map((m) => ({
-            id: m.id,
-            nombre: m.nombre,
-            foto_url: m.foto_url,
-            modalidad_display: m.modalidad_tecnico_display,
-          }))}
+          mecanicos={mecanicosPropuesta}
           miembroInicial={miembroInicialPropuesta}
+          agendaContext={agendaPropuestaContext}
           onClose={() => setMostrarModalFecha(false)}
           onConfirm={handleProponerFechaCatalogo}
         />
