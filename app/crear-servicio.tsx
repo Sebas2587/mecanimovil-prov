@@ -56,7 +56,7 @@ import {
 import {
   buildPublicacionesPorMarca,
   claveOfertaMarcaModelo,
-  type PreciosPorModeloMap,
+  debeConsolidarPrecioBaseMarcas,
 } from '@/utils/ofertaModeloMarca';
 
 type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
@@ -223,6 +223,33 @@ const ServicioCatalogCard = React.memo(function ServicioCatalogCard({
           <InstitutionalIcon name="checkmark-circle" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
         ) : null}
       </View>
+    </TouchableOpacity>
+  );
+});
+
+const ModeloVehiculoChip = React.memo(function ModeloVehiculoChip({
+  modelo,
+  isSelected,
+  onToggle,
+}: {
+  modelo: ModeloVehiculo;
+  isSelected: boolean;
+  onToggle: (id: number) => void;
+}) {
+  const onPress = useCallback(() => onToggle(modelo.id), [onToggle, modelo.id]);
+
+  return (
+    <TouchableOpacity
+      style={[styles.modeloChip, isSelected && styles.modeloChipSelected]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <Text
+        style={[styles.modeloChipText, isSelected && styles.modeloChipTextSelected]}
+        numberOfLines={1}
+      >
+        {modelo.nombre}
+      </Text>
     </TouchableOpacity>
   );
 });
@@ -415,10 +442,6 @@ const CrearServicioScreen = () => {
   const [modelosSeleccionadosPorMarca, setModelosSeleccionadosPorMarca] = useState<
     Record<number, number[]>
   >({});
-  const [personalizarPrecioPorMarca, setPersonalizarPrecioPorMarca] = useState<
-    Record<number, boolean>
-  >({});
-  const [preciosPorModelo, setPreciosPorModelo] = useState<PreciosPorModeloMap>({});
   const [loadingModelosMarca, setLoadingModelosMarca] = useState<Record<number, boolean>>({});
   const marcasRealesSeleccionadasKey = marcasRealesSeleccionadas.join(',');
 
@@ -1394,6 +1417,18 @@ const CrearServicioScreen = () => {
       } satisfies PubItem];
     }
 
+    const totalMarcasCatalogo = marcas.filter((m) => m.id > 0).length;
+    if (debeConsolidarPrecioBaseMarcas(marcasRealesSeleccionadas, totalMarcasCatalogo)) {
+      return [{
+        marcaId: null,
+        modeloId: null,
+        clave: claveOfertaMarcaModelo(0, null),
+        costoManoObra: costoManoObra,
+        costoRepuestos: costoRepuestos || '0',
+        label: 'Precio base',
+      } satisfies PubItem];
+    }
+
     const items: PubItem[] = [];
     for (const marcaId of marcasRealesSeleccionadas) {
       const modelos = modelosPorMarca[marcaId] ?? [];
@@ -1416,8 +1451,6 @@ const CrearServicioScreen = () => {
       const pubs = buildPublicacionesPorMarca(marcaId, modelosIds, seleccionados, {
         manoObraBase: costoManoObra,
         repuestosBase: costoRepuestos || '0',
-        personalizarPrecio: personalizarPrecioPorMarca[marcaId] ?? false,
-        preciosPorModelo,
       });
 
       for (const pub of pubs) {
@@ -1429,7 +1462,7 @@ const CrearServicioScreen = () => {
           modeloId: pub.modeloId,
           clave: pub.clave,
           costoManoObra: pub.costoManoObra ?? costoManoObra,
-          costoRepuestos: pub.costoRepuestos ?? costoRepuestos || '0',
+          costoRepuestos: pub.costoRepuestos ?? (costoRepuestos || '0'),
           label: modeloNombre ? `${nombreMarca} · ${modeloNombre}` : nombreMarca,
         });
       }
@@ -1440,8 +1473,6 @@ const CrearServicioScreen = () => {
     marcasRealesSeleccionadas,
     modelosPorMarca,
     modelosSeleccionadosPorMarca,
-    personalizarPrecioPorMarca,
-    preciosPorModelo,
     costoManoObra,
     costoRepuestos,
     marcas,
@@ -1527,6 +1558,10 @@ const CrearServicioScreen = () => {
     const requiereConfirmacionMultimarca =
       !opts?.omitirConfirmacion
       && !esGenericoTodasMarcas
+      && !debeConsolidarPrecioBaseMarcas(
+        marcasRealesSeleccionadas,
+        marcas.filter((m) => m.id > 0).length,
+      )
       && marcasRealesSeleccionadas.length > 0
       && (
         marcasRealesSeleccionadas.length > 1
@@ -2085,11 +2120,20 @@ const CrearServicioScreen = () => {
     );
 
     const seleccionarTodasMisMarcas = useCallback(() => {
-      const aplicarTodas = () => {
+      const aplicarPrecioBase = () => {
+        setMarcaModoTab('generico');
+        setMarcasSeleccionadas([0]);
+        resetDependientesDeMarca();
+      };
+      const aplicarTodasPorMarca = () => {
         setMarcaModoTab('por_marca');
         setMarcasSeleccionadas(marcasReales.map((m) => m.id));
         resetDependientesDeMarca();
       };
+      if (proveedorEsMultimarca) {
+        aplicarPrecioBase();
+        return;
+      }
       if (!permiteMultiplesMarcas) {
         showConfirm(
           'Mismo precio en todas mis marcas',
@@ -2098,14 +2142,19 @@ const CrearServicioScreen = () => {
             confirmText: 'Continuar',
             onConfirm: () => {
               setModoSincronizarMarcas(true);
-              aplicarTodas();
+              aplicarTodasPorMarca();
             },
           },
         );
         return;
       }
-      aplicarTodas();
-    }, [marcasReales, resetDependientesDeMarca, permiteMultiplesMarcas]);
+      aplicarTodasPorMarca();
+    }, [
+      marcasReales,
+      resetDependientesDeMarca,
+      permiteMultiplesMarcas,
+      proveedorEsMultimarca,
+    ]);
 
     const limpiarMarcas = useCallback(() => {
       setMarcasSeleccionadas([]);
@@ -2122,6 +2171,15 @@ const CrearServicioScreen = () => {
       const slot = Math.max(marcaGridWidth, 1);
       return (slot - MARCA_GRID_COL_GAP) / 2;
     }, [marcaGridWidth]);
+
+    const marcasConModelosVisibles = useMemo(
+      () =>
+        marcasRealesSeleccionadas.filter((marcaId) => {
+          const modelos = modelosPorMarca[marcaId];
+          return loadingModelosMarca[marcaId] || (modelos && modelos.length > 0);
+        }),
+      [marcasRealesSeleccionadas, modelosPorMarca, loadingModelosMarca],
+    );
 
     const onMarcaGridLayout = useCallback((e: LayoutChangeEvent) => {
       const w = e.nativeEvent.layout.width;
@@ -2257,31 +2315,10 @@ const CrearServicioScreen = () => {
                   </View>
                 </View>
 
-                <View style={styles.marcaToolBlock}>
-                    <View style={styles.marcaQuickActionsRow}>
-                      <TouchableOpacity
-                        style={styles.marcaQuickChip}
-                        onPress={seleccionarTodasMisMarcas}
-                        activeOpacity={0.85}
-                      >
-                        <InstitutionalIcon name="checkmark-done" size={16} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
-                        <Text style={styles.marcaQuickChipTextUp}>Todas mis marcas</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.marcaQuickChip}
-                        onPress={limpiarMarcas}
-                        activeOpacity={0.85}
-                      >
-                        <InstitutionalIcon name="close" size={16} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                        <Text style={styles.marcaQuickChipTextDown}>Limpiar</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                {mostrarBusqueda && (
-                  <View style={[styles.marcaToolBlock, styles.marcaToolBlockNoTopPad]}>
-                    <View style={styles.marcaSearchRow}>
-                      <InstitutionalIcon name="search" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                <View style={styles.marcaToolsPanel}>
+                  {mostrarBusqueda ? (
+                    <View style={styles.marcaSearchField}>
+                      <InstitutionalIcon name="search" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                       <TextInput
                         style={styles.marcaSearchInput}
                         placeholder="Buscar marca…"
@@ -2294,23 +2331,44 @@ const CrearServicioScreen = () => {
                       />
                       {busquedaMarca.length > 0 ? (
                         <TouchableOpacity onPress={() => setBusquedaMarca('')} hitSlop={12}>
-                          <InstitutionalIcon name="close-circle" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                          <InstitutionalIcon name="close-circle" size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                         </TouchableOpacity>
                       ) : null}
                     </View>
-                  </View>
-                )}
+                  ) : null}
 
-                <View style={styles.marcaCounterRow}>
-                  <InstitutionalIcon name="directions-car" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.marcaCounterLabel}>
-                    <Text style={styles.marcaCounterMono}>{marcasRealesSeleccionadas.length}</Text>
-                    <Text style={styles.marcaCounterSlash}> / </Text>
-                    <Text style={styles.marcaCounterMono}>{marcasReales.length}</Text>
-                    <Text style={styles.marcaCounterRest}>
-                      {isEditMode ? ' marca' : ' marcas seleccionadas'}
-                    </Text>
-                  </Text>
+                  <View style={styles.selectionToolbar}>
+                    <View style={styles.selectionToolbarLeft}>
+                      <InstitutionalIcon name="directions-car" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                      <Text style={styles.marcaCounterLabel}>
+                        <Text style={styles.marcaCounterMono}>{marcasRealesSeleccionadas.length}</Text>
+                        <Text style={styles.marcaCounterSlash}> / </Text>
+                        <Text style={styles.marcaCounterMono}>{marcasReales.length}</Text>
+                        <Text style={styles.marcaCounterRest}>
+                          {isEditMode ? ' marca' : ' marcas seleccionadas'}
+                        </Text>
+                      </Text>
+                    </View>
+                    <View style={styles.selectionToolbarActions}>
+                      <TouchableOpacity
+                        style={styles.selectionToolbarAction}
+                        onPress={seleccionarTodasMisMarcas}
+                        activeOpacity={0.85}
+                        hitSlop={6}
+                      >
+                        <Text style={styles.selectionToolbarActionTextUp}>Todas mis marcas</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.selectionToolbarActionSep}>·</Text>
+                      <TouchableOpacity
+                        style={styles.selectionToolbarAction}
+                        onPress={limpiarMarcas}
+                        activeOpacity={0.85}
+                        hitSlop={6}
+                      >
+                        <Text style={styles.selectionToolbarActionTextDown}>Limpiar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 </View>
 
                 <View style={styles.marcaGridSlot} onLayout={onMarcaGridLayout}>
@@ -2367,164 +2425,91 @@ const CrearServicioScreen = () => {
                   </ScrollView>
                 )}
 
-                {marcasRealesSeleccionadas.map((marcaId) => {
-                  const nombreMarca = marcas.find((m) => m.id === marcaId)?.nombre ?? '';
-                  const modelos = modelosPorMarca[marcaId] ?? [];
-                  const seleccionados = modelosSeleccionadosPorMarca[marcaId] ?? [];
-                  const cargando = loadingModelosMarca[marcaId];
-                  if (modelos.length === 0 && !cargando) {
-                    return null;
-                  }
-
-                  return (
-                    <View key={`modelos-${marcaId}`} style={styles.modelosMarcaBlock}>
-                      <View style={styles.modelosMarcaHeader}>
-                        <Text style={styles.modelosMarcaTitle}>
-                          Modelos compatibles · {nombreMarca}
-                        </Text>
-                        <Text style={styles.modelosMarcaHint}>
-                          Todos seleccionados por defecto. Desmarca los que no atiendes.
-                        </Text>
-                      </View>
-
-                      {cargando ? (
-                        <View style={styles.modelosLoadingRow}>
-                          <ActivityIndicator size="small" color={I.primary} />
-                          <Text style={styles.modelosLoadingText}>Cargando modelos…</Text>
-                        </View>
-                      ) : (
-                        <>
-                          <View style={styles.marcaQuickActionsRow}>
-                            <TouchableOpacity
-                              style={styles.marcaQuickChip}
-                              onPress={() => seleccionarTodosModelosMarca(marcaId)}
-                              activeOpacity={0.85}
-                            >
-                              <InstitutionalIcon name="checkmark-done" size={16} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
-                              <Text style={styles.marcaQuickChipTextUp}>Todos</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={styles.marcaQuickChip}
-                              onPress={() => limpiarModelosMarca(marcaId)}
-                              activeOpacity={0.85}
-                            >
-                              <InstitutionalIcon name="close" size={16} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                              <Text style={styles.marcaQuickChipTextDown}>Limpiar</Text>
-                            </TouchableOpacity>
-                          </View>
-
-                          <Text style={styles.modelosCounterText}>
-                            {seleccionados.length} / {modelos.length} modelos seleccionados
-                          </Text>
-
-                          <View style={styles.modelosGrid}>
-                            {modelos.map((modelo) => {
-                              const isSelected = seleccionados.includes(modelo.id);
-                              return (
-                                <TouchableOpacity
-                                  key={modelo.id}
-                                  style={[
-                                    styles.modeloChip,
-                                    isSelected && styles.modeloChipSelected,
-                                  ]}
-                                  onPress={() => toggleModeloMarca(marcaId, modelo.id)}
-                                  activeOpacity={0.85}
-                                >
-                                  <View
-                                    style={[
-                                      INSTITUTIONAL_SELECTION.checkbox,
-                                      styles.modeloCheckbox,
-                                      isSelected && INSTITUTIONAL_SELECTION.checkboxSelected,
-                                    ]}
-                                  >
-                                    {isSelected ? (
-                                      <InstitutionalIcon name="checkmark" size={10} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                                    ) : null}
-                                  </View>
-                                  <Text
-                                    style={[
-                                      styles.modeloChipText,
-                                      isSelected && styles.modeloChipTextSelected,
-                                    ]}
-                                    numberOfLines={2}
-                                  >
-                                    {modelo.nombre}
-                                  </Text>
-                                </TouchableOpacity>
-                              );
-                            })}
-                          </View>
-
-                          <TouchableOpacity
-                            style={styles.personalizarPrecioToggle}
-                            onPress={() =>
-                              setPersonalizarPrecioPorMarca((prev) => ({
-                                ...prev,
-                                [marcaId]: !prev[marcaId],
-                              }))
-                            }
-                            activeOpacity={0.85}
-                          >
-                            <InstitutionalIcon
-                              name={personalizarPrecioPorMarca[marcaId] ? 'checkbox' : 'square-outline'}
-                              size={18}
-                              color={I.primary}
-                              strokeWidth={ICON_STROKE_WIDTH}
-                            />
-                            <Text style={styles.personalizarPrecioToggleText}>
-                              Personalizar precio por modelo
-                            </Text>
-                          </TouchableOpacity>
-
-                          {personalizarPrecioPorMarca[marcaId] && seleccionados.map((modeloId) => {
-                            const modelo = modelos.find((m) => m.id === modeloId);
-                            if (!modelo) return null;
-                            const clave = claveOfertaMarcaModelo(marcaId, modeloId);
-                            const precios = preciosPorModelo[clave] ?? {
-                              manoObra: costoManoObra,
-                              repuestos: costoRepuestos || '0',
-                            };
-                            return (
-                              <View key={clave} style={styles.precioModeloRow}>
-                                <Text style={styles.precioModeloLabel}>{modelo.nombre}</Text>
-                                <View style={styles.precioModeloInputs}>
-                                  <TextInput
-                                    style={styles.precioModeloInput}
-                                    placeholder="Mano de obra"
-                                    value={precios.manoObra}
-                                    onChangeText={(text) =>
-                                      setPreciosPorModelo((prev) => ({
-                                        ...prev,
-                                        [clave]: { ...precios, manoObra: text },
-                                      }))
-                                    }
-                                    keyboardType="decimal-pad"
-                                    placeholderTextColor={I.mutedSoft}
-                                  />
-                                  {tipoServicio === 'con_repuestos' ? (
-                                    <TextInput
-                                      style={styles.precioModeloInput}
-                                      placeholder="Repuestos"
-                                      value={precios.repuestos}
-                                      onChangeText={(text) =>
-                                        setPreciosPorModelo((prev) => ({
-                                          ...prev,
-                                          [clave]: { ...precios, repuestos: text },
-                                        }))
-                                      }
-                                      keyboardType="decimal-pad"
-                                      placeholderTextColor={I.mutedSoft}
-                                    />
-                                  ) : null}
-                                </View>
-                              </View>
-                            );
-                          })}
-                        </>
-                      )}
+                {marcasConModelosVisibles.length > 0 && (
+                  <View style={styles.modelosSection}>
+                    <View style={styles.modelosSectionHeader}>
+                      <InstitutionalIcon name="car-sport-outline" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                      <Text style={styles.modelosSectionTitle}>Modelos compatibles</Text>
                     </View>
-                  );
-                })}
+                    <View style={styles.marcaInfoNoticeCompact}>
+                      <InstitutionalIcon name="information-circle-outline" size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                      <Text style={styles.marcaInfoNoticeTextCompact}>
+                        Todos los modelos vienen seleccionados. Quita los que no atiendas.
+                      </Text>
+                    </View>
+
+                    {marcasConModelosVisibles.map((marcaId, marcaIndex) => {
+                      const nombreMarca = marcas.find((m) => m.id === marcaId)?.nombre ?? '';
+                      const modelos = modelosPorMarca[marcaId] ?? [];
+                      const seleccionados = modelosSeleccionadosPorMarca[marcaId] ?? [];
+                      const cargando = loadingModelosMarca[marcaId];
+
+                      return (
+                        <View
+                          key={`modelos-${marcaId}`}
+                          style={[
+                            styles.modelosMarcaSubsection,
+                            marcaIndex > 0 && styles.modelosMarcaSubsectionDivider,
+                          ]}
+                        >
+                          <View style={styles.selectionToolbar}>
+                            <View style={styles.selectionToolbarLeft}>
+                              <Text style={styles.modelosMarcaSubheaderTitle} numberOfLines={1}>
+                                {nombreMarca}
+                              </Text>
+                              {!cargando && modelos.length > 0 ? (
+                                <View style={styles.modelosMarcaCountBadge}>
+                                  <Text style={styles.modelosMarcaCountBadgeText}>
+                                    {seleccionados.length}/{modelos.length}
+                                  </Text>
+                                </View>
+                              ) : null}
+                            </View>
+                            {!cargando && modelos.length > 0 ? (
+                              <View style={styles.selectionToolbarActions}>
+                                <TouchableOpacity
+                                  style={styles.selectionToolbarAction}
+                                  onPress={() => seleccionarTodosModelosMarca(marcaId)}
+                                  activeOpacity={0.85}
+                                  hitSlop={6}
+                                >
+                                  <Text style={styles.selectionToolbarActionTextUp}>Todos</Text>
+                                </TouchableOpacity>
+                                <Text style={styles.selectionToolbarActionSep}>·</Text>
+                                <TouchableOpacity
+                                  style={styles.selectionToolbarAction}
+                                  onPress={() => limpiarModelosMarca(marcaId)}
+                                  activeOpacity={0.85}
+                                  hitSlop={6}
+                                >
+                                  <Text style={styles.selectionToolbarActionTextDown}>Limpiar</Text>
+                                </TouchableOpacity>
+                              </View>
+                            ) : null}
+                          </View>
+
+                          {cargando ? (
+                            <View style={styles.modelosLoadingRow}>
+                              <ActivityIndicator size="small" color={I.primary} />
+                              <Text style={styles.modelosLoadingText}>Cargando modelos…</Text>
+                            </View>
+                          ) : (
+                            <View style={styles.modelosChipWrap}>
+                              {modelos.map((modelo) => (
+                                <ModeloVehiculoChip
+                                  key={modelo.id}
+                                  modelo={modelo}
+                                  isSelected={seleccionados.includes(modelo.id)}
+                                  onToggle={(modeloId) => toggleModeloMarca(marcaId, modeloId)}
+                                />
+                              ))}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             </>
           )}
@@ -3453,68 +3438,74 @@ const styles = StyleSheet.create({
     lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.body.lineHeight),
     color: I.body,
   },
-  marcaToolBlock: {
-    paddingBottom: SPACING.fixed.sm,
-    marginBottom: SPACING.fixed.sm,
-    borderBottomWidth: BORDERS.width.thin,
-    borderBottomColor: I.hairlineSoft,
-  },
-  marcaToolBlockNoTopPad: {
-    paddingTop: 0,
-  },
-  marcaQuickActionsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  marcaToolsPanel: {
     gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
   },
-  marcaQuickChip: {
-    flex: 1,
-    minWidth: 108,
+  selectionToolbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.fixed.xxs,
-    paddingVertical: SPACING.fixed.xs,
-    paddingHorizontal: SPACING.fixed.xs,
-    borderRadius: BORDERS.radius.pill,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    backgroundColor: I.canvas,
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.sm,
+    minHeight: 28,
   },
-  marcaQuickChipTextUp: {
-    fontSize: TS.captionBold.fontSize,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TS.captionBold.fontSize, TS.captionBold.lineHeight),
-    color: I.semanticUp,
-  },
-  marcaQuickChipTextDown: {
-    fontSize: TS.captionBold.fontSize,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TS.captionBold.fontSize, TS.captionBold.lineHeight),
-    color: I.semanticDown,
-  },
-  marcaSearchRow: {
+  selectionToolbarLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.fixed.xs,
+    minWidth: 0,
+  },
+  selectionToolbarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    gap: SPACING.fixed.xxs,
+  },
+  selectionToolbarAction: {
+    paddingVertical: SPACING.fixed.xxs,
+    paddingHorizontal: SPACING.fixed.xxs,
+  },
+  selectionToolbarActionSep: {
+    fontSize: TS.caption.fontSize,
+    color: I.hairline,
+  },
+  selectionToolbarActionTextUp: {
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.semanticUp,
+  },
+  selectionToolbarActionTextDown: {
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.semanticDown,
+  },
+  marcaSearchField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    backgroundColor: I.surface,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.sm,
+    minHeight: 48,
+    ...SHADOWS.editorial,
   },
   marcaSearchInput: {
     flex: 1,
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansRegular,
     color: I.ink,
-    paddingVertical: SPACING.fixed.xxs,
-  },
-  marcaCounterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xs,
-    marginBottom: SPACING.fixed.sm,
+    padding: 0,
   },
   marcaCounterLabel: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'baseline',
     flexWrap: 'wrap',
+    minWidth: 0,
   },
   marcaCounterMono: {
     fontSize: TS.numberDisplay.fontSize,
@@ -3674,26 +3665,61 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
     color: I.primary,
   },
-  modelosMarcaBlock: {
-    marginTop: SPACING.fixed.md,
-    paddingTop: SPACING.fixed.md,
+  modelosSection: {
+    marginTop: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.sm,
     borderTopWidth: BORDERS.width.thin,
     borderTopColor: I.hairline,
     gap: SPACING.fixed.sm,
   },
-  modelosMarcaHeader: {
-    gap: SPACING.fixed.xxs,
+  modelosSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
   },
-  modelosMarcaTitle: {
+  modelosSectionTitle: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansSemiBold,
     color: I.heading,
   },
-  modelosMarcaHint: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+  marcaInfoNoticeCompact: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.xxs,
+  },
+  marcaInfoNoticeTextCompact: {
+    flex: 1,
+    fontSize: TS.caption.fontSize,
     fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
     color: I.muted,
-    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+  },
+  modelosMarcaSubsection: {
+    gap: SPACING.fixed.xxs,
+  },
+  modelosMarcaSubsectionDivider: {
+    marginTop: SPACING.fixed.xxs,
+    paddingTop: SPACING.fixed.sm,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+  },
+  modelosMarcaSubheaderTitle: {
+    flexShrink: 1,
+    fontSize: TS.captionBold.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.heading,
+  },
+  modelosMarcaCountBadge: {
+    paddingHorizontal: SPACING.fixed.xs,
+    paddingVertical: 2,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: withOpacity(I.primary, 0.08),
+  },
+  modelosMarcaCountBadgeText: {
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.monoMedium,
+    color: I.primary,
   },
   modelosLoadingRow: {
     flexDirection: 'row',
@@ -3706,81 +3732,31 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     color: I.muted,
   },
-  modelosCounterText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansMedium,
-    color: I.body,
-  },
-  modelosGrid: {
+  modelosChipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING.fixed.xs,
+    gap: SPACING.fixed.xxs + 2,
   },
   modeloChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xxs,
-    paddingVertical: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.xxs,
     paddingHorizontal: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.md,
+    borderRadius: BORDERS.radius.pill,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    backgroundColor: I.canvas,
-    maxWidth: '48%',
+    backgroundColor: I.surface,
   },
   modeloChipSelected: {
     borderColor: I.primary,
-    backgroundColor: withOpacity(I.primary, 0.08),
-  },
-  modeloCheckbox: {
-    width: 16,
-    height: 16,
+    backgroundColor: withOpacity(I.primary, 0.1),
   },
   modeloChipText: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontSize: TS.caption.fontSize,
     fontFamily: FF.sansRegular,
     color: I.body,
   },
   modeloChipTextSelected: {
     fontFamily: FF.sansSemiBold,
     color: I.primary,
-  },
-  personalizarPrecioToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xs,
-    marginTop: SPACING.fixed.xs,
-  },
-  personalizarPrecioToggleText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansMedium,
-    color: I.primary,
-  },
-  precioModeloRow: {
-    gap: SPACING.fixed.xxs,
-    marginTop: SPACING.fixed.xs,
-  },
-  precioModeloLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.body,
-  },
-  precioModeloInputs: {
-    flexDirection: 'row',
-    gap: SPACING.fixed.xs,
-  },
-  precioModeloInput: {
-    flex: 1,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    borderRadius: BORDERS.radius.md,
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: SPACING.fixed.xs,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansRegular,
-    color: I.heading,
-    backgroundColor: I.surface,
   },
   marcaGenericoCta: {
     flexDirection: 'row',

@@ -7,6 +7,14 @@ export function claveOfertaMarcaModelo(marcaId: number, modeloId: number | null)
   return `${marcaId}-${modeloId ?? 'all'}`;
 }
 
+/** Todas las marcas del catálogo con el mismo precio → una sola oferta precio base (marca null). */
+export function debeConsolidarPrecioBaseMarcas(
+  marcasSeleccionadas: number[],
+  totalMarcasDisponibles: number,
+): boolean {
+  return totalMarcasDisponibles > 1 && marcasSeleccionadas.length >= totalMarcasDisponibles;
+}
+
 export type PublicacionOfertaItem = {
   marcaId: number | null;
   modeloId: number | null;
@@ -15,17 +23,9 @@ export type PublicacionOfertaItem = {
   costoRepuestos?: string;
 };
 
-export type PreciosPorModeloMap = Record<string, { manoObra: string; repuestos: string }>;
-
-function preciosIguales(
-  a: { manoObra: string; repuestos: string },
-  b: { manoObra: string; repuestos: string },
-): boolean {
-  return a.manoObra.trim() === b.manoObra.trim() && a.repuestos.trim() === b.repuestos.trim();
-}
-
 /**
  * Decide si publicar una oferta por marca (modelo null) o una por cada modelo seleccionado.
+ * El precio siempre proviene de los costos base del formulario.
  */
 export function buildPublicacionesPorMarca(
   marcaId: number,
@@ -34,8 +34,6 @@ export function buildPublicacionesPorMarca(
   opts: {
     manoObraBase: string;
     repuestosBase: string;
-    personalizarPrecio: boolean;
-    preciosPorModelo: PreciosPorModeloMap;
   },
 ): PublicacionOfertaItem[] {
   const seleccionados = modelosSeleccionados.filter((id) => modelosDisponibles.includes(id));
@@ -43,11 +41,10 @@ export function buildPublicacionesPorMarca(
     return [];
   }
 
-  const base = { manoObra: opts.manoObraBase, repuestos: opts.repuestosBase };
   const todosSeleccionados =
     modelosDisponibles.length > 0 && seleccionados.length === modelosDisponibles.length;
 
-  if (todosSeleccionados && !opts.personalizarPrecio) {
+  if (todosSeleccionados) {
     return [
       {
         marcaId,
@@ -59,33 +56,11 @@ export function buildPublicacionesPorMarca(
     ];
   }
 
-  if (todosSeleccionados && opts.personalizarPrecio) {
-    const precios = seleccionados.map((modeloId) => {
-      const custom = opts.preciosPorModelo[claveOfertaMarcaModelo(marcaId, modeloId)];
-      return custom ?? base;
-    });
-    const todosIguales = precios.every((p) => preciosIguales(p, base));
-    if (todosIguales) {
-      return [
-        {
-          marcaId,
-          modeloId: null,
-          clave: claveOfertaMarcaModelo(marcaId, null),
-          costoManoObra: opts.manoObraBase,
-          costoRepuestos: opts.repuestosBase,
-        },
-      ];
-    }
-  }
-
-  return seleccionados.map((modeloId) => {
-    const custom = opts.preciosPorModelo[claveOfertaMarcaModelo(marcaId, modeloId)];
-    return {
-      marcaId,
-      modeloId,
-      clave: claveOfertaMarcaModelo(marcaId, modeloId),
-      costoManoObra: custom?.manoObra ?? opts.manoObraBase,
-      costoRepuestos: custom?.repuestos ?? opts.repuestosBase,
-    };
-  });
+  return seleccionados.map((modeloId) => ({
+    marcaId,
+    modeloId,
+    clave: claveOfertaMarcaModelo(marcaId, modeloId),
+    costoManoObra: opts.manoObraBase,
+    costoRepuestos: opts.repuestosBase,
+  }));
 }
