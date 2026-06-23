@@ -61,6 +61,10 @@ function MarcaTarifaHeader({
           <Text style={styles.marcaSub} numberOfLines={1}>
             Todas las marcas
           </Text>
+        ) : tarifa.modeloLabel ? (
+          <Text style={styles.marcaSub} numberOfLines={1}>
+            {tarifa.modeloLabel}
+          </Text>
         ) : null}
       </View>
     </View>

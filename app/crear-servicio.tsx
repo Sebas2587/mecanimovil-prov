@@ -53,6 +53,11 @@ import {
   extractMotoresServicio,
   type TipoMotorCodigo,
 } from '@/utils/tiposMotorCatalogo';
+import {
+  buildPublicacionesPorMarca,
+  claveOfertaMarcaModelo,
+  type PreciosPorModeloMap,
+} from '@/utils/ofertaModeloMarca';
 
 type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
 
@@ -229,6 +234,12 @@ interface MarcaVehiculo {
   logo: string | null;
 }
 
+interface ModeloVehiculo {
+  id: number;
+  nombre: string;
+  marca: number;
+}
+
 interface Servicio {
   id: number;
   nombre: string;
@@ -277,6 +288,13 @@ interface ServicioExistente {
     id: number;
     nombre: string;
     logo: string | null;
+  } | null;
+  modelo_vehiculo_seleccionado?: number | null;
+  modelo_vehiculo_info?: {
+    id: number;
+    nombre: string;
+    marca_id?: number;
+    marca_nombre?: string;
   } | null;
   tipo_motor?: string;
   tipo_servicio: 'con_repuestos' | 'sin_repuestos';
@@ -392,7 +410,17 @@ const CrearServicioScreen = () => {
   const [marcaGridWidth, setMarcaGridWidth] = useState(estimateMarcaGridSlotWidth);
   const [busquedaMarca, setBusquedaMarca] = useState('');
   /** marca_id (0 = genérico) → oferta_id existente en edición */
-  const [ofertasPorMarca, setOfertasPorMarca] = useState<Map<number, number>>(new Map());
+  const [ofertasPorClave, setOfertasPorClave] = useState<Map<string, number>>(new Map());
+  const [modelosPorMarca, setModelosPorMarca] = useState<Record<number, ModeloVehiculo[]>>({});
+  const [modelosSeleccionadosPorMarca, setModelosSeleccionadosPorMarca] = useState<
+    Record<number, number[]>
+  >({});
+  const [personalizarPrecioPorMarca, setPersonalizarPrecioPorMarca] = useState<
+    Record<number, boolean>
+  >({});
+  const [preciosPorModelo, setPreciosPorModelo] = useState<PreciosPorModeloMap>({});
+  const [loadingModelosMarca, setLoadingModelosMarca] = useState<Record<number, boolean>>({});
+  const marcasRealesSeleccionadasKey = marcasRealesSeleccionadas.join(',');
 
   const marcasInicialesEnEdicion = useMemo(() => {
     if (!isEditMode) return new Set<number>();
@@ -493,14 +521,27 @@ const CrearServicioScreen = () => {
       setServicioOriginal(catalogoServicioId);
 
       if (ofertasGrupoInicial.length > 0) {
-        const mapa = new Map<number, number>();
+        const mapa = new Map<string, number>();
         const marcaIds: number[] = [];
+        const seleccionModelos: Record<number, number[]> = {};
         for (const item of ofertasGrupoInicial) {
-          mapa.set(item.marca_id, item.id);
-          marcaIds.push(item.marca_id);
+          const modeloId = item.modelo_id ?? null;
+          mapa.set(claveOfertaMarcaModelo(item.marca_id, modeloId), item.id);
+          if (!marcaIds.includes(item.marca_id)) {
+            marcaIds.push(item.marca_id);
+          }
+          if (modeloId != null) {
+            seleccionModelos[item.marca_id] = [
+              ...(seleccionModelos[item.marca_id] ?? []),
+              modeloId,
+            ];
+          }
         }
-        setOfertasPorMarca(mapa);
+        setOfertasPorClave(mapa);
         setMarcasSeleccionadas(marcaIds);
+        if (Object.keys(seleccionModelos).length > 0) {
+          setModelosSeleccionadosPorMarca(seleccionModelos);
+        }
       }
       setDescripcion(servicioExistente.detalles_adicionales || '');
       if (servicioExistente.duracion_minima_minutos != null) {
@@ -528,13 +569,27 @@ const CrearServicioScreen = () => {
       if (ofertasGrupoInicial.length === 0) {
         if (servicioExistente.marca_vehiculo_seleccionada) {
           console.log('🚗 Pre-cargando marca:', servicioExistente.marca_vehiculo_info?.nombre);
+          const modeloId = servicioExistente.modelo_vehiculo_seleccionado ?? null;
           setMarcasSeleccionadas([servicioExistente.marca_vehiculo_seleccionada]);
-          setOfertasPorMarca(
-            new Map([[servicioExistente.marca_vehiculo_seleccionada, servicioExistente.id]])
+          setOfertasPorClave(
+            new Map([
+              [
+                claveOfertaMarcaModelo(
+                  servicioExistente.marca_vehiculo_seleccionada,
+                  modeloId,
+                ),
+                servicioExistente.id,
+              ],
+            ]),
           );
+          if (modeloId != null) {
+            setModelosSeleccionadosPorMarca({
+              [servicioExistente.marca_vehiculo_seleccionada]: [modeloId],
+            });
+          }
         } else {
           setMarcasSeleccionadas([0]);
-          setOfertasPorMarca(new Map([[0, servicioExistente.id]]));
+          setOfertasPorClave(new Map([[claveOfertaMarcaModelo(0, null), servicioExistente.id]]));
         }
       }
 
@@ -1005,6 +1060,52 @@ const CrearServicioScreen = () => {
     setServicios([]);
   }, [isEditMode, datosPreCargados]);
 
+  useEffect(() => {
+    if (esGenericoTodasMarcas || marcasRealesSeleccionadas.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { modelosAPI } = await import('@/services/api');
+        for (const marcaId of marcasRealesSeleccionadas) {
+          if (modelosPorMarca[marcaId] !== undefined) {
+            continue;
+          }
+          setLoadingModelosMarca((prev) => ({ ...prev, [marcaId]: true }));
+          try {
+            const modelos = await modelosAPI.obtenerModelosPorMarca(marcaId);
+            if (cancelled) {
+              return;
+            }
+            setModelosPorMarca((prev) => ({ ...prev, [marcaId]: modelos }));
+            setModelosSeleccionadosPorMarca((prev) => {
+              if (prev[marcaId]?.length) {
+                return prev;
+              }
+              return {
+                ...prev,
+                [marcaId]: modelos.map((m: ModeloVehiculo) => m.id),
+              };
+            });
+          } finally {
+            if (!cancelled) {
+              setLoadingModelosMarca((prev) => ({ ...prev, [marcaId]: false }));
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error cargando modelos por marca:', error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [marcasRealesSeleccionadasKey, esGenericoTodasMarcas, modelosPorMarca]);
+
   const cargarServicios = async () => {
     if (!tieneSeleccionMarca) return;
 
@@ -1272,6 +1373,80 @@ const CrearServicioScreen = () => {
   }, []);
 
   // Función para publicar o actualizar servicio
+  const armarPublicacionesGuardado = useCallback(() => {
+    type PubItem = {
+      marcaId: number | null;
+      modeloId: number | null;
+      clave: string;
+      costoManoObra: string;
+      costoRepuestos: string;
+      label: string;
+    };
+
+    if (esGenericoTodasMarcas) {
+      return [{
+        marcaId: null,
+        modeloId: null,
+        clave: claveOfertaMarcaModelo(0, null),
+        costoManoObra: costoManoObra,
+        costoRepuestos: costoRepuestos || '0',
+        label: 'Precio base',
+      } satisfies PubItem];
+    }
+
+    const items: PubItem[] = [];
+    for (const marcaId of marcasRealesSeleccionadas) {
+      const modelos = modelosPorMarca[marcaId] ?? [];
+      const modelosIds = modelos.map((m) => m.id);
+      const seleccionados = modelosSeleccionadosPorMarca[marcaId] ?? modelosIds;
+      const nombreMarca = marcas.find((m) => m.id === marcaId)?.nombre ?? `Marca #${marcaId}`;
+
+      if (modelosIds.length === 0) {
+        items.push({
+          marcaId,
+          modeloId: null,
+          clave: claveOfertaMarcaModelo(marcaId, null),
+          costoManoObra: costoManoObra,
+          costoRepuestos: costoRepuestos || '0',
+          label: nombreMarca,
+        });
+        continue;
+      }
+
+      const pubs = buildPublicacionesPorMarca(marcaId, modelosIds, seleccionados, {
+        manoObraBase: costoManoObra,
+        repuestosBase: costoRepuestos || '0',
+        personalizarPrecio: personalizarPrecioPorMarca[marcaId] ?? false,
+        preciosPorModelo,
+      });
+
+      for (const pub of pubs) {
+        const modeloNombre = pub.modeloId
+          ? modelos.find((m) => m.id === pub.modeloId)?.nombre
+          : null;
+        items.push({
+          marcaId: pub.marcaId,
+          modeloId: pub.modeloId,
+          clave: pub.clave,
+          costoManoObra: pub.costoManoObra ?? costoManoObra,
+          costoRepuestos: pub.costoRepuestos ?? costoRepuestos || '0',
+          label: modeloNombre ? `${nombreMarca} · ${modeloNombre}` : nombreMarca,
+        });
+      }
+    }
+    return items;
+  }, [
+    esGenericoTodasMarcas,
+    marcasRealesSeleccionadas,
+    modelosPorMarca,
+    modelosSeleccionadosPorMarca,
+    personalizarPrecioPorMarca,
+    preciosPorModelo,
+    costoManoObra,
+    costoRepuestos,
+    marcas,
+  ]);
+
   const publicarServicio = async (opts?: { omitirConfirmacion?: boolean }) => {
     // Validaciones
     if (!costoManoObra || parseMontoDecimal(costoManoObra) <= 0) {
@@ -1282,6 +1457,23 @@ const CrearServicioScreen = () => {
     if (!tieneSeleccionMarca) {
       showAlert('Error', 'Debes seleccionar al menos una marca de vehículo');
       return;
+    }
+
+    if (!esGenericoTodasMarcas) {
+      for (const marcaId of marcasRealesSeleccionadas) {
+        const modelos = modelosPorMarca[marcaId];
+        if (modelos && modelos.length > 0) {
+          const seleccionados = modelosSeleccionadosPorMarca[marcaId] ?? [];
+          if (seleccionados.length === 0) {
+            const nombreMarca = marcas.find((m) => m.id === marcaId)?.nombre ?? 'la marca';
+            showAlert(
+              'Modelos requeridos',
+              `Selecciona al menos un modelo compatible para ${nombreMarca}.`,
+            );
+            return;
+          }
+        }
+      }
     }
 
     // Validar que si hay repuestos seleccionados, todos tengan precio válido
@@ -1437,14 +1629,14 @@ const CrearServicioScreen = () => {
         datosBase.servicio = servicioSeleccionado;
       }
 
-      const marcasPublicacion: (number | null)[] = esGenericoTodasMarcas
-        ? [null]
-        : (marcasRealesSeleccionadas.length > 0
-            ? marcasRealesSeleccionadas
-            : marcasSeleccionadas.map((id) => (id === 0 ? null : id)));
+      const publicaciones = armarPublicacionesGuardado();
+      if (publicaciones.length === 0) {
+        showAlert('Error', 'No hay configuración válida para publicar.');
+        return;
+      }
 
       console.log('📤 Datos base del servicio:', datosBase);
-      console.log('📤 Marcas destino:', marcasPublicacion);
+      console.log('📤 Publicaciones destino:', publicaciones);
 
       let tituloExito = isEditMode ? '¡Servicio Actualizado!' : '¡Servicio Publicado!';
       let mensajeExito = isEditMode
@@ -1456,35 +1648,27 @@ const CrearServicioScreen = () => {
       let ultimasUrlsFotos: string[] = [];
 
       if (isEditMode) {
-        const marcasPublicacionEdit: (number | null)[] = esGenericoTodasMarcas
-          ? [null]
-          : marcasRealesSeleccionadas.length > 0
-            ? marcasRealesSeleccionadas
-            : marcasSeleccionadas.map((id) => (id === 0 ? null : id));
-
-        const marcasClaveDestino = new Set(
-          marcasPublicacionEdit.map((m) => (m === null ? 0 : m))
-        );
+        const clavesDestino = new Set(publicaciones.map((p) => p.clave));
 
         let actualizados = 0;
         let creados = 0;
         const erroresMarca: string[] = [];
-        const totalMarcas = marcasPublicacionEdit.length;
-        let marcaIdx = 0;
+        const totalPublicaciones = publicaciones.length;
+        let pubIdx = 0;
 
-        for (const marcaApi of marcasPublicacionEdit) {
-          marcaIdx += 1;
-          const marcaClave = marcaApi === null ? 0 : marcaApi;
-          const ofertaId = ofertasPorMarca.get(marcaClave);
+        for (const pub of publicaciones) {
+          pubIdx += 1;
+          const ofertaId = ofertasPorClave.get(pub.clave);
           const datosServicio = {
             ...datosBase,
-            marca_vehiculo_seleccionada: marcaApi,
+            marca_vehiculo_seleccionada: pub.marcaId,
+            modelo_vehiculo_seleccionado: pub.modeloId,
+            costo_mano_de_obra_sin_iva: parseMontoDecimal(pub.costoManoObra),
+            costo_repuestos_sin_iva: parseMontoDecimal(pub.costoRepuestos),
           };
-          const nombreMarca =
-            marcas.find((m) => m.id === marcaClave)?.nombre ?? `ID ${marcaClave}`;
 
-          if (totalMarcas > 1) {
-            setSaveMessage(`Guardando ${nombreMarca} (${marcaIdx} de ${totalMarcas})…`);
+          if (totalPublicaciones > 1) {
+            setSaveMessage(`Guardando ${pub.label} (${pubIdx} de ${totalPublicaciones})…`);
           }
 
           try {
@@ -1499,22 +1683,22 @@ const CrearServicioScreen = () => {
                     fotosLocalesSnapshot,
                   );
                   if (subidas === 0) {
-                    erroresFoto.push(`${nombreMarca}: no se subieron las fotos`);
+                    erroresFoto.push(`${pub.label}: no se subieron las fotos`);
                   } else if (urls.length > 0) {
                     ultimasUrlsFotos = urls;
                   }
                 } catch (fotoErr: any) {
                   erroresFoto.push(
-                    `${nombreMarca}: ${fotoErr?.message ?? 'error al subir fotos'}`
+                    `${pub.label}: ${fotoErr?.message ?? 'error al subir fotos'}`
                   );
                 }
               }
             } else {
               const response = await serviciosAPI.crearServicio(datosServicio);
               creados += 1;
-              setOfertasPorMarca((prev) => {
+              setOfertasPorClave((prev) => {
                 const next = new Map(prev);
-                next.set(marcaClave, response.data.id);
+                next.set(pub.clave, response.data.id);
                 return next;
               });
               if (hayFotosNuevas) {
@@ -1525,31 +1709,29 @@ const CrearServicioScreen = () => {
                     fotosLocalesSnapshot,
                   );
                   if (subidas === 0) {
-                    erroresFoto.push(`${nombreMarca}: no se subieron las fotos`);
+                    erroresFoto.push(`${pub.label}: no se subieron las fotos`);
                   } else if (urls.length > 0) {
                     ultimasUrlsFotos = urls;
                   }
                 } catch (fotoErr: any) {
                   erroresFoto.push(
-                    `${nombreMarca}: ${fotoErr?.message ?? 'error al subir fotos'}`
+                    `${pub.label}: ${fotoErr?.message ?? 'error al subir fotos'}`
                   );
                 }
               }
             }
           } catch (err: any) {
             const detalle = extraerMensajeErrorApi(err, 'No se pudo guardar');
-            erroresMarca.push(`${nombreMarca}: ${detalle}`);
+            erroresMarca.push(`${pub.label}: ${detalle}`);
           }
         }
 
-        for (const [marcaClave, ofertaId] of ofertasPorMarca.entries()) {
-          if (!marcasClaveDestino.has(marcaClave)) {
+        for (const [clave, ofertaId] of ofertasPorClave.entries()) {
+          if (!clavesDestino.has(clave)) {
             try {
               await serviciosAPI.eliminarServicio(ofertaId);
             } catch (err: any) {
-              erroresMarca.push(
-                `Quitar ${marcas.find((m) => m.id === marcaClave)?.nombre ?? marcaClave}: ${err?.message ?? 'error'}`
-              );
+              erroresMarca.push(`Quitar oferta ${clave}: ${err?.message ?? 'error'}`);
             }
           }
         }
@@ -1561,25 +1743,26 @@ const CrearServicioScreen = () => {
         if (erroresMarca.length > 0) {
           tituloExito = 'Actualización parcial';
           mensajeExito = `Cambios guardados con advertencias:\n${erroresMarca.join('\n')}`;
-        } else if (creados > 0 || marcasPublicacionEdit.length > 1) {
-          mensajeExito = `Configuración aplicada en ${marcasPublicacionEdit.length} marca(s).`;
+        } else if (creados > 0 || publicaciones.length > 1) {
+          mensajeExito = `Configuración aplicada en ${publicaciones.length} tarifa(s).`;
         }
       } else {
         let creados = 0;
         const erroresMarca: string[] = [];
-        const totalMarcas = marcasPublicacion.length;
-        let marcaIdx = 0;
+        const totalPublicaciones = publicaciones.length;
+        let pubIdx = 0;
 
-        for (const marcaId of marcasPublicacion) {
-          marcaIdx += 1;
+        for (const pub of publicaciones) {
+          pubIdx += 1;
           const datosServicio = {
             ...datosBase,
-            marca_vehiculo_seleccionada: marcaId,
+            marca_vehiculo_seleccionada: pub.marcaId,
+            modelo_vehiculo_seleccionado: pub.modeloId,
+            costo_mano_de_obra_sin_iva: parseMontoDecimal(pub.costoManoObra),
+            costo_repuestos_sin_iva: parseMontoDecimal(pub.costoRepuestos),
           };
-          if (totalMarcas > 1) {
-            const nombreMarca =
-              marcas.find((m) => m.id === marcaId)?.nombre ?? `marca ${marcaIdx}`;
-            setSaveMessage(`Publicando en ${nombreMarca} (${marcaIdx} de ${totalMarcas})…`);
+          if (totalPublicaciones > 1) {
+            setSaveMessage(`Publicando ${pub.label} (${pubIdx} de ${totalPublicaciones})…`);
           }
           try {
             const response = await serviciosAPI.crearServicio(datosServicio);
@@ -1587,30 +1770,24 @@ const CrearServicioScreen = () => {
             if (hayFotosNuevas) {
               setSaveMessage('Subiendo fotos del servicio…');
               try {
-                const nombreMarca =
-                  marcas.find((m) => m.id === marcaId)?.nombre ?? `ID ${marcaId}`;
                 const { subidas, urls } = await subirFotosAlServidor(
                   response.data.id,
                   fotosLocalesSnapshot,
                 );
                 if (subidas === 0) {
-                  erroresFoto.push(`${nombreMarca}: no se subieron las fotos`);
+                  erroresFoto.push(`${pub.label}: no se subieron las fotos`);
                 } else if (urls.length > 0) {
                   ultimasUrlsFotos = urls;
                 }
               } catch (fotoErr: any) {
-                const nombreMarca =
-                  marcas.find((m) => m.id === marcaId)?.nombre ?? `ID ${marcaId}`;
                 erroresFoto.push(
-                  `${nombreMarca}: ${fotoErr?.message ?? 'error al subir fotos'}`
+                  `${pub.label}: ${fotoErr?.message ?? 'error al subir fotos'}`
                 );
               }
             }
           } catch (err: any) {
-            const nombreMarca =
-              marcas.find((m) => m.id === marcaId)?.nombre ?? `ID ${marcaId}`;
             const detalle = extraerMensajeErrorApi(err, 'No se pudo crear');
-            erroresMarca.push(`${nombreMarca}: ${detalle}`);
+            erroresMarca.push(`${pub.label}: ${detalle}`);
           }
         }
 
@@ -1794,6 +1971,41 @@ const CrearServicioScreen = () => {
       [marcasSeleccionadas]
     );
 
+    const marcaTieneOfertaActiva = useCallback(
+      (marcaId: number) => {
+        const prefix = `${marcaId}-`;
+        for (const key of ofertasPorClave.keys()) {
+          if (key.startsWith(prefix)) {
+            return true;
+          }
+        }
+        return false;
+      },
+      [ofertasPorClave],
+    );
+
+    const toggleModeloMarca = useCallback((marcaId: number, modeloId: number) => {
+      setModelosSeleccionadosPorMarca((prev) => {
+        const actuales = prev[marcaId] ?? [];
+        const nextIds = actuales.includes(modeloId)
+          ? actuales.filter((id) => id !== modeloId)
+          : [...actuales, modeloId];
+        return { ...prev, [marcaId]: nextIds };
+      });
+    }, []);
+
+    const seleccionarTodosModelosMarca = useCallback((marcaId: number) => {
+      const modelos = modelosPorMarca[marcaId] ?? [];
+      setModelosSeleccionadosPorMarca((prev) => ({
+        ...prev,
+        [marcaId]: modelos.map((m) => m.id),
+      }));
+    }, [modelosPorMarca]);
+
+    const limpiarModelosMarca = useCallback((marcaId: number) => {
+      setModelosSeleccionadosPorMarca((prev) => ({ ...prev, [marcaId]: [] }));
+    }, []);
+
     const handleToggleMarca = useCallback(
       (marcaId: number) => {
         if (marcaId === 0) {
@@ -1807,6 +2019,11 @@ const CrearServicioScreen = () => {
         setMarcasSeleccionadas((prev) => {
           const sinGenerico = prev.filter((id) => id !== 0);
           if (sinGenerico.includes(marcaId)) {
+            setModelosSeleccionadosPorMarca((prev) => {
+              const next = { ...prev };
+              delete next[marcaId];
+              return next;
+            });
             return sinGenerico.filter((id) => id !== marcaId);
           }
 
@@ -2099,7 +2316,7 @@ const CrearServicioScreen = () => {
                 <View style={styles.marcaGridSlot} onLayout={onMarcaGridLayout}>
                   <View style={styles.marcaItemsGrid}>
                     {marcasFiltradas.map((marca, index) => {
-                      const badgeLabel = ofertasPorMarca.has(marca.id)
+                      const badgeLabel = marcaTieneOfertaActiva(marca.id)
                         ? 'Activa'
                         : estaSeleccionada(marca.id) && marcasNuevasSeleccionadas.includes(marca.id)
                           ? 'Nueva'
@@ -2149,6 +2366,165 @@ const CrearServicioScreen = () => {
                     })}
                   </ScrollView>
                 )}
+
+                {marcasRealesSeleccionadas.map((marcaId) => {
+                  const nombreMarca = marcas.find((m) => m.id === marcaId)?.nombre ?? '';
+                  const modelos = modelosPorMarca[marcaId] ?? [];
+                  const seleccionados = modelosSeleccionadosPorMarca[marcaId] ?? [];
+                  const cargando = loadingModelosMarca[marcaId];
+                  if (modelos.length === 0 && !cargando) {
+                    return null;
+                  }
+
+                  return (
+                    <View key={`modelos-${marcaId}`} style={styles.modelosMarcaBlock}>
+                      <View style={styles.modelosMarcaHeader}>
+                        <Text style={styles.modelosMarcaTitle}>
+                          Modelos compatibles · {nombreMarca}
+                        </Text>
+                        <Text style={styles.modelosMarcaHint}>
+                          Todos seleccionados por defecto. Desmarca los que no atiendes.
+                        </Text>
+                      </View>
+
+                      {cargando ? (
+                        <View style={styles.modelosLoadingRow}>
+                          <ActivityIndicator size="small" color={I.primary} />
+                          <Text style={styles.modelosLoadingText}>Cargando modelos…</Text>
+                        </View>
+                      ) : (
+                        <>
+                          <View style={styles.marcaQuickActionsRow}>
+                            <TouchableOpacity
+                              style={styles.marcaQuickChip}
+                              onPress={() => seleccionarTodosModelosMarca(marcaId)}
+                              activeOpacity={0.85}
+                            >
+                              <InstitutionalIcon name="checkmark-done" size={16} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
+                              <Text style={styles.marcaQuickChipTextUp}>Todos</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.marcaQuickChip}
+                              onPress={() => limpiarModelosMarca(marcaId)}
+                              activeOpacity={0.85}
+                            >
+                              <InstitutionalIcon name="close" size={16} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                              <Text style={styles.marcaQuickChipTextDown}>Limpiar</Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          <Text style={styles.modelosCounterText}>
+                            {seleccionados.length} / {modelos.length} modelos seleccionados
+                          </Text>
+
+                          <View style={styles.modelosGrid}>
+                            {modelos.map((modelo) => {
+                              const isSelected = seleccionados.includes(modelo.id);
+                              return (
+                                <TouchableOpacity
+                                  key={modelo.id}
+                                  style={[
+                                    styles.modeloChip,
+                                    isSelected && styles.modeloChipSelected,
+                                  ]}
+                                  onPress={() => toggleModeloMarca(marcaId, modelo.id)}
+                                  activeOpacity={0.85}
+                                >
+                                  <View
+                                    style={[
+                                      INSTITUTIONAL_SELECTION.checkbox,
+                                      styles.modeloCheckbox,
+                                      isSelected && INSTITUTIONAL_SELECTION.checkboxSelected,
+                                    ]}
+                                  >
+                                    {isSelected ? (
+                                      <InstitutionalIcon name="checkmark" size={10} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                                    ) : null}
+                                  </View>
+                                  <Text
+                                    style={[
+                                      styles.modeloChipText,
+                                      isSelected && styles.modeloChipTextSelected,
+                                    ]}
+                                    numberOfLines={2}
+                                  >
+                                    {modelo.nombre}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+
+                          <TouchableOpacity
+                            style={styles.personalizarPrecioToggle}
+                            onPress={() =>
+                              setPersonalizarPrecioPorMarca((prev) => ({
+                                ...prev,
+                                [marcaId]: !prev[marcaId],
+                              }))
+                            }
+                            activeOpacity={0.85}
+                          >
+                            <InstitutionalIcon
+                              name={personalizarPrecioPorMarca[marcaId] ? 'checkbox' : 'square-outline'}
+                              size={18}
+                              color={I.primary}
+                              strokeWidth={ICON_STROKE_WIDTH}
+                            />
+                            <Text style={styles.personalizarPrecioToggleText}>
+                              Personalizar precio por modelo
+                            </Text>
+                          </TouchableOpacity>
+
+                          {personalizarPrecioPorMarca[marcaId] && seleccionados.map((modeloId) => {
+                            const modelo = modelos.find((m) => m.id === modeloId);
+                            if (!modelo) return null;
+                            const clave = claveOfertaMarcaModelo(marcaId, modeloId);
+                            const precios = preciosPorModelo[clave] ?? {
+                              manoObra: costoManoObra,
+                              repuestos: costoRepuestos || '0',
+                            };
+                            return (
+                              <View key={clave} style={styles.precioModeloRow}>
+                                <Text style={styles.precioModeloLabel}>{modelo.nombre}</Text>
+                                <View style={styles.precioModeloInputs}>
+                                  <TextInput
+                                    style={styles.precioModeloInput}
+                                    placeholder="Mano de obra"
+                                    value={precios.manoObra}
+                                    onChangeText={(text) =>
+                                      setPreciosPorModelo((prev) => ({
+                                        ...prev,
+                                        [clave]: { ...precios, manoObra: text },
+                                      }))
+                                    }
+                                    keyboardType="decimal-pad"
+                                    placeholderTextColor={I.mutedSoft}
+                                  />
+                                  {tipoServicio === 'con_repuestos' ? (
+                                    <TextInput
+                                      style={styles.precioModeloInput}
+                                      placeholder="Repuestos"
+                                      value={precios.repuestos}
+                                      onChangeText={(text) =>
+                                        setPreciosPorModelo((prev) => ({
+                                          ...prev,
+                                          [clave]: { ...precios, repuestos: text },
+                                        }))
+                                      }
+                                      keyboardType="decimal-pad"
+                                      placeholderTextColor={I.mutedSoft}
+                                    />
+                                  ) : null}
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             </>
           )}
@@ -3297,6 +3673,114 @@ const styles = StyleSheet.create({
     fontSize: TS.caption.fontSize,
     fontFamily: FF.sansSemiBold,
     color: I.primary,
+  },
+  modelosMarcaBlock: {
+    marginTop: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.md,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
+    gap: SPACING.fixed.sm,
+  },
+  modelosMarcaHeader: {
+    gap: SPACING.fixed.xxs,
+  },
+  modelosMarcaTitle: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.heading,
+  },
+  modelosMarcaHint: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+  },
+  modelosLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.sm,
+  },
+  modelosLoadingText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+  },
+  modelosCounterText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    color: I.body,
+  },
+  modelosGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.xs,
+  },
+  modeloChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xxs,
+    paddingVertical: SPACING.fixed.xs,
+    paddingHorizontal: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
+    maxWidth: '48%',
+  },
+  modeloChipSelected: {
+    borderColor: I.primary,
+    backgroundColor: withOpacity(I.primary, 0.08),
+  },
+  modeloCheckbox: {
+    width: 16,
+    height: 16,
+  },
+  modeloChipText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+  },
+  modeloChipTextSelected: {
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
+  },
+  personalizarPrecioToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    marginTop: SPACING.fixed.xs,
+  },
+  personalizarPrecioToggleText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    color: I.primary,
+  },
+  precioModeloRow: {
+    gap: SPACING.fixed.xxs,
+    marginTop: SPACING.fixed.xs,
+  },
+  precioModeloLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.body,
+  },
+  precioModeloInputs: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.xs,
+  },
+  precioModeloInput: {
+    flex: 1,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.md,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xs,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.heading,
+    backgroundColor: I.surface,
   },
   marcaGenericoCta: {
     flexDirection: 'row',

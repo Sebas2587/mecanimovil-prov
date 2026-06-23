@@ -5,7 +5,9 @@
 export interface OfertaGrupoItem {
   id: number;
   marca_id: number;
+  modelo_id?: number | null;
   nombre?: string;
+  modelo_nombre?: string;
 }
 
 export interface ServicioOfertaLike {
@@ -14,6 +16,8 @@ export interface ServicioOfertaLike {
   servicio_info?: { id: number; nombre: string; descripcion?: string; requiere_repuestos?: boolean; foto?: string | null };
   marca_vehiculo_seleccionada: number | null;
   marca_vehiculo_info?: { id: number; nombre: string; logo?: string | null } | null;
+  modelo_vehiculo_seleccionado?: number | null;
+  modelo_vehiculo_info?: { id: number; nombre: string; marca_id?: number; marca_nombre?: string } | null;
   tipo_servicio: string;
   tipo_motor?: string;
   detalles_adicionales: string | null;
@@ -71,7 +75,9 @@ export function agruparOfertasServicio<T extends ServicioOfertaLike>(
     const ofertasGrupo: OfertaGrupoItem[] = sorted.map((o) => ({
       id: o.id,
       marca_id: o.marca_vehiculo_seleccionada ?? 0,
+      modelo_id: o.modelo_vehiculo_seleccionado ?? null,
       nombre: o.marca_vehiculo_info?.nombre?.trim() || undefined,
+      modelo_nombre: o.modelo_vehiculo_info?.nombre?.trim() || undefined,
     }));
     const marcaIds = [...new Set(ofertasGrupo.map((x) => x.marca_id))].sort((a, b) => a - b);
     grupos.push({

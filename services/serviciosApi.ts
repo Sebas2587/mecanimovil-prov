@@ -33,6 +33,15 @@ export interface ServicioOferta {
   iva_sobre_comision: number;
   ganancia_neta_proveedor: number;
   desglose_precios: DesglosePrecios;
+  marca_vehiculo_seleccionada?: number | null;
+  marca_vehiculo_info?: { id: number; nombre: string; logo?: string | null } | null;
+  modelo_vehiculo_seleccionado?: number | null;
+  modelo_vehiculo_info?: {
+    id: number;
+    nombre: string;
+    marca_id?: number;
+    marca_nombre?: string;
+  } | null;
   fecha_creacion: string;
   ultima_actualizacion: string;
 }
@@ -151,6 +160,8 @@ export interface EstadisticasProveedor {
 export interface CrearServicioData {
   tipo_servicio: 'con_repuestos' | 'sin_repuestos';
   servicio?: number;
+  marca_vehiculo_seleccionada?: number | null;
+  modelo_vehiculo_seleccionado?: number | null;
   detalles_adicionales: string;
   costo_mano_de_obra_sin_iva: number;
   costo_repuestos_sin_iva: number;

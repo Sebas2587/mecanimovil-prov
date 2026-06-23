@@ -62,7 +62,9 @@ export function agruparOfertasPorCatalogo<T extends ServicioOfertaLike>(
     const ofertasGrupo = sorted.map((o) => ({
       id: o.id,
       marca_id: o.marca_vehiculo_seleccionada ?? 0,
+      modelo_id: o.modelo_vehiculo_seleccionado ?? null,
       nombre: o.marca_vehiculo_info?.nombre?.trim() || undefined,
+      modelo_nombre: o.modelo_vehiculo_info?.nombre?.trim() || undefined,
     }));
     const marcaIds = [...new Set(ofertasGrupo.map((x) => x.marca_id))].sort((a, b) => a - b);
 
