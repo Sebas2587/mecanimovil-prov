@@ -58,6 +58,12 @@ import {
   claveOfertaMarcaModelo,
   debeConsolidarPrecioBaseMarcas,
 } from '@/utils/ofertaModeloMarca';
+import {
+  CALIDAD_REPUESTO_OPTIONS,
+  repuestoConfigVacio,
+  type CalidadRepuesto,
+  type RepuestoOfertaConfig,
+} from '@/utils/repuestoOferta';
 
 type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
 
@@ -391,6 +397,8 @@ const CrearServicioScreen = () => {
   const [preciosRepuestos, setPreciosRepuestos] = useState<Map<number, string>>(new Map());
   const [preciosRepuestosVersion, setPreciosRepuestosVersion] = useState(0); // Version counter para forzar recálculos
   const preciosRepuestosRef = useRef<Map<number, string>>(new Map()); // Ref para acceso actualizado en efectos
+  const [configRepuestos, setConfigRepuestos] = useState<Map<number, RepuestoOfertaConfig>>(new Map());
+  const configRepuestosRef = useRef<Map<number, RepuestoOfertaConfig>>(new Map());
   const calculosRequestIdRef = useRef(0);
   const [fotos, setFotos] = useState<string[]>([]);
   /** '' = todos los motores del catálogo; GASOLINA/DIESEL/etc. = oferta específica */
@@ -619,6 +627,18 @@ const CrearServicioScreen = () => {
       // Pre-cargar repuestos seleccionados - PRIORITARIO: usar repuestos_seleccionados que tiene los precios personalizados
       const repuestosIds = new Set<number>();
       const preciosMap = new Map<number, string>();
+      const configMap = new Map<number, RepuestoOfertaConfig>();
+
+      const cargarConfigRepuesto = (id: number, r: any) => {
+        const calidadRaw = r.calidad_repuesto ?? r.calidad ?? '';
+        const calidadValida = CALIDAD_REPUESTO_OPTIONS.some((o) => o.value === calidadRaw)
+          ? (calidadRaw as CalidadRepuesto)
+          : '';
+        configMap.set(id, {
+          marcaRepuesto: (r.marca_repuesto ?? r.marcaRepuesto ?? '').trim(),
+          calidad: calidadValida,
+        });
+      };
 
       // PRIMERO: Procesar repuestos_seleccionados que contiene los precios personalizados del proveedor
       if (servicioExistente.repuestos_seleccionados && Array.isArray(servicioExistente.repuestos_seleccionados) && servicioExistente.repuestos_seleccionados.length > 0) {
@@ -635,6 +655,9 @@ const CrearServicioScreen = () => {
           if (id && typeof id === 'number') {
             console.log(`  ✅ Agregando repuesto ID ${id} a la selección`);
             repuestosIds.add(id);
+            if (typeof r === 'object') {
+              cargarConfigRepuesto(id, r);
+            }
             // Si el repuesto tiene precio personalizado, cargarlo (PRIORIDAD)
             // Cargar el precio incluso si es 0, para mantener la consistencia
             if (typeof r === 'object' && r.precio !== undefined && r.precio !== null && r.precio > 0) {
@@ -663,6 +686,9 @@ const CrearServicioScreen = () => {
               repuestosIds.add(id);
             }
             // Si tiene precio personalizado válido, usarlo
+            if (!configMap.has(id)) {
+              cargarConfigRepuesto(id, r);
+            }
             if (r.precio !== undefined && r.precio !== null && r.precio > 0) {
               preciosMap.set(id, formatMontoForInput(r.precio));
             } else if (!preciosMap.has(id)) {
@@ -696,8 +722,10 @@ const CrearServicioScreen = () => {
       console.log('🔩 servicioExistente.repuestos_info:', JSON.stringify(servicioExistente.repuestos_info, null, 2));
       setRepuestosSeleccionados(repuestosIds);
       setPreciosRepuestos(preciosMap);
+      setConfigRepuestos(configMap);
       // Sincronizar ref inmediatamente
       preciosRepuestosRef.current = preciosMap;
+      configRepuestosRef.current = configMap;
       // Incrementar versión para forzar recálculo
       if (repuestosIds.size > 0) {
         setPreciosRepuestosVersion(v => v + 1);
@@ -956,6 +984,10 @@ const CrearServicioScreen = () => {
   useEffect(() => {
     preciosRepuestosRef.current = preciosRepuestos;
   }, [preciosRepuestos]);
+
+  useEffect(() => {
+    configRepuestosRef.current = configRepuestos;
+  }, [configRepuestos]);
 
   // Calcular y actualizar costoRepuestos cuando cambian repuestos o precios - OPTIMIZADO
   useEffect(() => {
@@ -1244,23 +1276,26 @@ const CrearServicioScreen = () => {
   const toggleRepuesto = (repuestoId: number) => {
     const nuevosSeleccionados = new Set(repuestosSeleccionados);
     const nuevosPrecios = new Map(preciosRepuestos);
+    const nuevasConfigs = new Map(configRepuestos);
 
     if (nuevosSeleccionados.has(repuestoId)) {
       nuevosSeleccionados.delete(repuestoId);
-      const precioAnterior = nuevosPrecios.get(repuestoId);
       nuevosPrecios.delete(repuestoId);
+      nuevasConfigs.delete(repuestoId);
     } else {
       nuevosSeleccionados.add(repuestoId);
       // NO sobrescribir precio si ya existe uno (modo edición)
       if (!nuevosPrecios.has(repuestoId)) {
-        // NO inicializar precio - el proveedor debe ingresarlo manualmente
-        // Dejamos el precio vacío inicialmente solo si no existe
         nuevosPrecios.set(repuestoId, '');
-      } else {
+      }
+      if (!nuevasConfigs.has(repuestoId)) {
+        nuevasConfigs.set(repuestoId, repuestoConfigVacio());
       }
     }
     setRepuestosSeleccionados(nuevosSeleccionados);
     setPreciosRepuestos(nuevosPrecios);
+    setConfigRepuestos(nuevasConfigs);
+    configRepuestosRef.current = nuevasConfigs;
     // Incrementar versión cuando se cambian los repuestos seleccionados
     if (nuevosSeleccionados.size !== repuestosSeleccionados.size) {
       setPreciosRepuestosVersion(v => v + 1);
@@ -1291,6 +1326,15 @@ const CrearServicioScreen = () => {
       return nuevaVersion;
     });
   }, [preciosRepuestos]);
+
+  const actualizarConfigRepuesto = useCallback((repuestoId: number, config: RepuestoOfertaConfig) => {
+    setConfigRepuestos((prev) => {
+      const next = new Map(prev);
+      next.set(repuestoId, config);
+      configRepuestosRef.current = next;
+      return next;
+    });
+  }, []);
 
   // Funciones para manejo de fotos
   const solicitarPermisos = async () => {
@@ -1507,9 +1551,10 @@ const CrearServicioScreen = () => {
       }
     }
 
-    // Validar que si hay repuestos seleccionados, todos tengan precio válido
+    // Validar que si hay repuestos seleccionados, todos tengan precio y calidad válidos
     if (tipoServicio === 'con_repuestos' && repuestosSeleccionados.size > 0) {
       const repuestosSinPrecio: number[] = [];
+      const repuestosSinCalidad: number[] = [];
       repuestosSeleccionados.forEach((id) => {
         const precioStr = preciosRepuestosRef.current.get(id);
         if (!precioStr || precioStr.trim() === '' || precioStr === '0') {
@@ -1520,12 +1565,23 @@ const CrearServicioScreen = () => {
             repuestosSinPrecio.push(id);
           }
         }
+        const cfg = configRepuestosRef.current.get(id);
+        if (!cfg?.calidad) {
+          repuestosSinCalidad.push(id);
+        }
       });
 
       if (repuestosSinPrecio.length > 0) {
         showAlert(
           'Precios no confirmados',
-          `Tienes ${repuestosSinPrecio.length} repuesto(s) sin precio confirmado. Por favor ingresa el precio y presiona el botón "Confirmar" para cada repuesto seleccionado.`
+          `Tienes ${repuestosSinPrecio.length} repuesto(s) sin precio confirmado. Ingresa el precio y presiona «Confirmar» en cada repuesto seleccionado.`
+        );
+        return;
+      }
+      if (repuestosSinCalidad.length > 0) {
+        showAlert(
+          'Calidad requerida',
+          `Indica si cada repuesto es Original, OEM o Alternativo antes de guardar.`
         );
         return;
       }
@@ -1630,6 +1686,13 @@ const CrearServicioScreen = () => {
           }
 
           const repuestoObj: any = { id };
+          const cfg = configRepuestosRef.current.get(id);
+          if (cfg?.marcaRepuesto?.trim()) {
+            repuestoObj.marca_repuesto = cfg.marcaRepuesto.trim();
+          }
+          if (cfg?.calidad) {
+            repuestoObj.calidad_repuesto = cfg.calidad;
+          }
           // Incluir precio solo si el proveedor ingresó un valor válido (> 0)
           if (precio !== undefined && !isNaN(precio) && precio > 0) {
             repuestoObj.precio = precio;
@@ -2666,70 +2729,129 @@ const CrearServicioScreen = () => {
     );
   };
 
-  // Componente para el campo de precio de repuesto con BOTÓN DE CONFIRMAR
-  const PrecioRepuestoInput = ({
+  // Panel de configuración de repuesto: marca, calidad y precio
+  const ConfigRepuestoOfertaInput = ({
     repuestoId,
     precioInicial,
     precioActual,
-    onPrecioChange
+    configActual,
+    onPrecioChange,
+    onConfigChange,
   }: {
     repuestoId: number;
     precioInicial: number;
     precioActual: string;
+    configActual: RepuestoOfertaConfig;
     onPrecioChange: (id: number, precio: string) => void;
+    onConfigChange: (id: number, config: RepuestoOfertaConfig) => void;
   }) => {
-    // Estado local para el input
     const [localPrecio, setLocalPrecio] = useState(precioActual || '');
-    // Estado para indicar si el precio ha sido confirmado
-    const [precioConfirmado, setPrecioConfirmado] = useState(precioActual !== '' && precioActual !== '0');
+    const [localMarca, setLocalMarca] = useState(configActual.marcaRepuesto || '');
+    const [localCalidad, setLocalCalidad] = useState<CalidadRepuesto | ''>(configActual.calidad || '');
+    const [precioConfirmado, setPrecioConfirmado] = useState(
+      precioActual !== '' && precioActual !== '0' && !!configActual.calidad,
+    );
 
-    // Sincronizar cuando cambia precioActual desde fuera
     useEffect(() => {
       if (precioActual !== undefined && precioActual !== null) {
         setLocalPrecio(precioActual);
-        setPrecioConfirmado(precioActual !== '' && precioActual !== '0');
+        setPrecioConfirmado(precioActual !== '' && precioActual !== '0' && !!configActual.calidad);
       }
-    }, [precioActual, repuestoId]);
+    }, [precioActual, repuestoId, configActual.calidad]);
+
+    useEffect(() => {
+      setLocalMarca(configActual.marcaRepuesto || '');
+      setLocalCalidad(configActual.calidad || '');
+    }, [configActual.marcaRepuesto, configActual.calidad, repuestoId]);
 
     const handleChangeText = (text: string) => {
-      // Solo permitir números y punto decimal
       const numericText = text.replace(/[^0-9.,]/g, '');
       setLocalPrecio(numericText);
-      // Marcar como no confirmado cuando cambia el texto
       if (precioConfirmado) {
         setPrecioConfirmado(false);
       }
     };
 
-    // Función para confirmar el precio - SE LLAMA CON EL BOTÓN
-    const confirmarPrecio = () => {
-
+    const confirmarConfig = () => {
       const precioStr = localPrecio.trim();
       if (precioStr === '' || precioStr === '0') {
-        Alert.alert('Precio inválido', 'Por favor ingrese un precio mayor a 0');
+        Alert.alert('Precio inválido', 'Ingresa un precio mayor a 0');
         return;
       }
-
       const precioNum = parseMontoDecimal(precioStr);
       if (precioNum <= 0) {
-        Alert.alert('Precio inválido', 'Por favor ingrese un número válido mayor a 0');
+        Alert.alert('Precio inválido', 'Ingresa un número válido mayor a 0');
+        return;
+      }
+      if (!localCalidad) {
+        Alert.alert('Calidad requerida', 'Selecciona Original, OEM o Alternativo');
         return;
       }
 
-      // Formatear el número
       const valorFormateado = formatMontoForInput(precioNum);
+      const config: RepuestoOfertaConfig = {
+        marcaRepuesto: localMarca.trim(),
+        calidad: localCalidad,
+      };
       setLocalPrecio(valorFormateado);
       setPrecioConfirmado(true);
-
-      console.log(`✅ Precio confirmado para repuesto ${repuestoId}: ${valorFormateado}`);
-
-      // Actualizar el estado global
+      onConfigChange(repuestoId, config);
       onPrecioChange(repuestoId, valorFormateado);
     };
 
     return (
       <View style={styles.repuestoPrecioInputContainer}>
-        <Text style={styles.repuestoPrecioLabel}>
+        <Text style={styles.repuestoPrecioLabel}>Marca del repuesto</Text>
+        <TextInput
+          style={styles.repuestoMarcaInput}
+          placeholder="Ej: Bosch, Mann, Castrol…"
+          placeholderTextColor={I.mutedSoft}
+          value={localMarca}
+          onChangeText={(text) => {
+            setLocalMarca(text);
+            if (precioConfirmado) setPrecioConfirmado(false);
+          }}
+          autoCapitalize="words"
+          returnKeyType="next"
+        />
+
+        <Text style={[styles.repuestoPrecioLabel, styles.repuestoCalidadLabel]}>Tipo de repuesto</Text>
+        <View style={styles.calidadRepuestoRow}>
+          {CALIDAD_REPUESTO_OPTIONS.map((op) => {
+            const selected = localCalidad === op.value;
+            return (
+              <TouchableOpacity
+                key={op.value}
+                style={[
+                  styles.calidadRepuestoChip,
+                  selected && styles.calidadRepuestoChipSelected,
+                ]}
+                onPress={() => {
+                  setLocalCalidad(op.value);
+                  if (precioConfirmado) setPrecioConfirmado(false);
+                }}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+              >
+                <Text
+                  style={[
+                    styles.calidadRepuestoChipText,
+                    selected && styles.calidadRepuestoChipTextSelected,
+                  ]}
+                >
+                  {op.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {localCalidad ? (
+          <Text style={styles.calidadRepuestoHint}>
+            {CALIDAD_REPUESTO_OPTIONS.find((o) => o.value === localCalidad)?.hint}
+          </Text>
+        ) : null}
+
+        <Text style={[styles.repuestoPrecioLabel, styles.repuestoCalidadLabel]}>
           Precio del repuesto:{' '}
           {precioConfirmado ? <Text style={styles.precioConfirmadoBadge}>✓ Confirmado</Text> : null}
         </Text>
@@ -2738,7 +2860,7 @@ const CrearServicioScreen = () => {
             style={[
               styles.repuestoPrecioInput,
               styles.repuestoPrecioInputWithButton,
-              precioConfirmado && styles.repuestoPrecioInputConfirmed
+              precioConfirmado && styles.repuestoPrecioInputConfirmed,
             ]}
             placeholder={`Ref: $${precioInicial.toLocaleString()}`}
             placeholderTextColor={I.mutedSoft}
@@ -2750,25 +2872,26 @@ const CrearServicioScreen = () => {
           <TouchableOpacity
             style={[
               styles.confirmarPrecioBtn,
-              precioConfirmado && styles.confirmarPrecioBtnConfirmed
+              precioConfirmado && styles.confirmarPrecioBtnConfirmed,
             ]}
-            onPress={confirmarPrecio}
+            onPress={confirmarConfig}
           >
             <InstitutionalIcon
-              name={precioConfirmado ? "checkmark-circle" : "checkmark"}
+              name={precioConfirmado ? 'checkmark-circle' : 'checkmark'}
               size={20}
               color={I.onPrimary}
-             strokeWidth={ICON_STROKE_WIDTH} />
+              strokeWidth={ICON_STROKE_WIDTH}
+            />
             <Text style={styles.confirmarPrecioBtnText}>
               {precioConfirmado ? 'OK' : 'Confirmar'}
             </Text>
           </TouchableOpacity>
         </View>
-        {!precioConfirmado && localPrecio !== '' && (
+        {!precioConfirmado && (localPrecio !== '' || localCalidad !== '') ? (
           <Text style={styles.precioNoConfirmadoText}>
-            ⚠️ Presiona "Confirmar" para guardar este precio
+            Completa marca (opcional), tipo y precio, luego presiona «Confirmar»
           </Text>
-        )}
+        ) : null}
       </View>
     );
   };
@@ -2894,6 +3017,7 @@ const CrearServicioScreen = () => {
               // NO usar precio_referencia como valor inicial, el proveedor debe ingresar el precio manualmente
               const precioStr = preciosRepuestos.get(repuesto.id);
               const precioActual = precioStr !== undefined && precioStr !== null ? precioStr : '';
+              const configActual = configRepuestos.get(repuesto.id) ?? repuestoConfigVacio();
               // precioInicial solo se usa como placeholder, no como valor inicial
               const precioInicial = repuesto.precio_referencia || 0;
 
@@ -2926,11 +3050,13 @@ const CrearServicioScreen = () => {
                   </TouchableOpacity>
 
                   {estaSeleccionado && (
-                    <PrecioRepuestoInput
+                    <ConfigRepuestoOfertaInput
                       repuestoId={repuesto.id}
                       precioInicial={precioInicial}
                       precioActual={precioActual}
+                      configActual={configActual}
                       onPrecioChange={actualizarPrecioRepuesto}
+                      onConfigChange={actualizarConfigRepuesto}
                     />
                   )}
                 </View>
@@ -3903,6 +4029,52 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
     color: I.ink,
     marginBottom: SPACING.fixed.xxs + 2,
+  },
+  repuestoCalidadLabel: {
+    marginTop: SPACING.fixed.sm,
+  },
+  repuestoMarcaInput: {
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.sm,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansRegular,
+    color: I.ink,
+    backgroundColor: I.canvas,
+  },
+  calidadRepuestoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.xs,
+  },
+  calidadRepuestoChip: {
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xs + 2,
+    borderRadius: BORDERS.radius.full,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.canvas,
+  },
+  calidadRepuestoChipSelected: {
+    borderColor: I.primary,
+    backgroundColor: withOpacity(I.primary, 0.1),
+  },
+  calidadRepuestoChipText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    color: I.muted,
+  },
+  calidadRepuestoChipTextSelected: {
+    color: I.primary,
+    fontFamily: FF.sansSemiBold,
+  },
+  calidadRepuestoHint: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginTop: SPACING.fixed.xxs,
+    fontStyle: 'italic',
   },
   precioConfirmadoBadge: {
     fontFamily: FF.sansSemiBold,
