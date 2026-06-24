@@ -11,7 +11,6 @@ import {
   TextInput,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
@@ -22,142 +21,39 @@ import {
   type ServicioCatalogoGrupo,
 } from '@/utils/agruparOfertasPorCatalogo';
 import { navigateBack } from '@/utils/navigateBack';
-import { parseMisMarcasResponse } from '@/utils/parseMisMarcasResponse';
 import { TarifasMarcaListaDestacada } from '@/components/servicios/TarifasMarcaCatalogo';
 import { etiquetaCantidadTarifas } from '@/utils/tarifasPorMarca';
 import { MotoresAplicablesChips } from '@/components/servicios/MotoresAplicablesChips';
+import { CategoriasServicioChips } from '@/components/servicios/CategoriasServicioChips';
 import { extractMotoresServicio, labelTipoMotor } from '@/utils/tiposMotorCatalogo';
+import {
+  useMisServiciosQuery,
+  type ServicioOfertaRow,
+} from '@/hooks/useMisServiciosQuery';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const hx = SPACING.container.horizontal;
-interface ServicioOferta {
-  id: number;
-  servicio: number;
-  servicio_info: {
-    id: number;
-    nombre: string;
-    descripcion: string;
-    requiere_repuestos: boolean;
-    foto: string | null;
-    tipos_motor_compatibles?: string[];
-    motores_info?: string[];
-  };
-  marca_vehiculo_seleccionada: number | null;
-  marca_vehiculo_info: {
-    id: number;
-    nombre: string;
-    logo: string | null;
-  } | null;
-  modelo_vehiculo_seleccionado?: number | null;
-  modelo_vehiculo_info?: {
-    id: number;
-    nombre: string;
-    marca_id?: number;
-    marca_nombre?: string;
-  } | null;
-  tipo_motor?: string;
-  tipo_servicio: 'con_repuestos' | 'sin_repuestos';
-  disponible: boolean;
-  duracion_estimada: string | null;
-  incluye_garantia: boolean;
-  duracion_garantia: number;
-  detalles_adicionales: string | null;
-  repuestos_seleccionados: any[];
-  repuestos_info: any[];
-  costo_mano_de_obra_sin_iva: string;
-  costo_repuestos_sin_iva: string;
-  precio_publicado_cliente: string;
-  comision_mecanmovil: string;
-  iva_sobre_comision: string;
-  ganancia_neta_proveedor: string;
-  desglose_precios: {
-    costo_total_sin_iva: number;
-    iva_19_porciento: number;
-    precio_final_cliente: number;
-    comision_mecanmovil_20_porciento: number;
-    iva_sobre_comision: number;
-    ganancia_neta_proveedor: number;
-    monto_transferido: number;
-  };
-  fecha_creacion: string;
-  ultima_actualizacion: string;
-  fotos_urls: string[];
-}
 
-type MarcaProveedorRow = { id: number; nombre: string; logo?: string | null };
-
-/** Completa marca_vehiculo_info cuando la API devuelve FK pero el objeto anidado falta o está vacío. */
-function enriquecerOfertasConMarcas(
-  ofertas: ServicioOferta[],
-  marcasProveedor: MarcaProveedorRow[]
-): ServicioOferta[] {
-  const byId = new Map(marcasProveedor.map((m) => [m.id, m]));
-  return ofertas.map((s) => {
-    if (s.marca_vehiculo_info?.nombre?.trim()) {
-      return s;
+function categoriasDelGrupo(grupo: ServicioCatalogoGrupo<ServicioOfertaRow>) {
+  const map = new Map<number, string>();
+  for (const oferta of grupo.ofertas) {
+    for (const cat of oferta.servicio_info?.categorias_info ?? []) {
+      if (cat?.id && cat?.nombre?.trim()) {
+        map.set(cat.id, cat.nombre.trim());
+      }
     }
-    const raw = s.marca_vehiculo_seleccionada;
-    const mid = typeof raw === 'number' ? raw : raw != null ? Number(raw) : NaN;
-    if (!Number.isFinite(mid) || mid <= 0) {
-      return s;
-    }
-    const m = byId.get(mid);
-    const nombre = m?.nombre?.trim();
-    if (!nombre) {
-      return s;
-    }
-    return {
-      ...s,
-      marca_vehiculo_info: {
-        id: mid,
-        nombre,
-        logo: m?.logo != null ? m.logo : null,
-      },
-    };
-  });
+  }
+  return Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }));
 }
 
 const MisServiciosScreen = () => {
   const insets = useSafeAreaInsets();
-  const [servicios, setServicios] = useState<ServicioOferta[]>([]);
-  const [serviciosFiltrados, setServiciosFiltrados] = useState<ServicioOferta[]>([]);
-  const marcasLookupRef = React.useRef<Map<number, MarcaProveedorRow>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const { servicios, loading, isRefetching, refresh } = useMisServiciosQuery(true);
+  const [serviciosFiltrados, setServiciosFiltrados] = useState<ServicioOfertaRow[]>([]);
   const [searchText, setSearchText] = useState('');
 
-  const fetchServicios = useCallback(async () => {
-    try {
-      const { serviciosAPI } = await import('@/services/api');
-      const [resServicios, resMarcas] = await Promise.all([
-        serviciosAPI.obtenerMisServicios(),
-        serviciosAPI.obtenerMisMarcas().catch(() => ({ data: [] as MarcaProveedorRow[] })),
-      ]);
-      const raw = resServicios.data?.results || resServicios.data || [];
-      const lista = Array.isArray(raw) ? raw : [];
-      const marcasParsed = parseMisMarcasResponse(resMarcas?.data ?? resMarcas);
-      const marcasArr = marcasParsed.marcas as MarcaProveedorRow[];
-      marcasLookupRef.current = new Map(marcasArr.map((m) => [m.id, m]));
-      const serviciosData = enriquecerOfertasConMarcas(lista, marcasArr);
-      setServicios(serviciosData);
-      setServiciosFiltrados(serviciosData);
-    } catch (error) {
-      console.error('❌ Error cargando servicios:', error);
-      Alert.alert('Error', 'No se pudieron cargar los servicios');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchServicios();
-    }, [fetchServicios])
-  );
-
-  const verDetalleServicio = (grupo: ServicioCatalogoGrupo<ServicioOferta>) => {
+  const verDetalleServicio = (grupo: ServicioCatalogoGrupo<ServicioOfertaRow>) => {
     router.push({
       pathname: '/servicio-resumen/[id]' as any,
       params: {
@@ -169,7 +65,7 @@ const MisServiciosScreen = () => {
     });
   };
 
-  const aplicarFiltro = useCallback((texto: string, serviciosLista: ServicioOferta[]) => {
+  const aplicarFiltro = useCallback((texto: string, serviciosLista: ServicioOfertaRow[]) => {
     if (!texto.trim()) {
       setServiciosFiltrados(serviciosLista);
       return;
@@ -191,6 +87,14 @@ const MisServiciosScreen = () => {
   useEffect(() => {
     aplicarFiltro(searchText, servicios);
   }, [searchText, servicios, aplicarFiltro]);
+
+  const onRefresh = useCallback(async () => {
+    try {
+      await refresh();
+    } catch {
+      Alert.alert('Error', 'No se pudieron cargar los servicios');
+    }
+  }, [refresh]);
 
   const formatearFecha = (fecha: string) => {
     return new Date(fecha).toLocaleDateString('es-CL', {
@@ -249,11 +153,8 @@ const MisServiciosScreen = () => {
         contentContainerStyle={{ paddingBottom: insets.bottom + SPACING.fixed.lg }}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              fetchServicios();
-            }}
+            refreshing={isRefetching}
+            onRefresh={onRefresh}
             tintColor={I.primary}
           />
         }
@@ -321,16 +222,21 @@ const MisServiciosScreen = () => {
                 <View style={styles.listCardBody}>
                   <View style={styles.listCardTopRow}>
                     <View style={styles.listCardTitleRow}>
-                      <Text style={styles.listCardTitle} numberOfLines={2}>
+                      <Text style={[styles.listCardTitle, styles.listCardTitleFlex]} numberOfLines={2}>
                         {grupo.representante.servicio_info.nombre}
                       </Text>
                       <EstadoDisponibilidadPill grupo={grupo} />
                     </View>
-                    <View style={styles.motorBadgesRow}>
+                    <View style={styles.listCardTagsRow}>
+                      <CategoriasServicioChips
+                        categorias={categoriasDelGrupo(grupo)}
+                        embed
+                      />
                       {grupo.motoresDistintos.length > 1 ? (
                         <MotoresAplicablesChips
                           motores={grupo.motoresDistintos}
                           variant="card"
+                          embed
                         />
                       ) : (
                         <MotoresAplicablesChips
@@ -339,6 +245,7 @@ const MisServiciosScreen = () => {
                             grupo.motoresDistintos[0] ?? grupo.representante.tipo_motor
                           }
                           variant="card"
+                          embed
                         />
                       )}
                     </View>
@@ -477,9 +384,18 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: SPACING.fixed.sm,
   },
-  motorBadgesRow: {
+  listCardTitleFlex: {
+    flex: 1,
+    minWidth: 0,
+  },
+  listCardTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    alignContent: 'flex-start',
+    gap: SPACING.fixed.xxs + 2,
+    rowGap: SPACING.fixed.xxs + 2,
     width: '100%',
-    marginTop: SPACING.fixed.xxs,
   },
   listCardTarifasHint: {
     fontSize: TYPOGRAPHY.fontSize.xs,

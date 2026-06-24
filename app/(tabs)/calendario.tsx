@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import {
-  agendaProveedorService,
   nombreServicioEvento,
   type EventoAgendaUnificado,
 } from '@/services/agendaProveedorService';
+import { useAgendaCalendarioQuery } from '@/hooks/useAgendaCalendarioQuery';
+import { useEquipoTallerQuery } from '@/hooks/useEquipoTallerQuery';
 import { formatDateApi } from '@/components/solicitudes/CatalogoFechaHoraPickers';
 import {
   parseFechaLocal,
@@ -25,13 +26,11 @@ import {
   esPasada,
   startOfDay,
 } from '@/utils/fechaLocal';
-import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import equipoTallerService, { type MiembroTaller } from '@/services/equipoTallerService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -201,72 +200,32 @@ function formatearHoraStr(hora: string) {
   return hora.substring(0, 5);
 }
 
-function rangoMesCalendario(mes: Date): { desde: string; hasta: string } {
-  const year = mes.getFullYear();
-  const month = mes.getMonth();
-  const primerDia = new Date(year, month, 1);
-  const diaInicioSemana = primerDia.getDay();
-  const diaInicioAjustado = diaInicioSemana === 0 ? 6 : diaInicioSemana - 1;
-  const inicioGrid = new Date(year, month, 1 - diaInicioAjustado);
-  const finGrid = new Date(inicioGrid);
-  finGrid.setDate(inicioGrid.getDate() + 41);
-  return {
-    desde: formatDateApi(inicioGrid),
-    hasta: formatDateApi(finGrid),
-  };
-}
-
 export default function CalendarioScreen() {
   const insets = useSafeAreaInsets();
   const { estadoProveedor } = useAuth();
   const { fecha: fechaParam } = useLocalSearchParams<{ fecha?: string }>();
-  const perfilKey = useMemo(
-    () => estadoProveedorReloadKey(estadoProveedor ?? null),
-    [estadoProveedor]
-  );
+  const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
 
-  const [eventos, setEventos] = useState<EventoAgendaUnificado[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [fechaSeleccionada, setFechaSeleccionada] = useState<Date>(() => startOfDay(new Date()));
   const [mesActual, setMesActual] = useState(() => startOfDay(new Date()));
-  const [mecanicos, setMecanicos] = useState<MiembroTaller[]>([]);
   const [miembroFiltro, setMiembroFiltro] = useState<number | null>(null);
 
-  const cargarAgenda = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { desde, hasta } = rangoMesCalendario(mesActual);
-      const result = await agendaProveedorService.obtenerAgendaUnificada({
-        fecha_desde: desde,
-        fecha_hasta: hasta,
-        incluir: 'activas,cerradas,mecanimovil',
-        miembro_taller: miembroFiltro,
-      });
-      if (result.success && result.data) {
-        setEventos(result.data);
-      }
-    } catch (error) {
-      console.error('Error cargando agenda:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [mesActual, miembroFiltro]);
+  const {
+    eventos,
+    loading,
+    isRefetching,
+    refresh,
+  } = useAgendaCalendarioQuery({
+    mesActual,
+    miembroFiltro,
+    enabled: cuentaAprobada,
+  });
 
-  useEffect(() => {
-    let activo = true;
-    equipoTallerService
-      .listar({ rol: 'mecanico' })
-      .then((equipo) => {
-        if (activo) setMecanicos(equipo);
-      })
-      .catch(() => {
-        if (activo) setMecanicos([]);
-      });
-    return () => {
-      activo = false;
-    };
-  }, []);
+  const { miembros: equipoMiembros } = useEquipoTallerQuery(cuentaAprobada);
+  const mecanicos = useMemo(
+    () => equipoMiembros.filter((m) => m.rol === 'mecanico'),
+    [equipoMiembros],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -277,22 +236,11 @@ export default function CalendarioScreen() {
           setMesActual(new Date(parsed.getFullYear(), parsed.getMonth(), 1));
         }
       }
-      if (estadoProveedor?.estado_verificacion === 'aprobado') {
-        cargarAgenda();
-      }
-    }, [fechaParam, estadoProveedor?.estado_verificacion, cargarAgenda]),
+    }, [fechaParam]),
   );
 
-  useEffect(() => {
-    if (estadoProveedor?.estado_verificacion === 'aprobado') {
-      cargarAgenda();
-    }
-  }, [perfilKey, cargarAgenda]);
-
   const onRefresh = async () => {
-    setRefreshing(true);
-    await cargarAgenda();
-    setRefreshing(false);
+    await refresh();
   };
 
   const tieneOrdenesEnFecha = useCallback(
@@ -478,10 +426,10 @@ export default function CalendarioScreen() {
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: insets.bottom + SPACING.fixed.md }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />
+          <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={I.primary} />
         }
       >
-        {loading ? (
+        {loading && eventos.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={I.primary} />
             <Text style={styles.loadingText}>Cargando calendario...</Text>

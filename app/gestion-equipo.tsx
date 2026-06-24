@@ -15,7 +15,6 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
@@ -29,8 +28,8 @@ import equipoTallerService, {
   type CrearMiembroData,
   type PermisosSupervisor,
 } from '@/services/equipoTallerService';
-import { especialidadesAPI, type CategoriaServicio } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { useEquipoTallerQuery } from '@/hooks/useEquipoTallerQuery';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { RendimientoEquipoTab } from '@/components/equipo/RendimientoEquipoTab';
 
@@ -110,40 +109,20 @@ const EMPTY_FORM: FormState = {
 export default function GestionEquipoScreen() {
   const { esSupervisor, puede } = useAuth();
   const [tabActiva, setTabActiva] = useState<TabEquipo>('equipo');
-  const [miembros, setMiembros] = useState<MiembroTaller[]>([]);
-  const [categorias, setCategorias] = useState<CategoriaServicio[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { miembros, categorias, loading, refresh } = useEquipoTallerQuery(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  const cargar = useCallback(async () => {
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
     try {
-      const [equipo, cats] = await Promise.all([
-        equipoTallerService.listar(),
-        especialidadesAPI.obtenerCategorias().catch(() => []),
-      ]);
-      setMiembros(equipo);
-      setCategorias(cats);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo cargar el equipo del taller.');
+      await refresh();
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      cargar();
-    }, [cargar]),
-  );
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    cargar();
-  }, [cargar]);
+  }, [refresh]);
 
   const mecanicos = useMemo(() => miembros.filter((m) => m.rol === 'mecanico'), [miembros]);
   const supervisor = useMemo(() => miembros.find((m) => m.rol === 'supervisor') || null, [miembros]);
@@ -271,7 +250,7 @@ export default function GestionEquipoScreen() {
         });
       }
       setModalVisible(false);
-      await cargar();
+      await refresh();
     } catch (error: any) {
       const data = error?.response?.data;
       const detalle =
@@ -296,7 +275,7 @@ export default function GestionEquipoScreen() {
         onPress: async () => {
           try {
             await equipoTallerService.eliminar(m.id);
-            await cargar();
+            await refresh();
           } catch {
             Alert.alert('Error', 'No se pudo eliminar.');
           }
@@ -308,7 +287,7 @@ export default function GestionEquipoScreen() {
   const toggleActivo = async (m: MiembroTaller) => {
     try {
       await equipoTallerService.toggleActivo(m);
-      await cargar();
+      await refresh();
     } catch {
       Alert.alert('Error', 'No se pudo cambiar el estado del mecánico.');
     }

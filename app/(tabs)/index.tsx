@@ -22,7 +22,6 @@ import { useAuth } from '@/context/AuthContext';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
 import { router, useFocusEffect } from 'expo-router';
 import EstadoRevisionScreen from '@/components/EstadoRevisionScreen';
-import { ordenesProveedorService } from '@/services/ordenesProveedor';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import websocketService, { type NuevaSolicitudEvent } from '@/app/services/websocketService';
 import {
@@ -31,19 +30,17 @@ import {
 } from '@/hooks/useSolicitudesDisponiblesQuery';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
-import creditosService, { type CreditoProveedor } from '@/services/creditosService';
-import mercadoPagoProveedorService, { type EstadisticasPagosMP } from '@/services/mercadoPagoProveedorService';
 import { HomeInlineAlert } from '@/components/dashboard/HomeInlineAlert';
 import { HomeSolicitudesSection } from '@/components/dashboard/HomeSolicitudesSection';
 import AlertaPagoExpirado from '@/components/alerts/AlertaPagoExpirado';
 import { useAlerts } from '@/context/AlertsContext';
-import suscripcionesService, { type SuscripcionProveedor, type SaludSuscripcion } from '@/services/suscripcionesService';
 import { PerformanceWidget } from '@/components/dashboard/PerformanceWidget';
 import { useProveedorKpisResumen } from '@/hooks/useProveedorKpisResumen';
 import {
-  kpisProveedorService,
-  type GananciasTallerResumen,
-} from '@/services/kpisProveedorService';
+  useSaldoCreditosQuery,
+  useGananciasResumenQuery,
+  useSuscripcionProveedorQuery,
+} from '@/hooks/useDashboardFinanzas';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
@@ -51,7 +48,6 @@ import { horariosAPI } from '@/services/api';
 import {
   normalizarEstadoAgendaApi,
 } from '@/utils/horariosProveedor';
-import { useEspecialidadesDesdeServicios } from '@/hooks/useEspecialidadesDesdeServicios';
 
 export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens
@@ -93,8 +89,6 @@ export default function HomeScreen() {
     enabled: Boolean(isAuthenticated && cuentaAprobadaPorAdmin && !isLoading),
     dias: 30,
   });
-  const { especialidades: especialidadesTags, refresh: refreshEspecialidadesTags } =
-    useEspecialidadesDesdeServicios(Boolean(cuentaAprobadaPorAdmin && !isLoading));
 
   /** Misma lectura que el hero de `RendimientoKpisContent` (ventana 30 días en home). */
   const rendimientoWidgetPeriod = useMemo(() => {
@@ -117,13 +111,15 @@ export default function HomeScreen() {
   ]);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Estado para estadísticas semanales
-  const [estadisticasSemanales, setEstadisticasSemanales] = useState<{
-    dinero: number;
-    cantidadServicios: number;
-  }>({ dinero: 0, cantidadServicios: 0 });
+  const dashboardFinanzasEnabled = Boolean(cuentaAprobadaPorAdmin && !isLoading);
+  const saldoCreditosQuery = useSaldoCreditosQuery(dashboardFinanzasEnabled && puede('finanzas'));
+  const gananciasQuery = useGananciasResumenQuery(dashboardFinanzasEnabled && puede('finanzas'));
+  const suscripcionQuery = useSuscripcionProveedorQuery(dashboardFinanzasEnabled && !esSupervisor);
+  const saldoCreditos = saldoCreditosQuery.data;
+  const gananciasResumen = gananciasQuery.data;
+  const suscripcion = suscripcionQuery.data;
 
-  // Solicitudes del radar (TanStack Query + invalidación por WS/focus)
+  // Solicitudes del radar (TanStack Query + invalidación por WS)
   const [nuevasSolicitudesIds, setNuevasSolicitudesIds] = useState<Set<string>>(new Set());
   const solicitudesRadarEnabled =
     cuentaAprobadaPorAdmin && radarPreferenciaCargada && radarOportunidadesActivo;
@@ -133,19 +129,6 @@ export default function HomeScreen() {
     refetch: refetchSolicitudesDisponibles,
   } = useSolicitudesDisponiblesQuery(solicitudesRadarEnabled);
   useSolicitudesDisponiblesRealtime({ enabled: solicitudesRadarEnabled });
-
-  // Estado para suscripción
-  const [suscripcion, setSuscripcion] = useState<SuscripcionProveedor | null>(null);
-  const [loadingSuscripcion, setLoadingSuscripcion] = useState(false);
-
-  // Estado para créditos
-  const [saldoCreditos, setSaldoCreditos] = useState<CreditoProveedor | null>(null);
-
-  // Estado para estadísticas de MercadoPago
-  const [estadisticasMP, setEstadisticasMP] = useState<EstadisticasPagosMP | null>(null);
-
-  // Ganancias del mes (Mecanimovil completadas + agenda personal)
-  const [gananciasResumen, setGananciasResumen] = useState<GananciasTallerResumen | null>(null);
 
   // Estado para alertas de pago expirado
   const [mostrarAlertaPago, setMostrarAlertaPago] = useState(false);
@@ -243,86 +226,20 @@ export default function HomeScreen() {
     }
   }, [isLoading, estadoProveedor]);
 
-  // Cargar dashboard solo cuando cambia el perfil de verdad (no en cada refresco con misma data).
+  // Horarios: solo al montar o cuando cambia el perfil (no en cada focus).
   useEffect(() => {
     if (cuentaAprobadaPorAdmin) {
-      cargarEstadisticasSemanales();
-      cargarCreditos();
-      cargarEstadisticasMP();
-      cargarGananciasResumen();
-      cargarSuscripcion();
       verificarHorariosConfigurados();
     }
   }, [perfilProveedorKey, cuentaAprobadaPorAdmin, verificarHorariosConfigurados]);
 
-  // Al volver al tab: alertas + KPIs ligeros. Solicitudes: TanStack Query + useSolicitudesDisponiblesRealtime.
+  // Al volver al tab: alertas ligeras. Datos del dashboard vienen de caché React Query.
   useFocusEffect(
     React.useCallback(() => {
       if (!cuentaAprobadaPorAdmin) return;
       verificarYGenerarAlertas();
-      kpisResumen.refresh();
-      verificarHorariosConfigurados();
-      refreshEspecialidadesTags();
-    }, [cuentaAprobadaPorAdmin, kpisResumen.refresh, verificarHorariosConfigurados, refreshEspecialidadesTags])
+    }, [cuentaAprobadaPorAdmin, verificarYGenerarAlertas])
   );
-
-  // Cargar saldo de créditos
-  const cargarCreditos = async () => {
-    try {
-      const result = await creditosService.obtenerSaldo();
-      if (result.success && result.data) {
-        setSaldoCreditos(result.data);
-      } else {
-        devWarn('Error cargando saldo de créditos:', result.error);
-      }
-    } catch (error) {
-      console.error('Error cargando créditos:', error);
-    }
-  };
-
-  // Cargar estadísticas de MercadoPago
-  const cargarEstadisticasMP = async () => {
-    try {
-      const result = await mercadoPagoProveedorService.obtenerEstadisticasPagos();
-      if (result.success && result.data) {
-        setEstadisticasMP(result.data);
-      } else {
-        devWarn('Error cargando estadísticas MP:', result.error);
-        // No es crítico si falla, mantener null
-      }
-    } catch (error) {
-      console.error('Error cargando estadísticas MP:', error);
-      // No es crítico si falla, mantener null
-    }
-  };
-
-  const cargarGananciasResumen = async () => {
-    try {
-      const result = await kpisProveedorService.obtenerGananciasResumen();
-      if (result.success && result.data) {
-        setGananciasResumen(result.data);
-      } else {
-        devWarn('Error cargando ganancias del taller:', result.error);
-      }
-    } catch (error) {
-      console.error('Error cargando ganancias del taller:', error);
-    }
-  };
-
-  // Cargar suscripción
-  const cargarSuscripcion = async () => {
-    try {
-      setLoadingSuscripcion(true);
-      const result = await suscripcionesService.obtenerMiSuscripcion();
-      if (result.success) {
-        setSuscripcion(result.suscripcion);
-      }
-    } catch (error) {
-      console.error('Error cargando suscripción:', error);
-    } finally {
-      setLoadingSuscripcion(false);
-    }
-  };
 
   // Badge de novedad en header al recibir solicitud por WebSocket
   useEffect(() => {
@@ -491,116 +408,14 @@ export default function HomeScreen() {
     }
   }, [cuentaAprobadaPorAdmin]);
 
-  // Función para calcular dinero de la semana según servicios realizados
-  const cargarEstadisticasSemanales = async () => {
-    try {
-      // Obtener órdenes completadas
-      const completadasResult = await ordenesProveedorService.obtenerCompletadas();
-
-      if (completadasResult.success && completadasResult.data) {
-        // Calcular inicio de semana (lunes)
-        const hoy = new Date();
-        const diaSemana = hoy.getDay(); // 0 = domingo, 1 = lunes, etc.
-        const diasDesdeLunes = diaSemana === 0 ? 6 : diaSemana - 1;
-        const inicioSemana = new Date(hoy);
-        inicioSemana.setDate(hoy.getDate() - diasDesdeLunes);
-        inicioSemana.setHours(0, 0, 0, 0);
-
-        // Filtrar órdenes completadas esta semana
-        const ordenesEstaSemana = completadasResult.data.filter(orden => {
-          const fechaCompletada = new Date(orden.fecha_hora_solicitud || orden.fecha_servicio);
-          return fechaCompletada >= inicioSemana;
-        });
-
-        // Calcular ganancia REAL (después de descuentos) y cantidad de servicios
-        let gananciaRealTotal = 0;
-
-        // Limitar a 20 órdenes para evitar sobrecarga (procesar en paralelo en lotes)
-        const ordenesALimite = ordenesEstaSemana.slice(0, 20);
-
-        // Obtener detalles de órdenes para calcular ganancia real (en paralelo por lotes de 5)
-        const lotes = [];
-        for (let i = 0; i < ordenesALimite.length; i += 5) {
-          lotes.push(ordenesALimite.slice(i, i + 5));
-        }
-
-        for (const lote of lotes) {
-          // Procesar lotes en paralelo
-          const promesasDetalles = lote.map(async (orden) => {
-            try {
-              const detalleResult = await ordenesProveedorService.obtenerDetalle(orden.id);
-              if (detalleResult.success && detalleResult.data) {
-                const ordenDetalle = detalleResult.data as any;
-
-                // Sumar ganancia_neta_proveedor desde lineas_detail
-                if (ordenDetalle.lineas_detail && Array.isArray(ordenDetalle.lineas_detail)) {
-                  let gananciaOrden = 0;
-                  ordenDetalle.lineas_detail.forEach((linea: any) => {
-                    const desglose = linea.oferta_servicio_detail?.desglose_precios;
-                    if (desglose && desglose.ganancia_neta_proveedor) {
-                      gananciaOrden += parseFloat(desglose.ganancia_neta_proveedor) || 0;
-                    }
-                  });
-
-                  if (gananciaOrden > 0) {
-                    return gananciaOrden;
-                  } else {
-                    // Si no hay desglose, usar total como fallback aproximado
-                    const totalOrden = parseFloat((ordenDetalle.total || '0').replace(/[^0-9.-]+/g, '')) || 0;
-                    // Aproximación: asumir 80% del total como ganancia (después de comisiones e IVA)
-                    return totalOrden * 0.80;
-                  }
-                } else {
-                  // Si no hay lineas_detail, usar total como fallback
-                  const totalOrden = parseFloat((ordenDetalle.total || '0').replace(/[^0-9.-]+/g, '')) || 0;
-                  return totalOrden * 0.80; // Aproximación
-                }
-              }
-            } catch (error) {
-              console.error(`Error obteniendo detalle de orden ${orden.id}:`, error);
-              // Fallback: usar total de la orden
-              const totalOrden = parseFloat((orden.total || '0').replace(/[^0-9.-]+/g, '')) || 0;
-              return totalOrden * 0.80; // Aproximación
-            }
-            return 0;
-          });
-
-          const gananciasLote = await Promise.all(promesasDetalles);
-          gananciaRealTotal += gananciasLote.reduce((suma, ganancia) => suma + ganancia, 0);
-        }
-
-        // Para órdenes restantes (más de 20), usar aproximación rápida
-        if (ordenesEstaSemana.length > 20) {
-          const ordenesRestantes = ordenesEstaSemana.slice(20);
-          const gananciaAproximadaRestantes = ordenesRestantes.reduce((suma, orden) => {
-            const totalOrden = parseFloat((orden.total || '0').replace(/[^0-9.-]+/g, '')) || 0;
-            return suma + (totalOrden * 0.80);
-          }, 0);
-          gananciaRealTotal += gananciaAproximadaRestantes;
-        }
-
-        setEstadisticasSemanales({
-          dinero: gananciaRealTotal,
-          cantidadServicios: ordenesEstaSemana.length
-        });
-      }
-    } catch (error) {
-      console.error('Error cargando estadísticas semanales:', error);
-      // No mostrar error al usuario, solo mantener valores por defecto
-    }
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
     const tasks: Promise<unknown>[] = [
-      cargarEstadisticasSemanales(),
-      cargarCreditos(),
-      cargarEstadisticasMP(),
-      cargarGananciasResumen(),
-      cargarSuscripcion(),
+      saldoCreditosQuery.refresh(),
+      gananciasQuery.refresh(),
+      suscripcionQuery.refresh(),
       kpisResumen.refresh(),
       verificarHorariosConfigurados(),
-      refreshEspecialidadesTags(),
     ];
     if (solicitudesRadarEnabled) {
       tasks.push(refetchSolicitudesDisponibles());
@@ -618,9 +433,8 @@ export default function HomeScreen() {
   };
 
   const calcularPorcentajeCambio = (): { texto: string; positivo: boolean } => {
-    const actual = gananciasResumen?.ganancias_total ?? estadisticasMP?.total_recibido_mes ?? 0;
-    const anterior =
-      gananciasResumen?.ganancias_mes_anterior ?? estadisticasMP?.total_recibido_mes_anterior ?? 0;
+    const actual = gananciasResumen?.ganancias_total ?? 0;
+    const anterior = gananciasResumen?.ganancias_mes_anterior ?? 0;
     if (gananciasResumen?.delta_pct_mes != null) {
       const cambio = gananciasResumen.delta_pct_mes;
       return { texto: `${cambio >= 0 ? '+' : ''}${cambio.toFixed(1)}%`, positivo: cambio >= 0 };
@@ -630,8 +444,7 @@ export default function HomeScreen() {
     return { texto: `${cambio >= 0 ? '+' : ''}${cambio.toFixed(1)}%`, positivo: cambio >= 0 };
   };
 
-  const gananciasMesMostradas =
-    gananciasResumen?.ganancias_total ?? estadisticasMP?.total_recibido_mes ?? estadisticasSemanales.dinero ?? 0;
+  const gananciasMesMostradas = gananciasResumen?.ganancias_total ?? 0;
 
   const primaryObj = safeColors?.primary as any;
   const accentObj = safeColors?.accent as any;
@@ -725,17 +538,6 @@ export default function HomeScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={themedStyles.welcomeLabel}>Bienvenido</Text>
                 <Text style={themedStyles.providerName} numberOfLines={1}>{obtenerNombreProveedor()}</Text>
-                {especialidadesTags.length > 0 ? (
-                  <View style={themedStyles.especialidadesTagsRow}>
-                    {especialidadesTags.map((esp) => (
-                      <View key={esp.id} style={themedStyles.especialidadTag}>
-                        <Text style={themedStyles.especialidadTagText} numberOfLines={1}>
-                          {esp.nombre}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
               </View>
             </View>
             <TouchableOpacity

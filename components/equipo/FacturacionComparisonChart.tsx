@@ -1,11 +1,10 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { BarChart } from 'react-native-gifted-charts';
+import { View, Text, StyleSheet } from 'react-native';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
-const SCREEN_W = Dimensions.get('window').width;
 
 type Props = {
   mesActual: number;
@@ -24,59 +23,90 @@ const getNombreMes = (offset: number) => {
   const date = new Date();
   date.setDate(1);
   date.setMonth(date.getMonth() - offset);
-  return date.toLocaleDateString('es-CL', { month: 'short' });
+  return date.toLocaleDateString('es-CL', { month: 'long' });
 };
 
-export function FacturacionComparisonChart({ mesActual, mesAnterior }: Props) {
-  const chartW = SCREEN_W - SPACING.container.horizontal * 2 - 48;
+type BarRowProps = {
+  label: string;
+  amount: number;
+  pct: number;
+  highlight?: boolean;
+};
 
-  const data = useMemo(
-    () => [
-      {
-        value: mesAnterior,
-        label: getNombreMes(1),
-        frontColor: I.muted,
-      },
-      {
-        value: mesActual,
-        label: getNombreMes(0),
-        frontColor: I.primary,
-      },
-    ],
-    [mesActual, mesAnterior],
+function BarRow({ label, amount, pct, highlight }: BarRowProps) {
+  return (
+    <View style={styles.barRow}>
+      <View style={styles.barMeta}>
+        <Text style={[styles.barLabel, highlight && styles.barLabelActive]}>{label}</Text>
+        <Text style={[styles.barAmount, highlight && styles.barAmountActive]}>{fmt(amount)}</Text>
+      </View>
+      <View style={styles.barTrack}>
+        <View
+          style={[
+            styles.barFill,
+            highlight ? styles.barFillActive : styles.barFillMuted,
+            { width: `${Math.max(pct, amount > 0 ? 4 : 0)}%` },
+          ]}
+        />
+      </View>
+    </View>
   );
+}
 
-  const maxVal = Math.max(mesActual, mesAnterior, 1);
+export function FacturacionComparisonChart({ mesActual, mesAnterior }: Props) {
+  const mesActualLabel = getNombreMes(0);
+  const mesAnteriorLabel = getNombreMes(1);
+
+  const { pctActual, pctAnterior, deltaPct, deltaPositivo, sinVariacion } = useMemo(() => {
+    const maxVal = Math.max(mesActual, mesAnterior, 1);
+    const delta =
+      mesAnterior === 0
+        ? mesActual > 0
+          ? 100
+          : 0
+        : ((mesActual - mesAnterior) / mesAnterior) * 100;
+    return {
+      pctActual: (mesActual / maxVal) * 100,
+      pctAnterior: (mesAnterior / maxVal) * 100,
+      deltaPct: delta,
+      deltaPositivo: delta >= 0,
+      sinVariacion: mesActual === mesAnterior,
+    };
+  }, [mesActual, mesAnterior]);
+
+  const DeltaIcon = sinVariacion ? Minus : deltaPositivo ? TrendingUp : TrendingDown;
+  const deltaColor = sinVariacion ? I.muted : deltaPositivo ? I.semanticUp : I.semanticDown;
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>Facturación</Text>
-      <View style={styles.values}>
-        <View>
-          <Text style={styles.valLabel}>{getNombreMes(0)}</Text>
-          <Text style={styles.valActual}>{fmt(mesActual)}</Text>
-        </View>
-        <View style={styles.valRight}>
-          <Text style={styles.valLabel}>{getNombreMes(1)}</Text>
-          <Text style={styles.valPrev}>{fmt(mesAnterior)}</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Facturación</Text>
+        <View style={[styles.deltaPill, { backgroundColor: `${deltaColor}18` }]}>
+          <DeltaIcon size={14} color={deltaColor} strokeWidth={2.25} />
+          <Text style={[styles.deltaText, { color: deltaColor }]}>
+            {sinVariacion
+              ? 'Sin cambio'
+              : `${deltaPositivo ? '+' : ''}${deltaPct.toFixed(0)}% vs mes ant.`}
+          </Text>
         </View>
       </View>
-      <BarChart
-        data={data}
-        width={chartW}
-        height={120}
-        barWidth={36}
-        spacing={48}
-        roundedTop
-        hideRules
-        hideYAxisText
-        xAxisThickness={0}
-        yAxisThickness={0}
-        noOfSections={3}
-        maxValue={maxVal * 1.15}
-        isAnimated
-        animationDuration={400}
-      />
+
+      <Text style={styles.heroAmount}>{fmt(mesActual)}</Text>
+      <Text style={styles.heroSub}>Total de {mesActualLabel}</Text>
+
+      <View style={styles.compareBlock}>
+        <BarRow
+          label={mesActualLabel}
+          amount={mesActual}
+          pct={pctActual}
+          highlight
+        />
+        <BarRow
+          label={mesAnteriorLabel}
+          amount={mesAnterior}
+          pct={pctAnterior}
+        />
+      </View>
     </View>
   );
 }
@@ -89,36 +119,96 @@ const styles = StyleSheet.create({
     borderColor: I.hairline,
     padding: SPACING.fixed.md,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.md,
+  },
   title: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansSemiBold,
     color: I.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    marginBottom: SPACING.fixed.sm,
   },
-  values: {
+  deltaPill: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+  },
+  deltaText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+  },
+  heroAmount: {
+    fontSize: TYPOGRAPHY.fontSize['2xl'],
+    fontFamily: FF.monoMedium,
+    color: I.ink,
+    letterSpacing: -0.5,
+  },
+  heroSub: {
+    marginTop: 2,
+    marginBottom: SPACING.fixed.md,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.regular,
+    color: I.muted,
+    textTransform: 'capitalize',
+  },
+  compareBlock: {
+    gap: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+  },
+  barRow: {
+    gap: 6,
+  },
+  barMeta: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
-    marginBottom: SPACING.fixed.sm,
+    gap: SPACING.fixed.sm,
   },
-  valRight: {
-    alignItems: 'flex-end',
-  },
-  valLabel: {
+  barLabel: {
+    flex: 1,
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansMedium,
     color: I.muted,
     textTransform: 'capitalize',
   },
-  valActual: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontFamily: FF.monoMedium,
+  barLabelActive: {
     color: I.ink,
+    fontFamily: FF.sansSemiBold,
   },
-  valPrev: {
-    fontSize: TYPOGRAPHY.fontSize.base,
+  barAmount: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.monoMedium,
     color: I.muted,
+  },
+  barAmountActive: {
+    color: I.ink,
+    fontSize: TYPOGRAPHY.fontSize.base,
+  },
+  barTrack: {
+    height: 8,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: BORDERS.radius.pill,
+    minWidth: 0,
+  },
+  barFillActive: {
+    backgroundColor: I.primary,
+  },
+  barFillMuted: {
+    backgroundColor: I.mutedSoft,
   },
 });

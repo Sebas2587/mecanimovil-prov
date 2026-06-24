@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,6 @@ import * as ImagePicker from 'expo-image-picker';
 import {
   perfilAPI,
   documentosAPI,
-  type DocumentoOnboarding,
   type ActualizarPerfilRequest,
   type TipoDocumento
 } from '@/services/api';
@@ -33,15 +32,15 @@ import { InstitutionalScreenTabs } from '@/app/design-system/components/Institut
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import PhoneInput, { validateFullPhone } from '@/components/ui/PhoneInput';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import {
+  usePerfilDocumentosQuery,
+  perfilTiposDocumentoInfo,
+  type DocumentoLocalRow,
+} from '@/hooks/usePerfilDocumentosQuery';
 
 const I = COLORS.institutional;
 
-interface DocumentoLocal extends DocumentoOnboarding {
-  esObligatorio: boolean;
-  icono: string;
-  nombre_amigable: string;
-  descripcion: string;
-}
+interface DocumentoLocal extends DocumentoLocalRow {}
 
 interface ModalDocumento {
   visible: boolean;
@@ -58,7 +57,13 @@ export default function ConfiguracionPerfilScreen() {
     obtenerNombreProveedor,
     obtenerDatosCompletosProveedor
   } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
+  const {
+    documentos,
+    tiposDocumento,
+    loading: loadingDocumentos,
+    refresh: refreshDocumentos,
+  } = usePerfilDocumentosQuery(cuentaAprobada);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -102,8 +107,6 @@ export default function ConfiguracionPerfilScreen() {
   });
 
   const [fotoPerfilUri, setFotoPerfilUri] = useState<string | null>(null);
-  const [documentos, setDocumentos] = useState<DocumentoLocal[]>([]);
-  const [tiposDocumento, setTiposDocumento] = useState<TipoDocumento[]>([]);
 
   // Estados para modales
   const [modalDocumento, setModalDocumento] = useState<ModalDocumento>({
@@ -114,68 +117,32 @@ export default function ConfiguracionPerfilScreen() {
 
   const [tabActiva, setTabActiva] = useState<'datos' | 'documentos'>('datos');
 
-  // Definir tipos de documento con información adicional
-  const tiposDocumentoInfo = {
-    // Documentos obligatorios
-    'dni_frontal': {
-      nombre: 'DNI/Cédula (Frontal)',
-      icono: 'credit-card',
-      descripcion: 'Documento de identidad lado frontal',
-      esObligatorio: true,
-    },
-    'dni_trasero': {
-      nombre: 'DNI/Cédula (Trasero)',
-      icono: 'credit-card',
-      descripcion: 'Documento de identidad lado trasero',
-      esObligatorio: true,
-    },
-    'licencia_conducir': {
-      nombre: 'Licencia de Conducir',
-      icono: 'drive-eta',
-      descripcion: 'Licencia de conducir vigente',
-      esObligatorio: true,
-    },
-    'rut_fiscal': {
-      nombre: 'RUT/CUIT Fiscal',
-      icono: 'business',
-      descripcion: 'Documento fiscal del negocio',
-      esObligatorio: true,
-    },
-    // Documentos opcionales
-    'foto_fachada': {
-      nombre: 'Foto de Fachada',
-      icono: 'store',
-      descripcion: 'Foto exterior del taller',
-      esObligatorio: false,
-    },
-    'foto_interior': {
-      nombre: 'Foto Interior',
-      icono: 'home',
-      descripcion: 'Foto del interior del taller',
-      esObligatorio: false,
-    },
-    'foto_equipos': {
-      nombre: 'Foto de Equipos',
-      icono: 'build',
-      descripcion: 'Foto de herramientas y equipos',
-      esObligatorio: false,
-    },
-    'foto_herramientas': {
-      nombre: 'Foto de Herramientas',
-      icono: 'build',
-      descripcion: 'Herramientas portátiles de trabajo',
-      esObligatorio: false,
-    },
-    'foto_vehiculo': {
-      nombre: 'Foto del Vehículo',
-      icono: 'directions-car',
-      descripcion: 'Vehículo de trabajo del mecánico',
-      esObligatorio: false,
-    },
-  };
+  const tiposDocumentoInfo = perfilTiposDocumentoInfo;
+
+  const sincronizarDatosPersonales = useCallback(async () => {
+    const datosCompletos = obtenerDatosCompletosProveedor();
+    setDatosPersonales({
+      nombre: datosCompletos.nombre,
+      telefono: datosCompletos.telefono,
+      email: datosCompletos.email,
+      descripcion: datosCompletos.descripcion,
+      direccion: datosCompletos.direccion,
+    });
+
+    if (usuario?.foto_perfil) {
+      const raw = usuario.foto_perfil;
+      let base = raw;
+      if (typeof raw === 'string' && raw.startsWith('/')) {
+        const mediaBase = await ServerConfig.getInstance().getMediaBaseURL();
+        base = `${mediaBase}${raw}`;
+      }
+      const sep = base.includes('?') ? '&' : '?';
+      setFotoPerfilUri(`${base}${sep}v=${Date.now()}`);
+    }
+  }, [obtenerDatosCompletosProveedor, usuario?.foto_perfil]);
 
   useEffect(() => {
-    if (estadoProveedor?.estado_verificacion !== 'aprobado') {
+    if (!cuentaAprobada) {
       Alert.alert(
         'Acceso Restringido',
         'Solo los proveedores con cuenta aprobada pueden gestionar su perfil.',
@@ -183,95 +150,10 @@ export default function ConfiguracionPerfilScreen() {
       );
       return;
     }
+    void sincronizarDatosPersonales();
+  }, [cuentaAprobada, sincronizarDatosPersonales]);
 
-    cargarDatos();
-  }, [estadoProveedor, usuario]);
-
-  const cargarDatos = async () => {
-    try {
-      setLoading(true);
-
-      // Usar los datos completos del proveedor con fallbacks robustos
-      const datosCompletos = obtenerDatosCompletosProveedor();
-
-      setDatosPersonales({
-        nombre: datosCompletos.nombre,
-        telefono: datosCompletos.telefono,
-        email: datosCompletos.email,
-        descripcion: datosCompletos.descripcion,
-        direccion: datosCompletos.direccion,
-      });
-
-      // Cargar foto de perfil si existe
-      if (usuario?.foto_perfil) {
-        // Resolver URL relativa → absoluta (web) y cache-bust para Cloudflare.
-        const raw = usuario.foto_perfil;
-        let base = raw;
-        if (typeof raw === 'string' && raw.startsWith('/')) {
-          const mediaBase = await ServerConfig.getInstance().getMediaBaseURL();
-          base = `${mediaBase}${raw}`;
-        }
-        const sep = base.includes('?') ? '&' : '?';
-        setFotoPerfilUri(`${base}${sep}v=${Date.now()}`);
-      }
-
-      // MEJORADO: Cargar documentos del proveedor con mejor logging
-      try {
-        console.log('📄 Cargando documentos del proveedor...');
-        const documentosData = await documentosAPI.obtenerMisDocumentos();
-        console.log('✅ Documentos obtenidos:', documentosData);
-
-        const tiposData = await documentosAPI.obtenerTiposDocumento();
-        console.log('✅ Tipos de documento obtenidos:', tiposData);
-
-        // Arreglar el problema con tipos_documento
-        const tiposDocumento = tiposData?.tipos_documento || (Array.isArray(tiposData) ? tiposData : []) || [];
-        setTiposDocumento(tiposDocumento);
-
-        // Convertir documentos a formato local con información adicional
-        const documentosConInfo = (documentosData || []).map(doc => {
-          const tipoDoc = doc?.tipo_documento;
-          const info = tipoDoc ? tiposDocumentoInfo[tipoDoc as keyof typeof tiposDocumentoInfo] : null;
-          return {
-            ...doc,
-            ...(info || {}),
-            nombre_amigable: info?.nombre || doc?.tipo_documento || 'Documento',
-            icono: info?.icono || 'insert-drive-file',
-            descripcion: info?.descripcion || '',
-            esObligatorio: info?.esObligatorio || false,
-          };
-        });
-
-        console.log('✅ Documentos procesados:', documentosConInfo);
-        setDocumentos(documentosConInfo);
-
-        // Log para depurar los documentos cargados
-        const obligatorios = documentosConInfo.filter(doc => doc.esObligatorio);
-        const opcionales = documentosConInfo.filter(doc => !doc.esObligatorio);
-        console.log(`📊 Documentos cargados: ${obligatorios.length} obligatorios, ${opcionales.length} opcionales`);
-
-      } catch (documentError: any) {
-        console.error('❌ Error cargando documentos:', documentError);
-        // Mostrar más detalles del error
-        if (documentError instanceof Error) {
-          console.error('Mensaje de error:', documentError.message);
-        }
-        if (documentError?.response) {
-          console.error('Respuesta del servidor:', documentError.response?.status, documentError.response?.data);
-        }
-
-        // Continuar con arrays vacíos para no bloquear la carga
-        setDocumentos([]);
-        setTiposDocumento([]);
-      }
-
-    } catch (error) {
-      console.error('❌ Error cargando datos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los datos del perfil.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = loadingDocumentos && documentos.length === 0;
 
   const manejarSubidaFoto = async (result: any) => {
     try {
@@ -378,7 +260,7 @@ export default function ConfiguracionPerfilScreen() {
                   if (documentoExistente.id) {
                     await perfilAPI.actualizarDocumento(documentoExistente.id, archivo);
                     Alert.alert('Éxito', 'Documento actualizado. Está en proceso de verificación.');
-                    await cargarDatos();
+                    await refreshDocumentos();
                   }
                 }
               }
@@ -389,14 +271,14 @@ export default function ConfiguracionPerfilScreen() {
           if (documentoExistente.id) {
             await perfilAPI.actualizarDocumento(documentoExistente.id, archivo);
             Alert.alert('Éxito', 'Documento actualizado correctamente.');
-            await cargarDatos();
+            await refreshDocumentos();
           }
         }
       } else {
         // Subir nuevo documento (CORREGIDO: orden de parámetros)
         await documentosAPI.subirDocumento(archivo, tipoDocumento.key);
         Alert.alert('Éxito', 'Documento subido correctamente.');
-        await cargarDatos();
+        await refreshDocumentos();
       }
 
     } catch (error) {

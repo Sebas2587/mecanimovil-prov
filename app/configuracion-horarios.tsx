@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -26,8 +26,10 @@ import {
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
-import equipoTallerService, { type MiembroTaller } from '@/services/equipoTallerService';
+import equipoTallerService from '@/services/equipoTallerService';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
+import { useEquipoTallerQuery } from '@/hooks/useEquipoTallerQuery';
+import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -371,11 +373,21 @@ const NumberPicker = ({
 export default function ConfiguracionHorariosScreen() {
   const { estadoProveedor } = useAuth();
   const insets = useSafeAreaInsets();
+  const perfilKey = useMemo(
+    () => estadoProveedorReloadKey(estadoProveedor ?? null),
+    [estadoProveedor],
+  );
+  const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
+  const { miembros: equipoMiembros } = useEquipoTallerQuery(cuentaAprobada);
+  const mecanicos = useMemo(
+    () => equipoMiembros.filter((m) => m.rol === 'mecanico'),
+    [equipoMiembros],
+  );
+  const horariosHydratedRef = useRef(false);
 
   // Estados principales
   const [horarios, setHorarios] = useState<HorarioDia[]>([]);
   // Agenda por mecánico: null => horario general del taller (fallback)
-  const [mecanicos, setMecanicos] = useState<MiembroTaller[]>([]);
   const [miembroSeleccionado, setMiembroSeleccionado] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -434,7 +446,7 @@ export default function ConfiguracionHorariosScreen() {
   };
 
   useEffect(() => {
-    if (estadoProveedor?.estado_verificacion !== 'aprobado') {
+    if (!cuentaAprobada) {
       Alert.alert(
         'Acceso Restringido',
         'Solo los proveedores con cuenta aprobada pueden configurar sus horarios.',
@@ -443,10 +455,10 @@ export default function ConfiguracionHorariosScreen() {
       return;
     }
 
+    horariosHydratedRef.current = false;
     cargarHorarios();
-    cargarMecanicos();
     cargarEstadoAgenda();
-  }, [estadoProveedor]);
+  }, [perfilKey, cuentaAprobada]);
 
   const cargarEstadoAgenda = async () => {
     try {
@@ -457,23 +469,13 @@ export default function ConfiguracionHorariosScreen() {
     }
   };
 
-  // Recargar la agenda al cambiar de mecánico (o volver al horario general)
+  // Recargar horarios al cambiar de mecánico (sin spinner si ya hubo datos)
   useEffect(() => {
-    if (estadoProveedor?.estado_verificacion === 'aprobado') {
+    if (cuentaAprobada) {
       cargarHorarios();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [miembroSeleccionado]);
-
-  const cargarMecanicos = async () => {
-    try {
-      const equipo = await equipoTallerService.listar({ rol: 'mecanico' });
-      setMecanicos(equipo);
-    } catch (error) {
-      // El proveedor puede no ser taller o no tener equipo: silencioso
-      setMecanicos([]);
-    }
-  };
 
   const formatearHoraApi = (hora: string | undefined, fallback: string): string => {
     if (!hora) return fallback;
@@ -487,7 +489,9 @@ export default function ConfiguracionHorariosScreen() {
 
   const cargarHorarios = async () => {
     try {
-      setLoading(true);
+      if (!horariosHydratedRef.current) {
+        setLoading(true);
+      }
       const raw = await horariosAPI.obtenerMisHorarios(miembroSeleccionado);
       const horariosData = parseHorariosApiResponse(raw);
       const necesitaConfigurar = !proveedorTieneHorariosActivos(horariosData);
@@ -519,6 +523,7 @@ export default function ConfiguracionHorariosScreen() {
         };
       });
       setHorarios(horariosCompletos);
+      horariosHydratedRef.current = true;
     } catch (error) {
       console.error('Error cargando horarios:', error);
       showAlert('Error', 'No se pudieron cargar los horarios configurados.');

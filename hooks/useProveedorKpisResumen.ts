@@ -3,6 +3,7 @@ import {
   kpisProveedorService,
   type ProveedorKpisResumen,
 } from '@/services/kpisProveedorService';
+import { DASHBOARD_QUERY_STALE_MS } from '@/hooks/useDashboardFinanzas';
 
 /** Clave estable para compartir KPIs entre pantallas (misma ventana = misma petición/caché). */
 export function proveedorKpisResumenQueryKey(dias: number) {
@@ -31,7 +32,7 @@ type Options = {
 export function useProveedorKpisResumen({ enabled, dias = 30 }: Options) {
   const diasClamped = Math.min(365, Math.max(1, Math.round(dias)));
 
-  const { data, isFetching, error, refetch } = useQuery({
+  const { data, isPending, isFetching, error, refetch } = useQuery({
     queryKey: proveedorKpisResumenQueryKey(diasClamped),
     queryFn: async (): Promise<ProveedorKpisResumen> => {
       const result = await kpisProveedorService.obtenerResumen(diasClamped);
@@ -41,14 +42,16 @@ export function useProveedorKpisResumen({ enabled, dias = 30 }: Options) {
       return result.data;
     },
     enabled,
-    /** Más corto que el default global (5m) para alinear home y detalle tras actividad. */
-    staleTime: 30 * 1000,
+    staleTime: DASHBOARD_QUERY_STALE_MS,
+    placeholderData: (previous) => previous,
   });
 
   const errorMessage =
     error instanceof Error ? error.message : error != null ? String(error) : null;
 
-  const loading = isFetching;
+  /** Solo carga inicial sin caché; refetch en background no bloquea la UI. */
+  const loading = isPending && data == null;
+  const isRefetching = isFetching && data != null;
 
   const progress = data != null ? data.score_rendimiento : undefined;
   const targetTierName =
@@ -65,6 +68,7 @@ export function useProveedorKpisResumen({ enabled, dias = 30 }: Options) {
   return {
     data,
     loading,
+    isRefetching,
     error: errorMessage,
     refresh: refetch,
     progress,

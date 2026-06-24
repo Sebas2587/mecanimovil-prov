@@ -1,6 +1,5 @@
 import { useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useFocusEffect } from 'expo-router';
 import { obtenerSolicitudesDisponibles, type SolicitudPublica } from '@/services/solicitudesService';
 import websocketService from '@/app/services/websocketService';
 
@@ -26,21 +25,17 @@ export function useSolicitudesDisponiblesQuery(enabled: boolean) {
     queryKey: SOLICITUDES_DISPONIBLES_QUERY_KEY,
     queryFn: fetchSolicitudesDisponiblesQuery,
     enabled,
-    staleTime: 15_000,
-    refetchOnMount: 'always',
+    staleTime: 60_000,
     placeholderData: (previousData) => previousData,
   });
 }
 
 /**
- * Refresca la lista ante WebSocket (nueva solicitud, cambio de oferta/estado, cancelación)
- * y al volver a enfocar la pantalla.
+ * Refresca la lista ante WebSocket (nueva solicitud, cambio de oferta/estado, cancelación).
+ * No invalida al volver al tab: la caché se muestra al instante y el WS mantiene datos frescos.
  */
-export function useSolicitudesDisponiblesRealtime(options: {
-  enabled: boolean;
-  refetchOnFocus?: boolean;
-}) {
-  const { enabled, refetchOnFocus = true } = options;
+export function useSolicitudesDisponiblesRealtime(options: { enabled: boolean }) {
+  const { enabled } = options;
   const invalidate = useInvalidateSolicitudesDisponibles();
 
   useEffect(() => {
@@ -62,12 +57,4 @@ export function useSolicitudesDisponiblesRealtime(options: {
       unsubCancel?.();
     };
   }, [enabled, invalidate]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (enabled && refetchOnFocus) {
-        invalidate();
-      }
-    }, [enabled, refetchOnFocus, invalidate]),
-  );
 }

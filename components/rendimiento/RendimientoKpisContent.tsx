@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import {
   useProveedorKpisResumen,
   targetTierNameForScore,
 } from '@/hooks/useProveedorKpisResumen';
-import equipoTallerService, { type MecanicoKpis } from '@/services/equipoTallerService';
+import { useRendimientoEquipoDetalladoQuery } from '@/hooks/useRendimientoEquipoDetalladoQuery';
 
 const DIAS_OPCIONES = [7, 30, 90] as const;
 
@@ -144,28 +144,18 @@ export function RendimientoKpisContent() {
     dias: diasVentana,
   });
 
+  const {
+    data: mecanicoKpis,
+    refresh: refreshMecanicos,
+  } = useRendimientoEquipoDetalladoQuery({
+    enabled,
+    dias: diasVentana,
+  });
+
   const tierName = useMemo(
     () => (data != null ? targetTierNameForScore(data.score_rendimiento) : '—'),
     [data]
   );
-
-  const [mecanicoKpis, setMecanicoKpis] = useState<MecanicoKpis[]>([]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    let activo = true;
-    equipoTallerService
-      .rendimientoDetallado({ dias: diasVentana })
-      .then((lista) => {
-        if (activo) setMecanicoKpis(lista);
-      })
-      .catch(() => {
-        if (activo) setMecanicoKpis([]);
-      });
-    return () => {
-      activo = false;
-    };
-  }, [enabled, diasVentana]);
 
   const metricRows = useMemo((): [MetricItem, MetricItem][] | null => {
     if (!data) return null;
@@ -225,7 +215,8 @@ export function RendimientoKpisContent() {
 
   const onRefresh = useCallback(() => {
     refresh();
-  }, [refresh]);
+    refreshMecanicos();
+  }, [refresh, refreshMecanicos]);
 
   const bottomPad = insets.bottom + (SPACING.fixed?.xl ?? SPACING.fixed.xl);
 

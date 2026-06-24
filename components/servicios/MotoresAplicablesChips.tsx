@@ -17,25 +17,40 @@ type Props = {
   tipoMotorOferta?: string | null;
   /** inline = selector/catálogo; card = listas Mis servicios y cards */
   variant?: 'inline' | 'card';
+  /** Sin contenedor externo: chips sueltas en fila compartida */
+  embed?: boolean;
 };
 
 export function MotoresAplicablesChips({
   motores,
   tipoMotorOferta,
   variant = 'inline',
+  embed = false,
 }: Props) {
   const catalogo = normalizeMotoresLista(motores);
   const oferta = tipoMotorOferta ? normalizeMotoresLista([tipoMotorOferta])[0] : null;
   const universal = motoresCatalogoUniversal(catalogo);
   const chipStyle = variant === 'card' ? styles.chipCard : styles.chip;
 
+  const wrapContent = (content: React.ReactNode) => {
+    if (embed) return content;
+    return (
+      <View style={[styles.wrap, variant === 'card' && styles.wrapCard]}>
+        {content}
+      </View>
+    );
+  };
+
+  const rowContent = (children: React.ReactNode) =>
+    embed ? <>{children}</> : <View style={styles.row}>{children}</View>;
+
   const mostrarPrecioEspecifico =
     !!oferta && requiereSelectorAlcanceMotor(catalogo);
 
   if (mostrarPrecioEspecifico) {
-    return (
-      <View style={[styles.wrap, variant === 'card' && styles.wrapCard]}>
-        <View style={styles.row}>
+    return wrapContent(
+      rowContent(
+        <>
           <View style={[chipStyle, styles.chipPrimary]}>
             <Text style={[styles.chipText, styles.chipTextPrimary]}>
               {labelTipoMotor(oferta)}
@@ -44,45 +59,41 @@ export function MotoresAplicablesChips({
           <View style={[chipStyle, styles.chipMuted]}>
             <Text style={styles.chipTextMuted}>Precio específico</Text>
           </View>
-        </View>
-      </View>
+        </>,
+      ),
     );
   }
 
   if (universal) {
-    return (
-      <View style={[styles.wrap, variant === 'card' && styles.wrapCard]}>
-        <View style={styles.row}>
-          <View style={[chipStyle, styles.chipNeutral]}>
-            <Text style={styles.chipText}>Todos los motores</Text>
-          </View>
-        </View>
-      </View>
+    return wrapContent(
+      rowContent(
+        <View style={[chipStyle, styles.chipNeutral]}>
+          <Text style={styles.chipText}>Todos los motores</Text>
+        </View>,
+      ),
     );
   }
 
   if (catalogo.length === 1) {
-    return (
-      <View style={[styles.wrap, variant === 'card' && styles.wrapCard]}>
-        <View style={styles.row}>
-          <View style={[chipStyle, styles.chipCatalog]}>
-            <Text style={styles.chipText}>{labelTipoMotor(catalogo[0])}</Text>
-          </View>
-        </View>
-      </View>
+    return wrapContent(
+      rowContent(
+        <View style={[chipStyle, styles.chipCatalog]}>
+          <Text style={styles.chipText}>{labelTipoMotor(catalogo[0])}</Text>
+        </View>,
+      ),
     );
   }
 
-  return (
-    <View style={[styles.wrap, variant === 'card' && styles.wrapCard]}>
-      <View style={styles.row}>
+  return wrapContent(
+    rowContent(
+      <>
         {catalogo.map((m) => (
           <View key={m} style={[chipStyle, styles.chipCatalog]}>
             <Text style={styles.chipText}>{labelTipoMotor(m)}</Text>
           </View>
         ))}
-      </View>
-    </View>
+      </>,
+    ),
   );
 }
 
@@ -106,9 +117,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
+    alignContent: 'flex-start',
     gap: SPACING.fixed.xxs + 2,
   },
   chip: {
+    alignSelf: 'flex-start',
+    flexShrink: 0,
     paddingHorizontal: SPACING.fixed.sm,
     paddingVertical: 3,
     borderRadius: BORDERS.radius.full,

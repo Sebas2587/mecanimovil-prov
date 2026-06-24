@@ -403,9 +403,9 @@ export default function EspecialidadesMarcasScreen() {
               <InstitutionalIcon name="information-circle" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>
                 {isMultimarca
-                  ? 'Perfil multimarca: atiendes vehículos de cualquier marca. Tus especialidades se muestran en el inicio según los servicios que configures.'
+                  ? 'Perfil multimarca: atiendes vehículos de cualquier marca. La categoría de cada servicio se muestra en «Mis servicios».'
                   : modoEdicion
-                    ? 'Selecciona las marcas de vehículos que atiendes. Tus especialidades se derivan automáticamente de los servicios en «Mis servicios».'
+                    ? 'Selecciona las marcas de vehículos que atiendes. La categoría de cada servicio se muestra en «Mis servicios».'
                     : 'Esta es tu configuración actual de marcas. Toca «Configurar marcas» abajo para modificar.'}
               </Text>
             </View>
