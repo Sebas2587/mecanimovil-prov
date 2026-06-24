@@ -96,7 +96,7 @@ export default function HomeScreen() {
   const rendimientoWidgetPeriod = useMemo(() => {
     if (kpisResumen.data) {
       const d = kpisResumen.data.ventana_dias;
-      return `Combina ofertas, reseñas, checklist y tiempos (últimos ${d} días con actividad).`;
+      return `Índice del taller en Mecanimovil (últimos ${d} días). Posiciona tu negocio en la app de clientes.`;
     }
     if (kpisResumen.loading) {
       return `Últimos ${kpisResumen.ventanaDiasMostrada} días con actividad · cargando…`;

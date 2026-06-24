@@ -202,6 +202,11 @@ export function RendimientoKpisContent() {
         { label: 'Tiempo medio checklist', value: formatMinutos(data.checklist_tiempo_promedio_minutos ?? null) },
       ],
       [
+        { label: 'Aceptación órdenes (ø)', value: formatMinutos(data.tiempo_aceptacion_ordenes_promedio_minutos ?? null) },
+        { label: 'Rechazos en periodo', value: `${data.rechazos_periodo ?? 0}` },
+      ],
+      [
+      [
         { label: 'Ejec. vs estimado (ø)', value: formatRatio(data.tiempo_ejecucion_vs_estimado_promedio) },
         { label: 'Arranque checklist (ø)', value: formatMinutos(data.tiempo_inicio_checklist_promedio_minutos ?? null) },
       ],
@@ -313,14 +318,20 @@ export function RendimientoKpisContent() {
             <View style={styles.sectionWrap}>
               <SectionTitle>RESUMEN</SectionTitle>
               <DsCard>
-                <Text style={styles.heroLabel}>Índice de rendimiento</Text>
+                <Text style={styles.heroLabel}>Índice del taller en Mecanimovil</Text>
                 <Text style={styles.heroPct}>{data.score_rendimiento}%</Text>
                 <Text style={styles.heroTier}>Nivel: {tierName}</Text>
                 <Text style={styles.heroFoot}>
-                  Combina: velocidad de respuesta, satisfacción del cliente (reseñas), checklist,
-                  tiempo real vs estimado, consistencia de días activos y velocidad de arranque
-                  (últimos {data.ventana_dias} días). Sin reseñas el score se limita automáticamente.
+                  Posiciona tu negocio en la app de clientes. Incluye ofertas, aceptación de órdenes,
+                  confiabilidad (rechazos), reseñas, checklist y tiempos (últimos {data.ventana_dias} días).
+                  No incluye agenda personal ni métricas individuales de mecánicos.
                 </Text>
+                {data.multiplicador_penalizacion != null && data.multiplicador_penalizacion < 1 ? (
+                  <Text style={styles.penaltyNotice}>
+                    Penalización activa: {data.rechazos_ultimos_7_dias} rechazos en los últimos 7 días
+                    (−{Math.round((1 - data.multiplicador_penalizacion) * 100)}% sobre el índice).
+                  </Text>
+                ) : null}
               </DsCard>
             </View>
 
@@ -346,9 +357,19 @@ export function RendimientoKpisContent() {
               <SectionTitle>DESGLOSE DE PUNTAJES</SectionTitle>
               <DsCard>
                 <ScoreBlock
-                  title="Tiempo de respuesta"
+                  title="Tiempo de respuesta (oferta)"
                   score={data.score_tiempo_respuesta}
                   description="Velocidad para enviar la oferta desde que la solicitud quedó publicada (dirigidas priorizadas). 0 min → 100 pts, ≥120 min → 0 pts."
+                />
+                <ScoreBlock
+                  title="Aceptación de órdenes (24h)"
+                  score={data.score_aceptacion_ordenes ?? null}
+                  description={`Tiempo para aceptar o rechazar órdenes pagadas del marketplace. Muestra: ${data.aceptacion_ordenes_muestra ?? 0}. ≤24 h → mejor puntaje.`}
+                />
+                <ScoreBlock
+                  title="Confiabilidad (rechazos)"
+                  score={data.score_confiabilidad ?? null}
+                  description={`Rechazos de solicitudes u órdenes pesan más si son recientes. En periodo: ${data.rechazos_periodo ?? 0}. ${(data.rechazos_ultimos_7_dias ?? 0) >= 3 ? '3+ rechazos en 7 días aplican −15% al índice.' : ''}`}
                 />
                 <ScoreBlock
                   title="Satisfacción del cliente"
@@ -421,7 +442,10 @@ export function RendimientoKpisContent() {
 
             {mecanicoKpis.length > 0 && (
               <View style={styles.sectionWrap}>
-                <SectionTitle>RENDIMIENTO POR MECÁNICO</SectionTitle>
+                <SectionTitle>RESUMEN OPERATIVO POR MECÁNICO</SectionTitle>
+                <Text style={styles.mecanicoSectionHint}>
+                  Conteo operativo por técnico. No alimenta el índice del taller. Ver detalle en Gestión de equipo.
+                </Text>
                 <DsCard>
                   <View style={[styles.mecRow, styles.mecHeaderRow]}>
                     <Text style={[styles.mecNombre, styles.mecHeaderText]}>Mecánico</Text>
@@ -444,6 +468,15 @@ export function RendimientoKpisContent() {
                     </View>
                   ))}
                 </DsCard>
+                <TouchableOpacity
+                  onPress={() => router.push('/gestion-equipo')}
+                  style={styles.equipoCta}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ir a gestión de equipo"
+                >
+                  <Text style={styles.equipoCtaText}>Ver rendimiento por mecánico en Gestión de equipo</Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -570,6 +603,30 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     color: I.body,
     marginTop: SPACING.fixed.sm,
+  },
+  penaltyNotice: {
+    fontSize: caption.fontSize,
+    lineHeight: lh(caption.fontSize, caption.lineHeight),
+    fontFamily: FF.sansSemiBold,
+    color: I.semanticDown,
+    marginTop: SPACING.fixed.sm,
+  },
+  mecanicoSectionHint: {
+    fontSize: caption.fontSize,
+    lineHeight: lh(caption.fontSize, caption.lineHeight),
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginBottom: SPACING.fixed.sm,
+  },
+  equipoCta: {
+    marginTop: SPACING.fixed.sm,
+    alignSelf: 'flex-start',
+  },
+  equipoCtaText: {
+    fontSize: small.fontSize,
+    lineHeight: lh(small.fontSize, small.lineHeight),
+    fontFamily: FF.sansSemiBold,
+    color: COLORS.primary[500],
   },
   insigneTitle: {
     fontSize: body.fontSize,

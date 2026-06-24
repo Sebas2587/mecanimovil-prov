@@ -72,6 +72,16 @@ export interface ProveedorKpisResumen {
   score_consistencia: number | null;
   /** Velocidad de arranque del checklist → 0–100. Incluido si hay datos. */
   score_inicio_checklist: number | null;
+  /** Tiempo para aceptar/rechazar órdenes pagadas (SLA 24h). */
+  score_aceptacion_ordenes?: number | null;
+  /** Penalización por rechazos recientes con decay temporal. */
+  score_confiabilidad?: number | null;
+  tiempo_aceptacion_ordenes_promedio_minutos?: number | null;
+  aceptacion_ordenes_muestra?: number;
+  rechazos_periodo?: number;
+  rechazos_ultimos_7_dias?: number;
+  multiplicador_penalizacion?: number;
+  score_rendimiento_base?: number;
   // Score compuesto
   score_rendimiento: number;
   /** Misma regla que en app usuarios: solo `estado === 'activa'`. */

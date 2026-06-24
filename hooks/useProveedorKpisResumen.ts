@@ -14,7 +14,7 @@ export function proveedorKpisResumenQueryKey(dias: number) {
 export function targetTierNameForScore(score: number): string {
   if (score === 0) return 'Sin actividad';
   if (score >= 90) return 'Elite';
-  if (score >= 75) return 'Máster Pro';
+  if (score >= 75) return 'Máster';
   if (score >= 55) return 'Pro';
   return 'En ascenso';
 }

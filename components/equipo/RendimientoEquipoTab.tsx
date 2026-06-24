@@ -143,6 +143,13 @@ export function RendimientoEquipoTab() {
         </View>
       ) : (
         <View style={styles.detail}>
+          <Text style={styles.mecanicoHeader}>
+            Métricas de {selected.nombre} en órdenes donde fue asignado.
+          </Text>
+          <Text style={styles.mecanicoLegend}>
+            El score combina productividad Mecanimovil y checklist. Los rechazos impactan confiabilidad.
+            La agenda personal solo suma a facturación, no al score de calidad.
+          </Text>
           <View style={styles.scoreRow}>
             <ScoreCircle score={selected.score_rendimiento_global} label="Rendimiento" />
             <View style={styles.scoreSide}>
@@ -190,6 +197,15 @@ export function RendimientoEquipoTab() {
             <KpiProgressRow label="Tiempo ejecución" score={selected.score_tiempo_ejecucion} />
             <KpiProgressRow label="Checklist" score={selected.score_checklist} />
             <KpiProgressRow label="Inicio checklist" score={selected.score_puntualidad_inicio} />
+            {selected.score_confiabilidad != null ? (
+              <KpiProgressRow label="Confiabilidad" score={selected.score_confiabilidad} />
+            ) : null}
+            {selected.score_aceptacion != null ? (
+              <KpiProgressRow label="Aceptación 24h" score={selected.score_aceptacion} />
+            ) : null}
+            {selected.score_calificacion_cliente != null ? (
+              <KpiProgressRow label="Calificación cliente" score={selected.score_calificacion_cliente} />
+            ) : null}
           </View>
 
           <View style={styles.card}>
@@ -255,6 +271,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.container.horizontal,
     gap: SPACING.fixed.md,
     marginTop: SPACING.fixed.sm,
+  },
+  mecanicoHeader: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  mecanicoLegend: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    lineHeight: 18,
   },
   scoreRow: {
     flexDirection: 'row',

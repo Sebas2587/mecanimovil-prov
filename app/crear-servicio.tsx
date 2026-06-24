@@ -81,6 +81,13 @@ function estimateMarcaGridSlotWidth(): number {
   return Math.max(0, w - hx * 2 - SPACING.fixed.md * 2 - MARCA_PANEL_BODY_PAD * 2);
 }
 
+/** Columnas responsivas: más marcas visibles sin perder legibilidad. */
+function marcaGridColumnCount(containerWidth: number): number {
+  if (containerWidth >= 720) return 4;
+  if (containerWidth >= 480) return 3;
+  return 2;
+}
+
 type MarcaModoTab = 'por_marca' | 'generico';
 
 const MarcaVehiculoCard = React.memo(function MarcaVehiculoCard({
@@ -88,7 +95,6 @@ const MarcaVehiculoCard = React.memo(function MarcaVehiculoCard({
   isSelected,
   disabled,
   cardWidth,
-  isLeftColumn,
   onToggle,
   badgeLabel,
 }: {
@@ -96,7 +102,6 @@ const MarcaVehiculoCard = React.memo(function MarcaVehiculoCard({
   isSelected: boolean;
   disabled: boolean;
   cardWidth: number;
-  isLeftColumn: boolean;
   onToggle: (id: number) => void;
   badgeLabel?: string | null;
 }) {
@@ -106,8 +111,8 @@ const MarcaVehiculoCard = React.memo(function MarcaVehiculoCard({
     <TouchableOpacity
       style={[
         INSTITUTIONAL_SELECTION.card,
-        styles.marcaSelectionCardLayout,
-        { width: cardWidth, marginRight: isLeftColumn ? MARCA_GRID_COL_GAP : 0 },
+        styles.marcaSelectionCardCompact,
+        { width: cardWidth },
         isSelected && INSTITUTIONAL_SELECTION.cardSelected,
       ]}
       onPress={onPress}
@@ -116,34 +121,26 @@ const MarcaVehiculoCard = React.memo(function MarcaVehiculoCard({
     >
       <View
         style={[
-          INSTITUTIONAL_SELECTION.checkbox,
-          isSelected && INSTITUTIONAL_SELECTION.checkboxSelected,
-        ]}
-      >
-        {isSelected ? (
-          <InstitutionalIcon name="checkmark" size={12} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-        ) : null}
-      </View>
-      <View
-        style={[
           INSTITUTIONAL_SELECTION.iconPlate,
+          styles.marcaIconPlateCompact,
           isSelected && INSTITUTIONAL_SELECTION.iconPlateSelected,
         ]}
       >
         <InstitutionalIcon
           name="directions-car"
-          size={16}
+          size={14}
           color={isSelected ? I.primary : I.muted}
           strokeWidth={ICON_STROKE_WIDTH}
         />
       </View>
-      <View style={styles.marcaCardTextBlock}>
+      <View style={styles.marcaCardTextBlockCompact}>
         <Text
           style={[
             INSTITUTIONAL_SELECTION.title,
+            styles.marcaCompactTitle,
             isSelected && INSTITUTIONAL_SELECTION.titleSelected,
           ]}
-          numberOfLines={2}
+          numberOfLines={1}
         >
           {marca.nombre}
         </Text>
@@ -151,12 +148,14 @@ const MarcaVehiculoCard = React.memo(function MarcaVehiculoCard({
           <View
             style={[
               styles.marcaCardEstadoBadge,
+              styles.marcaCardEstadoBadgeCompact,
               badgeLabel === 'Nueva' && styles.marcaCardEstadoBadgeNueva,
             ]}
           >
             <Text
               style={[
                 styles.marcaCardEstadoText,
+                styles.marcaCardEstadoTextCompact,
                 badgeLabel === 'Nueva' && styles.marcaCardEstadoTextNueva,
               ]}
               numberOfLines={1}
@@ -164,6 +163,17 @@ const MarcaVehiculoCard = React.memo(function MarcaVehiculoCard({
               {badgeLabel}
             </Text>
           </View>
+        ) : null}
+      </View>
+      <View
+        style={[
+          INSTITUTIONAL_SELECTION.checkbox,
+          styles.marcaCheckboxCompact,
+          isSelected && INSTITUTIONAL_SELECTION.checkboxSelected,
+        ]}
+      >
+        {isSelected ? (
+          <InstitutionalIcon name="checkmark" size={10} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
         ) : null}
       </View>
     </TouchableOpacity>
@@ -401,8 +411,8 @@ const CrearServicioScreen = () => {
   const configRepuestosRef = useRef<Map<number, RepuestoOfertaConfig>>(new Map());
   const calculosRequestIdRef = useRef(0);
   const [fotos, setFotos] = useState<string[]>([]);
-  /** '' = todos los motores del catálogo; GASOLINA/DIESEL/etc. = oferta específica */
-  const [alcanceMotor, setAlcanceMotor] = useState<TipoMotorCodigo>('');
+  /** null = sin elegir; '' = mismo precio todos los motores; GASOLINA/… = motor específico */
+  const [alcanceMotor, setAlcanceMotor] = useState<TipoMotorCodigo | null>(null);
 
   // Estados de datos de API
   const [marcas, setMarcas] = useState<MarcaVehiculo[]>([]);
@@ -1612,7 +1622,7 @@ const CrearServicioScreen = () => {
     if (
       servicioSeleccionado
       && requiereSelectorAlcanceMotor(motoresCatalogoSeleccionado)
-      && !alcanceMotor
+      && alcanceMotor === null
     ) {
       showAlert(
         'Tipo de motor requerido',
@@ -1731,7 +1741,7 @@ const CrearServicioScreen = () => {
         disponible: true,
         duracion_minima_minutos: minDur,
         duracion_maxima_minutos: maxDur,
-        tipo_motor: alcanceMotor || '',
+        tipo_motor: alcanceMotor ?? '',
       };
       if (servicioSeleccionado != null) {
         datosBase.servicio = servicioSeleccionado;
@@ -2240,10 +2250,16 @@ const CrearServicioScreen = () => {
       return marcasReales.filter((m) => m.nombre.toLowerCase().includes(q));
     }, [marcasReales, busquedaMarca]);
 
+    const marcaColumnCount = useMemo(
+      () => marcaGridColumnCount(marcaGridWidth),
+      [marcaGridWidth],
+    );
+
     const marcaCardWidth = useMemo(() => {
       const slot = Math.max(marcaGridWidth, 1);
-      return (slot - MARCA_GRID_COL_GAP) / 2;
-    }, [marcaGridWidth]);
+      const gaps = MARCA_GRID_COL_GAP * (marcaColumnCount - 1);
+      return (slot - gaps) / marcaColumnCount;
+    }, [marcaGridWidth, marcaColumnCount]);
 
     const marcasConModelosVisibles = useMemo(
       () =>
@@ -2446,7 +2462,7 @@ const CrearServicioScreen = () => {
 
                 <View style={styles.marcaGridSlot} onLayout={onMarcaGridLayout}>
                   <View style={styles.marcaItemsGrid}>
-                    {marcasFiltradas.map((marca, index) => {
+                    {marcasFiltradas.map((marca) => {
                       const badgeLabel = marcaTieneOfertaActiva(marca.id)
                         ? 'Activa'
                         : estaSeleccionada(marca.id) && marcasNuevasSeleccionadas.includes(marca.id)
@@ -2459,7 +2475,6 @@ const CrearServicioScreen = () => {
                         isSelected={estaSeleccionada(marca.id)}
                         disabled={false}
                         cardWidth={marcaCardWidth}
-                        isLeftColumn={index % 2 === 0}
                         onToggle={handleToggleMarca}
                         badgeLabel={badgeLabel}
                       />
@@ -2642,6 +2657,29 @@ const CrearServicioScreen = () => {
     );
   };
 
+  const servicioSeleccionadoObj = useMemo(
+    () => servicios.find((s) => s.id === servicioSeleccionado) ?? null,
+    [servicios, servicioSeleccionado],
+  );
+
+  const servicioEditReadonly = useMemo(() => {
+    if (!isEditMode || !servicioSeleccionado) return null;
+    if (servicioSeleccionadoObj) return servicioSeleccionadoObj;
+    if (
+      servicioExistente
+      && (servicioExistente.servicio === servicioSeleccionado
+        || servicioExistente.servicio_info?.id === servicioSeleccionado)
+    ) {
+      return {
+        id: servicioSeleccionado,
+        nombre: servicioExistente.servicio_info?.nombre ?? 'Servicio',
+        descripcion: servicioExistente.servicio_info?.descripcion ?? '',
+        tipos_motor_compatibles: extractMotoresServicio(servicioExistente.servicio_info),
+      } as Servicio;
+    }
+    return null;
+  }, [isEditMode, servicioSeleccionado, servicioSeleccionadoObj, servicioExistente]);
+
   // Componente de selección de servicio
   const renderServicioSelector = () => {
     if (!tieneSeleccionMarca) return null;
@@ -2649,18 +2687,14 @@ const CrearServicioScreen = () => {
     const handleSelectServicio = (servicioId: number, servicioNombre: string) => {
       console.log('⚙️ Servicio seleccionado:', servicioId, servicioNombre);
 
-      // Si es el mismo servicio, no hacer nada
       if (servicioId === servicioSeleccionado) {
         console.log('⚙️ Mismo servicio, ignorando');
         return;
       }
 
       setServicioSeleccionado(servicioId);
+      setAlcanceMotor(null);
 
-      setAlcanceMotor('');
-
-      // Solo resetear repuestos si estamos cambiando a un servicio diferente
-      // Y no estamos en modo edición con datos pre-cargados del mismo servicio
       if (!isEditMode || !datosPreCargados || servicioId !== servicioOriginal) {
         setRepuestos([]);
         setRepuestosSeleccionados(new Set());
@@ -2669,8 +2703,6 @@ const CrearServicioScreen = () => {
         setRepuestos([]);
       }
     };
-
-    const servicioSeleccionadoObj = servicios.find(s => s.id === servicioSeleccionado);
 
     const subtituloServicios = () => {
       const n = servicios.length;
@@ -2689,51 +2721,109 @@ const CrearServicioScreen = () => {
     return (
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Servicio ofrecido</Text>
-        <Text style={styles.subtitle}>{subtituloServicios()}</Text>
-        {esMultimarca && (
-          <Text style={styles.marcaHint}>
-            Solo aparecen servicios que el catálogo tiene para todas las marcas elegidas.
-          </Text>
-        )}
-
-
-        {loadingServicios ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={I.primary} />
-            <Text style={styles.loadingText}>Cargando servicios...</Text>
-          </View>
-        ) : servicios.length > 0 ? (
+        {isEditMode && servicioEditReadonly ? (
           <>
-            {/* Selector Visual de Servicios */}
-            <View style={styles.servicioListContainer}>
-              {servicios.map((servicio) => (
-                <ServicioCatalogCard
-                  key={servicio.id}
-                  servicio={servicio}
-                  isSelected={servicioSeleccionado === servicio.id}
-                  onSelect={handleSelectServicio}
+            <Text style={styles.subtitle}>
+              Estás editando esta tarifa. El servicio de catálogo no se puede cambiar aquí.
+            </Text>
+            <View
+              style={[
+                INSTITUTIONAL_SELECTION.listRow,
+                INSTITUTIONAL_SELECTION.listRowSelected,
+                styles.servicioEditReadonlyRow,
+              ]}
+            >
+              <View style={styles.servicioRowContent}>
+                <View
+                  style={[
+                    INSTITUTIONAL_SELECTION.iconPlate,
+                    INSTITUTIONAL_SELECTION.iconPlateSelected,
+                  ]}
+                >
+                  <InstitutionalIcon
+                    name="build"
+                    size={16}
+                    color={I.primary}
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
+                </View>
+                <View style={styles.servicioRowText}>
+                  <Text
+                    style={[
+                      INSTITUTIONAL_SELECTION.title,
+                      styles.servicioRowTitle,
+                      INSTITUTIONAL_SELECTION.titleSelected,
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {servicioEditReadonly.nombre}
+                  </Text>
+                  {servicioEditReadonly.descripcion ? (
+                    <Text style={INSTITUTIONAL_SELECTION.description} numberOfLines={3}>
+                      {servicioEditReadonly.descripcion}
+                    </Text>
+                  ) : null}
+                  <MotoresAplicablesChips
+                    motores={extractMotoresServicio(servicioEditReadonly)}
+                    variant="card"
+                  />
+                </View>
+                <InstitutionalIcon
+                  name="lock"
+                  size={18}
+                  color={I.muted}
+                  strokeWidth={ICON_STROKE_WIDTH}
                 />
-              ))}
+              </View>
             </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.subtitle}>{subtituloServicios()}</Text>
+            {esMultimarca && (
+              <Text style={styles.marcaHint}>
+                Solo aparecen servicios que el catálogo tiene para todas las marcas elegidas.
+              </Text>
+            )}
 
-            {servicioSeleccionadoObj && (
-              <View style={styles.selectedIndicator}>
-                <InstitutionalIcon name="checkmark-circle" size={20} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.selectedText}>
-                  Servicio seleccionado: {servicioSeleccionadoObj.nombre}
+            {loadingServicios ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={I.primary} />
+                <Text style={styles.loadingText}>Cargando servicios...</Text>
+              </View>
+            ) : servicios.length > 0 ? (
+              <>
+                <View style={styles.servicioListContainer}>
+                  {servicios.map((servicio) => (
+                    <ServicioCatalogCard
+                      key={servicio.id}
+                      servicio={servicio}
+                      isSelected={servicioSeleccionado === servicio.id}
+                      onSelect={handleSelectServicio}
+                    />
+                  ))}
+                </View>
+
+                {servicioSeleccionadoObj && (
+                  <View style={styles.selectedIndicator}>
+                    <InstitutionalIcon name="checkmark-circle" size={20} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.selectedText}>
+                      Servicio seleccionado: {servicioSeleccionadoObj.nombre}
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={styles.noDataContainer}>
+                <InstitutionalIcon name="information-circle-outline" size={24} color={I.accentYellow}  strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.noDataText}>
+                  {esMultimarca
+                    ? 'No hay servicios en común para todas las marcas seleccionadas. Prueba con menos marcas o publícalo por separado.'
+                    : 'No hay servicios catalogados para esta selección. Si crees que falta alguno, contacta al administrador.'}
                 </Text>
               </View>
             )}
           </>
-        ) : (
-          <View style={styles.noDataContainer}>
-            <InstitutionalIcon name="information-circle-outline" size={24} color={I.accentYellow}  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.noDataText}>
-              {esMultimarca
-                ? 'No hay servicios en común para todas las marcas seleccionadas. Prueba con menos marcas o publícalo por separado.'
-                : 'No hay servicios catalogados para esta selección. Si crees que falta alguno, contacta al administrador.'}
-            </Text>
-          </View>
         )}
       </View>
     );
@@ -3001,9 +3091,11 @@ const CrearServicioScreen = () => {
             );
           })}
         </View>
-        {alcanceMotor ? (
+        {alcanceMotor !== null ? (
           <Text style={styles.marcaHint}>
-            Para otro motor con precio distinto, publica otra configuración desde Mis servicios.
+            {alcanceMotor === ''
+              ? 'Este precio aplica a todos los motores del catálogo.'
+              : 'Para otro motor con precio distinto, publica otra configuración desde Mis servicios.'}
           </Text>
         ) : null}
       </View>
@@ -3667,17 +3759,49 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     width: '100%',
     rowGap: MARCA_GRID_COL_GAP,
+    columnGap: MARCA_GRID_COL_GAP,
   },
-  marcaSelectionCardLayout: {
-    paddingHorizontal: SPACING.fixed.xs,
-    paddingTop: 28,
-    paddingBottom: SPACING.fixed.xs,
+  marcaSelectionCardCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xs + 2,
+    borderRadius: BORDERS.radius.lg,
     flexShrink: 0,
-    overflow: 'hidden',
+    minHeight: 44,
   },
-  marcaCardTextBlock: {
-    width: '100%',
-    paddingRight: 24,
+  marcaIconPlateCompact: {
+    width: 24,
+    height: 24,
+    borderRadius: BORDERS.radius.sm,
+    flexShrink: 0,
+  },
+  marcaCardTextBlockCompact: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  marcaCompactTitle: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.xs * 1.35),
+  },
+  marcaCheckboxCompact: {
+    position: 'relative',
+    top: 0,
+    right: 0,
+    width: 18,
+    height: 18,
+    flexShrink: 0,
+  },
+  marcaCardEstadoBadgeCompact: {
+    marginTop: 0,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  marcaCardEstadoTextCompact: {
+    fontSize: 10,
+    letterSpacing: 0.2,
   },
   marcaCardEstadoBadge: {
     alignSelf: 'flex-start',
@@ -3755,6 +3879,9 @@ const styles = StyleSheet.create({
   servicioListContainer: {
     marginTop: SPACING.fixed.sm,
     gap: SPACING.fixed.xs,
+  },
+  servicioEditReadonlyRow: {
+    marginTop: SPACING.fixed.sm,
   },
   servicioRowContent: {
     flexDirection: 'row',

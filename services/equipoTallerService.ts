@@ -142,6 +142,12 @@ export interface MecanicoKpis {
   score_tiempo_ejecucion: number | null;
   score_checklist: number | null;
   score_puntualidad_inicio: number | null;
+  score_confiabilidad?: number | null;
+  score_aceptacion?: number | null;
+  score_calificacion_cliente?: number | null;
+  calificacion_cliente_promedio?: number | null;
+  tiempo_aceptacion_promedio_minutos?: number | null;
+  rechazos_periodo?: number;
   score_rendimiento_global: number | null;
   ventana_desde?: string;
   ventana_hasta?: string;
