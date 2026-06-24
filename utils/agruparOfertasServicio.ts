@@ -115,3 +115,20 @@ export function parseOfertasGrupoParam(raw: string | string[] | undefined): Ofer
     return [];
   }
 }
+
+/** Una sola oferta para edición individual (marca/modelo). */
+export function ofertaToGrupoItem(o: {
+  id: number;
+  marca_vehiculo_seleccionada?: number | null;
+  marca_vehiculo_info?: { nombre?: string } | null;
+  modelo_vehiculo_seleccionado?: number | null;
+  modelo_vehiculo_info?: { nombre?: string } | null;
+}): OfertaGrupoItem {
+  return {
+    id: o.id,
+    marca_id: o.marca_vehiculo_seleccionada ?? 0,
+    modelo_id: o.modelo_vehiculo_seleccionado ?? null,
+    nombre: o.marca_vehiculo_info?.nombre?.trim() || undefined,
+    modelo_nombre: o.modelo_vehiculo_info?.nombre?.trim() || undefined,
+  };
+}

@@ -14,7 +14,7 @@ import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { parseOfertasGrupoParam } from '@/utils/agruparOfertasServicio';
+import { parseOfertasGrupoParam, ofertaToGrupoItem } from '@/utils/agruparOfertasServicio';
 import { TarifaMarcaResumenCard } from '@/components/servicios/TarifasMarcaCatalogo';
 import { etiquetaMarcaOferta } from '@/utils/tarifasPorMarca';
 import { navigateBack } from '@/utils/navigateBack';
@@ -386,21 +386,22 @@ export default function ServicioResumenScreen() {
     );
   };
 
-  const editarServicio = useCallback(() => {
-    if (!servicio) return;
+  const editarOferta = useCallback((oferta: ServicioOferta) => {
     router.push({
       pathname: '/crear-servicio',
       params: {
         mode: 'edit',
-        servicioId: servicio.id.toString(),
-        servicioData: JSON.stringify(servicio),
-        ofertasGrupo:
-          ofertasGrupo.length > 0
-            ? JSON.stringify(ofertasGrupo)
-            : JSON.stringify([{ id: servicio.id, marca_id: servicio.marca_vehiculo_seleccionada ?? 0 }]),
+        servicioId: oferta.id.toString(),
+        servicioData: JSON.stringify(oferta),
+        ofertasGrupo: JSON.stringify([ofertaToGrupoItem(oferta)]),
       },
     });
-  }, [servicio, ofertasGrupo]);
+  }, []);
+
+  const editarServicio = useCallback(() => {
+    if (!servicio) return;
+    editarOferta(servicio);
+  }, [servicio, editarOferta]);
 
   const formatearFecha = (fecha: string) =>
     new Date(fecha).toLocaleDateString('es-CL', {
@@ -520,7 +521,7 @@ export default function ServicioResumenScreen() {
           </View>
           {variasTarifas ? (
             <Text style={styles.statusHint}>
-              La pausa es por marca. Usa el botón en cada tarjeta o «Pausar/Activar todas» abajo.
+              Cada marca/modelo tiene su precio. Usa «Editar» en la tarjeta correspondiente; la pausa es por tarifa.
             </Text>
           ) : null}
         </View>
@@ -626,6 +627,7 @@ export default function ServicioResumenScreen() {
               <TarifaMarcaResumenCard
                 key={oferta.id}
                 oferta={oferta}
+                onEditar={() => editarOferta(oferta)}
                 onToggleDisponibilidad={() =>
                   toggleDisponibilidadOferta(oferta.id, oferta.disponible !== false)
                 }
@@ -708,10 +710,12 @@ export default function ServicioResumenScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionBtn, styles.actionEdit]} onPress={editarServicio} activeOpacity={0.88}>
-            <InstitutionalIcon name="edit" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.actionTextEdit}>Editar</Text>
-          </TouchableOpacity>
+          {!variasTarifas ? (
+            <TouchableOpacity style={[styles.actionBtn, styles.actionEdit]} onPress={editarServicio} activeOpacity={0.88}>
+              <InstitutionalIcon name="edit" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.actionTextEdit}>Editar</Text>
+            </TouchableOpacity>
+          ) : null}
 
           <TouchableOpacity style={[styles.actionBtn, styles.actionDelete]} onPress={eliminarServicio} activeOpacity={0.88}>
             <InstitutionalIcon name="delete-outline" size={20} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />

@@ -433,9 +433,7 @@ const CrearServicioScreen = () => {
     marcasSeleccionadas.length === 1 && marcasSeleccionadas[0] === 0;
   const esMultimarca = marcasRealesSeleccionadas.length > 1;
   const edicionGrupo = isEditMode && ofertasGrupoInicial.length > 1;
-  const [modoSincronizarMarcas, setModoSincronizarMarcas] = useState(
-    () => isEditMode && ofertasGrupoInicial.length > 1,
-  );
+  const [modoSincronizarMarcas, setModoSincronizarMarcas] = useState(false);
   const permiteMultiplesMarcas = !isEditMode || edicionGrupo || modoSincronizarMarcas;
   const edicionMarcaUnica = isEditMode && !edicionGrupo && !modoSincronizarMarcas;
   const tieneSeleccionMarca = marcasSeleccionadas.length > 0;

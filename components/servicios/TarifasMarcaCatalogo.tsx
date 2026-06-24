@@ -184,6 +184,7 @@ type ResumenOfertaProps = {
   children: React.ReactNode;
   onToggleDisponibilidad?: () => void;
   togglingDisponibilidad?: boolean;
+  onEditar?: () => void;
 };
 
 /** Card institucional por marca/oferta (resumen del servicio). */
@@ -192,6 +193,7 @@ export function TarifaMarcaResumenCard({
   children,
   onToggleDisponibilidad,
   togglingDisponibilidad = false,
+  onEditar,
 }: ResumenOfertaProps) {
   const tarifa =
     buildTarifasPorMarca([oferta as ServicioOfertaLike])[0]
@@ -254,37 +256,52 @@ export function TarifaMarcaResumenCard({
 
       {children}
 
-      {onToggleDisponibilidad ? (
-        <TouchableOpacity
-          style={[
-            styles.toggleMarcaBtn,
-            oferta.disponible ? styles.toggleMarcaPause : styles.toggleMarcaPlay,
-          ]}
-          onPress={onToggleDisponibilidad}
-          disabled={togglingDisponibilidad}
-          activeOpacity={0.88}
-        >
-          {togglingDisponibilidad ? (
-            <ActivityIndicator size="small" color={oferta.disponible ? I.accentYellow : I.semanticUp} />
-          ) : (
-            <>
-              <InstitutionalIcon
-                name={oferta.disponible ? 'pause' : 'play-arrow'}
-                size={18}
-                color={oferta.disponible ? I.accentYellow : I.semanticUp}
-                strokeWidth={ICON_STROKE_WIDTH}
-              />
-              <Text
-                style={[
-                  styles.toggleMarcaBtnText,
-                  oferta.disponible ? styles.toggleMarcaPauseText : styles.toggleMarcaPlayText,
-                ]}
-              >
-                {pausaLabel}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+      {onEditar || onToggleDisponibilidad ? (
+        <View style={styles.resumenCardActions}>
+          {onEditar ? (
+            <TouchableOpacity
+              style={[styles.toggleMarcaBtn, styles.toggleMarcaEdit]}
+              onPress={onEditar}
+              activeOpacity={0.88}
+            >
+              <InstitutionalIcon name="edit" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={[styles.toggleMarcaBtnText, styles.toggleMarcaEditText]}>Editar</Text>
+            </TouchableOpacity>
+          ) : null}
+          {onToggleDisponibilidad ? (
+            <TouchableOpacity
+              style={[
+                styles.toggleMarcaBtn,
+                styles.toggleMarcaBtnFlex,
+                oferta.disponible ? styles.toggleMarcaPause : styles.toggleMarcaPlay,
+              ]}
+              onPress={onToggleDisponibilidad}
+              disabled={togglingDisponibilidad}
+              activeOpacity={0.88}
+            >
+              {togglingDisponibilidad ? (
+                <ActivityIndicator size="small" color={oferta.disponible ? I.accentYellow : I.semanticUp} />
+              ) : (
+                <>
+                  <InstitutionalIcon
+                    name={oferta.disponible ? 'pause' : 'play-arrow'}
+                    size={18}
+                    color={oferta.disponible ? I.accentYellow : I.semanticUp}
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
+                  <Text
+                    style={[
+                      styles.toggleMarcaBtnText,
+                      oferta.disponible ? styles.toggleMarcaPauseText : styles.toggleMarcaPlayText,
+                    ]}
+                  >
+                    {pausaLabel}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : null}
+        </View>
       ) : null}
     </View>
   );
@@ -441,8 +458,12 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
     color: I.semanticDown,
   },
-  toggleMarcaBtn: {
+  resumenCardActions: {
     marginTop: SPACING.fixed.md,
+    flexDirection: 'row',
+    gap: SPACING.fixed.sm,
+  },
+  toggleMarcaBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -451,6 +472,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.fixed.md,
     borderRadius: BORDERS.radius.pill,
     borderWidth: BORDERS.width.thin,
+  },
+  toggleMarcaBtnFlex: {
+    flex: 1,
+  },
+  toggleMarcaEdit: {
+    flex: 1,
+    backgroundColor: withOpacity(I.primary, 0.08),
+    borderColor: withOpacity(I.primary, 0.25),
+  },
+  toggleMarcaEditText: {
+    color: I.primary,
   },
   toggleMarcaPause: {
     backgroundColor: withOpacity(I.accentYellow, 0.12),
