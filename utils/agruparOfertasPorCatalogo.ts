@@ -56,11 +56,10 @@ export function normalizeTipoServicio(raw?: string | null): 'con_repuestos' | 's
   return raw === 'con_repuestos' ? 'con_repuestos' : 'sin_repuestos';
 }
 
-/** Clave única de card en Mis servicios: nombre catálogo + tipo (con/sin repuestos). */
+/** Clave única de card en Mis servicios: solo nombre catálogo (agrupa todas las configuraciones). */
 export function grupoKeyOferta(o: ServicioOfertaLike): string {
   const nombre = normalizeNombreServicio(o.servicio_info?.nombre ?? 'servicio');
-  const tipo = normalizeTipoServicio(o.tipo_servicio);
-  return `${nombre}|${tipo}`;
+  return nombre;
 }
 
 export function motoresDistintosEnOfertas(ofertas: ServicioOfertaLike[]): string[] {

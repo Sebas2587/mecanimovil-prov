@@ -90,6 +90,12 @@ export function etiquetaCantidadTarifas(tarifas: TarifaPorMarca[]): string {
   if (tarifas.length <= 1) return 'Precio publicado';
   const marcasUnicas = new Set(tarifas.map((t) => t.marcaId));
   const hayModelos = tarifas.some((t) => t.modeloLabel);
+  const tiposUnicos = new Set(tarifas.map((t) => t.tipoServicio));
+  const hayVariasTipos = tiposUnicos.size > 1;
+  
+  if (hayVariasTipos) {
+    return `${tarifas.length} configuraciones · precio por marca/modelo`;
+  }
   if (hayModelos || marcasUnicas.size < tarifas.length) {
     return `${tarifas.length} tarifas · precio por marca/modelo`;
   }

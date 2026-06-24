@@ -23,10 +23,12 @@ function MarcaTarifaHeader({
   tarifa,
   oferta,
   size = 'md',
+  showTipoServicio = false,
 }: {
   tarifa: TarifaPorMarca;
   oferta?: OfertaMarcaRef;
   size?: 'md' | 'lg';
+  showTipoServicio?: boolean;
 }) {
   const nombre = oferta?.marca_vehiculo_info?.nombre?.trim() || tarifa.marcaLabel;
   const logoUri = oferta?.marca_vehiculo_info?.logo?.trim();
@@ -36,6 +38,7 @@ function MarcaTarifaHeader({
     || oferta?.modelo_vehiculo_info?.nombre?.trim()
     || null;
   const motorSuffix = tarifa.motorLabel?.trim() || null;
+  const tipoLabel = tarifa.tipoServicio === 'con_repuestos' ? 'Con repuestos' : 'Sin repuestos';
 
   return (
     <View style={[styles.marcaHeader, esBase && styles.marcaHeaderStacked]}>
@@ -91,6 +94,13 @@ function MarcaTarifaHeader({
           >
             Todas las marcas
           </Text>
+        ) : showTipoServicio ? (
+          <Text
+            style={[styles.marcaMeta, size === 'lg' && styles.marcaMetaLg]}
+            numberOfLines={1}
+          >
+            {tipoLabel}
+          </Text>
         ) : null}
       </View>
     </View>
@@ -117,6 +127,13 @@ export function TarifasMarcaListaDestacada({
   }, [ofertas]);
 
   const unaSola = list.length === 1;
+  
+  // Detectar si hay mezcla de tipos de servicio (con/sin repuestos)
+  const tiposUnicos = useMemo(() => {
+    const tipos = new Set(list.map((t) => t.tipoServicio));
+    return tipos.size;
+  }, [list]);
+  const mostrarTipoServicio = tiposUnicos > 1;
 
   return (
     <View style={[styles.listaDestacada, unaSola && styles.listaDestacadaUna]}>
@@ -127,7 +144,12 @@ export function TarifasMarcaListaDestacada({
             key={tarifa.ofertaId}
             style={[styles.celdaTarifa, unaSola && styles.celdaTarifaUna]}
           >
-            <MarcaTarifaHeader tarifa={tarifa} oferta={oferta} size={unaSola ? 'lg' : 'md'} />
+            <MarcaTarifaHeader 
+              tarifa={tarifa} 
+              oferta={oferta} 
+              size={unaSola ? 'lg' : 'md'} 
+              showTipoServicio={mostrarTipoServicio}
+            />
             <View style={styles.precioCol}>
               <View style={styles.precioTopRow}>
                 <Text
