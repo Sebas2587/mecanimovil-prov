@@ -40,6 +40,10 @@ import { useAlerts } from '@/context/AlertsContext';
 import suscripcionesService, { type SuscripcionProveedor, type SaludSuscripcion } from '@/services/suscripcionesService';
 import { PerformanceWidget } from '@/components/dashboard/PerformanceWidget';
 import { useProveedorKpisResumen } from '@/hooks/useProveedorKpisResumen';
+import {
+  kpisProveedorService,
+  type GananciasTallerResumen,
+} from '@/services/kpisProveedorService';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
@@ -139,6 +143,9 @@ export default function HomeScreen() {
 
   // Estado para estadísticas de MercadoPago
   const [estadisticasMP, setEstadisticasMP] = useState<EstadisticasPagosMP | null>(null);
+
+  // Ganancias del mes (Mecanimovil completadas + agenda personal)
+  const [gananciasResumen, setGananciasResumen] = useState<GananciasTallerResumen | null>(null);
 
   // Estado para alertas de pago expirado
   const [mostrarAlertaPago, setMostrarAlertaPago] = useState(false);
@@ -242,6 +249,7 @@ export default function HomeScreen() {
       cargarEstadisticasSemanales();
       cargarCreditos();
       cargarEstadisticasMP();
+      cargarGananciasResumen();
       cargarSuscripcion();
       verificarHorariosConfigurados();
     }
@@ -285,6 +293,19 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Error cargando estadísticas MP:', error);
       // No es crítico si falla, mantener null
+    }
+  };
+
+  const cargarGananciasResumen = async () => {
+    try {
+      const result = await kpisProveedorService.obtenerGananciasResumen();
+      if (result.success && result.data) {
+        setGananciasResumen(result.data);
+      } else {
+        devWarn('Error cargando ganancias del taller:', result.error);
+      }
+    } catch (error) {
+      console.error('Error cargando ganancias del taller:', error);
     }
   };
 
@@ -575,6 +596,7 @@ export default function HomeScreen() {
       cargarEstadisticasSemanales(),
       cargarCreditos(),
       cargarEstadisticasMP(),
+      cargarGananciasResumen(),
       cargarSuscripcion(),
       kpisResumen.refresh(),
       verificarHorariosConfigurados(),
@@ -596,12 +618,20 @@ export default function HomeScreen() {
   };
 
   const calcularPorcentajeCambio = (): { texto: string; positivo: boolean } => {
-    const actual = estadisticasMP?.total_recibido_mes || 0;
-    const anterior = estadisticasMP?.total_recibido_mes_anterior || 0;
+    const actual = gananciasResumen?.ganancias_total ?? estadisticasMP?.total_recibido_mes ?? 0;
+    const anterior =
+      gananciasResumen?.ganancias_mes_anterior ?? estadisticasMP?.total_recibido_mes_anterior ?? 0;
+    if (gananciasResumen?.delta_pct_mes != null) {
+      const cambio = gananciasResumen.delta_pct_mes;
+      return { texto: `${cambio >= 0 ? '+' : ''}${cambio.toFixed(1)}%`, positivo: cambio >= 0 };
+    }
     if (anterior === 0) return { texto: actual > 0 ? '+100%' : '0%', positivo: actual >= 0 };
     const cambio = ((actual - anterior) / anterior) * 100;
     return { texto: `${cambio >= 0 ? '+' : ''}${cambio.toFixed(1)}%`, positivo: cambio >= 0 };
   };
+
+  const gananciasMesMostradas =
+    gananciasResumen?.ganancias_total ?? estadisticasMP?.total_recibido_mes ?? estadisticasSemanales.dinero ?? 0;
 
   const primaryObj = safeColors?.primary as any;
   const accentObj = safeColors?.accent as any;
@@ -847,8 +877,15 @@ export default function HomeScreen() {
                       </View>
                       <Text style={themedStyles.finLabel}>Ganancias</Text>
                       <Text style={themedStyles.finEarningsVal}>
-                        ${(estadisticasMP?.total_recibido_mes || estadisticasSemanales.dinero || 0).toLocaleString('es-CL')}
+                        ${gananciasMesMostradas.toLocaleString('es-CL')}
                       </Text>
+                      {gananciasResumen ? (
+                        <Text style={themedStyles.finEarningsHint}>
+                          Mecanimovil ${gananciasResumen.ganancias_mecanimovil.toLocaleString('es-CL')}
+                          {' · '}
+                          Agenda ${gananciasResumen.ganancias_agenda_personal.toLocaleString('es-CL')}
+                        </Text>
+                      ) : null}
                       {(() => {
                         const cambio = calcularPorcentajeCambio();
                         return (

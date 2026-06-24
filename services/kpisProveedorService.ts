@@ -93,6 +93,20 @@ export interface ProveedorKpisResumen {
   mensaje_sugerencia_suscripcion: string | null;
 }
 
+export interface GananciasTallerResumen {
+  ganancias_mecanimovil: number;
+  ganancias_agenda_personal: number;
+  ganancias_total: number;
+  ordenes_mecanimovil: number;
+  ordenes_agenda_personal: number;
+  ganancias_mes_anterior: number;
+  ganancias_mecanimovil_mes_anterior: number;
+  ganancias_agenda_personal_mes_anterior: number;
+  delta_pct_mes: number | null;
+  mes_desde: string;
+  mes_hasta: string;
+}
+
 export interface KpisServiceResponse<T> {
   success: boolean;
   data?: T;
@@ -124,6 +138,35 @@ class KpisProveedorService {
       return {
         success: false,
         message: 'Error de conexión al cargar KPIs',
+        error: error?.message,
+      };
+    }
+  }
+
+  async obtenerGananciasResumen(): Promise<KpisServiceResponse<GananciasTallerResumen>> {
+    try {
+      const response = await api.get('/ordenes/proveedor-ordenes/ganancias-resumen/');
+      return { success: true, data: response.data as GananciasTallerResumen };
+    } catch (error: any) {
+      if (__DEV__) {
+        console.warn(
+          'KpisProveedorService.obtenerGananciasResumen:',
+          error?.response?.data || error?.message,
+        );
+      }
+      if (error.response) {
+        return {
+          success: false,
+          message:
+            error.response.data?.detail ||
+            error.response.data?.message ||
+            'No se pudieron cargar las ganancias',
+          error: JSON.stringify(error.response.data),
+        };
+      }
+      return {
+        success: false,
+        message: 'Error de conexión al cargar ganancias',
         error: error?.message,
       };
     }

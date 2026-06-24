@@ -365,6 +365,14 @@ export function createHomeScreenStyles(
       fontFamily: f.mono,
       color: c.ink,
     },
+    finEarningsHint: {
+      fontSize: caption.fontSize,
+      lineHeight: lineHeightPx(caption.fontSize, caption.lineHeight),
+      fontFamily: f.sansRegular,
+      color: c.muted,
+      textAlign: 'center',
+      marginTop: SPACING.fixed.xxs,
+    },
     finGrowth: {
       flexDirection: 'row',
       alignItems: 'center',
