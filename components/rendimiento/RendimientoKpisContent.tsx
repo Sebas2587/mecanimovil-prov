@@ -17,15 +17,7 @@ import {
   useProveedorKpisResumen,
   targetTierNameForScore,
 } from '@/hooks/useProveedorKpisResumen';
-import equipoTallerService, { type RendimientoMecanico } from '@/services/equipoTallerService';
-
-function rangoFechas(dias: number): { desde: string; hasta: string } {
-  const hasta = new Date();
-  const desde = new Date();
-  desde.setDate(desde.getDate() - dias);
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  return { desde: fmt(desde), hasta: fmt(hasta) };
-}
+import equipoTallerService, { type MecanicoKpis } from '@/services/equipoTallerService';
 
 const DIAS_OPCIONES = [7, 30, 90] as const;
 
@@ -157,14 +149,13 @@ export function RendimientoKpisContent() {
     [data]
   );
 
-  const [mecanicoKpis, setMecanicoKpis] = useState<RendimientoMecanico[]>([]);
+  const [mecanicoKpis, setMecanicoKpis] = useState<MecanicoKpis[]>([]);
 
   useEffect(() => {
     if (!enabled) return;
     let activo = true;
-    const { desde, hasta } = rangoFechas(diasVentana);
     equipoTallerService
-      .rendimiento({ desde, hasta })
+      .rendimientoDetallado({ dias: diasVentana })
       .then((lista) => {
         if (activo) setMecanicoKpis(lista);
       })
@@ -205,7 +196,6 @@ export function RendimientoKpisContent() {
         { label: 'Aceptación órdenes (ø)', value: formatMinutos(data.tiempo_aceptacion_ordenes_promedio_minutos ?? null) },
         { label: 'Rechazos en periodo', value: `${data.rechazos_periodo ?? 0}` },
       ],
-      [
       [
         { label: 'Ejec. vs estimado (ø)', value: formatRatio(data.tiempo_ejecucion_vs_estimado_promedio) },
         { label: 'Arranque checklist (ø)', value: formatMinutos(data.tiempo_inicio_checklist_promedio_minutos ?? null) },
@@ -444,7 +434,8 @@ export function RendimientoKpisContent() {
               <View style={styles.sectionWrap}>
                 <SectionTitle>RESUMEN OPERATIVO POR MECÁNICO</SectionTitle>
                 <Text style={styles.mecanicoSectionHint}>
-                  Conteo operativo por técnico. No alimenta el índice del taller. Ver detalle en Gestión de equipo.
+                  Solo órdenes Mecanimovil con mecánico asignado en el periodo (fecha de servicio o de solicitud).
+                  No alimenta el índice del taller. Ver detalle en Gestión de equipo.
                 </Text>
                 <DsCard>
                   <View style={[styles.mecRow, styles.mecHeaderRow]}>
@@ -462,9 +453,11 @@ export function RendimientoKpisContent() {
                         {m.nombre}
                         {!m.activo ? ' (off)' : ''}
                       </Text>
-                      <Text style={styles.mecNum}>{m.ordenes_asignadas}</Text>
-                      <Text style={styles.mecNum}>{m.ordenes_completadas}</Text>
-                      <Text style={styles.mecNum}>{m.ordenes_en_proceso}</Text>
+                      <Text style={styles.mecNum}>{m.total_asignados ?? 0}</Text>
+                      <Text style={styles.mecNum}>
+                        {m.servicios_completados_totales ?? m.servicios_completados ?? 0}
+                      </Text>
+                      <Text style={styles.mecNum}>{m.servicios_en_proceso ?? 0}</Text>
                     </View>
                   ))}
                 </DsCard>
