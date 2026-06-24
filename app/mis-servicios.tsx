@@ -24,6 +24,7 @@ import {
 import { navigateBack } from '@/utils/navigateBack';
 import { parseMisMarcasResponse } from '@/utils/parseMisMarcasResponse';
 import { TarifasMarcaListaDestacada } from '@/components/servicios/TarifasMarcaCatalogo';
+import { etiquetaCantidadTarifas } from '@/utils/tarifasPorMarca';
 import { MotoresAplicablesChips } from '@/components/servicios/MotoresAplicablesChips';
 import { extractMotoresServicio, labelTipoMotor } from '@/utils/tiposMotorCatalogo';
 
@@ -47,6 +48,13 @@ interface ServicioOferta {
     id: number;
     nombre: string;
     logo: string | null;
+  } | null;
+  modelo_vehiculo_seleccionado?: number | null;
+  modelo_vehiculo_info?: {
+    id: number;
+    nombre: string;
+    marca_id?: number;
+    marca_nombre?: string;
   } | null;
   tipo_motor?: string;
   tipo_servicio: 'con_repuestos' | 'sin_repuestos';
@@ -319,16 +327,23 @@ const MisServiciosScreen = () => {
                       <EstadoDisponibilidadPill grupo={grupo} />
                     </View>
                     <View style={styles.motorBadgesRow}>
-                      <MotoresAplicablesChips
-                        motores={extractMotoresServicio(grupo.representante.servicio_info)}
-                        tipoMotorOferta={grupo.representante.tipo_motor}
-                        variant="card"
-                      />
+                      {grupo.motoresDistintos.length > 1 ? (
+                        <MotoresAplicablesChips
+                          motores={grupo.motoresDistintos}
+                          variant="card"
+                        />
+                      ) : (
+                        <MotoresAplicablesChips
+                          motores={extractMotoresServicio(grupo.representante.servicio_info)}
+                          tipoMotorOferta={
+                            grupo.motoresDistintos[0] ?? grupo.representante.tipo_motor
+                          }
+                          variant="card"
+                        />
+                      )}
                     </View>
                     <Text style={styles.listCardTarifasHint}>
-                      {grupo.tarifasPorMarca.length > 1
-                        ? `${grupo.tarifasPorMarca.length} marcas · precio por marca`
-                        : 'Precio publicado'}
+                      {etiquetaCantidadTarifas(grupo.tarifasPorMarca)}
                     </Text>
                     <EstadoDisponibilidadHint grupo={grupo} />
                     <TarifasMarcaListaDestacada

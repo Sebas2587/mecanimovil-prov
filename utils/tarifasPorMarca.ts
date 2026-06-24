@@ -3,6 +3,7 @@
  */
 import type { ServicioOfertaLike } from './agruparOfertasServicio';
 import { formatearMontoCLP } from './formatearMontoCLP';
+import { labelTipoMotor } from './tiposMotorCatalogo';
 
 export type TarifaPorMarca = {
   ofertaId: number;
@@ -10,12 +11,19 @@ export type TarifaPorMarca = {
   marcaLabel: string;
   modeloId: number | null;
   modeloLabel: string | null;
+  motorCodigo: string | null;
+  motorLabel: string | null;
   precioPublico: number | null;
   disponible: boolean;
   costoManoObra: string | number;
   costoRepuestos: string | number;
   desglose: ServicioOfertaLike['desglose_precios'];
   tipoServicio: string;
+};
+
+type BuildTarifasOptions = {
+  /** Si true, rellena motorLabel en cada tarifa (útil cuando el grupo mezcla motores). */
+  incluirMotor?: boolean;
 };
 
 export function montoPrecioPublicoOferta(o: ServicioOfertaLike): number | null {
@@ -43,20 +51,29 @@ export function etiquetaMarcaOferta(o: ServicioOfertaLike): string {
   return marcaLabel;
 }
 
-export function buildTarifasPorMarca<T extends ServicioOfertaLike>(ofertas: T[]): TarifaPorMarca[] {
-  const rows = ofertas.map((o) => ({
-    ofertaId: o.id,
-    marcaId: o.marca_vehiculo_seleccionada ?? 0,
-    marcaLabel: etiquetaMarcaOferta(o),
-    modeloId: o.modelo_vehiculo_seleccionado ?? null,
-    modeloLabel: o.modelo_vehiculo_info?.nombre?.trim() || null,
-    precioPublico: montoPrecioPublicoOferta(o),
-    disponible: o.disponible !== false,
-    costoManoObra: o.costo_mano_de_obra_sin_iva,
-    costoRepuestos: o.costo_repuestos_sin_iva,
-    desglose: o.desglose_precios,
-    tipoServicio: o.tipo_servicio || 'sin_repuestos',
-  }));
+export function buildTarifasPorMarca<T extends ServicioOfertaLike>(
+  ofertas: T[],
+  opts: BuildTarifasOptions = {},
+): TarifaPorMarca[] {
+  const incluirMotor = opts.incluirMotor === true;
+  const rows = ofertas.map((o) => {
+    const motorCodigo = (o.tipo_motor ?? '').trim() || null;
+    return {
+      ofertaId: o.id,
+      marcaId: o.marca_vehiculo_seleccionada ?? 0,
+      marcaLabel: etiquetaMarcaOferta(o),
+      modeloId: o.modelo_vehiculo_seleccionado ?? null,
+      modeloLabel: o.modelo_vehiculo_info?.nombre?.trim() || null,
+      motorCodigo,
+      motorLabel: incluirMotor && motorCodigo ? labelTipoMotor(motorCodigo) : null,
+      precioPublico: montoPrecioPublicoOferta(o),
+      disponible: o.disponible !== false,
+      costoManoObra: o.costo_mano_de_obra_sin_iva,
+      costoRepuestos: o.costo_repuestos_sin_iva,
+      desglose: o.desglose_precios,
+      tipoServicio: o.tipo_servicio || 'sin_repuestos',
+    };
+  });
 
   return rows.sort((a, b) => {
     if (a.marcaId === 0 && b.marcaId !== 0) return -1;
@@ -67,6 +84,16 @@ export function buildTarifasPorMarca<T extends ServicioOfertaLike>(ofertas: T[])
     const bMod = b.modeloLabel ?? '';
     return aMod.localeCompare(bMod, 'es', { sensitivity: 'base' });
   });
+}
+
+export function etiquetaCantidadTarifas(tarifas: TarifaPorMarca[]): string {
+  if (tarifas.length <= 1) return 'Precio publicado';
+  const marcasUnicas = new Set(tarifas.map((t) => t.marcaId));
+  const hayModelos = tarifas.some((t) => t.modeloLabel);
+  if (hayModelos || marcasUnicas.size < tarifas.length) {
+    return `${tarifas.length} tarifas · precio por marca/modelo`;
+  }
+  return `${tarifas.length} marcas · precio por marca`;
 }
 
 export function formatearPrecioCLP(valor: number | null | undefined): string {

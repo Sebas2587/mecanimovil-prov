@@ -1611,6 +1611,18 @@ const CrearServicioScreen = () => {
       return;
     }
 
+    if (
+      servicioSeleccionado
+      && requiereSelectorAlcanceMotor(motoresCatalogoSeleccionado)
+      && !alcanceMotor
+    ) {
+      showAlert(
+        'Tipo de motor requerido',
+        'Indica si este precio aplica a todos los motores del catálogo o solo a uno (por ejemplo, Gasolina).',
+      );
+      return;
+    }
+
     const requiereConfirmacionMultimarca =
       !opts?.omitirConfirmacion
       && !esGenericoTodasMarcas
@@ -2775,16 +2787,16 @@ const CrearServicioScreen = () => {
     const confirmarConfig = () => {
       const precioStr = localPrecio.trim();
       if (precioStr === '' || precioStr === '0') {
-        Alert.alert('Precio inválido', 'Ingresa un precio mayor a 0');
+        showAlert('Precio inválido', 'Ingresa un precio mayor a 0');
         return;
       }
       const precioNum = parseMontoDecimal(precioStr);
       if (precioNum <= 0) {
-        Alert.alert('Precio inválido', 'Ingresa un número válido mayor a 0');
+        showAlert('Precio inválido', 'Ingresa un número válido mayor a 0');
         return;
       }
       if (!localCalidad) {
-        Alert.alert('Calidad requerida', 'Selecciona Original, OEM o Alternativo');
+        showAlert('Calidad requerida', 'Selecciona Original, OEM o Alternativo');
         return;
       }
 

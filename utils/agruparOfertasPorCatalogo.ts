@@ -1,6 +1,6 @@
 /**
- * Agrupa ofertas por servicio de catálogo + tipo (vista Mis servicios).
- * Calcula rango de precio publicado cuando hay varias marcas/configuraciones.
+ * Agrupa ofertas por servicio de catálogo (vista Mis servicios).
+ * Una card = mismo nombre de servicio (+ con/sin repuestos), con todas las tarifas marca/modelo.
  */
 import type { ServicioOfertaLike, ServicioOfertaGrupo } from './agruparOfertasServicio';
 import { agruparOfertasServicio } from './agruparOfertasServicio';
@@ -18,8 +18,15 @@ export interface ServicioCatalogoGrupo<T extends ServicioOfertaLike = ServicioOf
   ofertas: T[];
   subgrupos: ServicioOfertaGrupo<T>[];
   representante: T;
-  ofertasGrupo: { id: number; marca_id: number; nombre?: string }[];
+  ofertasGrupo: {
+    id: number;
+    marca_id: number;
+    nombre?: string;
+    modelo_id?: number | null;
+    modelo_nombre?: string;
+  }[];
   marcaIds: number[];
+  motoresDistintos: string[];
   precioMin: number | null;
   precioMax: number | null;
   tieneRangoPrecio: boolean;
@@ -29,73 +36,117 @@ export interface ServicioCatalogoGrupo<T extends ServicioOfertaLike = ServicioOf
   tarifasPorMarca: TarifaPorMarca[];
 }
 
-function catalogoKey(o: ServicioOfertaLike): string {
-  const servicioId = o.servicio ?? o.servicio_info?.id ?? 0;
-  const motor = (o.tipo_motor ?? '').trim();
-  return `${servicioId}|${o.tipo_servicio || 'sin_repuestos'}|${motor}`;
+function resolveServicioCatalogoId(o: ServicioOfertaLike): number {
+  const raw = o.servicio_info?.id ?? o.servicio ?? 0;
+  const n = typeof raw === 'number' ? raw : parseInt(String(raw), 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Nombre normalizado para agrupar aunque el catálogo tenga IDs distintos con el mismo título. */
+export function normalizeNombreServicio(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/\s+/g, ' ');
+}
+
+export function normalizeTipoServicio(raw?: string | null): 'con_repuestos' | 'sin_repuestos' {
+  return raw === 'con_repuestos' ? 'con_repuestos' : 'sin_repuestos';
+}
+
+/** Clave única de card en Mis servicios: nombre catálogo + tipo (con/sin repuestos). */
+export function grupoKeyOferta(o: ServicioOfertaLike): string {
+  const nombre = normalizeNombreServicio(o.servicio_info?.nombre ?? 'servicio');
+  const tipo = normalizeTipoServicio(o.tipo_servicio);
+  return `${nombre}|${tipo}`;
+}
+
+export function motoresDistintosEnOfertas(ofertas: ServicioOfertaLike[]): string[] {
+  const set = new Set<string>();
+  for (const o of ofertas) {
+    const motor = (o.tipo_motor ?? '').trim();
+    if (motor) set.add(motor);
+  }
+  return [...set].sort();
+}
+
+function buildGrupoFromOfertas<T extends ServicioOfertaLike>(
+  key: string,
+  list: T[],
+): ServicioCatalogoGrupo<T> {
+  const byId = new Map<number, T>();
+  for (const o of list) {
+    if (o?.id != null) byId.set(o.id, o);
+  }
+  const sorted = [...byId.values()].sort((a, b) => a.id - b.id);
+  const subgrupos = agruparOfertasServicio(sorted);
+  const motoresDistintos = motoresDistintosEnOfertas(sorted);
+  const tarifasPorMarca = buildTarifasPorMarca(sorted, {
+    incluirMotor: motoresDistintos.length > 1,
+  });
+  const representante = subgrupos[0]?.representante ?? sorted[0];
+  const montos = sorted.map(montoPrecioPublicoOferta).filter((m): m is number => m != null);
+  const precioMin = montos.length ? Math.min(...montos) : null;
+  const precioMax = montos.length ? Math.max(...montos) : null;
+  const tieneRangoPrecio =
+    precioMin != null && precioMax != null && Math.round(precioMin) !== Math.round(precioMax);
+
+  const ofertasGrupo = sorted.map((o) => ({
+    id: o.id,
+    marca_id: o.marca_vehiculo_seleccionada ?? 0,
+    modelo_id: o.modelo_vehiculo_seleccionado ?? null,
+    nombre: o.marca_vehiculo_info?.nombre?.trim() || undefined,
+    modelo_nombre: o.modelo_vehiculo_info?.nombre?.trim() || undefined,
+  }));
+  const marcaIds = [...new Set(ofertasGrupo.map((x) => x.marca_id))].sort((a, b) => a - b);
+
+  const fechas = sorted
+    .map((o) => o.fecha_creacion)
+    .filter((f): f is string => !!f);
+  const fechaReciente = fechas.length
+    ? fechas.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0]
+    : representante.fecha_creacion ?? '';
+
+  const servicioId = resolveServicioCatalogoId(representante);
+
+  return {
+    key,
+    servicioId,
+    tipo_servicio: normalizeTipoServicio(representante.tipo_servicio),
+    nombre: representante.servicio_info?.nombre ?? 'Servicio',
+    ofertas: sorted,
+    subgrupos,
+    representante,
+    ofertasGrupo,
+    marcaIds,
+    motoresDistintos,
+    precioMin,
+    precioMax,
+    tieneRangoPrecio,
+    todasDisponibles: sorted.every((o) => o.disponible !== false),
+    algunaDisponible: sorted.some((o) => o.disponible !== false),
+    fechaReciente,
+    tarifasPorMarca,
+  };
 }
 
 export function agruparOfertasPorCatalogo<T extends ServicioOfertaLike>(
   ofertas: T[],
 ): ServicioCatalogoGrupo<T>[] {
-  const porCatalogo = new Map<string, T[]>();
+  const porGrupo = new Map<string, T[]>();
+
   for (const o of ofertas) {
-    const key = catalogoKey(o);
-    const bucket = porCatalogo.get(key);
+    const key = grupoKeyOferta(o);
+    const bucket = porGrupo.get(key);
     if (bucket) bucket.push(o);
-    else porCatalogo.set(key, [o]);
+    else porGrupo.set(key, [o]);
   }
 
-  const grupos: ServicioCatalogoGrupo<T>[] = [];
-
-  for (const [key, list] of porCatalogo) {
-    const sorted = [...list].sort((a, b) => a.id - b.id);
-    const subgrupos = agruparOfertasServicio(sorted);
-    const tarifasPorMarca = buildTarifasPorMarca(sorted);
-    const representante = subgrupos[0]?.representante ?? sorted[0];
-    const montos = sorted.map(montoPrecioPublicoOferta).filter((m): m is number => m != null);
-    const precioMin = montos.length ? Math.min(...montos) : null;
-    const precioMax = montos.length ? Math.max(...montos) : null;
-    const tieneRangoPrecio =
-      precioMin != null && precioMax != null && Math.round(precioMin) !== Math.round(precioMax);
-
-    const ofertasGrupo = sorted.map((o) => ({
-      id: o.id,
-      marca_id: o.marca_vehiculo_seleccionada ?? 0,
-      modelo_id: o.modelo_vehiculo_seleccionado ?? null,
-      nombre: o.marca_vehiculo_info?.nombre?.trim() || undefined,
-      modelo_nombre: o.modelo_vehiculo_info?.nombre?.trim() || undefined,
-    }));
-    const marcaIds = [...new Set(ofertasGrupo.map((x) => x.marca_id))].sort((a, b) => a - b);
-
-    const fechas = sorted
-      .map((o) => o.fecha_creacion)
-      .filter((f): f is string => !!f);
-    const fechaReciente = fechas.length
-      ? fechas.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0]
-      : representante.fecha_creacion ?? '';
-
-    const servicioId = representante.servicio ?? representante.servicio_info?.id ?? 0;
-
-    grupos.push({
-      key,
-      servicioId: Number(servicioId),
-      tipo_servicio: representante.tipo_servicio,
-      nombre: representante.servicio_info?.nombre ?? 'Servicio',
-      ofertas: sorted,
-      subgrupos,
-      representante,
-      ofertasGrupo,
-      marcaIds,
-      precioMin,
-      precioMax,
-      tieneRangoPrecio,
-      todasDisponibles: sorted.every((o) => o.disponible !== false),
-      algunaDisponible: sorted.some((o) => o.disponible !== false),
-      fechaReciente,
-      tarifasPorMarca,
-    });
-  }
+  const grupos = [...porGrupo.entries()].map(([key, list]) =>
+    buildGrupoFromOfertas(key, list),
+  );
 
   return grupos.sort((a, b) =>
     a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }),

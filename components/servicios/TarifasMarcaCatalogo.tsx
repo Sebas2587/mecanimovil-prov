@@ -5,7 +5,7 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/ap
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { TarifaPorMarca } from '@/utils/tarifasPorMarca';
-import { formatearPrecioCLP, montoPrecioPublicoOferta } from '@/utils/tarifasPorMarca';
+import { formatearPrecioCLP, montoPrecioPublicoOferta, buildTarifasPorMarca, etiquetaMarcaOferta } from '@/utils/tarifasPorMarca';
 import type { ServicioOfertaLike } from '@/utils/agruparOfertasServicio';
 
 const I = COLORS.institutional;
@@ -15,6 +15,8 @@ const TY = TYPOGRAPHY.styles;
 type OfertaMarcaRef = ServicioOfertaLike & {
   id: number;
   marca_vehiculo_info?: { nombre?: string; logo?: string | null } | null;
+  modelo_vehiculo_info?: { nombre?: string } | null;
+  modelo_vehiculo_seleccionado?: number | null;
 };
 
 function MarcaTarifaHeader({
@@ -29,14 +31,20 @@ function MarcaTarifaHeader({
   const nombre = oferta?.marca_vehiculo_info?.nombre?.trim() || tarifa.marcaLabel;
   const logoUri = oferta?.marca_vehiculo_info?.logo?.trim();
   const esBase = tarifa.marcaId === 0;
+  const modeloSub =
+    tarifa.modeloLabel?.trim()
+    || oferta?.modelo_vehiculo_info?.nombre?.trim()
+    || null;
+  const motorSuffix = tarifa.motorLabel?.trim() || null;
 
   return (
-    <View style={styles.marcaHeader}>
+    <View style={[styles.marcaHeader, esBase && styles.marcaHeaderStacked]}>
       <View
         style={[
           styles.marcaIconWrap,
           size === 'lg' && styles.marcaIconWrapLg,
           esBase && styles.marcaIconWrapBase,
+          esBase && styles.marcaIconWrapTop,
         ]}
       >
         {logoUri ? (
@@ -51,19 +59,37 @@ function MarcaTarifaHeader({
         )}
       </View>
       <View style={styles.marcaTextCol}>
-        <Text
-          style={[styles.marcaNombre, size === 'lg' && styles.marcaNombreLg]}
-          numberOfLines={2}
-        >
-          {nombre}
-        </Text>
-        {esBase ? (
-          <Text style={styles.marcaSub} numberOfLines={1}>
-            Todas las marcas
+        {modeloSub && !esBase ? (
+          <Text
+            style={[styles.marcaNombre, size === 'lg' && styles.marcaNombreLg]}
+            numberOfLines={2}
+          >
+            {nombre}
+            <Text style={[styles.marcaModeloInline, size === 'lg' && styles.marcaModeloInlineLg]}>
+              {' · '}
+              {modeloSub}
+            </Text>
+            {motorSuffix ? (
+              <Text style={[styles.marcaMotorInline, size === 'lg' && styles.marcaMotorInlineLg]}>
+                {' · '}
+                {motorSuffix}
+              </Text>
+            ) : null}
           </Text>
-        ) : tarifa.modeloLabel ? (
-          <Text style={styles.marcaSub} numberOfLines={1}>
-            {tarifa.modeloLabel}
+        ) : (
+          <Text
+            style={[styles.marcaNombre, size === 'lg' && styles.marcaNombreLg]}
+            numberOfLines={1}
+          >
+            {nombre}
+          </Text>
+        )}
+        {esBase ? (
+          <Text
+            style={[styles.marcaMeta, size === 'lg' && styles.marcaMetaLg]}
+            numberOfLines={1}
+          >
+            Todas las marcas
           </Text>
         ) : null}
       </View>
@@ -145,21 +171,28 @@ export function TarifaMarcaResumenCard({
   onToggleDisponibilidad,
   togglingDisponibilidad = false,
 }: ResumenOfertaProps) {
-  const tarifa: TarifaPorMarca = {
-    ofertaId: oferta.id,
-    marcaId: oferta.marca_vehiculo_seleccionada ?? 0,
-    marcaLabel:
-      oferta.marca_vehiculo_info?.nombre?.trim()
-      || (oferta.marca_vehiculo_seleccionada == null ? 'Precio base' : `Marca #${oferta.marca_vehiculo_seleccionada}`),
-    precioPublico: null,
-    disponible: oferta.disponible !== false,
-    costoManoObra: oferta.costo_mano_de_obra_sin_iva,
-    costoRepuestos: oferta.costo_repuestos_sin_iva,
-    desglose: oferta.desglose_precios,
-    tipoServicio: oferta.tipo_servicio || 'sin_repuestos',
-  };
+  const tarifa =
+    buildTarifasPorMarca([oferta as ServicioOfertaLike])[0]
+    ?? {
+      ofertaId: oferta.id,
+      marcaId: oferta.marca_vehiculo_seleccionada ?? 0,
+      marcaLabel: etiquetaMarcaOferta(oferta as ServicioOfertaLike),
+      modeloId: oferta.modelo_vehiculo_seleccionado ?? null,
+      modeloLabel: oferta.modelo_vehiculo_info?.nombre?.trim() || null,
+      motorCodigo: (oferta.tipo_motor ?? '').trim() || null,
+      motorLabel: null,
+      precioPublico: montoPrecioPublicoOferta(oferta as ServicioOfertaLike),
+      disponible: oferta.disponible !== false,
+      costoManoObra: oferta.costo_mano_de_obra_sin_iva,
+      costoRepuestos: oferta.costo_repuestos_sin_iva,
+      desglose: oferta.desglose_precios,
+      tipoServicio: oferta.tipo_servicio || 'sin_repuestos',
+    };
 
-  const precioHero = montoPrecioPublicoOferta(oferta);
+  const precioHero = montoPrecioPublicoOferta(oferta as ServicioOfertaLike);
+  const pausaLabel = tarifa.modeloLabel
+    ? (oferta.disponible ? 'Pausar este modelo' : 'Activar este modelo')
+    : (oferta.disponible ? 'Pausar esta marca' : 'Activar esta marca');
 
   const tipoLabel =
     oferta.tipo_servicio === 'con_repuestos' ? 'Con repuestos' : 'Sin repuestos';
@@ -225,7 +258,7 @@ export function TarifaMarcaResumenCard({
                   oferta.disponible ? styles.toggleMarcaPauseText : styles.toggleMarcaPlayText,
                 ]}
               >
-                {oferta.disponible ? 'Pausar esta marca' : 'Activar esta marca'}
+                {pausaLabel}
               </Text>
             </>
           )}
@@ -267,6 +300,12 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.sm,
     minWidth: 0,
   },
+  marcaHeaderStacked: {
+    alignItems: 'flex-start',
+  },
+  marcaIconWrapTop: {
+    marginTop: 2,
+  },
   marcaIconWrap: {
     width: 32,
     height: 32,
@@ -300,13 +339,37 @@ const styles = StyleSheet.create({
     lineHeight: Math.round(TYPOGRAPHY.fontSize.sm * 1.35),
   },
   marcaNombreLg: {
-    fontSize: TYPOGRAPHY.fontSize.base,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.md * TYPOGRAPHY.lineHeight.tight),
+    letterSpacing: TYPOGRAPHY.letterSpacing.tight,
   },
-  marcaSub: {
-    marginTop: 2,
-    fontSize: TYPOGRAPHY.fontSize.xs,
+  marcaModeloInline: {
+    fontFamily: FF.sansMedium,
+    color: I.body,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+  },
+  marcaModeloInlineLg: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+  },
+  marcaMotorInline: {
     fontFamily: FF.sansRegular,
     color: I.muted,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+  },
+  marcaMotorInlineLg: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+  },
+  marcaMeta: {
+    marginTop: SPACING.fixed.xxs,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.sm * TYPOGRAPHY.lineHeight.normal),
+  },
+  marcaMetaLg: {
+    fontSize: TYPOGRAPHY.fontSize.base,
   },
   precioCol: {
     alignItems: 'flex-end',

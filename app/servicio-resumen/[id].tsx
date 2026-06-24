@@ -16,6 +16,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { parseOfertasGrupoParam } from '@/utils/agruparOfertasServicio';
 import { TarifaMarcaResumenCard } from '@/components/servicios/TarifasMarcaCatalogo';
+import { etiquetaMarcaOferta } from '@/utils/tarifasPorMarca';
 import { navigateBack } from '@/utils/navigateBack';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
 
@@ -38,6 +39,13 @@ interface ServicioOferta {
     id: number;
     nombre: string;
     logo: string | null;
+  } | null;
+  modelo_vehiculo_seleccionado?: number | null;
+  modelo_vehiculo_info?: {
+    id: number;
+    nombre: string;
+    marca_id?: number;
+    marca_nombre?: string;
   } | null;
   tipo_servicio: 'con_repuestos' | 'sin_repuestos';
   disponible: boolean;
@@ -279,9 +287,8 @@ export default function ServicioResumenScreen() {
 
   const toggleDisponibilidadOferta = async (ofertaId: number, disponibleActual: boolean) => {
     const nueva = !disponibleActual;
-    const marcaLabel =
-      ofertasParaDesglose.find((o) => o.id === ofertaId)?.marca_vehiculo_info?.nombre?.trim()
-      || 'esta marca';
+    const ofertaRef = ofertasParaDesglose.find((o) => o.id === ofertaId);
+    const marcaLabel = ofertaRef ? etiquetaMarcaOferta(ofertaRef) : 'esta tarifa';
     try {
       setTogglingOfertaId(ofertaId);
       const { serviciosAPI } = await import('@/services/api');
@@ -306,7 +313,7 @@ export default function ServicioResumenScreen() {
     const activar = resumenDisponibilidad.activas < resumenDisponibilidad.total;
     const accion = activar ? 'activar' : 'pausar';
     const nombres = ofertasParaDesglose
-      .map((o) => o.marca_vehiculo_info?.nombre?.trim() || 'Precio base')
+      .map((o) => etiquetaMarcaOferta(o))
       .join(', ');
 
     showConfirm(
@@ -537,13 +544,9 @@ export default function ServicioResumenScreen() {
                 <InstitutionalIcon name="directions-car" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
               </View>
               <View style={styles.infoBody}>
-                <Text style={styles.label}>Marca de vehículo</Text>
+                <Text style={styles.label}>Marca / modelo</Text>
                 <Text style={styles.value}>
-                  {servicio.marca_vehiculo_info?.nombre?.trim()
-                    ? servicio.marca_vehiculo_info.nombre
-                    : ofertasGrupo[0]?.marca_id === 0
-                      ? 'Precio base (todas las marcas)'
-                      : 'No especificada'}
+                  {etiquetaMarcaOferta(servicio)}
                 </Text>
               </View>
             </View>
@@ -617,7 +620,7 @@ export default function ServicioResumenScreen() {
         {variasTarifas ? (
           <>
             <Text style={styles.sectionHeading}>
-              {ofertasParaDesglose.length} configuraciones por marca
+              {ofertasParaDesglose.length} configuraciones por marca/modelo
             </Text>
             {ofertasParaDesglose.map((oferta) => (
               <TarifaMarcaResumenCard

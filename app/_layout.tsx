@@ -108,6 +108,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { RadarOportunidadesProvider } from '@/context/RadarOportunidadesContext';
 import { ChatsProvider } from '@/context/ChatsContext';
 import { AlertsProvider } from '@/context/AlertsContext';
+import { PlatformAlertHost } from '@/components/ui/PlatformAlertHost';
 import { PushNotificationSetup } from '@/components/push/PushNotificationSetup';
 import { DesignSystemThemeProvider } from '@/app/design-system/theme/DesignSystemThemeProvider';
 
@@ -170,6 +171,7 @@ export default function RootLayout() {
             <AlertsProvider>
               <ChatsProvider>
                 <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                  <PlatformAlertHost />
                   <Stack
                     screenOptions={{
                       // iOS: evita el texto "(tabs)" junto a la flecha al abrir pantallas fuera del grupo tabs
