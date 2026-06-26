@@ -433,7 +433,7 @@ export default function CatalogoServiciosMarcasScreen() {
                     <InstitutionalIcon
                       name={serviciosGenericos.every((s) => seleccionadosGenericos.has(s.id)) ? 'checkbox' : 'square-outline'}
                       size={16}
-                      color={serviciosGenericos.every((s) => seleccionadosGenericos.has(s.id)) ? '#fff' : '#555'}
+                      color={serviciosGenericos.every((s) => seleccionadosGenericos.has(s.id)) ? I.onPrimary : I.body}
                       strokeWidth={ICON_STROKE_WIDTH}
                     />
                     <Text style={[

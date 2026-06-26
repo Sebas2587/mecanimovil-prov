@@ -1,7 +1,13 @@
 import type { Router } from 'expo-router';
+import type { QueryClient } from '@tanstack/react-query';
 import type { Orden } from '@/services/ordenesProveedor';
 import type { OfertaProveedor } from '@/services/solicitudesService';
 import type { CitaAgendaPersonal } from '@/services/agendaProveedorService';
+import {
+  openCitaPersonalDetalle,
+  openOfertaDetalle,
+  openSolicitudDetalle,
+} from '@/utils/navigateProveedorDetalle';
 
 export type OrigenOrden = 'mecanimovil' | 'personal';
 
@@ -80,16 +86,20 @@ export function mergeOrdenesActivas(
   return items;
 }
 
-export function navigateToOrdenActiva(router: Router, item: OrdenActivaItem): void {
+export function navigateToOrdenActiva(
+  router: Router,
+  queryClient: QueryClient,
+  item: OrdenActivaItem,
+): void {
   if (item.origen === 'personal') {
-    router.push(`/cita-agenda-personal/${item.cita.id}`);
+    openCitaPersonalDetalle(router, queryClient, item.cita.id, item.cita);
     return;
   }
 
   const { orden, oferta } = item;
   if (orden) {
     if (orden.oferta_proveedor_id) {
-      router.push(`/oferta-detalle/${orden.oferta_proveedor_id}`);
+      openOfertaDetalle(router, queryClient, String(orden.oferta_proveedor_id), oferta);
     } else {
       router.push(`/servicio-detalle/${orden.id}`);
     }
@@ -98,9 +108,9 @@ export function navigateToOrdenActiva(router: Router, item: OrdenActivaItem): vo
 
   if (oferta) {
     if (oferta.solicitud) {
-      router.push(`/solicitud-detalle/${oferta.solicitud}`);
+      openSolicitudDetalle(router, queryClient, oferta.solicitud, { oferta });
     } else {
-      router.push(`/oferta-detalle/${oferta.id}`);
+      openOfertaDetalle(router, queryClient, oferta.id, oferta);
     }
   }
 }

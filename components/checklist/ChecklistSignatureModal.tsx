@@ -14,6 +14,8 @@ import * as Location from 'expo-location';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import { MecanicoAsignadoCard, type MecanicoAsignadoInfo } from '@/components/equipo/MecanicoAsignadoCard';
 
@@ -98,13 +100,13 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
       width: var(--width);
       height: var(--height);
       padding: 16px;
-      border: 1px dashed #e9ecef;
+      border: 1px dashed ${I.hairline};
       border-radius: 12px;
-      background-color: #f8f9fa;
+      background-color: ${I.surfaceSoft};
     }
     .m-signature-pad--body {
       border: none;
-      background-color: white;
+      background-color: ${I.canvas};
       border-radius: 6px;
       height: calc(100% - 40px) !important;
     }
@@ -326,7 +328,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
         subtitle:
           'Firma para enviar el cierre del servicio. El cliente recibirá una notificación para confirmar con su firma desde su app.',
         icon: 'engineering',
-        color: '#2A4065',
+        color: I.primaryActive,
       };
     }
     if (signatureMode === 'cliente_only') {
@@ -334,7 +336,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
         title: 'Firma del Cliente',
         subtitle: 'El cliente debe firmar para confirmar la recepción del servicio',
         icon: 'person',
-        color: '#28a745',
+        color: I.semanticUp,
       };
     }
     switch (currentStep) {
@@ -343,21 +345,21 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
           title: 'Firma del Técnico',
           subtitle: 'Como técnico responsable, confirma que has realizado el servicio',
           icon: 'engineering',
-          color: '#2A4065',
+          color: I.primaryActive,
         };
       case 'cliente':
         return {
           title: 'Firma del Cliente',
           subtitle: 'Como cliente, confirma que autorizas o recibes el servicio',
           icon: 'person',
-          color: '#28a745',
+          color: I.semanticUp,
         };
       default:
         return {
           title: '',
           subtitle: '',
           icon: 'edit',
-          color: '#6c757d',
+          color: I.muted,
         };
     }
   };
@@ -375,7 +377,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
         {/* Header minimalista */}
         <View style={styles.header}>
           <TouchableOpacity onPress={cancelar} style={styles.cancelButton}>
-            <InstitutionalIcon name="arrow-back" size={24} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="arrow-back" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
           
           <View style={styles.headerCenter}>
@@ -395,7 +397,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
                 (currentStep === 'tecnico' ? styles.progressCircleCurrent : styles.progressCirclePending)
               ]}>
                 {signatures.tecnico ? (
-                  <InstitutionalIcon name="check" size={18} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
+                  <InstitutionalIcon name="check" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                 ) : (
                   <Text style={[styles.progressNumber, currentStep === 'tecnico' && styles.progressNumberCurrent]}>1</Text>
                 )}
@@ -410,7 +412,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
                 (currentStep === 'cliente' ? styles.progressCircleCurrent : styles.progressCirclePending)
               ]}>
                 {signatures.cliente ? (
-                  <InstitutionalIcon name="check" size={18} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
+                  <InstitutionalIcon name="check" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                 ) : (
                   <Text style={[styles.progressNumber, currentStep === 'cliente' && styles.progressNumberCurrent]}>2</Text>
                 )}
@@ -448,7 +450,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
           {/* Estado de obtención de ubicación */}
           {obtainingLocation && (
             <View style={styles.locationContainer}>
-              <ActivityIndicator size="small" color="#856404" />
+              <ActivityIndicator size="small" color={institutionalStatusColors('warning').text} />
               <Text style={styles.locationText}>Obteniendo ubicación GPS...</Text>
             </View>
           )}
@@ -464,7 +466,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
               onBegin={handleBeginDraw}
               webStyle={signatureStyle}
               backgroundColor="rgba(255,255,255,0)"
-              penColor="#000"
+              penColor={I.ink}
               height={CANVAS_HEIGHT}
               style={{ flex: 1 }}
             />
@@ -473,25 +475,28 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
           {/* Botones de control - minimalista */}
           <View style={styles.signatureControls}>
             <TouchableOpacity style={styles.clearButton} onPress={limpiarFirma}>
-              <InstitutionalIcon name="refresh" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="refresh" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.clearButtonText}>Limpiar</Text>
             </TouchableOpacity>
             
             {currentStep === 'cliente' && signatures.tecnico && (
               <TouchableOpacity style={styles.backButton} onPress={regresarPaso}>
-                <InstitutionalIcon name="arrow-back" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="arrow-back" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             )}
             
             {/* Botón manual para confirmar */}
             {hasDrawnSignature && (
-              <TouchableOpacity 
-                style={styles.manualConfirmButton} 
+              <InstitutionalButton
+                label="Confirmar"
                 onPress={() => signatureRef.current?.readSignature()}
-              >
-                <Text style={styles.manualConfirmButtonText}>Confirmar</Text>
-                <InstitutionalIcon name="arrow-forward" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
-              </TouchableOpacity>
+                variant="primary"
+                size="compact"
+                leading={
+                  <InstitutionalIcon name="arrow-forward" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                }
+                style={styles.manualConfirmButton}
+              />
             )}
           </View>
         </View>
@@ -535,9 +540,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 20,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    backgroundColor: I.canvas,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairline,
   },
   progressStep: {
     alignItems: 'center',
@@ -593,7 +598,7 @@ const styles = StyleSheet.create({
   stepInfo: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
     marginTop: 20,
   },
   mecanicoWrap: {
@@ -603,22 +608,22 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#212529',
+    color: I.ink,
     marginBottom: 6,
   },
   stepSubtitle: {
     fontSize: 14,
-    color: '#6c757d',
+    color: I.muted,
     lineHeight: 20,
   },
   orderInfo: {
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
     marginHorizontal: 20,
     marginTop: 16,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: I.hairline,
   },
   orderInfoRow: {
     flexDirection: 'row',
@@ -628,35 +633,34 @@ const styles = StyleSheet.create({
   },
   orderInfoRowFirst: {
     borderBottomWidth: 1,
-    borderBottomColor: '#f8f9fa',
+    borderBottomColor: I.surfaceSoft,
   },
   orderInfoRowLast: {
     borderBottomWidth: 0,
   },
   orderInfoLabel: {
     fontSize: 14,
-    color: '#6c757d',
+    color: I.muted,
     fontWeight: '500',
   },
   orderInfoValue: {
     fontSize: 14,
-    color: '#212529',
+    color: I.ink,
     fontWeight: '600',
   },
   signatureContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
     paddingHorizontal: 20,
     paddingVertical: 20,
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: I.hairline,
   },
   signatureCanvas: {
-    // Altura dinámica aplicada en tiempo de render
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: I.hairline,
     borderStyle: 'dashed',
     borderRadius: 12,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
     marginBottom: 16,
   },
   signatureControls: {
@@ -670,22 +674,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: I.hairline,
   },
   clearButtonText: {
     marginLeft: 6,
     fontSize: 14,
-    color: '#6c757d',
+    color: I.muted,
     fontWeight: '500',
   },
   backButton: {
     padding: 10,
     borderRadius: 10,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: I.hairline,
   },
   locationContainer: {
     flexDirection: 'row',
@@ -694,31 +698,18 @@ const styles = StyleSheet.create({
     padding: 14,
     marginHorizontal: 20,
     marginTop: 16,
-    backgroundColor: '#fff8e1',
+    backgroundColor: institutionalStatusColors('warning').bg,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#ffe08a',
+    borderColor: institutionalStatusColors('warning').border,
   },
   locationText: {
     marginLeft: 8,
     fontSize: 13,
-    color: '#856404',
+    color: institutionalStatusColors('warning').text,
     fontWeight: '500',
   },
   manualConfirmButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.primary,
-    gap: 8,
     flex: 1,
-    justifyContent: 'center',
-  },
-  manualConfirmButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    color: I.onPrimary,
-    fontFamily: FF.sansSemiBold,
   },
 }); 

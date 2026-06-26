@@ -89,7 +89,7 @@ export default function TabLayout() {
           paddingBottom: insets.bottom,
           paddingTop: 6,
           ...platformShadow({
-            shadowColor: '#000',
+            shadowColor: COLORS.base.inkBlack,
             shadowOffset: { width: 0, height: -2 },
             shadowOpacity: Platform.OS === 'ios' ? 0.04 : 0.06,
             shadowRadius: 8,

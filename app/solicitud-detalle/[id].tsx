@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,16 @@ import {
   Platform,
 } from 'react-native';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
-import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
+import {
+  patchSolicitudDetalleCache,
+  useSolicitudDetalleQuery,
+} from '@/hooks/useSolicitudDetalleQuery';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, withOpacity, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow, noShadow } from '@/app/design-system/tokens';
 import solicitudesService, {
-  obtenerDetalleOferta,
   type SolicitudPublica,
   type OfertaProveedor,
   type MotivoRechazo,
@@ -64,7 +67,7 @@ const hx = SPACING.container.horizontal;
 const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
 const shadowFooter = platformShadow({
-  shadowColor: '#000',
+  shadowColor: COLORS.base.inkBlack,
   shadowOffset: { width: 0, height: -2 },
   shadowOpacity: 0.06,
   shadowRadius: 8,
@@ -150,10 +153,18 @@ export default function SolicitudDetalleScreen() {
     invalidateProveedorMarketplaceQueries(queryClient);
   }, [queryClient]);
 
-  const [solicitud, setSolicitud] = useState<SolicitudPublica | null>(null);
-  const [miOferta, setMiOferta] = useState<OfertaProveedor | null>(null);
-  const [ofertasSecundarias, setOfertasSecundarias] = useState<OfertaProveedor[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: detalleBundle,
+    isPending: detallePending,
+    isError: detalleError,
+    refetch: refetchDetalle,
+  } = useSolicitudDetalleQuery(id);
+
+  const solicitud = detalleBundle?.solicitud ?? null;
+  const miOferta = detalleBundle?.miOferta ?? null;
+  const ofertasSecundarias = detalleBundle?.ofertasSecundarias ?? [];
+  const showInitialLoader = Boolean(id) && detallePending && !detalleBundle;
+
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
   const [rechazando, setRechazando] = useState(false);
   const [confirmandoCatalogo, setConfirmandoCatalogo] = useState(false);
@@ -162,96 +173,36 @@ export default function SolicitudDetalleScreen() {
   const [fotoAmpliadaUrl, setFotoAmpliadaUrl] = useState<string | null>(null);
   const [mecanicosPropuesta, setMecanicosPropuesta] = useState<MecanicoPropuestaOption[]>([]);
 
-  const cargarDatos = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!id) return;
-    try {
-      if (!opts?.silent) {
-        setLoading(true);
-      }
-      const result = await solicitudesService.obtenerDetalleSolicitud(id);
+  const recargarDetalle = useCallback(async () => {
+    await refetchDetalle();
+  }, [refetchDetalle]);
 
-      if (result.success && result.data) {
-        setSolicitud(result.data);
-
-        // El detalle de solicitud no incluye `ofertas` para proveedores (solo cliente/admin).
-        // La oferta de catálogo sí viene en oferta_seleccionada_detail; si no, buscar en mis ofertas.
-        const ofertaSeleccionada = result.data.oferta_seleccionada_detail as OfertaProveedor | null | undefined;
-        let ofertaPropia: OfertaProveedor | null = null;
-
-        if (ofertaSeleccionada && !ofertaSeleccionada.es_oferta_secundaria) {
-          ofertaPropia = ofertaSeleccionada;
-        } else {
-          const misOfertas = await solicitudesService.obtenerMisOfertas();
-          if (misOfertas.success && misOfertas.data) {
-            ofertaPropia =
-              misOfertas.data.find((o) => o.solicitud === id && !o.es_oferta_secundaria) ?? null;
-          }
-        }
-
-        if (ofertaPropia) {
-          const detalleOferta = await obtenerDetalleOferta(ofertaPropia.id);
-          const ofertaCompleta =
-            detalleOferta.success && detalleOferta.data ? detalleOferta.data : ofertaPropia;
-          setMiOferta(ofertaCompleta);
-
-          if (
-            ofertaCompleta.estado === 'aceptada'
-            || ofertaCompleta.estado === 'pagada'
-            || ofertaCompleta.estado === 'en_ejecucion'
-          ) {
-            const ofertasSecResult = await solicitudesService.obtenerOfertasSecundarias(ofertaCompleta.id);
-            if (ofertasSecResult.success && ofertasSecResult.data) {
-              setOfertasSecundarias(ofertasSecResult.data);
-            }
-          }
-        } else {
-          setMiOferta(null);
-          setOfertasSecundarias([]);
-        }
-
-        if (result.data.ofertas_secundarias && result.data.ofertas_secundarias.length > 0) {
-          setOfertasSecundarias(result.data.ofertas_secundarias);
-        }
-      } else {
-        Alert.alert('Error', result.error || 'No se pudo cargar la solicitud');
-        router.back();
-      }
-    } catch (error) {
-      console.error('Error cargando detalle de solicitud:', error);
-      Alert.alert('Error', 'No se pudo cargar la solicitud');
-      router.back();
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  const hasLoadedOnceRef = useRef(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!id) return;
-      cargarDatos({ silent: hasLoadedOnceRef.current });
-      hasLoadedOnceRef.current = true;
-    }, [id, cargarDatos]),
-  );
+  useEffect(() => {
+    if (!detalleError || detalleBundle) return;
+    Alert.alert('Error', 'No se pudo cargar la solicitud');
+    router.back();
+  }, [detalleError, detalleBundle]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active' && id && hasLoadedOnceRef.current) {
-        cargarDatos({ silent: true });
+      if (nextState === 'active' && id && detalleBundle) {
+        void refetchDetalle();
       }
     });
     return () => sub.remove();
-  }, [id, cargarDatos]);
+  }, [id, detalleBundle, refetchDetalle]);
 
-  const handleOfertaUpdated = useCallback((oferta: OfertaProveedor) => {
-    setMiOferta(oferta);
-  }, []);
+  const handleOfertaUpdated = useCallback(
+    (oferta: OfertaProveedor) => {
+      if (id) patchSolicitudDetalleCache(queryClient, id, { miOferta: oferta });
+    },
+    [id, queryClient],
+  );
 
   const ejecucion = useOfertaEjecucion({
     miOferta,
     onOfertaUpdated: handleOfertaUpdated,
-    onReload: () => cargarDatos({ silent: true }),
+    onReload: () => void recargarDetalle(),
   });
 
   const solicitudEstado = useMemo(
@@ -485,7 +436,7 @@ export default function SolicitudDetalleScreen() {
             : 'El cliente fue notificado y puede proceder al pago.',
         );
         invalidateOrdenesYOfertas();
-        cargarDatos();
+        void recargarDetalle();
       } else {
         showAlert('Error', result.error || 'No se pudo confirmar');
       }
@@ -528,21 +479,21 @@ export default function SolicitudDetalleScreen() {
           hora_disponible?: string | null;
           es_fecha_alternativa?: boolean;
         } | undefined;
-        setMiOferta((prev) =>
-          prev
-            ? {
-                ...prev,
-                estado: 'en_chat',
-                fecha_disponible: payload?.fecha_disponible ?? fecha,
-                hora_disponible: payload?.hora_disponible ?? (hora || prev.hora_disponible),
-                es_fecha_alternativa: true,
-                motivo_fecha_alternativa: motivo || prev.motivo_fecha_alternativa,
-              }
-            : prev,
-        );
+        if (id && miOferta) {
+          patchSolicitudDetalleCache(queryClient, id, {
+            miOferta: {
+              ...miOferta,
+              estado: 'en_chat',
+              fecha_disponible: payload?.fecha_disponible ?? fecha,
+              hora_disponible: payload?.hora_disponible ?? (hora || miOferta.hora_disponible),
+              es_fecha_alternativa: true,
+              motivo_fecha_alternativa: motivo || miOferta.motivo_fecha_alternativa,
+            },
+          });
+        }
         setMostrarModalFecha(false);
         invalidateOrdenesYOfertas();
-        cargarDatos({ silent: true });
+        void recargarDetalle();
         Alert.alert(
           'Fecha enviada',
           'El cliente fue notificado. Podrá aceptarla desde su solicitud.',
@@ -717,7 +668,7 @@ export default function SolicitudDetalleScreen() {
     headerTintColor: I.ink,
   };
 
-  if (loading) {
+  if (showInitialLoader) {
     return (
       <View style={styles.container}>
         <Stack.Screen options={stackOptions} />

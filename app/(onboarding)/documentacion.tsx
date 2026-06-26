@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     borderColor: I.hairline,
     overflow: 'hidden',
     ...platformShadow({
-      shadowColor: '#000',
+      shadowColor: I.ink,
       shadowOffset: {
       width: 0,
       height: 1,
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: '#ecf0f1',
+    backgroundColor: I.surfaceStrong,
   },
   textoBotonCambiar: {
     fontSize: 12,

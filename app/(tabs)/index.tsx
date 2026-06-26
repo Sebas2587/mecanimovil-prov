@@ -12,15 +12,17 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Bell, Wallet, DollarSign, Calendar,
+  Bell, Calendar,
   ShieldCheck, Clock,
-  TrendingUp, TrendingDown, ChevronRight,
+  ChevronRight,
   Wrench, Settings, Map, MapPin, AlertTriangle, CreditCard,
   Users,
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
 import { router, useFocusEffect } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { openSolicitudDetalle } from '@/utils/navigateProveedorDetalle';
 import EstadoRevisionScreen from '@/components/EstadoRevisionScreen';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import websocketService, { type NuevaSolicitudEvent } from '@/app/services/websocketService';
@@ -35,11 +37,14 @@ import { HomeSolicitudesSection } from '@/components/dashboard/HomeSolicitudesSe
 import AlertaPagoExpirado from '@/components/alerts/AlertaPagoExpirado';
 import { useAlerts } from '@/context/AlertsContext';
 import { PerformanceWidget } from '@/components/dashboard/PerformanceWidget';
+import { FinanzasTallerCard } from '@/components/dashboard/FinanzasTallerCard';
+import { FinanzasTallerCardSkeleton } from '@/components/dashboard/FinanzasTallerCardSkeleton';
 import { useProveedorKpisResumen } from '@/hooks/useProveedorKpisResumen';
 import {
   useSaldoCreditosQuery,
   useGananciasResumenQuery,
   useSuscripcionProveedorQuery,
+  invalidateDashboardFinanzasQueries,
 } from '@/hooks/useDashboardFinanzas';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { devLog, devWarn } from '@/utils/devLog';
@@ -181,9 +186,25 @@ export default function HomeScreen() {
     router.push('/rendimiento-kpis');
   }, []);
 
-  const handleOpenSolicitudDetalle = useCallback((solicitudId: string) => {
-    router.push(`/solicitud-detalle/${solicitudId}`);
+  const handleRecargarCreditos = useCallback(() => {
+    router.push('/creditos');
   }, []);
+
+  const handlePressPlanSuscripcion = useCallback(() => {
+    router.push('/creditos?tab=suscripcion');
+  }, []);
+
+  const queryClient = useQueryClient();
+
+  const handleOpenSolicitudDetalle = useCallback((solicitudId: string) => {
+    const solicitud = solicitudesDisponibles.find((s) => String(s.id) === String(solicitudId));
+    openSolicitudDetalle(
+      router,
+      queryClient,
+      solicitudId,
+      solicitud ? { solicitud } : undefined,
+    );
+  }, [queryClient, solicitudesDisponibles]);
 
   const handleVerSolicitudesDisponibles = useCallback(() => {
     router.push('/solicitudes-disponibles');
@@ -233,12 +254,21 @@ export default function HomeScreen() {
     }
   }, [perfilProveedorKey, cuentaAprobadaPorAdmin, verificarHorariosConfigurados]);
 
-  // Al volver al tab: alertas ligeras. Datos del dashboard vienen de caché React Query.
+  // Al volver al tab: alertas y finanzas actualizadas (tras cerrar órdenes o citas).
   useFocusEffect(
     React.useCallback(() => {
       if (!cuentaAprobadaPorAdmin) return;
       verificarYGenerarAlertas();
-    }, [cuentaAprobadaPorAdmin, verificarYGenerarAlertas])
+      if (dashboardFinanzasEnabled && puede('finanzas')) {
+        invalidateDashboardFinanzasQueries(queryClient);
+      }
+    }, [
+      cuentaAprobadaPorAdmin,
+      dashboardFinanzasEnabled,
+      verificarYGenerarAlertas,
+      puede,
+      queryClient,
+    ]),
   );
 
   // Badge de novedad en header al recibir solicitud por WebSocket
@@ -432,20 +462,6 @@ export default function HomeScreen() {
     return 'Buenas noches';
   };
 
-  const calcularPorcentajeCambio = (): { texto: string; positivo: boolean } => {
-    const actual = gananciasResumen?.ganancias_total ?? 0;
-    const anterior = gananciasResumen?.ganancias_mes_anterior ?? 0;
-    if (gananciasResumen?.delta_pct_mes != null) {
-      const cambio = gananciasResumen.delta_pct_mes;
-      return { texto: `${cambio >= 0 ? '+' : ''}${cambio.toFixed(1)}%`, positivo: cambio >= 0 };
-    }
-    if (anterior === 0) return { texto: actual > 0 ? '+100%' : '0%', positivo: actual >= 0 };
-    const cambio = ((actual - anterior) / anterior) * 100;
-    return { texto: `${cambio >= 0 ? '+' : ''}${cambio.toFixed(1)}%`, positivo: cambio >= 0 };
-  };
-
-  const gananciasMesMostradas = gananciasResumen?.ganancias_total ?? 0;
-
   const primaryObj = safeColors?.primary as any;
   const accentObj = safeColors?.accent as any;
 
@@ -618,102 +634,26 @@ export default function HomeScreen() {
             />
           </View>
 
-          {/* 2. RESUMEN FINANCIERO */}
-          {saldoCreditos && puede('finanzas') && (
+          {/* Resumen financiero del mes */}
+          {puede('finanzas') && (saldoCreditos || saldoCreditosQuery.loading) ? (
             <View style={themedStyles.sectionWrap}>
-              <View style={themedStyles.cardOuter}>
-                <View style={themedStyles.cardInner}>
-                  <View style={themedStyles.finHeader}>
-                    <Text style={themedStyles.finHeaderTitle}>FINANZAS DEL TALLER</Text>
-                    {/* La suscripción es módulo del dueño; el supervisor no la gestiona. */}
-                    {suscripcion?.esta_activa && !esSupervisor ? (
-                      <TouchableOpacity
-                        style={[
-                          themedStyles.planBadge,
-                          suscripcion.plan?.destacado && themedStyles.planBadgeDestacado,
-                        ]}
-                        onPress={() => router.push('/creditos?tab=suscripcion')}
-                        activeOpacity={0.7}
-                      >
-                        <ShieldCheck
-                          size={14}
-                          color={
-                            suscripcion.plan?.destacado ? palette.warningEmphasis : palette.primary
-                          }
-                        />
-                        <Text
-                          style={[
-                            themedStyles.planBadgeText,
-                            suscripcion.plan?.destacado && themedStyles.planBadgeTextDestacado,
-                          ]}
-                        >
-                          {suscripcion.plan?.nombre?.trim() || 'Plan activo'}
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-
-                  <View style={themedStyles.finBody}>
-                    {/* El supervisor ve el saldo pero no compra créditos (comprar = Mercado Pago). */}
-                    <TouchableOpacity
-                      style={themedStyles.finCol}
-                      onPress={() => { if (!esSupervisor) router.push('/creditos'); }}
-                      activeOpacity={esSupervisor ? 1 : 0.7}
-                      disabled={esSupervisor}
-                    >
-                      <View style={themedStyles.finIconAmber}>
-                        <Wallet size={20} color={palette.accentYellow} />
-                      </View>
-                      <Text style={themedStyles.finLabel}>Créditos</Text>
-                      <Text style={themedStyles.finCreditsVal}>{saldoCreditos.saldo_creditos}</Text>
-                      {!esSupervisor ? (
-                        <Text style={themedStyles.finBuyMore}>Comprar más +</Text>
-                      ) : null}
-                    </TouchableOpacity>
-
-                    <View style={themedStyles.finDivider} />
-
-                    <View style={themedStyles.finCol}>
-                      <View style={themedStyles.finIconGreen}>
-                        <DollarSign size={20} color={palette.semanticUp} />
-                      </View>
-                      <Text style={themedStyles.finLabel}>Ganancias</Text>
-                      <Text style={themedStyles.finEarningsVal}>
-                        ${gananciasMesMostradas.toLocaleString('es-CL')}
-                      </Text>
-                      {gananciasResumen ? (
-                        <Text style={themedStyles.finEarningsHint}>
-                          Mecanimovil ${gananciasResumen.ganancias_mecanimovil.toLocaleString('es-CL')}
-                          {' · '}
-                          Agenda ${gananciasResumen.ganancias_agenda_personal.toLocaleString('es-CL')}
-                        </Text>
-                      ) : null}
-                      {(() => {
-                        const cambio = calcularPorcentajeCambio();
-                        return (
-                          <View style={themedStyles.finGrowth}>
-                            {cambio.positivo ? (
-                              <TrendingUp size={12} color={palette.semanticUp} />
-                            ) : (
-                              <TrendingDown size={12} color={palette.semanticDown} />
-                            )}
-                            <Text
-                              style={[
-                                themedStyles.finGrowthText,
-                                !cambio.positivo && { color: palette.semanticDown },
-                              ]}
-                            >
-                              {cambio.texto} este mes
-                            </Text>
-                          </View>
-                        );
-                      })()}
-                    </View>
-                  </View>
-                </View>
-              </View>
+              {saldoCreditos ? (
+                <FinanzasTallerCard
+                  ganancias={gananciasResumen}
+                  saldoCreditos={saldoCreditos}
+                  suscripcion={suscripcion}
+                  esSupervisor={esSupervisor}
+                  isLoadingGanancias={gananciasQuery.loading && !gananciasResumen}
+                  isLoadingCreditos={saldoCreditosQuery.loading && !saldoCreditos}
+                  warningEmphasis={palette.warningEmphasis}
+                  onRecargarCreditos={handleRecargarCreditos}
+                  onPressPlan={handlePressPlanSuscripcion}
+                />
+              ) : (
+                <FinanzasTallerCardSkeleton />
+              )}
             </View>
-          )}
+          ) : null}
 
           {/* Solicitudes disponibles (toggle + listado unificado) */}
           <View style={themedStyles.sectionWrap}>

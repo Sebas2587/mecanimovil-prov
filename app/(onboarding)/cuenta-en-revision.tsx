@@ -13,7 +13,9 @@ import { OnboardingScreenLayout } from '@/components/onboarding';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {COLORS, platformShadow} from '@/app/design-system/tokens';
+import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 
 const I = COLORS.institutional;
 
@@ -83,17 +85,17 @@ export default function CuentaEnRevisionScreen() {
   const obtenerEstadoColor = (estado: string) => {
     switch (estado) {
       case 'pendiente':
-        return '#f39c12';
+        return institutionalStatusColors('warning').icon;
       case 'en_revision':
         return I.primary;
       case 'revision_documentos':
-        return '#9b59b6';
+        return institutionalStatusColors('info').icon;
       case 'verificado':
-        return '#27ae60';
+        return I.semanticUp;
       case 'rechazado':
-        return '#e74c3c';
+        return I.semanticDown;
       default:
-        return '#f39c12';
+        return institutionalStatusColors('warning').icon;
     }
   };
 
@@ -219,7 +221,7 @@ export default function CuentaEnRevisionScreen() {
         
         <View style={styles.infoDetalle}>
           <Text style={styles.infoLabel}>Estado del Onboarding:</Text>
-          <Text style={[styles.infoValor, { color: '#27ae60' }]}>
+          <Text style={[styles.infoValor, { color: I.semanticUp }]}>
             {estadoProveedor?.onboarding_completado ? 'Completado' : 'Pendiente'}
           </Text>
         </View>
@@ -232,13 +234,15 @@ export default function CuentaEnRevisionScreen() {
     // En el futuro, se puede agregar un campo específico para documentos en EstadoProveedor
     const documentosEnProceso = estadoProveedor?.onboarding_completado || false;
     
+    const docColor = documentosEnProceso ? I.semanticUp : institutionalStatusColors('warning').icon;
+
     return (
       <View style={styles.documentosCard}>
         <View style={styles.documentosHeader}>
           <InstitutionalIcon 
             name="document-text-outline" 
             size={24} 
-            color={documentosEnProceso ? '#27ae60' : '#f39c12'} 
+            color={docColor}
            strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.documentosTitulo}>Estado de Documentos</Text>
         </View>
@@ -247,24 +251,27 @@ export default function CuentaEnRevisionScreen() {
           <InstitutionalIcon 
             name={documentosEnProceso ? 'checkmark-circle' : 'time'} 
             size={20} 
-            color={documentosEnProceso ? '#27ae60' : '#f39c12'} 
+            color={docColor}
            strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={[
             styles.documentosTexto,
-            { color: documentosEnProceso ? '#27ae60' : '#f39c12' }
+            { color: docColor }
           ]}>
             {documentosEnProceso ? 'Documentos en Revisión' : 'Documentos Pendientes'}
           </Text>
         </View>
         
         {!documentosEnProceso && (
-          <TouchableOpacity 
-            style={styles.subirDocumentosButton}
+          <InstitutionalButton
+            label="Subir Documentos"
             onPress={irASubirDocumentos}
-          >
-            <InstitutionalIcon name="cloud-upload-outline" size={20} color="white"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.subirDocumentosTexto}>Subir Documentos</Text>
-          </TouchableOpacity>
+            variant="primary"
+            size="compact"
+            leading={
+              <InstitutionalIcon name="cloud-upload-outline" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+            }
+            style={{ alignSelf: 'stretch' }}
+          />
         )}
       </View>
     );
@@ -276,13 +283,15 @@ export default function CuentaEnRevisionScreen() {
     return (
       <View style={styles.accionesContainer}>
         {cuentaAprobada ? (
-          <TouchableOpacity 
-            style={styles.accionPrimaria}
+          <InstitutionalButton
+            label="Ir a la Aplicación"
             onPress={irAInicio}
-          >
-            <InstitutionalIcon name="home-outline" size={20} color="white"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.accionPrimariaTexto}>Ir a la Aplicación</Text>
-          </TouchableOpacity>
+            variant="success"
+            leading={
+              <InstitutionalIcon name="home-outline" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+            }
+            style={{ width: '100%' }}
+          />
         ) : (
           <View style={styles.accionesDisponibles}>
             <TouchableOpacity 
@@ -297,8 +306,8 @@ export default function CuentaEnRevisionScreen() {
               style={styles.accionSecundaria}
               onPress={cerrarSesion}
             >
-              <InstitutionalIcon name="log-out-outline" size={20} color="#e74c3c"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={[styles.accionSecundariaTexto, { color: '#e74c3c' }]}>
+              <InstitutionalIcon name="log-out-outline" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={[styles.accionSecundariaTexto, { color: I.semanticDown }]}>
                 Cerrar Sesión
               </Text>
             </TouchableOpacity>
@@ -328,7 +337,7 @@ export default function CuentaEnRevisionScreen() {
         {renderAcciones()}
 
         <View style={styles.ayudaContainer}>
-          <InstitutionalIcon name="help-circle-outline" size={24} color="#95a5a6"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="help-circle-outline" size={24} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.ayudaTitulo}>¿Necesitas ayuda?</Text>
           <Text style={styles.ayudaTexto}>
             Si tienes preguntas sobre el proceso de verificación o necesitas actualizar tu información, 
@@ -353,16 +362,16 @@ const styles = StyleSheet.create({
   },
   headerSubtitulo: {
     fontSize: 16,
-    color: '#5d6d7e',
+    color: I.body,
   },
   estadoCard: {
-    backgroundColor: 'white',
+    backgroundColor: I.canvas,
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
     borderLeftWidth: 4,
     ...platformShadow({
-      shadowColor: '#000',
+      shadowColor: I.ink,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
       shadowRadius: 4,
@@ -385,7 +394,7 @@ const styles = StyleSheet.create({
   },
   estadoFecha: {
     fontSize: 12,
-    color: '#95a5a6',
+    color: I.mutedSoft,
   },
   estadoMensaje: {
     fontSize: 16,
@@ -395,16 +404,16 @@ const styles = StyleSheet.create({
   },
   estadoDetalle: {
     fontSize: 14,
-    color: '#5d6d7e',
+    color: I.body,
     lineHeight: 20,
   },
   infoCard: {
-    backgroundColor: 'white',
+    backgroundColor: I.canvas,
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
     ...platformShadow({
-      shadowColor: '#000',
+      shadowColor: I.ink,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
       shadowRadius: 4,
@@ -430,7 +439,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    color: '#5d6d7e',
+    color: I.body,
   },
   infoValor: {
     fontSize: 14,
@@ -438,12 +447,12 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
   documentosCard: {
-    backgroundColor: 'white',
+    backgroundColor: I.canvas,
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
     ...platformShadow({
-      shadowColor: '#000',
+      shadowColor: I.ink,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
       shadowRadius: 4,
@@ -471,44 +480,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 10,
   },
-  subirDocumentosButton: {
-    backgroundColor: I.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  subirDocumentosTexto: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
   accionesContainer: {
     marginBottom: 20,
-  },
-  accionPrimaria: {
-    backgroundColor: '#27ae60',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  accionPrimariaTexto: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 10,
   },
   accionesDisponibles: {
     gap: 10,
   },
   accionSecundaria: {
-    backgroundColor: 'white',
+    backgroundColor: I.canvas,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -516,7 +495,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ecf0f1',
+    borderColor: I.hairline,
   },
   accionSecundariaTexto: {
     color: I.primary,
@@ -525,12 +504,12 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   ayudaContainer: {
-    backgroundColor: 'white',
+    backgroundColor: I.canvas,
     padding: 20,
     borderRadius: 12,
     alignItems: 'center',
     ...platformShadow({
-      shadowColor: '#000',
+      shadowColor: I.ink,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
       shadowRadius: 4,
@@ -546,7 +525,7 @@ const styles = StyleSheet.create({
   },
   ayudaTexto: {
     fontSize: 14,
-    color: '#5d6d7e',
+    color: I.body,
     textAlign: 'center',
     lineHeight: 20,
   },

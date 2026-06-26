@@ -20,6 +20,7 @@ import {
   agruparOfertasPorCatalogo,
   type ServicioCatalogoGrupo,
 } from '@/utils/agruparOfertasPorCatalogo';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { navigateBack } from '@/utils/navigateBack';
 import { TarifasMarcaListaDestacada } from '@/components/servicios/TarifasMarcaCatalogo';
 import { etiquetaCantidadTarifas } from '@/utils/tarifasPorMarca';
@@ -187,11 +188,11 @@ const MisServiciosScreen = () => {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              Servicios ({totalLabel}){totalOfertas !== totalLabel ? ` · ${totalOfertas} ofertas` : ''}
-            </Text>
-          </View>
+          <InstitutionalSectionHeader
+            title={`Servicios (${totalLabel})${totalOfertas !== totalLabel ? ` · ${totalOfertas} ofertas` : ''}`}
+            level="h4"
+            style={styles.sectionHeader}
+          />
 
           {servicios.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -350,11 +351,6 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     marginBottom: SPACING.fixed.sm,
-  },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
   },
   listCard: {
     width: '100%',

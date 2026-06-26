@@ -1,6 +1,19 @@
-import { StyleSheet, Text, type TextProps } from 'react-native';
+import { StyleSheet, Text, type TextProps, type StyleProp, type TextStyle } from 'react-native';
+import { COLORS } from '@/app/design-system/tokens';
+import {
+  institutionalTextStyle,
+  type InstitutionalTextRole,
+} from '@/app/design-system/styles/institutionalTypography';
 
-import { useThemeColor } from '@/hooks/useThemeColor';
+const I = COLORS.institutional;
+
+const roleMap: Record<string, InstitutionalTextRole> = {
+  default: 'body',
+  defaultSemiBold: 'bodyBold',
+  title: 'h1',
+  subtitle: 'h3',
+  link: 'navLink',
+};
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
@@ -8,6 +21,7 @@ export type ThemedTextProps = TextProps & {
   type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
 };
 
+/** @deprecated Usar InstitutionalText. Wrapper de compatibilidad con tokens institucionales. */
 export function ThemedText({
   style,
   lightColor,
@@ -15,46 +29,13 @@ export function ThemedText({
   type = 'default',
   ...rest
 }: ThemedTextProps) {
-  const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const role = roleMap[type] ?? 'body';
+  const color =
+    lightColor ?? darkColor ?? (type === 'link' ? I.primary : I.ink);
 
   return (
-    <Text
-      style={[
-        { color },
-        type === 'default' ? styles.default : undefined,
-        type === 'title' ? styles.title : undefined,
-        type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
-        type === 'subtitle' ? styles.subtitle : undefined,
-        type === 'link' ? styles.link : undefined,
-        style,
-      ]}
-      {...rest}
-    />
+    <Text style={[institutionalTextStyle(role, color), style]} {...rest} />
   );
 }
 
-const styles = StyleSheet.create({
-  default: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  defaultSemiBold: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    lineHeight: 32,
-  },
-  subtitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  link: {
-    lineHeight: 30,
-    fontSize: 16,
-    color: '#0a7ea4',
-  },
-});
+const styles = StyleSheet.create({});

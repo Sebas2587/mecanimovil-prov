@@ -12,7 +12,8 @@ import {
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import {COLORS, SPACING, TYPOGRAPHY, platformShadow} from '@/app/design-system/tokens';
+import {COLORS, SPACING, TYPOGRAPHY, SHADOWS} from '@/app/design-system/tokens';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import creditosService, {
   type PaqueteCreditos,
   type CompraCreditos,
@@ -24,6 +25,8 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const COMPRA_PENDIENTE_KEY = 'compra_creditos_pendiente';
+
+const I = COLORS.institutional;
 
 export default function ComprarCreditosScreen() {
   const theme = useTheme();
@@ -48,14 +51,14 @@ export default function ComprarCreditosScreen() {
 
   // Obtener valores del sistema de diseño
   const colors = theme?.colors || COLORS || {};
-  const textPrimary = colors?.text?.primary || '#000000';
-  const textSecondary = colors?.text?.secondary || '#666666';
-  const primaryColor = colors?.primary?.['500'] || '#4E4FEB';
-  const backgroundDefault = colors?.background?.default || '#EEEEEE';
-  const backgroundPaper = colors?.background?.paper || '#FFFFFF';
-  const borderMain = colors?.border?.main || '#D0D0D0';
-  const successColor = colors?.success?.main || '#3DB6B1';
-  const warningColor = colors?.warning?.main || '#FFB84D';
+  const textPrimary = colors?.text?.primary || I.ink;
+  const textSecondary = colors?.text?.secondary || I.body;
+  const primaryColor = colors?.primary?.['500'] || I.primary;
+  const backgroundDefault = colors?.background?.default || I.surfaceSoft;
+  const backgroundPaper = colors?.background?.paper || I.canvas;
+  const borderMain = colors?.border?.main || I.hairline;
+  const successColor = colors?.success?.main || I.semanticUp;
+  const warningColor = colors?.warning?.main || I.accentYellow;
 
   useEffect(() => {
     cargarDatos();
@@ -317,7 +320,7 @@ export default function ComprarCreditosScreen() {
           onBackPress={handleGoBack}
         />
         <View style={styles.errorContainer}>
-          <InstitutionalIcon name="error-outline" size={48} color={colors?.error?.main || '#FF5555'}  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="error-outline" size={48} color={colors?.error?.main || I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={[styles.errorText, { color: textPrimary }]}>
             Información de compra inválida
           </Text>
@@ -378,31 +381,19 @@ export default function ComprarCreditosScreen() {
         </View>
 
 
-        <TouchableOpacity
-          style={[
-            styles.comprarButton,
-            { backgroundColor: primaryColor },
-            comprando && styles.comprarButtonDisabled,
-          ]}
+        <InstitutionalButton
+          label={`Pagar ${precioFormateado} con Mercado Pago`}
+          variant="primary"
           onPress={handleComprar}
           disabled={comprando}
-        >
-          {comprando ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <>
-              <InstitutionalIcon
-                name="payment"
-                size={24}
-                color="#FFFFFF"
-                style={{ marginRight: 8 }}
-               strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.comprarButtonText}>
-                Pagar {precioFormateado} con Mercado Pago
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+          loading={comprando}
+          leading={
+            !comprando ? (
+              <InstitutionalIcon name="payment" size={24} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+            ) : undefined
+          }
+          style={styles.comprarButton}
+        />
 
         {/* Información de seguridad */}
         <View style={styles.securityInfo}>
@@ -458,13 +449,7 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     borderRadius: 12,
     marginBottom: SPACING.md,
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    }),
+    ...SHADOWS.editorial,
   },
   paqueteNombre: {
     fontSize: TYPOGRAPHY.fontSize['2xl'],
@@ -502,7 +487,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
     paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
+    borderTopColor: I.hairlineSoft,
   },
   precio: {
     fontSize: TYPOGRAPHY.fontSize['2xl'],
@@ -517,13 +502,7 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderRadius: 12,
     marginBottom: SPACING.md,
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 2,
-    }),
+    ...SHADOWS.editorial,
   },
   metodoPagoTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
@@ -562,33 +541,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   recomendadoText: {
-    color: '#FFFFFF',
+    color: I.onPrimary,
     fontSize: 10,
     fontWeight: TYPOGRAPHY.fontWeight.bold as any,
   },
   comprarButton: {
-    flexDirection: 'row',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginTop: SPACING.md,
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.2,
-      shadowRadius: 4,
-      elevation: 3,
-    }),
-  },
-  comprarButtonDisabled: {
-    opacity: 0.6,
-  },
-  comprarButtonText: {
-    color: '#FFFFFF',
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.bold as any,
   },
   securityInfo: {
     flexDirection: 'row',
@@ -625,32 +583,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: SPACING.lg,
     paddingHorizontal: SPACING.md,
-  },
-  primaryButton: {
-    flexDirection: 'row',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.sm,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.bold as any,
-  },
-  secondaryButton: {
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    marginBottom: SPACING.lg,
-  },
-  secondaryButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as any,
   },
 });

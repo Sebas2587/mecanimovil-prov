@@ -19,7 +19,7 @@ import {
   OnboardingNotice,
 } from '@/components/onboarding';
 import { COLORS } from '@/app/design-system/tokens';
-import { onboardingStyles } from '@/app/design-system/styles/onboarding';
+import { onboardingInputPlaceholder, onboardingStyles } from '@/app/design-system/styles/onboarding';
 
 const I = COLORS.institutional;
 import { authAPI } from '@/services/api';
@@ -314,7 +314,7 @@ export default function InformacionBasicaScreen() {
     if (localMsg) {
       return (
         <View style={styles.feedbackRow}>
-          <InstitutionalIcon name="alert-circle-outline" size={16} color="#C0392B"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="alert-circle-outline" size={16} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.feedbackTextWarn}>{localMsg}</Text>
         </View>
       );
@@ -323,7 +323,7 @@ export default function InformacionBasicaScreen() {
     if (estado === 'checking') {
       return (
         <View style={styles.feedbackRow}>
-          <ActivityIndicator size="small" color="#4E4FEB" />
+          <ActivityIndicator size="small" color={I.primary} />
           <Text style={styles.feedbackTextMuted}>{mensaje}</Text>
         </View>
       );
@@ -331,14 +331,14 @@ export default function InformacionBasicaScreen() {
     if (estado === 'free') {
       return (
         <View style={styles.feedbackRow}>
-          <InstitutionalIcon name="checkmark-circle" size={16} color="#27AE60"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="checkmark-circle" size={16} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.feedbackTextOk}>{mensaje}</Text>
         </View>
       );
     }
     return (
       <View style={styles.feedbackRow}>
-        <InstitutionalIcon name="close-circle" size={16} color="#C0392B"  strokeWidth={ICON_STROKE_WIDTH} />
+        <InstitutionalIcon name="close-circle" size={16} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
         <Text style={styles.feedbackTextErr}>{mensaje}</Text>
       </View>
     );
@@ -472,7 +472,7 @@ export default function InformacionBasicaScreen() {
           value={telefonoNacional}
           onChangeText={(t) => setTelefonoNacional(mergeNineMobileDigits(t))}
           placeholder="912345678"
-          placeholderTextColor="#95a5a6"
+          placeholderTextColor={onboardingInputPlaceholder}
           keyboardType="number-pad"
           maxLength={9}
         />
@@ -502,7 +502,7 @@ export default function InformacionBasicaScreen() {
           value={formatRutForDisplay(valueCompact)}
           onChangeText={onChange}
           placeholder="Ej. 12.345.678-9"
-          placeholderTextColor="#95a5a6"
+          placeholderTextColor={onboardingInputPlaceholder}
           keyboardType="default"
           autoCapitalize="characters"
           autoCorrect={false}
@@ -523,7 +523,7 @@ export default function InformacionBasicaScreen() {
           value={formData.nombre}
           onChangeText={(value) => handleInputChange('nombre', value)}
           placeholder={soloDomicilio ? 'Ej. Mecánica Express a domicilio' : 'Ej. Taller Mecánico San Juan'}
-          placeholderTextColor="#95a5a6"
+          placeholderTextColor={onboardingInputPlaceholder}
         />
       </View>
 
@@ -551,7 +551,7 @@ export default function InformacionBasicaScreen() {
           value={formData.descripcion}
           onChangeText={(value) => handleInputChange('descripcion', value)}
           placeholder="Describe brevemente los servicios que ofrece tu taller..."
-          placeholderTextColor="#95a5a6"
+          placeholderTextColor={onboardingInputPlaceholder}
           multiline
           numberOfLines={3}
         />
@@ -568,7 +568,7 @@ export default function InformacionBasicaScreen() {
           value={formData.nombre}
           onChangeText={(value) => handleInputChange('nombre', value)}
           placeholder="Ej: Juan Carlos Pérez"
-          placeholderTextColor="#95a5a6"
+          placeholderTextColor={onboardingInputPlaceholder}
         />
       </View>
 
@@ -581,7 +581,7 @@ export default function InformacionBasicaScreen() {
           value={formData.experiencia_anos}
           onChangeText={(value) => handleInputChange('experiencia_anos', value)}
           placeholder="Ej: 5"
-          placeholderTextColor="#95a5a6"
+          placeholderTextColor={onboardingInputPlaceholder}
           keyboardType="numeric"
         />
       </View>
@@ -595,7 +595,7 @@ export default function InformacionBasicaScreen() {
           value={formData.descripcion}
           onChangeText={(value) => handleInputChange('descripcion', value)}
           placeholder="Describe tu experiencia, tipos de vehículos que atiendes..."
-          placeholderTextColor="#95a5a6"
+          placeholderTextColor={onboardingInputPlaceholder}
           multiline
           numberOfLines={3}
         />
@@ -668,11 +668,11 @@ const styles = StyleSheet.create({
   },
   input: onboardingStyles.input,
   inputBorderWarn: {
-    borderColor: '#F5B041',
+    borderColor: I.accentYellow,
     borderWidth: 1.5,
   },
   inputBorderErr: {
-    borderColor: '#E74C3C',
+    borderColor: I.semanticDown,
     borderWidth: 1.5,
   },
   inputBorderOk: {
@@ -713,23 +713,23 @@ const styles = StyleSheet.create({
   },
   feedbackTextMuted: {
     fontSize: 13,
-    color: '#666666',
+    color: I.body,
     flex: 1,
   },
   feedbackTextOk: {
     fontSize: 13,
-    color: '#27AE60',
+    color: I.semanticUp,
     fontWeight: '600',
     flex: 1,
   },
   feedbackTextErr: {
     fontSize: 13,
-    color: '#C0392B',
+    color: I.semanticDown,
     flex: 1,
   },
   feedbackTextWarn: {
     fontSize: 13,
-    color: '#A04000',
+    color: I.accentYellow,
     flex: 1,
   },
 });

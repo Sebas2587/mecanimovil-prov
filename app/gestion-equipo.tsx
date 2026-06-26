@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { navigateBack } from '@/utils/navigateBack';
 import equipoTallerService, {
@@ -368,9 +369,7 @@ export default function GestionEquipoScreen() {
           {/* Supervisor: solo el mandante designa, edita credenciales y permisos */}
           {!esSupervisor && (
             <>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Supervisor</Text>
-              </View>
+              <InstitutionalSectionHeader title="Supervisor" />
               {supervisor ? (
                 <View style={styles.card}>
                   <View style={styles.cardHeader}>
@@ -413,7 +412,7 @@ export default function GestionEquipoScreen() {
 
           {/* Mecánicos */}
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Mecánicos ({mecanicos.length})</Text>
+            <InstitutionalSectionHeader title={`Mecánicos (${mecanicos.length})`} />
             {(!esSupervisor || puede('mecanicos')) && (
               <TouchableOpacity style={styles.addBtn} onPress={abrirCrearMecanico}>
                 <InstitutionalIcon name="add" size={18} color={I.white} strokeWidth={ICON_STROKE_WIDTH} />
@@ -611,7 +610,6 @@ const styles = StyleSheet.create({
     marginTop: SPACING.lg,
     marginBottom: SPACING.sm,
   },
-  sectionTitle: { fontFamily: FF.semibold, fontSize: 16, color: I.text },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',

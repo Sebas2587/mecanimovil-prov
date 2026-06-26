@@ -21,6 +21,7 @@ import { useAlerts } from '@/context/AlertsContext';
 import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
 import serviceAreasApi from '@/services/serviceAreasApi';
 import type { VerificacionCreditosOferta } from '@/services/creditosService';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -1455,9 +1456,9 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
         {/* Servicios solicitados - Sin checkboxes, todos incluidos */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderContainer}>
-            <Text style={styles.sectionTitle}>
-              {esOfertaSecundaria ? 'Servicios Adicionales' : 'Servicios Solicitados'}
-            </Text>
+            <InstitutionalSectionHeader
+              title={esOfertaSecundaria ? 'Servicios Adicionales' : 'Servicios Solicitados'}
+            />
             <Text style={styles.sectionSubtitle}>
               {esOfertaSecundaria
                 ? 'Selecciona o agrega servicios adicionales para esta oferta'
@@ -2074,9 +2075,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
 
         {/* Grupo de Información Adicional - Disponibilidad, Garantía, Descripción */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Información Adicional
-          </Text>
+          <InstitutionalSectionHeader title="Información Adicional" />
 
           {/* Disponibilidad */}
           <View style={styles.subsection}>
@@ -2540,15 +2539,6 @@ const styles = StyleSheet.create({
   },
   sectionHeaderContainer: {
     marginBottom: SPACING.fixed.md,
-  },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
-    color: I.muted,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
   },
   sectionSubtitle: {
     fontSize: TYPOGRAPHY.fontSize.base,

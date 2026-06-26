@@ -1,10 +1,8 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,67 +12,81 @@ import { useRouter } from 'expo-router';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
-import { platformShadow } from '@/app/design-system/tokens';
+import { COLORS, SPACING } from '@/app/design-system/tokens';
+import {
+  institutionalCardStyles,
+  institutionalStatusColors,
+  type InstitutionalStatusTone,
+} from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+
+const I = COLORS.institutional;
 
 interface EstadoRevisionScreenProps {
   estadoProveedor: EstadoProveedor;
+}
+
+function estadoTone(estado: EstadoProveedor['estado_verificacion']): InstitutionalStatusTone {
+  switch (estado) {
+    case 'pendiente':
+      return 'warning';
+    case 'en_revision':
+      return 'info';
+    case 'rechazado':
+      return 'error';
+    default:
+      return 'neutral';
+  }
+}
+
+function getIconoEstado(estado: EstadoProveedor['estado_verificacion']) {
+  switch (estado) {
+    case 'pendiente':
+      return 'pending';
+    case 'en_revision':
+      return 'search';
+    case 'rechazado':
+      return 'error';
+    default:
+      return 'help';
+  }
+}
+
+function getMensajeEstado(estado: EstadoProveedor['estado_verificacion']) {
+  switch (estado) {
+    case 'pendiente':
+      return 'Tu perfil está pendiente de revisión por nuestro equipo. Te notificaremos cuando hayamos revisado tu información.';
+    case 'en_revision':
+      return 'Nuestro equipo está revisando tu información. Este proceso puede tomar de 1 a 3 días hábiles.';
+    case 'rechazado':
+      return 'Tu perfil necesita correcciones. Por favor contacta a soporte para más información sobre los ajustes necesarios.';
+    default:
+      return 'Estado de verificación desconocido.';
+  }
+}
+
+function getTituloEstado(estado: EstadoProveedor['estado_verificacion']) {
+  switch (estado) {
+    case 'pendiente':
+      return 'Perfil Pendiente de Revisión';
+    case 'en_revision':
+      return 'Perfil en Revisión';
+    case 'rechazado':
+      return 'Perfil Rechazado';
+    default:
+      return 'Estado Desconocido';
+  }
 }
 
 export default function EstadoRevisionScreen({ estadoProveedor }: EstadoRevisionScreenProps) {
   const { logout, refrescarEstadoProveedor } = useAuth();
   const router = useRouter();
 
-  const getIconoEstado = () => {
-    switch (estadoProveedor.estado_verificacion) {
-      case 'pendiente':
-        return 'pending';
-      case 'en_revision':
-        return 'search';
-      case 'rechazado':
-        return 'error';
-      default:
-        return 'help';
-    }
-  };
-
-  const getColorEstado = () => {
-    switch (estadoProveedor.estado_verificacion) {
-      case 'pendiente':
-        return '#ff9500';
-      case 'en_revision':
-        return '#007AFF';
-      case 'rechazado':
-        return '#ff3b30';
-      default:
-        return '#8E8E93';
-    }
-  };
-
-  const getMensajeEstado = () => {
-    switch (estadoProveedor.estado_verificacion) {
-      case 'pendiente':
-        return 'Tu perfil está pendiente de revisión por nuestro equipo. Te notificaremos cuando hayamos revisado tu información.';
-      case 'en_revision':
-        return 'Nuestro equipo está revisando tu información. Este proceso puede tomar de 1 a 3 días hábiles.';
-      case 'rechazado':
-        return 'Tu perfil necesita correcciones. Por favor contacta a soporte para más información sobre los ajustes necesarios.';
-      default:
-        return 'Estado de verificación desconocido.';
-    }
-  };
-
-  const getTituloEstado = () => {
-    switch (estadoProveedor.estado_verificacion) {
-      case 'pendiente':
-        return 'Perfil Pendiente de Revisión';
-      case 'en_revision':
-        return 'Perfil en Revisión';
-      case 'rechazado':
-        return 'Perfil Rechazado';
-      default:
-        return 'Estado Desconocido';
-    }
-  };
+  const status = institutionalStatusColors(estadoTone(estadoProveedor.estado_verificacion));
+  const successStatus = institutionalStatusColors('success');
+  const errorStatus = institutionalStatusColors('error');
 
   const handleContactarSoporte = () => {
     Alert.alert(
@@ -88,7 +100,7 @@ export default function EstadoRevisionScreen({ estadoProveedor }: EstadoRevision
     try {
       await refrescarEstadoProveedor();
       Alert.alert('Estado Actualizado', 'Se ha actualizado el estado de tu perfil.');
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'No se pudo actualizar el estado. Intenta nuevamente.');
     }
   };
@@ -134,95 +146,128 @@ export default function EstadoRevisionScreen({ estadoProveedor }: EstadoRevision
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          {/* Header con icono y estado */}
           <View style={styles.header}>
-            <View style={[styles.iconContainer, { backgroundColor: getColorEstado() + '20' }]}>
+            <View style={[styles.iconContainer, { backgroundColor: status.bg }]}>
               <InstitutionalIcon
-                name={getIconoEstado() as any}
+                name={getIconoEstado(estadoProveedor.estado_verificacion) as any}
                 size={50}
-                color={getColorEstado()}
-               strokeWidth={ICON_STROKE_WIDTH} />
+                color={status.icon}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
             </View>
-            <Text style={styles.titulo}>{getTituloEstado()}</Text>
-            <Text style={styles.mensaje}>{getMensajeEstado()}</Text>
+            <InstitutionalText role="h2" color="ink" style={styles.titulo}>
+              {getTituloEstado(estadoProveedor.estado_verificacion)}
+            </InstitutionalText>
+            <InstitutionalText role="body" color="body" style={styles.mensaje}>
+              {getMensajeEstado(estadoProveedor.estado_verificacion)}
+            </InstitutionalText>
           </View>
 
-          {/* Información del perfil */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Información de tu Perfil</Text>
-            
+          <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding, styles.section]}>
+            <InstitutionalSectionHeader title="Información de tu Perfil" level="h4" style={styles.sectionHeader} />
+
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Tipo de Proveedor:</Text>
-              <Text style={styles.infoValue}>
+              <InstitutionalText role="caption" color="body">Tipo de Proveedor:</InstitutionalText>
+              <InstitutionalText role="captionBold" color="ink" style={styles.infoValue}>
                 {estadoProveedor.tipo_proveedor === 'taller' ? 'Taller Mecánico' : 'Mecánico a Domicilio'}
-              </Text>
+              </InstitutionalText>
             </View>
 
-            {estadoProveedor.nombre && (
+            {estadoProveedor.nombre ? (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Nombre:</Text>
-                <Text style={styles.infoValue}>{estadoProveedor.nombre}</Text>
+                <InstitutionalText role="caption" color="body">Nombre:</InstitutionalText>
+                <InstitutionalText role="captionBold" color="ink" style={styles.infoValue}>
+                  {estadoProveedor.nombre}
+                </InstitutionalText>
               </View>
-            )}
+            ) : null}
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Fecha de Registro:</Text>
-              <Text style={styles.infoValue}>
-                {estadoProveedor.fecha_registro 
+              <InstitutionalText role="caption" color="body">Fecha de Registro:</InstitutionalText>
+              <InstitutionalText role="captionBold" color="ink" style={styles.infoValue}>
+                {estadoProveedor.fecha_registro
                   ? new Date(estadoProveedor.fecha_registro).toLocaleDateString('es-CL')
-                  : 'No disponible'
-                }
-              </Text>
+                  : 'No disponible'}
+              </InstitutionalText>
             </View>
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Onboarding Completado:</Text>
-              <Text style={[styles.infoValue, { color: estadoProveedor.onboarding_completado ? '#34C759' : '#FF3B30' }]}>
+              <InstitutionalText role="caption" color="body">Onboarding Completado:</InstitutionalText>
+              <InstitutionalText
+                role="captionBold"
+                color={
+                  estadoProveedor.onboarding_completado ? successStatus.text : errorStatus.text
+                }
+                style={styles.infoValue}
+              >
                 {estadoProveedor.onboarding_completado ? 'Sí' : 'No'}
-              </Text>
+              </InstitutionalText>
             </View>
           </View>
 
-          {/* Botones de acción */}
           <View style={styles.actionsSection}>
-            <TouchableOpacity style={styles.actionButton} onPress={handleActualizarEstado}>
-              <InstitutionalIcon name="refresh" size={20} color="#007AFF"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.actionButtonText}>Actualizar Estado</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton} onPress={handleCompletarDocumentos}>
-              <InstitutionalIcon name="upload-file" size={20} color="#007AFF"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.actionButtonText}>Completar Documentos</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton} onPress={handleContactarSoporte}>
-              <InstitutionalIcon name="support" size={20} color="#007AFF"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.actionButtonText}>Contactar Soporte</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.actionButton, styles.logoutButton]} onPress={handleCerrarSesion}>
-              <InstitutionalIcon name="logout" size={20} color="#FF3B30"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={[styles.actionButtonText, styles.logoutText]}>Cerrar Sesión</Text>
-            </TouchableOpacity>
+            <InstitutionalButton
+              label="Actualizar Estado"
+              variant="outlineAccent"
+              onPress={handleActualizarEstado}
+              leading={
+                <InstitutionalIcon name="refresh" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              }
+              style={styles.actionBtn}
+            />
+            <InstitutionalButton
+              label="Completar Documentos"
+              variant="outlineAccent"
+              onPress={handleCompletarDocumentos}
+              leading={
+                <InstitutionalIcon name="upload-file" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              }
+              style={styles.actionBtn}
+            />
+            <InstitutionalButton
+              label="Contactar Soporte"
+              variant="outlineAccent"
+              onPress={handleContactarSoporte}
+              leading={
+                <InstitutionalIcon name="support" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              }
+              style={styles.actionBtn}
+            />
+            <InstitutionalButton
+              label="Cerrar Sesión"
+              variant="destructiveOutline"
+              onPress={handleCerrarSesion}
+              leading={
+                <InstitutionalIcon name="logout" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+              }
+              style={styles.actionBtn}
+            />
           </View>
 
-          {/* Información adicional */}
-          <View style={styles.infoSection}>
-            <Text style={styles.infoTitle}>¿Qué sigue?</Text>
-            <Text style={styles.infoText}>
+          <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
+            <InstitutionalSectionHeader title="¿Qué sigue?" level="h4" style={styles.sectionHeader} />
+            <InstitutionalText role="caption" color="body" style={styles.infoText}>
               Una vez que tu perfil sea aprobado, podrás:
-            </Text>
+            </InstitutionalText>
             <View style={styles.benefitsList}>
-              <Text style={styles.benefitItem}>✓ Recibir solicitudes de servicio</Text>
-              <Text style={styles.benefitItem}>✓ Aparecer en la búsqueda de clientes</Text>
-              <Text style={styles.benefitItem}>✓ Gestionar tu agenda de trabajo</Text>
-              <Text style={styles.benefitItem}>✓ Acceder a todas las funcionalidades de la plataforma</Text>
+              <InstitutionalText role="caption" color="semanticUp" style={styles.benefitItem}>
+                ✓ Recibir solicitudes de servicio
+              </InstitutionalText>
+              <InstitutionalText role="caption" color="semanticUp" style={styles.benefitItem}>
+                ✓ Aparecer en la búsqueda de clientes
+              </InstitutionalText>
+              <InstitutionalText role="caption" color="semanticUp" style={styles.benefitItem}>
+                ✓ Gestionar tu agenda de trabajo
+              </InstitutionalText>
+              <InstitutionalText role="caption" color="semanticUp" style={styles.benefitItem}>
+                ✓ Acceder a todas las funcionalidades de la plataforma
+              </InstitutionalText>
             </View>
           </View>
         </View>
@@ -234,21 +279,21 @@ export default function EstadoRevisionScreen({ estadoProveedor }: EstadoRevision
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
   },
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 20,
+    paddingBottom: SPACING.fixed.lg,
   },
   content: {
-    padding: 20,
+    padding: SPACING.fixed.lg,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: SPACING.fixed.xl,
   },
   iconContainer: {
     width: 100,
@@ -256,121 +301,47 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: SPACING.fixed.lg,
   },
   titulo: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: SPACING.fixed.sm,
   },
   mensaje: {
-    fontSize: 16,
-    color: '#666',
     textAlign: 'center',
-    lineHeight: 22,
   },
   section: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    }),
+    marginBottom: SPACING.fixed.lg,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 15,
+  sectionHeader: {
+    marginBottom: SPACING.fixed.md,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: '#666',
-    flex: 1,
+    marginBottom: SPACING.fixed.sm,
+    gap: SPACING.fixed.sm,
   },
   infoValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1a1a1a',
     flex: 1,
     textAlign: 'right',
   },
   actionsSection: {
-    marginBottom: 20,
+    marginBottom: SPACING.fixed.lg,
+    gap: SPACING.fixed.sm,
   },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    }),
-  },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#007AFF',
-    marginLeft: 8,
-  },
-  logoutButton: {
-    borderColor: '#FF3B30',
-    borderWidth: 1,
-  },
-  logoutText: {
-    color: '#FF3B30',
-  },
-  infoSection: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    }),
-  },
-  infoTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 10,
+  actionBtn: {
+    alignSelf: 'stretch',
   },
   infoText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 15,
-    lineHeight: 20,
+    marginBottom: SPACING.fixed.md,
   },
   benefitsList: {
-    marginTop: 5,
+    marginTop: SPACING.fixed.xxs,
+    gap: SPACING.fixed.xs,
   },
   benefitItem: {
-    fontSize: 14,
-    color: '#34C759',
-    marginBottom: 8,
     lineHeight: 20,
   },
-}); 
+});

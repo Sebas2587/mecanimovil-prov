@@ -4,14 +4,12 @@
  * Blank Glass Design System — mecanimovil-prov
  */
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
-import { platformShadow } from '@/app/design-system/tokens';
+import { COLORS, platformShadow, withOpacity } from '@/app/design-system/tokens';
 
-const BLUE = '#2563EB';
-const GREEN = '#22C55E';
-const GRAY = '#9CA3AF';
+const I = COLORS.institutional;
 const SCREEN_W = Dimensions.get('window').width;
 
 interface EarningsComparisonChartProps {
@@ -33,7 +31,6 @@ const getNombreMes = (offset: number) => {
 export const EarningsComparisonChart: React.FC<EarningsComparisonChartProps> = ({
   mesActual,
   mesAnterior,
-  moneda = 'CLP',
 }) => {
   const [selectedBar, setSelectedBar] = useState<'actual' | 'anterior' | null>(null);
 
@@ -51,13 +48,15 @@ export const EarningsComparisonChart: React.FC<EarningsComparisonChartProps> = (
     {
       value: mesAnterior,
       label: getNombreMes(1),
-      frontColor: 'rgba(99,102,241,0.7)',
+      frontColor: withOpacity(COLORS.primary[500], 0.7),
       onPress: () => setSelectedBar(s => (s === 'anterior' ? null : 'anterior')),
     },
     {
       value: mesActual,
       label: getNombreMes(0),
-      frontColor: mesActual >= mesAnterior ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.7)',
+      frontColor: mesActual >= mesAnterior
+        ? withOpacity(I.semanticUp, 0.8)
+        : withOpacity(I.semanticDown, 0.7),
       onPress: () => setSelectedBar(s => (s === 'actual' ? null : 'actual')),
     },
   ];
@@ -75,11 +74,11 @@ export const EarningsComparisonChart: React.FC<EarningsComparisonChartProps> = (
         </View>
         <View style={[st.badge, isNeutral ? st.badgeNeutral : isUp ? st.badgeUp : st.badgeDown]}>
           {isNeutral
-            ? <Minus size={12} color={GRAY} />
+            ? <Minus size={12} color={I.mutedSoft} />
             : isUp
-              ? <TrendingUp size={12} color="#16A34A" />
-              : <TrendingDown size={12} color="#DC2626" />}
-          <Text style={[st.badgeTxt, isNeutral ? { color: GRAY } : isUp ? { color: '#16A34A' } : { color: '#DC2626' }]}>
+              ? <TrendingUp size={12} color={I.semanticUp} />
+              : <TrendingDown size={12} color={I.semanticDown} />}
+          <Text style={[st.badgeTxt, isNeutral ? st.badgeTxtNeutral : isUp ? st.badgeTxtUp : st.badgeTxtDown]}>
             {isNeutral ? 'Sin cambio' : `${pct.toFixed(1)}%`}
           </Text>
         </View>
@@ -121,7 +120,7 @@ export const EarningsComparisonChart: React.FC<EarningsComparisonChartProps> = (
       {/* Leyenda */}
       <View style={st.legend}>
         <View style={st.legendItem}>
-          <View style={[st.dot, { backgroundColor: 'rgba(99,102,241,0.8)' }]} />
+          <View style={[st.dot, { backgroundColor: withOpacity(COLORS.primary[500], 0.8) }]} />
           <View>
             <Text style={st.legendLabel}>{getNombreMes(1)}</Text>
             <Text style={st.legendVal}>{fmt(mesAnterior)}</Text>
@@ -129,7 +128,11 @@ export const EarningsComparisonChart: React.FC<EarningsComparisonChartProps> = (
         </View>
         <View style={st.legendDivider} />
         <View style={st.legendItem}>
-          <View style={[st.dot, { backgroundColor: mesActual >= mesAnterior ? 'rgba(34,197,94,0.9)' : 'rgba(239,68,68,0.8)' }]} />
+          <View style={[st.dot, {
+            backgroundColor: mesActual >= mesAnterior
+              ? withOpacity(I.semanticUp, 0.9)
+              : withOpacity(I.semanticDown, 0.8),
+          }]} />
           <View>
             <Text style={st.legendLabel}>{getNombreMes(0)}</Text>
             <Text style={st.legendVal}>{fmt(mesActual)}</Text>
@@ -141,9 +144,9 @@ export const EarningsComparisonChart: React.FC<EarningsComparisonChartProps> = (
       {!isNeutral && (
         <View style={[st.diffRow, isUp ? st.diffUp : st.diffDown]}>
           {isUp
-            ? <TrendingUp size={13} color="#16A34A" />
-            : <TrendingDown size={13} color="#DC2626" />}
-          <Text style={[st.diffTxt, { color: isUp ? '#16A34A' : '#DC2626' }]}>
+            ? <TrendingUp size={13} color={I.semanticUp} />
+            : <TrendingDown size={13} color={I.semanticDown} />}
+          <Text style={[st.diffTxt, isUp ? st.diffTxtUp : st.diffTxtDown]}>
             {isUp ? '+' : ''}{fmt(diff)} respecto al mes anterior
           </Text>
         </View>
@@ -157,12 +160,12 @@ const st = StyleSheet.create({
     borderRadius: 22,
     padding: 18,
     marginBottom: 16,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: withOpacity(I.canvas, 0.7),
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
+    borderColor: withOpacity(I.canvas, 0.9),
     overflow: 'hidden',
     ...platformShadow({
-      shadowColor: '#000',
+      shadowColor: COLORS.base.inkBlack,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.06,
       shadowRadius: 8,
@@ -175,8 +178,8 @@ const st = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 14,
   },
-  title: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  subtitle: { fontSize: 11, color: '#6B7280', marginTop: 2 },
+  title: { fontSize: 16, fontWeight: '700', color: I.ink },
+  subtitle: { fontSize: 11, color: I.body, marginTop: 2 },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -185,47 +188,50 @@ const st = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 20,
   },
-  badgeUp: { backgroundColor: 'rgba(220,252,231,0.6)', borderWidth: 1, borderColor: '#BBF7D0' },
-  badgeDown: { backgroundColor: 'rgba(254,226,226,0.6)', borderWidth: 1, borderColor: '#FECACA' },
-  badgeNeutral: { backgroundColor: 'rgba(243,244,246,0.6)', borderWidth: 1, borderColor: 'rgba(229,231,235,0.5)' },
+  badgeUp: { backgroundColor: withOpacity(COLORS.success.light, 0.6), borderWidth: 1, borderColor: COLORS.success[200] },
+  badgeDown: { backgroundColor: withOpacity(COLORS.error.light, 0.6), borderWidth: 1, borderColor: COLORS.error[200] },
+  badgeNeutral: { backgroundColor: withOpacity(I.surfaceStrong, 0.6), borderWidth: 1, borderColor: withOpacity(I.hairline, 0.5) },
   badgeTxt: { fontSize: 11, fontWeight: '700' },
+  badgeTxtUp: { color: I.semanticUp },
+  badgeTxtDown: { color: I.semanticDown },
+  badgeTxtNeutral: { color: I.mutedSoft },
   tooltip: {
     alignSelf: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: withOpacity(I.canvas, 0.95),
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: 'rgba(229,231,235,0.5)',
+    borderColor: withOpacity(I.hairline, 0.5),
     marginBottom: 10,
     ...platformShadow({
-      shadowColor: '#000',
+      shadowColor: COLORS.base.inkBlack,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.08,
       shadowRadius: 6,
       elevation: 3,
     }),
   },
-  tooltipLabel: { fontSize: 10, color: '#6B7280', textAlign: 'center', textTransform: 'capitalize' },
-  tooltipVal: { fontSize: 16, fontWeight: '800', color: '#111827', textAlign: 'center' },
+  tooltipLabel: { fontSize: 10, color: I.body, textAlign: 'center', textTransform: 'capitalize' },
+  tooltipVal: { fontSize: 16, fontWeight: '800', color: I.ink, textAlign: 'center' },
   chartWrap: {
     marginTop: 4,
     alignItems: 'center',
   },
-  axisText: { color: '#9CA3AF', fontSize: 10 },
+  axisText: { color: I.mutedSoft, fontSize: 10 },
   legend: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(229,231,235,0.4)',
+    borderTopColor: withOpacity(I.hairline, 0.4),
   },
   legendItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  legendDivider: { width: 1, height: 32, backgroundColor: 'rgba(229,231,235,0.5)', marginHorizontal: 8 },
+  legendDivider: { width: 1, height: 32, backgroundColor: withOpacity(I.hairline, 0.5), marginHorizontal: 8 },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  legendLabel: { fontSize: 11, color: '#6B7280', textTransform: 'capitalize' },
-  legendVal: { fontSize: 13, fontWeight: '700', color: '#111827', marginTop: 1 },
+  legendLabel: { fontSize: 11, color: I.body, textTransform: 'capitalize' },
+  legendVal: { fontSize: 13, fontWeight: '700', color: I.ink, marginTop: 1 },
   diffRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -235,7 +241,9 @@ const st = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
   },
-  diffUp: { backgroundColor: 'rgba(220,252,231,0.4)', borderWidth: 1, borderColor: '#BBF7D0' },
-  diffDown: { backgroundColor: 'rgba(254,226,226,0.4)', borderWidth: 1, borderColor: '#FECACA' },
+  diffUp: { backgroundColor: withOpacity(COLORS.success.light, 0.4), borderWidth: 1, borderColor: COLORS.success[200] },
+  diffDown: { backgroundColor: withOpacity(COLORS.error.light, 0.4), borderWidth: 1, borderColor: COLORS.error[200] },
   diffTxt: { fontSize: 12, fontWeight: '600' },
+  diffTxtUp: { color: I.semanticUp },
+  diffTxtDown: { color: I.semanticDown },
 });

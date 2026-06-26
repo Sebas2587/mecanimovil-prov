@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { LinearGradient } from 'expo-linear-gradient';
 import serviceAreasApi, { Commune, Region, ServiceArea } from '@/services/serviceAreasApi';
 import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
@@ -436,7 +437,7 @@ export default function EditarZonaServicioScreen() {
 
           {/* Nombre de la zona - UI Card */}
           <View style={styles.uiCard}>
-            <Text style={[styles.sectionTitle, { color: textPrimary }]}>Nombre de la Zona</Text>
+            <InstitutionalSectionHeader title="Nombre de la Zona" />
             <TextInput
               style={[styles.textInput, { backgroundColor: bgPaper, borderColor: borderLight, color: textPrimary }]}
               placeholder="Ej: Mi Zona Santiago Centro"
@@ -456,9 +457,10 @@ export default function EditarZonaServicioScreen() {
           {/* Comunas seleccionadas - UI Card */}
           <View style={styles.uiCard}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: textPrimary }]}>
-                Comunas Seleccionadas ({selectedCommunes.length})
-              </Text>
+              <InstitutionalSectionHeader
+                title={`Comunas Seleccionadas (${selectedCommunes.length})`}
+                style={styles.sectionHeaderTitle}
+              />
               <TouchableOpacity
                 style={[
                   styles.addCommuneButton,
@@ -767,9 +769,10 @@ const createStyles = () => {
       alignItems: 'center',
       marginBottom: spacingMd,
     },
-    sectionTitle: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightBold,
+    sectionHeaderTitle: {
+      flex: 1,
+      marginBottom: 0,
+      minWidth: 0,
     },
     addCommuneButton: {
       flexDirection: 'row',
@@ -986,15 +989,6 @@ const createStyles = () => {
       fontSize: fontSizeBase,
       textAlign: 'center',
       lineHeight: fontSizeBase + 6,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    loadingText: {
-      fontSize: fontSizeBase,
-      marginTop: spacingMd,
     },
   });
 };

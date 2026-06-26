@@ -29,10 +29,16 @@ import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
+import {
+  openCitaPersonalDetalle,
+  openOfertaDetalle,
+  openSolicitudDetalle,
+} from '@/utils/navigateProveedorDetalle';
 import websocketService from '@/app/services/websocketService';
 import Header from '@/components/Header';
 import { COLORS, withOpacity, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '@/app/design-system/tokens';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { TipoPagoClienteChip } from '@/components/solicitudes/TipoPagoClienteChip';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import {
@@ -86,7 +92,6 @@ const ESTADO_VARIANT: Record<string, EstadoBadgeVariant> = {
   rechazada: 'error',
   retirada: 'error',
   expirada: 'neutral',
-  rechazada_por_proveedor: 'error',
   devuelto: 'error',
   pendiente_confirmacion: 'warning',
 };
@@ -543,23 +548,24 @@ export default function OrdenesScreen() {
 
   const handleOrdenPress = useCallback((orden: Orden) => {
     if (orden.oferta_proveedor_id) {
-      router.push(`/oferta-detalle/${orden.oferta_proveedor_id}`);
+      const oferta = ofertasById.get(String(orden.oferta_proveedor_id));
+      openOfertaDetalle(router, queryClient, String(orden.oferta_proveedor_id), oferta);
     } else {
       router.push(`/servicio-detalle/${orden.id}`);
     }
-  }, []);
+  }, [ofertasById, queryClient]);
 
   const handleOfertaPress = useCallback((oferta: OfertaProveedor) => {
     if (oferta.solicitud) {
-      router.push(`/solicitud-detalle/${oferta.solicitud}`);
+      openSolicitudDetalle(router, queryClient, oferta.solicitud, { oferta });
     } else {
-      router.push(`/oferta-detalle/${oferta.id}`);
+      openOfertaDetalle(router, queryClient, oferta.id, oferta);
     }
-  }, []);
+  }, [queryClient]);
 
   const handleCitaPress = useCallback((cita: CitaAgendaPersonal) => {
-    router.push(`/cita-agenda-personal/${cita.id}`);
-  }, []);
+    openCitaPersonalDetalle(router, queryClient, cita.id, cita);
+  }, [queryClient]);
 
   const formatearFecha = (fecha: string) => new Date(fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -827,7 +833,7 @@ export default function OrdenesScreen() {
         : resolveTextoEstadoActividad(estadoEfectivo);
 
       const onPress = () => {
-        navigateToOrdenActiva(router, { origen: 'mecanimovil', ...item });
+        navigateToOrdenActiva(router, queryClient, { origen: 'mecanimovil', ...item });
       };
 
       const precioRaw = orden?.total ?? oferta?.precio_total_ofrecido ?? '0';
@@ -1074,31 +1080,31 @@ export default function OrdenesScreen() {
 
               {tabActivo === 'activas' ? (
                 <View style={styles.section}>
-                  <View style={styles.sectionHeader}>
-                    <Briefcase size={18} color={I.ink} />
-                    <Text style={styles.sectionTitle}>Próximos servicios</Text>
-                    <Text style={styles.sectionCount}>{activasUnificadasCompletas.length}</Text>
-                  </View>
+                  <InstitutionalSectionHeader
+                    title="Próximos servicios"
+                    count={activasUnificadasCompletas.length}
+                    leading={<Briefcase size={18} color={I.ink} />}
+                  />
                   {activasUnificadasCompletas.map(renderOrdenActivaCard)}
                 </View>
               ) : tabActivo === 'completadas' ? (
                 <View style={styles.section}>
-                  <View style={styles.sectionHeader}>
-                    <CheckCircle size={18} color={I.ink} />
-                    <Text style={styles.sectionTitle}>Completadas</Text>
-                    <Text style={styles.sectionCount}>{completadasCount}</Text>
-                  </View>
+                  <InstitutionalSectionHeader
+                    title="Completadas"
+                    count={completadasCount}
+                    leading={<CheckCircle size={18} color={I.ink} />}
+                  />
                   {ordenesMostrar.map(renderOrdenCard)}
                   {ofertasMostrar.map(renderOfertaCard)}
                   {citasCompletadasTab.map(renderCitaPersonalCard)}
                 </View>
               ) : (
                 <View style={styles.section}>
-                  <View style={styles.sectionHeader}>
-                    <XCircle size={18} color={I.ink} />
-                    <Text style={styles.sectionTitle}>Rechazadas y canceladas</Text>
-                    <Text style={styles.sectionCount}>{rechazadasCount}</Text>
-                  </View>
+                  <InstitutionalSectionHeader
+                    title="Rechazadas y canceladas"
+                    count={rechazadasCount}
+                    leading={<XCircle size={18} color={I.ink} />}
+                  />
                   {ordenesMostrar.map(renderOrdenCard)}
                   {ofertasMostrar.map(renderOfertaCard)}
                   {citasRechazadasTab.map(renderCitaPersonalCard)}
@@ -1171,20 +1177,6 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: SPACING.fixed.lg,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.sm,
-    marginBottom: SPACING.fixed.sm,
-  },
-  sectionTitle: {
-    fontSize: TS.h4.fontSize,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
-    letterSpacing: TS.h4.letterSpacing,
-    color: I.ink,
-    flex: 1,
   },
   sectionCount: {
     fontSize: TS.caption.fontSize,

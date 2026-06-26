@@ -1,12 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { ArrowRight } from 'lucide-react-native';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { SPACING, BORDERS } from '@/app/design-system/tokens';
 import { ICON_SIZE, ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
-
-const I = COLORS.institutional;
-const FF = TYPOGRAPHY.fontFamily;
+import {
+  institutionalStatusColors,
+  type InstitutionalStatusTone,
+} from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 
 export type BannerType = 'success' | 'warning' | 'info' | 'error';
 
@@ -21,6 +23,20 @@ interface EstadoBannerProps {
   };
 }
 
+const bannerToneMap: Record<BannerType, InstitutionalStatusTone> = {
+  success: 'success',
+  warning: 'warning',
+  error: 'error',
+  info: 'info',
+};
+
+const defaultIcons: Record<BannerType, string> = {
+  success: 'check-circle',
+  warning: 'warning',
+  error: 'error',
+  info: 'info',
+};
+
 export const EstadoBanner: React.FC<EstadoBannerProps> = ({
   type,
   title,
@@ -28,66 +44,37 @@ export const EstadoBanner: React.FC<EstadoBannerProps> = ({
   icon,
   action,
 }) => {
-  const getTypeConfig = () => {
-    switch (type) {
-      case 'success':
-        return {
-          backgroundColor: withOpacity(I.semanticUp, 0.1),
-          iconColor: I.semanticUp,
-          textColor: I.semanticUp,
-          defaultIcon: 'check-circle',
-        };
-      case 'warning':
-        return {
-          backgroundColor: withOpacity(I.accentYellow, 0.18),
-          iconColor: I.body,
-          textColor: I.body,
-          defaultIcon: 'warning',
-        };
-      case 'error':
-        return {
-          backgroundColor: withOpacity(I.semanticDown, 0.08),
-          iconColor: I.semanticDown,
-          textColor: I.semanticDown,
-          defaultIcon: 'error',
-        };
-      case 'info':
-      default:
-        return {
-          backgroundColor: withOpacity(I.primary, 0.08),
-          iconColor: I.primary,
-          textColor: I.primaryActive,
-          defaultIcon: 'info',
-        };
-    }
-  };
-
-  const config = getTypeConfig();
-  const displayIcon = icon || config.defaultIcon;
+  const status = institutionalStatusColors(bannerToneMap[type]);
+  const displayIcon = icon || defaultIcons[type];
+  const titleColor = type === 'warning' ? 'body' : status.text;
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: config.backgroundColor,
-        },
-      ]}
-    >
-      <InstitutionalIcon name={displayIcon} size={ICON_SIZE.lg} color={config.iconColor} strokeWidth={ICON_STROKE_WIDTH} />
+    <View style={[styles.container, { backgroundColor: status.bg, borderColor: status.border }]}>
+      <InstitutionalIcon
+        name={displayIcon}
+        size={ICON_SIZE.lg}
+        color={status.icon}
+        strokeWidth={ICON_STROKE_WIDTH}
+      />
       <View style={styles.content}>
-        <Text style={[styles.title, { color: config.textColor }]}>{title}</Text>
-        <Text style={[styles.message, { color: I.body }]}>{message}</Text>
-        {action && (
-          <TouchableOpacity
-            style={[styles.actionButton, { borderColor: config.textColor }]}
+        <InstitutionalText role="bodyBold" color={titleColor}>
+          {title}
+        </InstitutionalText>
+        <InstitutionalText role="caption" color="body" style={styles.message}>
+          {message}
+        </InstitutionalText>
+        {action ? (
+          <Pressable
+            style={[styles.actionButton, { borderColor: status.text }]}
             onPress={action.onPress}
-            activeOpacity={0.7}
+            accessibilityRole="button"
           >
-            <Text style={[styles.actionText, { color: config.textColor }]}>{action.text}</Text>
-            <ArrowRight size={ICON_SIZE.sm} color={config.textColor} strokeWidth={ICON_STROKE_WIDTH} />
-          </TouchableOpacity>
-        )}
+            <InstitutionalText role="captionBold" color={status.text}>
+              {action.text}
+            </InstitutionalText>
+            <ArrowRight size={ICON_SIZE.sm} color={status.text} strokeWidth={ICON_STROKE_WIDTH} />
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -101,20 +88,12 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.sm,
     marginBottom: SPACING.fixed.md,
     borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
   },
   content: {
     flex: 1,
   },
-  title: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansSemiBold,
-    marginBottom: SPACING.fixed.xxs,
-  },
   message: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansRegular,
-    lineHeight: Math.round(TYPOGRAPHY.fontSize.sm * TYPOGRAPHY.lineHeight.normal),
+    marginTop: SPACING.fixed.xxs,
   },
   actionButton: {
     flexDirection: 'row',
@@ -126,9 +105,5 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.width.thin,
     marginTop: SPACING.fixed.sm,
     gap: SPACING.fixed.xxs,
-  },
-  actionText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
   },
 });

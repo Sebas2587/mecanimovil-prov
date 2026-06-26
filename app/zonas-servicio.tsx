@@ -18,6 +18,7 @@ import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 // Interfaces TypeScript
@@ -236,13 +237,13 @@ export default function ZonasServicioScreen() {
       </View>
 
       <View style={styles.zoneActions}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.actionButtonPrimary]}
+        <InstitutionalButton
+          label="Editar"
+          variant="primary"
+          size="compact"
           onPress={() => navigateToEditZone(area.id)}
-          activeOpacity={0.88}
-        >
-          <Text style={[styles.actionButtonText, styles.actionButtonPrimaryText]}>Editar</Text>
-        </TouchableOpacity>
+          style={{ flex: 1 }}
+        />
         <TouchableOpacity
           style={styles.buttonTertiaryDanger}
           onPress={() => deleteZone(area.id, area.name)}
@@ -624,31 +625,6 @@ const createStyles = () => {
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: borderLight,
       alignItems: 'center',
-    },
-    actionButton: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 12,
-      paddingHorizontal: spacingMd,
-      borderRadius: BORDERS.radius.pill,
-      minHeight: 44,
-      borderWidth: BORDERS.width.thin,
-      borderColor: borderLight,
-    },
-    actionButtonPrimary: {
-      backgroundColor: I.primary,
-      borderColor: I.primary,
-    },
-    actionButtonText: {
-      fontSize: TYPOGRAPHY.styles.button.fontSize,
-      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-      fontWeight: TYPOGRAPHY.styles.button.fontWeight as '600',
-      lineHeight: Math.round(TYPOGRAPHY.styles.button.fontSize * TYPOGRAPHY.styles.button.lineHeight),
-      color: textPrimary,
-    },
-    actionButtonPrimaryText: {
-      color: I.onPrimary,
     },
     /** Coinbase `button-tertiary-text` danger */
     buttonTertiaryDanger: {

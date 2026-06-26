@@ -1,18 +1,26 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Modal,
   TouchableOpacity,
   TextInput,
   ScrollView,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
 import type { MotivoRechazo } from '@/services/solicitudesService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS, SPACING, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import {
+  institutionalCardStyles,
+  institutionalStatusColors,
+} from '@/app/design-system/styles/institutionalSemantic';
+
+const I = COLORS.institutional;
+const errorStatus = institutionalStatusColors('error');
 
 interface RechazarSolicitudModalProps {
   visible: boolean;
@@ -52,10 +60,9 @@ export const RechazarSolicitudModal: React.FC<RechazarSolicitudModalProps> = ({
       Alert.alert('Error', 'Debes seleccionar un motivo');
       return;
     }
-    
+
     await onConfirm(motivoSeleccionado as MotivoRechazo, detalle);
-    
-    // Resetear
+
     setMotivoSeleccionado('');
     setDetalle('');
   };
@@ -77,66 +84,79 @@ export const RechazarSolicitudModal: React.FC<RechazarSolicitudModalProps> = ({
     >
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
-          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Rechazar Solicitud</Text>
+            <InstitutionalText role="h3">Rechazar Solicitud</InstitutionalText>
             <TouchableOpacity onPress={handleClose} disabled={loading}>
-              <InstitutionalIcon name="close" size={24} color="#000"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="close" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
           </View>
 
-          {/* Content */}
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            <Text style={styles.subtitle}>
+            <InstitutionalText role="body" color="body" style={styles.subtitle}>
               Selecciona el motivo por el que no puedes atender esta solicitud
-            </Text>
+            </InstitutionalText>
 
-            {/* Motivos */}
             <View style={styles.motivosContainer}>
-              {MOTIVOS_RECHAZO.map((motivo) => (
-                <TouchableOpacity
-                  key={motivo.value}
-                  style={[
-                    styles.motivoCard,
-                    motivoSeleccionado === motivo.value && styles.motivoCardSelected
-                  ]}
-                  onPress={() => setMotivoSeleccionado(motivo.value)}
-                  activeOpacity={0.7}
-                  disabled={loading}
-                >
-                  <View style={[
-                    styles.radioButton,
-                    motivoSeleccionado === motivo.value && styles.radioButtonSelected
-                  ]}>
-                    {motivoSeleccionado === motivo.value && (
-                      <View style={styles.radioButtonInner} />
-                    )}
-                  </View>
-                  <InstitutionalIcon 
-                    name={motivo.icon} 
-                    size={24} 
-                    color={motivoSeleccionado === motivo.value ? '#DC3545' : '#666'} 
-                   strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={[
-                    styles.motivoText,
-                    motivoSeleccionado === motivo.value && styles.motivoTextSelected
-                  ]}>
-                    {motivo.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {MOTIVOS_RECHAZO.map((motivo) => {
+                const selected = motivoSeleccionado === motivo.value;
+                return (
+                  <TouchableOpacity
+                    key={motivo.value}
+                    style={[
+                      styles.motivoCard,
+                      institutionalCardStyles.surface,
+                      selected && {
+                        borderColor: errorStatus.border,
+                        backgroundColor: errorStatus.bg,
+                      },
+                    ]}
+                    onPress={() => setMotivoSeleccionado(motivo.value)}
+                    activeOpacity={0.7}
+                    disabled={loading}
+                  >
+                    <View
+                      style={[
+                        styles.radioButton,
+                        { borderColor: selected ? errorStatus.icon : I.hairline },
+                      ]}
+                    >
+                      {selected ? (
+                        <View style={[styles.radioButtonInner, { backgroundColor: errorStatus.icon }]} />
+                      ) : null}
+                    </View>
+                    <InstitutionalIcon
+                      name={motivo.icon}
+                      size={24}
+                      color={selected ? errorStatus.icon : I.muted}
+                      strokeWidth={ICON_STROKE_WIDTH}
+                    />
+                    <InstitutionalText
+                      role="body"
+                      color={selected ? 'semanticDown' : 'ink'}
+                      style={[styles.motivoText, selected && styles.motivoTextSelected]}
+                    >
+                      {motivo.label}
+                    </InstitutionalText>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            {/* Detalle opcional */}
-            {motivoSeleccionado && (
+            {motivoSeleccionado ? (
               <View style={styles.detalleContainer}>
-                <Text style={styles.detalleLabel}>
+                <InstitutionalText role="body" style={styles.detalleLabel}>
                   Detalle adicional (opcional)
-                </Text>
+                </InstitutionalText>
                 <TextInput
-                  style={styles.detalleInput}
+                  style={[
+                    styles.detalleInput,
+                    {
+                      borderColor: I.hairline,
+                      color: I.ink,
+                    },
+                  ]}
                   placeholder="Puedes agregar más información..."
-                  placeholderTextColor="#999"
+                  placeholderTextColor={I.muted}
                   value={detalle}
                   onChangeText={setDetalle}
                   multiline
@@ -144,36 +164,31 @@ export const RechazarSolicitudModal: React.FC<RechazarSolicitudModalProps> = ({
                   maxLength={500}
                   editable={!loading}
                 />
-                <Text style={styles.characterCount}>
+                <InstitutionalText role="small" color="muted" style={styles.characterCount}>
                   {detalle.length}/500
-                </Text>
+                </InstitutionalText>
               </View>
-            )}
+            ) : null}
           </ScrollView>
 
-          {/* Footer */}
           <View style={styles.footer}>
-            <TouchableOpacity
-              style={styles.cancelButton}
+            <InstitutionalButton
+              label="Cancelar"
+              variant="secondary"
+              size="compact"
               onPress={handleClose}
               disabled={loading}
-            >
-              <Text style={styles.cancelButtonText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.confirmButton,
-                (!motivoSeleccionado || loading) && styles.confirmButtonDisabled
-              ]}
+              style={styles.footerButton}
+            />
+            <InstitutionalButton
+              label="Confirmar Rechazo"
+              variant="primary"
+              size="compact"
               onPress={handleConfirm}
-              disabled={!motivoSeleccionado || loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <Text style={styles.confirmButtonText}>Confirmar Rechazo</Text>
-              )}
-            </TouchableOpacity>
+              disabled={!motivoSeleccionado}
+              loading={loading}
+              style={[styles.footerButton, styles.confirmButton, { backgroundColor: I.semanticDown, borderColor: I.semanticDown }]}
+            />
           </View>
         </View>
       </View>
@@ -184,140 +199,88 @@ export const RechazarSolicitudModal: React.FC<RechazarSolicitudModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: withOpacity(I.ink, 0.5),
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: I.canvas,
+    borderTopLeftRadius: BORDERS.radius.xl,
+    borderTopRightRadius: BORDERS.radius.xl,
     maxHeight: '90%',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#000',
+    padding: SPACING.lg,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairline,
   },
   content: {
-    padding: 20,
+    padding: SPACING.lg,
   },
   subtitle: {
-    fontSize: 15,
-    color: '#666',
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
     lineHeight: 22,
   },
   motivosContainer: {
-    gap: 12,
+    gap: SPACING.sm,
   },
   motivoCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    backgroundColor: '#FFF',
-  },
-  motivoCardSelected: {
-    borderColor: '#DC3545',
-    backgroundColor: '#FFF5F5',
+    gap: SPACING.sm,
+    padding: SPACING.md,
   },
   radioButton: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: '#E5E5E5',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  radioButtonSelected: {
-    borderColor: '#DC3545',
   },
   radioButtonInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#DC3545',
   },
   motivoText: {
     flex: 1,
-    fontSize: 15,
-    color: '#000',
   },
   motivoTextSelected: {
     fontWeight: '600',
-    color: '#DC3545',
   },
   detalleContainer: {
-    marginTop: 20,
+    marginTop: SPACING.lg,
   },
   detalleLabel: {
-    fontSize: 15,
     fontWeight: '600',
-    color: '#000',
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   detalleInput: {
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 12,
-    padding: 14,
+    borderWidth: BORDERS.width.thin,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.md - 2,
     fontSize: 15,
-    color: '#000',
     minHeight: 100,
     textAlignVertical: 'top',
   },
   characterCount: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 6,
+    marginTop: SPACING.xs + 2,
     textAlign: 'right',
   },
   footer: {
     flexDirection: 'row',
-    gap: 12,
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    gap: SPACING.sm,
+    padding: SPACING.lg,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
   },
-  cancelButton: {
+  footerButton: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
-    backgroundColor: '#F8F8F8',
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
   },
   confirmButton: {
     flex: 2,
-    paddingVertical: 16,
-    borderRadius: 12,
-    backgroundColor: '#DC3545',
-    alignItems: 'center',
-  },
-  confirmButtonDisabled: {
-    backgroundColor: '#CCC',
-    opacity: 0.6,
-  },
-  confirmButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFF',
   },
 });
-

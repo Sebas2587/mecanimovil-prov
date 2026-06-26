@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +22,7 @@ import { ChecklistDiffModal } from '@/components/checklist/ChecklistDiffModal';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { showAlert, showConfirm, showAlertButtons } from '@/utils/platformAlert';
 import { useOrdenSignatureDisplay } from '@/hooks/useOrdenSignatureDisplay';
-import { MecanicoAsignadoCard } from '@/components/equipo/MecanicoAsignadoCard';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -330,9 +329,12 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           <InstitutionalIcon name="error" size={64} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.errorTitle}>No se pudo cargar</Text>
           <Text style={styles.errorMessage}>{error}</Text>
-          <TouchableOpacity style={styles.primaryButton} onPress={() => onCancel?.()}>
-            <Text style={styles.primaryButtonText}>Volver</Text>
-          </TouchableOpacity>
+          <InstitutionalButton
+            label="Volver"
+            onPress={() => onCancel?.()}
+            variant="primary"
+            style={{ minWidth: 160 }}
+          />
         </View>
       </SafeAreaView>
     );
@@ -347,9 +349,12 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           <Text style={styles.errorMessage}>
             Este servicio no tiene checklist. Puedes continuar con el servicio normalmente.
           </Text>
-          <TouchableOpacity style={styles.primaryButton} onPress={() => onCancel?.()}>
-            <Text style={styles.primaryButtonText}>Volver</Text>
-          </TouchableOpacity>
+          <InstitutionalButton
+            label="Volver"
+            onPress={() => onCancel?.()}
+            variant="primary"
+            style={{ minWidth: 160 }}
+          />
         </View>
       </SafeAreaView>
     );
@@ -442,10 +447,15 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             <Text style={styles.onboardingDescription}>
               Completa el checklist paso a paso antes de finalizar el servicio. El cliente firmará al cierre.
             </Text>
-            <TouchableOpacity style={styles.primaryButton} onPress={handleStart}>
-              <InstitutionalIcon name="play-arrow" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.primaryButtonText}>Iniciar checklist</Text>
-            </TouchableOpacity>
+            <InstitutionalButton
+              label="Iniciar checklist"
+              onPress={handleStart}
+              variant="primary"
+              leading={
+                <InstitutionalIcon name="play-arrow" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              }
+              style={{ alignSelf: 'stretch' }}
+            />
           </View>
         )}
 
@@ -458,10 +468,15 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             <Text style={styles.onboardingDescription}>
               Puedes continuar donde lo dejaste. Revisa los ítems pendientes antes de finalizar.
             </Text>
-            <TouchableOpacity style={styles.primaryButton} onPress={handleResume}>
-              <InstitutionalIcon name="play-circle-filled" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.primaryButtonText}>Continuar checklist</Text>
-            </TouchableOpacity>
+            <InstitutionalButton
+              label="Continuar checklist"
+              onPress={handleResume}
+              variant="primary"
+              leading={
+                <InstitutionalIcon name="play-circle-filled" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              }
+              style={{ alignSelf: 'stretch' }}
+            />
           </View>
         )}
 
@@ -538,34 +553,34 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                 Tiempo total: {instance.tiempo_total_minutos} min
               </Text>
             ) : null}
-            <TouchableOpacity
-              style={styles.primaryButton}
+            <InstitutionalButton
+              label="Ver resumen"
               onPress={() => setShowCompletedView(true)}
-            >
-              <InstitutionalIcon name="visibility" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.primaryButtonText}>Ver resumen</Text>
-            </TouchableOpacity>
+              variant="primary"
+              leading={
+                <InstitutionalIcon name="visibility" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              }
+              style={{ alignSelf: 'stretch' }}
+            />
           </View>
         )}
       </ScrollView>
 
       {instance.estado === 'EN_PROGRESO' && !isCompleted && canFinalize && (
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <TouchableOpacity
-            style={[styles.primaryButton, styles.footerPrimaryButton, finalizing && styles.buttonDisabled]}
+          <InstitutionalButton
+            label="Finalizar checklist"
             onPress={handleFinalize}
+            variant="primary"
             disabled={finalizing}
-            activeOpacity={0.85}
-          >
-            {finalizing ? (
-              <ActivityIndicator size="small" color={I.onPrimary} />
-            ) : (
-              <>
+            loading={finalizing}
+            leading={
+              !finalizing ? (
                 <InstitutionalIcon name="done-all" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.primaryButtonText}>Finalizar checklist</Text>
-              </>
-            )}
-          </TouchableOpacity>
+              ) : undefined
+            }
+            style={styles.footerPrimaryButton}
+          />
         </View>
       )}
 
@@ -723,23 +738,6 @@ const styles = StyleSheet.create({
     color: I.body,
     lineHeight: Math.round(TYPOGRAPHY.fontSize.sm * TYPOGRAPHY.lineHeight.normal),
   },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: I.primary,
-    paddingVertical: SPACING.fixed.md,
-    paddingHorizontal: SPACING.fixed.lg,
-    borderRadius: BORDERS.radius.pill,
-    gap: SPACING.fixed.xs,
-    minHeight: 48,
-    ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : {}),
-  },
-  primaryButtonText: {
-    color: I.onPrimary,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansSemiBold,
-  },
   secondaryOutlineButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -757,9 +755,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansSemiBold,
     color: I.primary,
-  },
-  buttonDisabled: {
-    opacity: 0.55,
   },
   completedCard: {
     backgroundColor: withOpacity(I.semanticUp, 0.08),

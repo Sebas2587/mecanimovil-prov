@@ -3,6 +3,9 @@ import { View, StyleSheet } from 'react-native';
 import { SkeletonPulse } from '@/components/ui/Skeleton/SkeletonPulse';
 import { dashboardMirrorStyles } from '@/components/ui/Skeleton/dashboardMirrorStyles';
 import { SKELETON_BASE, SKELETON_MUTED } from '@/components/ui/Skeleton/skeletonTokens';
+import { COLORS } from '@/app/design-system/tokens';
+
+const I = COLORS.institutional;
 
 /**
  * Espejo estructural de la tarjeta radar (oportunidad) del dashboard.
@@ -55,10 +58,10 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: I.hairline,
   },
   ctaFill: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: COLORS.primary[100],
   },
   ctaBar: {
     alignSelf: 'center',

@@ -9,120 +9,147 @@ import {
 import { OfertaProveedor } from '@/services/solicitudesService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { platformShadow } from '@/app/design-system/tokens';
+import {
+  COLORS,
+  BORDERS,
+  SPACING,
+} from '@/app/design-system/tokens';
+import {
+  INSTITUTIONAL_SEMANTIC,
+  institutionalStatusColors,
+  institutionalCardStyles,
+} from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
+import {
+  institutionalTagIconColor,
+  type InstitutionalTagVariant,
+} from '@/app/design-system/styles/institutionalTags';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+
+const I = COLORS.institutional;
 
 interface OfertaCardProps {
   oferta: OfertaProveedor;
   onPress: () => void;
 }
 
+type EstadoInfo = {
+  variant: InstitutionalTagVariant;
+  text: string;
+  icon: string;
+  canWork: boolean;
+  subtitle: string | null;
+  warning?: boolean;
+  success?: boolean;
+};
+
 export const OfertaCard: React.FC<OfertaCardProps> = ({
   oferta,
   onPress,
 }) => {
-
-  // Obtener color, texto del estado y información adicional
-  const getEstadoInfo = () => {
+  const getEstadoInfo = (): EstadoInfo => {
     switch (oferta.estado) {
       case 'enviada':
-        return { 
-          color: '#007AFF', 
-          text: 'Enviada', 
+        return {
+          variant: 'primary',
+          text: 'Enviada',
           icon: 'send',
           canWork: false,
-          subtitle: null
+          subtitle: null,
         };
       case 'vista':
-        return { 
-          color: '#5856D6', 
-          text: 'Vista por Cliente', 
+        return {
+          variant: 'info',
+          text: 'Vista por Cliente',
           icon: 'visibility',
           canWork: false,
-          subtitle: 'Cliente revisando tu oferta'
+          subtitle: 'Cliente revisando tu oferta',
         };
       case 'en_chat':
-        return { 
-          color: '#FF9500', 
-          text: 'En Conversación', 
+        return {
+          variant: 'warning',
+          text: 'En Conversación',
           icon: 'chat',
           canWork: false,
-          subtitle: 'Conversando con el cliente'
+          subtitle: 'Conversando con el cliente',
         };
       case 'aceptada':
-        return { 
-          color: '#10B981', 
-          text: '¡Aceptada!', 
+        return {
+          variant: 'success',
+          text: '¡Aceptada!',
           icon: 'check-circle',
           canWork: false,
           subtitle: '⏳ Esperando confirmación de pago',
-          warning: true
+          warning: true,
         };
       case 'pendiente_pago':
-        return { 
-          color: '#F59E0B', 
-          text: 'Cliente Pagando...', 
+        return {
+          variant: 'warning',
+          text: 'Cliente Pagando...',
           icon: 'payment',
           canWork: false,
           subtitle: '💳 Pago en proceso',
-          warning: true
+          warning: true,
         };
       case 'pagada_parcialmente':
-        return { 
-          color: '#F59E0B', 
-          text: 'Pagada Parcialmente', 
+        return {
+          variant: 'warning',
+          text: 'Pagada Parcialmente',
           icon: 'payment',
           canWork: false,
           subtitle: '⏳ Cliente pagó repuestos, pendiente servicio',
-          warning: true
+          warning: true,
         };
       case 'pagada':
-        return { 
-          color: '#059669', 
-          text: '¡Pagada!', 
+        return {
+          variant: 'success',
+          text: '¡Pagada!',
           icon: 'paid',
           canWork: true,
           subtitle: '✅ Listo para trabajar',
-          success: true
+          success: true,
         };
       case 'rechazada':
-        return { 
-          color: '#FF3B30', 
-          text: 'Rechazada', 
+        return {
+          variant: 'error',
+          text: 'Rechazada',
           icon: 'cancel',
           canWork: false,
-          subtitle: null
+          subtitle: null,
         };
       case 'retirada':
-        return { 
-          color: '#8E8E93', 
-          text: 'Retirada', 
+        return {
+          variant: 'neutral',
+          text: 'Retirada',
           icon: 'undo',
           canWork: false,
-          subtitle: null
+          subtitle: null,
         };
       case 'expirada':
-        return { 
-          color: '#8E8E93', 
-          text: 'Expirada', 
+        return {
+          variant: 'neutral',
+          text: 'Expirada',
           icon: 'schedule',
           canWork: false,
-          subtitle: null
+          subtitle: null,
         };
       default:
-        return { 
-          color: '#8E8E93', 
-          text: oferta.estado, 
+        return {
+          variant: 'neutral',
+          text: oferta.estado,
           icon: 'info',
           canWork: false,
-          subtitle: null
+          subtitle: null,
         };
     }
   };
 
   const estadoInfo = getEstadoInfo();
+  const estadoTagIcon = institutionalTagIconColor(estadoInfo.variant);
+  const successStatus = institutionalStatusColors('success');
+  const warningStatus = institutionalStatusColors('warning');
+  const repuestosStatus = institutionalStatusColors('success');
 
-  // Formatear fecha
   const formatearFecha = (fecha: string): string => {
     try {
       const date = new Date(fecha);
@@ -137,11 +164,11 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
       if (diffHours < 24) return `Hace ${diffHours} h`;
       if (diffDays === 1) return 'Ayer';
       if (diffDays < 7) return `Hace ${diffDays} días`;
-      
-      return date.toLocaleDateString('es-ES', { 
-        day: 'numeric', 
+
+      return date.toLocaleDateString('es-ES', {
+        day: 'numeric',
         month: 'short',
-        year: date.getFullYear() !== ahora.getFullYear() ? 'numeric' : undefined
+        year: date.getFullYear() !== ahora.getFullYear() ? 'numeric' : undefined,
       });
     } catch {
       return fecha;
@@ -150,36 +177,47 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
 
   const formatearPrecio = (precio: string | number): string => formatearMontoCLP(precio);
 
+  const bannerColors = estadoInfo.success ? successStatus : warningStatus;
+
   return (
     <TouchableOpacity
       style={styles.card}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      {/* Badge para ofertas secundarias */}
       {oferta.es_oferta_secundaria && (
         <View style={styles.badgeSecundaria}>
-          <InstitutionalIcon name="add-circle" size={14} color="#FFFFFF"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="add-circle" size={14} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.badgeSecundariaText}>SERVICIO ADICIONAL</Text>
         </View>
       )}
-      
+
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={[styles.estadoBadge, { backgroundColor: `${estadoInfo.color}15` }]}>
-            <InstitutionalIcon 
-              name={estadoInfo.icon as any} 
-              size={14} 
-              color={estadoInfo.color} 
-             strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[styles.estadoText, { color: estadoInfo.color }]}>
-              {estadoInfo.text}
-            </Text>
-          </View>
+          <InstitutionalTag
+            label={estadoInfo.text}
+            variant={estadoInfo.variant}
+            size="md"
+            uppercase={false}
+            leading={
+              <InstitutionalIcon
+                name={estadoInfo.icon as any}
+                size={14}
+                color={estadoTagIcon}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+            }
+          />
           {estadoInfo.subtitle && (
             <Text style={[
-              styles.subtitle, 
-              { color: estadoInfo.warning ? '#F59E0B' : estadoInfo.success ? '#059669' : '#6c757d' }
+              styles.subtitle,
+              {
+                color: estadoInfo.warning
+                  ? INSTITUTIONAL_SEMANTIC.warning
+                  : estadoInfo.success
+                    ? INSTITUTIONAL_SEMANTIC.success
+                    : INSTITUTIONAL_SEMANTIC.body,
+              },
             ]}>
               {estadoInfo.subtitle}
             </Text>
@@ -190,41 +228,46 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
         </Text>
       </View>
 
-      {/* Banner informativo para estados críticos */}
       {(estadoInfo.warning || estadoInfo.success) && (
         <View style={[
           styles.infoBanner,
-          { 
-            backgroundColor: estadoInfo.success ? '#05966915' : '#F59E0B15',
-            borderLeftColor: estadoInfo.success ? '#059669' : '#F59E0B'
-          }
+          {
+            backgroundColor: bannerColors.bg,
+            borderLeftColor: bannerColors.border,
+          },
         ]}>
-          <InstitutionalIcon 
-            name={estadoInfo.success ? 'check-circle' : 'info'} 
-            size={16} 
-            color={estadoInfo.success ? '#059669' : '#F59E0B'} 
-           strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon
+            name={estadoInfo.success ? 'check-circle' : 'info'}
+            size={16}
+            color={bannerColors.icon}
+            strokeWidth={ICON_STROKE_WIDTH}
+          />
           <Text style={[
             styles.infoBannerText,
-            { color: estadoInfo.success ? '#059669' : '#F59E0B' }
+            { color: bannerColors.text },
           ]}>
-            {estadoInfo.success 
-              ? 'Puedes dirigirte al servicio en la fecha acordada' 
+            {estadoInfo.success
+              ? 'Puedes dirigirte al servicio en la fecha acordada'
               : 'No te dirijas al servicio hasta confirmar el pago'}
           </Text>
         </View>
       )}
 
-      {/* Información de pago parcial */}
       {oferta.estado === 'pagada_parcialmente' && (
-        <View style={[styles.pagoParcialCard, { backgroundColor: '#FFF3E0', borderColor: '#F59E0B' }]}>
+        <View style={[
+          styles.pagoParcialCard,
+          {
+            backgroundColor: warningStatus.bg,
+            borderColor: warningStatus.border,
+          },
+        ]}>
           <View style={styles.pagoParcialHeader}>
-            <InstitutionalIcon name="payment" size={18} color="#F59E0B"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[styles.pagoParcialTitulo, { color: '#F59E0B' }]}>
+            <InstitutionalIcon name="payment" size={18} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={styles.pagoParcialTitulo}>
               Pago Parcial Realizado
             </Text>
           </View>
-          
+
           {oferta.estado_pago_repuestos === 'pagado' && oferta.estado_pago_servicio === 'pendiente' && (
             <>
               <View style={styles.pagoParcialInfoRow}>
@@ -236,11 +279,11 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
                   )}
                 </Text>
               </View>
-              
+
               {oferta.costo_mano_obra && parseFloat(oferta.costo_mano_obra) > 0 && (
                 <View style={styles.pagoParcialInfoRow}>
                   <Text style={styles.pagoParcialLabel}>⏳ Pendiente (mano de obra):</Text>
-                  <Text style={[styles.pagoParcialMonto, { color: '#F59E0B' }]}>
+                  <Text style={[styles.pagoParcialMonto, { color: I.accentYellow }]}>
                     {formatearPrecio(parseFloat(String(oferta.costo_mano_obra)) * 1.19)}
                   </Text>
                 </View>
@@ -250,18 +293,17 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
         </View>
       )}
 
-      {/* Información del Cliente y Vehículo */}
       {oferta.solicitud_detail && (
         <View style={styles.clientVehicleContainer}>
           <View style={styles.clientInfoRow}>
             {oferta.solicitud_detail.cliente_foto ? (
-              <Image 
-                source={{ uri: oferta.solicitud_detail.cliente_foto }} 
-                style={styles.clientAvatar} 
+              <Image
+                source={{ uri: oferta.solicitud_detail.cliente_foto }}
+                style={styles.clientAvatar}
               />
             ) : (
               <View style={styles.clientAvatarPlaceholder}>
-                <InstitutionalIcon name="person" size={20} color="#FFF"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="person" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
               </View>
             )}
             <View style={styles.clientTextContainer}>
@@ -270,7 +312,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
               </Text>
               {oferta.solicitud_detail.vehiculo && (
                 <View style={styles.vehicleInfo}>
-                  <InstitutionalIcon name="directions-car" size={14} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
+                  <InstitutionalIcon name="directions-car" size={14} color={I.body} strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.vehicleText}>
                     {oferta.solicitud_detail.vehiculo.marca} {oferta.solicitud_detail.vehiculo.modelo}
                     {oferta.solicitud_detail.vehiculo.año && ` ${oferta.solicitud_detail.vehiculo.año}`}
@@ -284,9 +326,8 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
 
       <View style={styles.content}>
         <View style={styles.precioContainer}>
-          {/* Mostrar monto pagado si es pago parcial, o total si es completo */}
-          {oferta.estado === 'pagada_parcialmente' && 
-           oferta.estado_pago_repuestos === 'pagado' && 
+          {oferta.estado === 'pagada_parcialmente' &&
+           oferta.estado_pago_repuestos === 'pagado' &&
            oferta.estado_pago_servicio === 'pendiente' ? (
             <View style={styles.precioParcialContainer}>
               <Text style={styles.precio}>
@@ -306,9 +347,9 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
             </Text>
           )}
           {oferta.incluye_repuestos && (
-            <View style={[styles.repuestosBadge, { backgroundColor: '#34C75915' }]}>
-              <InstitutionalIcon name="build" size={12} color="#34C759"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={[styles.repuestosText, { color: '#34C759' }]}>
+            <View style={[styles.repuestosBadge, { backgroundColor: repuestosStatus.bg }]}>
+              <InstitutionalIcon name="build" size={12} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={[styles.repuestosText, { color: repuestosStatus.text }]}>
                 Incluye repuestos
               </Text>
             </View>
@@ -316,7 +357,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
         </View>
 
         {oferta.descripcion_oferta && (
-          <Text 
+          <Text
             style={styles.descripcion}
             numberOfLines={2}
           >
@@ -327,11 +368,11 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
         <View style={styles.detalles}>
           {oferta.fecha_disponible && (
             <View style={styles.detalleItem}>
-              <InstitutionalIcon name="calendar-today" size={14} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="calendar-today" size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.detalleText}>
                 {new Date(oferta.fecha_disponible).toLocaleDateString('es-ES', {
                   day: 'numeric',
-                  month: 'short'
+                  month: 'short',
                 })}
                 {oferta.hora_disponible && ` • ${oferta.hora_disponible.substring(0, 5)}`}
               </Text>
@@ -340,7 +381,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
 
           {oferta.tiempo_estimado_total && (
             <View style={styles.detalleItem}>
-              <InstitutionalIcon name="schedule" size={14} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="schedule" size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.detalleText}>
                 {oferta.tiempo_estimado_total}
               </Text>
@@ -349,7 +390,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
 
           {oferta.detalles_servicios_detail && oferta.detalles_servicios_detail.length > 0 && (
             <View style={styles.detalleItem}>
-              <InstitutionalIcon name="build" size={14} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="build" size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.detalleText}>
                 {oferta.detalles_servicios_detail.length} servicio{oferta.detalles_servicios_detail.length !== 1 ? 's' : ''}
               </Text>
@@ -359,7 +400,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
       </View>
 
       <View style={styles.footer}>
-        <InstitutionalIcon name="chevron-right" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+        <InstitutionalIcon name="chevron-right" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
     </TouchableOpacity>
   );
@@ -367,76 +408,56 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    }),
+    ...institutionalCardStyles.surface,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.sm,
   },
   badgeSecundaria: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF9800',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 12,
-    gap: 4,
+    backgroundColor: I.accentYellow,
+    paddingHorizontal: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.xxs,
+    borderRadius: BORDERS.radius.sm,
+    marginBottom: SPACING.fixed.sm,
+    gap: SPACING.fixed.xxs,
     alignSelf: 'flex-start',
   },
   badgeSecundariaText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: I.onPrimary,
     letterSpacing: 0.5,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: SPACING.fixed.sm,
   },
   headerLeft: {
     flex: 1,
   },
-  estadoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    gap: 4,
-  },
-  estadoText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
   subtitle: {
     fontSize: 11,
     fontWeight: '500',
-    marginTop: 4,
+    marginTop: SPACING.fixed.xxs,
     marginLeft: 2,
   },
   fecha: {
     fontSize: 12,
-    marginLeft: 8,
-    color: '#6c757d',
+    marginLeft: SPACING.fixed.xs,
+    color: I.muted,
   },
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    gap: 8,
+    paddingHorizontal: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.sm,
+    marginBottom: SPACING.fixed.sm,
+    gap: SPACING.fixed.xs,
     borderLeftWidth: 3,
   },
   infoBannerText: {
@@ -445,63 +466,62 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   pagoParcialCard: {
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 12,
+    padding: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.sm,
+    borderWidth: BORDERS.width.thin,
+    marginBottom: SPACING.fixed.sm,
   },
   pagoParcialHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    gap: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.xs,
   },
   pagoParcialTitulo: {
     fontSize: 14,
     fontWeight: '600',
+    color: I.accentYellow,
   },
   pagoParcialInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: SPACING.fixed.xxs,
   },
   pagoParcialLabel: {
     fontSize: 13,
-    color: '#666',
+    color: I.body,
     fontWeight: '500',
   },
   pagoParcialMonto: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#212529',
+    color: INSTITUTIONAL_SEMANTIC.ink,
     lineHeight: 16,
   },
-  
-  // Cliente y Vehículo
   clientVehicleContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    backgroundColor: '#F8F8F8',
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.sm,
+    backgroundColor: I.surfaceSoft,
     borderRadius: 10,
-    marginBottom: 16,
+    marginBottom: SPACING.fixed.md,
   },
   clientInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: SPACING.fixed.sm,
   },
   clientAvatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: I.surfaceStrong,
   },
   clientAvatarPlaceholder: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#0061FF',
+    backgroundColor: I.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -511,8 +531,8 @@ const styles = StyleSheet.create({
   clientName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#212529',
-    marginBottom: 4,
+    color: INSTITUTIONAL_SEMANTIC.ink,
+    marginBottom: SPACING.fixed.xxs,
   },
   vehicleInfo: {
     flexDirection: 'row',
@@ -521,46 +541,45 @@ const styles = StyleSheet.create({
   },
   vehicleText: {
     fontSize: 14,
-    color: '#666',
+    color: I.body,
     fontWeight: '500',
   },
-
   content: {
-    marginBottom: 8,
+    marginBottom: SPACING.fixed.xs,
   },
   precioContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: SPACING.fixed.xs,
+    gap: SPACING.fixed.xs,
   },
   precio: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#212529',
+    color: INSTITUTIONAL_SEMANTIC.ink,
   },
   precioParcialContainer: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    gap: 4,
+    gap: SPACING.fixed.xxs,
   },
   precioParcialLabel: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#F59E0B',
+    color: I.accentYellow,
   },
   precioTotalLabel: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#666',
+    color: I.body,
   },
   repuestosBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
-    gap: 4,
+    borderRadius: BORDERS.radius.sm,
+    gap: SPACING.fixed.xxs,
   },
   repuestosText: {
     fontSize: 10,
@@ -569,25 +588,25 @@ const styles = StyleSheet.create({
   descripcion: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#6c757d',
-    marginBottom: 12,
+    color: I.muted,
+    marginBottom: SPACING.fixed.sm,
   },
   detalles: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: SPACING.fixed.sm,
   },
   detalleItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: SPACING.fixed.xxs,
   },
   detalleText: {
     fontSize: 12,
-    color: '#6c757d',
+    color: I.muted,
   },
   footer: {
     alignItems: 'flex-end',
-    marginTop: 4,
+    marginTop: SPACING.fixed.xxs,
   },
 });

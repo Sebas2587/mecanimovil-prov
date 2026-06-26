@@ -778,12 +778,12 @@ export default function SubirDocumentosScreen() {
 
 const styles = StyleSheet.create({
   progresoContainer: {
-    backgroundColor: 'white',
+    backgroundColor: I.canvas,
     padding: 20,
     borderRadius: 12,
     marginBottom: 20,
     ...platformShadow({
-      shadowColor: '#000',
+      shadowColor: I.ink,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
       shadowRadius: 4,
@@ -793,7 +793,7 @@ const styles = StyleSheet.create({
   progresoTitulo: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2c3e50',
+    color: I.ink,
     marginBottom: 15,
   },
   progresoItem: {
@@ -804,16 +804,16 @@ const styles = StyleSheet.create({
   },
   progresoLabel: {
     fontSize: 14,
-    color: '#5d6d7e',
+    color: I.body,
   },
   progresoValor: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#2c3e50',
+    color: I.ink,
   },
   progressBar: {
     height: 8,
-    backgroundColor: '#ecf0f1',
+    backgroundColor: I.surfaceStrong,
     borderRadius: 4,
     marginTop: 10,
   },
@@ -823,12 +823,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   seccionContainer: {
-    backgroundColor: 'white',
+    backgroundColor: I.canvas,
     padding: 20,
     borderRadius: 12,
     marginBottom: 20,
     ...platformShadow({
-      shadowColor: '#000',
+      shadowColor: I.ink,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
       shadowRadius: 4,
@@ -843,18 +843,18 @@ const styles = StyleSheet.create({
   seccionTitulo: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2c3e50',
+    color: I.ink,
     marginLeft: 10,
   },
   seccionDescripcion: {
     fontSize: 14,
-    color: '#5d6d7e',
+    color: I.body,
     marginBottom: 20,
     lineHeight: 20,
   },
   documentoContainer: {
     borderBottomWidth: 1,
-    borderBottomColor: '#ecf0f1',
+    borderBottomColor: I.hairline,
     paddingBottom: 20,
     marginBottom: 20,
   },
@@ -871,7 +871,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -5,
     right: -5,
-    backgroundColor: '#e74c3c',
+    backgroundColor: I.semanticDown,
     borderRadius: 8,
     width: 16,
     height: 16,
@@ -879,7 +879,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   obligatorioTexto: {
-    color: 'white',
+    color: I.onPrimary,
     fontSize: 10,
     fontWeight: 'bold',
   },
@@ -889,17 +889,17 @@ const styles = StyleSheet.create({
   documentoNombre: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2c3e50',
+    color: I.ink,
     marginBottom: 5,
   },
   documentoDescripcion: {
     fontSize: 14,
-    color: '#5d6d7e',
+    color: I.body,
     marginBottom: 5,
   },
   documentoFormatos: {
     fontSize: 12,
-    color: '#95a5a6',
+    color: I.mutedSoft,
     fontStyle: 'italic',
   },
   documentoEstado: {
@@ -928,19 +928,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorTexto: {
-    color: '#e74c3c',
+    color: I.semanticDown,
     fontSize: 14,
     marginTop: 5,
   },
   reintentarButton: {
-    backgroundColor: '#e74c3c',
+    backgroundColor: I.semanticDown,
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 6,
     marginTop: 8,
   },
   reintentarTexto: {
-    color: 'white',
+    color: I.onPrimary,
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -953,10 +953,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   subirButtonObligatorio: {
-    backgroundColor: '#e74c3c',
+    backgroundColor: I.semanticDown,
   },
   subirButtonTexto: {
-    color: 'white',
+    color: I.onPrimary,
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 8,
@@ -971,7 +971,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   completarButtonTexto: {
-    color: 'white',
+    color: I.onPrimary,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -980,19 +980,19 @@ const styles = StyleSheet.create({
   },
   ayudaTexto: {
     fontSize: 14,
-    color: '#e74c3c',
+    color: I.semanticDown,
     textAlign: 'center',
     marginBottom: 15,
   },
   ayudaButton: {
-    backgroundColor: '#95a5a6',
+    backgroundColor: I.mutedSoft,
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 8,
     alignItems: 'center',
   },
   ayudaButtonTexto: {
-    color: 'white',
+    color: I.onPrimary,
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -1009,12 +1009,12 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: COLORS.background.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
-    backgroundColor: 'white',
+    backgroundColor: I.canvas,
     borderRadius: 12,
     padding: 20,
     width: '80%',
@@ -1023,7 +1023,7 @@ const styles = StyleSheet.create({
   modalTitulo: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2c3e50',
+    color: I.ink,
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -1033,11 +1033,11 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#ecf0f1',
+    borderBottomColor: I.hairline,
   },
   modalOpcionTexto: {
     fontSize: 16,
-    color: '#2c3e50',
+    color: I.ink,
     marginLeft: 15,
   },
   modalCancelar: {
@@ -1047,7 +1047,7 @@ const styles = StyleSheet.create({
   },
   modalCancelarTexto: {
     fontSize: 16,
-    color: '#e74c3c',
+    color: I.semanticDown,
     fontWeight: 'bold',
   },
 }); 

@@ -1,15 +1,23 @@
 /**
  * Header Component - MecaniMóvil Proveedores
- * Componente de header consistente usando el sistema de diseño
+ * Componente de header consistente usando el sistema de diseño institucional
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, platformShadow, pointerEventsNone } from '@/app/design-system/tokens';
+import {
+  COLORS,
+  SPACING,
+  BORDERS,
+  SHADOWS,
+  pointerEventsNone,
+} from '@/app/design-system/tokens';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+
+const I = COLORS.institutional;
 
 interface HeaderProps {
   title: string;
@@ -20,7 +28,7 @@ interface HeaderProps {
   backgroundColor?: string;
   titleColor?: string;
   badge?: number | string;
-  style?: any;
+  style?: object;
 }
 
 export default function Header({
@@ -35,79 +43,35 @@ export default function Header({
   style,
 }: HeaderProps) {
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
 
-  // Valores seguros del tema con fallbacks
-  const safeColors = theme?.colors || COLORS || {};
-  const safeSpacing = theme?.spacing || SPACING || {};
-  const safeTypography = theme?.typography || TYPOGRAPHY || {};
-  const safeShadows = theme?.shadows || SHADOWS || {};
-  const safeBorders = theme?.borders || BORDERS || {};
-
-  // Colores
-  const bgColor = backgroundColor || safeColors?.background?.paper || COLORS?.base?.white || '#FFFFFF';
-  const textColor = titleColor || safeColors?.text?.primary || COLORS?.neutral?.inkBlack || '#00171F';
-  const borderColor = safeColors?.border?.light || (safeColors?.neutral?.gray as any)?.[200] || '#D7DFE3';
-  const primaryColor = (safeColors?.primary as any)?.['500'] || (safeColors?.accent as any)?.['500'] || '#003459';
-  const errorColor = (safeColors?.error as any)?.['500'] || '#EF4444';
-
-  // Espaciado - Usar el mismo padding que otras pantallas (18px) para consistencia
-  const containerHorizontal = safeSpacing?.container?.horizontal || SPACING?.container?.horizontal || SPACING?.content?.horizontal || 18;
-  const shadowSm =
-    safeShadows?.sm ||
-    SHADOWS?.sm ||
-    platformShadow({
-      shadowColor: '#00171F',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.08,
-      shadowRadius: 3,
-      elevation: 2,
-    });
-
-  // Tipografía
-  const titleSize = safeTypography?.fontSize?.xl || TYPOGRAPHY?.fontSize?.xl || 20;
-  const titleWeight = safeTypography?.fontWeight?.bold || TYPOGRAPHY?.fontWeight?.bold || '700';
-
-  // Bordes
-  const borderWidth = safeBorders?.width?.thin || BORDERS?.width?.thin || 1;
-  const badgeRadius = safeBorders?.radius?.badge?.full || safeBorders?.radius?.full || 9999;
+  const bgColor = backgroundColor ?? I.canvas;
+  const textColor = titleColor ?? I.ink;
 
   return (
     <View
       style={[
         styles.container,
         {
-          paddingTop: Math.max(insets.top, 8), // Reducido de 10 a 8 para padding más compacto
+          paddingTop: Math.max(insets.top, SPACING.fixed.xs),
           backgroundColor: bgColor,
-          borderBottomColor: borderColor,
-          borderBottomWidth: borderWidth,
-          ...shadowSm,
+          borderBottomColor: I.hairline,
+          borderBottomWidth: BORDERS.width.thin,
+          ...SHADOWS.sm,
         },
         style,
       ]}
     >
-      <View
-        style={[
-          styles.content,
-          { paddingHorizontal: containerHorizontal },
-        ]}
-      >
-        {/* Título centrado respecto al ancho del header (independiente del ancho del CTA derecho) */}
+      <View style={[styles.content, { paddingHorizontal: SPACING.container.horizontal }]}>
         <View style={[styles.titleAbsoluteLayer, pointerEventsNone]}>
-          <Text
-            style={[
-              styles.title,
-              {
-                color: textColor,
-                fontSize: titleSize,
-                fontWeight: titleWeight,
-              },
-            ]}
+          <InstitutionalText
+            role="h3"
+            color={textColor}
+            style={styles.title}
             numberOfLines={1}
             ellipsizeMode="tail"
           >
             {title}
-          </Text>
+          </InstitutionalText>
         </View>
 
         <View style={styles.headerRow}>
@@ -121,7 +85,7 @@ export default function Header({
                   accessibilityRole="button"
                   accessibilityLabel="Volver"
                 >
-                  <ArrowLeft size={24} color={primaryColor} strokeWidth={ICON_STROKE_WIDTH} />
+                  <ArrowLeft size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
               ) : null)}
           </View>
@@ -130,13 +94,13 @@ export default function Header({
 
           <View style={styles.rightContainer}>
             {rightComponent}
-            {badge !== undefined && badge !== null && badge !== 0 && (
-              <View style={[styles.badgeContainer, { backgroundColor: errorColor }]}>
-                <Text style={styles.badgeText}>
+            {badge !== undefined && badge !== null && badge !== 0 ? (
+              <View style={styles.badgeContainer}>
+                <InstitutionalText role="small" color="onPrimary" style={styles.badgeText}>
                   {typeof badge === 'number' && badge > 99 ? '99+' : String(badge)}
-                </Text>
+                </InstitutionalText>
               </View>
-            )}
+            ) : null}
           </View>
         </View>
       </View>
@@ -145,20 +109,17 @@ export default function Header({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    // Estilos aplicados dinámicamente
-  },
+  container: {},
   content: {
     position: 'relative',
     height: 56,
     justifyContent: 'center',
   },
-  /** Capa bajo los laterales: título ópticamente centrado en toda la barra */
   titleAbsoluteLayer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: (SPACING?.md ?? 16) + 40,
+    paddingHorizontal: SPACING.fixed.md + 40,
     zIndex: 0,
   },
   headerRow: {
@@ -190,7 +151,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: '72%',
   },
-  /** Ancho mínimo para toque; sin `width` fijo para que CTAs con texto (p. ej. Gestionar perfil) no queden recortados */
   rightContainer: {
     minWidth: 40,
     flexShrink: 0,
@@ -204,18 +164,16 @@ const styles = StyleSheet.create({
     right: -4,
     minWidth: 20,
     height: 20,
-    borderRadius: 9999,
+    borderRadius: BORDERS.radius.full,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 6,
     borderWidth: 2,
-    borderColor: COLORS?.base?.white || '#FFFFFF',
+    borderColor: I.canvas,
+    backgroundColor: I.semanticDown,
     zIndex: 10,
   },
   badgeText: {
-    color: COLORS?.base?.white || '#FFFFFF',
-    fontSize: TYPOGRAPHY?.fontSize?.xs || 10,
-    fontWeight: TYPOGRAPHY?.fontWeight?.bold || '700',
+    fontWeight: '700',
   },
 });
-

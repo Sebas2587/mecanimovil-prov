@@ -62,12 +62,13 @@ const MercadoPagoWebViewModal: React.FC<MercadoPagoWebViewModalProps> = ({
   const hasProcessedPaymentRef = useRef(false);
 
   // Obtener valores del sistema de diseño
-  const colors = theme?.colors || COLORS || {};
-  const textPrimary = colors?.text?.primary || '#000000';
-  const textSecondary = colors?.text?.secondary || '#666666';
-  const primaryColor = colors?.primary?.['500'] || '#4E4FEB';
-  const backgroundPaper = colors?.background?.paper || '#FFFFFF';
-  const borderMain = colors?.border?.main || '#D0D0D0';
+  const I = COLORS.institutional;
+  const colors = theme?.colors || COLORS;
+  const textPrimary = colors?.text?.primary ?? I.ink;
+  const textSecondary = colors?.text?.secondary ?? I.body;
+  const primaryColor = colors?.primary?.['500'] ?? I.primary;
+  const backgroundPaper = colors?.background?.paper ?? I.canvas;
+  const borderMain = colors?.border?.main ?? I.hairline;
 
   // Limpiar timeouts al desmontar
   useEffect(() => {

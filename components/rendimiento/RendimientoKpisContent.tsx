@@ -18,6 +18,7 @@ import {
   targetTierNameForScore,
 } from '@/hooks/useProveedorKpisResumen';
 import { useRendimientoEquipoDetalladoQuery } from '@/hooks/useRendimientoEquipoDetalladoQuery';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 
 const DIAS_OPCIONES = [7, 30, 90] as const;
 
@@ -61,9 +62,7 @@ function DsCard({ children }: { children: React.ReactNode }) {
 
 function SectionTitle({ children }: { children: string }) {
   return (
-    <Text style={styles.sectionTitle} numberOfLines={1}>
-      {children}
-    </Text>
+    <InstitutionalSectionHeader title={children} level="h4" />
   );
 }
 
@@ -495,14 +494,6 @@ const styles = StyleSheet.create({
   sectionWrap: {
     paddingHorizontal: SPACING.fixed.lg,
     marginBottom: SPACING.fixed.lg,
-  },
-  sectionTitle: {
-    fontSize: captionBold.fontSize,
-    lineHeight: lh(captionBold.fontSize, captionBold.lineHeight),
-    fontFamily: FF.sansSemiBold,
-    color: I.muted,
-    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
-    marginBottom: SPACING.fixed.sm,
   },
   cardOuter: {
     borderRadius: BORDERS.radius.xl,

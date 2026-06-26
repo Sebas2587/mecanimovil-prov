@@ -6,19 +6,18 @@
 import React, { useEffect, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Animated,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import {COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow} from '@/app/design-system/tokens';
+import { COLORS, SPACING, SHADOWS } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 
-const { width: screenWidth } = Dimensions.get('window');
+const I = COLORS.institutional;
 
 interface AlertaPagoExpiradoProps {
   visible: boolean;
@@ -28,47 +27,29 @@ interface AlertaPagoExpiradoProps {
   solicitudId?: string;
   creditosDevueltos?: boolean;
   onDismiss: () => void;
-  duration?: number; // Duración en ms antes de auto-ocultar (0 = no auto-ocultar)
+  duration?: number;
 }
 
 export default function AlertaPagoExpirado({
   visible,
   mensaje,
   tipo,
-  ofertaId,
-  solicitudId,
   creditosDevueltos = false,
   onDismiss,
-  duration = 0, // Por defecto no auto-ocultar
+  duration = 0,
 }: AlertaPagoExpiradoProps) {
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const slideAnim = useRef(new Animated.Value(100)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  // Obtener colores del sistema de diseño
-  const safeColors = theme?.colors || COLORS || {};
-  const safeSpacing = theme?.spacing || SPACING || {};
-  const safeTypography = theme?.typography || TYPOGRAPHY || {};
-  const safeShadows = theme?.shadows || SHADOWS || {};
-  const safeBorders = theme?.borders || BORDERS || {};
-
-  const errorObj = safeColors?.error as any;
-  const warningObj = safeColors?.warning as any;
-  const successObj = safeColors?.success as any;
-
-  const errorColor = errorObj?.main || errorObj?.['500'] || '#FF6B6B';
-  const warningColor = warningObj?.main || warningObj?.['500'] || '#FFB84D';
-  const successColor = successObj?.main || successObj?.['500'] || '#00C9A7';
-
-  // Determinar color según tipo
-  const backgroundColor = tipo === 'expirado' ? errorColor : warningColor;
+  const statusTone = tipo === 'expirado' ? 'error' : 'warning';
+  const status = institutionalStatusColors(statusTone);
+  const backgroundColor = status.icon;
   const iconName = tipo === 'expirado' ? 'close-circle-outline' : 'information-circle-outline';
-  const textColor = '#FFFFFF';
+  const textColor = I.onPrimary;
 
   useEffect(() => {
     if (visible) {
-      // Animar entrada
       Animated.parallel([
         Animated.timing(slideAnim, {
           toValue: 0,
@@ -82,7 +63,6 @@ export default function AlertaPagoExpirado({
         }),
       ]).start();
 
-      // Auto-ocultar si hay duración
       if (duration > 0) {
         const timer = setTimeout(() => {
           handleDismiss();
@@ -118,29 +98,12 @@ export default function AlertaPagoExpirado({
     return null;
   }
 
-  const spacingMd = safeSpacing?.md || 16;
-  const spacingSm = safeSpacing?.sm || 8;
-  const spacingXs = safeSpacing?.xs || 4;
-  const fontSizeBase = safeTypography?.fontSize?.base || 14;
-  const fontSizeSm = safeTypography?.fontSize?.sm || 12;
-  const fontWeightMedium = safeTypography?.fontWeight?.medium || '500';
-  const radiusLg = safeBorders?.radius?.lg || 12;
-  const shadowMd =
-    safeShadows?.md ||
-    platformShadow({
-      shadowColor: '#00171F',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    });
-
   return (
     <Animated.View
       style={[
         styles.container,
         {
-          bottom: insets.bottom + spacingMd,
+          bottom: insets.bottom + SPACING.md,
           transform: [{ translateY: slideAnim }],
           opacity: opacityAnim,
         },
@@ -150,12 +113,9 @@ export default function AlertaPagoExpirado({
         style={[
           styles.snackbar,
           {
-            backgroundColor: backgroundColor,
-            borderRadius: radiusLg,
-            paddingHorizontal: spacingMd,
-            paddingVertical: spacingMd - 2,
-            ...shadowMd,
+            backgroundColor,
           },
+          SHADOWS.editorial,
         ]}
       >
         <InstitutionalIcon
@@ -163,42 +123,24 @@ export default function AlertaPagoExpirado({
           size={24}
           color={textColor}
           style={styles.icon}
-         strokeWidth={ICON_STROKE_WIDTH} />
+          strokeWidth={ICON_STROKE_WIDTH}
+        />
         <View style={styles.content}>
-          <Text
-            style={[
-              styles.message,
-              {
-                color: textColor,
-                fontSize: fontSizeBase,
-                fontWeight: fontWeightMedium,
-              },
-            ]}
-            numberOfLines={2}
-          >
+          <InstitutionalText role="body" color={textColor} numberOfLines={2}>
             {mensaje}
-          </Text>
-          {creditosDevueltos && (
-            <Text
-              style={[
-                styles.submessage,
-                {
-                  color: textColor,
-                  fontSize: fontSizeSm,
-                  opacity: 0.9,
-                },
-              ]}
-            >
+          </InstitutionalText>
+          {creditosDevueltos ? (
+            <InstitutionalText role="caption" color={textColor} style={styles.submessage}>
               Los créditos han sido devueltos a tu cuenta.
-            </Text>
-          )}
+            </InstitutionalText>
+          ) : null}
         </View>
         <TouchableOpacity
           style={styles.closeButton}
           onPress={handleDismiss}
           activeOpacity={0.7}
         >
-          <InstitutionalIcon name="close" size={20} color={textColor}  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="close" size={20} color={textColor} strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -208,29 +150,30 @@ export default function AlertaPagoExpirado({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: SPACING?.md || 16,
-    right: SPACING?.md || 16,
+    left: SPACING.md,
+    right: SPACING.md,
     zIndex: 9999,
   },
   snackbar: {
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 56,
+    borderRadius: 12,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md - 2,
   },
   icon: {
-    marginRight: SPACING?.sm || 8,
+    marginRight: SPACING.sm,
   },
   content: {
     flex: 1,
-    marginRight: SPACING?.sm || 8,
-  },
-  message: {
-    marginBottom: SPACING?.xs || 4,
+    marginRight: SPACING.sm,
   },
   submessage: {
-    marginTop: SPACING?.xs || 4,
+    marginTop: SPACING.xs,
+    opacity: 0.9,
   },
   closeButton: {
-    padding: SPACING?.xs || 4,
+    padding: SPACING.xs,
   },
 });

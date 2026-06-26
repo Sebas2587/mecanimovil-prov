@@ -12,8 +12,7 @@ import {
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
 import solicitudesService, { 
   type SolicitudPublica, 
   type OfertaProveedorData, 
@@ -26,13 +25,13 @@ import { ModalCreditosInsuficientes } from '@/components/creditos';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
+const I = COLORS.institutional;
+
 export default function CrearOfertaSecundariaScreen() {
   const { solicitudId, ofertaOriginalId } = useLocalSearchParams<{ 
     solicitudId: string;
     ofertaOriginalId: string;
   }>();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
 
   const [solicitud, setSolicitud] = useState<SolicitudPublica | null>(null);
@@ -244,19 +243,19 @@ export default function CrearOfertaSecundariaScreen() {
 
   if (loading || verificandoCreditos) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: I.surfaceSoft }]}>
         <Stack.Screen
           options={{
             title: 'Servicio Adicional',
             headerBackTitle: '',
             headerBackTitleVisible: false,
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.text,
+            headerStyle: { backgroundColor: I.canvas },
+            headerTintColor: I.ink,
           }}
         />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.tint} />
-          <Text style={[styles.loadingText, { color: colors.text }]}>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={[styles.loadingText, { color: I.ink }]}>
             {verificandoCreditos ? 'Verificando créditos disponibles...' : 'Cargando información...'}
           </Text>
         </View>
@@ -266,18 +265,18 @@ export default function CrearOfertaSecundariaScreen() {
 
   if (!solicitud || !ofertaOriginal) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: I.surfaceSoft }]}>
         <Stack.Screen
           options={{
             title: 'Servicio Adicional',
             headerBackTitle: '',
             headerBackTitleVisible: false,
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.text,
+            headerStyle: { backgroundColor: I.canvas },
+            headerTintColor: I.ink,
           }}
         />
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: colors.text }]}>
+          <Text style={[styles.emptyText, { color: I.ink }]}>
             No se pudo cargar la información
           </Text>
         </View>
@@ -286,14 +285,14 @@ export default function CrearOfertaSecundariaScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: '#F5F5F5' }]}>
+    <View style={[styles.container, { backgroundColor: I.surfaceSoft }]}>
       <Stack.Screen
         options={{
           title: 'Servicio Adicional',
           headerBackTitle: '',
           headerBackTitleVisible: false,
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: I.canvas },
+          headerTintColor: I.ink,
         }}
       />
       <KeyboardAvoidingView
@@ -309,7 +308,7 @@ export default function CrearOfertaSecundariaScreen() {
           {/* Información de la oferta original */}
           <View style={styles.infoCard}>
             <View style={styles.infoHeader}>
-              <InstitutionalIcon name="info-outline" size={24} color="#0061FF"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="info-outline" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoTitle}>Oferta Original</Text>
             </View>
             <Text style={styles.infoText}>
@@ -331,7 +330,7 @@ export default function CrearOfertaSecundariaScreen() {
             <TextInput
               style={styles.motivoInput}
               placeholder="Ej: Durante la revisión se detectó que el sistema de frenos requiere mantenimiento adicional..."
-              placeholderTextColor="#999"
+              placeholderTextColor={I.mutedSoft}
               value={motivoServicioAdicional}
               onChangeText={setMotivoServicioAdicional}
               multiline
@@ -400,66 +399,66 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   infoCard: {
-    backgroundColor: '#E3F2FD',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#BBDEFB',
+    backgroundColor: COLORS.info.light,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: COLORS.info[200],
   },
   infoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.sm,
   },
   infoTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0061FF',
+    color: I.primary,
   },
   infoText: {
     fontSize: 14,
-    color: '#1976D2',
+    color: I.primaryActive,
     marginBottom: 4,
   },
   motivoSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
   motivoLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
-    marginBottom: 8,
+    color: I.ink,
+    marginBottom: SPACING.fixed.xs,
   },
   required: {
-    color: '#DC3545',
+    color: I.semanticDown,
   },
   motivoDescripcion: {
     fontSize: 13,
-    color: '#666',
-    marginBottom: 12,
+    color: I.body,
+    marginBottom: SPACING.fixed.sm,
     lineHeight: 18,
   },
   motivoInput: {
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
-    padding: 12,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.fixed.sm,
     fontSize: 14,
-    color: '#000',
+    color: I.ink,
     minHeight: 100,
     textAlignVertical: 'top',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: I.surfaceSoft,
   },
   characterCount: {
     fontSize: 12,
-    color: '#999',
+    color: I.mutedSoft,
     marginTop: 4,
     textAlign: 'right',
   },

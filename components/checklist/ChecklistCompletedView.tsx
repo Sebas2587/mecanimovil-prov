@@ -28,9 +28,9 @@ const T = TYPOGRAPHY.styles;
 const INSET = SPACING.fixed.md;
 
 const REC_COLORS: Record<string, string> = {
-  URGENTE:  '#cf202f',
-  ATENCION: '#fd7e14',
-  PROACTIVA: '#007bff',
+  URGENTE: I.semanticDown,
+  ATENCION: COLORS.warning.dark,
+  PROACTIVA: I.primary,
 };
 
 interface ChecklistCompletedViewProps {
@@ -358,14 +358,14 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
                       key={idx}
                       style={[
                         styles.recCard,
-                        { borderLeftColor: REC_COLORS[rec.prioridad] ?? '#888' },
+                        { borderLeftColor: REC_COLORS[rec.prioridad] ?? I.muted },
                       ]}
                     >
                       <View style={styles.recHeader}>
                         <View
                           style={[
                             styles.recBadge,
-                            { backgroundColor: REC_COLORS[rec.prioridad] ?? '#888' },
+                            { backgroundColor: REC_COLORS[rec.prioridad] ?? I.muted },
                           ]}
                         >
                           <Text style={styles.recBadgeText}>{rec.prioridad}</Text>
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.pill,
   },
   recBadgeText: {
-    color: '#fff',
+    color: I.onPrimary,
     fontSize: 10,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
@@ -763,7 +763,7 @@ const styles = StyleSheet.create({
   recServicio: {
     fontSize: T.caption.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    color: I.primary ?? '#007bff',
+    color: I.primary,
     marginBottom: 2,
   },
   recFuente: {

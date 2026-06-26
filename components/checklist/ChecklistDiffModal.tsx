@@ -12,6 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
   checklistService,
@@ -20,6 +22,8 @@ import {
   ChecklistNivelAlerta,
   ChecklistTipoActualizacion,
 } from '@/services/checklistService';
+
+const I = COLORS.institutional;
 
 interface ChecklistDiffModalProps {
   visible: boolean;
@@ -316,9 +320,9 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
           {!loading && !error && preview && (
             <>
               {renderResumenGeneral()}
-              <Text style={styles.sectionTitle}>
-                Componentes a actualizar ({preview.diff.length})
-              </Text>
+              <InstitutionalSectionHeader
+                title={`Componentes a actualizar (${preview.diff.length})`}
+              />
               {preview.diff.length === 0 ? (
                 <View style={styles.emptyContainer}>
                   <InstitutionalIcon
@@ -340,38 +344,33 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
 
         {/* Footer con botones */}
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.button, styles.secondaryButton]}
+          <InstitutionalButton
+            label="Revisar respuestas"
+            variant="secondary"
+            size="compact"
             onPress={onCancel}
             disabled={finalizing}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.secondaryButtonText}>Revisar respuestas</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.button,
-              styles.primaryButton,
-              (finalizing || loading) && styles.buttonDisabled,
-            ]}
+            style={styles.footerButton}
+          />
+          <InstitutionalButton
+            label="Confirmar y finalizar"
+            variant="primary"
+            size="compact"
             onPress={onConfirm}
             disabled={finalizing || loading}
-            activeOpacity={0.7}
-          >
-            {finalizing ? (
-              <ActivityIndicator size="small" color={COLORS.neutral.white} />
-            ) : (
-              <>
+            loading={finalizing}
+            leading={
+              !finalizing ? (
                 <InstitutionalIcon
                   name="check"
                   size={18}
-                  color={COLORS.neutral.white}
+                  color={I.onPrimary}
                   strokeWidth={ICON_STROKE_WIDTH}
                 />
-                <Text style={styles.primaryButtonText}>Confirmar y finalizar</Text>
-              </>
-            )}
-          </TouchableOpacity>
+              ) : undefined
+            }
+            style={styles.footerButton}
+          />
         </View>
       </SafeAreaView>
     </Modal>
@@ -486,12 +485,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
   },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.text.primary,
-    marginBottom: SPACING.sm,
-  },
   diffCard: {
     backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.lg,
@@ -604,33 +597,8 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     ...SHADOWS.lg,
   },
-  button: {
+  footerButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.md,
-    borderRadius: BORDERS.radius.xl,
-    gap: SPACING.xs,
-    minHeight: 52,
-  },
-  primaryButton: {
-    backgroundColor: COLORS.institutional.primary,
-  },
-  primaryButtonText: {
-    color: COLORS.neutral.white,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-  },
-  secondaryButton: {
-    backgroundColor: COLORS.background.default,
-    borderWidth: BORDERS.width.medium,
-    borderColor: COLORS.border.main,
-  },
-  secondaryButtonText: {
-    color: COLORS.text.primary,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   buttonDisabled: {
     opacity: 0.6,

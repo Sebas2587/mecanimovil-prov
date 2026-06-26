@@ -11,7 +11,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChecklistContainer } from '@/components/checklist';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { platformShadow } from '@/app/design-system/tokens';
+import { COLORS, platformShadow } from '@/app/design-system/tokens';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+
+const I = COLORS.institutional;
 
 export default function ChecklistDemoScreen() {
   const [showChecklist, setShowChecklist] = useState(false);
@@ -71,13 +74,13 @@ export default function ChecklistDemoScreen() {
   const getEstadoColor = (estado: string) => {
     switch (estado) {
       case 'aceptada_por_proveedor':
-        return '#007bff';
+        return I.primary;
       case 'checklist_en_progreso':
-        return '#ffc107';
+        return I.accentYellow;
       case 'checklist_completado':
-        return '#28a745';
+        return I.semanticUp;
       default:
-        return '#6c757d';
+        return I.muted;
     }
   };
 
@@ -117,7 +120,7 @@ export default function ChecklistDemoScreen() {
       {/* Información del sistema */}
       <View style={styles.infoContainer}>
         <View style={styles.infoHeader}>
-          <InstitutionalIcon name="info" size={20} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="info" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.infoTitle}>Acerca del Sistema</Text>
         </View>
         <Text style={styles.infoText}>
@@ -128,8 +131,8 @@ export default function ChecklistDemoScreen() {
 
       {/* Lista de órdenes */}
       <ScrollView style={styles.ordenesList}>
-        <Text style={styles.sectionTitle}>Órdenes Disponibles</Text>
-        
+        <InstitutionalSectionHeader title="Órdenes Disponibles" level="h4" style={styles.sectionHeader} />
+
         {ordenesEjemplo.map((orden) => (
           <View key={orden.id} style={styles.ordenCard}>
             <View style={styles.ordenHeader}>
@@ -143,18 +146,18 @@ export default function ChecklistDemoScreen() {
                 </Text>
               </View>
             </View>
-            
+
             <View style={styles.ordenInfo}>
               <View style={styles.ordenInfoRow}>
-                <InstitutionalIcon name="person" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="person" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.ordenInfoText}>{orden.cliente}</Text>
               </View>
               <View style={styles.ordenInfoRow}>
-                <InstitutionalIcon name="directions-car" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="directions-car" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.ordenInfoText}>{orden.vehiculo}</Text>
               </View>
               <View style={styles.ordenInfoRow}>
-                <InstitutionalIcon name="build" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="build" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.ordenInfoText}>{orden.servicio}</Text>
               </View>
             </View>
@@ -164,7 +167,7 @@ export default function ChecklistDemoScreen() {
                 style={styles.iniciarButton}
                 onPress={() => handleIniciarChecklist(orden.id)}
               >
-                <InstitutionalIcon name="play-arrow" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="play-arrow" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.iniciarButtonText}>Iniciar Checklist</Text>
               </TouchableOpacity>
             )}
@@ -174,14 +177,14 @@ export default function ChecklistDemoScreen() {
                 style={styles.continuarButton}
                 onPress={() => handleIniciarChecklist(orden.id)}
               >
-                <InstitutionalIcon name="play-arrow" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="play-arrow" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.continuarButtonText}>Continuar Checklist</Text>
               </TouchableOpacity>
             )}
 
             {orden.estado === 'checklist_completado' && (
               <View style={styles.completadoIndicator}>
-                <InstitutionalIcon name="check-circle" size={20} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="check-circle" size={20} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.completadoText}>Checklist Completado</Text>
               </View>
             )}
@@ -194,19 +197,19 @@ export default function ChecklistDemoScreen() {
         <Text style={styles.footerTitle}>Características del Sistema:</Text>
         <View style={styles.featureList}>
           <View style={styles.featureItem}>
-            <InstitutionalIcon name="offline-bolt" size={16} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="offline-bolt" size={16} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.featureText}>Funciona offline</Text>
           </View>
           <View style={styles.featureItem}>
-            <InstitutionalIcon name="photo-camera" size={16} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="photo-camera" size={16} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.featureText}>Captura de fotos</Text>
           </View>
           <View style={styles.featureItem}>
-            <InstitutionalIcon name="edit" size={16} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="edit" size={16} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.featureText}>Firmas digitales</Text>
           </View>
           <View style={styles.featureItem}>
-            <InstitutionalIcon name="location-on" size={16} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="location-on" size={16} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.featureText}>Ubicación GPS</Text>
           </View>
         </View>
@@ -218,34 +221,34 @@ export default function ChecklistDemoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
   },
   header: {
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
     paddingHorizontal: 16,
     paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: I.hairline,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#2A4065',
+    color: I.ink,
     textAlign: 'center',
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6c757d',
+    color: I.muted,
     textAlign: 'center',
     marginTop: 4,
   },
   infoContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
     margin: 16,
     padding: 16,
     borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#2A4065',
+    borderLeftColor: I.primary,
   },
   infoHeader: {
     flexDirection: 'row',
@@ -255,31 +258,28 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#2A4065',
+    color: I.ink,
     marginLeft: 8,
   },
   infoText: {
     fontSize: 14,
-    color: '#6c757d',
+    color: I.muted,
     lineHeight: 20,
   },
   ordenesList: {
     flex: 1,
     paddingHorizontal: 16,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#495057',
+  sectionHeader: {
     marginBottom: 12,
   },
   ordenCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     ...platformShadow({
-      shadowColor: '#000',
+      shadowColor: COLORS.base.inkBlack,
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.1,
       shadowRadius: 2,
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   ordenId: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#495057',
+    color: I.body,
   },
   estadoBadge: {
     paddingHorizontal: 8,
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   estadoText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#ffffff',
+    color: I.onPrimary,
   },
   ordenInfo: {
     gap: 8,
@@ -318,13 +318,13 @@ const styles = StyleSheet.create({
   },
   ordenInfoText: {
     fontSize: 14,
-    color: '#6c757d',
+    color: I.muted,
   },
   iniciarButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#007bff',
+    backgroundColor: I.primary,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -333,13 +333,13 @@ const styles = StyleSheet.create({
   iniciarButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#ffffff',
+    color: I.onPrimary,
   },
   continuarButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffc107',
+    backgroundColor: I.accentYellow,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   continuarButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#ffffff',
+    color: I.onPrimary,
   },
   completadoIndicator: {
     flexDirection: 'row',
@@ -360,10 +360,10 @@ const styles = StyleSheet.create({
   completadoText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#28a745',
+    color: I.semanticUp,
   },
   footerInfo: {
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
     margin: 16,
     padding: 16,
     borderRadius: 12,
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   footerTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#495057',
+    color: I.body,
     marginBottom: 12,
   },
   featureList: {
@@ -388,6 +388,6 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 12,
-    color: '#6c757d',
+    color: I.muted,
   },
-}); 
+});

@@ -13,13 +13,17 @@ import {
 import { catalogosAPI, Repuesto } from '@/services/serviciosApi';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS, SHADOWS } from '@/app/design-system/tokens';
+import { institutionalCardStyles } from '@/app/design-system/styles/institutionalSemantic';
+
+const I = COLORS.institutional;
 
 interface SelectorRepuestosProps {
   visible: boolean;
   onClose: () => void;
   onSeleccionar: (repuesto: Repuesto) => void;
-  repuestosExistentes: number[]; // IDs de repuestos ya agregados
-  servicioId?: number; // ID del servicio para filtrar repuestos (solo para ofertas secundarias)
+  repuestosExistentes: number[];
+  servicioId?: number;
 }
 
 export const SelectorRepuestos: React.FC<SelectorRepuestosProps> = ({
@@ -43,17 +47,13 @@ export const SelectorRepuestos: React.FC<SelectorRepuestosProps> = ({
     setLoading(true);
     try {
       let datos: Repuesto[];
-      
-      // Si hay servicioId, cargar repuestos específicos del servicio
+
       if (servicioId) {
-        console.log(`🔩 Cargando repuestos para servicio ${servicioId}...`);
         datos = await catalogosAPI.obtenerRepuestosPorServicio(servicioId);
-        console.log(`✅ Repuestos obtenidos para servicio: ${datos.length} repuestos`);
       } else {
-        // Cargar todos los repuestos (comportamiento original)
         datos = await catalogosAPI.obtenerRepuestos(undefined, busqueda || undefined);
       }
-      
+
       setRepuestos(datos);
     } catch (error) {
       console.error('Error cargando repuestos:', error);
@@ -63,29 +63,26 @@ export const SelectorRepuestos: React.FC<SelectorRepuestosProps> = ({
     }
   };
 
-  // Recargar cuando cambia la búsqueda o el servicioId
   useEffect(() => {
     if (visible) {
       if (servicioId) {
-        // Si hay servicioId, recargar inmediatamente (no hay búsqueda para repuestos por servicio)
         cargarRepuestos();
       } else if (busqueda.length > 2) {
-        // Solo buscar si no hay servicioId y hay búsqueda
         const timeoutId = setTimeout(() => {
           cargarRepuestos();
-        }, 500); // Debounce de 500ms
+        }, 500);
         return () => clearTimeout(timeoutId);
       }
     }
   }, [busqueda, visible, servicioId]);
 
   const repuestosFiltrados = repuestos.filter(rep => {
-    const coincideBusqueda = !busqueda || 
+    const coincideBusqueda = !busqueda ||
       rep.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
       (rep.descripcion && rep.descripcion.toLowerCase().includes(busqueda.toLowerCase()));
-    
+
     const noEstaAgregado = !repuestosExistentes.includes(rep.id);
-    
+
     return coincideBusqueda && noEstaAgregado;
   });
 
@@ -105,35 +102,35 @@ export const SelectorRepuestos: React.FC<SelectorRepuestosProps> = ({
         <View style={styles.header}>
           <Text style={styles.title}>Seleccionar Repuesto</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <InstitutionalIcon name="close" size={24} color="#000"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="close" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.searchContainer}>
-          <InstitutionalIcon name="search" size={20} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="search" size={20} color={I.body} strokeWidth={ICON_STROKE_WIDTH} />
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar repuesto..."
-            placeholderTextColor="#999"
+            placeholderTextColor={I.mutedSoft}
             value={busqueda}
             onChangeText={setBusqueda}
             onSubmitEditing={cargarRepuestos}
           />
           {busqueda.length > 0 && (
             <TouchableOpacity onPress={() => setBusqueda('')}>
-              <InstitutionalIcon name="clear" size={20} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="clear" size={20} color={I.body} strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
           )}
         </View>
 
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#0061FF" />
+            <ActivityIndicator size="large" color={I.primary} />
             <Text style={styles.loadingText}>Cargando repuestos...</Text>
           </View>
         ) : repuestosFiltrados.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <InstitutionalIcon name="inventory-2" size={64} color="#CCC"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="inventory-2" size={64} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.emptyText}>
               {busqueda ? 'No se encontraron repuestos' : 'No hay repuestos disponibles'}
             </Text>
@@ -164,7 +161,7 @@ export const SelectorRepuestos: React.FC<SelectorRepuestosProps> = ({
                     </Text>
                   </View>
                 </View>
-                <InstitutionalIcon name="add-circle" size={24} color="#0061FF"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="add-circle" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             )}
             contentContainerStyle={styles.listContent}
@@ -178,21 +175,21 @@ export const SelectorRepuestos: React.FC<SelectorRepuestosProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: I.surfaceSoft,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#FFF',
+    backgroundColor: I.canvas,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    borderBottomColor: I.hairline,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#000',
+    color: I.ink,
   },
   closeButton: {
     padding: 4,
@@ -203,16 +200,16 @@ const styles = StyleSheet.create({
     margin: 16,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#FFF',
+    backgroundColor: I.canvas,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: I.hairline,
     gap: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#000',
+    color: I.ink,
     padding: 0,
   },
   loadingContainer: {
@@ -223,7 +220,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    color: '#666',
+    color: I.body,
   },
   emptyContainer: {
     flex: 1,
@@ -233,7 +230,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#999',
+    color: I.muted,
     marginTop: 16,
     textAlign: 'center',
   },
@@ -244,12 +241,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFF',
-    padding: 16,
-    borderRadius: 12,
+    ...institutionalCardStyles.surface,
+    ...institutionalCardStyles.surfacePadding,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
   },
   repuestoInfo: {
     flex: 1,
@@ -258,12 +252,12 @@ const styles = StyleSheet.create({
   repuestoNombre: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: I.ink,
     marginBottom: 4,
   },
   repuestoDescripcion: {
     fontSize: 13,
-    color: '#666',
+    color: I.body,
     marginBottom: 8,
     lineHeight: 18,
   },
@@ -274,12 +268,11 @@ const styles = StyleSheet.create({
   },
   repuestoMarca: {
     fontSize: 12,
-    color: '#999',
+    color: I.muted,
   },
   repuestoPrecio: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0061FF',
+    color: I.primary,
   },
 });
-

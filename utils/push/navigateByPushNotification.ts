@@ -1,4 +1,7 @@
 import type { Router } from 'expo-router';
+import type { QueryClient } from '@tanstack/react-query';
+import { prefetchSolicitudDetalle } from '@/hooks/useSolicitudDetalleQuery';
+import { openOfertaDetalle } from '@/utils/navigateProveedorDetalle';
 
 export type PushNotificationData = Record<string, unknown>;
 
@@ -22,6 +25,7 @@ function pickOfertaId(data: PushNotificationData): string | null {
 export function navigateByPushNotification(
   router: Router,
   data: PushNotificationData | null | undefined,
+  queryClient?: QueryClient,
 ): boolean {
   if (!data || typeof data !== 'object') return false;
 
@@ -33,6 +37,7 @@ export function navigateByPushNotification(
     case 'nueva_solicitud':
     case 'catalog_assignment':
       if (solicitudId) {
+        if (queryClient) void prefetchSolicitudDetalle(queryClient, solicitudId);
         router.push(`/solicitud-detalle/${solicitudId}`);
         return true;
       }
@@ -46,6 +51,7 @@ export function navigateByPushNotification(
         return true;
       }
       if (solicitudId) {
+        if (queryClient) void prefetchSolicitudDetalle(queryClient, solicitudId);
         router.push(`/solicitud-detalle/${solicitudId}`);
         return true;
       }
@@ -60,11 +66,16 @@ export function navigateByPushNotification(
     case 'pago_expirado':
     case 'solicitud_cancelada_cliente':
       if (solicitudId) {
+        if (queryClient) void prefetchSolicitudDetalle(queryClient, solicitudId);
         router.push(`/solicitud-detalle/${solicitudId}`);
         return true;
       }
       if (ofertaId) {
-        router.push(`/oferta-detalle/${ofertaId}`);
+        if (queryClient) {
+          openOfertaDetalle(router, queryClient, ofertaId);
+        } else {
+          router.push(`/oferta-detalle/${ofertaId}`);
+        }
         return true;
       }
       break;

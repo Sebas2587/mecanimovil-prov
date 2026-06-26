@@ -11,19 +11,29 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { ordenesProveedorService, type Orden } from '@/services/ordenesProveedor';
 import { checklistService, type ChecklistInstance } from '@/services/checklistService';
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { platformShadow } from '@/app/design-system/tokens';
+import { COLORS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
+import {
+  institutionalStatusColors,
+  institutionalCardStyles,
+} from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+
+const I = COLORS.institutional;
+const successStatus = institutionalStatusColors('success');
+const errorStatus = institutionalStatusColors('error');
+const primaryStatus = institutionalStatusColors('primary');
+const warningStatus = institutionalStatusColors('warning');
+const neutralStatus = institutionalStatusColors('neutral');
 
 export default function OrdenDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const colorScheme = useColorScheme();
   const [orden, setOrden] = useState<Orden | null>(null);
   const [loading, setLoading] = useState(true);
   const [procesando, setProcesando] = useState(false);
@@ -356,7 +366,7 @@ export default function OrdenDetalleScreen() {
       console.log('✅ [ORDEN-DETALLE] Retornando botón Iniciar Servicio');
       return {
         texto: 'Iniciar Servicio',
-        color: '#17a2b8',
+        color: I.primary,
         icon: 'play-arrow',
         onPress: () => handleIniciarServicio()
       };
@@ -377,7 +387,7 @@ export default function OrdenDetalleScreen() {
         console.log('⏳ [ORDEN-DETALLE] Verificando checklist para orden:', orden.id);
         return {
           texto: 'Verificando Checklist...',
-          color: '#6c757d',
+          color: I.muted,
           icon: 'hourglass-empty',
           onPress: () => {},
           disabled: true
@@ -388,7 +398,7 @@ export default function OrdenDetalleScreen() {
       console.log('✅ [ORDEN-DETALLE] Retornando botón Realizar Checklist');
       return {
         texto: 'Realizar Checklist',
-        color: '#007bff',
+        color: I.primary,
         icon: 'assignment',
         onPress: () => {
           console.log('🎯 [ORDEN-DETALLE] Presionado Realizar Checklist para orden:', orden.id);
@@ -407,7 +417,7 @@ export default function OrdenDetalleScreen() {
     if (orden.estado === 'checklist_completado') {
       return {
         texto: 'Finalizar Servicio',
-        color: '#28a745',
+        color: I.semanticUp,
         icon: 'done-all',
         onPress: () => handleFinalizarServicio()
       };
@@ -417,7 +427,7 @@ export default function OrdenDetalleScreen() {
     if (orden.estado === 'completado') {
       return {
         texto: 'Ver Checklist',
-        color: '#6f42c1',
+        color: I.primaryActive,
         icon: 'visibility',
         onPress: () => {
           setSelectedOrdenIdForChecklist(orden.id);
@@ -454,7 +464,7 @@ export default function OrdenDetalleScreen() {
         <SafeAreaView style={styles.headerSafeArea}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <InstitutionalIcon name="arrow-back" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="arrow-back" size={24} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>Cargando...</Text>
@@ -463,7 +473,7 @@ export default function OrdenDetalleScreen() {
           </View>
         </SafeAreaView>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].tint} />
+          <ActivityIndicator size="large" color={I.primary} />
           <Text style={styles.loadingText}>Cargando orden...</Text>
         </View>
       </View>
@@ -476,7 +486,7 @@ export default function OrdenDetalleScreen() {
         <SafeAreaView style={styles.headerSafeArea}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <InstitutionalIcon name="arrow-back" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="arrow-back" size={24} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>Error</Text>
@@ -486,8 +496,8 @@ export default function OrdenDetalleScreen() {
         </SafeAreaView>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>No se pudo cargar la orden</Text>
-          <TouchableOpacity style={styles.actionButton} onPress={() => router.back()}>
-            <Text style={styles.actionButtonText}>Volver</Text>
+          <TouchableOpacity style={styles.actionButtonLegacy} onPress={() => router.back()}>
+            <Text style={styles.actionButtonLegacyText}>Volver</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -502,7 +512,7 @@ export default function OrdenDetalleScreen() {
       <SafeAreaView style={styles.headerSafeArea}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <InstitutionalIcon name="arrow-back" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="arrow-back" size={24} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
           <View style={styles.titleContainer}>
             <Text style={styles.title}>
@@ -519,24 +529,26 @@ export default function OrdenDetalleScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Información del cliente */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <InstitutionalIcon name="person" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.sectionTitle}>Información del Cliente</Text>
-          </View>
+          <InstitutionalSectionHeader
+            title="Información del Cliente"
+            level="h4"
+            style={styles.sectionHeader}
+            leading={<InstitutionalIcon name="person" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
           <View style={styles.infoRow}>
-            <InstitutionalIcon name="person" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="person" size={20} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.infoText}>
               {orden.cliente_detail.nombre} {orden.cliente_detail.apellido || ''}
             </Text>
           </View>
           <TouchableOpacity style={styles.infoRow} onPress={handleLlamarCliente}>
-            <InstitutionalIcon name="phone" size={20} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="phone" size={20} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.infoText, styles.linkText]}>{orden.cliente_detail.telefono}</Text>
-            <InstitutionalIcon name="call" size={16} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="call" size={16} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
           {orden.cliente_detail.email && (
             <View style={styles.infoRow}>
-              <InstitutionalIcon name="email" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="email" size={20} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>{orden.cliente_detail.email}</Text>
             </View>
           )}
@@ -544,10 +556,12 @@ export default function OrdenDetalleScreen() {
 
         {/* Información del vehículo */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <InstitutionalIcon name="directions-car" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.sectionTitle}>Vehículo del Cliente</Text>
-          </View>
+          <InstitutionalSectionHeader
+            title="Vehículo del Cliente"
+            level="h4"
+            style={styles.sectionHeader}
+            leading={<InstitutionalIcon name="directions-car" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
           <View style={styles.vehicleInfoContainer}>
             <View style={styles.vehicleMainInfo}>
               <Text style={styles.vehicleBrand}>
@@ -587,29 +601,25 @@ export default function OrdenDetalleScreen() {
 
         {/* Ubicación del servicio */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <InstitutionalIcon 
-              name={orden.tipo_servicio === 'domicilio' ? 'home' : 'business'} 
-              size={24} 
-              color="#2A4065" 
-             strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.sectionTitle}>
-              {orden.tipo_servicio === 'domicilio' ? 'Servicio a Domicilio' : 'Servicio en Taller'}
-            </Text>
-          </View>
+          <InstitutionalSectionHeader
+            title={orden.tipo_servicio === 'domicilio' ? 'Servicio a Domicilio' : 'Servicio en Taller'}
+            level="h4"
+            style={styles.sectionHeader}
+            leading={<InstitutionalIcon name={orden.tipo_servicio === 'domicilio' ? 'home' : 'business'} size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
           
           {orden.tipo_servicio === 'domicilio' && orden.ubicacion_servicio ? (
             <TouchableOpacity style={styles.addressContainer} onPress={handleAbrirMapa}>
               <View style={styles.infoRow}>
-                <InstitutionalIcon name="location-on" size={20} color="#dc3545"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="location-on" size={20} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[styles.infoText, styles.linkText]}>{orden.ubicacion_servicio}</Text>
-                <InstitutionalIcon name="open-in-new" size={16} color="#dc3545"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="open-in-new" size={16} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
               </View>
               <Text style={styles.addressHint}>Toca para abrir en Google Maps</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.infoRow}>
-              <InstitutionalIcon name="business" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="business" size={20} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>
                 El cliente debe acudir a tu taller
               </Text>
@@ -619,10 +629,12 @@ export default function OrdenDetalleScreen() {
 
         {/* Servicios solicitados */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <InstitutionalIcon name="build" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.sectionTitle}>Servicios Solicitados</Text>
-          </View>
+          <InstitutionalSectionHeader
+            title="Servicios Solicitados"
+            level="h4"
+            style={styles.sectionHeader}
+            leading={<InstitutionalIcon name="build" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
           {orden.lineas.map((linea, index) => (
             <View key={index} style={styles.servicioItem}>
               <View style={styles.servicioInfo}>
@@ -642,13 +654,15 @@ export default function OrdenDetalleScreen() {
 
         {/* Fecha y hora del servicio */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <InstitutionalIcon name="schedule" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.sectionTitle}>Programación del Servicio</Text>
-          </View>
+          <InstitutionalSectionHeader
+            title="Programación del Servicio"
+            level="h4"
+            style={styles.sectionHeader}
+            leading={<InstitutionalIcon name="schedule" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
           <View style={styles.scheduleContainer}>
             <View style={styles.scheduleItem}>
-              <InstitutionalIcon name="event" size={20} color="#007bff"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="event" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
               <View>
                 <Text style={styles.scheduleLabel}>Fecha</Text>
                 <Text style={styles.scheduleValue}>
@@ -657,7 +671,7 @@ export default function OrdenDetalleScreen() {
               </View>
             </View>
             <View style={styles.scheduleItem}>
-              <InstitutionalIcon name="access-time" size={20} color="#007bff"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="access-time" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
               <View>
                 <Text style={styles.scheduleLabel}>Hora</Text>
                 <Text style={styles.scheduleValue}>
@@ -670,13 +684,15 @@ export default function OrdenDetalleScreen() {
 
         {/* Información de pago */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <InstitutionalIcon name="payment" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.sectionTitle}>Información de Pago</Text>
-          </View>
+          <InstitutionalSectionHeader
+            title="Información de Pago"
+            level="h4"
+            style={styles.sectionHeader}
+            leading={<InstitutionalIcon name="payment" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
           {orden.metodo_pago && (
             <View style={styles.infoRow}>
-              <InstitutionalIcon name="credit-card" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="credit-card" size={20} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>Método: {orden.metodo_pago}</Text>
             </View>
           )}
@@ -691,10 +707,12 @@ export default function OrdenDetalleScreen() {
         {/* Notas */}
         {orden.notas_cliente && (
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <InstitutionalIcon name="note" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.sectionTitle}>Notas del Cliente</Text>
-            </View>
+            <InstitutionalSectionHeader
+            title="Notas del Cliente"
+            level="h4"
+            style={styles.sectionHeader}
+            leading={<InstitutionalIcon name="note" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
             <Text style={styles.notasText}>{orden.notas_cliente}</Text>
           </View>
         )}
@@ -702,10 +720,12 @@ export default function OrdenDetalleScreen() {
         {/* Notas del proveedor */}
         {orden.notas_proveedor && (
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <InstitutionalIcon name="note" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.sectionTitle}>Notas del Proveedor</Text>
-            </View>
+            <InstitutionalSectionHeader
+            title="Notas del Proveedor"
+            level="h4"
+            style={styles.sectionHeader}
+            leading={<InstitutionalIcon name="note" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
             <Text style={styles.notasText}>{orden.notas_proveedor}</Text>
           </View>
         )}
@@ -713,10 +733,12 @@ export default function OrdenDetalleScreen() {
         {/* Motivo de rechazo */}
         {orden.motivo_rechazo && (
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <InstitutionalIcon name="error" size={24} color="#dc3545"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={[styles.sectionTitle, { color: '#dc3545' }]}>Motivo de Rechazo</Text>
-            </View>
+            <InstitutionalSectionHeader
+              title="Motivo de Rechazo"
+              level="h4"
+              style={styles.sectionHeader}
+              leading={<InstitutionalIcon name="error" size={24} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />}
+            />
             <Text style={styles.motivoRechazo}>{orden.motivo_rechazo}</Text>
           </View>
         )}
@@ -727,43 +749,43 @@ export default function OrdenDetalleScreen() {
         <View style={styles.actionsContainer}>
           {orden.estado === 'pendiente_aceptacion_proveedor' && (
             <>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.rejectButton]}
+              <InstitutionalButton
+                label="Rechazar"
+                variant="destructiveOutline"
                 onPress={handleRechazar}
                 disabled={procesando}
-              >
-                <InstitutionalIcon name="close" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.actionButtonText}>Rechazar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.acceptButton]}
+                style={styles.actionButtonFlex}
+                leading={<InstitutionalIcon name="close" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />}
+              />
+              <InstitutionalButton
+                label="Aceptar"
+                variant="success"
                 onPress={handleAceptar}
                 disabled={procesando}
-              >
-                <InstitutionalIcon name="check" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.actionButtonText}>Aceptar</Text>
-              </TouchableOpacity>
+                style={styles.actionButtonFlex}
+                leading={<InstitutionalIcon name="check" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
+              />
             </>
           )}
           {orden.estado === 'aceptada_por_proveedor' && (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.startButton]}
+            <InstitutionalButton
+              label="Iniciar Servicio"
+              variant="primary"
               onPress={handleIniciarServicio}
               disabled={procesando}
-            >
-              <InstitutionalIcon name="play-arrow" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.actionButtonText}>Iniciar Servicio</Text>
-            </TouchableOpacity>
+              style={styles.actionButtonFlex}
+              leading={<InstitutionalIcon name="play-arrow" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
+            />
           )}
           {orden.estado === 'en_proceso' && (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.completeButton]}
+            <InstitutionalButton
+              label="Completar Servicio"
+              variant="success"
               onPress={handleCompletarServicio}
               disabled={procesando}
-            >
-              <InstitutionalIcon name="check-circle" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.actionButtonText}>Completar Servicio</Text>
-            </TouchableOpacity>
+              style={styles.actionButtonFlex}
+              leading={<InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
+            />
           )}
           
           {/* 🔄 BOTÓN DE CHECKLIST DINÁMICO */}
@@ -772,14 +794,25 @@ export default function OrdenDetalleScreen() {
             if (botonChecklist && 
                 ['servicio_iniciado', 'checklist_en_progreso', 'checklist_completado', 'completado'].includes(orden.estado)) {
               return (
-                <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: botonChecklist.color }]}
+                <InstitutionalButton
+                  label={botonChecklist.texto}
+                  variant={
+                    botonChecklist.color === I.semanticUp ? 'success'
+                      : botonChecklist.disabled ? 'secondary'
+                      : 'primary'
+                  }
                   onPress={botonChecklist.onPress}
-                  disabled={procesando}
-                >
-                  <InstitutionalIcon name={botonChecklist.icon as any} size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.actionButtonText}>{botonChecklist.texto}</Text>
-                </TouchableOpacity>
+                  disabled={procesando || botonChecklist.disabled}
+                  style={styles.actionButtonFlex}
+                  leading={
+                    <InstitutionalIcon
+                      name={botonChecklist.icon as any}
+                      size={20}
+                      color={botonChecklist.disabled ? I.muted : I.onPrimary}
+                      strokeWidth={ICON_STROKE_WIDTH}
+                    />
+                  }
+                />
               );
             }
             return null;
@@ -789,7 +822,7 @@ export default function OrdenDetalleScreen() {
 
       {procesando && (
         <View style={styles.procesandoOverlay}>
-          <ActivityIndicator size="large" color="#fff" />
+          <ActivityIndicator size="large" color={I.onPrimary} />
           <Text style={styles.procesandoText}>Procesando...</Text>
         </View>
       )}
@@ -810,10 +843,10 @@ export default function OrdenDetalleScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
   },
   headerSafeArea: {
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -821,9 +854,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: I.hairline,
   },
   backButton: {
     padding: 8,
@@ -835,11 +868,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2A4065',
+    color: I.ink,
   },
   subtitle: {
     fontSize: 14,
-    color: '#6c757d',
+    color: I.body,
   },
   estadoBadge: {
     paddingHorizontal: 8,
@@ -847,7 +880,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   estadoTexto: {
-    color: '#ffffff',
+    color: I.onPrimary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -856,31 +889,12 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   section: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
+    ...institutionalCardStyles.surface,
+    ...institutionalCardStyles.surfacePadding,
     marginBottom: 16,
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-      shadowOpacity: 0.1,
-      shadowRadius: 3.84,
-      elevation: 5,
-    }),
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 12,
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2A4065',
   },
   infoRow: {
     flexDirection: 'row',
@@ -890,11 +904,11 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 14,
-    color: '#495057',
+    color: I.body,
     flex: 1,
   },
   linkText: {
-    color: '#007bff',
+    color: I.primary,
     textDecorationLine: 'underline',
   },
   vehicleInfoContainer: {
@@ -909,17 +923,17 @@ const styles = StyleSheet.create({
   vehicleBrand: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#2A4065',
+    color: I.ink,
   },
   vehicleYear: {
     fontSize: 14,
-    color: '#6c757d',
+    color: I.body,
     marginTop: 2,
   },
   plateContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
     borderWidth: 2,
-    borderColor: '#2A4065',
+    borderColor: I.ink,
     borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -927,14 +941,14 @@ const styles = StyleSheet.create({
   plateText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#2A4065',
+    color: I.ink,
     letterSpacing: 1,
   },
   vehicleDetails: {
     marginTop: 8,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: I.hairline,
   },
   detailItem: {
     flexDirection: 'row',
@@ -943,23 +957,23 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 14,
-    color: '#6c757d',
+    color: I.body,
     fontWeight: '500',
   },
   detailValue: {
     fontSize: 14,
-    color: '#495057',
+    color: I.ink,
   },
   addressContainer: {
     padding: 8,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#dc3545',
+    borderLeftColor: I.semanticDown,
   },
   addressHint: {
     fontSize: 12,
-    color: '#6c757d',
+    color: I.body,
     fontStyle: 'italic',
     marginTop: 4,
     marginLeft: 32,
@@ -970,7 +984,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: I.hairline,
   },
   servicioInfo: {
     flex: 1,
@@ -978,7 +992,7 @@ const styles = StyleSheet.create({
   servicioNombre: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#495057',
+    color: I.ink,
     marginBottom: 6,
   },
   servicioTags: {
@@ -991,20 +1005,20 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   tagWithParts: {
-    backgroundColor: '#e7f3ff',
+    backgroundColor: primaryStatus.bg,
   },
   tagLaborOnly: {
-    backgroundColor: '#fff3cd',
+    backgroundColor: warningStatus.bg,
   },
   tagText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#495057',
+    color: I.ink,
   },
   servicioPrecio: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#28a745',
+    color: I.semanticUp,
   },
   scheduleContainer: {
     flexDirection: 'row',
@@ -1018,54 +1032,43 @@ const styles = StyleSheet.create({
   },
   scheduleLabel: {
     fontSize: 12,
-    color: '#6c757d',
+    color: I.body,
     fontWeight: '500',
   },
   scheduleValue: {
     fontSize: 14,
-    color: '#495057',
+    color: I.ink,
     fontWeight: '600',
   },
   totalSection: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
+    ...institutionalCardStyles.surface,
+    ...institutionalCardStyles.surfacePadding,
     marginBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-      shadowOpacity: 0.1,
-      shadowRadius: 3.84,
-      elevation: 5,
-    }),
     borderLeftWidth: 4,
-    borderLeftColor: '#28a745',
+    borderLeftColor: I.semanticUp,
   },
   totalLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#495057',
+    color: I.ink,
   },
   totalAmount: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#28a745',
+    color: I.semanticUp,
   },
   notasText: {
     fontSize: 14,
-    color: '#495057',
+    color: I.body,
     lineHeight: 20,
     fontStyle: 'italic',
   },
   motivoRechazo: {
     fontSize: 14,
-    color: '#dc3545',
+    color: I.semanticDown,
     lineHeight: 20,
     fontStyle: 'italic',
   },
@@ -1073,33 +1076,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 20,
     gap: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: I.hairline,
   },
-  actionButton: {
+  actionButtonFlex: {
+    flex: 1,
+  },
+  actionButtonLegacy: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: 8,
-    gap: 8,
+    backgroundColor: I.primary,
   },
-  acceptButton: {
-    backgroundColor: '#28a745',
-  },
-  rejectButton: {
-    backgroundColor: '#dc3545',
-  },
-  startButton: {
-    backgroundColor: '#007bff',
-  },
-  completeButton: {
-    backgroundColor: '#6f42c1',
-  },
-  actionButtonText: {
-    color: '#ffffff',
+  actionButtonLegacyText: {
+    color: I.onPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1111,7 +1105,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#6c757d',
+    color: I.body,
   },
   errorContainer: {
     flex: 1,
@@ -1121,7 +1115,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#dc3545',
+    color: I.semanticDown,
     marginBottom: 20,
   },
   procesandoOverlay: {
@@ -1130,12 +1124,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: withOpacity(I.ink, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
   },
   procesandoText: {
-    color: '#ffffff',
+    color: I.onPrimary,
     fontSize: 16,
     marginTop: 12,
   },

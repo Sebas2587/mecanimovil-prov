@@ -1,9 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, ActivityIndicator, View, StyleSheet } from 'react-native';
-import { COLORS } from '@/app/design-system/tokens';
-import { onboardingStyles } from '@/app/design-system/styles/onboarding';
-
-const I = COLORS.institutional;
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 
 type Props = {
   label: string;
@@ -20,35 +16,15 @@ export default function OnboardingPrimaryButton({
   loading = false,
   loadingLabel,
 }: Props) {
-  const isDisabled = disabled || loading;
-
   return (
-    <TouchableOpacity
-      style={[
-        onboardingStyles.primaryButton,
-        isDisabled && onboardingStyles.primaryButtonDisabled,
-      ]}
+    <InstitutionalButton
+      label={loadingLabel ?? label}
       onPress={onPress}
-      disabled={isDisabled}
-      activeOpacity={0.88}
-      accessibilityRole="button"
-    >
-      {loading ? (
-        <View style={styles.loadingRow}>
-          <ActivityIndicator size="small" color={I.onPrimary} />
-          <Text style={onboardingStyles.primaryButtonText}>{loadingLabel ?? label}</Text>
-        </View>
-      ) : (
-        <Text style={onboardingStyles.primaryButtonText}>{label}</Text>
-      )}
-    </TouchableOpacity>
+      variant="primary"
+      size="default"
+      disabled={disabled}
+      loading={loading}
+      style={{ width: '100%' }}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-});

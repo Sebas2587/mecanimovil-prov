@@ -25,6 +25,7 @@ import {
 } from '@/utils/horariosProveedor';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import equipoTallerService from '@/services/equipoTallerService';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
@@ -953,7 +954,7 @@ export default function ConfiguracionHorariosScreen() {
         <View style={[styles.content, { paddingHorizontal: hx }]}>
           {mecanicos.length > 0 && (
             <View style={styles.uiCard}>
-              <Text style={styles.sectionTitle}>Agenda de</Text>
+              <InstitutionalSectionHeader title="Agenda de" level="h4" />
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mecanicoSelectorRow}>
                 <TouchableOpacity
                   style={[styles.mecanicoChip, miembroSeleccionado === null && styles.mecanicoChipActive]}
@@ -1028,7 +1029,7 @@ export default function ConfiguracionHorariosScreen() {
           </View>
 
           <View style={styles.uiCard}>
-            <Text style={styles.sectionTitle}>Configuraciones rápidas</Text>
+            <InstitutionalSectionHeader title="Configuraciones rápidas" level="h4" />
             <View style={styles.modernPresetsGrid}>
               <TouchableOpacity
                 style={styles.modernPresetCard}
@@ -1066,12 +1067,12 @@ export default function ConfiguracionHorariosScreen() {
           </View>
 
           <View style={styles.uiCard}>
-            <Text style={styles.sectionTitle}>Configuración por día</Text>
+            <InstitutionalSectionHeader title="Configuración por día" level="h4" />
             <View style={styles.modernDiasGrid}>{horarios.map(renderDiaConfig)}</View>
           </View>
 
           <View style={styles.uiCard}>
-            <Text style={styles.sectionTitle}>Resumen</Text>
+            <InstitutionalSectionHeader title="Resumen" level="h4" />
             <View style={styles.modernResumenContent}>
               <View style={styles.modernResumenItem}>
                 <InstitutionalIcon name="checkmark-circle" size={18} color={I.semanticUp} />
@@ -1162,13 +1163,6 @@ const styles = StyleSheet.create({
     lineHeight: Math.round(TYPOGRAPHY.fontSize.base * TYPOGRAPHY.lineHeight.normal),
     color: I.body,
   },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontFamily: FF.sansSemiBold,
-    marginBottom: SPACING.fixed.md,
-    color: I.ink,
-  },
-
   mecanicoSelectorRow: {
     flexDirection: 'row',
     gap: SPACING.fixed.sm,

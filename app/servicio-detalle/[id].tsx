@@ -18,8 +18,19 @@ import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { platformShadow } from '@/app/design-system/tokens';
+import { COLORS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
+import {
+  institutionalStatusColors,
+  institutionalCardStyles,
+} from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+
+const I = COLORS.institutional;
+const successStatus = institutionalStatusColors('success');
+const errorStatus = institutionalStatusColors('error');
+const primaryStatus = institutionalStatusColors('primary');
+const warningStatus = institutionalStatusColors('warning');
 
 export default function ServicioDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -346,7 +357,7 @@ export default function ServicioDetalleScreen() {
     if (orden.estado === 'aceptada_por_proveedor') {
       return {
         texto: 'Iniciar Servicio',
-        color: '#28a745',
+        color: I.semanticUp,
         icon: 'play-arrow',
         onPress: handleIniciarServicio
       };
@@ -363,7 +374,7 @@ export default function ServicioDetalleScreen() {
       if (checklistInstance.estado === 'PENDIENTE') {
         return {
           texto: 'Iniciar Checklist',
-          color: '#007bff',
+          color: I.primary,
           icon: 'assignment',
           onPress: () => setShowChecklistContainer(true)
         };
@@ -372,7 +383,7 @@ export default function ServicioDetalleScreen() {
       if (checklistInstance.estado === 'EN_PROGRESO') {
         return {
           texto: 'Continuar Checklist',
-          color: '#ffc107',
+          color: I.accentYellow,
           icon: 'edit',
           onPress: () => setShowChecklistContainer(true)
         };
@@ -384,7 +395,7 @@ export default function ServicioDetalleScreen() {
         (orden.estado === 'en_proceso' && checklistInstance?.estado === 'COMPLETADO')) {
       return {
         texto: 'Finalizar Servicio',
-        color: '#28a745',
+        color: I.semanticUp,
         icon: 'done-all',
         onPress: handleFinalizarServicio
       };
@@ -395,7 +406,7 @@ export default function ServicioDetalleScreen() {
       if (checklistInstance) {
         return {
           texto: 'Ver Checklist Completado',
-          color: '#619FF0',
+          color: I.primary,
           icon: 'assignment-turned-in',
           onPress: () => setShowCompletedChecklist(true)
         };
@@ -411,7 +422,7 @@ export default function ServicioDetalleScreen() {
         <SafeAreaView style={styles.headerSafeArea}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <InstitutionalIcon name="arrow-back" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="arrow-back" size={24} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>Cargando...</Text>
@@ -420,7 +431,7 @@ export default function ServicioDetalleScreen() {
           </View>
         </SafeAreaView>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2A4065" />
+          <ActivityIndicator size="large" color={I.ink} />
           <Text style={styles.loadingText}>Cargando servicio...</Text>
         </View>
       </View>
@@ -433,7 +444,7 @@ export default function ServicioDetalleScreen() {
         <SafeAreaView style={styles.headerSafeArea}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <InstitutionalIcon name="arrow-back" size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="arrow-back" size={24} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>Error</Text>
@@ -470,7 +481,7 @@ export default function ServicioDetalleScreen() {
       <SafeAreaView style={styles.headerSafeArea} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <InstitutionalIcon name="arrow-back" size={24} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="arrow-back" size={24} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
           <View style={styles.titleContainer}>
             <Text style={styles.title}>Detalle de Orden</Text>
@@ -498,7 +509,7 @@ export default function ServicioDetalleScreen() {
               />
             ) : (
               <View style={styles.clientPhotoPlaceholder}>
-                <InstitutionalIcon name="person" size={32} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="person" size={32} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
               </View>
             )}
             <View style={styles.clientInfo}>
@@ -519,7 +530,7 @@ export default function ServicioDetalleScreen() {
                       <InstitutionalIcon 
                         name="phone" 
                         size={18} 
-                        color={orden.informacion_disponible?.puede_contactar ? "#212529" : "#6c757d"} 
+                        color={orden.informacion_disponible?.puede_contactar ? I.ink : I.body} 
                        strokeWidth={ICON_STROKE_WIDTH} />
                       <Text style={[
                         styles.contactText,
@@ -528,13 +539,13 @@ export default function ServicioDetalleScreen() {
                         {obtenerTelefonoSeguro(orden.cliente_detail)}
                       </Text>
                       {!orden.informacion_disponible?.puede_contactar && (
-                        <InstitutionalIcon name="lock" size={14} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+                        <InstitutionalIcon name="lock" size={14} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
                       )}
                     </TouchableOpacity>
                   )}
                   {orden.informacion_disponible?.nivel_acceso === 'parcial' && (
                     <View style={styles.infoRestrictionBadge}>
-                      <InstitutionalIcon name="info" size={14} color="#ffc107"  strokeWidth={ICON_STROKE_WIDTH} />
+                      <InstitutionalIcon name="info" size={14} color={I.accentYellow}  strokeWidth={ICON_STROKE_WIDTH} />
                       <Text style={styles.infoRestrictionText}>
                         Información completa disponible después de aceptar
                       </Text>
@@ -549,7 +560,7 @@ export default function ServicioDetalleScreen() {
                       style={styles.contactRow}
                       onPress={handleLlamarCliente}
                     >
-                      <InstitutionalIcon name="phone" size={18} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
+                      <InstitutionalIcon name="phone" size={18} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
                       <Text style={styles.contactText}>
                         {obtenerTelefonoSeguro(orden.cliente_detail)}
                       </Text>
@@ -557,7 +568,7 @@ export default function ServicioDetalleScreen() {
                   )}
                   {esClienteCompleto(orden.cliente_detail) && (orden.cliente_detail as ClienteCompleto).email && (
                     <View style={styles.contactRow}>
-                      <InstitutionalIcon name="email" size={18} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
+                      <InstitutionalIcon name="email" size={18} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
                       <Text style={styles.contactText}>
                         {(orden.cliente_detail as ClienteCompleto).email}
                       </Text>
@@ -574,7 +585,7 @@ export default function ServicioDetalleScreen() {
           <View style={styles.vehicleCard}>
             <Text style={styles.vehicleLabel}>Vehículo</Text>
             <View style={styles.infoCardRow}>
-              <InstitutionalIcon name="directions-car" size={24} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="directions-car" size={24} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
               <View style={styles.infoCardContent}>
                 <Text style={styles.vehicleBrand}>
                   {orden.vehiculo_detail.marca || 'N/A'} {orden.vehiculo_detail.modelo || ''}
@@ -628,7 +639,7 @@ export default function ServicioDetalleScreen() {
                           
                           return (
                             <View key={repIndex} style={styles.repuestoTag}>
-                              <InstitutionalIcon name="build" size={14} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
+                              <InstitutionalIcon name="build" size={14} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
                               <Text style={styles.repuestoTagText}>
                                 {nombreRepuesto}
                                 {cantidad > 1 ? ` (${cantidad})` : ''}
@@ -640,14 +651,14 @@ export default function ServicioDetalleScreen() {
                     ) : linea.con_repuestos ? (
                       <View style={styles.repuestosTagsContainer}>
                         <View style={styles.repuestoTag}>
-                          <InstitutionalIcon name="check-circle" size={14} color="#28a745"  strokeWidth={ICON_STROKE_WIDTH} />
+                          <InstitutionalIcon name="check-circle" size={14} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
                           <Text style={styles.repuestoTagText}>Con repuestos</Text>
                         </View>
                       </View>
                     ) : (
                       <View style={styles.repuestosTagsContainer}>
                         <View style={[styles.repuestoTag, styles.repuestoTagDisabled]}>
-                          <InstitutionalIcon name="cancel" size={14} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+                          <InstitutionalIcon name="cancel" size={14} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
                           <Text style={[styles.repuestoTagText, styles.repuestoTagTextDisabled]}>Sin repuestos</Text>
                         </View>
                       </View>
@@ -663,7 +674,7 @@ export default function ServicioDetalleScreen() {
         {orden.fecha_servicio && orden.hora_servicio && (
           <View style={styles.infoCard}>
             <View style={styles.infoCardRow}>
-              <InstitutionalIcon name="calendar-today" size={20} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="calendar-today" size={20} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
               <View style={styles.infoCardContent}>
                 <Text style={styles.infoLabel}>Fecha</Text>
                 <Text style={styles.infoValue}>
@@ -672,7 +683,7 @@ export default function ServicioDetalleScreen() {
               </View>
             </View>
             <View style={[styles.infoCardRow, styles.infoCardRowSecond]}>
-              <InstitutionalIcon name="schedule" size={20} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="schedule" size={20} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
               <View style={styles.infoCardContent}>
                 <Text style={styles.infoLabel}>Hora</Text>
                 <Text style={styles.infoValue}>
@@ -692,19 +703,19 @@ export default function ServicioDetalleScreen() {
                 style={styles.infoCardRow} 
                 onPress={handleAbrirMapa}
               >
-                <InstitutionalIcon name="location-on" size={20} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="location-on" size={20} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
                 <View style={styles.infoCardContent}>
                   <Text style={styles.infoLabel}>Dirección</Text>
                   <Text style={[styles.infoValue, styles.linkText]}>
                     {orden.ubicacion_servicio}
                   </Text>
                 </View>
-                <InstitutionalIcon name="open-in-new" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="open-in-new" size={16} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             ) : (
               // Orden pendiente - no mostrar dirección (dato sensible)
               <View style={styles.infoCardRow}>
-                <InstitutionalIcon name="location-on" size={20} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="location-on" size={20} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
                 <View style={styles.infoCardContent}>
                   <Text style={styles.infoLabel}>Dirección</Text>
                   <Text style={[styles.infoValue, styles.infoValueDisabled]}>
@@ -714,7 +725,7 @@ export default function ServicioDetalleScreen() {
                     La dirección se mostrará después de aceptar el servicio
                   </Text>
                 </View>
-                <InstitutionalIcon name="lock" size={16} color="#6c757d"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="lock" size={16} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
               </View>
             )}
           </View>
@@ -724,7 +735,7 @@ export default function ServicioDetalleScreen() {
         {orden.notas_cliente && (
           <View style={styles.infoCard}>
             <View style={styles.infoCardRow}>
-              <InstitutionalIcon name="note" size={20} color="#212529"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="note" size={20} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
               <View style={styles.infoCardContent}>
                 <Text style={styles.infoLabel}>Notas del Cliente</Text>
                 <Text style={styles.notasText}>{orden.notas_cliente}</Text>
@@ -832,42 +843,52 @@ export default function ServicioDetalleScreen() {
       {/* Botones de acción */}
       {orden.estado === 'pendiente_aceptacion_proveedor' && (
         <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.rejectButton]}
+          <InstitutionalButton
+            label="Rechazar"
+            variant="destructiveOutline"
             onPress={handleRechazar}
             disabled={procesando}
-          >
-            <InstitutionalIcon name="close" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.actionButtonText}>Rechazar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.acceptButton]}
+            style={styles.actionButtonFlex}
+            leading={<InstitutionalIcon name="close" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
+          <InstitutionalButton
+            label="Aceptar"
+            variant="success"
             onPress={handleAceptar}
             disabled={procesando}
-          >
-            <InstitutionalIcon name="check" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.actionButtonText}>Aceptar</Text>
-          </TouchableOpacity>
+            style={styles.actionButtonFlex}
+            leading={<InstitutionalIcon name="check" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
         </View>
       )}
 
-      {/* Botón de acción según estado de la orden */}
       {botonAccion && orden.estado !== 'pendiente_aceptacion_proveedor' && (
         <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: botonAccion.color }, botonAccion.disabled && styles.actionButtonDisabled]}
+          <InstitutionalButton
+            label={botonAccion.texto}
+            variant={
+              botonAccion.color === I.semanticUp ? 'success'
+                : botonAccion.disabled ? 'secondary'
+                : 'primary'
+            }
             onPress={botonAccion.onPress}
             disabled={procesando || botonAccion.disabled}
-          >
-            <InstitutionalIcon name={botonAccion.icon as any} size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.actionButtonText}>{botonAccion.texto}</Text>
-          </TouchableOpacity>
+            style={styles.actionButtonFlex}
+            leading={
+              <InstitutionalIcon
+                name={botonAccion.icon as any}
+                size={20}
+                color={botonAccion.disabled ? I.muted : I.onPrimary}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+            }
+          />
         </View>
       )}
 
       {procesando && (
         <View style={styles.procesandoOverlay}>
-          <ActivityIndicator size="large" color="#fff" />
+          <ActivityIndicator size="large" color={I.onPrimary} />
           <Text style={styles.procesandoText}>Procesando...</Text>
         </View>
       )}
@@ -887,10 +908,10 @@ export default function ServicioDetalleScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
   },
   headerSafeArea: {
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -898,9 +919,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: I.hairline,
   },
   backButton: {
     padding: 8,
@@ -913,41 +934,41 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#212529',
+    color: I.ink,
   },
   subtitle: {
     fontSize: 14,
-    color: '#6c757d',
+    color: I.body,
     marginTop: 4,
   },
   scrollView: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
   },
   content: {
     paddingTop: 0,
     paddingHorizontal: 20,
     paddingBottom: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
   },
   // Primera sección: Detalle del servicio y repuestos
   serviceDetailSection: {
     marginBottom: 24,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: I.hairline,
   },
   sectionMainTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#212529',
+    color: I.ink,
     marginBottom: 16,
   },
   serviceDetailItem: {
     marginBottom: 16,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: I.hairlineSoft,
   },
   serviceDetailInfo: {
     flex: 1,
@@ -955,7 +976,7 @@ const styles = StyleSheet.create({
   serviceDetailName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#212529',
+    color: I.ink,
     marginBottom: 12,
   },
   repuestosTagsContainer: {
@@ -968,43 +989,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#e8f5e9',
+    backgroundColor: successStatus.bg,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#c8e6c9',
+    borderColor: successStatus.border,
   },
   repuestoTagDisabled: {
-    backgroundColor: '#f5f5f5',
-    borderColor: '#e0e0e0',
+    backgroundColor: I.surfaceSoft,
+    borderColor: I.hairline,
   },
   repuestoTagText: {
     fontSize: 12,
-    color: '#2e7d32',
+    color: I.semanticUp,
     fontWeight: '500',
   },
   repuestoTagTextDisabled: {
-    color: '#6c757d',
+    color: I.body,
   },
   // Card destacada del vehículo
   vehicleCard: {
-    backgroundColor: '#ffffff',
+    ...institutionalCardStyles.surface,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 4,
-    }),
   },
   totalPriceSection: {
     flexDirection: 'row',
@@ -1014,37 +1023,25 @@ const styles = StyleSheet.create({
   totalPriceLabel: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#212529',
+    color: I.ink,
   },
   totalPriceAmount: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#212529',
+    color: I.ink,
   },
   // Card destacada del total
   totalCard: {
-    backgroundColor: '#ffffff',
+    ...institutionalCardStyles.surface,
     borderRadius: 16,
     padding: 20,
     marginTop: 8,
     marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 4,
-    }),
   },
   totalCardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#212529',
+    color: I.ink,
     marginBottom: 16,
   },
   desgloseContainer: {
@@ -1058,66 +1055,54 @@ const styles = StyleSheet.create({
   },
   desgloseRowHighlight: {
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: I.hairline,
     paddingTop: 12,
     marginTop: 4,
   },
   desgloseRowFinal: {
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: I.hairline,
     paddingTop: 12,
     marginTop: 4,
   },
   desgloseLabel: {
     fontSize: 14,
-    color: '#6c757d',
+    color: I.body,
     flex: 1,
   },
   desgloseLabelBold: {
     fontWeight: '600',
-    color: '#212529',
+    color: I.ink,
   },
   desgloseValue: {
     fontSize: 14,
-    color: '#212529',
+    color: I.ink,
     fontWeight: '500',
   },
   desgloseValueBold: {
     fontWeight: 'bold',
     fontSize: 16,
-    color: '#007bff',
+    color: I.primary,
   },
   desgloseValueNegative: {
-    color: '#dc3545',
+    color: I.semanticDown,
   },
   desgloseValueFinal: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#28a745',
+    color: I.semanticUp,
   },
   desgloseSeparator: {
     height: 1,
-    backgroundColor: '#e9ecef',
+    backgroundColor: I.hairline,
     marginVertical: 8,
   },
   // Card destacada del cliente
   clientCard: {
-    backgroundColor: '#ffffff',
+    ...institutionalCardStyles.surface,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 4,
-    }),
   },
   clientSection: {
     flexDirection: 'row',
@@ -1129,17 +1114,17 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 32,
     borderWidth: 1,
-    borderColor: '#dee2e6',
+    borderColor: I.hairline,
   },
   clientPhotoPlaceholder: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#dee2e6',
+    borderColor: I.hairline,
   },
   clientInfo: {
     flex: 1,
@@ -1147,7 +1132,7 @@ const styles = StyleSheet.create({
   clientName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#212529',
+    color: I.ink,
     marginBottom: 12,
   },
   clientDataContainer: {
@@ -1160,36 +1145,36 @@ const styles = StyleSheet.create({
   },
   contactText: {
     fontSize: 14,
-    color: '#212529',
+    color: I.ink,
     fontWeight: '500',
     flex: 1,
   },
   contactTextDisabled: {
-    color: '#6c757d',
+    color: I.body,
     fontStyle: 'italic',
   },
   infoRestrictionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#fff3cd',
+    backgroundColor: warningStatus.bg,
     padding: 8,
     borderRadius: 6,
     marginTop: 4,
   },
   infoRestrictionText: {
     fontSize: 12,
-    color: '#856404',
+    color: warningStatus.text,
     flex: 1,
   },
   // Cards de información minimalistas
   infoCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: I.hairline,
   },
   infoCardRow: {
     flexDirection: 'row',
@@ -1200,29 +1185,29 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: I.hairlineSoft,
   },
   infoCardContent: {
     flex: 1,
   },
   infoLabel: {
     fontSize: 12,
-    color: '#6c757d',
+    color: I.body,
     marginBottom: 4,
     fontWeight: '500',
   },
   infoValue: {
     fontSize: 16,
-    color: '#212529',
+    color: I.ink,
     fontWeight: '500',
   },
   infoValueDisabled: {
-    color: '#6c757d',
+    color: I.body,
     fontStyle: 'italic',
   },
   vehicleLabel: {
     fontSize: 12,
-    color: '#6c757d',
+    color: I.body,
     marginBottom: 12,
     fontWeight: '500',
     textTransform: 'uppercase',
@@ -1231,26 +1216,26 @@ const styles = StyleSheet.create({
   vehicleBrand: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#212529',
+    color: I.ink,
     marginBottom: 4,
   },
   vehicleDetails: {
     fontSize: 14,
-    color: '#6c757d',
+    color: I.body,
   },
   linkText: {
-    color: '#212529',
+    color: I.ink,
     textDecorationLine: 'underline',
   },
   notasText: {
     fontSize: 14,
-    color: '#212529',
+    color: I.ink,
     lineHeight: 20,
     marginTop: 4,
   },
   infoHint: {
     fontSize: 12,
-    color: '#6c757d',
+    color: I.body,
     fontStyle: 'italic',
     marginTop: 4,
   },
@@ -1258,32 +1243,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 20,
     gap: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: I.canvas,
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: I.hairline,
   },
-  actionButton: {
+  actionButtonFlex: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-  },
-  acceptButton: {
-    backgroundColor: '#28a745',
-  },
-  rejectButton: {
-    backgroundColor: '#dc3545',
-  },
-  actionButtonDisabled: {
-    opacity: 0.6,
-  },
-  actionButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
@@ -1293,7 +1258,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#6c757d',
+    color: I.body,
   },
   errorContainer: {
     flex: 1,
@@ -1303,7 +1268,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#dc3545',
+    color: I.semanticDown,
     marginBottom: 20,
   },
   procesandoOverlay: {
@@ -1312,12 +1277,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: withOpacity(I.ink, 0.5),
     justifyContent: 'center',
     alignItems: 'center',
   },
   procesandoText: {
-    color: '#ffffff',
+    color: I.onPrimary,
     fontSize: 16,
     marginTop: 12,
   },

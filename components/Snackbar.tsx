@@ -1,19 +1,21 @@
 import React, { useEffect, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Animated,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import {COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow} from '@/app/design-system/tokens';
+import { COLORS, SPACING, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import {
+  institutionalStatusColors,
+  type InstitutionalStatusTone,
+} from '@/app/design-system/styles/institutionalSemantic';
 
-const { width: screenWidth } = Dimensions.get('window');
+const I = COLORS.institutional;
 
 interface SnackbarProps {
   visible: boolean;
@@ -25,6 +27,20 @@ interface SnackbarProps {
   onAction?: () => void;
 }
 
+const variantToneMap: Record<NonNullable<SnackbarProps['variant']>, InstitutionalStatusTone> = {
+  success: 'success',
+  warning: 'warning',
+  error: 'error',
+  info: 'info',
+};
+
+const variantIconMap: Record<NonNullable<SnackbarProps['variant']>, string> = {
+  success: 'checkmark-circle',
+  warning: 'warning',
+  error: 'close-circle',
+  info: 'information-circle',
+};
+
 export default function Snackbar({
   visible,
   message,
@@ -34,75 +50,18 @@ export default function Snackbar({
   actionLabel,
   onAction,
 }: SnackbarProps) {
-  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(100)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  // Obtener colores del sistema de diseño
-  const safeColors = theme?.colors || COLORS || {};
-  const safeSpacing = theme?.spacing || SPACING || {};
-  const safeTypography = theme?.typography || TYPOGRAPHY || {};
-  const safeShadows = theme?.shadows || SHADOWS || {};
-  const safeBorders = theme?.borders || BORDERS || {};
-
-  const warningObj = safeColors?.warning as any;
-  const infoObj = safeColors?.info as any;
-  const successObj = safeColors?.success as any;
-  const errorObj = safeColors?.error as any;
-  const primaryObj = safeColors?.primary as any;
-  const accentObj = safeColors?.accent as any;
-
-  const warningColor = warningObj?.main || warningObj?.['500'] || '#FFB84D';
-  const infoColor = infoObj?.main || infoObj?.['500'] || accentObj?.['500'] || '#007EA7';
-  const successColor = successObj?.main || successObj?.['500'] || '#00C9A7';
-  const errorColor = errorObj?.main || errorObj?.['500'] || '#FF6B6B';
-  const primaryColor = primaryObj?.['500'] || accentObj?.['500'] || '#003459';
-
-  const spacingMd = safeSpacing?.md || 16;
-  const spacingSm = safeSpacing?.sm || 8;
-  const spacingXs = safeSpacing?.xs || 4;
-  const fontSizeBase = safeTypography?.fontSize?.base || 14;
-  const fontSizeSm = safeTypography?.fontSize?.sm || 12;
-  const fontWeightMedium = safeTypography?.fontWeight?.medium || '500';
-  const fontWeightSemibold = safeTypography?.fontWeight?.semibold || '600';
-  const radiusLg = safeBorders?.radius?.lg || 12;
-  const shadowMd = safeShadows?.md || platformShadow({ shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 });
-
-  const getVariantColors = () => {
-    switch (variant) {
-      case 'success':
-        return {
-          backgroundColor: successColor,
-          textColor: COLORS?.text?.onSuccess || COLORS?.base?.white || '#FFFFFF',
-          icon: 'checkmark-circle' as const,
-        };
-      case 'warning':
-        return {
-          backgroundColor: warningColor,
-          textColor: COLORS?.text?.onWarning || COLORS?.base?.white || '#FFFFFF',
-          icon: 'warning' as const,
-        };
-      case 'error':
-        return {
-          backgroundColor: errorColor,
-          textColor: COLORS?.text?.onError || COLORS?.base?.white || '#FFFFFF',
-          icon: 'close-circle' as const,
-        };
-      default: // 'info'
-        return {
-          backgroundColor: infoColor,
-          textColor: COLORS?.text?.onInfo || COLORS?.base?.white || '#FFFFFF',
-          icon: 'information-circle' as const,
-        };
-    }
-  };
-
-  const variantColors = getVariantColors();
+  const tone = variantToneMap[variant];
+  const status = institutionalStatusColors(tone);
+  const backgroundColor = status.icon;
+  const textColor = I.onPrimary;
+  const icon = variantIconMap[variant];
 
   useEffect(() => {
     if (visible) {
-      // Animar entrada
       Animated.parallel([
         Animated.timing(slideAnim, {
           toValue: 0,
@@ -116,7 +75,6 @@ export default function Snackbar({
         }),
       ]).start();
 
-      // Auto-ocultar después de la duración
       if (duration > 0) {
         const timer = setTimeout(() => {
           handleDismiss();
@@ -157,7 +115,7 @@ export default function Snackbar({
       style={[
         styles.container,
         {
-          bottom: insets.bottom + spacingMd,
+          bottom: insets.bottom + SPACING.md,
           transform: [{ translateY: slideAnim }],
           opacity: opacityAnim,
         },
@@ -167,34 +125,22 @@ export default function Snackbar({
         style={[
           styles.snackbar,
           {
-            backgroundColor: variantColors.backgroundColor,
-            borderRadius: radiusLg,
-            paddingHorizontal: spacingMd,
-            paddingVertical: spacingMd - 2,
-            ...shadowMd,
+            backgroundColor,
           },
+          SHADOWS.editorial,
         ]}
       >
         <InstitutionalIcon
-          name={variantColors.icon}
+          name={icon as any}
           size={20}
-          color={variantColors.textColor}
+          color={textColor}
           style={styles.icon}
-         strokeWidth={ICON_STROKE_WIDTH} />
-        <Text
-          style={[
-            styles.message,
-            {
-              color: variantColors.textColor,
-              fontSize: fontSizeBase,
-              fontWeight: fontWeightMedium,
-            },
-          ]}
-          numberOfLines={2}
-        >
+          strokeWidth={ICON_STROKE_WIDTH}
+        />
+        <InstitutionalText role="body" color={textColor} style={styles.message} numberOfLines={2}>
           {message}
-        </Text>
-        {actionLabel && onAction && (
+        </InstitutionalText>
+        {actionLabel && onAction ? (
           <TouchableOpacity
             onPress={() => {
               onAction();
@@ -203,26 +149,17 @@ export default function Snackbar({
             style={styles.actionButton}
             activeOpacity={0.7}
           >
-            <Text
-              style={[
-                styles.actionText,
-                {
-                  color: variantColors.textColor,
-                  fontSize: fontSizeSm,
-                  fontWeight: fontWeightSemibold,
-                },
-              ]}
-            >
+            <InstitutionalText role="caption" color={textColor} style={styles.actionText}>
               {actionLabel}
-            </Text>
+            </InstitutionalText>
           </TouchableOpacity>
-        )}
+        ) : null}
         <TouchableOpacity
           onPress={handleDismiss}
           style={styles.closeButton}
           activeOpacity={0.7}
         >
-          <InstitutionalIcon name="close" size={18} color={variantColors.textColor}  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="close" size={18} color={textColor} strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -232,34 +169,38 @@ export default function Snackbar({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: SPACING?.md || 16,
-    right: SPACING?.md || 16,
+    left: SPACING.md,
+    right: SPACING.md,
     zIndex: 9999,
   },
   snackbar: {
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 48,
+    borderRadius: BORDERS.radius.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md - 2,
   },
   icon: {
-    marginRight: SPACING?.sm || 8,
+    marginRight: SPACING.sm,
   },
   message: {
     flex: 1,
-    marginRight: SPACING?.sm || 8,
+    marginRight: SPACING.sm,
+    fontWeight: '500',
   },
   actionButton: {
-    paddingHorizontal: SPACING?.sm || 8,
-    paddingVertical: SPACING?.xs || 4,
-    marginRight: SPACING?.xs || 4,
-    borderRadius: (BORDERS?.radius?.sm || 4) + 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    marginRight: SPACING.xs,
+    borderRadius: BORDERS.radius.sm + 2,
+    backgroundColor: withOpacity(I.onPrimary, 0.2),
   },
   actionText: {
     textTransform: 'uppercase',
+    fontWeight: '600',
   },
   closeButton: {
-    padding: SPACING?.xs || 4,
+    padding: SPACING.xs,
   },
 });
-

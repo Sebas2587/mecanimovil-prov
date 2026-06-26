@@ -767,9 +767,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.md,
     padding: SPACING.fixed.md,
     borderRadius: BORDERS.radius.lg,
-    backgroundColor: '#EEF3FF',
+    backgroundColor: COLORS.primary[50],
     borderWidth: BORDERS.width.thin,
-    borderColor: '#C5D5FF',
+    borderColor: COLORS.primary[200],
   },
   multimarcaProfileBadgeText: {
     flex: 1,

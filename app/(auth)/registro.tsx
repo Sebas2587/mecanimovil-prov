@@ -265,13 +265,13 @@ export default function RegistroScreen() {
             {/* Banner de error */}
             {errorMessage && (
               <View style={styles.errorBanner}>
-                <InstitutionalIcon name="alert-circle" size={20} color="#FFFFFF"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="alert-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.errorBannerText}>{errorMessage}</Text>
                 <TouchableOpacity 
                   onPress={() => setErrorMessage(null)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <InstitutionalIcon name="close" size={18} color="#FFFFFF"  strokeWidth={ICON_STROKE_WIDTH} />
+                  <InstitutionalIcon name="close" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
               </View>
             )}

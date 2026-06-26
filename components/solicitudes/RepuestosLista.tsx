@@ -12,6 +12,17 @@ import { RepuestoDetallado, Repuesto } from '@/services/serviciosApi';
 import { SelectorRepuestos } from './SelectorRepuestos';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS } from '@/app/design-system/tokens';
+import {
+  institutionalStatusColors,
+  institutionalCardStyles,
+} from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+
+const I = COLORS.institutional;
+const primaryStatus = institutionalStatusColors('primary');
+const errorStatus = institutionalStatusColors('error');
 
 interface RepuestoEditable extends RepuestoDetallado {
   cantidad: number;
@@ -23,13 +34,12 @@ interface RepuestosListaProps {
   onAgregarRepuesto?: () => void;
   editable?: boolean;
   mostrarTotal?: boolean;
-  servicioId?: number; // ID del servicio para filtrar repuestos (solo para ofertas secundarias)
+  servicioId?: number;
 }
 
 export const RepuestosLista: React.FC<RepuestosListaProps> = ({
   repuestos,
   onRepuestosChange,
-  onAgregarRepuesto,
   editable = true,
   mostrarTotal = true,
   servicioId,
@@ -37,7 +47,6 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
   const [repuestosList, setRepuestosList] = useState<RepuestoEditable[]>(repuestos);
   const [mostrarSelector, setMostrarSelector] = useState(false);
 
-  // Sincronizar con prop cuando cambia
   React.useEffect(() => {
     setRepuestosList(repuestos);
   }, [repuestos]);
@@ -49,8 +58,7 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
       cantidad_estimada: 1,
       es_opcional: false,
     };
-    
-    // Agregar al final de la lista (los repuestos configurados vienen primero)
+
     const nuevosRepuestos = [...repuestosList, nuevoRepuesto];
     setRepuestosList(nuevosRepuestos);
     onRepuestosChange(nuevosRepuestos);
@@ -61,7 +69,7 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
 
   const actualizarCantidad = (index: number, cantidad: string) => {
     const nuevaCantidad = parseInt(cantidad) || 0;
-    
+
     if (nuevaCantidad < 0) {
       Alert.alert('Error', 'La cantidad no puede ser negativa');
       return;
@@ -72,7 +80,7 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
       ...nuevosRepuestos[index],
       cantidad: nuevaCantidad,
     };
-    
+
     setRepuestosList(nuevosRepuestos);
     onRepuestosChange(nuevosRepuestos);
   };
@@ -82,10 +90,7 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
       'Eliminar repuesto',
       `¿Estás seguro de que deseas eliminar ${repuestosList[index].nombre}?`,
       [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
+        { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Eliminar',
           style: 'destructive',
@@ -102,20 +107,21 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
   const calcularTotalRepuestos = (): number => {
     return repuestosList.reduce((total, repuesto) => {
       const cantidad = repuesto.cantidad || 0;
-      // CORRECCIÓN: Usar precio personalizado del proveedor si existe, sino usar precio_referencia del catálogo
-      const precio = repuesto.precio !== undefined && repuesto.precio !== null ? repuesto.precio : (repuesto.precio_referencia || 0);
+      const precio = repuesto.precio !== undefined && repuesto.precio !== null
+        ? repuesto.precio
+        : (repuesto.precio_referencia || 0);
       return total + cantidad * precio;
     }, 0);
   };
 
   const renderRepuesto = ({ item, index }: { item: RepuestoEditable; index: number }) => {
-    // CORRECCIÓN: Usar precio personalizado del proveedor si existe, sino usar precio_referencia del catálogo
-    const precioUnitario = item.precio !== undefined && item.precio !== null ? item.precio : (item.precio_referencia || 0);
+    const precioUnitario = item.precio !== undefined && item.precio !== null
+      ? item.precio
+      : (item.precio_referencia || 0);
     const subtotal = (item.cantidad || 0) * precioUnitario;
 
     return (
       <View style={styles.repuestoItem}>
-        {/* Información principal del repuesto */}
         <View style={styles.repuestoMainInfo}>
           <View style={styles.repuestoInfo}>
             <Text style={styles.repuestoNombre} numberOfLines={1}>
@@ -127,22 +133,19 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
               </Text>
             )}
           </View>
-          
-          {/* Botón eliminar */}
+
           {editable && (
             <TouchableOpacity
               style={styles.eliminarButton}
               onPress={() => eliminarRepuesto(index)}
               activeOpacity={0.7}
             >
-              <InstitutionalIcon name="close" size={18} color="#DC3545"  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="close" size={18} color={errorStatus.icon} strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Controles y precios en una fila */}
         <View style={styles.repuestoControls}>
-          {/* Cantidad */}
           <View style={styles.cantidadWrapper}>
             <Text style={styles.cantidadLabel}>Cant.</Text>
             {editable ? (
@@ -152,14 +155,13 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
                 onChangeText={(text) => actualizarCantidad(index, text)}
                 keyboardType="numeric"
                 placeholder="0"
-                placeholderTextColor="#999"
+                placeholderTextColor={I.mutedSoft}
               />
             ) : (
               <Text style={styles.cantidadValue}>{item.cantidad || 0}</Text>
             )}
           </View>
 
-          {/* Precio unitario */}
           <View style={styles.precioWrapper}>
             <Text style={styles.precioLabel}>Unit.</Text>
             <Text style={styles.precioValue}>
@@ -167,7 +169,6 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
             </Text>
           </View>
 
-          {/* Subtotal */}
           <View style={styles.subtotalWrapper}>
             <Text style={styles.subtotalLabel}>Subtotal</Text>
             <Text style={styles.subtotalValue}>
@@ -182,14 +183,14 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Repuestos</Text>
+        <InstitutionalSectionHeader title="Repuestos" level="h4" />
         {editable && (
           <TouchableOpacity
             style={styles.agregarButton}
             onPress={() => setMostrarSelector(true)}
             activeOpacity={0.7}
           >
-            <InstitutionalIcon name="add-circle" size={20} color="#0061FF"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="add-circle" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.agregarButtonText}>Agregar</Text>
           </TouchableOpacity>
         )}
@@ -205,16 +206,15 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
 
       {repuestosList.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <InstitutionalIcon name="inventory-2" size={48} color="#CCC"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="inventory-2" size={48} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.emptyText}>No hay repuestos agregados</Text>
           {editable && (
-            <TouchableOpacity
-              style={styles.agregarEmptyButton}
+            <InstitutionalButton
+              label="Agregar primer repuesto"
+              variant="primary"
+              size="compact"
               onPress={() => setMostrarSelector(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.agregarEmptyButtonText}>Agregar primer repuesto</Text>
-            </TouchableOpacity>
+            />
           )}
         </View>
       ) : (
@@ -254,11 +254,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000',
-  },
   agregarButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -266,48 +261,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: primaryStatus.bg,
   },
   agregarButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0061FF',
+    color: I.primary,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 32,
     paddingHorizontal: 16,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: I.surfaceSoft,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: I.hairline,
     borderStyle: 'dashed',
+    gap: 12,
   },
   emptyText: {
     fontSize: 14,
-    color: '#999',
-    marginTop: 12,
-    marginBottom: 16,
-  },
-  agregarEmptyButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#0061FF',
-  },
-  agregarEmptyButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFF',
+    color: I.muted,
   },
   repuestoItem: {
     flexDirection: 'column',
-    backgroundColor: '#FFF',
+    backgroundColor: I.canvas,
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: I.hairline,
     marginBottom: 6,
   },
   repuestoMainInfo: {
@@ -323,12 +306,12 @@ const styles = StyleSheet.create({
   repuestoNombre: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000',
+    color: I.ink,
     marginBottom: 2,
   },
   repuestoMarca: {
     fontSize: 12,
-    color: '#666',
+    color: I.body,
   },
   eliminarButton: {
     padding: 4,
@@ -341,7 +324,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: I.hairlineSoft,
   },
   cantidadWrapper: {
     flex: 1,
@@ -349,26 +332,26 @@ const styles = StyleSheet.create({
   },
   cantidadLabel: {
     fontSize: 11,
-    color: '#666',
+    color: I.body,
     marginBottom: 4,
     textTransform: 'uppercase',
   },
   cantidadInput: {
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: I.hairline,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 6,
     fontSize: 14,
-    color: '#000',
+    color: I.ink,
     minWidth: 60,
     textAlign: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: I.canvas,
   },
   cantidadValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000',
+    color: I.ink,
   },
   precioWrapper: {
     flex: 1.5,
@@ -376,14 +359,14 @@ const styles = StyleSheet.create({
   },
   precioLabel: {
     fontSize: 11,
-    color: '#666',
+    color: I.body,
     marginBottom: 4,
     textTransform: 'uppercase',
   },
   precioValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#000',
+    color: I.ink,
   },
   subtotalWrapper: {
     flex: 1.5,
@@ -391,14 +374,14 @@ const styles = StyleSheet.create({
   },
   subtotalLabel: {
     fontSize: 11,
-    color: '#666',
+    color: I.body,
     marginBottom: 4,
     textTransform: 'uppercase',
   },
   subtotalValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0061FF',
+    color: I.primary,
   },
   separator: {
     height: 0,
@@ -409,7 +392,7 @@ const styles = StyleSheet.create({
   },
   totalDivider: {
     height: 1,
-    backgroundColor: '#E5E5E5',
+    backgroundColor: I.hairline,
     marginBottom: 12,
   },
   totalRow: {
@@ -420,12 +403,11 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
+    color: I.ink,
   },
   totalValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0061FF',
+    color: I.primary,
   },
 });
-

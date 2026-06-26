@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import connectionService from '@/services/connectionService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { COLORS, SPACING, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
+
+const I = COLORS.institutional;
+const onlineStatus = institutionalStatusColors('success');
+const offlineStatus = institutionalStatusColors('error');
 
 interface ConnectionStatusProps {
   showDetails?: boolean;
@@ -13,10 +20,8 @@ export default function ConnectionStatus({ showDetails = false }: ConnectionStat
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   useEffect(() => {
-    // Obtener estado inicial
     setIsConnected(connectionService.getConnectionStatus());
 
-    // Actualizar cada 5 segundos
     const interval = setInterval(() => {
       setIsConnected(connectionService.getConnectionStatus());
       setLastUpdate(new Date());
@@ -25,35 +30,42 @@ export default function ConnectionStatus({ showDetails = false }: ConnectionStat
     return () => clearInterval(interval);
   }, []);
 
+  const statusColors = isConnected ? onlineStatus : offlineStatus;
+
   return (
     <View style={styles.container}>
       <View style={styles.statusContainer}>
         <InstitutionalIcon
           name={isConnected ? 'wifi' : 'wifi-off'}
           size={16}
-          color={isConnected ? '#4CAF50' : '#F44336'}
-         strokeWidth={ICON_STROKE_WIDTH} />
-        <Text style={[styles.statusText, { color: isConnected ? '#4CAF50' : '#F44336' }]}>
+          color={statusColors.icon}
+          strokeWidth={ICON_STROKE_WIDTH}
+        />
+        <InstitutionalText
+          role="caption"
+          color={statusColors.text}
+          style={styles.statusText}
+        >
           {isConnected ? 'En línea' : 'Desconectado'}
-        </Text>
+        </InstitutionalText>
       </View>
-      
-      {showDetails && lastUpdate && (
-        <Text style={styles.detailsText}>
+
+      {showDetails && lastUpdate ? (
+        <InstitutionalText role="small" color="muted" style={styles.detailsText}>
           Última actualización: {lastUpdate.toLocaleTimeString()}
-        </Text>
-      )}
+        </InstitutionalText>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 8,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginVertical: 8,
+    padding: SPACING.sm,
+    backgroundColor: withOpacity(I.ink, 0.05),
+    borderRadius: BORDERS.radius.md,
+    marginHorizontal: SPACING.md,
+    marginVertical: SPACING.sm,
   },
   statusContainer: {
     flexDirection: 'row',
@@ -61,14 +73,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statusText: {
-    fontSize: 12,
     fontWeight: '600',
-    marginLeft: 4,
+    marginLeft: SPACING.xs,
   },
   detailsText: {
-    fontSize: 10,
-    color: '#666',
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: SPACING.xs,
   },
-}); 
+});

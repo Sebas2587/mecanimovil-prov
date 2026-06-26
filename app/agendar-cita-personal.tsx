@@ -28,9 +28,11 @@ import {
 } from '@/components/solicitudes/CatalogoFechaHoraPickers';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { agendaProveedorService, type CitaAgendaPersonalCreatePayload } from '@/services/agendaProveedorService';
 import { serviciosProveedorAPI, type ServicioOferta } from '@/services/serviciosApi';
+import { agruparOfertasPorCatalogo } from '@/utils/agruparOfertasPorCatalogo';
 import equipoTallerService, {
   type MiembroTaller,
   etiquetaModalidadMecanico,
@@ -81,7 +83,7 @@ export default function AgendarCitaPersonalScreen() {
   }, [fechaParam]);
 
   const [serviciosCatalogo, setServiciosCatalogo] = useState<ServicioOferta[]>([]);
-  const [ofertaSeleccionada, setOfertaSeleccionada] = useState<number | null>(null);
+  const [catalogoGrupoKey, setCatalogoGrupoKey] = useState<string | null>(null);
   const [loadingServicios, setLoadingServicios] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [resultadoEnvio, setResultadoEnvio] = useState<ResultadoEnvio | null>(null);
@@ -145,6 +147,11 @@ export default function AgendarCitaPersonalScreen() {
     };
   }, []);
 
+  const serviciosCatalogoGrupos = useMemo(
+    () => agruparOfertasPorCatalogo(serviciosCatalogo),
+    [serviciosCatalogo],
+  );
+
   const validarFormulario = useCallback((): string | null => {
     if (!clienteNombre.trim()) return 'Ingresa el nombre del cliente.';
     const telError = getChilePhoneError(extraerNueveDigitosDesdeGuardado(clienteTelefono), true);
@@ -155,7 +162,7 @@ export default function AgendarCitaPersonalScreen() {
       if (!direccion.trim()) return 'Ingresa la dirección para servicio a domicilio.';
       if (!direccionValidada) return 'Selecciona una dirección válida de la lista de sugerencias.';
     }
-    if (modoServicio === 'catalogo' && !ofertaSeleccionada) {
+    if (modoServicio === 'catalogo' && !catalogoGrupoKey) {
       return 'Selecciona un servicio de tu catálogo.';
     }
     if (modoServicio === 'manual' && !servicioManual.trim()) {
@@ -180,7 +187,7 @@ export default function AgendarCitaPersonalScreen() {
     direccion,
     direccionValidada,
     modoServicio,
-    ofertaSeleccionada,
+    catalogoGrupoKey,
     servicioManual,
     fechaHora,
     mecanicos,
@@ -206,8 +213,9 @@ export default function AgendarCitaPersonalScreen() {
       detalle.direccion = (direccionValidada?.line ?? direccion).trim();
     }
 
-    if (modoServicio === 'catalogo' && ofertaSeleccionada) {
-      detalle.oferta_servicio_id = ofertaSeleccionada;
+    if (modoServicio === 'catalogo' && catalogoGrupoKey) {
+      const grupo = serviciosCatalogoGrupos.find((g) => g.key === catalogoGrupoKey);
+      if (grupo) detalle.oferta_servicio_id = grupo.representante.id;
     } else {
       detalle.servicio_nombre = servicioManual.trim();
     }
@@ -238,7 +246,8 @@ export default function AgendarCitaPersonalScreen() {
     direccion,
     direccionValidada,
     modoServicio,
-    ofertaSeleccionada,
+    catalogoGrupoKey,
+    serviciosCatalogoGrupos,
     servicioManual,
     descripcion,
     precioReferencia,
@@ -309,8 +318,8 @@ export default function AgendarCitaPersonalScreen() {
     }
   }, [puedeAgendar, validarFormulario, construirPayload, fechaHora.fecha, mostrarResultado]);
 
-  const toggleOferta = useCallback((id: number) => {
-    setOfertaSeleccionada((prev) => (prev === id ? null : id));
+  const toggleCatalogoGrupo = useCallback((key: string) => {
+    setCatalogoGrupoKey((prev) => (prev === key ? null : key));
   }, []);
 
   return (
@@ -489,23 +498,23 @@ export default function AgendarCitaPersonalScreen() {
             {modoServicio === 'catalogo' ? (
               loadingServicios ? (
                 <ActivityIndicator color={I.primary} style={styles.loader} />
-              ) : serviciosCatalogo.length === 0 ? (
+              ) : serviciosCatalogoGrupos.length === 0 ? (
                 <Text style={styles.helperText}>
                   No tienes servicios disponibles en catálogo. Usa modo manual o crea servicios en Mis Servicios.
                 </Text>
               ) : (
                 <View style={styles.catalogoList}>
-                  {serviciosCatalogo.map((s) => {
-                    const selected = ofertaSeleccionada === s.id;
+                  {serviciosCatalogoGrupos.map((grupo) => {
+                    const selected = catalogoGrupoKey === grupo.key;
                     return (
                       <TouchableOpacity
-                        key={s.id}
+                        key={grupo.key}
                         style={[styles.catalogoItem, selected && styles.catalogoItemSelected]}
-                        onPress={() => toggleOferta(s.id)}
+                        onPress={() => toggleCatalogoGrupo(grupo.key)}
                         activeOpacity={0.85}
                       >
                         <Text style={[styles.catalogoItemTitle, selected && styles.catalogoItemTitleOn]}>
-                          {s.servicio_info?.nombre || 'Servicio'}
+                          {grupo.nombre}
                         </Text>
                         {selected && (
                           <InstitutionalIcon name="check-circle" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -608,7 +617,7 @@ export default function AgendarCitaPersonalScreen() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <InstitutionalSectionHeader title={title} />
       <View style={styles.sectionCard}>{children}</View>
     </View>
   );
@@ -651,15 +660,6 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: SPACING.fixed.md,
-  },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: SPACING.fixed.xs,
-    marginLeft: SPACING.fixed.xxs,
   },
   sectionCard: {
     backgroundColor: I.canvas,

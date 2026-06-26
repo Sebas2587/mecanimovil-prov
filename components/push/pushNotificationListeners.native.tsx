@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import {
   navigateByPushNotification,
@@ -14,13 +15,14 @@ const SOLICITUD_PUSH_TYPES = new Set([
 
 export function PushNotificationListeners() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
   const lastHandledId = useRef<string | null>(null);
   const lastResponse = Notifications.useLastNotificationResponse();
 
   const handleData = (data: PushNotificationData | undefined) => {
     if (!isAuthenticated || !data) return;
-    navigateByPushNotification(router, data);
+    navigateByPushNotification(router, data, queryClient);
   };
 
   useEffect(() => {

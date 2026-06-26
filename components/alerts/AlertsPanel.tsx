@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
@@ -13,32 +12,54 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAlerts, Alerta } from '@/context/AlertsContext';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import {COLORS, platformShadow} from '@/app/design-system/tokens';
+import { COLORS, SPACING, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import {
+  institutionalStatusColors,
+  institutionalCardStyles,
+  type InstitutionalStatusTone,
+} from '@/app/design-system/styles/institutionalSemantic';
+
+const I = COLORS.institutional;
 
 interface AlertsPanelProps {
   variant?: 'floating' | 'header';
   iconColor?: string;
 }
 
+function alertToneForType(tipo: Alerta['tipo']): InstitutionalStatusTone {
+  switch (tipo) {
+    case 'mercado_pago_no_configurado':
+      return 'info';
+    case 'zonas_cobertura_no_configuradas':
+      return 'primary';
+    case 'creditos_bajos':
+      return 'warning';
+    case 'pago_expirado':
+      return 'error';
+    default:
+      return 'neutral';
+  }
+}
+
 export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', iconColor }) => {
   const { alertas, alertasNoLeidas, marcarComoLeida, eliminarAlerta } = useAlerts();
   const [modalVisible, setModalVisible] = useState(false);
-  const slideAnim = useRef(new Animated.Value(400)).current; // Inicia fuera de la pantalla (derecha)
+  const slideAnim = useRef(new Animated.Value(400)).current;
   const router = useRouter();
   const theme = useTheme();
 
   useEffect(() => {
     if (modalVisible) {
-      // Animar entrada desde la derecha
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 300,
         useNativeDriver: true,
       }).start();
     } else {
-      // Resetear posición cuando se cierra
       slideAnim.setValue(400);
     }
   }, [modalVisible]);
@@ -48,7 +69,6 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
   };
 
   const handleCerrarPanel = () => {
-    // Animar salida hacia la derecha antes de cerrar
     Animated.timing(slideAnim, {
       toValue: 400,
       duration: 300,
@@ -60,7 +80,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
 
   const handleAlertaPress = (alerta: Alerta) => {
     marcarComoLeida(alerta.id);
-    
+
     if (alerta.accion) {
       setModalVisible(false);
       router.push(alerta.accion.ruta as any);
@@ -86,23 +106,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
     }
   };
 
-  const getColorAlerta = (tipo: Alerta['tipo']) => {
-    switch (tipo) {
-      case 'mercado_pago_no_configurado':
-        return '#009EE3';
-      case 'zonas_cobertura_no_configuradas':
-        return '#4E4FEB';
-      case 'creditos_bajos':
-        return '#FFA500';
-      case 'pago_expirado':
-        return '#E74C3C';
-      default:
-        return '#666666';
-    }
-  };
-
   const alertasOrdenadas = [...alertas].sort((a, b) => {
-    // Ordenar por prioridad y luego por fecha
     const prioridadOrder = { alta: 3, media: 2, baja: 1 };
     if (prioridadOrder[a.prioridad] !== prioridadOrder[b.prioridad]) {
       return prioridadOrder[b.prioridad] - prioridadOrder[a.prioridad];
@@ -110,20 +114,26 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
     return b.fecha.getTime() - a.fecha.getTime();
   });
 
-  // Renderizar lista de alertas (compartida entre ambos variants)
   const renderAlertsList = () => (
     <ScrollView style={styles.alertsList} showsVerticalScrollIndicator={false}>
       {alertasOrdenadas.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <InstitutionalIcon name="checkmark-circle-outline" size={64} color="#CCCCCC"  strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.emptyText}>No hay alertas</Text>
-          <Text style={styles.emptySubtext}>
+          <InstitutionalIcon
+            name="checkmark-circle-outline"
+            size={64}
+            color={I.mutedSoft}
+            strokeWidth={ICON_STROKE_WIDTH}
+          />
+          <InstitutionalText role="h4" color="muted" style={styles.emptyText}>
+            No hay alertas
+          </InstitutionalText>
+          <InstitutionalText role="body" color="muted" style={styles.emptySubtext}>
             Todo está configurado correctamente
-          </Text>
+          </InstitutionalText>
         </View>
       ) : (
         alertasOrdenadas.map((alerta) => {
-          const color = getColorAlerta(alerta.tipo);
+          const status = institutionalStatusColors(alertToneForType(alerta.tipo));
           const icono = getIconoAlerta(alerta.tipo);
 
           return (
@@ -131,44 +141,63 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
               key={alerta.id}
               style={[
                 styles.alertaItem,
+                institutionalCardStyles.surface,
                 alerta.leida && styles.alertaLeida,
               ]}
               onPress={() => handleAlertaPress(alerta)}
               activeOpacity={0.7}
             >
-              <View style={[styles.alertaIconContainer, { backgroundColor: `${color}15` }]}>
-                <InstitutionalIcon name={icono as any} size={24} color={color}  strokeWidth={ICON_STROKE_WIDTH} />
+              <View style={[styles.alertaIconContainer, { backgroundColor: status.bg }]}>
+                <InstitutionalIcon
+                  name={icono as any}
+                  size={24}
+                  color={status.icon}
+                  strokeWidth={ICON_STROKE_WIDTH}
+                />
               </View>
-              
+
               <View style={styles.alertaContent}>
                 <View style={styles.alertaHeader}>
-                  <Text style={[styles.alertaTitulo, alerta.leida && styles.alertaTituloLeida]}>
+                  <InstitutionalText
+                    role="body"
+                    color={alerta.leida ? 'muted' : 'ink'}
+                    style={styles.alertaTitulo}
+                  >
                     {alerta.titulo}
-                  </Text>
-                  {!alerta.leida && <View style={styles.unreadDot} />}
+                  </InstitutionalText>
+                  {!alerta.leida ? <View style={[styles.unreadDot, { backgroundColor: I.primary }]} /> : null}
                 </View>
-                
-                <Text style={[styles.alertaMensaje, alerta.leida && styles.alertaMensajeLeida]}>
+
+                <InstitutionalText
+                  role="caption"
+                  color={alerta.leida ? 'muted' : 'body'}
+                  style={styles.alertaMensaje}
+                >
                   {alerta.mensaje}
-                </Text>
+                </InstitutionalText>
 
-                {alerta.accion && (
+                {alerta.accion ? (
                   <View style={styles.alertaAccion}>
-                    <InstitutionalIcon name="arrow-forward-circle" size={16} color={color}  strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={[styles.alertaAccionTexto, { color }]}>
+                    <InstitutionalIcon
+                      name="arrow-forward-circle"
+                      size={16}
+                      color={status.icon}
+                      strokeWidth={ICON_STROKE_WIDTH}
+                    />
+                    <InstitutionalText role="caption" color={status.text} style={styles.alertaAccionTexto}>
                       {alerta.accion.texto}
-                    </Text>
+                    </InstitutionalText>
                   </View>
-                )}
+                ) : null}
 
-                <Text style={styles.alertaFecha}>
+                <InstitutionalText role="small" color="muted" style={styles.alertaFecha}>
                   {alerta.fecha.toLocaleDateString('es-ES', {
                     day: 'numeric',
                     month: 'short',
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
-                </Text>
+                </InstitutionalText>
               </View>
 
               <TouchableOpacity
@@ -176,7 +205,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
                 onPress={() => handleEliminarAlerta(alerta.id)}
                 activeOpacity={0.7}
               >
-                <InstitutionalIcon name="trash-outline" size={20} color="#999999"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="trash-outline" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             </TouchableOpacity>
           );
@@ -185,23 +214,17 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
     </ScrollView>
   );
 
-  // Renderizar modal (compartido entre ambos variants)
   const renderModal = () => (
     <Modal
       visible={modalVisible}
       animationType="fade"
-      transparent={true}
+      transparent
       onRequestClose={handleCerrarPanel}
     >
       <View style={styles.modalContainer}>
-        {/* Fondo oscuro que se puede tocar para cerrar */}
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={handleCerrarPanel}
-        />
-        
+        <Pressable style={styles.modalBackdrop} onPress={handleCerrarPanel} />
+
         <SafeAreaView edges={['top', 'right']} style={styles.modalSafeArea}>
-          {/* Contenido del modal - previene que se cierre al tocar dentro */}
           <Animated.View
             style={[
               styles.modalContentWrapper,
@@ -212,20 +235,18 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
             onStartShouldSetResponder={() => true}
           >
             <View style={styles.modalContent}>
-            {/* Header */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Alertas</Text>
-              <TouchableOpacity
-                onPress={handleCerrarPanel}
-                style={styles.closeButton}
-                activeOpacity={0.7}
-              >
-                <InstitutionalIcon name="close" size={24} color="#666666"  strokeWidth={ICON_STROKE_WIDTH} />
-              </TouchableOpacity>
-            </View>
+              <View style={styles.modalHeader}>
+                <InstitutionalSectionHeader title="Alertas" level="h3" />
+                <TouchableOpacity
+                  onPress={handleCerrarPanel}
+                  style={styles.closeButton}
+                  activeOpacity={0.7}
+                >
+                  <InstitutionalIcon name="close" size={24} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                </TouchableOpacity>
+              </View>
 
-            {/* Lista de alertas */}
-            {renderAlertsList()}
+              {renderAlertsList()}
             </View>
           </Animated.View>
         </SafeAreaView>
@@ -233,10 +254,10 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
     </Modal>
   );
 
-  // Si es variant header, solo retornar el icono sin el botón flotante
   if (variant === 'header') {
-    const textColor = iconColor || theme?.colors?.text?.primary || COLORS?.text?.primary || '#000000';
-    
+    const textColor =
+      iconColor || theme?.colors?.text?.primary || COLORS?.text?.primary || I.ink;
+
     return (
       <>
         <TouchableOpacity
@@ -244,37 +265,40 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
           onPress={handleAbrirPanel}
           activeOpacity={0.7}
         >
-          <InstitutionalIcon name="notifications-outline" size={24} color={textColor}  strokeWidth={ICON_STROKE_WIDTH} />
-          {alertasNoLeidas > 0 && (
+          <InstitutionalIcon
+            name="notifications-outline"
+            size={24}
+            color={textColor}
+            strokeWidth={ICON_STROKE_WIDTH}
+          />
+          {alertasNoLeidas > 0 ? (
             <View style={styles.headerBadge}>
-              <Text style={styles.headerBadgeText}>
+              <InstitutionalText role="small" color="onPrimary" style={styles.headerBadgeText}>
                 {alertasNoLeidas > 99 ? '99+' : alertasNoLeidas}
-              </Text>
+              </InstitutionalText>
             </View>
-          )}
+          ) : null}
         </TouchableOpacity>
         {renderModal()}
       </>
     );
   }
 
-  // Variant floating (botón flotante original)
   return (
     <>
-      {/* Botón flotante de alertas */}
       <TouchableOpacity
         style={styles.floatingButton}
         onPress={handleAbrirPanel}
         activeOpacity={0.8}
       >
-        <InstitutionalIcon name="notifications" size={24} color="#FFFFFF"  strokeWidth={ICON_STROKE_WIDTH} />
-        {alertasNoLeidas > 0 && (
+        <InstitutionalIcon name="notifications" size={24} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+        {alertasNoLeidas > 0 ? (
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>
+            <InstitutionalText role="small" color="onPrimary" style={styles.badgeText}>
               {alertasNoLeidas > 99 ? '99+' : alertasNoLeidas}
-            </Text>
+            </InstitutionalText>
           </View>
-        )}
+        ) : null}
       </TouchableOpacity>
       {renderModal()}
     </>
@@ -289,26 +313,17 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#4E4FEB',
+    backgroundColor: I.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 8,
-    }),
+    ...SHADOWS.editorial,
     zIndex: 1000,
   },
   badge: {
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#E74C3C',
+    backgroundColor: I.semanticDown,
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -316,16 +331,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: I.canvas,
   },
   badgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
     fontWeight: '700',
   },
   headerButton: {
     position: 'relative',
-    padding: 8,
+    padding: SPACING.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -333,7 +346,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: '#E74C3C',
+    backgroundColor: I.semanticDown,
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -341,11 +354,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: I.canvas,
   },
   headerBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
     fontWeight: '700',
   },
   modalContainer: {
@@ -359,7 +370,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: withOpacity(I.ink, 0.5),
   },
   modalSafeArea: {
     width: '85%',
@@ -374,39 +385,25 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderBottomLeftRadius: 20,
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: {
-      width: -2,
-      height: 0,
-    },
-      shadowOpacity: 0.25,
-      shadowRadius: 10,
-      elevation: 10,
-    }),
+    backgroundColor: I.canvas,
+    borderTopLeftRadius: BORDERS.radius.xl,
+    borderBottomLeftRadius: BORDERS.radius.xl,
+    ...SHADOWS.editorial,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#000000',
+    padding: SPACING.lg,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairline,
   },
   closeButton: {
-    padding: 4,
+    padding: SPACING.xs,
   },
   alertsList: {
     flex: 1,
-    padding: 16,
+    padding: SPACING.md,
   },
   emptyContainer: {
     flex: 1,
@@ -415,39 +412,22 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyText: {
-    fontSize: 18,
+    marginTop: SPACING.md,
     fontWeight: '600',
-    color: '#666666',
-    marginTop: 16,
   },
   emptySubtext: {
-    fontSize: 14,
-    color: '#999999',
-    marginTop: 8,
+    marginTop: SPACING.sm,
     textAlign: 'center',
   },
   alertaItem: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 2,
-    }),
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   alertaLeida: {
     opacity: 0.6,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: I.surfaceSoft,
   },
   alertaIconContainer: {
     width: 48,
@@ -455,7 +435,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: SPACING.sm,
   },
   alertaContent: {
     flex: 1,
@@ -463,53 +443,38 @@ const styles = StyleSheet.create({
   alertaHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: SPACING.xs,
   },
   alertaTitulo: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#000000',
     flex: 1,
-  },
-  alertaTituloLeida: {
-    color: '#666666',
+    fontWeight: '700',
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#4E4FEB',
-    marginLeft: 8,
+    marginLeft: SPACING.sm,
   },
   alertaMensaje: {
-    fontSize: 14,
-    color: '#666666',
     lineHeight: 20,
-    marginBottom: 8,
-  },
-  alertaMensajeLeida: {
-    color: '#999999',
+    marginBottom: SPACING.sm,
   },
   alertaAccion: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 8,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
   alertaAccionTexto: {
-    fontSize: 14,
     fontWeight: '600',
-    marginLeft: 4,
+    marginLeft: SPACING.xs,
   },
   alertaFecha: {
-    fontSize: 12,
-    color: '#999999',
-    marginTop: 4,
+    marginTop: SPACING.xs,
   },
   deleteButton: {
-    padding: 8,
+    padding: SPACING.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },
 });
-

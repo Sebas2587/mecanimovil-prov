@@ -15,10 +15,22 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Stack, router } from 'expo-router';
 import serviceAreasApi, { Commune, Region } from '@/services/serviceAreasApi';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import {COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow} from '@/app/design-system/tokens';
+import {COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS} from '@/app/design-system/tokens';
+import {
+  institutionalStatusColors,
+  institutionalCardStyles,
+} from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+
+const I = COLORS.institutional;
+const infoStatus = institutionalStatusColors('info');
+const successStatus = institutionalStatusColors('success');
+const errorStatus = institutionalStatusColors('error');
+const primaryStatus = institutionalStatusColors('primary');
 
 export default function CrearZonaServicioScreen() {
   const theme = useTheme();
@@ -196,22 +208,20 @@ export default function CrearZonaServicioScreen() {
   };
 
   // Obtener colores del sistema de diseño
-  const bgPaper = (safeColors?.background as any)?.paper || (safeColors?.base as any)?.white || '#FFFFFF';
-  const bgDefault = (safeColors?.background as any)?.default || '#F5F7F8';
-  const textPrimary = safeColors?.text?.primary || (safeColors?.neutral as any)?.inkBlack || '#00171F';
-  const textSecondary = safeColors?.text?.secondary || ((safeColors?.neutral as any)?.gray as any)?.[800] || '#3E4F53';
-  const textTertiary = safeColors?.text?.tertiary || ((safeColors?.neutral as any)?.gray as any)?.[700] || '#5D6F75';
-  const borderLight = (safeColors?.border as any)?.light || ((safeColors?.neutral as any)?.gray as any)?.[200] || '#D7DFE3';
+  const bgPaper = (safeColors?.background as any)?.paper || I.canvas;
+  const bgDefault = (safeColors?.background as any)?.default || I.surfaceSoft;
+  const textPrimary = safeColors?.text?.primary || I.ink;
+  const textSecondary = safeColors?.text?.secondary || I.body;
+  const textTertiary = safeColors?.text?.tertiary || I.muted;
+  const borderLight = (safeColors?.border as any)?.light || I.hairline;
   const primaryObj = safeColors?.primary as any;
   const successObj = safeColors?.success as any;
   const errorObj = safeColors?.error as any;
-  const warningObj = safeColors?.warning as any;
   const infoObj = safeColors?.info as any;
-  const accentObj = safeColors?.accent as any;
-  const primary500 = primaryObj?.['500'] || (safeColors?.accent as any)?.['500'] || '#003459';
-  const success500 = successObj?.main || successObj?.['500'] || '#00C9A7';
-  const error500 = errorObj?.main || errorObj?.['500'] || '#FF6B6B';
-  const info500 = infoObj?.main || infoObj?.['500'] || accentObj?.['500'] || '#007EA7';
+  const primary500 = primaryObj?.['500'] || I.primary;
+  const success500 = successObj?.main || I.semanticUp;
+  const error500 = errorObj?.main || I.semanticDown;
+  const info500 = infoObj?.main || I.primary;
   const containerHorizontal = safeSpacing?.container?.horizontal || safeSpacing?.content?.horizontal || 18;
   const spacingXs = safeSpacing?.xs || 4;
   const spacingSm = safeSpacing?.sm || 8;
@@ -227,8 +237,8 @@ export default function CrearZonaServicioScreen() {
   const fontWeightMedium = safeTypography?.fontWeight?.medium || '500';
   const fontWeightSemibold = safeTypography?.fontWeight?.semibold || '600';
   const fontWeightBold = safeTypography?.fontWeight?.bold || '700';
-  const shadowSm = safeShadows?.sm || platformShadow({ shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 });
-  const shadowMd = safeShadows?.md || platformShadow({ shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 });
+  const shadowSm = safeShadows?.sm || SHADOWS.sm;
+  const shadowMd = safeShadows?.editorial || SHADOWS.editorial;
 
   // Renderizar comuna en la lista de selección
   const renderCommuneItem = ({ item }: { item: Commune }) => (
@@ -279,7 +289,7 @@ export default function CrearZonaServicioScreen() {
       >
         <View style={[styles.content, { paddingHorizontal: containerHorizontal }]}>
           {/* Información - UI Card */}
-          <View style={[styles.uiCard, { backgroundColor: (infoObj?.light || '#E6F5F9'), borderColor: info500 }]}>
+          <View style={[styles.uiCard, { backgroundColor: infoObj?.light || infoStatus.bg, borderColor: info500 }]}>
             <View style={styles.infoHeader}>
               <InstitutionalIcon name="information-circle" size={20} color={info500}  strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={[styles.infoTitle, { color: info500 }]}>¿Qué son las zonas de servicio?</Text>
@@ -292,7 +302,7 @@ export default function CrearZonaServicioScreen() {
 
           {/* Nombre de la zona (opcional) - UI Card */}
           <View style={styles.uiCard}>
-            <Text style={[styles.sectionTitle, { color: textPrimary }]}>Nombre de la Zona</Text>
+            <InstitutionalSectionHeader title="Nombre de la Zona" level="h4" />
             <TextInput
               style={[styles.textInput, { backgroundColor: bgPaper, borderColor: borderLight, color: textPrimary }]}
               placeholder="Ej: Mi Zona Santiago Centro"
@@ -312,11 +322,12 @@ export default function CrearZonaServicioScreen() {
           {/* Comunas seleccionadas - UI Card */}
           <View style={styles.uiCard}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: textPrimary }]}>
-                Comunas Seleccionadas ({selectedCommunes.length})
-              </Text>
+              <InstitutionalSectionHeader
+                title={`Comunas Seleccionadas (${selectedCommunes.length})`}
+                style={styles.sectionHeaderTitle}
+              />
               <TouchableOpacity
-                style={[styles.addCommuneButton, { backgroundColor: (primaryObj?.['50'] || '#E6F0F5') }]}
+                style={[styles.addCommuneButton, { backgroundColor: primaryObj?.['50'] || primaryStatus.bg }]}
                 onPress={() => setShowCommuneSelector(true)}
                 activeOpacity={0.7}
               >
@@ -344,7 +355,7 @@ export default function CrearZonaServicioScreen() {
 
           {/* Resumen - UI Card */}
           {selectedCommunes.length > 0 && (
-            <View style={[styles.summaryCard, { backgroundColor: (successObj?.light || '#E6F7F4'), borderColor: success500 }]}>
+            <View style={[styles.summaryCard, { backgroundColor: successObj?.light || successStatus.bg, borderColor: success500 }]}>
               <Text style={[styles.summaryTitle, { color: textPrimary }]}>Resumen</Text>
               <Text style={[styles.summaryText, { color: textPrimary }]}>
                 Cobertura: {selectedCommunes.length} comuna{selectedCommunes.length !== 1 ? 's' : ''}
@@ -359,25 +370,19 @@ export default function CrearZonaServicioScreen() {
 
       {/* Botón guardar */}
       <View style={[styles.bottomContainer, { backgroundColor: bgPaper, borderTopColor: borderLight }]}>
-        <TouchableOpacity
-          style={[
-            styles.saveButton, 
-            { backgroundColor: primary500, ...shadowMd },
-            loading && styles.saveButtonDisabled
-          ]}
+        <InstitutionalButton
+          label={loading ? 'Guardando...' : 'Crear Zona de Servicio'}
+          variant="primary"
           onPress={saveServiceArea}
           disabled={loading || selectedCommunes.length === 0}
-          activeOpacity={0.8}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color={COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF'} />
-          ) : (
-            <InstitutionalIcon name="checkmark-circle" size={20} color={COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF'}  strokeWidth={ICON_STROKE_WIDTH} />
-          )}
-          <Text style={[styles.saveButtonText, { color: COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF' }]}>
-            {loading ? 'Guardando...' : 'Crear Zona de Servicio'}
-          </Text>
-        </TouchableOpacity>
+          loading={loading}
+          style={[styles.saveButton, shadowMd]}
+          leading={
+            !loading ? (
+              <InstitutionalIcon name="checkmark-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+            ) : undefined
+          }
+        />
       </View>
 
       {/* Modal selector de comunas */}
@@ -426,7 +431,7 @@ export default function CrearZonaServicioScreen() {
               >
                 <Text style={[
                   styles.regionChipText,
-                  { color: !selectedRegion ? (COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF') : textPrimary }
+                  { color: !selectedRegion ? I.onPrimary : textPrimary }
                 ]}>
                   Todas las regiones
                 </Text>
@@ -447,7 +452,7 @@ export default function CrearZonaServicioScreen() {
                 >
                   <Text style={[
                     styles.regionChipText,
-                    { color: selectedRegion === region.region_code ? (COLORS?.text?.onPrimary || COLORS?.base?.white || '#FFFFFF') : textPrimary }
+                    { color: selectedRegion === region.region_code ? I.onPrimary : textPrimary }
                   ]}>
                     {region.region_name}
                   </Text>
@@ -488,11 +493,11 @@ export default function CrearZonaServicioScreen() {
 
 // Función para crear estilos usando tokens del sistema de diseño
 const createStyles = () => {
-  const bgPaper = COLORS?.background?.paper || COLORS?.base?.white || '#FFFFFF';
-  const bgDefault = COLORS?.background?.default || '#F5F7F8';
-  const textPrimary = COLORS?.text?.primary || COLORS?.neutral?.inkBlack || '#00171F';
-  const textTertiary = COLORS?.text?.tertiary || ((COLORS?.neutral?.gray as any)?.[700]) || '#5D6F75';
-  const borderLight = COLORS?.border?.light || COLORS?.neutral?.gray?.[200] || '#D7DFE3';
+  const bgPaper = COLORS?.background?.paper || I.canvas;
+  const bgDefault = COLORS?.background?.default || I.surfaceSoft;
+  const textPrimary = COLORS?.text?.primary || I.ink;
+  const textTertiary = COLORS?.text?.tertiary || I.muted;
+  const borderLight = COLORS?.border?.light || I.hairline;
   const spacingXs = SPACING?.xs || 4;
   const spacingSm = SPACING?.sm || 8;
   const spacingMd = SPACING?.md || 16;
@@ -508,8 +513,8 @@ const createStyles = () => {
   const fontWeightMedium = TYPOGRAPHY?.fontWeight?.medium || '500';
   const fontWeightSemibold = TYPOGRAPHY?.fontWeight?.semibold || '600';
   const fontWeightBold = TYPOGRAPHY?.fontWeight?.bold || '700';
-  const shadowSm = SHADOWS?.sm || platformShadow({ shadowColor: '#00171F', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 });
-  const shadowMd = SHADOWS?.md || platformShadow({ shadowColor: '#00171F', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 });
+  const shadowSm = SHADOWS.sm;
+  const shadowMd = SHADOWS.editorial;
 
   return StyleSheet.create({
     container: {
@@ -551,9 +556,10 @@ const createStyles = () => {
       alignItems: 'center',
       marginBottom: spacingMd,
     },
-    sectionTitle: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightBold,
+    sectionHeaderTitle: {
+      flex: 1,
+      marginBottom: 0,
+      minWidth: 0,
     },
     addCommuneButton: {
       flexDirection: 'row',

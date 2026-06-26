@@ -18,7 +18,7 @@ import {
 import { Buffer } from 'buffer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { COLORS } from '@/app/design-system/tokens';
+import { COLORS, withOpacity } from '@/app/design-system/tokens';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 
@@ -803,7 +803,7 @@ export default function FinalizarOnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
   },
   scrollContainer: {
     flexGrow: 1,
@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#7f8c8d',
+    color: I.muted,
   },
   resumenContainer: {
     ...onboardingStyles.panel,
@@ -836,17 +836,17 @@ const styles = StyleSheet.create({
   resumenSectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#34495e',
+    color: I.body,
     marginBottom: 8,
   },
   resumenText: {
     fontSize: 14,
-    color: '#7f8c8d',
+    color: I.muted,
     lineHeight: 20,
     marginBottom: 4,
   },
   resumenBadge: {
-    backgroundColor: '#e8f4fd',
+    backgroundColor: withOpacity(I.primary, 0.08),
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -855,35 +855,35 @@ const styles = StyleSheet.create({
   },
   resumenBadgeText: {
     fontSize: 12,
-    color: '#2980b9',
+    color: I.primaryActive,
     fontWeight: '600',
   },
   especialidadesList: {
     gap: 6,
   },
   especialidadItem: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
     borderRadius: 8,
     padding: 8,
     marginBottom: 4,
   },
   especialidadText: {
     fontSize: 13,
-    color: '#2c3e50',
+    color: I.ink,
     fontWeight: '500',
   },
   marcasList: {
     gap: 6,
   },
   marcaItem: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
     borderRadius: 8,
     padding: 8,
     marginBottom: 4,
   },
   marcaText: {
     fontSize: 13,
-    color: '#2c3e50',
+    color: I.ink,
     fontWeight: '500',
   },
   documentosSection: {
@@ -892,7 +892,7 @@ const styles = StyleSheet.create({
   documentoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
     borderRadius: 8,
     padding: 8,
     marginBottom: 4,
@@ -900,14 +900,14 @@ const styles = StyleSheet.create({
   documentoText: {
     flex: 1,
     fontSize: 13,
-    color: '#2c3e50',
+    color: I.ink,
     marginLeft: 8,
   },
   estadoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#e8f5e8',
+    backgroundColor: withOpacity(I.semanticUp, 0.12),
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
@@ -915,20 +915,20 @@ const styles = StyleSheet.create({
   estadoText: {
     marginLeft: 12,
     fontSize: 16,
-    color: '#27ae60',
+    color: I.semanticUp,
     fontWeight: '600',
   },
   finalizarButton: {
-    backgroundColor: '#27ae60',
+    backgroundColor: I.semanticUp,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
   },
   buttonDisabled: {
-    backgroundColor: '#bdc3c7',
+    backgroundColor: I.primaryDisabled,
   },
   finalizarButtonText: {
-    color: 'white',
+    color: I.onPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -937,7 +937,7 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     flexDirection: 'row',
-    backgroundColor: '#e8f4fd',
+    backgroundColor: withOpacity(I.primary, 0.08),
     borderRadius: 12,
     padding: 16,
     marginBottom: 30,
@@ -949,12 +949,12 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#2980b9',
+    color: I.primaryActive,
     marginBottom: 4,
   },
   infoDescription: {
     fontSize: 14,
-    color: '#2980b9',
+    color: I.primaryActive,
     lineHeight: 20,
   },
   progresoContainer: {
@@ -962,16 +962,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: I.hairline,
   },
   progresoTexto: {
     marginLeft: 8,
     fontSize: 14,
-    color: '#3498db',
+    color: I.primary,
     fontWeight: '500',
   },
   buttonContainer: {
@@ -983,12 +983,12 @@ const styles = StyleSheet.create({
   },
   datoLabel: {
     fontSize: 14,
-    color: '#7f8c8d',
+    color: I.muted,
     marginBottom: 4,
   },
   datoValor: {
     fontSize: 16,
-    color: '#2c3e50',
+    color: I.ink,
     fontWeight: '500',
   },
   loadingContent: {

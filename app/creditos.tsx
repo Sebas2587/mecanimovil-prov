@@ -27,8 +27,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Wallet, CreditCard, Store, History, Receipt, ScrollText } from 'lucide-react-native';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import {COLORS, SPACING, TYPOGRAPHY, withOpacity, BORDERS, SHADOWS, platformShadow} from '@/app/design-system/tokens';
+import {COLORS, SPACING, TYPOGRAPHY, withOpacity, BORDERS, SHADOWS} from '@/app/design-system/tokens';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -454,8 +457,8 @@ function CreditosScreenBackground({ children }: { children: React.ReactNode }) {
   return (
     <LinearGradient
       style={styles.gradientFill}
-      colors={[...BLANK_GLASS.gradient] as unknown as string[]}
-      locations={[...BLANK_GLASS.gradientLocations] as unknown as number[]}
+      colors={[...BLANK_GLASS.gradient]}
+      locations={[...BLANK_GLASS.gradientLocations]}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
     >
@@ -479,8 +482,8 @@ export default function CreditosScreen() {
   const backgroundDefault = 'transparent';
   const backgroundPaper = BLANK_GLASS.white;
   const borderMain = BLANK_GLASS.borderLight;
-  const errorColor = colors?.error?.main ?? '#EF4444';
-  const successColor = colors?.success?.main ?? '#22C55E';
+
+  const warningStatus = institutionalStatusColors('warning');
 
   const scrollBottomPad = useMemo(() => Math.max(32, insets.bottom + 24), [insets.bottom]);
 
@@ -795,14 +798,16 @@ export default function CreditosScreen() {
                 {'\n\n'}
                 Sin ella tampoco puedes recibir pagos de clientes ni postular a nuevas solicitudes.
               </Text>
-              <TouchableOpacity
-                style={[styles.botonBloqueo, { backgroundColor: BLANK_GLASS.primary }]}
+              <InstitutionalButton
+                label="Conectar Mercado Pago"
+                variant="primary"
+                size="compact"
                 onPress={() => router.push('/configuracion-mercadopago')}
-                activeOpacity={0.85}
-              >
-                <InstitutionalIcon name="link" size={20} color="#fff"  strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.botonBloqueoTexto}>Conectar Mercado Pago</Text>
-              </TouchableOpacity>
+                leading={
+                  <InstitutionalIcon name="link" size={20} color={I_TAB.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                }
+                style={styles.botonBloqueo}
+              />
             </View>
           </View>
         </CreditosScreenBackground>
@@ -1235,13 +1240,29 @@ export default function CreditosScreen() {
       >
         {/* Banner si saldo = 0 */}
         {saldoCero && (
-          <View style={[styles.bannerAlerta, { backgroundColor: '#FFF3E0', borderColor: '#F59E0B', marginBottom: 12 }]}>
-            <InstitutionalIcon name="lightning-bolt" size={20} color="#F59E0B"  strokeWidth={ICON_STROKE_WIDTH} />
+          <View
+            style={[
+              styles.bannerAlerta,
+              {
+                backgroundColor: warningStatus.bg,
+                borderColor: warningStatus.border,
+                marginBottom: 12,
+              },
+            ]}
+          >
+            <InstitutionalIcon
+              name="lightning-bolt"
+              size={20}
+              color={warningStatus.icon}
+              strokeWidth={ICON_STROKE_WIDTH}
+            />
             <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={[styles.bannerTitulo, { color: '#B45309' }]}>Sin créditos disponibles</Text>
-              <Text style={[styles.bannerSubtitulo, { color: '#92400E' }]}>
+              <InstitutionalText role="body" color={warningStatus.text} style={styles.bannerTitulo}>
+                Sin créditos disponibles
+              </InstitutionalText>
+              <InstitutionalText role="caption" color={warningStatus.text} style={styles.bannerSubtitulo}>
                 Comprá créditos para seguir postulando a los trabajos disponibles.
-              </Text>
+              </InstitutionalText>
             </View>
           </View>
         )}
@@ -1270,8 +1291,8 @@ export default function CreditosScreen() {
 
         {restringirCompra ? (
           <View style={[styles.planCard, { backgroundColor: backgroundPaper, alignItems: 'center', paddingVertical: SPACING['2xl'] }]}>
-            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: successColor + '20', alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.md }}>
-              <InstitutionalIcon name="shield-check" size={32} color={successColor}  strokeWidth={ICON_STROKE_WIDTH} />
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: withOpacitySafe(I_TAB.semanticUp, 0.12), alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.md }}>
+              <InstitutionalIcon name="shield-check" size={32} color={I_TAB.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <Text style={[styles.planNombre, { color: textPrimary, textAlign: 'center', marginBottom: SPACING.sm }]}>
               Todo en orden
@@ -1329,7 +1350,7 @@ export default function CreditosScreen() {
                 >
                   <Text style={[
                     styles.quickSelectText,
-                    cantidadComprar === val ? { color: '#FFF' } : { color: textPrimary }
+                    cantidadComprar === val ? { color: I_TAB.onPrimary } : { color: textPrimary }
                   ]}>+{val}</Text>
                 </TouchableOpacity>
               ))}
@@ -1342,12 +1363,13 @@ export default function CreditosScreen() {
               <Text style={{ fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: 'bold', color: textPrimary }}>{precioFormateado}</Text>
             </View>
 
-            <TouchableOpacity
-              style={[styles.botonSuscribirse, { backgroundColor: primaryColor }]}
+            <InstitutionalButton
+              label="Continuar"
+              variant="primary"
+              size="compact"
               onPress={() => router.push(`/creditos/comprar?cantidadCreditos=${cantidadComprar}`)}
-            >
-              <Text style={[styles.botonSuscribirseTexto, { color: '#FFF' }]}>Continuar</Text>
-            </TouchableOpacity>
+              style={styles.botonSuscribirse}
+            />
           </View>
         )}
       </ScrollView>
@@ -1489,15 +1511,10 @@ const styles = StyleSheet.create({
   bloqueoTitulo: { fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: '800', textAlign: 'center' },
   bloqueoDescripcion: { fontSize: TYPOGRAPHY.fontSize.sm, textAlign: 'center', lineHeight: 22 },
   botonBloqueo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 10,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: 12,
     marginTop: SPACING.sm,
+    alignSelf: 'stretch',
+    width: '100%',
   },
-  botonBloqueoTexto: { color: '#fff', fontSize: TYPOGRAPHY.fontSize.md, fontWeight: '700' },
 
   /** Contenedor horizontal para `InstitutionalScreenTabs` */
   glassTabsOuter: {
@@ -1992,18 +2009,12 @@ const styles = StyleSheet.create({
   },
   // ─── PlanCard (tienda / fallback sólido) ─────────────────
   planCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderRadius: BORDERS.radius.xl,
+    borderWidth: BORDERS.width.thin,
+    borderColor: COLORS.institutional.hairlineSoft,
     padding: SPACING.lg,
     marginBottom: SPACING.md,
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 6,
-      elevation: 2,
-    }),
+    ...SHADOWS.editorial,
     overflow: 'hidden',
   },
   badgeDestacado: {
@@ -2014,7 +2025,7 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0,
     paddingHorizontal: 12, paddingVertical: 5, borderBottomRightRadius: 12,
   },
-  badgeSmallText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  badgeSmallText: { color: COLORS.institutional.onPrimary, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   planNombre: { fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: '800', marginTop: SPACING.md },
   planDescripcion: { fontSize: TYPOGRAPHY.fontSize.sm, marginTop: 4, lineHeight: 20 },
   precioContainer: { flexDirection: 'row', alignItems: 'flex-end', marginTop: SPACING.md, gap: 2 },
@@ -2171,12 +2182,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.institutional.canvas,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: COLORS.institutional.hairline,
   },
   topSyncText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
@@ -2231,17 +2242,11 @@ const styles = StyleSheet.create({
 
   // ─── Cobros MP ─────────────────────────────────────────────
   cobrosSection: {
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
     padding: SPACING.md,
     marginBottom: SPACING.md,
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 2,
-    }),
+    ...SHADOWS.editorial,
   },
   cobrosHeader: {
     flexDirection: 'row',
@@ -2258,7 +2263,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 8,
     padding: SPACING.sm,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.institutional.surfaceSoft,
     borderRadius: 10,
   },
   cobrosEmptyText: {

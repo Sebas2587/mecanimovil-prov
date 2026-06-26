@@ -1,6 +1,7 @@
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import { StyleSheet, type ViewStyle } from 'react-native';
 import SignatureScreen from 'react-native-signature-canvas';
+import { COLORS } from '@/app/design-system/tokens';
 
 export type SignaturePadRef = {
   clearSignature: () => void;
@@ -25,7 +26,7 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(function Sig
     onBegin,
     style,
     height = 300,
-    penColor = '#000000',
+    penColor = COLORS.institutional.ink,
     backgroundColor = 'rgba(255,255,255,0)',
     webStyle,
   },

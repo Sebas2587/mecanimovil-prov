@@ -3,13 +3,22 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
 import { ServicioConfiguradoParaOferta } from '@/services/serviciosApi';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { platformShadow } from '@/app/design-system/tokens';
+import { COLORS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
+import {
+  institutionalStatusColors,
+  institutionalCardStyles,
+} from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+
+const I = COLORS.institutional;
+const primaryStatus = institutionalStatusColors('primary');
+const successStatus = institutionalStatusColors('success');
+const neutralStatus = institutionalStatusColors('neutral');
 
 interface ServicioConfiguradoSelectorProps {
   servicioConfigurado: ServicioConfiguradoParaOferta | null;
@@ -29,7 +38,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#0061FF" />
+        <ActivityIndicator size="small" color={I.primary} />
         <Text style={styles.loadingText}>Buscando servicio configurado...</Text>
       </View>
     );
@@ -38,7 +47,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
   if (!servicioConfigurado) {
     return (
       <View style={styles.infoCard}>
-        <InstitutionalIcon name="info-outline" size={20} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
+        <InstitutionalIcon name="info-outline" size={20} color={neutralStatus.icon} strokeWidth={ICON_STROKE_WIDTH} />
         <Text style={styles.infoText}>
           No tienes un servicio configurado para esta marca. Puedes crear la oferta manualmente.
         </Text>
@@ -50,7 +59,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
     return (
       <View style={styles.activoCard}>
         <View style={styles.activoHeader}>
-          <InstitutionalIcon name="check-circle" size={20} color="#10B981"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="check-circle" size={20} color={successStatus.icon} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.activoTitle}>Usando servicio configurado</Text>
         </View>
         <Text style={styles.activoSubtitle}>
@@ -59,13 +68,13 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
             <> - {servicioConfigurado.marca_vehiculo_info.nombre}</>
           )}
         </Text>
-        <TouchableOpacity
-          style={styles.cambiarButton}
+        <InstitutionalButton
+          label="Cambiar a modo manual"
+          variant="outlineAccent"
+          size="compact"
           onPress={onCrearManual}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.cambiarButtonText}>Cambiar a modo manual</Text>
-        </TouchableOpacity>
+          style={styles.cambiarButton}
+        />
       </View>
     );
   }
@@ -73,7 +82,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <InstitutionalIcon name="auto-fix-high" size={24} color="#0061FF"  strokeWidth={ICON_STROKE_WIDTH} />
+        <InstitutionalIcon name="auto-fix-high" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
         <View style={styles.cardHeaderText}>
           <Text style={styles.cardTitle}>Servicio configurado disponible</Text>
           <Text style={styles.cardSubtitle}>
@@ -88,7 +97,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
         </Text>
         {servicioConfigurado.marca_vehiculo_info && (
           <View style={styles.marcaInfo}>
-            <InstitutionalIcon name="directions-car" size={16} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="directions-car" size={16} color={I.body} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.marcaText}>
               {servicioConfigurado.marca_vehiculo_info.nombre}
             </Text>
@@ -96,7 +105,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
         )}
         <View style={styles.detallesRow}>
           <View style={styles.detalleItem}>
-            <InstitutionalIcon name="build" size={16} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="build" size={16} color={I.body} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.detalleText}>
               {servicioConfigurado.tipo_servicio === 'con_repuestos'
                 ? 'Con repuestos'
@@ -106,7 +115,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
           {servicioConfigurado.repuestos_info_detallado &&
             servicioConfigurado.repuestos_info_detallado.length > 0 && (
               <View style={styles.detalleItem}>
-                <InstitutionalIcon name="inventory-2" size={16} color="#666"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="inventory-2" size={16} color={I.body} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.detalleText}>
                   {servicioConfigurado.repuestos_info_detallado.length} repuesto(s)
                 </Text>
@@ -116,22 +125,19 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
       </View>
 
       <View style={styles.buttonsContainer}>
-        <TouchableOpacity
-          style={styles.usarButton}
+        <InstitutionalButton
+          label="Usar servicio configurado"
+          variant="primary"
           onPress={onUsarServicioConfigurado}
-          activeOpacity={0.8}
-        >
-          <InstitutionalIcon name="auto-fix-high" size={20} color="#FFF"  strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.usarButtonText}>Usar servicio configurado</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.manualButton}
+          leading={
+            <InstitutionalIcon name="auto-fix-high" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+          }
+        />
+        <InstitutionalButton
+          label="Crear manualmente"
+          variant="outline"
           onPress={onCrearManual}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.manualButtonText}>Crear manualmente</Text>
-        </TouchableOpacity>
+        />
       </View>
     </View>
   );
@@ -143,46 +149,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: I.surfaceSoft,
     borderRadius: 12,
     marginBottom: 24,
     gap: 12,
   },
   loadingText: {
     fontSize: 14,
-    color: '#666',
+    color: I.body,
   },
   infoCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
     padding: 16,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: I.surfaceSoft,
     borderRadius: 12,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: I.hairline,
   },
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: '#666',
+    color: I.body,
     lineHeight: 20,
   },
   card: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
+    ...institutionalCardStyles.surface,
     padding: 20,
     marginBottom: 24,
     borderWidth: 2,
-    borderColor: '#0061FF',
-    ...platformShadow({
-      shadowColor: '#0061FF',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 3,
-    }),
+    borderColor: I.primary,
+    ...SHADOWS.editorial,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -196,24 +195,24 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
+    color: I.ink,
     marginBottom: 4,
   },
   cardSubtitle: {
     fontSize: 13,
-    color: '#666',
+    color: I.body,
     lineHeight: 18,
   },
   servicioInfo: {
     marginBottom: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    borderTopColor: I.hairline,
   },
   servicioNombre: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#000',
+    color: I.ink,
     marginBottom: 8,
   },
   marcaInfo: {
@@ -224,7 +223,7 @@ const styles = StyleSheet.create({
   },
   marcaText: {
     fontSize: 13,
-    color: '#666',
+    color: I.body,
   },
   detallesRow: {
     flexDirection: 'row',
@@ -238,47 +237,18 @@ const styles = StyleSheet.create({
   },
   detalleText: {
     fontSize: 13,
-    color: '#666',
+    color: I.body,
   },
   buttonsContainer: {
     gap: 12,
   },
-  usarButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    backgroundColor: '#0061FF',
-  },
-  usarButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFF',
-  },
-  manualButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    backgroundColor: '#FFF',
-    alignItems: 'center',
-  },
-  manualButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
   activoCard: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: successStatus.bg,
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
     borderWidth: 2,
-    borderColor: '#10B981',
+    borderColor: successStatus.border,
   },
   activoHeader: {
     flexDirection: 'row',
@@ -289,27 +259,15 @@ const styles = StyleSheet.create({
   activoTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#10B981',
+    color: successStatus.text,
   },
   activoSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: I.body,
     marginBottom: 12,
     marginLeft: 28,
   },
   cambiarButton: {
     alignSelf: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#10B981',
-  },
-  cambiarButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#10B981',
   },
 });
-

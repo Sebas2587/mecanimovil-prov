@@ -2,12 +2,12 @@ import React, { useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, FlatList, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { SkeletonPulse } from '@/components/ui/Skeleton/SkeletonPulse';
+import { FinanzasTallerCardSkeleton } from '@/components/dashboard/FinanzasTallerCardSkeleton';
 import { RadarOfferCardSkeleton } from '@/components/ui/Skeleton/RadarOfferCardSkeleton';
 import { OrdenTicketCardSkeleton } from '@/components/ui/Skeleton/OrdenTicketCardSkeleton';
 import { useDashboardCarouselMetrics } from '@/app/components/dashboard/useDashboardCarouselMetrics';
+import { platformShadow, COLORS } from '@/app/design-system/tokens';
 import { SKELETON_BASE, SKELETON_MUTED, SKELETON_STRIP } from '@/components/ui/Skeleton/skeletonTokens';
-import { platformShadow } from '@/app/design-system/tokens';
 
 const PLACEHOLDER_KEYS = [0, 1, 2] as const;
 
@@ -75,46 +75,7 @@ export const DashboardScreenSkeleton = React.memo(function DashboardScreenSkelet
         contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
       >
         <View style={styles.sectionWrap}>
-          <View style={styles.glassOuter}>
-            <BlurView intensity={60} tint="light" style={styles.glassInner}>
-              <View style={styles.finHeader}>
-                <SkeletonPulse>
-                  <View style={[styles.finTitle, { backgroundColor: SKELETON_BASE }]} />
-                </SkeletonPulse>
-                <SkeletonPulse>
-                  <View style={[styles.finBadge, { backgroundColor: SKELETON_STRIP }]} />
-                </SkeletonPulse>
-              </View>
-              <View style={styles.finBody}>
-                <View style={styles.finCol}>
-                  <SkeletonPulse>
-                    <View style={[styles.finIcon, { backgroundColor: SKELETON_BASE }]} />
-                  </SkeletonPulse>
-                  <SkeletonPulse>
-                    <View style={[styles.finLabel, { backgroundColor: SKELETON_BASE }]} />
-                  </SkeletonPulse>
-                  <SkeletonPulse>
-                    <View style={[styles.finVal, { backgroundColor: SKELETON_MUTED }]} />
-                  </SkeletonPulse>
-                </View>
-                <View style={styles.finDivider} />
-                <View style={styles.finCol}>
-                  <SkeletonPulse>
-                    <View style={[styles.finIcon, { backgroundColor: SKELETON_BASE }]} />
-                  </SkeletonPulse>
-                  <SkeletonPulse>
-                    <View style={[styles.finLabel, { backgroundColor: SKELETON_BASE }]} />
-                  </SkeletonPulse>
-                  <SkeletonPulse>
-                    <View style={[styles.finValSm, { backgroundColor: SKELETON_MUTED }]} />
-                  </SkeletonPulse>
-                  <SkeletonPulse>
-                    <View style={[styles.finGrowth, { backgroundColor: SKELETON_BASE }]} />
-                  </SkeletonPulse>
-                </View>
-              </View>
-            </BlurView>
-          </View>
+          <FinanzasTallerCardSkeleton />
         </View>
 
         <View style={styles.sectionWrap}>
@@ -289,7 +250,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.6)',
     ...platformShadow({
-      shadowColor: '#000',
+      shadowColor: COLORS.base.inkBlack,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.06,
       shadowRadius: 8,
@@ -326,7 +287,7 @@ const styles = StyleSheet.create({
   },
   finDivider: {
     width: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: COLORS.institutional.hairline,
     alignSelf: 'stretch',
     marginHorizontal: 12,
   },
@@ -370,7 +331,7 @@ const styles = StyleSheet.create({
   subtitle: {
     textAlign: 'center',
     fontSize: 14,
-    color: '#6B7280',
+    color: COLORS.institutional.body,
     marginTop: 8,
     paddingHorizontal: 24,
   },

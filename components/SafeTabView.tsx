@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS } from '@/app/design-system/tokens';
 
 interface SafeTabViewProps {
   children: React.ReactNode;
@@ -22,7 +23,7 @@ export default function SafeTabView({ children, style }: SafeTabViewProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: COLORS.institutional.surfaceSoft,
   },
   content: {
     flex: 1,

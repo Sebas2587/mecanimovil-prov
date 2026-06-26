@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { ClipboardList, Landmark, ShoppingBag } from 'lucide-react-native';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH, ICON_SIZE } from '@/app/design-system/iconography';
 
@@ -34,7 +35,7 @@ export const SaldoBenefitGrid = memo(function SaldoBenefitGrid() {
       <View style={styles.kickerPill}>
         <Text style={styles.kickerText}>CÓMO FUNCIONA</Text>
       </View>
-      <Text style={styles.sectionTitle}>Tu saldo en la app</Text>
+      <InstitutionalSectionHeader title="Tu saldo en la app" />
       <Text style={styles.sectionLead}>
         Tres ideas clave para usar créditos y cobros sin fricción.
       </Text>
@@ -80,14 +81,6 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     color: I.ink,
     letterSpacing: 0.6,
-  },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize['2xl'],
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    lineHeight: 26,
-    color: I.ink,
-    marginBottom: 4,
   },
   sectionLead: {
     ...TYPOGRAPHY.styles.caption,

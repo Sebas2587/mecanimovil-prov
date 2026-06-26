@@ -9,6 +9,7 @@ import {
 } from '@/components/onboarding';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { COLORS } from '@/app/design-system/tokens';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 
@@ -56,7 +57,7 @@ export default function RevisionScreen() {
       </View>
 
       <View style={[onboardingStyles.panel, styles.stepsPanel]}>
-        <Text style={styles.sectionTitle}>Próximos pasos</Text>
+        <InstitutionalSectionHeader title="Próximos pasos" />
         <Step n={1}>Mantén tu correo activo para recibir notificaciones.</Step>
         <Step n={2}>
           Prepara tu {tipo === 'taller' ? 'taller' : 'equipo'} para atender clientes.
@@ -151,12 +152,6 @@ const styles = StyleSheet.create({
   },
   infoBody: { fontSize: 14, color: I.muted, lineHeight: 20 },
   stepsPanel: { marginTop: 16 },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: I.ink,
-    marginBottom: 12,
-  },
   stepRow: { flexDirection: 'row', marginBottom: 12, alignItems: 'flex-start' },
   stepBadge: {
     width: 26,

@@ -15,6 +15,7 @@ import {
   useWindowDimensions,
   Dimensions,
 } from 'react-native';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { SPACING, TYPOGRAPHY, COLORS, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 import creditosService, { type ServicioCreditoTablaRow } from '@/services/creditosService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -182,7 +183,7 @@ export const TablaServiciosCreditosModal: React.FC<TablaServiciosCreditosModalPr
                         <View style={[styles.sectionIconPlate, { backgroundColor: I.surfaceStrong }]}>
                           <InstitutionalIcon name="layers" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                         </View>
-                        <Text style={[styles.sectionTitle, { color: I.ink }]}>{section.title}</Text>
+                        <InstitutionalSectionHeader title={section.title} />
                         <Text style={[styles.sectionCount, { color: I.muted }]}>({section.data.length})</Text>
                       </View>
                       {section.data.map((item) => renderRow(item))}
@@ -296,12 +297,6 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  sectionTitle: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
   sectionCount: {
     fontSize: TYPOGRAPHY.fontSize.xs,

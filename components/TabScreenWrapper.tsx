@@ -10,7 +10,7 @@ interface TabScreenWrapperProps {
 
 export default function TabScreenWrapper({ children, style }: TabScreenWrapperProps) {
   const insets = useSafeAreaInsets();
-  const bgPaper = COLORS?.background?.paper || COLORS?.base?.white || '#FFFFFF';
+  const bgPaper = COLORS.background.paper;
   
   return (
     <SafeAreaView 

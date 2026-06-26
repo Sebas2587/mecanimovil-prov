@@ -5,6 +5,7 @@ import {
   Text,
   StyleSheet,
 } from 'react-native';
+import { COLORS } from '@/app/design-system/tokens';
 
 interface LoadingSpinnerProps {
   size?: 'small' | 'large';
@@ -15,7 +16,7 @@ interface LoadingSpinnerProps {
 
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   size = 'large',
-  color = '#2A4065',
+  color = COLORS.institutional.primary,
   text = 'Cargando...',
   style,
 }) => {
@@ -40,4 +41,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-}); 
+});

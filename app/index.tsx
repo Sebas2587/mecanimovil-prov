@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import EstadoRevisionScreen from '@/components/EstadoRevisionScreen';
 import { getItem } from '@/utils/authStorage';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
 
 export default function IndexScreen() {
   const { isAuthenticated, isLoading, usuario, estadoProveedor, refrescarEstadoProveedor } = useAuth();
@@ -170,7 +175,7 @@ export default function IndexScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={I.primary} />
         <Text style={styles.loadingText}>Cargando...</Text>
       </View>
     );
@@ -191,19 +196,28 @@ export default function IndexScreen() {
           Esto puede deberse a un problema temporal del servidor.
         </Text>
         
-        <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
-        </TouchableOpacity>
+        <InstitutionalButton
+          label="Reintentar"
+          onPress={handleRetry}
+          variant="primary"
+          style={styles.actionButton}
+        />
         
         <View style={styles.alternativeActions}>
           <Text style={styles.alternativeText}>¿Eres nuevo como proveedor?</Text>
-          <TouchableOpacity style={styles.onboardingButton} onPress={handleGoToOnboarding}>
-            <Text style={styles.onboardingButtonText}>Registrarme como Proveedor</Text>
-          </TouchableOpacity>
+          <InstitutionalButton
+            label="Registrarme como Proveedor"
+            onPress={handleGoToOnboarding}
+            variant="success"
+            style={styles.actionButton}
+          />
           
-          <TouchableOpacity style={styles.loginButton} onPress={handleGoToLogin}>
-            <Text style={styles.loginButtonText}>Cerrar Sesión</Text>
-          </TouchableOpacity>
+          <InstitutionalButton
+            label="Cerrar Sesión"
+            onPress={handleGoToLogin}
+            variant="destructiveOutline"
+            style={styles.actionButton}
+          />
         </View>
       </View>
     );
@@ -212,7 +226,7 @@ export default function IndexScreen() {
   // Loading por defecto (mientras se resuelve la navegación)
   return (
     <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color="#007AFF" />
+      <ActivityIndicator size="large" color={I.primary} />
       <Text style={styles.loadingText}>Cargando...</Text>
     </View>
   );
@@ -223,76 +237,51 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceSoft,
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
+    marginTop: SPACING.fixed.sm,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansRegular,
+    color: I.body,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    padding: 20,
+    backgroundColor: I.surfaceSoft,
+    padding: SPACING.fixed.lg,
   },
   errorTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#e74c3c',
-    marginBottom: 10,
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontFamily: FF.sansBold,
+    color: I.semanticDown,
+    marginBottom: SPACING.fixed.sm,
     textAlign: 'center',
   },
   errorMessage: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansRegular,
+    color: I.body,
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: SPACING.fixed.lg,
     lineHeight: 24,
   },
-  retryButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+  actionButton: {
+    width: '100%',
+    maxWidth: 320,
+    marginBottom: SPACING.fixed.sm,
   },
   alternativeActions: {
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: SPACING.fixed.lg,
+    width: '100%',
+    maxWidth: 320,
   },
   alternativeText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 15,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+    marginBottom: SPACING.fixed.md,
   },
-  onboardingButton: {
-    backgroundColor: '#28a745',
-    paddingHorizontal: 25,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  onboardingButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  loginButton: {
-    backgroundColor: '#dc3545',
-    paddingHorizontal: 25,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  loginButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-}); 
+});

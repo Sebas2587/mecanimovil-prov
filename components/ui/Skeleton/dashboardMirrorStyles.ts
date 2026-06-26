@@ -1,5 +1,7 @@
 import { StyleSheet } from 'react-native';
-import { platformShadow } from '@/app/design-system/tokens';
+import { COLORS, platformShadow } from '@/app/design-system/tokens';
+
+const I = COLORS.institutional;
 
 /**
  * Réplica numérica de `app/(tabs)/index.tsx` para radar y ticket.
@@ -7,11 +9,11 @@ import { platformShadow } from '@/app/design-system/tokens';
  */
 export const dashboardMirrorStyles = StyleSheet.create({
   radarOffer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: I.canvas,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: I.hairlineSoft,
     gap: 10,
     minHeight: 126,
   },
@@ -31,22 +33,22 @@ export const dashboardMirrorStyles = StyleSheet.create({
     marginBottom: 14,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: I.canvas,
     ...platformShadow({
-      shadowColor: '#000',
+      shadowColor: COLORS.base.inkBlack,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.05,
       shadowRadius: 6,
       elevation: 2,
     }),
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: I.hairlineSoft,
     minHeight: 198,
   },
   ticketTop: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: I.hairlineSoft,
   },
   ticketBadgeRow: {
     flexDirection: 'row',
@@ -57,7 +59,7 @@ export const dashboardMirrorStyles = StyleSheet.create({
   ticketDash: {
     borderBottomWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#D1D5DB',
+    borderColor: I.hairline,
     marginHorizontal: 16,
   },
   ticketBody: {

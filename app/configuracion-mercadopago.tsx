@@ -62,9 +62,9 @@ export default function ConfiguracionMercadoPagoScreen() {
   const borderMain = I.hairline;
   const neutralGray100 = I.surfaceSoft;
 
-  // Color de Mercado Pago
-  const mpBlue = '#009EE3';
-  const mpBlueLight = '#E3F6FF';
+  // Color de Mercado Pago (marca externa — aproximado con tokens)
+  const mpBlue = COLORS.base.freshSky;
+  const mpBlueLight = COLORS.info.light;
 
   // Cargar datos
   const cargarDatos = useCallback(async (isRefreshing = false) => {

@@ -1,10 +1,24 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import {COLORS, SPACING, TYPOGRAPHY, platformShadow} from '@/app/design-system/tokens';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  COLORS,
+  SPACING,
+  TYPOGRAPHY,
+  BORDERS,
+  SHADOWS,
+  withOpacity,
+} from '@/app/design-system/tokens';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { PaqueteCreditos } from '@/services/creditosService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { institutionalTagStyles } from '@/app/design-system/styles/institutionalTags';
+
+const I = COLORS.institutional;
+const TS = TYPOGRAPHY.styles;
+const successTag = institutionalTagStyles('success', 'md', false);
 
 interface PaqueteCardProps {
   paquete: PaqueteCreditos;
@@ -17,184 +31,134 @@ export const PaqueteCard: React.FC<PaqueteCardProps> = ({
   destacado = false,
   onPress,
 }) => {
-  const theme = useTheme();
-  
-  // Obtener valores del sistema de diseño
-  const colors = theme?.colors || COLORS || {};
-  const textPrimary = colors?.text?.primary || '#000000';
-  const textSecondary = colors?.text?.secondary || '#666666';
-  const primaryColor = colors?.primary?.['500'] || '#4E4FEB';
-  const successColor = colors?.success?.main || '#3DB6B1';
-  const backgroundPaper = colors?.background?.paper || '#FFFFFF';
-  const borderMain = colors?.border?.main || '#D0D0D0';
-  
   const precioFormateado = new Intl.NumberFormat('es-CL', {
     style: 'currency',
     currency: 'CLP',
     minimumFractionDigits: 0,
   }).format(paquete.precio);
-  
+
   const precioPorCreditoFormateado = new Intl.NumberFormat('es-CL', {
     style: 'currency',
     currency: 'CLP',
     minimumFractionDigits: 0,
   }).format(paquete.precio_por_credito);
-  
+
   return (
     <TouchableOpacity
       style={[
         styles.container,
-        {
-          backgroundColor: backgroundPaper,
-          borderColor: destacado ? primaryColor : borderMain,
-          borderWidth: destacado ? 2 : 1,
-        }
+        destacado && styles.containerDestacado,
       ]}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.88}
     >
-      {destacado && (
-        <View style={[styles.badge, { backgroundColor: primaryColor }]}>
-          <Text style={styles.badgeText}>Recomendado</Text>
-        </View>
-      )}
-      
+      {destacado ? (
+        <InstitutionalTag
+          label="Recomendado"
+          variant="primary"
+          size="sm"
+          uppercase={false}
+          style={styles.badge}
+        />
+      ) : null}
+
       <View style={styles.header}>
-        <Text style={[styles.nombre, { color: textPrimary }]}>
+        <InstitutionalText role="h4" style={styles.nombre}>
           {paquete.nombre}
-        </Text>
-        {paquete.bonificacion_creditos > 0 && (
-          <View style={[styles.bonificacion, { backgroundColor: successColor + '20' }]}>
-            <InstitutionalIcon name="card-giftcard" size={16} color={successColor}  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[styles.bonificacionText, { color: successColor }]}>
-              +{paquete.bonificacion_creditos} gratis
-            </Text>
-          </View>
-        )}
+        </InstitutionalText>
+        {paquete.bonificacion_creditos > 0 ? (
+          <InstitutionalTag
+            label={`+${paquete.bonificacion_creditos} gratis`}
+            variant="success"
+            size="md"
+            uppercase={false}
+            leading={
+              <InstitutionalIcon
+                name="card-giftcard"
+                size={16}
+                color={successTag.iconColor}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+            }
+            style={styles.bonificacion}
+          />
+        ) : null}
       </View>
-      
+
       <View style={styles.creditosContainer}>
-        <Text style={[styles.creditos, { color: primaryColor }]}>
+        <InstitutionalText role="display" color="primary">
           {paquete.total_creditos}
-        </Text>
-        <Text style={[styles.creditosLabel, { color: textSecondary }]}>
+        </InstitutionalText>
+        <InstitutionalText role="body" color="body">
           créditos
-        </Text>
+        </InstitutionalText>
       </View>
-      
+
       <View style={styles.precioContainer}>
-        <Text style={[styles.precio, { color: textPrimary }]}>
-          {precioFormateado}
-        </Text>
-        <Text style={[styles.precioPorCredito, { color: textSecondary }]}>
+        <InstitutionalText role="h3">{precioFormateado}</InstitutionalText>
+        <InstitutionalText role="caption" color="body">
           {precioPorCreditoFormateado} por crédito
-        </Text>
+        </InstitutionalText>
       </View>
-      
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: primaryColor }]}
-          onPress={onPress}
-        >
-          <Text style={styles.buttonText}>Comprar</Text>
-        </TouchableOpacity>
-      </View>
+
+      <InstitutionalButton
+        label="Comprar"
+        variant="primary"
+        size="compact"
+        onPress={onPress}
+        style={styles.buyButton}
+      />
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: SPACING.md,
-    borderRadius: 12,
-    marginBottom: SPACING.md,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.lg,
+    marginBottom: SPACING.fixed.md,
     position: 'relative',
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    }),
+    backgroundColor: I.canvas,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
+  },
+  containerDestacado: {
+    borderWidth: BORDERS.width.medium,
+    borderColor: I.primary,
+    backgroundColor: withOpacity(I.primary, 0.03),
   },
   badge: {
     position: 'absolute',
     top: -8,
-    right: SPACING.md,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs / 2,
-    borderRadius: 12,
+    right: SPACING.fixed.md,
     zIndex: 1,
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.fixed.sm,
+    gap: SPACING.fixed.xs,
   },
   nombre: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
     flex: 1,
   },
   bonificacion: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs / 2,
-    paddingHorizontal: SPACING.xs,
-    paddingVertical: SPACING.xs / 2,
-    borderRadius: 8,
-    marginLeft: SPACING.xs,
-  },
-  bonificacionText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    marginLeft: SPACING.fixed.xs,
+    flexShrink: 1,
   },
   creditosContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: SPACING.xs,
-    marginBottom: SPACING.sm,
-  },
-  creditos: {
-    fontSize: TYPOGRAPHY.fontSize['3xl'],
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    lineHeight: TYPOGRAPHY.fontSize['3xl'] * 1.2,
-  },
-  creditosLabel: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.regular,
+    gap: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.sm,
   },
   precioContainer: {
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.fixed.md,
+    gap: SPACING.fixed.xxs,
   },
-  precio: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    marginBottom: SPACING.xs / 2,
-  },
-  precioPorCredito: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.regular,
-  },
-  footer: {
-    marginTop: SPACING.sm,
-  },
-  button: {
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  buyButton: {
+    alignSelf: 'stretch',
   },
 });
-

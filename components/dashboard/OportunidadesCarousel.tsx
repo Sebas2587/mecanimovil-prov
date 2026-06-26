@@ -8,10 +8,15 @@ import {
 } from 'react-native';
 import { Car, ChevronRight, Search } from 'lucide-react-native';
 import { router } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import type { SolicitudPublica } from '@/services/solicitudesService';
+import { openSolicitudDetalle } from '@/utils/navigateProveedorDetalle';
 import { CountdownTimer } from '@/components/solicitudes/CountdownTimer';
 import { useDashboardCarouselMetrics } from '@/app/components/dashboard/useDashboardCarouselMetrics';
 import { RadarOfferCardSkeleton } from '@/components/ui/Skeleton';
+import { COLORS } from '@/app/design-system/tokens';
+
+const I = COLORS.institutional;
 
 const SKELETON_PLACEHOLDERS = [0, 1, 2] as const;
 
@@ -43,8 +48,16 @@ function OportunidadesCarouselInner({
   solicitudes,
   styles,
 }: OportunidadesCarouselProps) {
+  const queryClient = useQueryClient();
   const { itemWidth, itemGap, snapInterval, contentHorizontalPad } =
     useDashboardCarouselMetrics();
+
+  const openDetalle = useCallback(
+    (solicitud: SolicitudPublica) => {
+      openSolicitudDetalle(router, queryClient, solicitud.id, { solicitud });
+    },
+    [queryClient],
+  );
 
   const keyExtractor = useCallback((item: SolicitudPublica) => String(item.id), []);
 
@@ -70,7 +83,7 @@ function OportunidadesCarouselInner({
         <View style={{ width: itemWidth, marginRight: itemGap }}>
           <TouchableOpacity
             style={styles.radarOffer}
-            onPress={() => router.push(`/solicitud-detalle/${solicitud.id}`)}
+            onPress={() => openDetalle(solicitud)}
             activeOpacity={0.8}
           >
             <View style={styles.radarOfferTop}>
@@ -80,7 +93,7 @@ function OportunidadesCarouselInner({
                 </Text>
                 {vehiculoText ? (
                   <View style={styles.radarOfferMeta}>
-                    <Car size={13} color="#6B7280" />
+                    <Car size={13} color={I.muted} />
                     <Text style={styles.radarOfferMetaText}>{vehiculoText}</Text>
                   </View>
                 ) : null}
@@ -91,17 +104,17 @@ function OportunidadesCarouselInner({
             </View>
             <TouchableOpacity
               style={styles.radarCTA}
-              onPress={() => router.push(`/solicitud-detalle/${solicitud.id}`)}
+              onPress={() => openDetalle(solicitud)}
               activeOpacity={0.8}
             >
               <Text style={styles.radarCTAText}>Cotizar Trabajo</Text>
-              <ChevronRight size={16} color="#FFFFFF" />
+              <ChevronRight size={16} color={I.onPrimary} />
             </TouchableOpacity>
           </TouchableOpacity>
         </View>
       );
     },
-    [itemGap, itemWidth, styles]
+    [itemGap, itemWidth, openDetalle, styles]
   );
 
   if (loading) {
@@ -133,7 +146,7 @@ function OportunidadesCarouselInner({
     return (
       <View style={styles.radarBody}>
         <View style={styles.radarEmpty}>
-          <Search size={36} color="#D1D5DB" />
+          <Search size={36} color={I.mutedSoft} />
           <Text style={styles.radarEmptyTitle}>No hay oportunidades</Text>
           <Text style={styles.radarEmptySub}>
             Revisa más tarde para encontrar nuevas oportunidades
@@ -171,7 +184,7 @@ function OportunidadesCarouselInner({
           <Text style={styles.seeAllBtnText}>
             Ver todas ({solicitudes.length})
           </Text>
-          <ChevronRight size={14} color="#2563EB" />
+          <ChevronRight size={14} color={I.primary} />
         </TouchableOpacity>
       ) : null}
     </View>

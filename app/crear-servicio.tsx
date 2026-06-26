@@ -27,6 +27,7 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/ap
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { INSTITUTIONAL_SELECTION } from '@/app/design-system/styles/institutionalSelection';
 import { parseOfertasGrupoParam } from '@/utils/agruparOfertasServicio';
 import { parseMisMarcasResponse } from '@/utils/parseMisMarcasResponse';
@@ -2028,7 +2029,7 @@ const CrearServicioScreen = () => {
 
     return (
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Tipo de servicio</Text>
+        <InstitutionalSectionHeader title="Tipo de servicio" />
         {isEditMode && (
           <Text style={styles.subtitle}>
             Editando servicio - puedes cambiar cualquier opción
@@ -2304,7 +2305,7 @@ const CrearServicioScreen = () => {
     if (marcas.length === 0) {
       return (
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>¿Para qué vehículos?</Text>
+          <InstitutionalSectionHeader title="¿Para qué vehículos?" />
           <View style={styles.noDataContainer}>
             <InstitutionalIcon name="information-circle-outline" size={24} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.noDataText}>
@@ -2317,7 +2318,7 @@ const CrearServicioScreen = () => {
 
     return (
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>¿Para qué vehículos?</Text>
+        <InstitutionalSectionHeader title="¿Para qué vehículos?" />
         <Text style={styles.subtitle}>
           {isEditMode && !tieneSeleccionMarca && servicioSeleccionado
             ? 'Identificando la marca de esta oferta…'
@@ -2720,7 +2721,7 @@ const CrearServicioScreen = () => {
 
     return (
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Servicio ofrecido</Text>
+        <InstitutionalSectionHeader title="Servicio ofrecido" />
         {isEditMode && servicioEditReadonly ? (
           <>
             <Text style={styles.subtitle}>
@@ -3040,7 +3041,7 @@ const CrearServicioScreen = () => {
     if (!mostrarSelector) {
       return (
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Motores aplicables</Text>
+          <InstitutionalSectionHeader title="Motores aplicables" />
           <Text style={styles.subtitle}>
             Definido en el catálogo Mecanimovil. Tu precio aplica a estos vehículos.
           </Text>
@@ -3052,7 +3053,7 @@ const CrearServicioScreen = () => {
 
     return (
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Precio por tipo de motor</Text>
+        <InstitutionalSectionHeader title="Precio por tipo de motor" />
         <Text style={styles.subtitle}>
           Este servicio aplica a varios motores. Indica si este precio es para todos o solo uno.
         </Text>
@@ -3108,7 +3109,7 @@ const CrearServicioScreen = () => {
 
     return (
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Repuestos a incluir</Text>
+        <InstitutionalSectionHeader title="Repuestos a incluir" />
         {loadingRepuestos ? (
           <ActivityIndicator style={styles.loader} />
         ) : repuestos.length > 0 ? (
@@ -3207,7 +3208,7 @@ const CrearServicioScreen = () => {
   // Componente de selección de fotos
   const FotoSelector = () => (
     <View style={styles.sectionContainer}>
-      <Text style={styles.sectionTitle}>Fotos del servicio (opcional)</Text>
+      <InstitutionalSectionHeader title="Fotos del servicio (opcional)" />
       <Text style={styles.fotoSubtitle}>
         Agrega hasta 5 fotos que muestren tu trabajo o materiales
       </Text>
@@ -3340,7 +3341,7 @@ const CrearServicioScreen = () => {
 
           {/* Descripción */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Descripción del servicio</Text>
+            <InstitutionalSectionHeader title="Descripción del servicio" />
             <TextInput
               style={styles.textArea}
               placeholder="Describe tu servicio, metodología, garantías, etc."
@@ -3354,7 +3355,7 @@ const CrearServicioScreen = () => {
           </View>
 
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Tiempo estimado del servicio</Text>
+            <InstitutionalSectionHeader title="Tiempo estimado del servicio" />
             <Text style={styles.sectionHint}>
               Define el rango en minutos. Los clientes verán horarios disponibles según esta duración.
             </Text>
@@ -3386,7 +3387,7 @@ const CrearServicioScreen = () => {
 
           {/* Costos */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Costos (sin IVA)</Text>
+            <InstitutionalSectionHeader title="Costos (sin IVA)" />
 
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Costo mano de obra *</Text>
@@ -3542,13 +3543,6 @@ const styles = StyleSheet.create({
     borderColor: I.hairline,
     ...SHADOWS.editorial,
   },
-  sectionTitle: {
-    fontSize: TS.h4.fontSize,
-    fontFamily: FF.sansSemiBold,
-    marginBottom: SPACING.fixed.sm,
-    color: I.ink,
-    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
-  },
   sectionHint: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansRegular,
@@ -3578,7 +3572,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansRegular,
     color: I.ink,
-    backgroundColor: I.surface,
+    backgroundColor: I.canvas,
   },
 
   tipoServicioContainer: {
@@ -3712,7 +3706,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.fixed.sm,
-    backgroundColor: I.surface,
+    backgroundColor: I.canvas,
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
@@ -3943,7 +3937,7 @@ const styles = StyleSheet.create({
   modelosSectionTitle: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansSemiBold,
-    color: I.heading,
+    color: I.ink,
   },
   marcaInfoNoticeCompact: {
     flexDirection: 'row',
@@ -3971,7 +3965,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: TS.captionBold.fontSize,
     fontFamily: FF.sansSemiBold,
-    color: I.heading,
+    color: I.ink,
   },
   modelosMarcaCountBadge: {
     paddingHorizontal: SPACING.fixed.xs,
@@ -4006,7 +4000,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.pill,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    backgroundColor: I.surface,
+    backgroundColor: I.canvas,
   },
   modeloChipSelected: {
     borderColor: I.primary,

@@ -1,16 +1,16 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  Pressable,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, platformShadow, withOpacity } from '@/app/design-system/tokens';
+import {
+  COLORS,
+  SPACING,
+  TYPOGRAPHY,
+  BORDERS,
+  platformShadow,
+  withOpacity,
+} from '@/app/design-system/tokens';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { SolicitudPublica, OfertaProveedor } from '@/services/solicitudesService';
@@ -18,17 +18,19 @@ import type { ChecklistInstance } from '@/services/checklistService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
-const TS = TYPOGRAPHY.styles;
 const hx = SPACING.container.horizontal;
 const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
 const shadowFooter = platformShadow({
-  shadowColor: '#000',
+  shadowColor: I.ink,
   shadowOffset: { width: 0, height: -2 },
   shadowOpacity: 0.06,
   shadowRadius: 8,
   elevation: 8,
 });
+
+const footerBtn = { flex: 1, minWidth: 0 } as const;
+const stackBtn = { marginBottom: SPACING.fixed.sm, alignSelf: 'stretch' as const };
 
 type EjecucionFooterProps = {
   miOferta: OfertaProveedor;
@@ -67,42 +69,34 @@ function CatalogFooter({
   return (
     <View style={[styles.negotiationFooter, { paddingBottom: bottomPad }]}>
       <View style={styles.negotiationRow}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.footerBtnOutline,
-            (pressed || rejectLoading) && styles.footerBtnPressed,
-            rejectLoading && styles.footerBtnDisabled,
-          ]}
+        <InstitutionalButton
+          label="Rechazar"
+          variant="destructiveOutline"
+          size="compact"
           onPress={onReject}
           disabled={rejectLoading || confirmLoading}
-        >
-          {rejectLoading ? (
-            <ActivityIndicator color={I.semanticDown} size="small" />
-          ) : (
-            <>
+          loading={rejectLoading}
+          leading={
+            !rejectLoading ? (
               <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Rechazar</Text>
-            </>
-          )}
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [
-            styles.footerBtnPrimary,
-            (pressed || confirmLoading) && styles.footerBtnPressed,
-            confirmLoading && styles.footerBtnDisabled,
-          ]}
+            ) : undefined
+          }
+          style={footerBtn}
+        />
+        <InstitutionalButton
+          label="Aceptar asignación"
+          variant="primary"
+          size="compact"
           onPress={onConfirm}
           disabled={confirmLoading || rejectLoading}
-        >
-          {confirmLoading ? (
-            <ActivityIndicator color={I.onPrimary} size="small" />
-          ) : (
-            <>
+          loading={confirmLoading}
+          leading={
+            !confirmLoading ? (
               <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Aceptar asignación</Text>
-            </>
-          )}
-        </Pressable>
+            ) : undefined
+          }
+          style={footerBtn}
+        />
       </View>
     </View>
   );
@@ -122,31 +116,30 @@ function NegotiationFooter({
   return (
     <View style={[styles.negotiationFooter, { paddingBottom: bottomPad }]}>
       <View style={styles.negotiationRow}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.footerBtnOutline,
-            (pressed || rejectLoading) && styles.footerBtnPressed,
-            rejectLoading && styles.footerBtnDisabled,
-          ]}
+        <InstitutionalButton
+          label="Rechazar oferta"
+          variant="destructiveOutline"
+          size="compact"
           onPress={onReject}
           disabled={rejectLoading}
-        >
-          {rejectLoading ? (
-            <ActivityIndicator color={I.semanticDown} size="small" />
-          ) : (
-            <>
+          loading={rejectLoading}
+          leading={
+            !rejectLoading ? (
               <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Rechazar oferta</Text>
-            </>
-          )}
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [styles.footerBtnPrimary, pressed && styles.footerBtnPressed]}
+            ) : undefined
+          }
+          style={footerBtn}
+        />
+        <InstitutionalButton
+          label="Crear oferta"
+          variant="primary"
+          size="compact"
           onPress={() => router.push(`/crear-oferta/${solicitudId}`)}
-        >
-          <InstitutionalIcon name="add-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Crear oferta</Text>
-        </Pressable>
+          leading={
+            <InstitutionalIcon name="add-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+          }
+          style={footerBtn}
+        />
       </View>
     </View>
   );
@@ -189,16 +182,20 @@ function EjecucionFooter(props: EjecucionFooterProps) {
   return (
     <SafeAreaView edges={['bottom']} style={[styles.fixedActionsContainer, { paddingBottom: bottomPad }]}>
       {mostrarBotonIniciar ? (
-        <TouchableOpacity
-          style={[styles.fixedActionButton, styles.fixedActionButtonPrimary]}
+        <InstitutionalButton
+          label={procesando ? 'Iniciando...' : 'Iniciar Servicio'}
+          variant="primary"
+          size="compact"
           onPress={onIniciarServicio}
           disabled={procesando}
-        >
-          <InstitutionalIcon name="play-arrow" size={20} color={I.onPrimary} />
-          <Text style={styles.fixedActionButtonText}>
-            {procesando ? 'Iniciando...' : 'Iniciar Servicio'}
-          </Text>
-        </TouchableOpacity>
+          loading={procesando}
+          leading={
+            !procesando ? (
+              <InstitutionalIcon name="play-arrow" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+            ) : undefined
+          }
+          style={stackBtn}
+        />
       ) : null}
 
       {enEjecucionAbierto ? (
@@ -214,28 +211,33 @@ function EjecucionFooter(props: EjecucionFooterProps) {
 
           {!esperandoFirmaCliente && !checklistCerrado && !checklistLoadError
             && checklistInstance && checklistInstance.estado !== 'COMPLETADO' ? (
-            <TouchableOpacity
-              style={[styles.fixedActionButton, styles.fixedActionButtonPrimary]}
+            <InstitutionalButton
+              label={checklistInstance.estado === 'PENDIENTE' ? 'Iniciar Checklist' : 'Continuar Checklist'}
+              variant="primary"
+              size="compact"
               onPress={onOpenChecklist}
-            >
-              <InstitutionalIcon name="assignment" size={20} color={I.onPrimary} />
-              <Text style={styles.fixedActionButtonText}>
-                {checklistInstance.estado === 'PENDIENTE' ? 'Iniciar Checklist' : 'Continuar Checklist'}
-              </Text>
-            </TouchableOpacity>
+              leading={
+                <InstitutionalIcon name="assignment" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              }
+              style={stackBtn}
+            />
           ) : null}
 
           {mostrarBotonTerminar ? (
-            <TouchableOpacity
-              style={[styles.fixedActionButton, styles.fixedActionButtonSuccess]}
+            <InstitutionalButton
+              label={procesando ? 'Terminando...' : 'Terminar Servicio'}
+              variant="success"
+              size="compact"
               onPress={onTerminarServicio}
               disabled={procesando}
-            >
-              <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} />
-              <Text style={styles.fixedActionButtonText}>
-                {procesando ? 'Terminando...' : 'Terminar Servicio'}
-              </Text>
-            </TouchableOpacity>
+              loading={procesando}
+              leading={
+                !procesando ? (
+                  <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                ) : undefined
+              }
+              style={stackBtn}
+            />
           ) : null}
 
           {!esperandoFirmaCliente && !checklistCerrado && !checklistInstance
@@ -252,56 +254,73 @@ function EjecucionFooter(props: EjecucionFooterProps) {
 
       {miOferta.estado === 'pendiente_creditos' && mostrarChatFijo ? (
         <View style={styles.fixedActionsRow}>
-          <TouchableOpacity
-            style={[styles.fixedActionButton, styles.fixedActionButtonPrimary, styles.fixedActionButtonPrimaryInRow]}
+          <InstitutionalButton
+            label="Comprar créditos"
+            variant="primary"
+            size="compact"
             onPress={navigateCreditos}
-          >
-            <InstitutionalIcon name="account-balance-wallet" size={20} color={I.onPrimary} />
-            <Text style={styles.fixedActionButtonText} numberOfLines={1}>Comprar créditos</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.fixedActionButton, styles.fixedActionButtonOutline, styles.fixedActionButtonChatInRow]}
+            leading={
+              <InstitutionalIcon name="account-balance-wallet" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+            }
+            style={[footerBtn, styles.primaryInRow]}
+          />
+          <InstitutionalButton
+            label="Chat"
+            variant="outlineAccent"
+            size="compact"
             onPress={() => router.push(`/chat-oferta/${miOferta.id}`)}
-          >
-            <InstitutionalIcon name="chat" size={18} color={I.primary} />
-            <Text style={[styles.fixedActionButtonTextCompact, { color: I.primary }]} numberOfLines={1}>Chat</Text>
-          </TouchableOpacity>
+            leading={
+              <InstitutionalIcon name="chat" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            }
+            style={[footerBtn, styles.chatInRow]}
+          />
         </View>
       ) : null}
 
       {miOferta.estado === 'pendiente_creditos' && !mostrarChatFijo ? (
-        <TouchableOpacity
-          style={[styles.fixedActionButton, styles.fixedActionButtonPrimary]}
+        <InstitutionalButton
+          label="Comprar créditos"
+          variant="primary"
+          size="compact"
           onPress={navigateCreditos}
-        >
-          <InstitutionalIcon name="account-balance-wallet" size={20} color={I.onPrimary} />
-          <Text style={styles.fixedActionButtonText}>Comprar créditos</Text>
-        </TouchableOpacity>
+          leading={
+            <InstitutionalIcon name="account-balance-wallet" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+          }
+          style={stackBtn}
+        />
       ) : null}
 
       {mostrarChatFijo && miOferta.estado !== 'pendiente_creditos' ? (
-        <TouchableOpacity
-          style={[styles.fixedActionButton, styles.fixedActionButtonOutline]}
+        <InstitutionalButton
+          label="Abrir Chat"
+          variant="outlineAccent"
+          size="compact"
           onPress={() => router.push(`/chat-oferta/${miOferta.id}`)}
-        >
-          <InstitutionalIcon name="chat" size={20} color={I.primary} />
-          <Text style={[styles.fixedActionButtonText, { color: I.primary }]}>Abrir Chat</Text>
-        </TouchableOpacity>
+          leading={
+            <InstitutionalIcon name="chat" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+          }
+          style={stackBtn}
+        />
       ) : null}
 
       {servicioCompletadoUi && checklistInstance && miOferta.solicitud_servicio_id ? (
-        <TouchableOpacity
-          style={[styles.fixedActionButton, styles.fixedActionButtonSuccess]}
+        <InstitutionalButton
+          label="Ver Checklist Realizado"
+          variant="success"
+          size="compact"
           onPress={onOpenCompletedChecklist}
-        >
-          <InstitutionalIcon name="assignment" size={20} color={I.onPrimary} />
-          <Text style={styles.fixedActionButtonText}>Ver Checklist Realizado</Text>
-        </TouchableOpacity>
+          leading={
+            <InstitutionalIcon name="assignment" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+          }
+          style={stackBtn}
+        />
       ) : null}
 
       {!miOferta.es_oferta_secundaria && enEjecucionAbierto ? (
-        <TouchableOpacity
-          style={[styles.fixedActionButton, styles.fixedActionButtonOutline]}
+        <InstitutionalButton
+          label="Crear Oferta Secundaria"
+          variant="outlineAccent"
+          size="compact"
           onPress={() => {
             if (miOferta.solicitud) {
               router.push(`/crear-oferta-secundaria/${miOferta.solicitud}/${miOferta.id}`);
@@ -309,10 +328,11 @@ function EjecucionFooter(props: EjecucionFooterProps) {
               Alert.alert('Error', 'No se pudo obtener la información de la solicitud');
             }
           }}
-        >
-          <InstitutionalIcon name="add-circle" size={20} color={I.primary} />
-          <Text style={[styles.fixedActionButtonText, { color: I.primary }]}>Crear Oferta Secundaria</Text>
-        </TouchableOpacity>
+          leading={
+            <InstitutionalIcon name="add-circle" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+          }
+          style={stackBtn}
+        />
       ) : null}
     </SafeAreaView>
   );
@@ -399,42 +419,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SPACING.fixed.sm,
   },
-  footerBtnOutline: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.fixed.xs,
-    paddingVertical: SPACING.fixed.sm + 2,
-    borderRadius: BORDERS.radius.pill,
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.semanticDown, 0.35),
-    backgroundColor: I.canvas,
-  },
-  footerBtnPrimary: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.fixed.xs,
-    paddingVertical: SPACING.fixed.sm + 2,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.primary,
-    ...SHADOWS.editorial,
-  },
-  footerBtnOutlineText: {
-    fontSize: TS.button.fontSize,
-    fontFamily: FF.sansSemiBold,
-    color: I.semanticDown,
-  },
-  footerBtnPrimaryText: {
-    fontSize: TS.button.fontSize,
-    fontFamily: FF.sansSemiBold,
-    color: I.onPrimary,
-  },
-  footerBtnPressed: { opacity: 0.85 },
-  footerBtnDisabled: { opacity: 0.55 },
-
   fixedActionsContainer: {
     position: 'absolute',
     bottom: 0,
@@ -453,50 +437,13 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.sm,
     marginBottom: SPACING.fixed.sm,
   },
-  fixedActionButtonPrimaryInRow: {
+  primaryInRow: {
     flex: 2,
-    minWidth: 0,
     marginBottom: 0,
   },
-  fixedActionButtonChatInRow: {
+  chatInRow: {
     flex: 1,
-    minWidth: 0,
-    paddingVertical: SPACING.fixed.sm,
-    paddingHorizontal: SPACING.fixed.sm,
-    marginTop: 0,
     marginBottom: 0,
-  },
-  fixedActionButtonTextCompact: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.onPrimary,
-  },
-  fixedActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.fixed.sm,
-    paddingVertical: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.pill,
-    marginBottom: SPACING.fixed.sm,
-  },
-  fixedActionButtonPrimary: {
-    backgroundColor: I.primary,
-    ...SHADOWS.editorial,
-  },
-  fixedActionButtonSuccess: {
-    backgroundColor: I.semanticUp,
-    ...SHADOWS.editorial,
-  },
-  fixedActionButtonOutline: {
-    backgroundColor: I.canvas,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
-  fixedActionButtonText: {
-    fontSize: TS.button.fontSize,
-    fontFamily: FF.sansSemiBold,
-    color: I.onPrimary,
   },
   waitingClosureCard: {
     flexDirection: 'row',

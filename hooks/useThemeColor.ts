@@ -1,21 +1,39 @@
-/**
- * Learn more about light and dark modes:
- * https://docs.expo.dev/guides/color-schemes/
- */
-
-import { Colors } from '@/constants/Colors';
+import { COLORS } from '@/app/design-system/tokens';
 import { useColorScheme } from '@/hooks/useColorScheme';
+
+const I = COLORS.institutional;
+
+const palette = {
+  light: {
+    text: I.ink,
+    background: I.canvas,
+    tint: I.primary,
+    icon: I.muted,
+    tabIconDefault: I.muted,
+    tabIconSelected: I.primary,
+  },
+  dark: {
+    text: I.onDark,
+    background: I.surfaceDark,
+    tint: I.primary,
+    icon: I.onDarkSoft,
+    tabIconDefault: I.onDarkSoft,
+    tabIconSelected: I.primary,
+  },
+} as const;
+
+export type ThemeColorName = keyof typeof palette.light;
 
 export function useThemeColor(
   props: { light?: string; dark?: string },
-  colorName: keyof typeof Colors.light & keyof typeof Colors.dark
+  colorName: ThemeColorName,
 ) {
   const theme = useColorScheme() ?? 'light';
   const colorFromProps = props[theme];
 
   if (colorFromProps) {
     return colorFromProps;
-  } else {
-    return Colors[theme][colorName];
   }
+
+  return palette[theme][colorName];
 }

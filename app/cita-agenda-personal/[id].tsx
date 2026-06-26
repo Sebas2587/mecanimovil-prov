@@ -29,7 +29,6 @@ import {
 } from '@/app/design-system/tokens';
 import {
   agendaProveedorService,
-  enriquecerCitaConTecnico,
   nombreServicioCita,
   type CitaAgendaPersonal,
   type CitaAgendaPersonalCreatePayload,
@@ -52,6 +51,7 @@ import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
+import { useCitaPersonalQuery } from '@/hooks/useCitaPersonalQuery';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -60,7 +60,7 @@ const hx = SPACING.container.horizontal;
 const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
 const shadowFooter = platformShadow({
-  shadowColor: '#000',
+  shadowColor: COLORS.base.inkBlack,
   shadowOffset: { width: 0, height: -2 },
   shadowOpacity: 0.06,
   shadowRadius: 8,
@@ -127,8 +127,15 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const citaId = Number(id);
 
-  const [cita, setCita] = useState<CitaAgendaPersonal | null>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: cita,
+    isPending: citaPending,
+    isError: citaError,
+    refetch: refetchCita,
+  } = useCitaPersonalQuery(Number.isNaN(citaId) ? null : citaId);
+
+  const showInitialLoader = !Number.isNaN(citaId) && citaPending && !cita;
+
   const [procesando, setProcesando] = useState(false);
   const [editando, setEditando] = useState(false);
   const [feedbackAccion, setFeedbackAccion] = useState<FeedbackAccion | null>(null);
@@ -155,22 +162,22 @@ export default function CitaAgendaPersonalDetalleScreen() {
     resolveInitialPickerValue(),
   );
 
-  const cargarCita = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!citaId || Number.isNaN(citaId)) return;
-    if (!opts?.silent) setLoading(true);
-    const res = await agendaProveedorService.obtenerCita(citaId);
-    if (res.success && res.data) {
-      const data = await enriquecerCitaConTecnico(res.data);
-      setCita(data);
-      poblarFormulario(data);
-    } else if (!opts?.silent) {
-      showAlert('Error', res.message || 'No se pudo cargar la cita.');
-      router.back();
-    }
-    if (!opts?.silent) setLoading(false);
-  }, [citaId]);
+  const recargarCita = useCallback(async () => {
+    const result = await refetchCita();
+    return result.data ?? null;
+  }, [refetchCita]);
 
-  const poblarFormulario = (data: CitaAgendaPersonal) => {
+  useEffect(() => {
+    if (cita) poblarFormulario(cita);
+  }, [cita]);
+
+  useEffect(() => {
+    if (!citaError || cita) return;
+    showAlert('Error', 'No se pudo cargar la cita.');
+    router.back();
+  }, [citaError, cita]);
+
+  function poblarFormulario(data: CitaAgendaPersonal) {
     const det = data.detalle;
     setClienteNombre(det.cliente_nombre || '');
     setClienteTelefono(det.cliente_telefono || '');
@@ -192,11 +199,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
         data.duracion_minutos ?? 60,
       ),
     );
-  };
-
-  useEffect(() => {
-    cargarCita();
-  }, [cargarCita]);
+  }
 
   const esActiva = cita?.estado === 'activa';
   const esCancelada = cita?.estado === 'cancelada';
@@ -228,7 +231,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
       const res = await agendaProveedorService.cerrarCita(citaId);
       if (res.success) {
         setEditando(false);
-        await cargarCita({ silent: true });
+        await recargarCita();
         invalidateProveedorMarketplaceQueries(queryClient);
         mostrarFeedback({
           tipo: 'success',
@@ -251,7 +254,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     } finally {
       setProcesando(false);
     }
-  }, [citaId, cargarCita, mostrarFeedback, queryClient]);
+  }, [citaId, recargarCita, mostrarFeedback, queryClient]);
 
   const handleCerrar = useCallback(() => {
     showConfirm('Cerrar cita', '¿Marcar esta cita como completada?', {
@@ -267,7 +270,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
       const res = await agendaProveedorService.cancelarCita(citaId);
       if (res.success) {
         setEditando(false);
-        await cargarCita({ silent: true });
+        await recargarCita();
         invalidateProveedorMarketplaceQueries(queryClient);
         mostrarFeedback({
           tipo: 'success',
@@ -290,7 +293,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     } finally {
       setProcesando(false);
     }
-  }, [citaId, cargarCita, mostrarFeedback, queryClient]);
+  }, [citaId, recargarCita, mostrarFeedback, queryClient]);
 
   const handleCancelar = useCallback(() => {
     showConfirm('Cancelar cita', '¿Confirmas que deseas cancelar esta cita?', {
@@ -427,7 +430,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
       if (res.success) {
         setEditando(false);
-        await cargarCita({ silent: true });
+        await recargarCita();
         mostrarFeedback({
           tipo: 'success',
           titulo: 'Cambios guardados',
@@ -463,7 +466,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     direccion,
     direccionValidada,
     fechaHora,
-    cargarCita,
+    recargarCita,
     cita,
     mostrarFeedback,
   ]);
@@ -488,7 +491,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
   const formatearHora = (hora: string) => hora.substring(0, 5);
 
-  if (loading) {
+  if (showInitialLoader) {
     return (
       <View style={styles.container}>
         <Stack.Screen options={stackOptions} />

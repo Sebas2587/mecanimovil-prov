@@ -26,9 +26,12 @@ import {
 import ServerConfig from '@/services/serverConfig';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Header from '@/components/Header';
-import {COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, platformShadow} from '@/app/design-system/tokens';
+import {COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS} from '@/app/design-system/tokens';
+import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import PhoneInput, { validateFullPhone } from '@/components/ui/PhoneInput';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -39,6 +42,7 @@ import {
 } from '@/hooks/usePerfilDocumentosQuery';
 
 const I = COLORS.institutional;
+const warningStatus = institutionalStatusColors('warning');
 
 interface DocumentoLocal extends DocumentoLocalRow {}
 
@@ -497,7 +501,7 @@ export default function ConfiguracionPerfilScreen() {
     <View key={documento.id} style={styles.documentCard}>
       <View style={styles.documentCardHeader}>
         <View style={styles.documentInfo}>
-          <InstitutionalIcon name={documento.icono as any} size={24} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name={documento.icono as any} size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
           <View style={styles.documentTextContainer}>
             <Text style={styles.documentName}>{documento.nombre_amigable || documento.tipo_documento}</Text>
             <Text style={styles.documentDescription}>{documento.descripcion || ''}</Text>
@@ -514,20 +518,25 @@ export default function ConfiguracionPerfilScreen() {
         <Text style={styles.documentDate}>
           Subido: {formatearFecha(documento.fecha_subida || '')}
         </Text>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => abrirGaleriaParaDocumento({ key: documento.tipo_documento, label: documento.nombre_amigable || documento.tipo_documento } as TipoDocumento)}
-        >
-          <InstitutionalIcon name="edit" size={16} color="#2A4065"  strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.actionButtonText}>
-            Actualizar
-          </Text>
-        </TouchableOpacity>
+        <InstitutionalButton
+          label="Actualizar"
+          variant="secondary"
+          size="compact"
+          onPress={() =>
+            abrirGaleriaParaDocumento({
+              key: documento.tipo_documento,
+              label: documento.nombre_amigable || documento.tipo_documento,
+            } as TipoDocumento)
+          }
+          leading={
+            <InstitutionalIcon name="edit" size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+          }
+        />
       </View>
 
       {documento.esObligatorio && !documento.verificado && (
         <View style={styles.verificationNotice}>
-          <InstitutionalIcon name="info" size={16} color="#f39c12"  strokeWidth={ICON_STROKE_WIDTH} />
+          <InstitutionalIcon name="info" size={16} color={warningStatus.icon} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.verificationNoticeText}>
             Documento en proceso de verificación por el administrador.
           </Text>
@@ -545,7 +554,7 @@ export default function ConfiguracionPerfilScreen() {
         style={styles.missingDocumentCard}
         onPress={() => abrirGaleriaParaDocumento({ key: tipoDocumento, label: info.nombre } as TipoDocumento)}
       >
-        <InstitutionalIcon name={info.icono as any} size={24} color="#95a5a6"  strokeWidth={ICON_STROKE_WIDTH} />
+        <InstitutionalIcon name={info.icono as any} size={24} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
         <Text style={styles.missingDocumentTitle}>
           {info.nombre}
         </Text>
@@ -785,10 +794,13 @@ export default function ConfiguracionPerfilScreen() {
             {/* Documentos Obligatorios - Sección rediseñada */}
             <View style={styles.documentsSection}>
               <View style={styles.sectionHeader}>
-                <View style={styles.sectionHeaderLeft}>
-                  <InstitutionalIcon name="security" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.sectionTitle}>Documentos Obligatorios</Text>
-                </View>
+                <InstitutionalSectionHeader
+                  title="Documentos Obligatorios"
+                  leading={
+                    <InstitutionalIcon name="security" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                  }
+                  style={styles.sectionHeaderTitle}
+                />
                 <View style={styles.sectionHeaderRight}>
                   <View style={styles.sectionBadge}>
                     <Text style={styles.sectionBadgeText}>Requeridos</Text>
@@ -841,16 +853,25 @@ export default function ConfiguracionPerfilScreen() {
                       </View>
 
                       <View style={styles.documentCardActions}>
-                        <TouchableOpacity
-                          style={[styles.actionButton, styles.actionButtonPrimary]}
-                          onPress={() => abrirGaleriaParaDocumento({
-                            key: documento.tipo_documento,
-                            label: documento.nombre_amigable
-                          } as TipoDocumento)}
-                        >
-                          <InstitutionalIcon name="camera-alt" size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                          <Text style={[styles.actionButtonText, styles.actionButtonPrimaryText]}>Actualizar</Text>
-                        </TouchableOpacity>
+                        <InstitutionalButton
+                          label="Actualizar"
+                          variant="primary"
+                          size="compact"
+                          onPress={() =>
+                            abrirGaleriaParaDocumento({
+                              key: documento.tipo_documento,
+                              label: documento.nombre_amigable,
+                            } as TipoDocumento)
+                          }
+                          leading={
+                            <InstitutionalIcon
+                              name="camera-alt"
+                              size={16}
+                              color={I.onPrimary}
+                              strokeWidth={ICON_STROKE_WIDTH}
+                            />
+                          }
+                        />
                       </View>
 
                       {documento.esObligatorio && !documento.verificado && (
@@ -882,15 +903,17 @@ export default function ConfiguracionPerfilScreen() {
             {/* Documentos Opcionales - Sección rediseñada */}
             <View style={styles.documentsSection}>
               <View style={styles.sectionHeader}>
-                <View style={styles.sectionHeaderLeft}>
-                  <InstitutionalIcon name="star" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.sectionTitle}>
-                    {estadoProveedor?.tipo_proveedor === 'taller'
+                <InstitutionalSectionHeader
+                  title={
+                    estadoProveedor?.tipo_proveedor === 'taller'
                       ? 'Documentos del Establecimiento'
                       : 'Documentos del Vehículo'
-                    }
-                  </Text>
-                </View>
+                  }
+                  leading={
+                    <InstitutionalIcon name="star" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                  }
+                  style={styles.sectionHeaderTitle}
+                />
                 <View style={styles.sectionHeaderRight}>
                   <View style={styles.sectionBadge}>
                     <Text style={styles.sectionBadgeText}>Opcionales</Text>
@@ -934,18 +957,25 @@ export default function ConfiguracionPerfilScreen() {
                       </View>
 
                       <View style={styles.documentCardActions}>
-                        <TouchableOpacity
-                          style={[styles.actionButton, styles.actionButtonSecondary]}
-                          onPress={() => abrirGaleriaParaDocumento({
-                            key: documento.tipo_documento,
-                            label: documento.nombre_amigable
-                          } as TipoDocumento)}
-                        >
-                          <InstitutionalIcon name="camera-alt" size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                          <Text style={[styles.actionButtonText, styles.actionButtonSecondaryText]}>
-                            Actualizar
-                          </Text>
-                        </TouchableOpacity>
+                        <InstitutionalButton
+                          label="Actualizar"
+                          variant="secondary"
+                          size="compact"
+                          onPress={() =>
+                            abrirGaleriaParaDocumento({
+                              key: documento.tipo_documento,
+                              label: documento.nombre_amigable,
+                            } as TipoDocumento)
+                          }
+                          leading={
+                            <InstitutionalIcon
+                              name="camera-alt"
+                              size={16}
+                              color={I.ink}
+                              strokeWidth={ICON_STROKE_WIDTH}
+                            />
+                          }
+                        />
                       </View>
                     </View>
                   ))}
@@ -1028,7 +1058,7 @@ export default function ConfiguracionPerfilScreen() {
                   <View style={styles.sectionHeader}>
                     <View style={styles.sectionHeaderLeft}>
                       <InstitutionalIcon name="add-circle" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                      <Text style={styles.sectionTitle}>Documentos Disponibles</Text>
+                      <InstitutionalSectionHeader title="Documentos Disponibles" />
                     </View>
                     <View style={styles.sectionHeaderRight}>
                       <View style={styles.sectionBadge}>
@@ -1138,8 +1168,8 @@ const createStyles = () => {
   const radiusLg = BORDERS?.radius?.lg || 12;
   const radiusXl = BORDERS?.radius?.xl || 16;
   const radius2xl = BORDERS?.radius?.['2xl'] || 20;
-  const shadowSm = SHADOWS?.sm || platformShadow({ shadowColor: '#000000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 });
-  const shadowMd = SHADOWS?.md || platformShadow({ shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 });
+  const shadowSm = SHADOWS.sm;
+  const shadowMd = SHADOWS.editorial;
 
   return StyleSheet.create({
     screenRoot: {
@@ -1377,19 +1407,16 @@ const createStyles = () => {
       paddingHorizontal: containerHorizontal,
       maxWidth: '100%',
     },
+    sectionHeaderTitle: {
+      flex: 1,
+      marginBottom: 0,
+      minWidth: 0,
+    },
     sectionHeaderLeft: {
       flexDirection: 'row',
       alignItems: 'center',
       flex: 1,
       minWidth: 0,
-    },
-    sectionTitle: {
-      fontSize: TYPOGRAPHY.fontSize.md,
-      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-      color: Ig.ink,
-      marginLeft: spacingSm + 2,
-      flexShrink: 1,
     },
     sectionHeaderRight: {
       flexDirection: 'row',
@@ -1503,36 +1530,6 @@ const createStyles = () => {
       padding: spacingSm + 4,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: Ig.hairline,
-    },
-    actionButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 12,
-      paddingHorizontal: spacingMd,
-      borderRadius: BORDERS.radius.pill,
-      borderWidth: BORDERS.width.thin,
-      gap: spacingSm,
-      minHeight: 44,
-    },
-    actionButtonText: {
-      fontSize: TYPOGRAPHY.fontSize.sm,
-      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    },
-    actionButtonPrimary: {
-      backgroundColor: Ig.primary,
-      borderColor: Ig.primary,
-    },
-    actionButtonPrimaryText: {
-      color: Ig.onPrimary,
-    },
-    actionButtonSecondary: {
-      backgroundColor: Ig.surfaceStrong,
-      borderColor: Ig.hairline,
-    },
-    actionButtonSecondaryText: {
-      color: Ig.ink,
     },
     verificationNotice: {
       flexDirection: 'row',

@@ -530,7 +530,7 @@ export const checklistItemStyles = StyleSheet.create({
 export const SALUD_NIVEL_COLORS: Record<string, string> = {
   OPTIMO: I.semanticUp,
   ATENCION: I.accentYellow,
-  URGENTE: '#fd7e14',
+  URGENTE: COLORS.warning.dark,
   CRITICO: I.semanticDown,
 };
 

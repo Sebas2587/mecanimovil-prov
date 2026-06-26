@@ -30,10 +30,14 @@ import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
 import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
+const warningStatus = institutionalStatusColors('warning');
+const primaryStatus = institutionalStatusColors('primary');
+const successStatus = institutionalStatusColors('success');
 
 function SectionKicker({ label }: { label: string }) {
   return (
@@ -245,8 +249,8 @@ export default function PerfilScreen() {
             {/* Fila de badges: tipo proveedor + cobertura de marcas */}
             <View style={styles.badgesRow}>
               {esSupervisor ? (
-                <View style={[styles.tipoProveedorPill, { backgroundColor: '#FFF3E0' }]}>
-                  <Text style={[styles.tipoProveedorPillText, { color: '#B26A00' }]}>SUPERVISOR</Text>
+                <View style={[styles.tipoProveedorPill, { backgroundColor: warningStatus.bg }]}>
+                  <Text style={[styles.tipoProveedorPillText, { color: warningStatus.text }]}>SUPERVISOR</Text>
                 </View>
               ) : null}
               {estadoProveedor?.tipo_proveedor ? (
@@ -264,7 +268,10 @@ export default function PerfilScreen() {
                 return (
                   <View style={[
                     styles.coberturaPill,
-                    { backgroundColor: isMultimarca ? '#EEF3FF' : '#EAF9EF', borderColor: isMultimarca ? '#C5D5FF' : '#B7E4C7' }
+                    {
+                      backgroundColor: isMultimarca ? primaryStatus.bg : successStatus.bg,
+                      borderColor: isMultimarca ? primaryStatus.border : successStatus.border,
+                    }
                   ]}>
                     <Text style={[styles.coberturaPillText, { color: isMultimarca ? I.primary : I.semanticUp }]}>
                       {isMultimarca ? '🌐 MULTIMARCA' : '⭐ ESPECIALISTA'}

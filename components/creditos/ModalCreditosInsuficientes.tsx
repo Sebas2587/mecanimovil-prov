@@ -1,19 +1,26 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Modal,
   TouchableOpacity,
   Animated,
   Dimensions,
 } from 'react-native';
-import { useTheme } from '@/app/design-system/theme/useTheme';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 import { BlurView } from 'expo-blur';
 import { VerificacionCreditosOferta } from '@/services/creditosService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import {
+  institutionalCardStyles,
+  institutionalStatusColors,
+} from '@/app/design-system/styles/institutionalSemantic';
+
+const I = COLORS.institutional;
+const errorStatus = institutionalStatusColors('error');
 
 interface ModalCreditosInsuficientesProps {
   visible: boolean;
@@ -30,19 +37,8 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
   onComprarCreditos,
   verificacion,
 }) => {
-  const theme = useTheme();
   const scaleAnim = React.useRef(new Animated.Value(0.9)).current;
   const opacityAnim = React.useRef(new Animated.Value(0)).current;
-
-  // Obtener valores del sistema de diseño
-  const colors = theme?.colors || COLORS || {};
-  const textPrimary = colors?.text?.primary || '#000000';
-  const textSecondary = colors?.text?.secondary || '#666666';
-  const primaryColor = colors?.primary?.['500'] || '#4E4FEB';
-  const errorColor = colors?.error?.main || '#FF5555';
-  const errorLight = colors?.error?.light || '#FFEBEE';
-  const backgroundPaper = colors?.background?.paper || '#FFFFFF';
-  const borderMain = colors?.border?.main || '#D0D0D0';
 
   React.useEffect(() => {
     if (visible) {
@@ -85,12 +81,7 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
       onRequestClose={onClose}
     >
       <BlurView intensity={20} style={styles.blurContainer} tint="dark">
-        <Animated.View
-          style={[
-            styles.backdrop,
-            { opacity: opacityAnim },
-          ]}
-        >
+        <Animated.View style={[styles.backdrop, { opacity: opacityAnim }]}>
           <TouchableOpacity
             style={styles.backdropTouchable}
             activeOpacity={1}
@@ -101,99 +92,97 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
         <Animated.View
           style={[
             styles.modalContainer,
+            institutionalCardStyles.surface,
             {
-              backgroundColor: backgroundPaper,
               transform: [{ scale: scaleAnim }],
               opacity: opacityAnim,
             },
           ]}
         >
-          {/* Header con icono de error */}
-          <View style={[styles.iconContainer, { backgroundColor: errorLight }]}>
-            <InstitutionalIcon name="account-balance-wallet" size={48} color={errorColor}  strokeWidth={ICON_STROKE_WIDTH} />
+          <View style={[styles.iconContainer, { backgroundColor: errorStatus.bg }]}>
+            <InstitutionalIcon
+              name="account-balance-wallet"
+              size={48}
+              color={errorStatus.icon}
+              strokeWidth={ICON_STROKE_WIDTH}
+            />
             <View style={styles.badgeContainer}>
-              <InstitutionalIcon name="error" size={24} color={errorColor}  strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="error" size={24} color={errorStatus.icon} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
           </View>
 
-          {/* Título */}
-          <Text style={[styles.title, { color: textPrimary }]}>
+          <InstitutionalText role="h3" style={styles.title}>
             Créditos Insuficientes
-          </Text>
+          </InstitutionalText>
 
-          {/* Mensaje principal */}
-          <Text style={[styles.message, { color: textSecondary }]}>
+          <InstitutionalText role="body" color="body" style={styles.message}>
             No tienes suficientes créditos para crear esta oferta.
-          </Text>
+          </InstitutionalText>
 
-          {/* Resumen de créditos */}
-          <View style={[styles.creditosResumen, { borderColor: borderMain }]}>
+          <View style={[styles.creditosResumen, { borderColor: I.hairline }]}>
             <View style={styles.creditoRow}>
-              <Text style={[styles.creditoLabel, { color: textSecondary }]}>
+              <InstitutionalText role="caption" color="body">
                 Tu saldo actual:
-              </Text>
-              <Text style={[styles.creditoValue, { color: textPrimary }]}>
+              </InstitutionalText>
+              <InstitutionalText role="body" style={styles.creditoValue}>
                 {verificacion.saldo_actual} créditos
-              </Text>
+              </InstitutionalText>
             </View>
             <View style={styles.creditoRow}>
-              <Text style={[styles.creditoLabel, { color: textSecondary }]}>
+              <InstitutionalText role="caption" color="body">
                 Créditos necesarios:
-              </Text>
-              <Text style={[styles.creditoValue, { color: textPrimary }]}>
+              </InstitutionalText>
+              <InstitutionalText role="body" style={styles.creditoValue}>
                 {verificacion.creditos_necesarios} créditos
-              </Text>
+              </InstitutionalText>
             </View>
             <View style={[styles.creditoRow, styles.faltantesRow]}>
-              <Text style={[styles.creditoLabel, { color: errorColor, fontWeight: '600' }]}>
+              <InstitutionalText role="caption" color="semanticDown" style={styles.faltantesLabel}>
                 Te faltan:
-              </Text>
-              <Text style={[styles.creditoValue, { color: errorColor, fontWeight: '700' }]}>
+              </InstitutionalText>
+              <InstitutionalText role="body" color="semanticDown" style={styles.faltantesValue}>
                 {verificacion.creditos_faltantes} créditos
-              </Text>
+              </InstitutionalText>
             </View>
           </View>
 
-          {/* Detalle por servicio */}
-          {verificacion.detalle_servicios.length > 0 && (
-            <View style={[styles.detalleContainer, { borderColor: borderMain }]}>
-              <Text style={[styles.detalleTitle, { color: textSecondary }]}>
+          {verificacion.detalle_servicios.length > 0 ? (
+            <View style={[styles.detalleContainer, { borderColor: I.hairline }]}>
+              <InstitutionalText role="small" color="body" style={styles.detalleTitle}>
                 Desglose por servicio:
-              </Text>
+              </InstitutionalText>
               {verificacion.detalle_servicios.map((servicio, index) => (
                 <View key={index} style={styles.servicioRow}>
-                  <InstitutionalIcon name="build" size={14} color={textSecondary}  strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={[styles.servicioNombre, { color: textPrimary }]} numberOfLines={1}>
+                  <InstitutionalIcon name="build" size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                  <InstitutionalText role="caption" style={styles.servicioNombre} numberOfLines={1}>
                     {servicio.nombre}
-                  </Text>
-                  <Text style={[styles.servicioCreditos, { color: primaryColor }]}>
+                  </InstitutionalText>
+                  <InstitutionalText role="caption" color="primary" style={styles.servicioCreditos}>
                     {servicio.creditos} créditos
-                  </Text>
+                  </InstitutionalText>
                 </View>
               ))}
             </View>
-          )}
+          ) : null}
 
-          {/* Botones */}
           <View style={styles.botonesContainer}>
-            <TouchableOpacity
-              style={[styles.botonSecundario, { borderColor: borderMain }]}
+            <InstitutionalButton
+              label="Cancelar"
+              variant="outline"
+              size="compact"
               onPress={onClose}
-            >
-              <Text style={[styles.botonSecundarioText, { color: textSecondary }]}>
-                Cancelar
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.botonPrimario, { backgroundColor: primaryColor }]}
+              style={styles.footerButton}
+            />
+            <InstitutionalButton
+              label="Comprar Créditos"
+              variant="primary"
+              size="compact"
               onPress={onComprarCreditos}
-            >
-              <InstitutionalIcon name="add-shopping-cart" size={18} color="#FFFFFF"  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.botonPrimarioText}>
-                Comprar Créditos
-              </Text>
-            </TouchableOpacity>
+              leading={
+                <InstitutionalIcon name="add-shopping-cart" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              }
+              style={styles.footerButtonPrimary}
+            />
           </View>
         </Animated.View>
       </BlurView>
@@ -209,7 +198,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: withOpacity(I.ink, 0.5),
   },
   backdropTouchable: {
     flex: 1,
@@ -218,10 +207,8 @@ const styles = StyleSheet.create({
   modalContainer: {
     width: SCREEN_WIDTH - 48,
     maxWidth: 400,
-    borderRadius: BORDERS.radius.lg,
     padding: SPACING.lg,
     alignItems: 'center',
-    ...SHADOWS.lg,
   },
   iconContainer: {
     width: 96,
@@ -236,25 +223,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.lg,
     padding: 2,
   },
   title: {
-    fontSize: TYPOGRAPHY.fontSize['xl'],
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
     marginBottom: SPACING.xs,
     textAlign: 'center',
   },
   message: {
-    fontSize: TYPOGRAPHY.fontSize.md,
     textAlign: 'center',
     marginBottom: SPACING.md,
     lineHeight: TYPOGRAPHY.fontSize.md * 1.5,
   },
   creditosResumen: {
     width: '100%',
-    borderWidth: 1,
+    borderWidth: BORDERS.width.thin,
     borderRadius: BORDERS.radius.md,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -268,27 +252,28 @@ const styles = StyleSheet.create({
   faltantesRow: {
     marginTop: SPACING.xs,
     paddingTop: SPACING.xs,
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
     marginBottom: 0,
   },
-  creditoLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-  },
   creditoValue: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+  },
+  faltantesLabel: {
+    fontWeight: '600',
+  },
+  faltantesValue: {
+    fontWeight: '700',
   },
   detalleContainer: {
     width: '100%',
-    borderWidth: 1,
+    borderWidth: BORDERS.width.thin,
     borderRadius: BORDERS.radius.md,
     padding: SPACING.sm,
     marginBottom: SPACING.lg,
     maxHeight: 120,
   },
   detalleTitle: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
     marginBottom: SPACING.xs,
   },
   servicioRow: {
@@ -299,43 +284,19 @@ const styles = StyleSheet.create({
   },
   servicioNombre: {
     flex: 1,
-    fontSize: TYPOGRAPHY.fontSize.sm,
   },
   servicioCreditos: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
   botonesContainer: {
     flexDirection: 'row',
     width: '100%',
     gap: SPACING.sm,
   },
-  botonSecundario: {
+  footerButton: {
     flex: 1,
-    paddingVertical: SPACING.md,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  botonSecundarioText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-  },
-  botonPrimario: {
+  footerButtonPrimary: {
     flex: 1.5,
-    paddingVertical: SPACING.md,
-    borderRadius: BORDERS.radius.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
-    ...SHADOWS.md,
-  },
-  botonPrimarioText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: '#FFFFFF',
   },
 });
-

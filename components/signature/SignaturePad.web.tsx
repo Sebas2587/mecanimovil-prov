@@ -1,5 +1,6 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { COLORS } from '@/app/design-system/tokens';
 
 export type SignaturePadRef = {
   clearSignature: () => void;
@@ -39,8 +40,8 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(function Sig
     onBegin,
     style,
     height = 300,
-    penColor = '#000000',
-    backgroundColor = '#ffffff',
+    penColor = COLORS.institutional.ink,
+    backgroundColor = COLORS.institutional.canvas,
   },
   ref,
 ) {

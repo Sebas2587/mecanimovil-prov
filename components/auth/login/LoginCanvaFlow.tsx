@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   googleGlyph: {
     fontSize: 18,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: '#4285F4',
+    color: COLORS.primary[400],
     textAlign: 'center',
   },
   fieldWrap: {

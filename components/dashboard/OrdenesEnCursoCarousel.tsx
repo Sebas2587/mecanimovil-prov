@@ -10,6 +10,9 @@ import type { Orden } from '@/services/ordenesProveedor';
 import type { ChecklistInstance } from '@/services/checklistService';
 import { useDashboardCarouselMetrics } from '@/app/components/dashboard/useDashboardCarouselMetrics';
 import { OrdenTicketCardSkeleton } from '@/components/ui/Skeleton';
+import { COLORS } from '@/app/design-system/tokens';
+
+const I = COLORS.institutional;
 
 const SKELETON_PLACEHOLDERS = [0, 1, 2] as const;
 
@@ -92,7 +95,7 @@ function OrdenesEnCursoCarouselInner({
   if (ordenes.length === 0) {
     return (
       <View style={styles.emptyBox}>
-        <Briefcase size={40} color="#D1D5DB" />
+        <Briefcase size={40} color={I.mutedSoft} />
         <Text style={styles.emptyTitle}>No tienes órdenes en curso</Text>
         <Text style={styles.emptySub}>
           Las órdenes aparecerán aquí cuando tengas trabajos activos

@@ -24,7 +24,19 @@ import Header from '@/components/Header';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { platformShadow, noShadow } from '@/app/design-system/tokens';
+import { COLORS, SPACING, withOpacity, SHADOWS, noShadow, platformShadow } from '@/app/design-system/tokens';
+import {
+  institutionalStatusColors,
+  institutionalCardStyles,
+} from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+
+const I = COLORS.institutional;
+const successStatus = institutionalStatusColors('success');
+const errorStatus = institutionalStatusColors('error');
+const warningStatus = institutionalStatusColors('warning');
+const primaryStatus = institutionalStatusColors('primary');
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -62,24 +74,21 @@ export default function GestionarTallerScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   /** Mismo look que `app/(tabs)/index.tsx`: siempre claro (glass + gradiente), sin seguir system dark mode. */
-  const primary500 =
-    (theme?.colors?.primary as { '500'?: string } | undefined)?.['500'] ||
-    (theme?.colors?.accent as { '500'?: string } | undefined)?.['500'] ||
-    '#2563EB';
-  const gradientColors = ['#F3F5F8', '#FAFBFC', '#FFFFFF'] as const;
+  const primary500 = I.primary;
+  const gradientColors = [I.surfaceStrong, I.surfaceSoft, I.canvas] as const;
   const gradientLocations = [0, 0.35, 1] as const;
-  const headerBg = '#F3F5F8';
+  const headerBg = I.surfaceStrong;
   const blurTint = 'light' as const;
   const blurIntensity = 60;
-  const textPrimary = '#111827';
-  const textMuted = '#6B7280';
-  const textSubtle = '#9CA3AF';
-  const inputBg = 'rgba(255,255,255,0.82)';
-  const inputBorder = 'rgba(15, 23, 42, 0.08)';
-  const validBg = 'rgba(52, 199, 89, 0.1)';
-  const invalidBg = 'rgba(255, 59, 48, 0.08)';
-  const linkColor = primary500;
-  const saveDisabledBg = '#C7C7CC';
+  const textPrimary = I.ink;
+  const textMuted = I.body;
+  const textSubtle = I.mutedSoft;
+  const inputBg = withOpacity(I.canvas, 0.82);
+  const inputBorder = withOpacity(I.ink, 0.08);
+  const validBg = successStatus.bg;
+  const invalidBg = errorStatus.bg;
+  const linkColor = I.primary;
+  const saveDisabledBg = I.primaryDisabled;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -855,7 +864,7 @@ export default function GestionarTallerScreen() {
           <View style={styles.glassOuter}>
             <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={styles.glassInner}>
-              <Text style={[styles.sectionTitle, { color: textPrimary }]}>Modalidad de atención</Text>
+              <InstitutionalSectionHeader title="Modalidad de atención" level="h4" style={styles.sectionHeaderWrap} />
               <Text style={[styles.sectionSubtitle, { color: textMuted }]}>
                 Elige cómo atiendes a tus clientes. Puedes cambiarlo cuando quieras.
               </Text>
@@ -870,14 +879,14 @@ export default function GestionarTallerScreen() {
                       styles.modalidadOption,
                       {
                         backgroundColor: seleccionada ? validBg : inputBg,
-                        borderColor: seleccionada ? '#22C55E' : inputBorder,
+                        borderColor: seleccionada ? I.semanticUp : inputBorder,
                       },
                     ]}
                   >
                     <InstitutionalIcon
                       name={op.icon as any}
                       size={22}
-                      color={seleccionada ? '#15803D' : textMuted}
+                      color={seleccionada ? successStatus.text : textMuted}
                       strokeWidth={ICON_STROKE_WIDTH}
                     />
                     <View style={styles.modalidadTextWrap}>
@@ -887,7 +896,7 @@ export default function GestionarTallerScreen() {
                     <InstitutionalIcon
                       name={seleccionada ? 'radio-button-checked' : 'radio-button-unchecked'}
                       size={22}
-                      color={seleccionada ? '#22C55E' : textSubtle}
+                      color={seleccionada ? I.semanticUp : textSubtle}
                       strokeWidth={ICON_STROKE_WIDTH}
                     />
                   </TouchableOpacity>
@@ -900,7 +909,7 @@ export default function GestionarTallerScreen() {
           <View style={styles.glassOuter}>
             <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={styles.glassInner}>
-                <Text style={[styles.sectionTitle, { color: textPrimary }]}>Información del Taller</Text>
+                <InstitutionalSectionHeader title="Información del Taller" level="h4" style={styles.sectionHeaderWrap} />
 
                 <View style={styles.inputGroup}>
                   <Text style={[styles.inputLabel, { color: textPrimary }]}>Nombre del Taller *</Text>
@@ -948,7 +957,7 @@ export default function GestionarTallerScreen() {
           <View style={styles.glassOuter}>
             <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
             <View style={styles.glassInner}>
-                <Text style={[styles.sectionTitle, { color: textPrimary }]}>Ubicación del Taller</Text>
+                <InstitutionalSectionHeader title="Ubicación del Taller" level="h4" style={styles.sectionHeaderWrap} />
                 <Text style={[styles.sectionSubtitle, { color: textMuted }]}>
                   {soloDomicilio
                     ? 'Como atiendes solo a domicilio, la dirección es opcional. Sirve como punto de referencia de tu zona.'
@@ -979,9 +988,9 @@ export default function GestionarTallerScreen() {
                           backgroundColor: inputBg,
                           borderColor: inputBorder,
                         },
-                        validationStatus === 'valid' && { borderColor: '#34C759', backgroundColor: validBg },
+                        validationStatus === 'valid' && { borderColor: I.semanticUp, backgroundColor: validBg },
                         validationStatus === 'invalid' && searchQuery.length >= 8 && {
-                          borderColor: '#FF3B30',
+                          borderColor: I.semanticDown,
                           backgroundColor: invalidBg,
                         },
                       ]}
@@ -998,10 +1007,10 @@ export default function GestionarTallerScreen() {
                         <ActivityIndicator size="small" color={primary500} />
                       )}
                       {validationStatus === 'valid' && (
-                        <InstitutionalIcon name="check-circle" size={20} color="#34C759"  strokeWidth={ICON_STROKE_WIDTH} />
+                        <InstitutionalIcon name="check-circle" size={20} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
                       )}
                       {validationStatus === 'invalid' && searchQuery.length >= 8 && (
-                        <InstitutionalIcon name="error" size={20} color="#FF3B30"  strokeWidth={ICON_STROKE_WIDTH} />
+                        <InstitutionalIcon name="error" size={20} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
                       )}
                     </View>
                   </View>
@@ -1022,7 +1031,7 @@ export default function GestionarTallerScreen() {
                     )}
                     {validationStatus === 'valid' && searchResults.length > 0 && (
                       <TouchableOpacity
-                        style={[styles.selectAddressButton, { backgroundColor: '#34C759' }]}
+                        style={[styles.selectAddressButton, { backgroundColor: I.semanticUp }]}
                         onPress={handleBuscarDireccion}
                       >
                         <Text style={styles.selectAddressButtonText}>
@@ -1039,8 +1048,8 @@ export default function GestionarTallerScreen() {
 
                   {datosTaller.direccion && (
                     <View style={styles.selectedAddress}>
-                      <InstitutionalIcon name="location-on" size={16} color="#22C55E"  strokeWidth={ICON_STROKE_WIDTH} />
-                      <Text style={[styles.selectedAddressText, { color: '#15803D' }]}>
+                      <InstitutionalIcon name="location-on" size={16} color={I.semanticUp}  strokeWidth={ICON_STROKE_WIDTH} />
+                      <Text style={[styles.selectedAddressText, { color: successStatus.text }]}>
                         {datosTaller.direccion}
                       </Text>
                     </View>
@@ -1087,7 +1096,7 @@ export default function GestionarTallerScreen() {
                   value={direccionManual}
                   onChangeText={setDireccionManual}
                   placeholder="Ingresa la dirección completa manualmente"
-                  placeholderTextColor="#8E8E93"
+                  placeholderTextColor=I.mutedSoft
                   multiline
                   numberOfLines={2}
                 />
@@ -1097,7 +1106,7 @@ export default function GestionarTallerScreen() {
                   disabled={!direccionManual.trim() || searching}
                 >
                   {searching ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color={I.onPrimary} />
                   ) : (
                     <Text style={styles.validateButtonText}>Validar</Text>
                   )}
@@ -1109,7 +1118,7 @@ export default function GestionarTallerScreen() {
         <View style={styles.glassOuter}>
           <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
           <View style={styles.glassInner}>
-              <Text style={[styles.sectionTitle, { color: textPrimary }]}>Fotos del Taller</Text>
+              <InstitutionalSectionHeader title="Fotos del Taller" level="h4" style={styles.sectionHeaderWrap} />
               <Text style={[styles.sectionSubtitle, { color: textMuted }]}>
                 Agrega fotos de tu taller para que los clientes puedan conocer mejor tus instalaciones
               </Text>
@@ -1131,7 +1140,7 @@ export default function GestionarTallerScreen() {
                         style={styles.removePhotoButton}
                         onPress={() => handleEliminarFoto(index)}
                       >
-                        <InstitutionalIcon name="close" size={20} color="#FFFFFF"  strokeWidth={ICON_STROKE_WIDTH} />
+                        <InstitutionalIcon name="close" size={20} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -1148,27 +1157,19 @@ export default function GestionarTallerScreen() {
             styles.footerBar,
             {
               paddingBottom: Math.max(insets.bottom, 12),
-              backgroundColor: 'rgba(243,245,248,0.97)',
-              borderTopColor: 'rgba(15,23,42,0.08)',
+              backgroundColor: withOpacity(I.surfaceStrong, 0.97),
+              borderTopColor: withOpacity(I.ink, 0.08),
             },
           ]}
         >
-          <TouchableOpacity
-            style={[
-              styles.footerSaveButton,
-              (!hasChanges || saving) && [styles.saveButtonDisabled, { backgroundColor: saveDisabledBg }],
-              hasChanges && !saving && { backgroundColor: primary500 },
-            ]}
+          <InstitutionalButton
+            label="Guardar cambios"
+            variant="primary"
             onPress={handleGuardar}
             disabled={!hasChanges || saving}
-            activeOpacity={0.85}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.saveButtonText}>Guardar cambios</Text>
-            )}
-          </TouchableOpacity>
+            loading={saving}
+            style={styles.footerSaveButton}
+          />
         </View>
 
       {/* Modal de búsqueda de direcciones */}
@@ -1183,14 +1184,14 @@ export default function GestionarTallerScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Seleccionar Dirección</Text>
               <TouchableOpacity onPress={() => setShowAddressModal(false)}>
-                <InstitutionalIcon name="close" size={24} color="#8E8E93"  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="close" size={24} color={I.mutedSoft}  strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalScrollView}>
               {searchResults.length === 0 ? (
                 <View style={styles.noResultsContainer}>
-                  <InstitutionalIcon name="search-off" size={48} color="#8E8E93"  strokeWidth={ICON_STROKE_WIDTH} />
+                  <InstitutionalIcon name="search-off" size={48} color={I.mutedSoft}  strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.noResultsText}>No se encontraron direcciones</Text>
                   <Text style={styles.noResultsSubtext}>
                     Intenta con una búsqueda más específica
@@ -1204,7 +1205,7 @@ export default function GestionarTallerScreen() {
                     onPress={() => handleSeleccionarDireccion(resultado)}
                   >
                     <View style={styles.addressResultIcon}>
-                      <InstitutionalIcon name="location-on" size={20} color="#007AFF"  strokeWidth={ICON_STROKE_WIDTH} />
+                      <InstitutionalIcon name="location-on" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
                     </View>
                     <View style={styles.addressResultContent}>
                       <Text style={styles.addressResultText}>{resultado.display_name}</Text>
@@ -1213,7 +1214,7 @@ export default function GestionarTallerScreen() {
                         {resultado.address.state}
                       </Text>
                     </View>
-                    <InstitutionalIcon name="chevron-right" size={20} color="#C7C7CC"  strokeWidth={ICON_STROKE_WIDTH} />
+                    <InstitutionalIcon name="chevron-right" size={20} color={I.mutedSoft}  strokeWidth={ICON_STROKE_WIDTH} />
                   </TouchableOpacity>
                 ))
               )}
@@ -1267,7 +1268,7 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: I.onPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -1282,7 +1283,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.62)',
     ...platformShadow({
-      shadowColor: '#000',
+      shadowColor: I.ink,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.07,
       shadowRadius: 10,
@@ -1292,9 +1293,7 @@ const styles = StyleSheet.create({
   glassInner: {
     padding: 18,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+  sectionHeaderWrap: {
     marginBottom: 14,
   },
   sectionSubtitle: {
@@ -1351,7 +1350,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   searchButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: I.primary,
     width: 44,
     height: 44,
     borderRadius: 8,
@@ -1393,31 +1392,31 @@ const styles = StyleSheet.create({
   },
   locationLabel: {
     fontSize: 14,
-    color: '#6C757D',
+    color: I.body,
     fontWeight: '500',
   },
   locationValue: {
     fontSize: 14,
-    color: '#495057',
+    color: I.ink,
     fontWeight: '600',
   },
   manualAddressContainer: {
     marginTop: 20,
     padding: 16,
-    backgroundColor: '#FFF8E1',
+    backgroundColor: warningStatus.bg,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FFE082',
+    borderColor: warningStatus.border,
   },
   manualAddressLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#F57C00',
+    color: warningStatus.text,
     marginBottom: 8,
   },
   manualAddressSubtitle: {
     fontSize: 12,
-    color: '#F57C00',
+    color: warningStatus.text,
     marginBottom: 12,
     lineHeight: 16,
   },
@@ -1431,13 +1430,13 @@ const styles = StyleSheet.create({
     height: 60,
   },
   validateButton: {
-    backgroundColor: '#FF9800',
+    backgroundColor: I.accentYellow,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 8,
   },
   validateButtonText: {
-    color: '#FFFFFF',
+    color: I.onPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1476,7 +1475,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: '#FF3B30',
+    backgroundColor: I.semanticDown,
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -1503,12 +1502,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: I.hairline,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000000',
+    color: I.ink,
   },
   modalScrollView: {
     padding: 20,
@@ -1520,12 +1519,12 @@ const styles = StyleSheet.create({
   noResultsText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: I.mutedSoft,
     marginTop: 16,
   },
   noResultsSubtext: {
     fontSize: 14,
-    color: '#C7C7CC',
+    color: I.mutedSoft,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -1534,7 +1533,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: I.hairlineSoft,
   },
   addressResultIcon: {
     marginRight: 12,
@@ -1545,7 +1544,7 @@ const styles = StyleSheet.create({
   addressResultText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#000000',
+    color: I.ink,
     lineHeight: 22,
   },
   validationIndicator: {
@@ -1563,13 +1562,13 @@ const styles = StyleSheet.create({
   },
   validatingText: {
     fontSize: 14,
-    color: '#007AFF',
+    color: I.primary,
     marginTop: 8,
     textAlign: 'center',
     fontStyle: 'italic',
   },
   selectAddressButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: I.semanticUp,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -1577,26 +1576,26 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   selectAddressButtonText: {
-    color: '#FFFFFF',
+    color: I.onPrimary,
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
   },
   invalidText: {
     fontSize: 14,
-    color: '#FF3B30',
+    color: I.semanticDown,
     marginTop: 8,
     textAlign: 'center',
     fontStyle: 'italic',
   },
   addressResultDetails: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: I.mutedSoft,
   },
   // ✅ NUEVOS ESTILOS PARA INSTRUCCIONES
   addressInstructions: {
     fontSize: 12,
-    color: '#C2410C',
+    color: warningStatus.text,
     marginTop: 8,
     marginBottom: 12,
     paddingHorizontal: 12,
@@ -1609,6 +1608,6 @@ const styles = StyleSheet.create({
   },
   instructionBold: {
     fontWeight: '700',
-    color: '#C2410C',
+    color: warningStatus.text,
   },
 });

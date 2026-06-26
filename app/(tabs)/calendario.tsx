@@ -11,6 +11,11 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  openCitaPersonalDetalle,
+  openOfertaDetalle,
+} from '@/utils/navigateProveedorDetalle';
 import { useAuth } from '@/context/AuthContext';
 import {
   nombreServicioEvento,
@@ -28,6 +33,8 @@ import {
 } from '@/utils/fechaLocal';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { institutionalCardStyles } from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -202,6 +209,7 @@ function formatearHoraStr(hora: string) {
 
 export default function CalendarioScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const { estadoProveedor } = useAuth();
   const { fecha: fechaParam } = useLocalSearchParams<{ fecha?: string }>();
   const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
@@ -402,15 +410,15 @@ export default function CalendarioScreen() {
 
   const handleEventoPress = useCallback((evento: EventoAgendaUnificado) => {
     if (evento.origen === 'personal') {
-      router.push(`/cita-agenda-personal/${evento.id}`);
+      openCitaPersonalDetalle(router, queryClient, Number(evento.id));
       return;
     }
     if (evento.oferta_proveedor_id) {
-      router.push(`/oferta-detalle/${evento.oferta_proveedor_id}`);
+      openOfertaDetalle(router, queryClient, evento.oferta_proveedor_id);
     } else if (evento.orden_id) {
       router.push(`/servicio-detalle/${evento.orden_id}`);
     }
-  }, []);
+  }, [queryClient]);
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -436,82 +444,106 @@ export default function CalendarioScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.calendarControls}>
-              <TouchableOpacity
-                style={styles.monthButton}
-                onPress={() => cambiarMes('anterior')}
-                activeOpacity={0.7}
-              >
-                <InstitutionalIcon name="chevron-back" size={24} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
-              </TouchableOpacity>
+            <View style={styles.calendarCard}>
+              <View style={styles.monthNavRow}>
+                <TouchableOpacity
+                  style={styles.monthButton}
+                  onPress={() => cambiarMes('anterior')}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Mes anterior"
+                >
+                  <InstitutionalIcon name="chevron-back" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                </TouchableOpacity>
 
-              <View style={styles.monthTitleContainer}>
-                <Text style={styles.monthTitle}>
-                  {mesesNombres[mesActual.getMonth()]} {mesActual.getFullYear()}
-                </Text>
-                <TouchableOpacity style={styles.todayButton} onPress={irAHoy} activeOpacity={0.7}>
-                  <Text style={styles.todayButtonText}>Hoy</Text>
+                <View style={styles.monthTitleContainer}>
+                  <Text style={styles.monthTitle}>
+                    {mesesNombres[mesActual.getMonth()]} {mesActual.getFullYear()}
+                  </Text>
+                  <InstitutionalButton
+                    label="Hoy"
+                    variant="primary"
+                    size="compact"
+                    onPress={irAHoy}
+                    style={styles.todayButton}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.monthButton}
+                  onPress={() => cambiarMes('siguiente')}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Mes siguiente"
+                >
+                  <InstitutionalIcon name="chevron-forward" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                style={styles.monthButton}
-                onPress={() => cambiarMes('siguiente')}
-                activeOpacity={0.7}
-              >
-                <InstitutionalIcon name="chevron-forward" size={24} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
-              </TouchableOpacity>
-            </View>
-
-            {mecanicos.length > 0 && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filtroMecanicoRow}
-              >
-                <TouchableOpacity
-                  style={[styles.filtroChip, miembroFiltro === null && styles.filtroChipActive]}
-                  onPress={() => setMiembroFiltro(null)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.filtroChipText, miembroFiltro === null && styles.filtroChipTextActive]}>
-                    Todos
-                  </Text>
-                </TouchableOpacity>
-                {mecanicos.map((m) => {
-                  const activo = miembroFiltro === m.id;
-                  return (
+              {mecanicos.length > 0 ? (
+                <View style={styles.filtroMecanicoBlock}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.filtroMecanicoRow}
+                  >
                     <TouchableOpacity
-                      key={m.id}
-                      style={[styles.filtroChip, activo && styles.filtroChipActive]}
-                      onPress={() => setMiembroFiltro(m.id)}
+                      style={[styles.filtroChip, miembroFiltro === null && styles.filtroChipActive]}
+                      onPress={() => setMiembroFiltro(null)}
                       activeOpacity={0.85}
                     >
-                      <Text style={[styles.filtroChipText, activo && styles.filtroChipTextActive]}>{m.nombre}</Text>
+                      <InstitutionalIcon
+                        name="business"
+                        size={16}
+                        color={miembroFiltro === null ? I.onPrimary : I.body}
+                        strokeWidth={ICON_STROKE_WIDTH}
+                      />
+                      <Text style={[styles.filtroChipText, miembroFiltro === null && styles.filtroChipTextActive]}>
+                        Todos
+                      </Text>
                     </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
+                    {mecanicos.map((m) => {
+                      const activo = miembroFiltro === m.id;
+                      return (
+                        <TouchableOpacity
+                          key={m.id}
+                          style={[styles.filtroChip, activo && styles.filtroChipActive]}
+                          onPress={() => setMiembroFiltro(m.id)}
+                          activeOpacity={0.85}
+                        >
+                          <InstitutionalIcon
+                            name="person"
+                            size={16}
+                            color={activo ? I.onPrimary : I.body}
+                            strokeWidth={ICON_STROKE_WIDTH}
+                          />
+                          <Text style={[styles.filtroChipText, activo && styles.filtroChipTextActive]}>
+                            {m.nombre}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              ) : null}
 
-            <View style={styles.calendarContainer}>
-              <View style={styles.diasSemanaContainer}>
-                {diasSemana.map((dia, index) => (
-                  <View key={index} style={styles.diaSemanaHeader}>
-                    <Text style={styles.diaSemanaText}>{dia}</Text>
-                  </View>
-                ))}
-              </View>
+              <View style={styles.calendarGridSection}>
+                <View style={styles.diasSemanaContainer}>
+                  {diasSemana.map((dia, index) => (
+                    <View key={index} style={styles.diaSemanaHeader}>
+                      <Text style={styles.diaSemanaText}>{dia}</Text>
+                    </View>
+                  ))}
+                </View>
 
-              <View style={styles.calendarGrid}>
-                {calendario.map((diaCalendario, index) => (
-                  <CalendarDayCell
-                    key={index}
-                    diaCalendario={diaCalendario}
-                    fechaSeleccionada={fechaSeleccionada}
-                    onSelect={onSelectDay}
-                  />
-                ))}
+                <View style={styles.calendarGrid}>
+                  {calendario.map((diaCalendario, index) => (
+                    <CalendarDayCell
+                      key={index}
+                      diaCalendario={diaCalendario}
+                      fechaSeleccionada={fechaSeleccionada}
+                      onSelect={onSelectDay}
+                    />
+                  ))}
+                </View>
               </View>
             </View>
 
@@ -588,27 +620,32 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     color: I.muted,
   },
-  calendarControls: {
+  calendarCard: {
+    ...institutionalCardStyles.surface,
+    marginHorizontal: hx,
+    marginTop: SPACING.fixed.md,
+    padding: SPACING.fixed.md,
+    gap: SPACING.fixed.md,
+  },
+  monthNavRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.lg,
-    backgroundColor: I.canvas,
-    marginTop: SPACING.fixed.md,
-    marginHorizontal: hx,
-    borderRadius: BORDERS.radius.card.xl,
-    ...SHADOWS.editorial,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
+  },
+  filtroMecanicoBlock: {
+    paddingTop: SPACING.fixed.xs,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
   },
   filtroMecanicoRow: {
     flexDirection: 'row',
     gap: SPACING.fixed.sm,
-    paddingHorizontal: hx,
-    paddingTop: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.xxs,
   },
   filtroChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
     paddingVertical: SPACING.fixed.xs + 2,
     paddingHorizontal: SPACING.fixed.md,
     borderRadius: BORDERS.radius.pill,
@@ -648,25 +685,13 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   todayButton: {
-    paddingHorizontal: SPACING.fixed.sm + 4,
+    alignSelf: 'center',
+    minHeight: 32,
     paddingVertical: SPACING.fixed.xxs,
-    borderRadius: BORDERS.radius.sm,
-    backgroundColor: I.primary,
+    paddingHorizontal: SPACING.fixed.md,
   },
-  todayButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.onPrimary,
-  },
-  calendarContainer: {
-    backgroundColor: I.canvas,
-    marginHorizontal: hx,
-    marginTop: SPACING.fixed.lg,
-    borderRadius: BORDERS.radius.card.xl,
-    padding: SPACING.fixed.md,
-    ...SHADOWS.editorial,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
+  calendarGridSection: {
+    gap: SPACING.fixed.sm,
   },
   diasSemanaContainer: {
     flexDirection: 'row',

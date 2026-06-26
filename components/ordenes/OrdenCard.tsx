@@ -6,10 +6,17 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { router } from 'expo-router';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import {
+  COLORS,
+  SPACING,
+  platformShadow,
+} from '@/app/design-system/tokens';
+import {
+  institutionalStatusColors,
+  institutionalCardStyles,
+  type InstitutionalStatusTone,
+} from '@/app/design-system/styles/institutionalSemantic';
 import { 
   ordenesProveedorService, 
   type Orden, 
@@ -23,7 +30,14 @@ import { ChecklistCompletedView } from '@/components/checklist/ChecklistComplete
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { platformShadow } from '@/app/design-system/tokens';
+
+const I = COLORS.institutional;
+
+const neutralStatus = institutionalStatusColors('neutral');
+const successStatus = institutionalStatusColors('success');
+const warningStatus = institutionalStatusColors('warning');
+const errorStatus = institutionalStatusColors('error');
+const infoStatus = institutionalStatusColors('info');
 
 interface OrdenConChecklist extends Orden {
   checklist_instance?: ChecklistInstance;
@@ -38,7 +52,6 @@ interface OrdenCardProps {
 }
 
 export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, showChecklistButtons = true }) => {
-  const colorScheme = useColorScheme();
   const [ordenConChecklist, setOrdenConChecklist] = useState<OrdenConChecklist>(orden);
   const [loading, setLoading] = useState(false);
   
@@ -145,24 +158,28 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
     }
   };
 
-  const getChecklistEstado = () => {
+  const getChecklistEstado = (): {
+    texto: string;
+    tone: InstitutionalStatusTone;
+    icon: string;
+  } => {
     if (!ordenConChecklist.requiere_checklist) {
-      return { texto: 'No requiere', color: '#6c757d', icon: 'remove-circle' };
+      return { texto: 'No requiere', tone: 'neutral', icon: 'remove-circle' };
     }
     
     if (!ordenConChecklist.checklist_instance) {
-      return { texto: 'Pendiente', color: '#ffc107', icon: 'pending' };
+      return { texto: 'Pendiente', tone: 'warning', icon: 'pending' };
     }
     
     switch (ordenConChecklist.checklist_instance.estado) {
       case 'PENDIENTE':
-        return { texto: 'Pendiente', color: '#ffc107', icon: 'pending' };
+        return { texto: 'Pendiente', tone: 'warning', icon: 'pending' };
       case 'EN_PROGRESO':
-        return { texto: 'En Progreso', color: '#17a2b8', icon: 'hourglass-empty' };
+        return { texto: 'En Progreso', tone: 'info', icon: 'hourglass-empty' };
       case 'COMPLETADO':
-        return { texto: 'Completado', color: '#28a745', icon: 'check-circle' };
+        return { texto: 'Completado', tone: 'success', icon: 'check-circle' };
       default:
-        return { texto: 'Desconocido', color: '#6c757d', icon: 'help' };
+        return { texto: 'Desconocido', tone: 'neutral', icon: 'help' };
     }
   };
 
@@ -180,7 +197,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
       console.log('✅ OrdenCard - Botón: Ver Checklist para orden', orden.id);
       return {
         texto: 'Ver Checklist',
-        color: '#28a745',
+        tone: 'success' as InstitutionalStatusTone,
         icon: 'visibility',
         onPress: () => setShowCompletedChecklist(true)
       };
@@ -197,7 +214,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
       console.log('✅ OrdenCard - Botón: Iniciar Checklist para orden', orden.id);
       return {
         texto: 'Iniciar Checklist',
-        color: '#007bff',
+        tone: 'primary' as InstitutionalStatusTone,
         icon: 'play-arrow',
         onPress: () => setShowChecklistContainer(true)
       };
@@ -208,7 +225,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
       console.log('✅ OrdenCard - Botón: Continuar Checklist para orden', orden.id);
       return {
         texto: 'Continuar Checklist',
-        color: '#ffc107',
+        tone: 'warning' as InstitutionalStatusTone,
         icon: 'play-arrow',
         onPress: () => setShowChecklistContainer(true)
       };
@@ -287,6 +304,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
   // Determinar estados visuales
   const estadoChecklist = getChecklistEstado();
   const botonChecklist = getBotonChecklist();
+  const checklistStatusColors = institutionalStatusColors(estadoChecklist.tone);
   
   const necesitaChecklistUrgente = (
     orden.estado === 'aceptada_por_proveedor' && 
@@ -339,7 +357,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
           </View>
           {esUrgente && (
             <View style={styles.urgenteBadge}>
-              <IconSymbol name="exclamationmark.triangle.fill" size={12} color="#fff" />
+              <IconSymbol name="exclamationmark.triangle.fill" size={12} color={I.onPrimary} />
               <Text style={styles.urgenteTexto}>URGENTE</Text>
             </View>
           )}
@@ -347,16 +365,16 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
 
         {/* Información del cliente con protección */}
         <View style={styles.clienteInfo}>
-          <IconSymbol name="person.fill" size={16} color="#6c757d" />
+          <IconSymbol name="person.fill" size={16} color={I.muted} />
           <Text style={styles.clienteNombre}>
             {nombreCliente}
           </Text>
           {!clienteEsCompleto && (
             <View style={styles.protectedBadge}>
-              <InstitutionalIcon name="security" size={12} color="#ffc107" strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name="security" size={12} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
           )}
-          <IconSymbol name="phone.fill" size={14} color="#6c757d" />
+          <IconSymbol name="phone.fill" size={14} color={I.muted} />
           <Text style={[
             styles.clienteTelefono,
             !clienteEsCompleto && styles.protectedText
@@ -368,14 +386,14 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
         {/* Mensaje de restricción de información */}
         {mensajeRestriccion && (
           <View style={styles.restriccionInfo}>
-            <InstitutionalIcon name="info" size={16} color="#17a2b8" strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="info" size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.restriccionTexto}>{mensajeRestriccion}</Text>
           </View>
         )}
 
         {/* Información del vehículo */}
         <View style={styles.vehiculoInfo}>
-          <IconSymbol name="car.fill" size={16} color="#6c757d" />
+          <IconSymbol name="car.fill" size={16} color={I.muted} />
           <Text style={styles.vehiculoTexto}>
             {orden.vehiculo_detail.marca} {orden.vehiculo_detail.modelo} ({orden.vehiculo_detail.año})
           </Text>
@@ -392,14 +410,14 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
             <IconSymbol 
               name={orden.tipo_servicio === 'domicilio' ? 'house.fill' : 'building.2.fill'} 
               size={16} 
-              color="#6c757d" 
+              color={I.muted} 
             />
             <Text style={styles.ubicacionTexto}>
               {orden.ubicacion_servicio_segura}
             </Text>
             {!clienteEsCompleto && orden.tipo_servicio === 'domicilio' && (
               <View style={styles.locationProtectedBadge}>
-                <InstitutionalIcon name="location-off" size={12} color="#dc3545" strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="location-off" size={12} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.protectedLocationText}>Dirección completa al aceptar</Text>
               </View>
             )}
@@ -418,17 +436,17 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
                 <InstitutionalIcon
                   name={(estadoChecklist?.icon as string) || 'assignment'}
                   size={18}
-                  color={estadoChecklist?.color || '#6c757d'}
+                  color={checklistStatusColors.icon}
                   strokeWidth={ICON_STROKE_WIDTH}
                 />
-                <Text style={[styles.checklistEstadoTexto, { color: estadoChecklist?.color || '#6c757d' }]}>
+                <Text style={[styles.checklistEstadoTexto, { color: checklistStatusColors.text }]}>
                   Checklist: {estadoChecklist?.texto || 'Requerido'}
                 </Text>
               </View>
               
               {ordenConChecklist.checklist_instance?.estado === 'COMPLETADO' && (
                 <View style={styles.checklistCompletedBadge}>
-                  <InstitutionalIcon name="check-circle" size={12} color="#28a745" strokeWidth={ICON_STROKE_WIDTH} />
+                  <InstitutionalIcon name="check-circle" size={12} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.checklistCompletedText}>✓</Text>
                 </View>
               )}
@@ -437,7 +455,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
             {/* Alerta urgente si necesita checklist */}
             {necesitaChecklistUrgente && (
               <View style={styles.alertaUrgente}>
-                <InstitutionalIcon name="warning" size={14} color="#dc3545" strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="warning" size={14} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.alertaUrgenteTexto}>
                   Completar checklist para iniciar servicio
                 </Text>
@@ -482,11 +500,11 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
         {/* Footer con fecha, hora y total */}
         <View style={styles.footer}>
           <View style={styles.fechaHoraContainer}>
-            <IconSymbol name="calendar" size={14} color="#6c757d" />
+            <IconSymbol name="calendar" size={14} color={I.muted} />
             <Text style={styles.fechaTexto}>
               {ordenesProveedorService.formatearFecha(orden.fecha_servicio)}
             </Text>
-            <IconSymbol name="clock" size={14} color="#6c757d" />
+            <IconSymbol name="clock" size={14} color={I.muted} />
             <Text style={styles.horaTexto}>
               {ordenesProveedorService.formatearHora(orden.hora_servicio)}
             </Text>
@@ -503,14 +521,14 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
                 style={[styles.botonAccion, styles.botonRechazar]}
                 onPress={() => handleQuickAction('rechazar')}
               >
-                <IconSymbol name="xmark" size={16} color="#fff" />
+                <IconSymbol name="xmark" size={16} color={I.onPrimary} />
                 <Text style={styles.botonTexto}>Rechazar</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.botonAccion, styles.botonAceptar]}
                 onPress={() => handleQuickAction('aceptar')}
               >
-                <IconSymbol name="checkmark" size={16} color="#fff" />
+                <IconSymbol name="checkmark" size={16} color={I.onPrimary} />
                 <Text style={styles.botonTexto}>Aceptar</Text>
               </TouchableOpacity>
             </View>
@@ -521,12 +539,12 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
             <TouchableOpacity
               style={[
                 styles.checklistButton, 
-                { backgroundColor: botonChecklist.color },
+                { backgroundColor: institutionalStatusColors(botonChecklist.tone).icon },
                 botonChecklist.texto === 'Iniciar Checklist' && styles.checklistButtonUrgente
               ]}
               onPress={botonChecklist.onPress}
             >
-              <InstitutionalIcon name={botonChecklist.icon as string} size={16} color="#fff" strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalIcon name={botonChecklist.icon as string} size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.checklistButtonText}>{botonChecklist.texto}</Text>
             </TouchableOpacity>
           )}
@@ -535,7 +553,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
         {/* Tiempo restante para responder */}
         {orden.tiempo_respuesta_requerido && (
           <View style={styles.tiempoContainer}>
-            <IconSymbol name="clock.fill" size={12} color="#dc3545" />
+            <IconSymbol name="clock.fill" size={12} color={I.semanticDown} />
             <Text style={styles.tiempoTexto}>
               {ordenesProveedorService.formatearTiempoRestante(orden.tiempo_respuesta_requerido)}
             </Text>
@@ -555,162 +573,154 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    ...platformShadow({
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 3.84,
-      elevation: 5,
-    }),
+    ...institutionalCardStyles.surface,
+    padding: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.sm,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: SPACING.fixed.sm,
   },
   estadoBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.xxs,
+    borderRadius: SPACING.fixed.sm,
   },
   estadoTexto: {
-    color: '#ffffff',
+    color: I.onPrimary,
     fontSize: 12,
     fontWeight: '600',
   },
   urgenteBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#dc3545',
+    backgroundColor: I.semanticDown,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
-    gap: 4,
+    borderRadius: SPACING.fixed.xs,
+    gap: SPACING.fixed.xxs,
   },
   urgenteTexto: {
-    color: '#ffffff',
+    color: I.onPrimary,
     fontSize: 10,
     fontWeight: '700',
   },
   clienteInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: SPACING.fixed.xs,
+    gap: SPACING.fixed.xs,
   },
   clienteNombre: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#2A4065',
+    color: I.ink,
     flex: 1,
   },
   clienteTelefono: {
     fontSize: 14,
-    color: '#6c757d',
+    color: I.muted,
   },
   protectedBadge: {
-    backgroundColor: '#fff3cd',
-    borderRadius: 8,
+    backgroundColor: warningStatus.bg,
+    borderRadius: SPACING.fixed.xs,
     padding: 2,
   },
   protectedText: {
     fontStyle: 'italic',
-    color: '#856404',
+    color: warningStatus.text,
   },
   restriccionInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#d1ecf1',
-    padding: 8,
+    backgroundColor: infoStatus.bg,
+    padding: SPACING.fixed.xs,
     borderRadius: 6,
-    marginBottom: 8,
+    marginBottom: SPACING.fixed.xs,
     gap: 6,
   },
   restriccionTexto: {
     fontSize: 12,
-    color: '#0c5460',
+    color: infoStatus.text,
     flex: 1,
   },
   vehiculoInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: SPACING.fixed.sm,
+    gap: SPACING.fixed.xs,
   },
   vehiculoTexto: {
     fontSize: 14,
-    color: '#495057',
+    color: I.body,
     flex: 1,
   },
   placaContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: I.surfaceStrong,
     borderWidth: 1,
-    borderColor: '#2A4065',
-    borderRadius: 4,
+    borderColor: I.primary,
+    borderRadius: SPACING.fixed.xxs,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
   placaTexto: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#2A4065',
+    color: I.primary,
   },
   ubicacionInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: SPACING.fixed.sm,
+    gap: SPACING.fixed.xs,
   },
   ubicacionTexto: {
     fontSize: 14,
-    color: '#495057',
+    color: I.body,
     flex: 1,
   },
   locationProtectedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8d7da',
+    backgroundColor: errorStatus.bg,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
-    gap: 4,
+    borderRadius: SPACING.fixed.xxs,
+    gap: SPACING.fixed.xxs,
   },
   protectedLocationText: {
     fontSize: 10,
-    color: '#721c24',
+    color: errorStatus.text,
   },
   serviciosContainer: {
-    marginBottom: 12,
+    marginBottom: SPACING.fixed.sm,
   },
   serviciosLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#495057',
-    marginBottom: 4,
+    color: I.body,
+    marginBottom: SPACING.fixed.xxs,
   },
   servicioItem: {
     fontSize: 13,
-    color: '#6c757d',
-    marginLeft: 8,
+    color: I.muted,
+    marginLeft: SPACING.fixed.xs,
   },
   masServicios: {
     fontSize: 13,
-    color: '#007bff',
+    color: I.primary,
     fontStyle: 'italic',
-    marginLeft: 8,
+    marginLeft: SPACING.fixed.xs,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: SPACING.fixed.sm,
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: I.hairline,
   },
   fechaHoraContainer: {
     flexDirection: 'row',
@@ -719,26 +729,26 @@ const styles = StyleSheet.create({
   },
   fechaTexto: {
     fontSize: 13,
-    color: '#6c757d',
+    color: I.muted,
   },
   horaTexto: {
     fontSize: 13,
-    color: '#6c757d',
+    color: I.muted,
     fontWeight: '500',
   },
   totalTexto: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#28a745',
+    color: I.semanticUp,
   },
   accionesContainer: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
+    gap: SPACING.fixed.xs,
+    marginTop: SPACING.fixed.sm,
   },
   botonesQuickAction: {
     flexDirection: 'row',
-    gap: 8,
+    gap: SPACING.fixed.xs,
     flex: 1,
   },
   botonAccion: {
@@ -746,65 +756,64 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 4,
+    paddingVertical: SPACING.fixed.xs,
+    borderRadius: SPACING.fixed.xs,
+    gap: SPACING.fixed.xxs,
   },
   botonAceptar: {
-    backgroundColor: '#28a745',
+    backgroundColor: I.semanticUp,
   },
   botonRechazar: {
-    backgroundColor: '#dc3545',
+    backgroundColor: I.semanticDown,
   },
   botonTexto: {
-    color: '#ffffff',
+    color: I.onPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
   tiempoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    padding: 8,
-    backgroundColor: '#fff5f5',
+    marginTop: SPACING.fixed.xs,
+    padding: SPACING.fixed.xs,
+    backgroundColor: errorStatus.bg,
     borderRadius: 6,
-    gap: 4,
+    gap: SPACING.fixed.xxs,
   },
   tiempoTexto: {
     fontSize: 12,
-    color: '#dc3545',
+    color: I.semanticDown,
     fontWeight: '500',
   },
-  // Estilos para checklist
   cardUrgente: {
     borderLeftWidth: 4,
-    borderLeftColor: '#dc3545',
+    borderLeftColor: I.semanticDown,
   },
   cardCompletable: {
     borderLeftWidth: 4,
-    borderLeftColor: '#28a745',
+    borderLeftColor: I.semanticUp,
   },
   checklistSection: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    backgroundColor: neutralStatus.bg,
+    padding: SPACING.fixed.sm,
+    borderRadius: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.sm,
   },
   checklistSectionUrgente: {
-    backgroundColor: '#fff3cd',
+    backgroundColor: warningStatus.bg,
     borderWidth: 1,
-    borderColor: '#ffeaa7',
+    borderColor: warningStatus.border,
   },
   checklistSectionCompletado: {
-    backgroundColor: '#d4edda',
+    backgroundColor: successStatus.bg,
     borderWidth: 1,
-    borderColor: '#c3e6cb',
+    borderColor: successStatus.border,
   },
   checklistHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.fixed.xs,
   },
   checklistInfo: {
     flexDirection: 'row',
@@ -818,31 +827,31 @@ const styles = StyleSheet.create({
   checklistCompletedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#d4edda',
+    backgroundColor: successStatus.bg,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 12,
+    borderRadius: SPACING.fixed.sm,
   },
   checklistCompletedText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#155724',
-    marginLeft: 4,
+    color: successStatus.text,
+    marginLeft: SPACING.fixed.xxs,
   },
   alertaUrgente: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8d7da',
+    backgroundColor: errorStatus.bg,
     padding: 6,
     borderRadius: 6,
     marginBottom: 6,
     borderWidth: 1,
-    borderColor: '#f5c6cb',
+    borderColor: errorStatus.border,
   },
   alertaUrgenteTexto: {
     fontSize: 11,
-    color: '#721c24',
-    marginLeft: 4,
+    color: errorStatus.text,
+    marginLeft: SPACING.fixed.xxs,
     flex: 1,
   },
   progresoContainer: {
@@ -852,26 +861,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: SPACING.fixed.xxs,
   },
   progresoTexto: {
     fontSize: 11,
-    color: '#6c757d',
+    color: I.muted,
   },
   progresoPercentage: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#495057',
+    color: I.body,
   },
   progresoBar: {
     height: 3,
-    backgroundColor: '#e9ecef',
+    backgroundColor: I.hairline,
     borderRadius: 2,
     overflow: 'hidden',
   },
   progresoFill: {
     height: '100%',
-    backgroundColor: '#ffc107',
+    backgroundColor: I.accentYellow,
     borderRadius: 2,
   },
   checklistButton: {
@@ -879,14 +888,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 4,
-    marginTop: 8,
+    paddingVertical: SPACING.fixed.xs,
+    borderRadius: SPACING.fixed.xs,
+    gap: SPACING.fixed.xxs,
+    marginTop: SPACING.fixed.xs,
   },
   checklistButtonUrgente: {
     ...platformShadow({
-      shadowColor: '#dc3545',
+      shadowColor: I.semanticDown,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.3,
       shadowRadius: 4,
@@ -894,7 +903,7 @@ const styles = StyleSheet.create({
     }),
   },
   checklistButtonText: {
-    color: '#ffffff',
+    color: I.onPrimary,
     fontSize: 13,
     fontWeight: '600',
   },

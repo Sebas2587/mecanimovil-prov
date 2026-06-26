@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import creditosService, { type CreditoProveedor } from '@/services/creditosService';
 import {
   kpisProveedorService,
@@ -19,6 +20,12 @@ export function gananciasResumenQueryKey() {
 
 export function suscripcionProveedorQueryKey() {
   return ['proveedor-suscripcion'] as const;
+}
+
+/** Refresca finanzas del dashboard (ganancias y créditos) tras cerrar órdenes o citas. */
+export function invalidateDashboardFinanzasQueries(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: gananciasResumenQueryKey() });
+  void queryClient.invalidateQueries({ queryKey: saldoCreditosQueryKey() });
 }
 
 export function useSaldoCreditosQuery(enabled: boolean) {
