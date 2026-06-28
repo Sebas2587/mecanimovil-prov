@@ -28,6 +28,7 @@ import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
+import { ChannelBadge } from '@/components/chats/ChannelBadge';
 
 const I = COLORS.institutional;
 /** Jerarquía tipo Coinbase / doc proveedores — tamaños desde `TYPOGRAPHY.styles`. */
@@ -78,9 +79,13 @@ export default function ChatsScreen() {
     if (!isAuthenticated || !usuario) return;
 
     const unsubscribe = websocketService.onNuevoMensajeChat((event) => {
-      if (event.oferta_id) {
+      const rowKey = event.oferta_id || event.conversation_id;
+      if (rowKey) {
         setChats(prevChats => {
-          const chatIndex = prevChats.findIndex(chat => chat.oferta_id === event.oferta_id);
+          const chatIndex = prevChats.findIndex(chat =>
+            (event.oferta_id && chat.oferta_id === event.oferta_id)
+            || (event.conversation_id && chat.conversation_id === event.conversation_id),
+          );
           if (chatIndex !== -1) {
             const chatActualizado = { ...prevChats[chatIndex] };
             chatActualizado.ultimo_mensaje = {
@@ -92,7 +97,7 @@ export default function ChatsScreen() {
             };
             if (!event.es_proveedor) {
               chatActualizado.mensajes_no_leidos = (chatActualizado.mensajes_no_leidos || 0) + 1;
-              setChatHighlighted(event.oferta_id);
+              setChatHighlighted(rowKey);
               setTimeout(() => setChatHighlighted(null), 2000);
             }
             const nuevosChats = [chatActualizado, ...prevChats.filter((_, index) => index !== chatIndex)];
@@ -156,33 +161,47 @@ export default function ChatsScreen() {
   );
 
   const renderChatItem = useCallback(({ item }: { item: any }) => {
-    const { oferta_id, otra_persona, vehiculo, ultimo_mensaje, mensajes_no_leidos } = item;
-    const isHighlighted = chatHighlighted === oferta_id;
+    const {
+      oferta_id,
+      conversation_id,
+      channel,
+      kind,
+      otra_persona,
+      vehiculo,
+      ultimo_mensaje,
+      mensajes_no_leidos,
+    } = item;
+    const rowKey = oferta_id || conversation_id;
+    const isOmnichannel = kind === 'omnichannel' || (!oferta_id && conversation_id);
+    const isHighlighted = chatHighlighted === rowKey;
     const hasUnread = mensajes_no_leidos > 0;
     const vehiculoPill = formatVehiculoPillLabel(vehiculo);
     const isDeleting = deletingOfertaId === oferta_id;
 
     const handleOpenChat = () => {
       if (hasUnread) {
-        setChats(prev => prev.map(c => c.oferta_id === oferta_id ? { ...c, mensajes_no_leidos: 0 } : c));
+        setChats(prev => prev.map(c => {
+          const match = oferta_id
+            ? c.oferta_id === oferta_id
+            : c.conversation_id === conversation_id;
+          return match ? { ...c, mensajes_no_leidos: 0 } : c;
+        }));
         decrementarNoLeidos(mensajes_no_leidos);
       }
-      router.push(`/chat-oferta/${oferta_id}`);
+      if (isOmnichannel && conversation_id) {
+        router.push(`/chat-omnicanal/${conversation_id}` as never);
+      } else if (oferta_id) {
+        router.push(`/chat-oferta/${oferta_id}`);
+      }
     };
 
-    return (
-      <ChatSwipeableRow
-        rowKey={String(oferta_id)}
-        disabled={isDeleting}
-        onDelete={() => deleteChat(oferta_id, mensajes_no_leidos || 0)}
-      >
+    const rowContent = (
       <TouchableOpacity
         style={[styles.chatCard, isHighlighted && styles.chatCardHighlighted]}
         onPress={handleOpenChat}
         activeOpacity={0.7}
         disabled={isDeleting}
       >
-        {/* Avatar */}
         {otra_persona?.foto ? (
           <Image source={{ uri: otra_persona.foto }} style={styles.avatar} />
         ) : (
@@ -191,7 +210,6 @@ export default function ChatsScreen() {
           </View>
         )}
 
-        {/* Content */}
         <View style={styles.chatContent}>
           <View style={styles.chatTopRow}>
             <Text style={[styles.chatName, hasUnread && styles.chatNameUnread]} numberOfLines={1}>
@@ -201,6 +219,10 @@ export default function ChatsScreen() {
               {formatearFecha(ultimo_mensaje.fecha_envio)}
             </Text>
           </View>
+
+          {isOmnichannel && channel ? (
+            <ChannelBadge channel={channel} />
+          ) : null}
 
           {!!vehiculoPill && (
             <View style={styles.vehiclePill}>
@@ -236,6 +258,19 @@ export default function ChatsScreen() {
           </View>
         </View>
       </TouchableOpacity>
+    );
+
+    if (isOmnichannel) {
+      return <View key={String(rowKey)}>{rowContent}</View>;
+    }
+
+    return (
+      <ChatSwipeableRow
+        rowKey={String(oferta_id)}
+        disabled={isDeleting}
+        onDelete={() => deleteChat(oferta_id, mensajes_no_leidos || 0)}
+      >
+        {rowContent}
       </ChatSwipeableRow>
     );
   }, [chatHighlighted, decrementarNoLeidos, deletingOfertaId, deleteChat]);
@@ -275,7 +310,7 @@ export default function ChatsScreen() {
           <FlatList
             data={chats}
             renderItem={renderChatItem}
-            keyExtractor={(item) => item.oferta_id}
+            keyExtractor={(item) => item.conversation_id || item.oferta_id}
             contentContainerStyle={[styles.listContainer, chats.length === 0 && styles.listContainerEmpty]}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} colors={[I.primary]} />

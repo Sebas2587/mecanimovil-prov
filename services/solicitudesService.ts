@@ -766,14 +766,25 @@ export const eliminarChatPorOferta = async (
 
 export const obtenerListaChats = async (): Promise<any[]> => {
   try {
-    // Verificar autenticación antes de hacer la llamada
     const token = await getItem('authToken');
     if (!token) {
       console.log('⚠️ [SOLICITUDES SERVICE] No hay token, no se puede obtener lista de chats');
       return [];
     }
 
-    console.log('📨 [SOLICITUDES SERVICE] Obteniendo lista de chats');
+    console.log('📨 [SOLICITUDES SERVICE] Obteniendo inbox unificado de chats');
+    try {
+      const inboxResponse = await api.get('/chat/conversations/inbox/');
+      if (Array.isArray(inboxResponse.data)) {
+        console.log('✅ [SOLICITUDES SERVICE] Inbox unificado:', inboxResponse.data.length);
+        return inboxResponse.data;
+      }
+    } catch (inboxErr: any) {
+      if (inboxErr.response?.status !== 404) {
+        console.warn('⚠️ [SOLICITUDES SERVICE] Inbox unificado no disponible, fallback legacy');
+      }
+    }
+
     const response = await api.get('/ordenes/chat-solicitudes/lista-chats/');
     console.log('✅ [SOLICITUDES SERVICE] Lista de chats obtenida:', response.data);
     return Array.isArray(response.data) ? response.data : [];

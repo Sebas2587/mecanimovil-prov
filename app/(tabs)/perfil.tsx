@@ -24,6 +24,7 @@ import {
   Wallet,
   Headphones,
   FileText,
+  MessageCircle,
   type LucideIcon,
 } from 'lucide-react-native';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
@@ -147,6 +148,12 @@ export default function PerfilScreen() {
             title: 'Mercado Pago',
             subtitle: 'Cobros y cuenta',
             onPress: () => router.push('/configuracion-mercadopago'),
+          },
+          {
+            Icon: MessageCircle,
+            title: 'Canales de mensajería',
+            subtitle: 'WhatsApp, Facebook e Instagram',
+            onPress: () => router.push('/configuracion-canales' as never),
           },
         ] as SettingRow[]),
     {

@@ -45,7 +45,13 @@ export function navigateByPushNotification(
       return true;
 
     case 'chat_message':
-    case 'nuevo_mensaje_chat':
+    case 'nuevo_mensaje_chat': {
+      const conversationId =
+        typeof data.conversation_id === 'string' ? data.conversation_id.trim() : '';
+      if (conversationId && !ofertaId) {
+        router.push(`/chat-omnicanal/${conversationId}` as never);
+        return true;
+      }
       if (ofertaId) {
         router.push(`/chat-oferta/${ofertaId}`);
         return true;
@@ -57,6 +63,7 @@ export function navigateByPushNotification(
       }
       router.push('/(tabs)/chats');
       return true;
+    }
 
     case 'new_offer':
     case 'nueva_oferta':

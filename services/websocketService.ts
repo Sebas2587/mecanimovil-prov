@@ -48,16 +48,19 @@ export interface NuevoMensajeChatEvent {
   type: 'nuevo_mensaje_chat';
   conversation_id?: string;
   mensaje_id: string;
-  oferta_id: string;
-  solicitud_id: string;
+  oferta_id?: string;
+  solicitud_id?: string;
   sender_id?: number;
   enviado_por: string;
   mensaje: string;
-  message?: string; // Optional alias
-  content?: string; // Optional alias
+  message?: string;
+  content?: string;
   es_proveedor: boolean;
   timestamp: string;
   archivo_adjunto?: string | null;
+  channel?: string;
+  external_contact_name?: string | null;
+  external_contact_phone?: string | null;
 }
 
 export interface PagoExpiradoEvent {
