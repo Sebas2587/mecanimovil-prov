@@ -11,6 +11,7 @@ import {
   AppState,
   AppStateStatus,
   Switch,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useFocusEffect } from 'expo-router';
@@ -59,6 +60,27 @@ const CANALES: { slug: CanalSlug; title: string; Icon: LucideIcon; hint: string 
 
 function findConnection(connections: ConexionCanal[], slug: CanalSlug) {
   return connections.find((c) => c.channel_slug === slug);
+}
+
+async function confirmarAccion(titulo: string, mensaje: string): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return window.confirm(`${titulo}\n\n${mensaje}`);
+  }
+  return new Promise((resolve) => {
+    Alert.alert(titulo, mensaje, [
+      { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+      { text: 'Confirmar', style: 'destructive', onPress: () => resolve(true) },
+    ]);
+  });
+}
+
+function extractApiError(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const data = (error as { response?: { data?: { error?: string; message?: string } } }).response?.data;
+    return data?.error || data?.message || fallback;
+  }
+  if (error instanceof Error) return error.message;
+  return fallback;
 }
 
 export default function ConfiguracionCanalesScreen() {
@@ -124,31 +146,26 @@ export default function ConfiguracionCanalesScreen() {
     try {
       const updated = await omnichannelService.toggleCanal(conn.id, value);
       setConnections((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-    } catch {
-      Alert.alert('Error', 'No se pudo cambiar el estado del canal.');
+    } catch (e: unknown) {
+      Alert.alert('Error', extractApiError(e, 'No se pudo cambiar el estado del canal.'));
+      cargar(true);
     }
   };
 
   const handleDesconectar = (conn: ConexionCanal) => {
-    Alert.alert(
-      'Desconectar canal',
-      `¿Desconectar ${conn.channel_display}? Dejarás de recibir mensajes por este canal.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Desconectar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const updated = await omnichannelService.desconectarCanal(conn.id);
-              setConnections((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-            } catch {
-              Alert.alert('Error', 'No se pudo desconectar.');
-            }
-          },
-        },
-      ],
-    );
+    void (async () => {
+      const ok = await confirmarAccion(
+        'Desconectar canal',
+        `¿Desconectar ${conn.channel_display}? Dejarás de recibir mensajes por este canal.`,
+      );
+      if (!ok) return;
+      try {
+        const updated = await omnichannelService.desconectarCanal(conn.id);
+        setConnections((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      } catch (e: unknown) {
+        Alert.alert('Error', extractApiError(e, 'No se pudo desconectar.'));
+      }
+    })();
   };
 
   const renderCanal = (cfg: (typeof CANALES)[number]) => {
