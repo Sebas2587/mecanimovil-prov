@@ -12,6 +12,7 @@ import {
   AppStateStatus,
   Switch,
   Platform,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useFocusEffect } from 'expo-router';
@@ -89,6 +90,8 @@ export default function ConfiguracionCanalesScreen() {
   const [featureEnabled, setFeatureEnabled] = useState(true);
   const [connections, setConnections] = useState<ConexionCanal[]>([]);
   const [conectando, setConectando] = useState<CanalSlug | null>(null);
+  const [phoneNumberIdInput, setPhoneNumberIdInput] = useState('');
+  const [guardandoPhoneId, setGuardandoPhoneId] = useState(false);
   const oauthInProgress = useRef(false);
 
   const cargar = useCallback(async (isRefresh = false) => {
@@ -168,9 +171,29 @@ export default function ConfiguracionCanalesScreen() {
     })();
   };
 
+  const handleConfigurarWhatsapp = async (conn: ConexionCanal) => {
+    const phoneNumberId = phoneNumberIdInput.trim();
+    if (!phoneNumberId) {
+      Alert.alert('Phone Number ID', 'Pega el identificador desde Meta Business Suite.');
+      return;
+    }
+    try {
+      setGuardandoPhoneId(true);
+      const updated = await omnichannelService.configurarWhatsapp(conn.id, phoneNumberId);
+      setConnections((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      setPhoneNumberIdInput('');
+      Alert.alert('Listo', 'WhatsApp conectado correctamente.');
+    } catch (e: unknown) {
+      Alert.alert('Error', extractApiError(e, 'No se pudo validar el Phone Number ID.'));
+    } finally {
+      setGuardandoPhoneId(false);
+    }
+  };
+
   const renderCanal = (cfg: (typeof CANALES)[number]) => {
     const conn = findConnection(connections, cfg.slug);
     const conectada = conn?.status === 'conectada';
+    const pendienteWhatsapp = cfg.slug === 'whatsapp' && conn?.status === 'pendiente';
     const isConnecting = conectando === cfg.slug;
 
     return (
@@ -204,8 +227,36 @@ export default function ConfiguracionCanalesScreen() {
             {conn.mensaje_estado}
           </InstitutionalText>
         ) : null}
+        {pendienteWhatsapp && conn ? (
+          <View style={styles.phoneIdBlock}>
+            <InstitutionalText role="caption" color="muted" style={styles.hint}>
+              Meta Business Suite → WhatsApp → Mecanimovil spa → Configuración API →
+              Identificador de número de teléfono (+56995945258).
+            </InstitutionalText>
+            <TextInput
+              style={styles.phoneIdInput}
+              value={phoneNumberIdInput}
+              onChangeText={setPhoneNumberIdInput}
+              placeholder="Phone Number ID (ej. 106540352242922)"
+              placeholderTextColor={I.muted}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity
+              style={styles.btnPrimary}
+              onPress={() => handleConfigurarWhatsapp(conn)}
+              disabled={guardandoPhoneId}
+            >
+              {guardandoPhoneId ? (
+                <ActivityIndicator color={I.onPrimary} />
+              ) : (
+                <InstitutionalText role="button" color="onPrimary">Completar conexión</InstitutionalText>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : null}
         <View style={styles.actions}>
-          {!conectada ? (
+          {!conectada && !pendienteWhatsapp ? (
             <TouchableOpacity
               style={styles.btnPrimary}
               onPress={() => handleConectar(cfg.slug)}
@@ -322,6 +373,16 @@ const styles = StyleSheet.create({
   cardStatus: {},
   hint: { marginBottom: SPACING.sm },
   msgEstado: { marginBottom: SPACING.sm },
+  phoneIdBlock: { gap: SPACING.sm, marginBottom: SPACING.sm },
+  phoneIdInput: {
+    borderWidth: 1,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    color: I.ink,
+    backgroundColor: I.surfaceSoft,
+  },
   actions: { flexDirection: 'row', marginTop: SPACING.xs },
   btnPrimary: {
     flexDirection: 'row',

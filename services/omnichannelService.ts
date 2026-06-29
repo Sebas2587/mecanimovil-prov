@@ -89,6 +89,14 @@ const omnichannelService = {
     return data;
   },
 
+  async configurarWhatsapp(connectionId: string, phoneNumberId: string): Promise<ConexionCanal> {
+    const { data } = await api.post<ConexionCanal>(
+      `/omnichannel/connections/${connectionId}/configurar-whatsapp/`,
+      { phone_number_id: phoneNumberId.trim() },
+    );
+    return data;
+  },
+
   async obtenerInboxUnificado(): Promise<InboxChatItem[]> {
     const { data } = await api.get<InboxChatItem[]>('/chat/conversations/inbox/');
     return Array.isArray(data) ? data : [];
