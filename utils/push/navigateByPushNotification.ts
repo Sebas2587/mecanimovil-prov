@@ -49,7 +49,10 @@ export function navigateByPushNotification(
       const conversationId =
         typeof data.conversation_id === 'string' ? data.conversation_id.trim() : '';
       if (conversationId && !ofertaId) {
-        router.push(`/chat-omnicanal/${conversationId}` as never);
+        router.push({
+          pathname: '/chat-omnicanal/[conversationId]',
+          params: { conversationId: String(conversationId) },
+        } as never);
         return true;
       }
       if (ofertaId) {

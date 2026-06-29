@@ -33,9 +33,8 @@ class ChatService {
   async getMessages(conversationId: string) {
     const response = await get(`/chat/conversations/${conversationId}/messages/`);
     const data = response.data as { results?: unknown[] } | unknown[];
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.results)) return data.results;
-    return [];
+    const rows = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+    return rows;
   }
 
   async markRead(conversationId: string) {

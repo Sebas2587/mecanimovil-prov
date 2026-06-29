@@ -16,10 +16,11 @@ import {
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Send, User, Link2 } from 'lucide-react-native';
+import { ArrowLeft, Send, Link2 } from 'lucide-react-native';
 import chatService from '@/services/chatService';
 import omnichannelService from '@/services/omnichannelService';
 import { ChannelBadge, channelRespondLabel } from '@/components/chats/ChannelBadge';
+import { ChannelAvatar } from '@/components/chats/ChannelAvatar';
 import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
 import websocketService, { type NuevoMensajeChatEvent } from '@/app/services/websocketService';
@@ -157,8 +158,13 @@ export default function ChatOmnicanalScreen() {
       },
     ]);
     try {
-      await chatService.sendMessageHTTP(convId, { content: trimmed });
-      await cargar();
+      const sent = await chatService.sendMessageHTTP(convId, { content: trimmed });
+      const mapped = mapApiMessage(sent as Record<string, unknown>);
+      setMensajes((prev) => {
+        const withoutTemp = prev.filter((m) => m.id !== tempId);
+        if (withoutTemp.some((m) => m.id === mapped.id)) return withoutTemp;
+        return [...withoutTemp, mapped];
+      });
     } catch {
       Alert.alert('Error', 'No se pudo enviar el mensaje.');
       setMensajes((prev) => prev.filter((m) => m.id !== tempId));
@@ -205,9 +211,7 @@ export default function ChatOmnicanalScreen() {
         <TouchableOpacity onPress={() => setVincularVisible(true)} style={styles.linkBtn}>
           <Link2 size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
-        <View style={styles.avatar}>
-          <User size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-        </View>
+        <ChannelAvatar channel={channel} size={36} />
       </View>
 
       <View style={styles.banner}>
@@ -254,9 +258,10 @@ export default function ChatOmnicanalScreen() {
         <FlatList
           ref={flatListRef}
           data={mensajes}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
           renderItem={({ item }) => (
             <ChatBubble
               mensaje={{
@@ -312,14 +317,6 @@ const styles = StyleSheet.create({
   backBtn: { padding: SPACING.xs, marginRight: SPACING.sm },
   headerCenter: { flex: 1 },
   headerTitle: { ...TYPOGRAPHY.styles.h3, color: I.ink, fontWeight: '600' },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: I.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   banner: {
     backgroundColor: I.surfaceSoft,
     paddingHorizontal: SPACING.md,

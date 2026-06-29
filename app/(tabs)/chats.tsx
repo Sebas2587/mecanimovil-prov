@@ -5,15 +5,15 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Pressable,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  MessageCircle, User, Check, CheckCheck,
+  MessageCircle, Check, CheckCheck,
 } from 'lucide-react-native';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -29,6 +29,7 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-syst
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
 import { ChannelBadge } from '@/components/chats/ChannelBadge';
+import { ChannelAvatar } from '@/components/chats/ChannelAvatar';
 
 const I = COLORS.institutional;
 /** Jerarquía tipo Coinbase / doc proveedores — tamaños desde `TYPOGRAPHY.styles`. */
@@ -189,26 +190,32 @@ export default function ChatsScreen() {
         decrementarNoLeidos(mensajes_no_leidos);
       }
       if (isOmnichannel && conversation_id) {
-        router.push(`/chat-omnicanal/${conversation_id}` as never);
+        router.push({
+          pathname: '/chat-omnicanal/[conversationId]',
+          params: { conversationId: String(conversation_id) },
+        });
       } else if (oferta_id) {
-        router.push(`/chat-oferta/${oferta_id}`);
+        router.push({
+          pathname: '/chat-oferta/[ofertaId]',
+          params: { ofertaId: String(oferta_id) },
+        });
       }
     };
 
     const rowContent = (
-      <TouchableOpacity
-        style={[styles.chatCard, isHighlighted && styles.chatCardHighlighted]}
+      <Pressable
+        style={({ pressed }) => [
+          styles.chatCard,
+          isHighlighted && styles.chatCardHighlighted,
+          pressed && styles.chatCardPressed,
+        ]}
         onPress={handleOpenChat}
-        activeOpacity={0.7}
         disabled={isDeleting}
       >
-        {otra_persona?.foto ? (
-          <Image source={{ uri: otra_persona.foto }} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <User size={22} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-          </View>
-        )}
+        <ChannelAvatar
+          channel={isOmnichannel ? channel : 'app'}
+          photoUrl={!isOmnichannel ? otra_persona?.foto : null}
+        />
 
         <View style={styles.chatContent}>
           <View style={styles.chatTopRow}>
@@ -216,12 +223,14 @@ export default function ChatsScreen() {
               {otra_persona?.nombre || 'Cliente'}
             </Text>
             <Text style={[styles.chatDate, hasUnread && styles.chatDateUnread]}>
-              {formatearFecha(ultimo_mensaje.fecha_envio)}
+              {ultimo_mensaje?.fecha_envio ? formatearFecha(ultimo_mensaje.fecha_envio) : ''}
             </Text>
           </View>
 
           {isOmnichannel && channel ? (
-            <ChannelBadge channel={channel} />
+            <View style={styles.channelRow}>
+              <ChannelBadge channel={channel} compact />
+            </View>
           ) : null}
 
           {!!vehiculoPill && (
@@ -233,7 +242,7 @@ export default function ChatsScreen() {
           )}
 
           <View style={styles.chatMessageRow}>
-            {ultimo_mensaje.es_propio && (
+            {ultimo_mensaje?.es_propio && (
               <>
                 {ultimo_mensaje.leido ? (
                   <CheckCheck size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} style={{ marginRight: 4 }} />
@@ -243,10 +252,10 @@ export default function ChatsScreen() {
               </>
             )}
             <Text
-              style={[styles.chatMessage, hasUnread && !ultimo_mensaje.es_propio && styles.chatMessageUnread]}
+              style={[styles.chatMessage, hasUnread && !ultimo_mensaje?.es_propio && styles.chatMessageUnread]}
               numberOfLines={1}
             >
-              {ultimo_mensaje.es_propio ? 'Tú: ' : ''}{ultimo_mensaje.mensaje}
+              {ultimo_mensaje?.es_propio ? 'Tú: ' : ''}{ultimo_mensaje?.mensaje || 'Sin mensajes'}
             </Text>
             {hasUnread && (
               <View style={styles.unreadBadge}>
@@ -257,7 +266,7 @@ export default function ChatsScreen() {
             )}
           </View>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
 
     if (isOmnichannel) {
@@ -368,20 +377,8 @@ const styles = StyleSheet.create({
     backgroundColor: I.surfaceStrong,
     borderColor: I.primary,
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: BORDERS.radius.full,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-  },
-  avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: BORDERS.radius.full,
-    backgroundColor: I.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  chatCardPressed: {
+    opacity: 0.92,
   },
   chatContent: {
     flex: 1,
@@ -391,6 +388,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  channelRow: {
+    marginTop: 2,
   },
   chatName: {
     flex: 1,
