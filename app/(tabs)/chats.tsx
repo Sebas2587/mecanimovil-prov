@@ -172,6 +172,7 @@ export default function ChatsScreen() {
       ultimo_mensaje,
       mensajes_no_leidos,
     } = item;
+    const rowKey = oferta_id || conversation_id;
     const isOmnichannel = kind === 'omnichannel' || (!oferta_id && conversation_id);
     const isHighlighted = chatHighlighted === rowKey;
     const hasUnread = mensajes_no_leidos > 0;
