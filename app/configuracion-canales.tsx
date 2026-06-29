@@ -84,6 +84,18 @@ function extractApiError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Oculta errores técnicos heredados (URLs, stack de Meta, etc.). */
+function mensajeEstadoParaUsuario(msg: string | null | undefined): string | null {
+  if (!msg) return null;
+  if (/https?:\/\//i.test(msg) || /graph\.facebook/i.test(msg) || /Client Error/i.test(msg)) {
+    return 'No se pudo conectar. Pulsa Conectar e intenta de nuevo.';
+  }
+  if (/client_secret|access_token\?/i.test(msg)) {
+    return 'No se pudo conectar. Pulsa Conectar e intenta de nuevo.';
+  }
+  return msg;
+}
+
 export default function ConfiguracionCanalesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -224,14 +236,14 @@ export default function ConfiguracionCanalesScreen() {
         </InstitutionalText>
         {conn?.mensaje_estado ? (
           <InstitutionalText role="caption" color="body" style={styles.msgEstado}>
-            {conn.mensaje_estado}
+            {mensajeEstadoParaUsuario(conn.mensaje_estado)}
           </InstitutionalText>
         ) : null}
         {pendienteWhatsapp && conn ? (
           <View style={styles.phoneIdBlock}>
             <InstitutionalText role="caption" color="muted" style={styles.hint}>
-              Meta Business Suite → WhatsApp → Mecanimovil spa → Configuración API →
-              Identificador de número de teléfono (+56995945258).
+              Meta Business Suite → WhatsApp → Mecanimovil (+56 9 9594 5258) →
+              Configuración API → Identificador de número de teléfono.
             </InstitutionalText>
             <TextInput
               style={styles.phoneIdInput}
