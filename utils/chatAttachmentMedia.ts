@@ -31,3 +31,15 @@ export function isChatAttachmentImage(uri: string | null | undefined): boolean {
   if (/chat_(solicitudes|attachments)\//i.test(uri)) return true;
   return false;
 }
+
+export function isChatAttachmentVideo(uri: string | null | undefined): boolean {
+  if (!uri || typeof uri !== 'string') return false;
+  const path = uri.split('?')[0];
+  return /\.(mp4|mov|webm|3gp|m4v)$/i.test(path);
+}
+
+export function isChatAttachmentAudio(uri: string | null | undefined): boolean {
+  if (!uri || typeof uri !== 'string') return false;
+  const path = uri.split('?')[0];
+  return /\.(mp3|m4a|ogg|wav|aac)$/i.test(path);
+}

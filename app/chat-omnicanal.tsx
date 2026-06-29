@@ -12,11 +12,14 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Send, Link2 } from 'lucide-react-native';
+import { ArrowLeft, Send, Link2, X, Paperclip } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import chatService from '@/services/chatService';
 import omnichannelService from '@/services/omnichannelService';
 import { ChannelBadge, channelRespondLabel } from '@/components/chats/ChannelBadge';
@@ -25,10 +28,19 @@ import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
 import websocketService, { type NuevoMensajeChatEvent } from '@/app/services/websocketService';
 import { BLANK_GLASS } from '@/app/design-system/blankGlass';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { isChatAttachmentImage } from '@/utils/chatAttachmentMedia';
 
 const I = COLORS.institutional;
+const GLASS_INSET = SPACING.md;
+
+type AttachmentState = {
+  uri: string;
+  type: 'image' | 'video' | 'audio';
+  name: string;
+  mime: string;
+};
 
 type ChatRow = {
   id: string;
@@ -36,12 +48,21 @@ type ChatRow = {
   es_proveedor: boolean;
   fecha_envio: string;
   enviado_por_nombre: string;
+  archivo_adjunto: string | null;
 };
 
 function resolveConversationId(params: Record<string, string | string[] | undefined>): string {
   const raw = params.conversationId;
   if (Array.isArray(raw)) return String(raw[0] || '').trim();
   return String(raw || '').trim();
+}
+
+function mergeChatRow(prev: ChatRow[], row: ChatRow): ChatRow[] {
+  const idx = prev.findIndex((m) => m.id === row.id);
+  if (idx >= 0) {
+    return prev.map((m, i) => (i === idx ? { ...m, ...row } : m));
+  }
+  return [...prev, row];
 }
 
 export default function ChatOmnicanalScreen() {
@@ -61,6 +82,8 @@ export default function ChatOmnicanalScreen() {
   const [solicitudIdInput, setSolicitudIdInput] = useState('');
   const [vinculando, setVinculando] = useState(false);
   const [solicitudVinculada, setSolicitudVinculada] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<AttachmentState | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -68,14 +91,29 @@ export default function ChatOmnicanalScreen() {
     const direction = row.direction as string | undefined;
     const senderId = row.sender_id as number | null | undefined;
     const esPropio = direction === 'outbound' || (usuario?.id != null && senderId === usuario.id);
+    const adjunto = (row.attachment ?? row.archivo_adjunto ?? null) as string | null;
     return {
       id: String(row.id),
       mensaje: String(row.content ?? row.mensaje ?? ''),
       es_proveedor: esPropio,
       fecha_envio: String(row.timestamp ?? new Date().toISOString()),
       enviado_por_nombre: String(row.sender_name ?? (esPropio ? 'Tú' : contactName)),
+      archivo_adjunto: adjunto,
     };
   }, [contactName, usuario?.id]);
+
+  const mapWsEvent = useCallback((event: NuevoMensajeChatEvent | Record<string, unknown>): ChatRow => {
+    const raw = event as Record<string, unknown>;
+    const esPropio = Boolean(raw.es_proveedor);
+    return {
+      id: String(raw.mensaje_id ?? raw.id ?? ''),
+      mensaje: String(raw.mensaje ?? raw.message ?? raw.content ?? ''),
+      es_proveedor: esPropio,
+      fecha_envio: String(raw.timestamp ?? new Date().toISOString()),
+      enviado_por_nombre: String(raw.enviado_por ?? (esPropio ? 'Tú' : contactName)),
+      archivo_adjunto: (raw.archivo_adjunto ?? raw.attachment ?? null) as string | null,
+    };
+  }, [contactName]);
 
   const cargar = useCallback(async () => {
     if (!convId) return;
@@ -110,14 +148,11 @@ export default function ChatOmnicanalScreen() {
     chatService.connect(convId, (data) => {
       const raw = data as Record<string, unknown>;
       if (String(raw.conversation_id) !== convId) return;
-      const msg = mapApiMessage(raw);
-      setMensajes((prev) => {
-        if (prev.some((m) => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
+      const msg = mapWsEvent(raw);
+      setMensajes((prev) => mergeChatRow(prev, msg));
     });
     return () => chatService.disconnect();
-  }, [convId, mapApiMessage]);
+  }, [convId, mapWsEvent]);
 
   useEffect(() => {
     const unsub = websocketService.onNuevoMensajeChat((event: NuevoMensajeChatEvent) => {
@@ -125,20 +160,11 @@ export default function ChatOmnicanalScreen() {
       if (event.channel) setChannel(event.channel);
       if (event.external_contact_name) setContactName(event.external_contact_name);
       if (event.external_contact_phone) setContactPhone(event.external_contact_phone);
-      const msg: ChatRow = {
-        id: event.mensaje_id,
-        mensaje: event.mensaje || event.message || '',
-        es_proveedor: event.es_proveedor,
-        fecha_envio: event.timestamp,
-        enviado_por_nombre: event.enviado_por,
-      };
-      setMensajes((prev) => {
-        if (prev.some((m) => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
+      const msg = mapWsEvent(event);
+      setMensajes((prev) => mergeChatRow(prev, msg));
     });
     return unsub;
-  }, [convId]);
+  }, [convId, mapWsEvent]);
 
   useEffect(() => {
     omnichannelService.obtenerInboxUnificado().then((items) => {
@@ -152,11 +178,73 @@ export default function ChatOmnicanalScreen() {
     }).catch(() => {});
   }, [convId]);
 
+  const handlePickMedia = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso necesario', 'Se necesita acceso a la galería para enviar fotos o videos.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsEditing: false,
+        quality: 0.8,
+        videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+      });
+      if (!result.canceled && result.assets?.length) {
+        const asset = result.assets[0];
+        const isVideo = asset.type === 'video';
+        setAttachment({
+          uri: asset.uri,
+          type: isVideo ? 'video' : 'image',
+          name: asset.fileName || `${isVideo ? 'video' : 'image'}_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+          mime: isVideo ? 'video/mp4' : 'image/jpeg',
+        });
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudo seleccionar el archivo.');
+    }
+  };
+
+  const handlePickAudio = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'audio/*',
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets?.length) {
+        const asset = result.assets[0];
+        setAttachment({
+          uri: asset.uri,
+          type: 'audio',
+          name: asset.name || `audio_${Date.now()}.m4a`,
+          mime: asset.mimeType || 'audio/m4a',
+        });
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudo seleccionar el audio.');
+    }
+  };
+
+  const handleAttachPress = () => {
+    if (Platform.OS === 'web') {
+      handlePickMedia();
+      return;
+    }
+    Alert.alert('Adjuntar', 'Selecciona el tipo de archivo', [
+      { text: 'Foto o video', onPress: handlePickMedia },
+      { text: 'Audio', onPress: handlePickAudio },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
   const enviar = async () => {
     const trimmed = texto.trim();
-    if (!trimmed || !convId) return;
+    if ((!trimmed && !attachment) || !convId) return;
     setEnviando(true);
     setTexto('');
+    const attachmentTemp = attachment;
+    setAttachment(null);
     Keyboard.dismiss();
     const tempId = `temp-${Date.now()}`;
     setMensajes((prev) => [
@@ -167,20 +255,30 @@ export default function ChatOmnicanalScreen() {
         es_proveedor: true,
         fecha_envio: new Date().toISOString(),
         enviado_por_nombre: 'Tú',
+        archivo_adjunto: attachmentTemp ? attachmentTemp.uri : null,
       },
     ]);
     try {
-      const sent = await chatService.sendMessageHTTP(convId, { content: trimmed });
+      const sent = await chatService.sendMessageHTTP(
+        convId,
+        {
+          content: trimmed,
+          attachment: attachmentTemp
+            ? { uri: attachmentTemp.uri, name: attachmentTemp.name, type: attachmentTemp.mime }
+            : null,
+        },
+        Boolean(attachmentTemp),
+      );
       const mapped = mapApiMessage(sent as Record<string, unknown>);
       setMensajes((prev) => {
         const withoutTemp = prev.filter((m) => m.id !== tempId);
-        if (withoutTemp.some((m) => m.id === mapped.id)) return withoutTemp;
-        return [...withoutTemp, mapped];
+        return mergeChatRow(withoutTemp, mapped);
       });
     } catch {
       Alert.alert('Error', 'No se pudo enviar el mensaje.');
       setMensajes((prev) => prev.filter((m) => m.id !== tempId));
       setTexto(trimmed);
+      setAttachment(attachmentTemp);
     } finally {
       setEnviando(false);
     }
@@ -203,142 +301,259 @@ export default function ChatOmnicanalScreen() {
     }
   };
 
-  const banner = `Respondiendo por ${channelRespondLabel(channel)} · ${contactName}${
+  const displayName =
+    contactName.length > 28 && /^\d+$/.test(contactName.replace(/\s/g, ''))
+      ? `Cliente ${contactName.slice(-6)}`
+      : contactName;
+
+  const banner = `Respondiendo por ${channelRespondLabel(channel)} · ${displayName}${
     contactPhone ? ` (${contactPhone})` : ''
   }`;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <LinearGradient style={StyleSheet.absoluteFill} colors={BLANK_GLASS.gradient} locations={BLANK_GLASS.gradientLocations} />
-      <Stack.Screen options={{ headerShown: false }} />
+    <View style={styles.screenRoot}>
+      <LinearGradient
+        style={StyleSheet.absoluteFill}
+        colors={BLANK_GLASS.gradient}
+        locations={BLANK_GLASS.gradientLocations}
+      />
+      <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+        <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={[styles.header, { paddingTop: insets.top + SPACING.sm }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{contactName}</Text>
-          <ChannelBadge channel={channel} compact />
+        <View style={[styles.header, { paddingTop: insets.top + SPACING.sm }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <ArrowLeft size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <View style={styles.headerNameRow}>
+              <ChannelAvatar channel={channel} size={34} />
+              <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+                {displayName}
+              </Text>
+            </View>
+            <ChannelBadge channel={channel} compact />
+          </View>
+          <TouchableOpacity onPress={() => setVincularVisible(true)} style={styles.linkBtn}>
+            <Link2 size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={() => setVincularVisible(true)} style={styles.linkBtn}>
-          <Link2 size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-        </TouchableOpacity>
-        <ChannelAvatar channel={channel} size={36} />
-      </View>
 
-      <View style={styles.banner}>
-        <Text style={styles.bannerText}>{banner}</Text>
-        {solicitudVinculada ? (
-          <Text style={styles.bannerLinked}>Vinculada a solicitud {solicitudVinculada}</Text>
-        ) : null}
-      </View>
+        <View style={styles.banner}>
+          <Text style={styles.bannerText} numberOfLines={2}>{banner}</Text>
+          {solicitudVinculada ? (
+            <Text style={styles.bannerLinked}>Vinculada a solicitud {solicitudVinculada}</Text>
+          ) : null}
+        </View>
 
-      <Modal visible={vincularVisible} transparent animationType="fade">
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Vincular a solicitud</Text>
-            <Text style={styles.modalHint}>Pega el ID de una solicitud activa de tu taller.</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={solicitudIdInput}
-              onChangeText={setSolicitudIdInput}
-              placeholder="UUID solicitud"
-              placeholderTextColor={I.mutedSoft}
-              autoCapitalize="none"
+        <Modal visible={vincularVisible} transparent animationType="fade">
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Vincular a solicitud</Text>
+              <Text style={styles.modalHint}>Pega el ID de una solicitud activa de tu taller.</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={solicitudIdInput}
+                onChangeText={setSolicitudIdInput}
+                placeholder="UUID solicitud"
+                placeholderTextColor={I.mutedSoft}
+                autoCapitalize="none"
+              />
+              <View style={styles.modalActions}>
+                <TouchableOpacity onPress={() => setVincularVisible(false)} style={styles.modalCancel}>
+                  <Text style={styles.modalCancelText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={vincularSolicitud} style={styles.modalConfirm} disabled={vinculando}>
+                  {vinculando ? (
+                    <ActivityIndicator color={I.onPrimary} size="small" />
+                  ) : (
+                    <Text style={styles.modalConfirmText}>Vincular</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        <View style={styles.chatArea}>
+          {loading ? (
+            <View style={styles.centered}>
+              <ActivityIndicator color={I.primary} />
+            </View>
+          ) : mensajes.length > 0 ? (
+            <FlatList
+              ref={flatListRef}
+              data={mensajes}
+              keyExtractor={(item) => String(item.id)}
+              contentContainerStyle={[styles.listContent, { paddingBottom: 88 }]}
+              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+              onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+              renderItem={({ item }) => (
+                <ChatBubble
+                  mensaje={{
+                    id: item.id,
+                    oferta: convId,
+                    mensaje: item.mensaje,
+                    enviado_por: 0,
+                    enviado_por_nombre: item.enviado_por_nombre,
+                    es_proveedor: item.es_proveedor,
+                    fecha_envio: item.fecha_envio,
+                    leido: true,
+                    fecha_lectura: null,
+                    archivo_adjunto: item.archivo_adjunto,
+                  }}
+                  esPropio={item.es_proveedor}
+                  onImagePress={(url) => setSelectedImage(url)}
+                />
+              )}
             />
-            <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => setVincularVisible(false)} style={styles.modalCancel}>
-                <Text style={styles.modalCancelText}>Cancelar</Text>
+          ) : (
+            <View style={styles.centered}>
+              <Text style={styles.emptyHint}>Comienza la conversación enviando un mensaje</Text>
+            </View>
+          )}
+
+          <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, SPACING.sm) }]}>
+            {attachment && (
+              <View style={styles.attachPreview}>
+                {attachment.type === 'image' ? (
+                  <Image source={{ uri: attachment.uri }} style={styles.attachThumb} />
+                ) : (
+                  <Text style={styles.attachLabel}>
+                    {attachment.type === 'video' ? 'Video' : 'Audio'} · {attachment.name}
+                  </Text>
+                )}
+                <TouchableOpacity style={styles.attachRemove} onPress={() => setAttachment(null)}>
+                  <X size={14} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                </TouchableOpacity>
+              </View>
+            )}
+            <View style={styles.inputRow}>
+              <TouchableOpacity style={styles.attachBtn} onPress={handleAttachPress} accessibilityLabel="Adjuntar">
+                <Paperclip size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={vincularSolicitud} style={styles.modalConfirm} disabled={vinculando}>
-                {vinculando ? (
+              <TextInput
+                style={styles.input}
+                value={texto}
+                onChangeText={setTexto}
+                placeholder="Escribe un mensaje…"
+                placeholderTextColor={I.mutedSoft}
+                multiline
+                maxLength={500}
+                editable={!enviando}
+                blurOnSubmit={false}
+                returnKeyType="send"
+                onSubmitEditing={Platform.OS !== 'web' ? enviar : undefined}
+                onKeyPress={
+                  Platform.OS === 'web'
+                    ? (e: { nativeEvent: { key: string; shiftKey?: boolean }; preventDefault?: () => void }) => {
+                        if (e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
+                          e.preventDefault?.();
+                          enviar();
+                        }
+                      }
+                    : undefined
+                }
+              />
+              <TouchableOpacity
+                style={[styles.sendBtn, (!texto.trim() && !attachment || enviando) && styles.sendBtnDisabled]}
+                onPress={enviar}
+                disabled={(!texto.trim() && !attachment) || enviando}
+              >
+                {enviando ? (
                   <ActivityIndicator color={I.onPrimary} size="small" />
                 ) : (
-                  <Text style={styles.modalConfirmText}>Vincular</Text>
+                  <Send size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                 )}
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={I.primary} />
         </View>
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          data={mensajes}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.listContent}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-          onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-          renderItem={({ item }) => (
-            <ChatBubble
-              mensaje={{
-                id: item.id,
-                oferta: convId,
-                mensaje: item.mensaje,
-                enviado_por: 0,
-                enviado_por_nombre: item.enviado_por_nombre,
-                es_proveedor: item.es_proveedor,
-                fecha_envio: item.fecha_envio,
-                leido: true,
-                fecha_lectura: null,
-                archivo_adjunto: null,
-              }}
-              esPropio={item.es_proveedor}
-            />
-          )}
-        />
-      )}
 
-      <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, SPACING.sm) }]}>
-        <TextInput
-          style={styles.input}
-          value={texto}
-          onChangeText={setTexto}
-          placeholder="Escribe un mensaje…"
-          placeholderTextColor={I.mutedSoft}
-          multiline
-        />
-        <TouchableOpacity style={styles.sendBtn} onPress={enviar} disabled={enviando || !texto.trim()}>
-          {enviando ? (
-            <ActivityIndicator color={I.onPrimary} size="small" />
-          ) : (
-            <Send size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-          )}
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+        <Modal visible={!!selectedImage} transparent animationType="fade" onRequestClose={() => setSelectedImage(null)}>
+          <View style={styles.modalBg}>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedImage(null)}>
+              <X size={28} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+            </TouchableOpacity>
+            {selectedImage && isChatAttachmentImage(selectedImage) && (
+              <Image source={{ uri: selectedImage }} style={styles.modalImage} resizeMode="contain" />
+            )}
+          </View>
+        </Modal>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: I.canvas },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  screenRoot: {
+    flex: 1,
+    backgroundColor: I.canvas,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
+  },
+  emptyHint: {
+    ...TYPOGRAPHY.styles.body,
+    color: I.muted,
+    textAlign: 'center',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
+    paddingHorizontal: GLASS_INSET,
     paddingBottom: SPACING.sm,
-    borderBottomWidth: 1,
+    backgroundColor: I.canvas,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: I.hairline,
+    ...SHADOWS.editorial,
   },
-  backBtn: { padding: SPACING.xs, marginRight: SPACING.sm },
-  headerCenter: { flex: 1 },
-  headerTitle: { ...TYPOGRAPHY.styles.h3, color: I.ink, fontWeight: '600' },
+  backBtn: {
+    padding: 4,
+    minWidth: 36,
+    alignItems: 'flex-start',
+  },
+  headerCenter: {
+    flex: 1,
+    minWidth: 0,
+    marginHorizontal: SPACING.sm,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  headerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    width: '100%',
+    minWidth: 0,
+  },
+  headerTitle: {
+    ...TYPOGRAPHY.styles.h3,
+    color: I.ink,
+    fontWeight: '600',
+    flex: 1,
+    minWidth: 0,
+  },
+  linkBtn: {
+    padding: SPACING.xs,
+    minWidth: 36,
+    alignItems: 'center',
+  },
   banner: {
     backgroundColor: I.surfaceSoft,
-    paddingHorizontal: SPACING.md,
+    paddingHorizontal: GLASS_INSET,
     paddingVertical: SPACING.sm,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: I.hairline,
   },
   bannerText: { ...TYPOGRAPHY.styles.caption, color: I.body },
   bannerLinked: { ...TYPOGRAPHY.styles.caption, color: I.primary, marginTop: 4 },
-  linkBtn: { padding: SPACING.xs, marginRight: SPACING.sm },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -372,18 +587,49 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.md,
   },
   modalConfirmText: { ...TYPOGRAPHY.styles.button, color: I.onPrimary },
+  chatArea: { flex: 1 },
   listContent: { padding: SPACING.md, flexGrow: 1 },
+  inputBar: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+    backgroundColor: I.canvas,
+    paddingHorizontal: GLASS_INSET,
+    paddingTop: SPACING.sm,
+  },
+  attachPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  attachThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.surfaceStrong,
+  },
+  attachLabel: {
+    ...TYPOGRAPHY.styles.caption,
+    color: I.body,
+    flex: 1,
+  },
+  attachRemove: {
+    padding: SPACING.xs,
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: I.hairline,
-    backgroundColor: I.canvas,
+    gap: SPACING.sm,
+  },
+  attachBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     flex: 1,
+    minWidth: 0,
     ...TYPOGRAPHY.styles.body,
     color: I.ink,
     maxHeight: 100,
@@ -391,7 +637,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     backgroundColor: I.surfaceSoft,
     borderRadius: BORDERS.radius.lg,
-    marginRight: SPACING.sm,
   },
   sendBtn: {
     width: 44,
@@ -400,5 +645,25 @@ const styles = StyleSheet.create({
     backgroundColor: I.primary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sendBtnDisabled: {
+    opacity: 0.45,
+  },
+  modalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.88)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalClose: {
+    position: 'absolute',
+    top: 48,
+    right: 24,
+    zIndex: 2,
+    padding: SPACING.sm,
+  },
+  modalImage: {
+    width: '92%',
+    height: '70%',
   },
 });

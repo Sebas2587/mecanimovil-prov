@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { CheckCheck, Check } from 'lucide-react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
+import { CheckCheck, Check, Film, Music } from 'lucide-react-native';
 import { MensajeChat } from '@/services/solicitudesService';
 import ServerConfig from '@/services/serverConfig';
-import { isChatAttachmentImage, resolveChatAttachmentUri } from '@/utils/chatAttachmentMedia';
+import {
+  isChatAttachmentAudio,
+  isChatAttachmentImage,
+  isChatAttachmentVideo,
+  resolveChatAttachmentUri,
+} from '@/utils/chatAttachmentMedia';
 import { COLORS, TYPOGRAPHY, SHADOWS, BORDERS, SPACING, withOpacity } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
@@ -30,6 +35,13 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ mensaje, esPropio, onIma
     ServerConfig.getInstance().getMediaURLSync()
   );
   const showImage = !!attachmentRaw && isChatAttachmentImage(attachmentRaw);
+  const showVideo = !!attachmentRaw && !showImage && isChatAttachmentVideo(attachmentRaw);
+  const showAudio = !!attachmentRaw && !showImage && !showVideo && isChatAttachmentAudio(attachmentRaw);
+  const showFileLink = !!attachmentRaw && !showImage && !showVideo && !showAudio && !!imageUri;
+
+  const openAttachment = () => {
+    if (imageUri) Linking.openURL(imageUri).catch(() => {});
+  };
 
   return (
     <View style={[styles.container, esPropio ? styles.containerPropio : styles.containerOtro]}>
@@ -61,6 +73,32 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ mensaje, esPropio, onIma
               )}
             </TouchableOpacity>
           </View>
+        ) : null}
+
+        {showVideo && imageUri ? (
+          <TouchableOpacity style={styles.mediaLink} onPress={openAttachment} activeOpacity={0.8}>
+            <Film size={16} color={esPropio ? I.onPrimary : I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={[styles.mediaLinkText, esPropio ? styles.textPropio : styles.textOtro]}>
+              Ver video
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {showAudio && imageUri ? (
+          <TouchableOpacity style={styles.mediaLink} onPress={openAttachment} activeOpacity={0.8}>
+            <Music size={16} color={esPropio ? I.onPrimary : I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={[styles.mediaLinkText, esPropio ? styles.textPropio : styles.textOtro]}>
+              Reproducir audio
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {showFileLink ? (
+          <TouchableOpacity style={styles.mediaLink} onPress={openAttachment} activeOpacity={0.8}>
+            <Text style={[styles.mediaLinkText, esPropio ? styles.textPropio : styles.textOtro]}>
+              Ver archivo
+            </Text>
+          </TouchableOpacity>
         ) : null}
 
         {mensaje.mensaje ? (
@@ -148,6 +186,18 @@ const styles = StyleSheet.create({
     width: 200,
     height: 150,
     backgroundColor: I.surfaceStrong,
+  },
+  mediaLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+    paddingVertical: 4,
+  },
+  mediaLinkText: {
+    fontSize: T.body.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: '600',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
