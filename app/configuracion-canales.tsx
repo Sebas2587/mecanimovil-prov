@@ -11,7 +11,6 @@ import {
   AppStateStatus,
   Switch,
   Platform,
-  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useFocusEffect } from 'expo-router';
@@ -84,13 +83,19 @@ function extractApiError(error: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Oculta errores técnicos heredados (URLs, stack de Meta, etc.). */
+/** Oculta errores técnicos o instrucciones de soporte que no corresponden al taller. */
 function mensajeEstadoParaUsuario(msg: string | null | undefined): string | null {
   if (!msg) return null;
-  if (/https?:\/\//i.test(msg) || /graph\.facebook/i.test(msg) || /Client Error/i.test(msg)) {
-    return 'No se pudo conectar. Pulsa Conectar e intenta de nuevo.';
-  }
-  if (/client_secret|access_token\?/i.test(msg)) {
+  if (
+    /https?:\/\//i.test(msg)
+    || /graph\.facebook/i.test(msg)
+    || /Client Error/i.test(msg)
+    || /client_secret|access_token\?/i.test(msg)
+    || /phone number id/i.test(msg)
+    || /business suite/i.test(msg)
+    || /configuraci[oó]n api/i.test(msg)
+    || /pega(el)?/i.test(msg)
+  ) {
     return 'No se pudo conectar. Pulsa Conectar e intenta de nuevo.';
   }
   return msg;
@@ -102,8 +107,6 @@ export default function ConfiguracionCanalesScreen() {
   const [featureEnabled, setFeatureEnabled] = useState(true);
   const [connections, setConnections] = useState<ConexionCanal[]>([]);
   const [conectando, setConectando] = useState<CanalSlug | null>(null);
-  const [phoneNumberIdInput, setPhoneNumberIdInput] = useState('');
-  const [guardandoPhoneId, setGuardandoPhoneId] = useState(false);
   const oauthInProgress = useRef(false);
 
   const cargar = useCallback(async (isRefresh = false) => {
@@ -195,30 +198,11 @@ export default function ConfiguracionCanalesScreen() {
     })();
   };
 
-  const handleConfigurarWhatsapp = async (conn: ConexionCanal) => {
-    const phoneNumberId = phoneNumberIdInput.trim();
-    if (!phoneNumberId) {
-      Alert.alert('Phone Number ID', 'Pega el identificador desde Meta Business Suite.');
-      return;
-    }
-    try {
-      setGuardandoPhoneId(true);
-      const updated = await omnichannelService.configurarWhatsapp(conn.id, phoneNumberId);
-      setConnections((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-      setPhoneNumberIdInput('');
-      Alert.alert('Listo', 'WhatsApp conectado correctamente.');
-    } catch (e: unknown) {
-      Alert.alert('Error', extractApiError(e, 'No se pudo validar el Phone Number ID.'));
-    } finally {
-      setGuardandoPhoneId(false);
-    }
-  };
-
   const renderCanal = (cfg: (typeof CANALES)[number]) => {
     const conn = findConnection(connections, cfg.slug);
     const conectada = conn?.status === 'conectada';
-    const pendienteWhatsapp = cfg.slug === 'whatsapp' && conn?.status === 'pendiente';
     const isConnecting = conectando === cfg.slug;
+    const puedeConectar = !conectada && featureEnabled;
 
     return (
       <View key={cfg.slug} style={styles.card}>
@@ -251,51 +235,26 @@ export default function ConfiguracionCanalesScreen() {
             {mensajeEstadoParaUsuario(conn.mensaje_estado)}
           </InstitutionalText>
         ) : null}
-        {pendienteWhatsapp && conn ? (
-          <View style={styles.phoneIdBlock}>
-            <InstitutionalText role="caption" color="muted" style={styles.hint}>
-              Meta Business Suite → WhatsApp → Mecanimovil (+56 9 9594 5258) →
-              Configuración API → Identificador de número de teléfono.
-            </InstitutionalText>
-            <TextInput
-              style={styles.phoneIdInput}
-              value={phoneNumberIdInput}
-              onChangeText={setPhoneNumberIdInput}
-              placeholder="Phone Number ID (ej. 106540352242922)"
-              placeholderTextColor={I.muted}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity
-              style={styles.btnPrimary}
-              onPress={() => handleConfigurarWhatsapp(conn)}
-              disabled={guardandoPhoneId}
-            >
-              {guardandoPhoneId ? (
-                <ActivityIndicator color={I.onPrimary} />
-              ) : (
-                <InstitutionalText role="button" color="onPrimary">Completar conexión</InstitutionalText>
-              )}
-            </TouchableOpacity>
-          </View>
-        ) : null}
         <View style={styles.actions}>
-          {!conectada && !pendienteWhatsapp ? (
+          {puedeConectar ? (
             <TouchableOpacity
               style={styles.btnPrimary}
               onPress={() => handleConectar(cfg.slug)}
-              disabled={isConnecting || !featureEnabled}
+              disabled={isConnecting}
             >
               {isConnecting ? (
                 <ActivityIndicator color={I.onPrimary} />
               ) : (
                 <>
                   <Link2 size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                  <InstitutionalText role="button" color="onPrimary">Conectar</InstitutionalText>
+                  <InstitutionalText role="button" color="onPrimary">
+                    {conn?.status === 'pendiente' || conn?.status === 'error' ? 'Reintentar' : 'Conectar'}
+                  </InstitutionalText>
                 </>
               )}
             </TouchableOpacity>
-          ) : (
+          ) : null}
+          {conn && (conectada || conn.status === 'pendiente' || conn.status === 'error') ? (
             <TouchableOpacity
               style={styles.btnSecondary}
               onPress={() => conn && handleDesconectar(conn)}
@@ -303,7 +262,7 @@ export default function ConfiguracionCanalesScreen() {
               <Unlink size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               <InstitutionalText role="button" color="primary">Desconectar</InstitutionalText>
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
       </View>
     );
@@ -397,16 +356,6 @@ const styles = StyleSheet.create({
   cardStatus: {},
   hint: { marginBottom: SPACING.sm },
   msgEstado: { marginBottom: SPACING.sm },
-  phoneIdBlock: { gap: SPACING.sm, marginBottom: SPACING.sm },
-  phoneIdInput: {
-    borderWidth: 1,
-    borderColor: I.hairline,
-    borderRadius: BORDERS.radius.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    color: I.ink,
-    backgroundColor: I.surfaceSoft,
-  },
   actions: { flexDirection: 'row', marginTop: SPACING.xs },
   btnPrimary: {
     flexDirection: 'row',

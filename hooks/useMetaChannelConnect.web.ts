@@ -48,13 +48,11 @@ export function useMetaChannelConnect(onComplete: () => void) {
           });
           if (completion.success) {
             Alert.alert('Listo', completion.message || 'Canal conectado correctamente.');
-          } else if (completion.needs_phone_number_id) {
-            Alert.alert(
-              'Casi listo',
-              completion.message || 'Autorización recibida. Completa el Phone Number ID en la app si se solicita.',
-            );
           } else {
-            Alert.alert('No se pudo conectar', completion.message || 'Intenta de nuevo.');
+            Alert.alert(
+              'No se pudo conectar',
+              completion.message || 'Pulsa Conectar e intenta de nuevo.',
+            );
           }
           return true;
         }
