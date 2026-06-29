@@ -4,13 +4,11 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   Alert,
-  Pressable,
 } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   MessageCircle, Check, CheckCheck,
@@ -30,6 +28,8 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
 import { ChannelBadge } from '@/components/chats/ChannelBadge';
 import { ChannelAvatar } from '@/components/chats/ChannelAvatar';
+import { ChatInboxLinkRow } from '@/components/chats/ChatInboxLinkRow';
+import { resolveChatHref } from '@/utils/chatRoutes';
 
 const I = COLORS.institutional;
 /** Jerarquía tipo Coinbase / doc proveedores — tamaños desde `TYPOGRAPHY.styles`. */
@@ -172,14 +172,14 @@ export default function ChatsScreen() {
       ultimo_mensaje,
       mensajes_no_leidos,
     } = item;
-    const rowKey = oferta_id || conversation_id;
     const isOmnichannel = kind === 'omnichannel' || (!oferta_id && conversation_id);
     const isHighlighted = chatHighlighted === rowKey;
     const hasUnread = mensajes_no_leidos > 0;
     const vehiculoPill = formatVehiculoPillLabel(vehiculo);
     const isDeleting = deletingOfertaId === oferta_id;
+    const chatHref = resolveChatHref(item);
 
-    const handleOpenChat = () => {
+    const markReadIfNeeded = () => {
       if (hasUnread) {
         setChats(prev => prev.map(c => {
           const match = oferta_id
@@ -189,29 +189,10 @@ export default function ChatsScreen() {
         }));
         decrementarNoLeidos(mensajes_no_leidos);
       }
-      if (isOmnichannel && conversation_id) {
-        router.push({
-          pathname: '/chat-omnicanal/[conversationId]',
-          params: { conversationId: String(conversation_id) },
-        });
-      } else if (oferta_id) {
-        router.push({
-          pathname: '/chat-oferta/[ofertaId]',
-          params: { ofertaId: String(oferta_id) },
-        });
-      }
     };
 
-    const rowContent = (
-      <Pressable
-        style={({ pressed }) => [
-          styles.chatCard,
-          isHighlighted && styles.chatCardHighlighted,
-          pressed && styles.chatCardPressed,
-        ]}
-        onPress={handleOpenChat}
-        disabled={isDeleting}
-      >
+    const cardBody = (
+      <View style={[styles.chatCard, isHighlighted && styles.chatCardHighlighted]}>
         <ChannelAvatar
           channel={isOmnichannel ? channel : 'app'}
           photoUrl={!isOmnichannel ? otra_persona?.foto : null}
@@ -266,22 +247,36 @@ export default function ChatsScreen() {
             )}
           </View>
         </View>
-      </Pressable>
+      </View>
     );
 
-    if (isOmnichannel) {
-      return <View key={String(rowKey)}>{rowContent}</View>;
+    if (isOmnichannel && chatHref) {
+      return (
+        <ChatInboxLinkRow
+          href={chatHref}
+          onPress={markReadIfNeeded}
+          highlighted={isHighlighted}
+        >
+          {cardBody}
+        </ChatInboxLinkRow>
+      );
     }
 
-    return (
-      <ChatSwipeableRow
-        rowKey={String(oferta_id)}
-        disabled={isDeleting}
-        onDelete={() => deleteChat(oferta_id, mensajes_no_leidos || 0)}
-      >
-        {rowContent}
-      </ChatSwipeableRow>
-    );
+    if (chatHref && !isOmnichannel) {
+      return (
+        <ChatSwipeableRow
+          rowKey={String(oferta_id)}
+          disabled={isDeleting}
+          onDelete={() => deleteChat(oferta_id, mensajes_no_leidos || 0)}
+        >
+          <ChatInboxLinkRow href={chatHref} onPress={markReadIfNeeded} highlighted={isHighlighted}>
+            {cardBody}
+          </ChatInboxLinkRow>
+        </ChatSwipeableRow>
+      );
+    }
+
+    return <View style={styles.listItemFallback}>{cardBody}</View>;
   }, [chatHighlighted, decrementarNoLeidos, deletingOfertaId, deleteChat]);
 
   const renderEmptyState = () => (
@@ -377,8 +372,8 @@ const styles = StyleSheet.create({
     backgroundColor: I.surfaceStrong,
     borderColor: I.primary,
   },
-  chatCardPressed: {
-    opacity: 0.92,
+  listItemFallback: {
+    marginBottom: SPACING.sm,
   },
   chatContent: {
     flex: 1,

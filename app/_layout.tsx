@@ -221,8 +221,8 @@ export default function RootLayout() {
                     }}
                   />
                   <Stack.Screen name="configuracion-canales" options={{ headerShown: false }} />
+                  <Stack.Screen name="chat-omnicanal" options={{ headerShown: false }} />
                   <Stack.Screen name="chat-oferta/[ofertaId]" options={{ headerShown: false }} />
-                  <Stack.Screen name="chat-omnicanal/[conversationId]" options={{ headerShown: false }} />
                   <Stack.Screen name="+not-found" />
                   </Stack>
                   <StatusBar style="auto" />

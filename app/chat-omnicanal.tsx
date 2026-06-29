@@ -38,11 +38,17 @@ type ChatRow = {
   enviado_por_nombre: string;
 };
 
+function resolveConversationId(params: Record<string, string | string[] | undefined>): string {
+  const raw = params.conversationId;
+  if (Array.isArray(raw)) return String(raw[0] || '').trim();
+  return String(raw || '').trim();
+}
+
 export default function ChatOmnicanalScreen() {
-  const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
+  const params = useLocalSearchParams<{ conversationId?: string | string[] }>();
   const { usuario } = useAuth();
   const insets = useSafeAreaInsets();
-  const convId = String(conversationId || '');
+  const convId = resolveConversationId(params);
 
   const [mensajes, setMensajes] = useState<ChatRow[]>([]);
   const [texto, setTexto] = useState('');
@@ -89,8 +95,14 @@ export default function ChatOmnicanalScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!convId) {
+        Alert.alert('Conversación no encontrada', 'Vuelve al listado de chats e intenta de nuevo.', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+        return;
+      }
       cargar();
-    }, [cargar]),
+    }, [cargar, convId]),
   );
 
   useEffect(() => {
