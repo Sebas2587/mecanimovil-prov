@@ -43,7 +43,7 @@ const CANALES: { slug: CanalSlug; title: string; Icon: LucideIcon; hint: string 
     slug: 'whatsapp',
     title: 'WhatsApp',
     Icon: Phone,
-    hint: 'Conecta tu WhatsApp Business. No necesitas desinstalar WhatsApp personal.',
+    hint: 'En Meta, selecciona solo la cuenta Mecanimovil (+56 9 9594 5258). Ignora cuentas wp_tel o de prueba.',
   },
   {
     slug: 'messenger',
@@ -144,10 +144,11 @@ export default function ConfiguracionCanalesScreen() {
       if (result.auth_url) {
         oauthInProgress.current = true;
         await Linking.openURL(result.auth_url);
-        Alert.alert(
-          'Conectar canal',
-          'Completa el proceso en el navegador y vuelve a la app. El estado se actualizará automáticamente.',
-        );
+        const instruccion =
+          slug === 'whatsapp'
+            ? 'En Meta, marca solo la cuenta WhatsApp Mecanimovil (+56 9 9594 5258). No selecciones cuentas wp_tel ni de prueba. Vuelve a la app al terminar.'
+            : 'Completa el proceso en el navegador y vuelve a la app. El estado se actualizará automáticamente.';
+        Alert.alert('Conectar canal', instruccion);
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'No se pudo iniciar la conexión';
