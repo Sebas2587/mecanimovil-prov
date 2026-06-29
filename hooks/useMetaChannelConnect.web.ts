@@ -23,13 +23,16 @@ export function useMetaChannelConnect(onComplete: () => void) {
 
   const connectEmbedded = useCallback(
     async (slug: CanalSlug) => {
-      const start = await omnichannelService.iniciarConexion(slug);
-      const embedded = start.embedded;
       const sessionRef: MetaEmbeddedSession = {};
       let removeListener: (() => void) | null = null;
 
       try {
-        if (embedded?.enabled && embedded.config_id && embedded.app_id) {
+        const start = await omnichannelService.iniciarConexion(slug);
+        const embedded = start.embedded;
+        const useEmbeddedSdk =
+          slug === 'whatsapp' && embedded?.enabled && embedded.config_id && embedded.app_id;
+
+        if (useEmbeddedSdk) {
           removeListener = listenEmbeddedSignupSession((session) => {
             Object.assign(sessionRef, session);
           });
@@ -60,7 +63,14 @@ export function useMetaChannelConnect(onComplete: () => void) {
         if (!start.auth_url) {
           throw new Error('Meta no está configurado para conexión embebida');
         }
-        await openOAuthPopup(start.auth_url);
+        const popupResult = await openOAuthPopup(start.auth_url);
+        if (popupResult.success === false) {
+          Alert.alert(
+            'No se pudo conectar',
+            popupResult.message || 'Pulsa Conectar e intenta de nuevo.',
+          );
+          return false;
+        }
         return true;
       } catch (error: unknown) {
         if (error instanceof Error && error.message === 'cancelled') {

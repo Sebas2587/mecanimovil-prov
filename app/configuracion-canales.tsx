@@ -139,7 +139,14 @@ export default function ConfiguracionCanalesScreen() {
   React.useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const onMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
+      const apiOrigins = [
+        'https://mecanimovil-api.onrender.com',
+        'https://api.mecanimovil.com',
+        'http://localhost:8000',
+      ];
+      const originOk =
+        event.origin === window.location.origin || apiOrigins.includes(event.origin);
+      if (!originOk) return;
       const data = event.data;
       if (!data || data.type !== 'mecanimovil:meta-oauth') return;
       oauthInProgress.current = false;

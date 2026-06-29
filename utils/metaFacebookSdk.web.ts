@@ -145,8 +145,15 @@ export function launchEmbeddedSignup(config: {
   });
 }
 
-export function openOAuthPopup(authUrl: string): Promise<void> {
+export function openOAuthPopup(authUrl: string): Promise<{ success: boolean; message?: string }> {
   return new Promise((resolve, reject) => {
+    const apiOrigin = (() => {
+      try {
+        return new URL(authUrl).origin;
+      } catch {
+        return '';
+      }
+    })();
     const width = 520;
     const height = 720;
     const left = window.screenX + (window.outerWidth - width) / 2;
@@ -161,18 +168,27 @@ export function openOAuthPopup(authUrl: string): Promise<void> {
       return;
     }
 
+    let settled = false;
+    const finish = (result: { success: boolean; message?: string }) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+
     const onMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
+      if (event.origin !== window.location.origin && event.origin !== apiOrigin) return;
       const data = event.data;
       if (!data || data.type !== 'mecanimovil:meta-oauth') return;
-      cleanup();
-      resolve();
+      finish({
+        success: data.success !== false,
+        message: typeof data.message === 'string' ? data.message : undefined,
+      });
     };
 
     const timer = window.setInterval(() => {
       if (popup.closed) {
-        cleanup();
-        resolve();
+        finish({ success: true });
       }
     }, 500);
 
