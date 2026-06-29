@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
-  Linking,
   AppState,
   AppStateStatus,
   Switch,
@@ -34,6 +33,7 @@ import omnichannelService, {
   type CanalSlug,
   type ConexionCanal,
 } from '@/services/omnichannelService';
+import { useMetaChannelConnect } from '@/hooks/useMetaChannelConnect';
 import { BLANK_GLASS } from '@/app/design-system/blankGlass';
 
 const I = COLORS.institutional;
@@ -43,7 +43,7 @@ const CANALES: { slug: CanalSlug; title: string; Icon: LucideIcon; hint: string 
     slug: 'whatsapp',
     title: 'WhatsApp',
     Icon: Phone,
-    hint: 'En Meta, selecciona solo la cuenta Mecanimovil (+56 9 9594 5258). Ignora cuentas wp_tel o de prueba.',
+    hint: 'Conecta tu WhatsApp Business en pocos pasos con Meta.',
   },
   {
     slug: 'messenger',
@@ -121,11 +121,30 @@ export default function ConfiguracionCanalesScreen() {
     }
   }, []);
 
+  const recargarCanales = useCallback(() => {
+    void cargar(true);
+  }, [cargar]);
+
+  const { connect: conectarCanalMeta } = useMetaChannelConnect(recargarCanales);
+
   useFocusEffect(
     useCallback(() => {
       cargar();
     }, [cargar]),
   );
+
+  React.useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data;
+      if (!data || data.type !== 'mecanimovil:meta-oauth') return;
+      oauthInProgress.current = false;
+      void cargar(true);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [cargar]);
 
   React.useEffect(() => {
     const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
@@ -140,19 +159,11 @@ export default function ConfiguracionCanalesScreen() {
   const handleConectar = async (slug: CanalSlug) => {
     try {
       setConectando(slug);
-      const result = await omnichannelService.iniciarConexion(slug);
-      if (result.auth_url) {
-        oauthInProgress.current = true;
-        await Linking.openURL(result.auth_url);
-        const instruccion =
-          slug === 'whatsapp'
-            ? 'En Meta, marca solo la cuenta WhatsApp Mecanimovil (+56 9 9594 5258). No selecciones cuentas wp_tel ni de prueba. Vuelve a la app al terminar.'
-            : 'Completa el proceso en el navegador y vuelve a la app. El estado se actualizará automáticamente.';
-        Alert.alert('Conectar canal', instruccion);
+      oauthInProgress.current = true;
+      const ok = await conectarCanalMeta(slug);
+      if (!ok) {
+        oauthInProgress.current = false;
       }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'No se pudo iniciar la conexión';
-      Alert.alert('Error', msg);
     } finally {
       setConectando(null);
     }

@@ -31,10 +31,39 @@ export interface EstadoCanalesResponse {
   connections: ConexionCanal[];
 }
 
+export interface MetaEmbeddedConfig {
+  enabled: boolean;
+  app_id?: string;
+  config_id?: string;
+  redirect_uri?: string;
+  graph_version?: string;
+}
+
 export interface IniciarConexionCanalResponse {
   success: boolean;
+  connection_id: string;
   auth_url: string;
   channel: CanalSlug;
+  embedded?: MetaEmbeddedConfig;
+}
+
+export interface CompletarConexionPayload {
+  connection_id: string;
+  code: string;
+  phone_number_id?: string;
+  waba_id?: string;
+  business_id?: string;
+  shared_waba_ids?: string[];
+}
+
+export interface CompletarConexionResponse {
+  success: boolean;
+  message?: string;
+  instruction?: string;
+  needs_phone_number_id?: boolean;
+  waba_id?: string;
+  channel?: CanalSlug;
+  connection?: ConexionCanal;
 }
 
 export interface InboxChatItem {
@@ -70,6 +99,14 @@ const omnichannelService = {
   async iniciarConexion(channel: CanalSlug): Promise<IniciarConexionCanalResponse> {
     const { data } = await api.get<IniciarConexionCanalResponse>(
       `/omnichannel/connections/iniciar-conexion/?channel=${channel}`,
+    );
+    return data;
+  },
+
+  async completarConexion(payload: CompletarConexionPayload): Promise<CompletarConexionResponse> {
+    const { data } = await api.post<CompletarConexionResponse>(
+      '/omnichannel/connections/completar-conexion/',
+      payload,
     );
     return data;
   },
