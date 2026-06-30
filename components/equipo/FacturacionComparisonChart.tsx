@@ -3,16 +3,14 @@ import {
   View,
   Text,
   StyleSheet,
-  useWindowDimensions,
   TouchableOpacity,
   ActivityIndicator,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { LineChart } from 'react-native-gifted-charts';
 import { TrendingUp } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
-import {
-  useGananciasSerieQuery,
-} from '@/hooks/useGananciasSerieQuery';
+import { useGananciasSerieQuery } from '@/hooks/useGananciasSerieQuery';
 import type { GananciasSerieGranularidad, GananciasSeriePunto } from '@/services/kpisProveedorService';
 
 const I = COLORS.institutional;
@@ -23,6 +21,14 @@ const GRANULARIDADES: { id: GananciasSerieGranularidad; label: string }[] = [
   { id: 'semana', label: 'Semana' },
   { id: 'mes', label: 'Mes' },
 ];
+
+const CHART_HEIGHT = 188;
+const Y_AXIS_WIDTH = 44;
+const INITIAL_SPACING = 8;
+const END_SPACING = 16;
+const SCROLL_SPACING = 12;
+const LINE_COLOR_APP = I.primary;
+const LINE_COLOR_PERSONAL = I.body;
 
 type Props = {
   mecanicoId?: number | null;
@@ -49,33 +55,31 @@ function formatClave(clave: string, granularidad: GananciasSerieGranularidad): s
   return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
 }
 
-function buildLineData(
+function buildSeriesPoints(
   puntos: GananciasSeriePunto[],
   key: 'mecanimovil' | 'agenda_personal',
-  picoMayor: GananciasSeriePunto | null,
-  picoMenor: GananciasSeriePunto | null,
+  includeLabels: boolean,
 ) {
-  return puntos.map((p) => {
-    const isPeak = picoMayor?.clave === p.clave;
-    const isValley = picoMenor?.clave === p.clave && picoMenor.total !== picoMayor?.total;
-    const showPoint = isPeak || isValley;
-    return {
-      value: p[key],
-      label: p.etiqueta,
-      dataPointColor: isPeak ? I.primary : isValley ? I.muted : undefined,
-      dataPointRadius: showPoint ? 5 : 0,
-      hideDataPoint: !showPoint,
-    };
-  });
+  return puntos.map((p) => ({
+    value: p[key],
+    label: includeLabels ? p.etiqueta : '',
+  }));
 }
 
 export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }: Props) {
   const [granularidad, setGranularidad] = useState<GananciasSerieGranularidad>('dia');
-  const { width: windowWidth } = useWindowDimensions();
+  const [chartViewportWidth, setChartViewportWidth] = useState(0);
   const { data, loading, error } = useGananciasSerieQuery(granularidad, {
     mecanicoId,
     enabled,
   });
+
+  const onChartLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextWidth = Math.floor(event.nativeEvent.layout.width);
+    if (nextWidth > 0) {
+      setChartViewportWidth((prev) => (prev === nextWidth ? prev : nextWidth));
+    }
+  }, []);
 
   const chartMetrics = useMemo(() => {
     const puntos = data?.puntos ?? [];
@@ -83,53 +87,62 @@ export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }
     const maxVal = Math.max(...allValues, 0);
     const pad = Math.max(1, Math.ceil(maxVal * 0.15));
     const count = Math.max(puntos.length, 1);
-
-    const scrollPad = 40;
-    const cardPad = SPACING.fixed.md * 2;
-    const wellPad = SPACING.fixed.sm * 2;
-    const yAxis = 44;
-    const chartInnerWidth = Math.max(
-      200,
-      windowWidth - scrollPad - cardPad - wellPad - yAxis - 8,
-    );
-    const initial = count <= 12 ? 12 : 8;
-    const spacing =
-      count <= 1 ? 0 : Math.max(4, (chartInnerWidth - initial) / (count - 1));
+    const viewport = Math.max(chartViewportWidth, 0);
+    const plotWidth = Math.max(160, viewport - Y_AXIS_WIDTH - 4);
+    const fitSpacing =
+      count <= 1 ? 0 : (plotWidth - INITIAL_SPACING - END_SPACING) / (count - 1);
+    const needsScroll = fitSpacing < 8;
+    const spacing = needsScroll ? SCROLL_SPACING : Math.max(0, fitSpacing);
 
     return {
       puntos,
       maxValue: Math.max(maxVal + pad, 1),
-      chartInnerWidth,
+      chartViewportWidth: viewport,
       spacing,
-      initial,
+      disableScroll: !needsScroll,
       empty: allValues.every((v) => v === 0),
+      ready: viewport > 0,
     };
-  }, [data, windowWidth]);
+  }, [data, chartViewportWidth]);
 
   const onSelectGranularidad = useCallback((g: GananciasSerieGranularidad) => {
     setGranularidad(g);
   }, []);
 
   const lineMecanimovil = useMemo(
-    () =>
-      buildLineData(
-        chartMetrics.puntos,
-        'mecanimovil',
-        data?.pico_mayor ?? null,
-        data?.pico_menor ?? null,
-      ),
-    [chartMetrics.puntos, data?.pico_mayor, data?.pico_menor],
+    () => buildSeriesPoints(chartMetrics.puntos, 'mecanimovil', true),
+    [chartMetrics.puntos],
   );
 
   const linePersonal = useMemo(
-    () =>
-      buildLineData(
-        chartMetrics.puntos,
-        'agenda_personal',
-        data?.pico_mayor ?? null,
-        data?.pico_menor ?? null,
-      ),
-    [chartMetrics.puntos, data?.pico_mayor, data?.pico_menor],
+    () => buildSeriesPoints(chartMetrics.puntos, 'agenda_personal', false),
+    [chartMetrics.puntos],
+  );
+
+  const renderPointerLabel = useCallback(
+    (
+      items: { value?: number }[],
+      _secondaryItems: { value?: number }[] | undefined,
+      pointerIndex?: number,
+    ) => {
+      const idx = pointerIndex ?? 0;
+      const punto = chartMetrics.puntos[idx];
+      const mkt = items[0]?.value ?? punto?.mecanimovil ?? 0;
+      const personal = items[1]?.value ?? punto?.agenda_personal ?? 0;
+      const title = punto ? formatClave(punto.clave, granularidad) : '';
+
+      return (
+        <View style={styles.pointerLabel}>
+          <Text style={styles.pointerLabelTitle}>{title}</Text>
+          <Text style={[styles.pointerValue, { color: LINE_COLOR_APP }]}>App {fmt(mkt)}</Text>
+          <Text style={[styles.pointerValue, { color: LINE_COLOR_PERSONAL }]}>
+            Propias {fmt(personal)}
+          </Text>
+          <Text style={styles.pointerTotal}>Total {fmt(mkt + personal)}</Text>
+        </View>
+      );
+    },
+    [chartMetrics.puntos, granularidad],
   );
 
   const totalPeriodo = data?.totales_periodo.ganancias_total ?? 0;
@@ -187,16 +200,16 @@ export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }
 
           <View style={styles.legendRow}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: I.primary }]} />
+              <View style={[styles.legendDot, { backgroundColor: LINE_COLOR_APP }]} />
               <Text style={styles.legendText}>Mecanimóvil App</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: I.mutedSoft }]} />
+              <View style={[styles.legendDot, { backgroundColor: LINE_COLOR_PERSONAL }]} />
               <Text style={styles.legendText}>Agenda personal</Text>
             </View>
           </View>
 
-          <View style={styles.chartWell}>
+          <View style={styles.chartWell} onLayout={onChartLayout}>
             {chartMetrics.empty ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyTitle}>Sin ingresos en este periodo</Text>
@@ -205,69 +218,66 @@ export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }
                   comparativa aquí.
                 </Text>
               </View>
+            ) : chartMetrics.ready ? (
+              <View style={styles.chartScrollWrap}>
+                <LineChart
+                  data={lineMecanimovil}
+                  data2={linePersonal}
+                  height={CHART_HEIGHT}
+                  width={chartMetrics.chartViewportWidth}
+                  parentWidth={chartMetrics.chartViewportWidth}
+                  initialSpacing={INITIAL_SPACING}
+                  endSpacing={END_SPACING}
+                  spacing={chartMetrics.spacing}
+                  disableScroll={chartMetrics.disableScroll}
+                  color1={LINE_COLOR_APP}
+                  color2={LINE_COLOR_PERSONAL}
+                  thickness={3.5}
+                  thickness2={3.5}
+                  curved
+                  hideDataPoints1
+                  hideDataPoints2
+                  zIndex1={1}
+                  zIndex2={0}
+                  noOfSections={4}
+                  maxValue={chartMetrics.maxValue}
+                  yAxisColor="transparent"
+                  yAxisThickness={0}
+                  xAxisColor={I.hairline}
+                  xAxisThickness={StyleSheet.hairlineWidth}
+                  hideRules
+                  showVerticalLines
+                  verticalLinesColor={I.hairlineSoft}
+                  verticalLinesThickness={StyleSheet.hairlineWidth}
+                  yAxisTextStyle={styles.axisText}
+                  xAxisLabelTextStyle={styles.axisText}
+                  yAxisLabelWidth={Y_AXIS_WIDTH}
+                  nestedScrollEnabled
+                  overflowTop={52}
+                  formatYLabel={(v) => {
+                    const n = Math.max(0, Math.round(Number(v)));
+                    if (n >= 1_000_000) return `${Math.round(n / 1_000_000)}M`;
+                    if (n >= 1_000) return `${Math.round(n / 1_000)}k`;
+                    return String(n);
+                  }}
+                  focusEnabled
+                  showStripOnFocus
+                  stripColor={I.hairline}
+                  stripWidth={1}
+                  pointerConfig={{
+                    pointerStripHeight: CHART_HEIGHT,
+                    pointerStripColor: I.hairline,
+                    pointerStripWidth: 1,
+                    hidePointers: true,
+                    activatePointersOnLongPress: false,
+                    autoAdjustPointerLabelPosition: true,
+                    pointerLabelWidth: 148,
+                    pointerLabelComponent: renderPointerLabel,
+                  }}
+                />
+              </View>
             ) : (
-              <LineChart
-                data={lineMecanimovil}
-                data2={linePersonal}
-                height={192}
-                width={chartMetrics.chartInnerWidth}
-                initialSpacing={chartMetrics.initial}
-                spacing={chartMetrics.spacing}
-                color1={I.primary}
-                color2={I.mutedSoft}
-                thickness={2}
-                thickness2={2}
-                curved
-                hideDataPoints={false}
-                noOfSections={4}
-                maxValue={chartMetrics.maxValue}
-                yAxisColor="transparent"
-                yAxisThickness={0}
-                xAxisColor={I.hairline}
-                xAxisThickness={StyleSheet.hairlineWidth}
-                rulesColor={I.hairlineSoft}
-                rulesType="solid"
-                yAxisTextStyle={styles.axisText}
-                xAxisLabelTextStyle={styles.axisText}
-                yAxisLabelWidth={44}
-                formatYLabel={(v) => {
-                  const n = Math.max(0, Math.round(Number(v)));
-                  if (n >= 1_000_000) return `${Math.round(n / 1_000_000)}M`;
-                  if (n >= 1_000) return `${Math.round(n / 1_000)}k`;
-                  return String(n);
-                }}
-                focusEnabled
-                showStripOnFocus
-                showTextOnFocus
-                stripColor={I.hairline}
-                stripWidth={1}
-                pointerConfig={{
-                  pointerStripHeight: 192,
-                  pointerStripColor: I.hairline,
-                  pointerStripWidth: 1,
-                  pointerColor: I.primary,
-                  radius: 5,
-                  pointerLabelWidth: 132,
-                  activatePointersOnLongPress: false,
-                  autoAdjustPointerLabelPosition: true,
-                  pointerLabelComponent: (items: { value?: number }[]) => {
-                    const mkt = items[0]?.value ?? 0;
-                    const personal = items[1]?.value ?? 0;
-                    return (
-                      <View style={styles.pointerLabel}>
-                        <Text style={styles.pointerLabelTitle}>Ingresos</Text>
-                        <Text style={[styles.pointerValue, { color: I.primary }]}>
-                          App {fmt(mkt)}
-                        </Text>
-                        <Text style={[styles.pointerValue, { color: I.muted }]}>
-                          Propias {fmt(personal)}
-                        </Text>
-                        <Text style={styles.pointerTotal}>Total {fmt(mkt + personal)}</Text>
-                      </View>
-                    );
-                  },
-                }}
-              />
+              <View style={styles.chartMeasurePlaceholder} />
             )}
           </View>
 
@@ -280,6 +290,10 @@ export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }
                   <Text style={styles.extremoMeta}>
                     {formatClave(data.pico_mayor.clave, granularidad)}
                   </Text>
+                  <Text style={styles.extremoBreakdown}>
+                    App {fmt(data.pico_mayor.mecanimovil)} · Propias{' '}
+                    {fmt(data.pico_mayor.agenda_personal)}
+                  </Text>
                 </View>
               ) : null}
               {data.pico_menor ? (
@@ -288,6 +302,10 @@ export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }
                   <Text style={styles.extremoValue}>{fmt(data.pico_menor.total)}</Text>
                   <Text style={styles.extremoMeta}>
                     {formatClave(data.pico_menor.clave, granularidad)}
+                  </Text>
+                  <Text style={styles.extremoBreakdown}>
+                    App {fmt(data.pico_menor.mecanimovil)} · Propias{' '}
+                    {fmt(data.pico_menor.agenda_personal)}
                   </Text>
                 </View>
               ) : null}
@@ -407,9 +425,19 @@ const styles = StyleSheet.create({
   chartWell: {
     borderRadius: BORDERS.radius.md,
     backgroundColor: I.surfaceSoft,
-    overflow: 'hidden',
-    paddingVertical: SPACING.fixed.sm,
-    paddingHorizontal: SPACING.fixed.xs,
+    overflow: 'visible',
+    paddingTop: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.sm,
+    paddingHorizontal: 0,
+    width: '100%',
+  },
+  chartScrollWrap: {
+    width: '100%',
+    overflow: 'visible',
+  },
+  chartMeasurePlaceholder: {
+    height: CHART_HEIGHT + 52,
+    width: '100%',
   },
   emptyState: {
     minHeight: 192,
@@ -437,21 +465,19 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
   },
   pointerLabel: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
+    backgroundColor: I.ink,
+    borderRadius: BORDERS.radius.sm,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    minWidth: 120,
+    minWidth: 132,
   },
   pointerLabelTitle: {
     fontSize: 10,
     fontFamily: FF.sansSemiBold,
-    color: I.muted,
+    color: I.onPrimary,
     marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    textTransform: 'capitalize',
+    opacity: 0.85,
   },
   pointerValue: {
     fontSize: 11,
@@ -461,7 +487,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 11,
     fontFamily: FF.sansSemiBold,
-    color: I.ink,
+    color: I.onPrimary,
   },
   extremosRow: {
     flexDirection: 'row',
@@ -481,7 +507,7 @@ const styles = StyleSheet.create({
     backgroundColor: `${I.primary}12`,
   },
   extremoDown: {
-    backgroundColor: `${I.mutedSoft}33`,
+    backgroundColor: `${LINE_COLOR_PERSONAL}18`,
   },
   extremoLabel: {
     fontSize: 10,
@@ -502,5 +528,11 @@ const styles = StyleSheet.create({
     fontFamily: FF.regular,
     color: I.body,
     textTransform: 'capitalize',
+  },
+  extremoBreakdown: {
+    marginTop: 4,
+    fontSize: 10,
+    fontFamily: FF.monoMedium,
+    color: I.muted,
   },
 });
