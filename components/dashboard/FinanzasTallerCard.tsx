@@ -8,7 +8,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { ShieldCheck } from 'lucide-react-native';
+import { ChevronRight, ShieldCheck, Wallet } from 'lucide-react-native';
 import {
   COLORS,
   SPACING,
@@ -17,15 +17,17 @@ import {
   SHADOWS,
   withOpacity,
 } from '@/app/design-system/tokens';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
-import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import type { GananciasTallerResumen } from '@/services/kpisProveedorService';
 import type { CreditoProveedor } from '@/services/creditosService';
 import type { SuscripcionProveedor } from '@/services/suscripcionesService';
+import { formatearDeltaMesAnterior, progresoCalendarioMes } from '@/utils/finanzasMes';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const TS = TYPOGRAPHY.styles;
+const CARD_MIN_HEIGHT = 148;
 
 const lh = (fontSize: number, mult: number) => Math.round(fontSize * mult);
 
@@ -37,48 +39,21 @@ export type FinanzasTallerCardProps = {
   isLoadingGanancias?: boolean;
   isLoadingCreditos?: boolean;
   warningEmphasis?: string;
+  onPress: () => void;
   onRecargarCreditos: () => void;
   onPressPlan?: () => void;
   style?: StyleProp<ViewStyle>;
+  fill?: boolean;
 };
 
-type EarningsRowProps = {
-  label: string;
-  amount: number;
-  sharePct: number;
-  highlight?: boolean;
-  loading?: boolean;
-};
-
-function EarningsRow({ label, amount, sharePct, highlight, loading }: EarningsRowProps) {
-  const barWidth = amount > 0 ? Math.max(sharePct, 4) : 0;
-
-  return (
-    <View style={styles.barRow}>
-      <View style={styles.barMeta}>
-        <Text style={[styles.barLabel, highlight && styles.barLabelActive]} numberOfLines={1}>
-          {label}
-        </Text>
-        <Text style={styles.barPct}>{loading ? '—' : `${sharePct}%`}</Text>
-      </View>
-      {loading ? (
-        <ActivityIndicator size="small" color={I.muted} style={styles.amountLoader} />
-      ) : (
-        <Text style={[styles.barAmount, highlight && styles.barAmountActive]}>
-          {formatearMontoCLP(amount)}
-        </Text>
-      )}
-      <View style={styles.barTrack}>
-        <View
-          style={[
-            styles.barFill,
-            highlight ? styles.barFillPrimary : styles.barFillSecondary,
-            { width: `${barWidth}%` },
-          ]}
-        />
-      </View>
-    </View>
-  );
+function formatCompactMonto(value: number): string {
+  if (value >= 1_000_000) {
+    return `$${(value / 1_000_000).toFixed(1).replace('.0', '')}M`;
+  }
+  if (value >= 100_000) {
+    return `$${Math.round(value / 1000)}k`;
+  }
+  return formatearMontoCLP(value);
 }
 
 export function FinanzasTallerCard({
@@ -89,250 +64,316 @@ export function FinanzasTallerCard({
   isLoadingGanancias = false,
   isLoadingCreditos = false,
   warningEmphasis = COLORS.warning.text,
+  onPress,
   onRecargarCreditos,
   onPressPlan,
   style,
+  fill = false,
 }: FinanzasTallerCardProps) {
-  const { mecanimovil, propias, pctMecanimovil, pctPropias } = useMemo(() => {
+  const loadingGanancias = isLoadingGanancias && !ganancias;
+
+  const resumen = useMemo(() => {
     const m = ganancias?.ganancias_mecanimovil ?? 0;
     const p = ganancias?.ganancias_agenda_personal ?? 0;
-    const total = m + p;
-    if (total <= 0) {
-      return { mecanimovil: m, propias: p, pctMecanimovil: 0, pctPropias: 0 };
-    }
-    const pctMecanimovil = Math.round((m / total) * 100);
-    return {
-      mecanimovil: m,
-      propias: p,
-      pctMecanimovil,
-      pctPropias: 100 - pctMecanimovil,
-    };
+    const total = ganancias?.ganancias_total ?? m + p;
+    const calendario = progresoCalendarioMes();
+    const delta = formatearDeltaMesAnterior(ganancias?.delta_pct_mes);
+    const ambosConIngreso = m > 0 && p > 0;
+
+    return { mecanimovil: m, propias: p, total, calendario, delta, ambosConIngreso };
   }, [ganancias]);
 
   const creditos = saldoCreditos?.saldo_creditos ?? 0;
   const planActivo = suscripcion?.esta_activa && !esSupervisor;
 
+  const contextLine = loadingGanancias
+    ? 'Cargando resumen…'
+    : `Día ${resumen.calendario.diaActual}/${resumen.calendario.diasEnMes} · ${resumen.delta.label}`;
+
   return (
-    <View style={[styles.cardOuter, style]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Finanzas del mes</Text>
-        {planActivo && onPressPlan ? (
-          <Pressable
-            onPress={onPressPlan}
-            style={({ pressed }) => [
-              styles.planBadge,
-              suscripcion?.plan?.destacado && styles.planBadgeDestacado,
-              pressed && styles.pressed,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={`Plan ${suscripcion?.plan?.nombre ?? 'activo'}`}
-          >
-            <ShieldCheck
-              size={14}
-              color={suscripcion?.plan?.destacado ? warningEmphasis : I.primary}
-            />
-            <Text
-              style={[
-                styles.planBadgeText,
-                suscripcion?.plan?.destacado && { color: warningEmphasis },
-              ]}
-              numberOfLines={1}
-            >
-              {suscripcion?.plan?.nombre?.trim() || 'Plan activo'}
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Finanzas del mes, ver detalle"
+      style={({ pressed }) => [
+        styles.cardOuter,
+        fill && styles.cardOuterFill,
+        pressed && styles.pressed,
+        style,
+      ]}
+    >
+      <View style={[styles.inner, fill && styles.innerFill]}>
+        <View style={styles.headerRow}>
+          <View style={styles.titleLeft}>
+            <Wallet size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={styles.title}>Finanzas del mes</Text>
+          </View>
+          <View style={styles.headerActions}>
+            {planActivo && onPressPlan ? (
+              <Pressable
+                onPress={onPressPlan}
+                style={({ pressed: planPressed }) => [
+                  styles.planBadge,
+                  suscripcion?.plan?.destacado && styles.planBadgeDestacado,
+                  planPressed && styles.pressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Plan ${suscripcion?.plan?.nombre ?? 'activo'}`}
+              >
+                <ShieldCheck
+                  size={12}
+                  color={suscripcion?.plan?.destacado ? warningEmphasis : I.primary}
+                />
+              </Pressable>
+            ) : null}
+            <View style={styles.chevronCircle}>
+              <ChevronRight size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            </View>
+          </View>
+        </View>
 
-      <View style={styles.earningsBlock}>
-        <EarningsRow
-          label="Mecanimóvil App"
-          amount={mecanimovil}
-          sharePct={pctMecanimovil}
-          highlight
-          loading={isLoadingGanancias && !ganancias}
-        />
-        <EarningsRow
-          label="Órdenes propias"
-          amount={propias}
-          sharePct={pctPropias}
-          loading={isLoadingGanancias && !ganancias}
-        />
-      </View>
+        <Text style={styles.monthLine} numberOfLines={1}>
+          Total {resumen.calendario.nombreMes}
+        </Text>
 
-      <View style={styles.creditsRow}>
-        <View style={styles.creditsTextBlock}>
-          <Text style={styles.creditsLabel}>Créditos disponibles</Text>
-          {isLoadingCreditos && !saldoCreditos ? (
+        <View style={styles.kpiRow}>
+          {loadingGanancias ? (
             <ActivityIndicator size="small" color={I.primary} />
           ) : (
-            <Text style={styles.creditsValue}>
-              {creditos.toLocaleString('es-CL')}
-              <Text style={styles.creditsUnit}> pts</Text>
-            </Text>
+            <Text style={styles.totalAmount}>{formatearMontoCLP(resumen.total)}</Text>
           )}
         </View>
 
-        {!esSupervisor ? (
-          <InstitutionalButton
-            label="Recargar"
-            variant="primary"
-            size="compact"
-            onPress={onRecargarCreditos}
-            accessibilityLabel="Recargar créditos"
-          />
+        <Text
+          style={[
+            styles.contextLine,
+            !loadingGanancias && resumen.delta.tone === 'up' && styles.contextUp,
+            !loadingGanancias && resumen.delta.tone === 'down' && styles.contextDown,
+          ]}
+          numberOfLines={2}
+        >
+          {contextLine}
+        </Text>
+
+        {!loadingGanancias && resumen.ambosConIngreso ? (
+          <View style={styles.splitTrack}>
+            <View
+              style={[
+                styles.splitFillPrimary,
+                {
+                  flex: Math.max(
+                    1,
+                    resumen.total > 0 ? resumen.mecanimovil / resumen.total : 0,
+                  ),
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.splitFillSecondary,
+                {
+                  flex: Math.max(
+                    1,
+                    resumen.total > 0 ? resumen.propias / resumen.total : 0,
+                  ),
+                },
+              ]}
+            />
+          </View>
         ) : null}
+
+        <View style={styles.footerRow}>
+          <Text style={styles.footerMeta} numberOfLines={2}>
+            {loadingGanancias
+              ? '—'
+              : `App ${formatCompactMonto(resumen.mecanimovil)} · Propias ${formatCompactMonto(resumen.propias)}`}
+          </Text>
+          <View style={styles.creditsInline}>
+            {isLoadingCreditos && !saldoCreditos ? (
+              <ActivityIndicator size="small" color={I.muted} />
+            ) : (
+              <Text style={styles.creditsText} numberOfLines={1}>
+                {creditos.toLocaleString('es-CL')} pts
+              </Text>
+            )}
+            {!esSupervisor ? (
+              <Pressable
+                onPress={onRecargarCreditos}
+                style={({ pressed: recargaPressed }) => [
+                  styles.recargaBtn,
+                  recargaPressed && styles.pressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Recargar créditos"
+              >
+                <Text style={styles.recargaBtnText}>Recargar</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   cardOuter: {
-    borderRadius: BORDERS.radius.lg,
+    borderRadius: BORDERS.radius.card.xl,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     backgroundColor: I.canvas,
-    padding: SPACING.fixed.md,
-    gap: SPACING.fixed.sm,
+    overflow: 'hidden',
+    minHeight: CARD_MIN_HEIGHT,
     ...SHADOWS.editorial,
   },
-  header: {
+  cardOuterFill: {
+    flex: 1,
+    alignSelf: 'stretch',
+  },
+  pressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.985 }],
+  },
+  inner: {
+    padding: SPACING.md,
+    paddingBottom: SPACING.lg,
+    gap: SPACING.xs,
+    minHeight: CARD_MIN_HEIGHT,
+  },
+  innerFill: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.xxs,
   },
-  headerTitle: {
-    flex: 1,
-    fontSize: TS.captionBold.fontSize,
-    lineHeight: lh(TS.captionBold.fontSize, TS.captionBold.lineHeight),
-    fontFamily: FF.sansSemiBold,
-    color: I.muted,
-    textTransform: 'uppercase',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
-  },
-  planBadge: {
+  titleLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    maxWidth: '46%',
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: 3,
-    borderRadius: BORDERS.radius.pill,
+    gap: SPACING.sm,
+    flex: 1,
+    minWidth: 0,
+  },
+  title: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    lineHeight: lh(TYPOGRAPHY.fontSize.lg, 1.25),
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    flexShrink: 1,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  planBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    backgroundColor: I.canvas,
+    backgroundColor: I.surfaceSoft,
   },
   planBadgeDestacado: {
     borderColor: withOpacity(I.accentYellow, 0.5),
     backgroundColor: withOpacity(I.accentYellow, 0.08),
   },
-  planBadgeText: {
+  chevronCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: I.surfaceStrong,
+  },
+  monthLine: {
     fontSize: TS.small.fontSize,
     lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),
-    fontFamily: FF.sansSemiBold,
-    color: I.primary,
-    flexShrink: 1,
-  },
-  pressed: {
-    opacity: 0.88,
-  },
-  earningsBlock: {
-    gap: SPACING.fixed.md,
-    paddingTop: SPACING.fixed.xxs,
-  },
-  barRow: {
-    gap: SPACING.fixed.xs,
-  },
-  barMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: SPACING.fixed.sm,
-  },
-  barLabel: {
-    flex: 1,
-    fontSize: TS.caption.fontSize,
-    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
     fontFamily: FF.sansRegular,
     color: I.body,
+    textTransform: 'capitalize',
   },
-  barLabelActive: {
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
+  kpiRow: {
+    minHeight: 36,
+    justifyContent: 'center',
   },
-  barPct: {
-    fontSize: TS.captionBold.fontSize,
-    lineHeight: lh(TS.captionBold.fontSize, TS.captionBold.lineHeight),
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
-  },
-  barAmount: {
-    fontSize: TS.numberDisplay.fontSize,
-    lineHeight: lh(TS.numberDisplay.fontSize, TS.numberDisplay.lineHeight),
-    fontFamily: FF.monoMedium,
-    color: I.ink,
-    letterSpacing: TYPOGRAPHY.letterSpacing.tight,
-  },
-  barAmountActive: {
-    fontSize: TYPOGRAPHY.fontSize['2xl'],
-    lineHeight: lh(TYPOGRAPHY.fontSize['2xl'], TS.numberDisplay.lineHeight),
-  },
-  amountLoader: {
-    alignSelf: 'flex-start',
-  },
-  barTrack: {
-    height: 6,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.surfaceStrong,
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: BORDERS.radius.pill,
-    minWidth: 0,
-  },
-  barFillPrimary: {
-    backgroundColor: I.primary,
-  },
-  barFillSecondary: {
-    backgroundColor: I.mutedSoft,
-  },
-  creditsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: SPACING.fixed.sm,
-    marginTop: 2,
-    paddingTop: SPACING.fixed.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: I.hairline,
-  },
-  creditsTextBlock: {
-    flex: 1,
-    minWidth: 0,
-    gap: SPACING.fixed.xxs,
-  },
-  creditsLabel: {
-    fontSize: TS.captionBold.fontSize,
-    lineHeight: lh(TS.captionBold.fontSize, TS.captionBold.lineHeight),
-    fontFamily: FF.sansSemiBold,
-    color: I.muted,
-    textTransform: 'uppercase',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
-  },
-  creditsValue: {
+  totalAmount: {
     fontSize: TYPOGRAPHY.fontSize['3xl'],
     lineHeight: lh(TYPOGRAPHY.fontSize['3xl'], TS.numberDisplay.lineHeight),
     fontFamily: FF.monoMedium,
     color: I.ink,
     letterSpacing: TYPOGRAPHY.letterSpacing.tight,
   },
-  creditsUnit: {
+  contextLine: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    lineHeight: 16,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+  },
+  contextUp: {
+    color: I.semanticUp,
+  },
+  contextDown: {
+    color: I.semanticDown,
+  },
+  splitTrack: {
+    flexDirection: 'row',
+    height: 4,
+    borderRadius: BORDERS.radius.pill,
+    overflow: 'hidden',
+    backgroundColor: I.surfaceStrong,
+    marginTop: 2,
+  },
+  splitFillPrimary: {
+    backgroundColor: I.primary,
+  },
+  splitFillSecondary: {
+    backgroundColor: I.mutedSoft,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+    marginTop: SPACING.xxs,
+    paddingTop: SPACING.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+  },
+  footerMeta: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    lineHeight: 15,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+  },
+  creditsInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    flexShrink: 0,
+  },
+  creditsText: {
+    fontSize: TS.captionBold.fontSize,
+    lineHeight: lh(TS.captionBold.fontSize, TS.captionBold.lineHeight),
+    fontFamily: FF.monoMedium,
+    color: I.ink,
+  },
+  recargaBtn: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.primary,
+  },
+  recargaBtnText: {
     fontSize: TS.small.fontSize,
     lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),
     fontFamily: FF.sansSemiBold,
-    color: I.body,
+    color: I.onPrimary,
   },
 });

@@ -45,7 +45,7 @@ function HomeSolicitudesSectionInner({
     if (!radarActivo) {
       return (
         <View style={styles.emptyState}>
-          <Radar size={22} color={COLORS.institutional.mutedSoft} />
+          <Radar size={20} color={COLORS.institutional.mutedSoft} strokeWidth={2} />
           <Text style={styles.emptyTitle}>Radar apagado</Text>
           <Text style={styles.emptySub}>
             Activa la disponibilidad para recibir solicitudes aquí.
@@ -57,7 +57,7 @@ function HomeSolicitudesSectionInner({
     if (solicitudes.length === 0) {
       return (
         <View style={styles.emptyState}>
-          <Search size={22} color={COLORS.institutional.mutedSoft} />
+          <Search size={20} color={COLORS.institutional.mutedSoft} strokeWidth={2} />
           <Text style={styles.emptyTitle}>Sin solicitudes por ahora</Text>
           <Text style={styles.emptySub}>Te avisaremos cuando haya nuevas oportunidades.</Text>
         </View>
@@ -67,12 +67,13 @@ function HomeSolicitudesSectionInner({
     const visibles = solicitudes.slice(0, 3);
 
     return (
-      <View style={styles.cardList}>
-        {visibles.map((solicitud) => (
+      <View style={styles.list}>
+        {visibles.map((solicitud, index) => (
           <HomeRadarSolicitudItem
             key={solicitud.id}
             solicitud={solicitud}
             onOpenDetail={onOpenDetail}
+            isLast={index === visibles.length - 1 && solicitudes.length <= 3}
           />
         ))}
         {solicitudes.length > 3 ? (
@@ -145,8 +146,8 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     color: COLORS.institutional.muted,
   },
-  cardList: {
-    gap: SPACING.fixed.sm,
+  list: {
+    marginTop: SPACING.fixed.xxs,
   },
   centered: {
     alignItems: 'center',
@@ -155,13 +156,9 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: SPACING.fixed.lg,
-    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.xl,
+    paddingHorizontal: SPACING.fixed.sm,
     gap: SPACING.fixed.xs,
-    borderRadius: SPACING.fixed.md,
-    backgroundColor: COLORS.institutional.surfaceSoft,
-    borderWidth: 1,
-    borderColor: COLORS.institutional.hairlineSoft,
   },
   emptyTitle: {
     fontSize: TYPOGRAPHY.fontSize.sm,
@@ -180,7 +177,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: SPACING.fixed.xs,
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.xxs,
     gap: SPACING.fixed.xxs,
   },
   seeAllText: {

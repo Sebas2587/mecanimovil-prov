@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Image,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -58,6 +59,7 @@ export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const { verificarYGenerarAlertas, saludSuscripcion, alertasNoLeidas } = useAlerts();
 
   const {
@@ -187,7 +189,11 @@ export default function HomeScreen() {
   }, []);
 
   const handleRecargarCreditos = useCallback(() => {
-    router.push('/creditos');
+    router.push('/creditos?tab=tienda');
+  }, []);
+
+  const handleFinanzasCardPress = useCallback(() => {
+    router.push('/creditos?tab=saldo');
   }, []);
 
   const handlePressPlanSuscripcion = useCallback(() => {
@@ -529,6 +535,9 @@ export default function HomeScreen() {
   }
 
   // Cuenta aprobada: dashboard principal
+  const showFinanzasCard = puede('finanzas') && (saldoCreditos || saldoCreditosQuery.loading);
+  const dashboardTwoColumns = showFinanzasCard && windowWidth >= 560;
+
   return (
     <TabScreenWrapper>
       <LinearGradient
@@ -576,6 +585,7 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={{
+            paddingTop: SPACING.fixed.xl,
             paddingBottom: insets.bottom + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl),
           }}
         >
@@ -623,37 +633,48 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          {/* Rendimiento / progreso */}
+          {/* Rendimiento + finanzas (2 columnas en pantallas anchas) */}
           <View style={themedStyles.sectionWrap}>
-            <PerformanceWidget
-              progress={kpisResumen.progress}
-              targetTierName={kpisResumen.targetTierName}
-              periodSubtitle={rendimientoWidgetPeriod}
-              isLoading={kpisResumen.loading && !kpisResumen.hasData}
-              onPress={handlePerformanceWidgetPress}
-            />
-          </View>
-
-          {/* Resumen financiero del mes */}
-          {puede('finanzas') && (saldoCreditos || saldoCreditosQuery.loading) ? (
-            <View style={themedStyles.sectionWrap}>
-              {saldoCreditos ? (
-                <FinanzasTallerCard
-                  ganancias={gananciasResumen}
-                  saldoCreditos={saldoCreditos}
-                  suscripcion={suscripcion}
-                  esSupervisor={esSupervisor}
-                  isLoadingGanancias={gananciasQuery.loading && !gananciasResumen}
-                  isLoadingCreditos={saldoCreditosQuery.loading && !saldoCreditos}
-                  warningEmphasis={palette.warningEmphasis}
-                  onRecargarCreditos={handleRecargarCreditos}
-                  onPressPlan={handlePressPlanSuscripcion}
+            <View
+              style={
+                dashboardTwoColumns
+                  ? themedStyles.dashboardDualRow
+                  : themedStyles.dashboardDualStack
+              }
+            >
+              <View style={dashboardTwoColumns ? themedStyles.dashboardDualCol : undefined}>
+                <PerformanceWidget
+                  progress={kpisResumen.progress}
+                  targetTierName={kpisResumen.targetTierName}
+                  periodSubtitle={rendimientoWidgetPeriod}
+                  isLoading={kpisResumen.loading && !kpisResumen.hasData}
+                  onPress={handlePerformanceWidgetPress}
+                  fill={dashboardTwoColumns}
                 />
-              ) : (
-                <FinanzasTallerCardSkeleton />
-              )}
+              </View>
+              {showFinanzasCard ? (
+                <View style={dashboardTwoColumns ? themedStyles.dashboardDualCol : undefined}>
+                  {saldoCreditos ? (
+                    <FinanzasTallerCard
+                      ganancias={gananciasResumen}
+                      saldoCreditos={saldoCreditos}
+                      suscripcion={suscripcion}
+                      esSupervisor={esSupervisor}
+                      isLoadingGanancias={gananciasQuery.loading && !gananciasResumen}
+                      isLoadingCreditos={saldoCreditosQuery.loading && !saldoCreditos}
+                      warningEmphasis={palette.warningEmphasis}
+                      onPress={handleFinanzasCardPress}
+                      onRecargarCreditos={handleRecargarCreditos}
+                      onPressPlan={handlePressPlanSuscripcion}
+                      fill={dashboardTwoColumns}
+                    />
+                  ) : (
+                    <FinanzasTallerCardSkeleton fill={dashboardTwoColumns} />
+                  )}
+                </View>
+              ) : null}
             </View>
-          ) : null}
+          </View>
 
           {/* Solicitudes disponibles (toggle + listado unificado) */}
           <View style={themedStyles.sectionWrap}>

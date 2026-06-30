@@ -275,7 +275,7 @@ export default function ConfiguracionCanalesScreen() {
         locations={BLANK_GLASS.gradientLocations}
       />
       <Stack.Screen options={{ headerShown: false }} />
-      <Header title="Canales de mensajería" onBackPress={() => router.back()} />
+      <Header title="Canales de mensajería" showBack onBackPress={() => router.back()} />
 
       {loading ? (
         <View style={styles.centered}>

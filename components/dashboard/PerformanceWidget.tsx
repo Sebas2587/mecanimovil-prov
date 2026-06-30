@@ -33,6 +33,8 @@ export type PerformanceWidgetProps = {
   isLoading?: boolean;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
+  /** Igualar altura en layout de 2 columnas del home. */
+  fill?: boolean;
 };
 
 function clampPercent(value: number): number {
@@ -56,6 +58,7 @@ export function PerformanceWidget({
   isLoading,
   onPress,
   style,
+  fill = false,
 }: PerformanceWidgetProps) {
   const hasValue = progress != null && !Number.isNaN(progress);
   const pct = useMemo(
@@ -78,6 +81,7 @@ export function PerformanceWidget({
       }
       style={({ pressed }) => [
         styles.outer,
+        fill && styles.outerFill,
         SHADOWS.editorial,
         pressed && styles.pressed,
         style,
@@ -87,7 +91,7 @@ export function PerformanceWidget({
         colors={[...gradientColors]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.gradient}
+        style={[styles.gradient, fill && styles.gradientFill]}
       >
         <View style={[styles.decorWrap, pointerEventsNone]}>
           <View style={[styles.glowOuter, { backgroundColor: ACCENT_GLOW.soft }]} />
@@ -113,7 +117,10 @@ export function PerformanceWidget({
             Nivel: {targetTierName}
           </Text>
           {periodSubtitle ? (
-            <Text style={[styles.periodLine, { fontFamily: ff.sansRegular }]} numberOfLines={2}>
+            <Text
+              style={[styles.periodLine, { fontFamily: ff.sansRegular }, fill && styles.periodLineCompact]}
+              numberOfLines={fill ? 3 : 2}
+            >
               {periodSubtitle}
             </Text>
           ) : null}
@@ -145,6 +152,10 @@ const styles = StyleSheet.create({
     borderRadius: radius,
     overflow: 'hidden',
   },
+  outerFill: {
+    flex: 1,
+    alignSelf: 'stretch',
+  },
   pressed: {
     opacity: 0.92,
     transform: [{ scale: 0.985 }],
@@ -155,6 +166,10 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     paddingBottom: SPACING.lg,
     minHeight: 148,
+  },
+  gradientFill: {
+    flex: 1,
+    justifyContent: 'space-between',
   },
   decorWrap: {
     ...StyleSheet.absoluteFillObject,
@@ -221,6 +236,10 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.xs,
     marginBottom: SPACING.sm,
     lineHeight: 16,
+  },
+  periodLineCompact: {
+    fontSize: 11,
+    lineHeight: 14,
   },
   kpiRow: {
     flexDirection: 'row',

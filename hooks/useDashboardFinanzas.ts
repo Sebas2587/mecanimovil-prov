@@ -18,13 +18,18 @@ export function gananciasResumenQueryKey() {
   return ['proveedor-ganancias-resumen'] as const;
 }
 
+export function invalidateGananciasQueries(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: gananciasResumenQueryKey() });
+  void queryClient.invalidateQueries({ queryKey: ['proveedor-ganancias-serie'] });
+}
+
 export function suscripcionProveedorQueryKey() {
   return ['proveedor-suscripcion'] as const;
 }
 
 /** Refresca finanzas del dashboard (ganancias y créditos) tras cerrar órdenes o citas. */
 export function invalidateDashboardFinanzasQueries(queryClient: QueryClient) {
-  void queryClient.invalidateQueries({ queryKey: gananciasResumenQueryKey() });
+  invalidateGananciasQueries(queryClient);
   void queryClient.invalidateQueries({ queryKey: saldoCreditosQueryKey() });
 }
 

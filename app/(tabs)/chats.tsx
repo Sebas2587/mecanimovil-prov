@@ -37,6 +37,11 @@ import { ChannelBadge } from '@/components/chats/ChannelBadge';
 import { ChannelAvatar } from '@/components/chats/ChannelAvatar';
 import { ChatInboxLinkRow } from '@/components/chats/ChatInboxLinkRow';
 import { resolveChatHref } from '@/utils/chatRoutes';
+import { useOmnichannelConnectionMap } from '@/hooks/useOmnichannelConnections';
+import {
+  getChannelDisconnectedReason,
+} from '@/utils/omnichannelConnection';
+import type { CanalSlug } from '@/services/omnichannelService';
 
 const I = COLORS.institutional;
 /** Jerarquía tipo Coinbase / doc proveedores — tamaños desde `TYPOGRAPHY.styles`. */
@@ -52,6 +57,8 @@ export default function ChatsScreen() {
     isPending,
     refetch,
   } = useChatInboxQuery(isAuthenticated && Boolean(usuario));
+  const { map: channelConnections, featureEnabled, refetch: refetchConnections } =
+    useOmnichannelConnectionMap(isAuthenticated && Boolean(usuario));
   const [refreshing, setRefreshing] = useState(false);
   const [chatHighlighted, setChatHighlighted] = useState<string | null>(null);
   const [deletingOfertaId, setDeletingOfertaId] = useState<string | null>(null);
@@ -116,8 +123,9 @@ export default function ChatsScreen() {
     useCallback(() => {
       if (isAuthenticated && usuario) {
         void refetch();
+        void refetchConnections();
       }
-    }, [isAuthenticated, usuario, refetch]),
+    }, [isAuthenticated, usuario, refetch, refetchConnections]),
   );
 
   const formatearFecha = (fechaStr: string) => {
@@ -166,6 +174,15 @@ export default function ChatsScreen() {
     } = item;
     const rowKey = oferta_id || conversation_id;
     const isOmnichannel = kind === 'omnichannel' || (!oferta_id && conversation_id);
+    const channelSlug = (channel || '') as CanalSlug;
+    const channelDisconnectedReason = isOmnichannel && channel
+      ? getChannelDisconnectedReason(
+          channelConnections[channelSlug],
+          channelSlug,
+          featureEnabled,
+          'inbox',
+        )
+      : null;
     const isHighlighted = chatHighlighted === rowKey;
     const hasUnread = mensajes_no_leidos > 0;
     const vehiculoPill = formatVehiculoPillLabel(vehiculo);
@@ -208,6 +225,12 @@ export default function ChatsScreen() {
             <View style={styles.channelRow}>
               <ChannelBadge channel={channel} compact />
             </View>
+          ) : null}
+
+          {channelDisconnectedReason ? (
+            <Text style={styles.channelWarning} numberOfLines={1}>
+              {channelDisconnectedReason}
+            </Text>
           ) : null}
 
           {!!vehiculoPill && (
@@ -273,7 +296,15 @@ export default function ChatsScreen() {
     }
 
     return <View style={styles.listItemFallback}>{cardBody}</View>;
-  }, [chatHighlighted, decrementarNoLeidos, deletingOfertaId, deleteChat, queryClient]);
+  }, [
+    channelConnections,
+    chatHighlighted,
+    decrementarNoLeidos,
+    deletingOfertaId,
+    deleteChat,
+    featureEnabled,
+    queryClient,
+  ]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
@@ -382,6 +413,14 @@ const styles = StyleSheet.create({
   },
   channelRow: {
     marginTop: 2,
+  },
+  channelWarning: {
+    fontSize: 11,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: T.caption.fontWeight as '400',
+    lineHeight: 14,
+    color: I.mutedSoft,
+    marginTop: 1,
   },
   chatName: {
     flex: 1,

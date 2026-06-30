@@ -70,7 +70,14 @@ class ChatService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || `Error ${response.status}`);
+        let message = errorText || `Error ${response.status}`;
+        try {
+          const parsed = JSON.parse(errorText) as { message?: string };
+          if (parsed.message) message = parsed.message;
+        } catch {
+          // keep raw text
+        }
+        throw new Error(message);
       }
       return response.json();
     }

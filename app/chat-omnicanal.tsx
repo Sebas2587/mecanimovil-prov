@@ -1,10 +1,9 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
-  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   Keyboard,
@@ -16,23 +15,31 @@ import {
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Send, X, Paperclip } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import chatService from '@/services/chatService';
 import { OmnichannelChatHeader } from '@/components/chats/OmnichannelChatHeader';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
+import type { CanalSlug } from '@/services/omnichannelService';
 import { useOmnichannelConversationMeta } from '@/hooks/useOmnichannelConversationMeta';
+import { useOmnichannelConnectionMap } from '@/hooks/useOmnichannelConnections';
+import { getChannelDisconnectedReason } from '@/utils/omnichannelConnection';
+import { getWhatsAppReplyBlockReason } from '@/utils/whatsappMessagingWindow';
+import { OmnichannelChatRestrictionBanner } from '@/components/chats/OmnichannelChatRestrictionBanner';
+import {
+  ChatMessageComposer,
+  chatComposerAttachPreviewStyles,
+} from '@/components/chats/ChatMessageComposer';
 import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
 import websocketService, { type NuevoMensajeChatEvent } from '@/app/services/websocketService';
 import { BLANK_GLASS } from '@/app/design-system/blankGlass';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { isChatAttachmentImage } from '@/utils/chatAttachmentMedia';
 
 const I = COLORS.institutional;
-const GLASS_INSET = SPACING.md;
 
 type AttachmentState = {
   uri: string;
@@ -54,6 +61,25 @@ function resolveConversationId(params: Record<string, string | string[] | undefi
   const raw = params.conversationId;
   if (Array.isArray(raw)) return String(raw[0] || '').trim();
   return String(raw || '').trim();
+}
+
+function extractSendMessageError(error: unknown): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const data = (error as { response?: { data?: { message?: string; error?: string } } }).response?.data;
+    if (data?.message) return data.message;
+    if (typeof data?.error === 'string' && data.error.length > 0 && !data.error.includes('_')) {
+      return data.error;
+    }
+  }
+  if (error instanceof Error && error.message) {
+    try {
+      const parsed = JSON.parse(error.message) as { message?: string; error?: string };
+      if (parsed.message) return parsed.message;
+    } catch {
+      if (!error.message.startsWith('{')) return error.message;
+    }
+  }
+  return 'No se pudo enviar el mensaje.';
 }
 
 function mergeChatRow(prev: ChatRow[], row: ChatRow): ChatRow[] {
@@ -79,6 +105,27 @@ export default function ChatOmnicanalScreen() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const conversationMeta = useOmnichannelConversationMeta(convId);
+  const { map: channelConnections, featureEnabled } = useOmnichannelConnectionMap(Boolean(convId));
+
+  const channelSlug = conversationMeta.channel as CanalSlug;
+  const channelDisconnectedReason = useMemo(
+    () => (conversationMeta.hasKnownChannel
+      ? getChannelDisconnectedReason(
+          channelConnections[channelSlug],
+          channelSlug,
+          featureEnabled,
+        )
+      : null),
+    [channelConnections, channelSlug, conversationMeta.hasKnownChannel, featureEnabled],
+  );
+
+  const whatsappWindowBlockReason = useMemo(() => {
+    if (channelSlug !== 'whatsapp' || channelDisconnectedReason) return null;
+    return getWhatsAppReplyBlockReason(mensajes);
+  }, [channelDisconnectedReason, channelSlug, mensajes]);
+
+  const canSendMessages = !channelDisconnectedReason && !whatsappWindowBlockReason;
+  const inputRestrictionMessage = channelDisconnectedReason || whatsappWindowBlockReason;
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -220,7 +267,7 @@ export default function ChatOmnicanalScreen() {
 
   const enviar = async () => {
     const trimmed = texto.trim();
-    if ((!trimmed && !attachment) || !convId) return;
+    if ((!trimmed && !attachment) || !convId || !canSendMessages) return;
     setEnviando(true);
     setTexto('');
     const attachmentTemp = attachment;
@@ -254,8 +301,8 @@ export default function ChatOmnicanalScreen() {
         const withoutTemp = prev.filter((m) => m.id !== tempId);
         return mergeChatRow(withoutTemp, mapped);
       });
-    } catch {
-      Alert.alert('Error', 'No se pudo enviar el mensaje.');
+    } catch (error) {
+      Alert.alert('No se puede enviar', extractSendMessageError(error));
       setMensajes((prev) => prev.filter((m) => m.id !== tempId));
       setTexto(trimmed);
       setAttachment(attachmentTemp);
@@ -330,61 +377,49 @@ export default function ChatOmnicanalScreen() {
             </View>
           )}
 
-          <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, SPACING.sm) }]}>
-            {attachment && (
-              <View style={styles.attachPreview}>
-                {attachment.type === 'image' ? (
-                  <Image source={{ uri: attachment.uri }} style={styles.attachThumb} />
-                ) : (
-                  <Text style={styles.attachLabel}>
-                    {attachment.type === 'video' ? 'Video' : 'Audio'} · {attachment.name}
-                  </Text>
-                )}
-                <TouchableOpacity style={styles.attachRemove} onPress={() => setAttachment(null)}>
-                  <X size={14} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                </TouchableOpacity>
-              </View>
-            )}
-            <View style={styles.inputRow}>
-              <TouchableOpacity style={styles.attachBtn} onPress={handleAttachPress} accessibilityLabel="Adjuntar">
-                <Paperclip size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-              </TouchableOpacity>
-              <TextInput
-                style={styles.input}
-                value={texto}
-                onChangeText={setTexto}
-                placeholder="Escribe un mensaje…"
-                placeholderTextColor={I.mutedSoft}
-                multiline
-                maxLength={500}
-                editable={!enviando}
-                blurOnSubmit={false}
-                returnKeyType="send"
-                onSubmitEditing={Platform.OS !== 'web' ? enviar : undefined}
-                onKeyPress={
-                  Platform.OS === 'web'
-                    ? (e: { nativeEvent: { key: string; shiftKey?: boolean }; preventDefault?: () => void }) => {
-                        if (e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
-                          e.preventDefault?.();
-                          enviar();
-                        }
-                      }
-                    : undefined
-                }
-              />
-              <TouchableOpacity
-                style={[styles.sendBtn, (!texto.trim() && !attachment || enviando) && styles.sendBtnDisabled]}
-                onPress={enviar}
-                disabled={(!texto.trim() && !attachment) || enviando}
-              >
-                {enviando ? (
-                  <ActivityIndicator color={I.onPrimary} size="small" />
-                ) : (
-                  <Send size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+          {inputRestrictionMessage ? (
+            <OmnichannelChatRestrictionBanner
+              message={inputRestrictionMessage}
+              actionLabel={channelDisconnectedReason ? 'Conectar' : undefined}
+              onActionPress={
+                channelDisconnectedReason
+                  ? () => router.push('/configuracion-canales' as never)
+                  : undefined
+              }
+              variant="strip"
+            />
+          ) : null}
+
+          <ChatMessageComposer
+            value={texto}
+            onChangeText={setTexto}
+            onSend={enviar}
+            onAttachPress={handleAttachPress}
+            editable={canSendMessages}
+            sending={enviando}
+            hasAttachment={Boolean(attachment)}
+            paddingBottom={Math.max(insets.bottom, SPACING.sm)}
+            stripAttached={Boolean(inputRestrictionMessage)}
+            attachmentPreview={
+              attachment ? (
+                <View style={chatComposerAttachPreviewStyles.row}>
+                  {attachment.type === 'image' ? (
+                    <Image source={{ uri: attachment.uri }} style={chatComposerAttachPreviewStyles.thumb} />
+                  ) : (
+                    <Text style={chatComposerAttachPreviewStyles.label}>
+                      {attachment.type === 'video' ? 'Video' : 'Audio'} · {attachment.name}
+                    </Text>
+                  )}
+                  <TouchableOpacity
+                    style={chatComposerAttachPreviewStyles.remove}
+                    onPress={() => setAttachment(null)}
+                  >
+                    <X size={14} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                  </TouchableOpacity>
+                </View>
+              ) : null
+            }
+          />
         </View>
 
         <Modal visible={!!selectedImage} transparent animationType="fade" onRequestClose={() => setSelectedImage(null)}>
@@ -424,66 +459,6 @@ const styles = StyleSheet.create({
   },
   chatArea: { flex: 1 },
   listContent: { padding: SPACING.md, flexGrow: 1 },
-  inputBar: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: I.hairline,
-    backgroundColor: I.canvas,
-    paddingHorizontal: GLASS_INSET,
-    paddingTop: SPACING.sm,
-  },
-  attachPreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-    gap: SPACING.sm,
-  },
-  attachThumb: {
-    width: 56,
-    height: 56,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.surfaceStrong,
-  },
-  attachLabel: {
-    ...TYPOGRAPHY.styles.caption,
-    color: I.body,
-    flex: 1,
-  },
-  attachRemove: {
-    padding: SPACING.xs,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: SPACING.sm,
-  },
-  attachBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  input: {
-    flex: 1,
-    minWidth: 0,
-    ...TYPOGRAPHY.styles.body,
-    color: I.ink,
-    maxHeight: 100,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.lg,
-  },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: I.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendBtnDisabled: {
-    opacity: 0.45,
-  },
   modalBg: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.88)',

@@ -159,10 +159,7 @@ export function RendimientoEquipoTab() {
             </View>
           </View>
 
-          <FacturacionComparisonChart
-            mesActual={selected.facturacion_mes_actual}
-            mesAnterior={selected.facturacion_mes_anterior}
-          />
+          <FacturacionComparisonChart mecanicoId={selected.mecanico_id} />
 
           <View style={styles.card}>
             <Text style={styles.sectionLabel}>Detalle de órdenes</Text>

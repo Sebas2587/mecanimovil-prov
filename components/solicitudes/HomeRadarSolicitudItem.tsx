@@ -4,7 +4,7 @@ import { Car, ChevronRight } from 'lucide-react-native';
 import type { SolicitudPublica } from '@/services/solicitudesService';
 import { CountdownTimer } from './CountdownTimer';
 import { resolveHomeSolicitudCardMeta } from '@/utils/homeSolicitudCard';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 
 const T = TYPOGRAPHY.styles;
 const FF = TYPOGRAPHY.fontFamily;
@@ -16,6 +16,7 @@ function lineHeight(fontSize: number, mult: number) {
 export type HomeRadarSolicitudItemProps = {
   solicitud: SolicitudPublica;
   onOpenDetail: (solicitudId: string) => void;
+  isLast?: boolean;
 };
 
 function AvatarCircle({
@@ -43,7 +44,11 @@ function AvatarCircle({
   );
 }
 
-function HomeRadarSolicitudItemInner({ solicitud, onOpenDetail }: HomeRadarSolicitudItemProps) {
+function HomeRadarSolicitudItemInner({
+  solicitud,
+  onOpenDetail,
+  isLast = false,
+}: HomeRadarSolicitudItemProps) {
   const meta = useMemo(() => resolveHomeSolicitudCardMeta(solicitud), [solicitud]);
 
   const handleOpen = useCallback(() => {
@@ -59,7 +64,11 @@ function HomeRadarSolicitudItemInner({ solicitud, onOpenDetail }: HomeRadarSolic
   }, [meta]);
 
   return (
-    <TouchableOpacity style={styles.card} onPress={handleOpen} activeOpacity={0.88}>
+    <TouchableOpacity
+      style={[styles.row, !isLast && styles.rowDivider]}
+      onPress={handleOpen}
+      activeOpacity={0.88}
+    >
       {/* Header: cliente (izq) + countdown (der) — como referencia avatar + meta / acción */}
       <View style={styles.headerRow}>
         <View style={styles.clientBlock}>
@@ -134,14 +143,13 @@ HomeRadarSolicitudItemInner.displayName = 'HomeRadarSolicitudItem';
 export const HomeRadarSolicitudItem = memo(HomeRadarSolicitudItemInner);
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: BORDERS.radius.xl,
-    borderWidth: 1,
-    borderColor: COLORS.institutional.hairline,
-    backgroundColor: COLORS.institutional.canvas,
-    padding: SPACING.fixed.md,
+  row: {
+    paddingVertical: SPACING.fixed.md,
     gap: SPACING.fixed.sm,
-    ...SHADOWS.editorial,
+  },
+  rowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.institutional.hairline,
   },
   headerRow: {
     flexDirection: 'row',

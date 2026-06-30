@@ -159,6 +159,18 @@ export function createHomeScreenStyles(
       paddingHorizontal: L.horizontalPadding,
       marginBottom: L.sectionMarginBottom,
     },
+    dashboardDualRow: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      gap: gapGrid,
+    },
+    dashboardDualCol: {
+      flex: 1,
+      minWidth: 0,
+    },
+    dashboardDualStack: {
+      gap: gapGrid,
+    },
     alertsStack: {
       gap: SPACING.fixed.xs,
     },

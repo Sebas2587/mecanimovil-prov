@@ -107,6 +107,34 @@ export interface GananciasTallerResumen {
   mes_hasta: string;
 }
 
+export type GananciasSerieGranularidad = 'dia' | 'semana' | 'mes';
+
+export interface GananciasSeriePunto {
+  clave: string;
+  etiqueta: string;
+  mecanimovil: number;
+  agenda_personal: number;
+  total: number;
+}
+
+export interface GananciasTallerSerie {
+  granularidad: GananciasSerieGranularidad;
+  desde: string;
+  hasta: string;
+  mecanico_id: number | null;
+  puntos: GananciasSeriePunto[];
+  totales_periodo: Pick<
+    GananciasTallerResumen,
+    | 'ganancias_mecanimovil'
+    | 'ganancias_agenda_personal'
+    | 'ganancias_total'
+    | 'ordenes_mecanimovil'
+    | 'ordenes_agenda_personal'
+  >;
+  pico_mayor: GananciasSeriePunto | null;
+  pico_menor: GananciasSeriePunto | null;
+}
+
 export interface KpisServiceResponse<T> {
   success: boolean;
   data?: T;
@@ -167,6 +195,44 @@ class KpisProveedorService {
       return {
         success: false,
         message: 'Error de conexión al cargar ganancias',
+        error: error?.message,
+      };
+    }
+  }
+
+  async obtenerGananciasSerie(
+    granularidad: GananciasSerieGranularidad,
+    mecanicoId?: number | null,
+  ): Promise<KpisServiceResponse<GananciasTallerSerie>> {
+    try {
+      const params = new URLSearchParams({ granularidad });
+      if (mecanicoId != null) {
+        params.set('mecanico_id', String(mecanicoId));
+      }
+      const response = await api.get(
+        `/ordenes/proveedor-ordenes/ganancias-serie/?${params.toString()}`,
+      );
+      return { success: true, data: response.data as GananciasTallerSerie };
+    } catch (error: any) {
+      if (__DEV__) {
+        console.warn(
+          'KpisProveedorService.obtenerGananciasSerie:',
+          error?.response?.data || error?.message,
+        );
+      }
+      if (error.response) {
+        return {
+          success: false,
+          message:
+            error.response.data?.detail ||
+            error.response.data?.message ||
+            'No se pudo cargar la serie de ganancias',
+          error: JSON.stringify(error.response.data),
+        };
+      }
+      return {
+        success: false,
+        message: 'Error de conexión al cargar la serie de ganancias',
         error: error?.message,
       };
     }

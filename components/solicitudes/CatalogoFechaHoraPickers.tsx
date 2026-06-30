@@ -301,6 +301,7 @@ export function CatalogoFechaHoraPickers({
           {mensajeSinHoras || 'No hay horarios disponibles para esta fecha.'}
         </Text>
       ) : null}
+      {!cargandoHoras ? (
       <ScrollView
         ref={timeScrollRef}
         horizontal
@@ -342,6 +343,7 @@ export function CatalogoFechaHoraPickers({
           );
         })}
       </ScrollView>
+      ) : null}
 
       {esRango ? (
         <>
