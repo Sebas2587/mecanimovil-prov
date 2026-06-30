@@ -221,13 +221,17 @@ class KpisProveedorService {
         );
       }
       if (error.response) {
+        const payload = error.response.data;
+        const detail =
+          payload?.detail ||
+          payload?.message ||
+          (typeof payload === 'object' && payload !== null
+            ? JSON.stringify(payload)
+            : undefined);
         return {
           success: false,
-          message:
-            error.response.data?.detail ||
-            error.response.data?.message ||
-            'No se pudo cargar la serie de ganancias',
-          error: JSON.stringify(error.response.data),
+          message: detail || 'No se pudo cargar la serie de ganancias',
+          error: JSON.stringify(payload),
         };
       }
       return {
