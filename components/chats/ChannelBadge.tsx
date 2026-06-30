@@ -1,17 +1,17 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { TYPOGRAPHY, SPACING, BORDERS } from '@/app/design-system/tokens';
-import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { getChannelVisual, type ChannelSlug } from '@/utils/channelVisuals';
+import { ChannelBrandGlyph } from '@/components/chats/ChannelBrandIcon';
+import { withWebLineHeight } from '@/utils/webTypography';
 
 type Props = {
   channel: ChannelSlug;
   compact?: boolean;
 };
 
-export function ChannelBadge({ channel, compact = false }: Props) {
+function ChannelBadgeComponent({ channel, compact = false }: Props) {
   const visual = getChannelVisual(channel);
-  const Icon = visual.Icon;
 
   return (
     <View
@@ -24,13 +24,15 @@ export function ChannelBadge({ channel, compact = false }: Props) {
         },
       ]}
     >
-      <Icon size={compact ? 11 : 12} color={visual.color} strokeWidth={ICON_STROKE_WIDTH} />
+      <ChannelBrandGlyph channel={channel} size={compact ? 11 : 12} color={visual.color} />
       <Text style={[styles.text, compact && styles.textCompact, { color: visual.color }]}>
         {visual.label}
       </Text>
     </View>
   );
 }
+
+export const ChannelBadge = memo(ChannelBadgeComponent);
 
 export { channelRespondLabel } from '@/utils/channelVisuals';
 
@@ -52,12 +54,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  text: {
+  text: withWebLineHeight({
     ...TYPOGRAPHY.styles.caption,
     fontWeight: '600',
     fontSize: 11,
-  },
-  textCompact: {
+  }),
+  textCompact: withWebLineHeight({
     fontSize: 10,
-  },
+    lineHeight: 1.5,
+  }),
 });

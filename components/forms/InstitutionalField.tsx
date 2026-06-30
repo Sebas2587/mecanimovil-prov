@@ -28,6 +28,10 @@ type Props = {
   inputStyle?: TextStyle | TextStyle[];
   onFocus?: TextInputProps['onFocus'];
   onBlur?: TextInputProps['onBlur'];
+  textInputProps?: Omit<
+    TextInputProps,
+    'value' | 'onChangeText' | 'style' | 'placeholder' | 'placeholderTextColor' | 'multiline' | 'keyboardType' | 'autoCapitalize' | 'maxLength' | 'editable' | 'onFocus' | 'onBlur'
+  >;
 };
 
 export function InstitutionalField({
@@ -45,6 +49,7 @@ export function InstitutionalField({
   inputStyle,
   onFocus,
   onBlur,
+  textInputProps,
 }: Props) {
   const borderStyle = error ? styles.inputBorderErr : null;
 
@@ -70,6 +75,7 @@ export function InstitutionalField({
         editable={editable}
         onFocus={onFocus}
         onBlur={onBlur}
+        {...textInputProps}
       />
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
@@ -87,8 +93,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.xxs,
   },
   inputMultiline: {
-    minHeight: 72,
+    minHeight: 88,
     textAlignVertical: 'top',
+    paddingTop: SPACING.fixed.sm + 2,
   },
   inputBorderErr: {
     borderColor: I.semanticDown,

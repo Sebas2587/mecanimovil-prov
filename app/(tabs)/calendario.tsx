@@ -36,6 +36,7 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/ap
 import { institutionalCardStyles } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import Header from '@/components/Header';
+import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
@@ -217,6 +218,7 @@ export default function CalendarioScreen() {
   const [fechaSeleccionada, setFechaSeleccionada] = useState<Date>(() => startOfDay(new Date()));
   const [mesActual, setMesActual] = useState(() => startOfDay(new Date()));
   const [miembroFiltro, setMiembroFiltro] = useState<number | null>(null);
+  const [agendarModalVisible, setAgendarModalVisible] = useState(false);
 
   const {
     eventos,
@@ -393,10 +395,7 @@ export default function CalendarioScreen() {
       );
       return;
     }
-    router.push({
-      pathname: '/agendar-cita-personal',
-      params: { fecha: formatDateApi(fechaSeleccionada) },
-    });
+    setAgendarModalVisible(true);
   }, [fechaSeleccionada, puedeAgendarEnSeleccion]);
 
   const formatearFechaCompleta = (fecha: Date): string => {
@@ -566,16 +565,6 @@ export default function CalendarioScreen() {
                       ? 'No hay citas para esta fecha'
                       : 'No hay citas registradas en esta fecha'}
                   </Text>
-                  {puedeAgendarEnSeleccion && (
-                    <TouchableOpacity
-                      style={styles.agendarDiaBtn}
-                      onPress={handleAgendarCita}
-                      activeOpacity={0.85}
-                    >
-                      <InstitutionalIcon name="add" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                      <Text style={styles.agendarDiaBtnText}>Agendar cita en este día</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
               )}
             </View>
@@ -594,6 +583,13 @@ export default function CalendarioScreen() {
           <InstitutionalIcon name="add" size={28} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
       )}
+
+      <AgendarDesdeCanalModal
+        visible={agendarModalVisible}
+        onClose={() => setAgendarModalVisible(false)}
+        initialFecha={formatDateApi(fechaSeleccionada)}
+        subtitle={`Cita para ${formatearFechaCompleta(fechaSeleccionada)}`}
+      />
     </SafeAreaView>
   );
 }
@@ -891,21 +887,6 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     color: I.body,
     marginTop: SPACING.fixed.md,
-  },
-  agendarDiaBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xs,
-    marginTop: SPACING.fixed.md,
-    paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.lg,
-    backgroundColor: I.primary,
-  },
-  agendarDiaBtnText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.onPrimary,
   },
   fab: {
     position: 'absolute',

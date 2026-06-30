@@ -17,13 +17,10 @@ import { Stack, router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   MessageCircle,
-  MessageSquare,
   Link2,
   Unlink,
-  Phone,
-  Camera,
-  type LucideIcon,
 } from 'lucide-react-native';
+import { ChannelBrandIcon } from '@/components/chats/ChannelBrandIcon';
 import { COLORS, SPACING, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
@@ -37,23 +34,20 @@ import { BLANK_GLASS } from '@/app/design-system/blankGlass';
 
 const I = COLORS.institutional;
 
-const CANALES: { slug: CanalSlug; title: string; Icon: LucideIcon; hint: string }[] = [
+const CANALES: { slug: CanalSlug; title: string; hint: string }[] = [
   {
     slug: 'whatsapp',
     title: 'WhatsApp',
-    Icon: Phone,
     hint: 'Conecta tu WhatsApp Business en pocos pasos con Meta.',
   },
   {
     slug: 'messenger',
     title: 'Facebook Messenger',
-    Icon: MessageSquare,
     hint: 'Requiere una Página de Facebook de tu taller.',
   },
   {
     slug: 'instagram',
     title: 'Instagram',
-    Icon: Camera,
     hint: 'Requiere cuenta Business vinculada a tu Página de Facebook.',
   },
 ];
@@ -214,9 +208,7 @@ export default function ConfiguracionCanalesScreen() {
     return (
       <View key={cfg.slug} style={styles.card}>
         <View style={styles.cardHeader}>
-          <View style={styles.iconWrap}>
-            <cfg.Icon size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-          </View>
+          <ChannelBrandIcon channel={cfg.slug} size={40} />
           <View style={styles.cardTitleBlock}>
             <InstitutionalText role="h4" color="ink" style={styles.cardTitle}>
               {cfg.title}
@@ -348,15 +340,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: SPACING.md,
     gap: SPACING.md,
-  },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.surfaceSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
   },
   cardTitleBlock: { flex: 1, minWidth: 0, gap: SPACING.xs },
   cardTitle: {},

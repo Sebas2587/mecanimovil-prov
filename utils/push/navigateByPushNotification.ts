@@ -2,6 +2,7 @@ import type { Router } from 'expo-router';
 import type { QueryClient } from '@tanstack/react-query';
 import { prefetchSolicitudDetalle } from '@/hooks/useSolicitudDetalleQuery';
 import { openOfertaDetalle } from '@/utils/navigateProveedorDetalle';
+import { prefetchChatInbox } from '@/hooks/useChatInboxQuery';
 import { omnichannelChatHref, ofertaChatHref } from '@/utils/chatRoutes';
 
 export type PushNotificationData = Record<string, unknown>;
@@ -50,7 +51,14 @@ export function navigateByPushNotification(
       const conversationId =
         typeof data.conversation_id === 'string' ? data.conversation_id.trim() : '';
       if (conversationId && !ofertaId) {
-        router.push(omnichannelChatHref(conversationId));
+        if (queryClient) void prefetchChatInbox(queryClient);
+        const channel =
+          typeof data.channel === 'string' && data.channel !== 'app'
+            ? data.channel
+            : undefined;
+        router.push(
+          omnichannelChatHref(conversationId, channel ? { channel } : undefined),
+        );
         return true;
       }
       if (ofertaId) {

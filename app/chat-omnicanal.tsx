@@ -10,25 +10,24 @@ import {
   Keyboard,
   Alert,
   Modal,
-  KeyboardAvoidingView,
   Platform,
   Image,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Send, Link2, X, Paperclip } from 'lucide-react-native';
+import { Send, X, Paperclip } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import chatService from '@/services/chatService';
-import omnichannelService from '@/services/omnichannelService';
-import { ChannelBadge, channelRespondLabel } from '@/components/chats/ChannelBadge';
-import { ChannelAvatar } from '@/components/chats/ChannelAvatar';
+import { OmnichannelChatHeader } from '@/components/chats/OmnichannelChatHeader';
+import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
+import { useOmnichannelConversationMeta } from '@/hooks/useOmnichannelConversationMeta';
 import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
 import websocketService, { type NuevoMensajeChatEvent } from '@/app/services/websocketService';
 import { BLANK_GLASS } from '@/app/design-system/blankGlass';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { isChatAttachmentImage } from '@/utils/chatAttachmentMedia';
 
@@ -75,15 +74,11 @@ export default function ChatOmnicanalScreen() {
   const [texto, setTexto] = useState('');
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
-  const [channel, setChannel] = useState('whatsapp');
-  const [contactName, setContactName] = useState('Contacto');
-  const [contactPhone, setContactPhone] = useState<string | null>(null);
-  const [vincularVisible, setVincularVisible] = useState(false);
-  const [solicitudIdInput, setSolicitudIdInput] = useState('');
-  const [vinculando, setVinculando] = useState(false);
-  const [solicitudVinculada, setSolicitudVinculada] = useState<string | null>(null);
+  const [agendarVisible, setAgendarVisible] = useState(false);
   const [attachment, setAttachment] = useState<AttachmentState | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  const conversationMeta = useOmnichannelConversationMeta(convId);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -97,10 +92,10 @@ export default function ChatOmnicanalScreen() {
       mensaje: String(row.content ?? row.mensaje ?? ''),
       es_proveedor: esPropio,
       fecha_envio: String(row.timestamp ?? new Date().toISOString()),
-      enviado_por_nombre: String(row.sender_name ?? (esPropio ? 'Tú' : contactName)),
+      enviado_por_nombre: String(row.sender_name ?? (esPropio ? 'Tú' : conversationMeta.contactName)),
       archivo_adjunto: adjunto,
     };
-  }, [contactName, usuario?.id]);
+  }, [conversationMeta.contactName, usuario?.id]);
 
   const mapWsEvent = useCallback((event: NuevoMensajeChatEvent | Record<string, unknown>): ChatRow => {
     const raw = event as Record<string, unknown>;
@@ -110,10 +105,10 @@ export default function ChatOmnicanalScreen() {
       mensaje: String(raw.mensaje ?? raw.message ?? raw.content ?? ''),
       es_proveedor: esPropio,
       fecha_envio: String(raw.timestamp ?? new Date().toISOString()),
-      enviado_por_nombre: String(raw.enviado_por ?? (esPropio ? 'Tú' : contactName)),
+      enviado_por_nombre: String(raw.enviado_por ?? (esPropio ? 'Tú' : conversationMeta.contactName)),
       archivo_adjunto: (raw.archivo_adjunto ?? raw.attachment ?? null) as string | null,
     };
-  }, [contactName]);
+  }, [conversationMeta.contactName]);
 
   const cargar = useCallback(async () => {
     if (!convId) return;
@@ -157,26 +152,11 @@ export default function ChatOmnicanalScreen() {
   useEffect(() => {
     const unsub = websocketService.onNuevoMensajeChat((event: NuevoMensajeChatEvent) => {
       if (event.conversation_id !== convId) return;
-      if (event.channel) setChannel(event.channel);
-      if (event.external_contact_name) setContactName(event.external_contact_name);
-      if (event.external_contact_phone) setContactPhone(event.external_contact_phone);
       const msg = mapWsEvent(event);
       setMensajes((prev) => mergeChatRow(prev, msg));
     });
     return unsub;
   }, [convId, mapWsEvent]);
-
-  useEffect(() => {
-    omnichannelService.obtenerInboxUnificado().then((items) => {
-      const item = items.find((i) => i.conversation_id === convId);
-      if (item) {
-        setChannel(item.channel);
-        setContactName(item.otra_persona.nombre);
-        setContactPhone(item.otra_persona.telefono ?? null);
-        if (item.solicitud_id) setSolicitudVinculada(item.solicitud_id);
-      }
-    }).catch(() => {});
-  }, [convId]);
 
   const handlePickMedia = async () => {
     try {
@@ -284,32 +264,6 @@ export default function ChatOmnicanalScreen() {
     }
   };
 
-  const vincularSolicitud = async () => {
-    const sid = solicitudIdInput.trim();
-    if (!sid || !convId) return;
-    setVinculando(true);
-    try {
-      await omnichannelService.vincularSolicitud(convId, sid);
-      setSolicitudVinculada(sid);
-      setVincularVisible(false);
-      setSolicitudIdInput('');
-      Alert.alert('Listo', 'Conversación vinculada a la solicitud.');
-    } catch {
-      Alert.alert('Error', 'No se pudo vincular. Verifica el ID de solicitud.');
-    } finally {
-      setVinculando(false);
-    }
-  };
-
-  const displayName =
-    contactName.length > 28 && /^\d+$/.test(contactName.replace(/\s/g, ''))
-      ? `Cliente ${contactName.slice(-6)}`
-      : contactName;
-
-  const banner = `Respondiendo por ${channelRespondLabel(channel)} · ${displayName}${
-    contactPhone ? ` (${contactPhone})` : ''
-  }`;
-
   return (
     <View style={styles.screenRoot}>
       <LinearGradient
@@ -320,59 +274,23 @@ export default function ChatOmnicanalScreen() {
       <SafeAreaView style={styles.safeArea} edges={['bottom']}>
         <Stack.Screen options={{ headerShown: false }} />
 
-        <View style={[styles.header, { paddingTop: insets.top + SPACING.sm }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <ArrowLeft size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-          </TouchableOpacity>
-          <View style={styles.headerCenter}>
-            <View style={styles.headerNameRow}>
-              <ChannelAvatar channel={channel} size={34} />
-              <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
-                {displayName}
-              </Text>
-            </View>
-            <ChannelBadge channel={channel} compact />
-          </View>
-          <TouchableOpacity onPress={() => setVincularVisible(true)} style={styles.linkBtn}>
-            <Link2 size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-          </TouchableOpacity>
-        </View>
+        <OmnichannelChatHeader
+          channel={conversationMeta.channel}
+          displayName={conversationMeta.displayName}
+          hasKnownChannel={conversationMeta.hasKnownChannel}
+          isMetaPending={conversationMeta.isMetaPending}
+          paddingTop={insets.top + SPACING.sm}
+          onBack={() => router.back()}
+          onAgendarPress={() => setAgendarVisible(true)}
+        />
 
-        <View style={styles.banner}>
-          <Text style={styles.bannerText} numberOfLines={2}>{banner}</Text>
-          {solicitudVinculada ? (
-            <Text style={styles.bannerLinked}>Vinculada a solicitud {solicitudVinculada}</Text>
-          ) : null}
-        </View>
-
-        <Modal visible={vincularVisible} transparent animationType="fade">
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Vincular a solicitud</Text>
-              <Text style={styles.modalHint}>Pega el ID de una solicitud activa de tu taller.</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={solicitudIdInput}
-                onChangeText={setSolicitudIdInput}
-                placeholder="UUID solicitud"
-                placeholderTextColor={I.mutedSoft}
-                autoCapitalize="none"
-              />
-              <View style={styles.modalActions}>
-                <TouchableOpacity onPress={() => setVincularVisible(false)} style={styles.modalCancel}>
-                  <Text style={styles.modalCancelText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={vincularSolicitud} style={styles.modalConfirm} disabled={vinculando}>
-                  {vinculando ? (
-                    <ActivityIndicator color={I.onPrimary} size="small" />
-                  ) : (
-                    <Text style={styles.modalConfirmText}>Vincular</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
+        <AgendarDesdeCanalModal
+          visible={agendarVisible}
+          onClose={() => setAgendarVisible(false)}
+          channel={conversationMeta.channel || undefined}
+          contactName={conversationMeta.nombreAgendable}
+          contactPhone={conversationMeta.contactPhone}
+        />
 
         <View style={styles.chatArea}>
           {loading ? (
@@ -504,89 +422,6 @@ const styles = StyleSheet.create({
     color: I.muted,
     textAlign: 'center',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: GLASS_INSET,
-    paddingBottom: SPACING.sm,
-    backgroundColor: I.canvas,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: I.hairline,
-    ...SHADOWS.editorial,
-  },
-  backBtn: {
-    padding: 4,
-    minWidth: 36,
-    alignItems: 'flex-start',
-  },
-  headerCenter: {
-    flex: 1,
-    minWidth: 0,
-    marginHorizontal: SPACING.sm,
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-  },
-  headerNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    width: '100%',
-    minWidth: 0,
-  },
-  headerTitle: {
-    ...TYPOGRAPHY.styles.h3,
-    color: I.ink,
-    fontWeight: '600',
-    flex: 1,
-    minWidth: 0,
-  },
-  linkBtn: {
-    padding: SPACING.xs,
-    minWidth: 36,
-    alignItems: 'center',
-  },
-  banner: {
-    backgroundColor: I.surfaceSoft,
-    paddingHorizontal: GLASS_INSET,
-    paddingVertical: SPACING.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: I.hairline,
-  },
-  bannerText: { ...TYPOGRAPHY.styles.caption, color: I.body },
-  bannerLinked: { ...TYPOGRAPHY.styles.caption, color: I.primary, marginTop: 4 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    padding: SPACING.lg,
-  },
-  modalCard: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    padding: SPACING.lg,
-    borderWidth: 1,
-    borderColor: I.hairline,
-  },
-  modalTitle: { ...TYPOGRAPHY.styles.h3, color: I.ink, fontWeight: '600' },
-  modalHint: { ...TYPOGRAPHY.styles.caption, color: I.muted, marginVertical: SPACING.sm },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: I.hairline,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.md,
-    color: I.ink,
-    marginBottom: SPACING.md,
-  },
-  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: SPACING.md },
-  modalCancel: { padding: SPACING.sm },
-  modalCancelText: { ...TYPOGRAPHY.styles.button, color: I.muted },
-  modalConfirm: {
-    backgroundColor: I.primary,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: BORDERS.radius.md,
-  },
-  modalConfirmText: { ...TYPOGRAPHY.styles.button, color: I.onPrimary },
   chatArea: { flex: 1 },
   listContent: { padding: SPACING.md, flexGrow: 1 },
   inputBar: {

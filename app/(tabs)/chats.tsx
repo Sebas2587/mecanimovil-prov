@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,14 @@ import {
 } from 'lucide-react-native';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
-import solicitudesService, { obtenerListaChats } from '@/services/solicitudesService';
+import solicitudesService from '@/services/solicitudesService';
+import {
+  useChatInboxQuery,
+  useInvalidateChatInbox,
+  upsertChatInboxFromWs,
+  CHAT_INBOX_QUERY_KEY,
+} from '@/hooks/useChatInboxQuery';
+import { useQueryClient } from '@tanstack/react-query';
 import { ChatSwipeableRow } from '@/components/chats/ChatSwipeableRow';
 import websocketService from '@/app/services/websocketService';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
@@ -38,43 +45,36 @@ const T = TYPOGRAPHY.styles;
 export default function ChatsScreen() {
   const { totalMensajesNoLeidos, actualizarTotal, decrementarNoLeidos } = useChats();
   const { isAuthenticated, usuario } = useAuth();
-  const [chats, setChats] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const invalidateChatInbox = useInvalidateChatInbox();
+  const {
+    data: chats = [],
+    isPending,
+    refetch,
+  } = useChatInboxQuery(isAuthenticated && Boolean(usuario));
   const [refreshing, setRefreshing] = useState(false);
   const [chatHighlighted, setChatHighlighted] = useState<string | null>(null);
   const [deletingOfertaId, setDeletingOfertaId] = useState<string | null>(null);
 
-  const cargarChats = useCallback(async (isRefreshing = false) => {
-    try {
-      if (!isAuthenticated || !usuario) {
-        setChats([]);
-        actualizarTotal(0);
-        return;
-      }
-      if (!isRefreshing) setLoading(true);
-      const data = await obtenerListaChats();
-      setChats(data);
-      const total = data.reduce((sum: number, chat: any) => sum + (chat.mensajes_no_leidos || 0), 0);
-      actualizarTotal(total);
-    } catch (error: any) {
-      if (error.response?.status === 401) {
-        setChats([]);
-        actualizarTotal(0);
-        return;
-      }
-      console.error('Error cargando chats:', error);
-      setChats([]);
-      actualizarTotal(0);
-    } finally {
-      setLoading(false);
-      if (isRefreshing) setRefreshing(false);
-    }
-  }, [isAuthenticated, usuario, actualizarTotal]);
+  const loading = isPending && chats.length === 0;
 
-  const onRefresh = useCallback(() => {
+  const totalNoLeidos = useMemo(
+    () => chats.reduce((sum, chat) => sum + (chat.mensajes_no_leidos || 0), 0),
+    [chats],
+  );
+
+  useEffect(() => {
+    actualizarTotal(totalNoLeidos);
+  }, [actualizarTotal, totalNoLeidos]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    cargarChats(true);
-  }, [cargarChats]);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
 
   useEffect(() => {
     if (!isAuthenticated || !usuario) return;
@@ -82,49 +82,42 @@ export default function ChatsScreen() {
     const unsubscribe = websocketService.onNuevoMensajeChat((event) => {
       const rowKey = event.oferta_id || event.conversation_id;
       if (rowKey) {
-        setChats(prevChats => {
-          const chatIndex = prevChats.findIndex(chat =>
-            (event.oferta_id && chat.oferta_id === event.oferta_id)
-            || (event.conversation_id && chat.conversation_id === event.conversation_id),
-          );
-          if (chatIndex !== -1) {
-            const chatActualizado = { ...prevChats[chatIndex] };
-            chatActualizado.ultimo_mensaje = {
-              id: event.mensaje_id,
-              mensaje: event.mensaje,
-              fecha_envio: event.timestamp,
-              es_propio: event.es_proveedor,
-              leido: false,
-            };
-            if (!event.es_proveedor) {
-              chatActualizado.mensajes_no_leidos = (chatActualizado.mensajes_no_leidos || 0) + 1;
-              setChatHighlighted(rowKey);
-              setTimeout(() => setChatHighlighted(null), 2000);
-            }
-            const nuevosChats = [chatActualizado, ...prevChats.filter((_, index) => index !== chatIndex)];
-            const nuevoTotal = nuevosChats.reduce((sum: number, chat: any) => sum + chat.mensajes_no_leidos, 0);
-            actualizarTotal(nuevoTotal);
-            return nuevosChats;
-          } else {
-            cargarChats(true);
-            return prevChats;
+        const cached = queryClient.getQueryData<typeof chats>(CHAT_INBOX_QUERY_KEY);
+        const chatIndex = cached?.findIndex((chat) =>
+          (event.oferta_id && chat.oferta_id === event.oferta_id)
+          || (event.conversation_id && chat.conversation_id === event.conversation_id),
+        ) ?? -1;
+
+        if (chatIndex !== -1 && cached) {
+          const chatActualizado = { ...cached[chatIndex] };
+          chatActualizado.ultimo_mensaje = {
+            id: event.mensaje_id,
+            mensaje: event.mensaje,
+            fecha_envio: event.timestamp,
+            es_propio: event.es_proveedor,
+            leido: false,
+          };
+          if (!event.es_proveedor) {
+            chatActualizado.mensajes_no_leidos = (chatActualizado.mensajes_no_leidos || 0) + 1;
+            setChatHighlighted(rowKey);
+            setTimeout(() => setChatHighlighted(null), 2000);
           }
-        });
+          upsertChatInboxFromWs(queryClient, rowKey, chatActualizado);
+        } else {
+          invalidateChatInbox();
+        }
       }
     });
 
     return () => { unsubscribe(); };
-  }, [isAuthenticated, usuario]);
+  }, [isAuthenticated, usuario, queryClient, invalidateChatInbox]);
 
   useFocusEffect(
     useCallback(() => {
       if (isAuthenticated && usuario) {
-        cargarChats();
-      } else {
-        setChats([]);
-        setLoading(false);
+        void refetch();
       }
-    }, [isAuthenticated, usuario, cargarChats])
+    }, [isAuthenticated, usuario, refetch]),
   );
 
   const formatearFecha = (fechaStr: string) => {
@@ -145,12 +138,11 @@ export default function ChatsScreen() {
           Alert.alert('Error', result.error || 'No se pudo eliminar el chat');
           throw new Error(result.error || 'delete failed');
         }
-        setChats((prev) => {
-          const next = prev.filter((c) => c.oferta_id !== ofertaId);
-          const total = next.reduce((sum: number, c: any) => sum + (c.mensajes_no_leidos || 0), 0);
-          actualizarTotal(total);
-          return next;
+        queryClient.setQueryData(CHAT_INBOX_QUERY_KEY, (prev: typeof chats | undefined) => {
+          if (!prev) return prev;
+          return prev.filter((c) => c.oferta_id !== ofertaId);
         });
+        invalidateChatInbox();
         if (unreadCount > 0) {
           decrementarNoLeidos(unreadCount);
         }
@@ -158,7 +150,7 @@ export default function ChatsScreen() {
         setDeletingOfertaId(null);
       }
     },
-    [decrementarNoLeidos, actualizarTotal],
+    [decrementarNoLeidos, invalidateChatInbox, queryClient],
   );
 
   const renderChatItem = useCallback(({ item }: { item: any }) => {
@@ -182,12 +174,15 @@ export default function ChatsScreen() {
 
     const markReadIfNeeded = () => {
       if (hasUnread) {
-        setChats(prev => prev.map(c => {
-          const match = oferta_id
-            ? c.oferta_id === oferta_id
-            : c.conversation_id === conversation_id;
-          return match ? { ...c, mensajes_no_leidos: 0 } : c;
-        }));
+        queryClient.setQueryData(CHAT_INBOX_QUERY_KEY, (prev: typeof chats | undefined) => {
+          if (!prev) return prev;
+          return prev.map((c) => {
+            const match = oferta_id
+              ? c.oferta_id === oferta_id
+              : c.conversation_id === conversation_id;
+            return match ? { ...c, mensajes_no_leidos: 0 } : c;
+          });
+        });
         decrementarNoLeidos(mensajes_no_leidos);
       }
     };
@@ -278,7 +273,7 @@ export default function ChatsScreen() {
     }
 
     return <View style={styles.listItemFallback}>{cardBody}</View>;
-  }, [chatHighlighted, decrementarNoLeidos, deletingOfertaId, deleteChat]);
+  }, [chatHighlighted, decrementarNoLeidos, deletingOfertaId, deleteChat, queryClient]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
@@ -315,7 +310,7 @@ export default function ChatsScreen() {
           <FlatList
             data={chats}
             renderItem={renderChatItem}
-            keyExtractor={(item) => item.conversation_id || item.oferta_id}
+            keyExtractor={(item) => String(item.conversation_id || item.oferta_id || item.kind)}
             contentContainerStyle={[styles.listContainer, chats.length === 0 && styles.listContainerEmpty]}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} colors={[I.primary]} />
