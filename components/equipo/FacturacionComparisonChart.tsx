@@ -28,7 +28,10 @@ const INITIAL_SPACING = 8;
 const END_SPACING = 16;
 const SCROLL_SPACING = 12;
 const LINE_COLOR_APP = I.primary;
-const LINE_COLOR_PERSONAL = I.body;
+/** Segunda serie — contraste frente a la línea azul (referencia Figma) */
+const LINE_COLOR_PERSONAL = '#E80054';
+const CHART_RULES_COLOR = 'rgba(228,228,228,0.2)';
+const LINE_THICKNESS = 2.5;
 
 type Props = {
   mecanicoId?: number | null;
@@ -232,8 +235,8 @@ export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }
                   disableScroll={chartMetrics.disableScroll}
                   color1={LINE_COLOR_APP}
                   color2={LINE_COLOR_PERSONAL}
-                  thickness={3.5}
-                  thickness2={3.5}
+                  thickness={LINE_THICKNESS}
+                  thickness2={LINE_THICKNESS}
                   curved
                   hideDataPoints1
                   hideDataPoints2
@@ -245,12 +248,11 @@ export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }
                   yAxisThickness={0}
                   xAxisColor={I.hairline}
                   xAxisThickness={StyleSheet.hairlineWidth}
-                  hideRules
-                  showVerticalLines
-                  verticalLinesColor={I.hairlineSoft}
-                  verticalLinesThickness={StyleSheet.hairlineWidth}
-                  yAxisTextStyle={styles.axisText}
-                  xAxisLabelTextStyle={styles.axisText}
+                  rulesColor={CHART_RULES_COLOR}
+                  rulesThickness={StyleSheet.hairlineWidth}
+                  showVerticalLines={false}
+                  yAxisTextStyle={styles.yAxisText}
+                  xAxisLabelTextStyle={styles.xAxisText}
                   yAxisLabelWidth={Y_AXIS_WIDTH}
                   nestedScrollEnabled
                   overflowTop={52}
@@ -423,12 +425,12 @@ const styles = StyleSheet.create({
     color: I.body,
   },
   chartWell: {
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.surfaceSoft,
+    borderRadius: 20,
+    backgroundColor: I.canvas,
     overflow: 'visible',
-    paddingTop: SPACING.fixed.md,
-    paddingBottom: SPACING.fixed.sm,
-    paddingHorizontal: 0,
+    paddingTop: SPACING.fixed.lg,
+    paddingBottom: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.sm,
     width: '100%',
   },
   chartScrollWrap: {
@@ -459,9 +461,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
-  axisText: {
+  yAxisText: {
     color: I.muted,
-    fontSize: 9,
+    fontSize: 11,
+    fontFamily: FF.sansMedium,
+  },
+  xAxisText: {
+    color: I.muted,
+    fontSize: 12,
     fontFamily: FF.sansRegular,
   },
   pointerLabel: {

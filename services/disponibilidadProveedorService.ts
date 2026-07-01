@@ -20,6 +20,10 @@ export type DisponibilidadConDuracion = {
   slots_disponibles?: SlotDisponible[];
 };
 
+export type DiasDisponiblesAgenda = {
+  fechas_disponibles?: string[];
+};
+
 function basePath(tipoProveedor: 'taller' | 'mecanico', proveedorId: number): string {
   if (tipoProveedor === 'taller') {
     return `/usuarios/talleres/${proveedorId}`;
@@ -66,6 +70,30 @@ export async function obtenerDisponibilidadConDuracion(params: {
     query.set('modalidad', params.modalidad);
   }
   const path = `${basePath(params.tipoProveedor, params.proveedorId)}/disponibilidad_con_duracion/?${query.toString()}`;
+  const res = await api.get(path);
+  return res.data ?? {};
+}
+
+export async function obtenerDiasDisponiblesAgenda(params: {
+  tipoProveedor: 'taller' | 'mecanico';
+  proveedorId: number;
+  ofertaServicioId?: number;
+  miembroTallerId?: number;
+  modalidad?: 'a_domicilio' | 'en_taller';
+  dias?: number;
+}): Promise<DiasDisponiblesAgenda> {
+  const api = await getAPI();
+  const query = new URLSearchParams({ dias: String(params.dias ?? 21) });
+  if (params.ofertaServicioId) {
+    query.set('oferta_servicio_id', String(params.ofertaServicioId));
+  }
+  if (params.miembroTallerId) {
+    query.set('miembro_taller', String(params.miembroTallerId));
+  }
+  if (params.modalidad) {
+    query.set('modalidad', params.modalidad);
+  }
+  const path = `${basePath(params.tipoProveedor, params.proveedorId)}/dias_disponibles_agenda/?${query.toString()}`;
   const res = await api.get(path);
   return res.data ?? {};
 }

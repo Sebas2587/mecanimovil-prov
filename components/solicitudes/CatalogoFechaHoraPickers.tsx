@@ -61,13 +61,16 @@ export function resolveInitialPickerValue(
   return { fecha, hora, horaFin };
 }
 
-function buildDayOptions(minDate?: Date): Date[] {
+function buildDayOptions(minDate?: Date, fechasPermitidas?: string[] | null): Date[] {
   const hoy = startOfDay(new Date());
   const inicio = minDate && startOfDay(minDate) >= hoy ? startOfDay(minDate) : hoy;
   const out: Date[] = [];
   for (let i = 0; i < DAYS_AHEAD; i += 1) {
     const d = new Date(inicio);
     d.setDate(inicio.getDate() + i);
+    if (fechasPermitidas != null) {
+      if (!fechasPermitidas.includes(formatDateApi(d))) continue;
+    }
     out.push(d);
   }
   return out;
@@ -103,6 +106,10 @@ type Props = {
   horasDisponibles?: string[] | null;
   cargandoHoras?: boolean;
   mensajeSinHoras?: string;
+  /** Fechas YYYY-MM-DD con agenda; null = aún no aplica filtro */
+  fechasDisponibles?: string[] | null;
+  cargandoFechas?: boolean;
+  mensajeSinFechas?: string;
   /** Inset del contenedor padre: permite scroll horizontal edge-to-edge dentro de padding. */
   horizontalInset?: number;
 };
@@ -115,22 +122,31 @@ export function CatalogoFechaHoraPickers({
   horasDisponibles,
   cargandoHoras = false,
   mensajeSinHoras,
+  fechasDisponibles = null,
+  cargandoFechas = false,
+  mensajeSinFechas,
   horizontalInset = 0,
 }: Props) {
   const esRango = modo === 'rango';
   const dayScrollRef = useRef<ScrollView>(null);
   const timeScrollRef = useRef<ScrollView>(null);
-  const dayOptions = useMemo(() => buildDayOptions(minDate), [minDate]);
+  const dayOptions = useMemo(
+    () => buildDayOptions(minDate, fechasDisponibles),
+    [minDate, fechasDisponibles],
+  );
   const timeSlots = useMemo(() => {
+    if (fechasDisponibles === null || horasDisponibles === null) {
+      return [];
+    }
     const base = buildTimeSlots(!esRango);
-    if (horasDisponibles === undefined || horasDisponibles === null) {
+    if (horasDisponibles === undefined) {
       return base;
     }
     if (esRango) {
       return horasDisponibles;
     }
     return [SIN_HORA, ...horasDisponibles];
-  }, [esRango, horasDisponibles]);
+  }, [esRango, horasDisponibles, fechasDisponibles]);
   const horaInicioKey = value.hora ?? (esRango ? '' : SIN_HORA);
   const slotsRango = useMemo(
     () => timeSlots.filter((s) => s !== SIN_HORA),
@@ -243,6 +259,20 @@ export function CatalogoFechaHoraPickers({
         <InstitutionalIcon name="calendar" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
         <Text style={styles.sectionLabel}>Fecha propuesta</Text>
       </View>
+      {cargandoFechas ? (
+        <View style={styles.horasLoading}>
+          <ActivityIndicator color={I.primary} />
+          <Text style={styles.horasLoadingText}>Cargando fechas disponibles…</Text>
+        </View>
+      ) : fechasDisponibles != null && dayOptions.length === 0 ? (
+        <Text style={styles.sinHorasText}>
+          {mensajeSinFechas || 'No hay fechas disponibles en las próximas semanas.'}
+        </Text>
+      ) : fechasDisponibles === null ? (
+        <Text style={styles.sinHorasText}>
+          {mensajeSinFechas || 'Selecciona modalidad y servicio para ver fechas disponibles.'}
+        </Text>
+      ) : (
       <ScrollView
         ref={dayScrollRef}
         horizontal
@@ -274,6 +304,7 @@ export function CatalogoFechaHoraPickers({
           );
         })}
       </ScrollView>
+      )}
 
       <Text style={styles.selectedDateHint}>
         {value.fecha.toLocaleDateString('es-CL', {
