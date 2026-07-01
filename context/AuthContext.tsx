@@ -26,7 +26,7 @@ if (CAN_USE_NATIVE_GOOGLE) {
 async function registerPushForUser(userId: number | undefined): Promise<void> {
   if (!userId) return;
   try {
-    await NotificationService.syncPushTokenForUser(userId);
+    await NotificationService.syncNotificationsForUser(userId);
   } catch {
     /* no crítico */
   }

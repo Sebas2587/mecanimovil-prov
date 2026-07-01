@@ -2,6 +2,12 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { getItem } from '@/utils/authStorage';
 import { post } from '@/services/api';
+import {
+  subscribeWebPush,
+  unsubscribeWebPush,
+  getWebPushStatus,
+  type WebPushStatus,
+} from '@/services/push/webPushService';
 
 const IS_EXPO_GO = Constants.appOwnership === 'expo';
 
@@ -104,8 +110,20 @@ class NotificationService {
     }
   }
 
-  isAvailable(): boolean {
+  /** Push nativo Expo (iOS/Android). */
+  isNativePushAvailable(): boolean {
     return Platform.OS !== 'web' && !IS_EXPO_GO;
+  }
+
+  /** Web Push VAPID (navegador). */
+  isWebPushAvailable(): boolean {
+    if (Platform.OS !== 'web') return false;
+    if (typeof window === 'undefined') return false;
+    return 'PushManager' in window && 'serviceWorker' in navigator && 'Notification' in window;
+  }
+
+  isAvailable(): boolean {
+    return this.isNativePushAvailable();
   }
 
   async requestPermissions(): Promise<boolean> {
@@ -127,7 +145,7 @@ class NotificationService {
   }
 
   async obtenerPushToken(): Promise<string | null> {
-    if (!this.isAvailable()) return null;
+    if (!this.isNativePushAvailable()) return null;
 
     await this.ensureInitialized();
     const Notifications = loadNotifications();
@@ -180,20 +198,47 @@ class NotificationService {
     }
   }
 
-  /** Registra permisos + token en backend tras login o restauración de sesión. */
+  /** Registra Expo push tras login (solo nativo). */
   async syncPushTokenForUser(userId: number): Promise<void> {
-    if (!userId || !this.isAvailable()) return;
+    if (!userId || !this.isNativePushAvailable()) return;
     const token = await this.obtenerPushToken();
     if (token) {
       await this.registrarTokenEnBackend(token, userId);
     }
   }
 
+  /** Registra Web Push tras login (solo web). */
+  async syncWebPushForUser(_userId: number): Promise<void> {
+    if (!this.isWebPushAvailable()) return;
+    await subscribeWebPush();
+  }
+
+  /** Canal correcto según plataforma — nativo y web son mutuamente excluyentes. */
+  async syncNotificationsForUser(userId: number): Promise<void> {
+    if (!userId) return;
+    if (this.isNativePushAvailable()) {
+      await this.syncPushTokenForUser(userId);
+      return;
+    }
+    if (this.isWebPushAvailable()) {
+      await this.syncWebPushForUser(userId);
+    }
+  }
+
+  async getWebPushStatus(): Promise<WebPushStatus> {
+    return getWebPushStatus();
+  }
+
   async deactivateOnLogout(): Promise<void> {
-    if (!this.isAvailable()) return;
-    const token = await this.obtenerPushToken();
-    if (token) {
-      await this.desactivarTokenEnBackend(token);
+    if (this.isNativePushAvailable()) {
+      const token = await this.obtenerPushToken();
+      if (token) {
+        await this.desactivarTokenEnBackend(token);
+      }
+      return;
+    }
+    if (this.isWebPushAvailable()) {
+      await unsubscribeWebPush();
     }
   }
 }

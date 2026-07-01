@@ -21,8 +21,15 @@ function pickOfertaId(data: PushNotificationData): string | null {
   return id.length > 0 ? id : null;
 }
 
+function pickOrdenId(data: PushNotificationData): string | null {
+  const raw = data.orden_id ?? data.order_id ?? data.ordenId;
+  if (raw == null) return null;
+  const id = String(raw).trim();
+  return id.length > 0 ? id : null;
+}
+
 /**
- * Navega según el payload `data` de una push Expo (tap o cold start).
+ * Navega según el payload `data` de una push Expo o Web Push (tap o cold start).
  */
 export function navigateByPushNotification(
   router: Router,
@@ -34,10 +41,12 @@ export function navigateByPushNotification(
   const type = typeof data.type === 'string' ? data.type : '';
   const solicitudId = pickSolicitudId(data);
   const ofertaId = pickOfertaId(data);
+  const ordenId = pickOrdenId(data);
 
   switch (type) {
     case 'nueva_solicitud':
     case 'catalog_assignment':
+    case 'solicitud_por_vencer':
       if (solicitudId) {
         if (queryClient) void prefetchSolicitudDetalle(queryClient, solicitudId);
         router.push(`/solicitud-detalle/${solicitudId}`);
@@ -45,6 +54,18 @@ export function navigateByPushNotification(
       }
       router.push('/solicitudes-disponibles');
       return true;
+
+    case 'checklist_pendiente':
+      if (ordenId) {
+        router.push(`/orden-detalle/${ordenId}`);
+        return true;
+      }
+      if (solicitudId) {
+        if (queryClient) void prefetchSolicitudDetalle(queryClient, solicitudId);
+        router.push(`/solicitud-detalle/${solicitudId}`);
+        return true;
+      }
+      break;
 
     case 'chat_message':
     case 'nuevo_mensaje_chat': {

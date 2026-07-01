@@ -34,6 +34,7 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-syst
 import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
+import { WebPushPermissionBanner } from '@/components/push/WebPushPermissionBanner';
 
 const I = COLORS.institutional;
 const warningStatus = institutionalStatusColors('warning');
@@ -232,6 +233,7 @@ export default function PerfilScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: SPACING['2xl'] }]}
           showsVerticalScrollIndicator={false}
         >
+          <WebPushPermissionBanner />
           <View
             style={[
               styles.profileCard,
