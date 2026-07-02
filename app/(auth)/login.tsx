@@ -42,6 +42,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   const handleGoogleSuccess = useCallback(
     async (result: { success: boolean; estadoProveedor?: any }) => {
@@ -100,26 +101,37 @@ export default function LoginScreen() {
     setStep(connectedAccounts.length > 0 ? 'accounts' : 'methods');
   }, [accountsLoaded, connectedAccounts.length, step]);
 
-  const validateEmailForm = () => {
+  const validateLoginForm = () => {
     const next: { email?: string; password?: string } = {};
-    if (!email.trim()) next.email = 'El correo electrónico es requerido';
-    else if (!/\S+@\S+\.\S+/.test(email)) next.email = 'Correo electrónico no válido';
+    const identifier = email.trim();
+    if (!identifier) {
+      next.email = 'El usuario o correo es requerido';
+    } else if (identifier.includes('@') && !/\S+@\S+\.\S+/.test(identifier)) {
+      next.email = 'Correo electrónico no válido';
+    }
     if (!password) next.password = 'La contraseña es requerida';
     setErrors(next);
-    return Object.keys(next).length === 0;
+    if (Object.keys(next).length > 0) {
+      const message = Object.values(next).join('\n');
+      setLoginError(message);
+      showAlert('Datos incorrectos', message);
+      return false;
+    }
+    setLoginError(null);
+    return true;
   };
 
   const handleEmailLogin = async () => {
-    if (!validateEmailForm()) return;
+    if (!validateLoginForm()) return;
     setEmailLoading(true);
+    setLoginError(null);
     try {
       const { estadoProveedor: estadoActual } = await login(email.trim(), password);
       navigateAfterLogin(router, estadoActual);
     } catch (error: any) {
-      showAlert(
-        'Error al iniciar sesión',
-        error?.message || 'Verifica tus credenciales e intenta nuevamente.',
-      );
+      const message = error?.message || 'Verifica tus credenciales e intenta nuevamente.';
+      setLoginError(message);
+      showAlert('Error al iniciar sesión', message);
     } finally {
       setEmailLoading(false);
     }
@@ -166,13 +178,16 @@ export default function LoginScreen() {
           password={password}
           emailError={errors.email}
           passwordError={errors.password}
+          loginError={loginError ?? undefined}
           onEmailChange={(v) => {
             setEmail(v);
             if (errors.email) setErrors((p) => ({ ...p, email: undefined }));
+            if (loginError) setLoginError(null);
           }}
           onPasswordChange={(v) => {
             setPassword(v);
             if (errors.password) setErrors((p) => ({ ...p, password: undefined }));
+            if (loginError) setLoginError(null);
           }}
           onAccountTap={(accountEmail) => {
             if (!googleLoading) signInWithAccountChooser({ loginHint: accountEmail });

@@ -538,6 +538,13 @@ export default function HomeScreen() {
 
   // Mecánico del equipo: home simplificado con órdenes asignadas
   if (esMecanicoEquipo) {
+    const nombreTaller = obtenerNombreProveedor();
+    const nombreMecanico =
+      estadoProveedor?.miembro_nombre
+      || `${usuario?.first_name || ''} ${usuario?.last_name || ''}`.trim()
+      || usuario?.username
+      || 'Mecánico';
+
     return (
       <TabScreenWrapper>
         <LinearGradient
@@ -547,6 +554,41 @@ export default function HomeScreen() {
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
         >
+          <SafeAreaView edges={['top']} style={{ backgroundColor: palette.canvas }}>
+            <View style={themedStyles.header}>
+              <View style={themedStyles.headerLeft}>
+                {(usuario as any)?.foto_perfil ? (
+                  <Image source={{ uri: (usuario as any).foto_perfil }} style={themedStyles.avatar} />
+                ) : (
+                  <View style={themedStyles.avatarPlaceholder}>
+                    <Text style={themedStyles.avatarInitial}>
+                      {nombreMecanico.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={themedStyles.welcomeLabel} numberOfLines={1}>
+                    {nombreTaller}
+                  </Text>
+                  <Text style={themedStyles.providerName} numberOfLines={1}>
+                    {nombreMecanico}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={themedStyles.bellOuter}
+                activeOpacity={0.7}
+                onPress={() => router.push('/notificaciones')}
+              >
+                <View style={themedStyles.bellButton}>
+                  <Bell size={20} color={palette.ink} />
+                </View>
+                {alertasNoLeidas > 0 ? (
+                  <Animated.View style={[themedStyles.bellDot, { transform: [{ scale: pulseAnim }] }]} />
+                ) : null}
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
           <MecanicoHomeView />
         </LinearGradient>
       </TabScreenWrapper>

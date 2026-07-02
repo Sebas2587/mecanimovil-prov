@@ -24,6 +24,7 @@ type Props = {
   password: string;
   emailError?: string;
   passwordError?: string;
+  loginError?: string;
   onEmailChange: (v: string) => void;
   onPasswordChange: (v: string) => void;
   onAccountTap: (email: string) => void;
@@ -45,6 +46,7 @@ export function LoginCanvaFlow({
   password,
   emailError,
   passwordError,
+  loginError,
   onEmailChange,
   onPasswordChange,
   onAccountTap,
@@ -213,10 +215,10 @@ export function LoginCanvaFlow({
       </TouchableOpacity>
 
       <View style={styles.heading}>
-        <Text style={styles.eyebrow}>Correo electrónico</Text>
-        <Text style={styles.h1}>Inicia sesión con tu correo</Text>
+        <Text style={styles.eyebrow}>Acceso</Text>
+        <Text style={styles.h1}>Inicia sesión</Text>
         <Text style={styles.subtitle}>
-          ¿No tienes cuenta?{' '}
+          Usa tu usuario o correo del taller.{' '}
           <Text style={styles.headingLink} onPress={() => onGoRegister(email)}>
             Regístrate aquí
           </Text>
@@ -225,15 +227,20 @@ export function LoginCanvaFlow({
       </View>
 
       <View style={styles.card}>
+        {loginError ? (
+          <View style={styles.loginErrorBanner}>
+            <Text style={styles.loginErrorText}>{loginError}</Text>
+          </View>
+        ) : null}
         <View style={styles.fieldWrap}>
-          <Text style={styles.label}>Correo electrónico</Text>
+          <Text style={styles.label}>Usuario o correo</Text>
           <TextInput
             style={[styles.input, emailError ? styles.inputError : null]}
-            placeholder="ejemplo@correo.com"
+            placeholder="usuario o ejemplo@correo.com"
             placeholderTextColor={COLORS.institutional.mutedSoft}
             value={email}
             onChangeText={onEmailChange}
-            keyboardType="email-address"
+            keyboardType="default"
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -485,6 +492,20 @@ const styles = StyleSheet.create({
   },
   inputError: {
     borderColor: COLORS.institutional.semanticDown,
+  },
+  loginErrorBanner: {
+    backgroundColor: COLORS.institutional.surfaceSoft,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.institutional.semanticDown,
+    padding: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  loginErrorText: {
+    fontFamily: TYPOGRAPHY.fontFamily.sans,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.institutional.semanticDown,
+    lineHeight: 20,
   },
   errorText: {
     fontSize: TYPOGRAPHY.fontSize.xs,

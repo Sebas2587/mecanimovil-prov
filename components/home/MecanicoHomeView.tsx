@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -45,7 +45,7 @@ async function fetchOrdenesMecanico(): Promise<Orden[]> {
 }
 
 export function MecanicoHomeView() {
-  const { estadoProveedor, miembroId } = useAuth();
+  const { miembroId } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
   const {
@@ -63,11 +63,6 @@ export function MecanicoHomeView() {
     useCallback(() => {
       void refetch();
     }, [refetch]),
-  );
-
-  const nombreMecanico = useMemo(
-    () => estadoProveedor?.miembro_nombre || 'Mecánico',
-    [estadoProveedor?.miembro_nombre],
   );
 
   const onRefresh = async () => {
@@ -97,9 +92,9 @@ export function MecanicoHomeView() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.hero}>
-        <Text style={styles.greeting}>Hola, {nombreMecanico}</Text>
+        <Text style={styles.greeting}>Tus servicios asignados</Text>
         <Text style={styles.subtitle}>
-          Aquí verás los servicios que te asignó el taller. Completa el checklist cuando corresponda.
+          Completa el checklist cuando corresponda y revisa tu calendario.
         </Text>
       </View>
 
