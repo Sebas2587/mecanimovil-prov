@@ -49,6 +49,7 @@ import {
   SolicitudDetalleChecklistCompletedModal,
 } from '@/components/solicitud-detalle/SolicitudDetalleChecklistOverlay';
 import { calcularAlturaFooterEjecucion } from '@/utils/calcularAlturaFooterEjecucion';
+import { AsistenteDiagnosticoCard } from '@/components/orden-detalle/AsistenteDiagnosticoCard';
 
 const ESTADOS_EJECUCION_UI = new Set([
   'pendiente_creditos',
@@ -908,6 +909,12 @@ export default function SolicitudDetalleScreen() {
               </View>
               <Text style={styles.descriptionText}>{solicitud.descripcion_problema}</Text>
             </View>
+
+            {miOferta?.solicitud_servicio_id && miOferta?.miembro_taller_asignado ? (
+              <View style={styles.section}>
+                <AsistenteDiagnosticoCard ordenId={miOferta.solicitud_servicio_id} />
+              </View>
+            ) : null}
 
             {Array.isArray(solicitud.fotos_necesidad) && solicitud.fotos_necesidad.length > 0 ? (
               <View style={styles.fotosClienteSection}>

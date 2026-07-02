@@ -210,7 +210,7 @@ function formatearHoraStr(hora: string) {
 export default function CalendarioScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { estadoProveedor } = useAuth();
+  const { estadoProveedor, esMecanicoEquipo, miembroId } = useAuth();
   const { fecha: fechaParam } = useLocalSearchParams<{ fecha?: string }>();
   const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
 
@@ -225,7 +225,7 @@ export default function CalendarioScreen() {
     refresh,
   } = useAgendaCalendarioQuery({
     mesActual,
-    miembroFiltro: null,
+    miembroFiltro: esMecanicoEquipo && miembroId ? miembroId : null,
     enabled: cuentaAprobada,
   });
 

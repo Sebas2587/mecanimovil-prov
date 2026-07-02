@@ -320,10 +320,14 @@ export interface PermisosSupervisor {
 export interface EstadoProveedor {
   tiene_perfil: boolean;
   tipo_proveedor?: 'taller' | 'mecanico';
-  /** Rol del usuario dentro del taller: dueño (mandante) o supervisor con login propio. */
-  rol_taller?: 'mandante' | 'supervisor';
+  /** Rol del usuario dentro del taller: dueño (mandante), supervisor o mecánico del equipo. */
+  rol_taller?: 'mandante' | 'supervisor' | 'mecanico';
   /** Permisos del supervisor (null/undefined para el mandante, que tiene acceso total). */
   permisos?: PermisosSupervisor | null;
+  /** ID del MiembroTaller cuando la sesión es de mecánico del equipo. */
+  miembro_id?: number | null;
+  /** Nombre del miembro cuando la sesión es de mecánico del equipo. */
+  miembro_nombre?: string | null;
   /** Cobertura de marcas: especialista en marcas específicas o multimarca */
   tipo_cobertura_marca?: 'especialista' | 'multimarca';
   nombre?: string;

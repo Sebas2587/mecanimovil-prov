@@ -78,9 +78,13 @@ interface AuthContextType {
     direccion: string;
   };
   /** Rol del usuario dentro del taller. 'mandante' por defecto. */
-  rolTaller: 'mandante' | 'supervisor';
+  rolTaller: 'mandante' | 'supervisor' | 'mecanico';
   /** True si la sesión actual es de un supervisor (acceso restringido). */
   esSupervisor: boolean;
+  /** True si la sesión actual es de un mecánico del equipo (acceso mínimo). */
+  esMecanicoEquipo: boolean;
+  /** ID del MiembroTaller cuando la sesión es de mecánico del equipo. */
+  miembroId: number | null;
   /** True si el usuario puede gestionar el recurso (mandante siempre puede). */
   puede: (recurso: keyof import('@/services/api').PermisosSupervisor) => boolean;
 }
@@ -921,14 +925,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setEstadoProveedor(null);
   };
 
-  const rolTaller: 'mandante' | 'supervisor' =
-    estadoProveedor?.rol_taller === 'supervisor' ? 'supervisor' : 'mandante';
+  const rolTaller: 'mandante' | 'supervisor' | 'mecanico' =
+    estadoProveedor?.rol_taller === 'supervisor'
+      ? 'supervisor'
+      : estadoProveedor?.rol_taller === 'mecanico'
+        ? 'mecanico'
+        : 'mandante';
   const esSupervisor = rolTaller === 'supervisor';
+  const esMecanicoEquipo = rolTaller === 'mecanico';
+  const miembroId = estadoProveedor?.miembro_id ?? null;
 
   const puede = useCallback(
     (recurso: keyof import('@/services/api').PermisosSupervisor): boolean => {
-      // El mandante (dueño) siempre puede. El supervisor depende de sus permisos.
       if (rolTaller === 'mandante') return true;
+      if (rolTaller === 'mecanico') return false;
       const permisos = estadoProveedor?.permisos;
       return Boolean(permisos && permisos[recurso]);
     },
@@ -951,6 +961,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     obtenerDatosCompletosProveedor,
     rolTaller,
     esSupervisor,
+    esMecanicoEquipo,
+    miembroId,
     puede,
   };
 

@@ -63,6 +63,7 @@ export interface Orden {
   motivo_rechazo?: string;
   notas_proveedor?: string;
   oferta_proveedor_id?: string | null; // ID de la oferta asociada
+  mecanico_asignado_id?: number | null;
 }
 
 // Funciones de utilidad para verificar el tipo de cliente

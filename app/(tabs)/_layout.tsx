@@ -16,7 +16,7 @@ import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
 const I = COLORS.institutional;
 
 export default function TabLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, esMecanicoEquipo } = useAuth();
   const { radarOportunidadesActivo, radarPreferenciaCargada } = useRadarOportunidades();
   const { totalMensajesNoLeidos } = useChats();
   const insets = useSafeAreaInsets();
@@ -123,6 +123,7 @@ export default function TabLayout() {
         name="ordenes"
         options={{
           title: 'Órdenes',
+          href: esMecanicoEquipo ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
             <ClipboardList size={22} color={color} strokeWidth={focused ? 2.4 : 1.8} />
           ),
@@ -133,6 +134,7 @@ export default function TabLayout() {
         name="chats"
         options={{
           title: 'Chats',
+          href: esMecanicoEquipo ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
             <View style={tabStyles.iconWrap}>
               <MessageCircle size={22} color={color} strokeWidth={focused ? 2.4 : 1.8} />

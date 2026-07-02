@@ -51,6 +51,7 @@ import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
 import { horariosAPI } from '@/services/api';
+import { MecanicoHomeView } from '@/components/home/MecanicoHomeView';
 import {
   normalizarEstadoAgendaApi,
 } from '@/utils/horariosProveedor';
@@ -69,6 +70,7 @@ export default function HomeScreen() {
     usuario,
     obtenerNombreProveedor,
     esSupervisor,
+    esMecanicoEquipo,
     puede,
   } = useAuth();
 
@@ -532,6 +534,23 @@ export default function HomeScreen() {
   // Sin aprobación administrativa (estado aprobado), pantalla de revisión
   if (!cuentaAprobadaPorAdmin) {
     return <EstadoRevisionScreen estadoProveedor={estadoProveedor} />;
+  }
+
+  // Mecánico del equipo: home simplificado con órdenes asignadas
+  if (esMecanicoEquipo) {
+    return (
+      <TabScreenWrapper>
+        <LinearGradient
+          style={themedStyles.screen}
+          colors={[palette.surfaceSoft, palette.canvas] as const}
+          locations={[0, 1] as const}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+        >
+          <MecanicoHomeView />
+        </LinearGradient>
+      </TabScreenWrapper>
+    );
   }
 
   // Cuenta aprobada: dashboard principal

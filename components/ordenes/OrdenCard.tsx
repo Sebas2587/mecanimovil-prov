@@ -49,9 +49,16 @@ interface OrdenCardProps {
   onPress: () => void;
   onUpdate?: () => void; // Para recargar datos cuando se actualice el checklist
   showChecklistButtons?: boolean; // 🔄 NUEVA PROP para controlar botones de checklist
+  permitirAceptarRechazar?: boolean;
 }
 
-export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, showChecklistButtons = true }) => {
+export const OrdenCard: React.FC<OrdenCardProps> = ({
+  orden,
+  onPress,
+  onUpdate,
+  showChecklistButtons = true,
+  permitirAceptarRechazar = true,
+}) => {
   const [ordenConChecklist, setOrdenConChecklist] = useState<OrdenConChecklist>(orden);
   const [loading, setLoading] = useState(false);
   
@@ -515,7 +522,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({ orden, onPress, onUpdate, 
         {/* Botones de acción */}
         <View style={styles.accionesContainer}>
           {/* Botones de aceptar/rechazar para órdenes pendientes */}
-          {orden.estado === 'pendiente_aceptacion_proveedor' && orden.puede_gestionar && (
+          {permitirAceptarRechazar && orden.estado === 'pendiente_aceptacion_proveedor' && orden.puede_gestionar && (
             <View style={styles.botonesQuickAction}>
               <TouchableOpacity
                 style={[styles.botonAccion, styles.botonRechazar]}

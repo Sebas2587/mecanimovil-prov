@@ -56,6 +56,7 @@ export function navigateByPushNotification(
       return true;
 
     case 'checklist_pendiente':
+    case 'orden_asignada_mecanico':
       if (ordenId) {
         router.push(`/orden-detalle/${ordenId}`);
         return true;
