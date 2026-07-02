@@ -93,7 +93,7 @@ export function ProponerFechaCatalogoModal({
   }, [visible, fechaReferencia, horaReferencia, miembroInicial]);
 
   useEffect(() => {
-    if (!visible || !agendaContext?.proveedorId) {
+    if (!visible) {
       setHorasDisponibles(null);
       return;
     }
@@ -108,12 +108,10 @@ export function ProponerFechaCatalogoModal({
 
     setCargandoHoras(true);
     obtenerDisponibilidadConDuracion({
-      tipoProveedor: agendaContext.tipoProveedor,
-      proveedorId: agendaContext.proveedorId,
       fecha,
-      ofertaServicioId: agendaContext.ofertaServicioId ?? undefined,
+      ofertaServicioId: agendaContext?.ofertaServicioId ?? undefined,
       miembroTallerId: miembroSeleccionado ?? undefined,
-      modalidad: agendaContext.modalidad,
+      modalidad: agendaContext?.modalidad,
     })
       .then((data: DisponibilidadConDuracion) => {
         if (cancelled) return;

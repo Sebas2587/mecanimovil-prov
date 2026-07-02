@@ -22,7 +22,6 @@ import {
   type EventoAgendaUnificado,
 } from '@/services/agendaProveedorService';
 import { useAgendaCalendarioQuery } from '@/hooks/useAgendaCalendarioQuery';
-import { useEquipoTallerQuery } from '@/hooks/useEquipoTallerQuery';
 import { formatDateApi } from '@/components/solicitudes/CatalogoFechaHoraPickers';
 import {
   parseFechaLocal,
@@ -217,7 +216,6 @@ export default function CalendarioScreen() {
 
   const [fechaSeleccionada, setFechaSeleccionada] = useState<Date>(() => startOfDay(new Date()));
   const [mesActual, setMesActual] = useState(() => startOfDay(new Date()));
-  const [miembroFiltro, setMiembroFiltro] = useState<number | null>(null);
   const [agendarModalVisible, setAgendarModalVisible] = useState(false);
 
   const {
@@ -227,15 +225,9 @@ export default function CalendarioScreen() {
     refresh,
   } = useAgendaCalendarioQuery({
     mesActual,
-    miembroFiltro,
+    miembroFiltro: null,
     enabled: cuentaAprobada,
   });
-
-  const { miembros: equipoMiembros } = useEquipoTallerQuery(cuentaAprobada);
-  const mecanicos = useMemo(
-    () => equipoMiembros.filter((m) => m.rol === 'mecanico'),
-    [equipoMiembros],
-  );
 
   useFocusEffect(
     useCallback(() => {
@@ -477,53 +469,6 @@ export default function CalendarioScreen() {
                 </TouchableOpacity>
               </View>
 
-              {mecanicos.length > 0 ? (
-                <View style={styles.filtroMecanicoBlock}>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.filtroMecanicoRow}
-                  >
-                    <TouchableOpacity
-                      style={[styles.filtroChip, miembroFiltro === null && styles.filtroChipActive]}
-                      onPress={() => setMiembroFiltro(null)}
-                      activeOpacity={0.85}
-                    >
-                      <InstitutionalIcon
-                        name="business"
-                        size={16}
-                        color={miembroFiltro === null ? I.onPrimary : I.body}
-                        strokeWidth={ICON_STROKE_WIDTH}
-                      />
-                      <Text style={[styles.filtroChipText, miembroFiltro === null && styles.filtroChipTextActive]}>
-                        Todos
-                      </Text>
-                    </TouchableOpacity>
-                    {mecanicos.map((m) => {
-                      const activo = miembroFiltro === m.id;
-                      return (
-                        <TouchableOpacity
-                          key={m.id}
-                          style={[styles.filtroChip, activo && styles.filtroChipActive]}
-                          onPress={() => setMiembroFiltro(m.id)}
-                          activeOpacity={0.85}
-                        >
-                          <InstitutionalIcon
-                            name="person"
-                            size={16}
-                            color={activo ? I.onPrimary : I.body}
-                            strokeWidth={ICON_STROKE_WIDTH}
-                          />
-                          <Text style={[styles.filtroChipText, activo && styles.filtroChipTextActive]}>
-                            {m.nombre}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              ) : null}
-
               <View style={styles.calendarGridSection}>
                 <View style={styles.diasSemanaContainer}>
                   {diasSemana.map((dia, index) => (
@@ -627,39 +572,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  filtroMecanicoBlock: {
-    paddingTop: SPACING.fixed.xs,
-    borderTopWidth: BORDERS.width.thin,
-    borderTopColor: I.hairline,
-  },
-  filtroMecanicoRow: {
-    flexDirection: 'row',
-    gap: SPACING.fixed.sm,
-    paddingBottom: SPACING.fixed.xxs,
-  },
-  filtroChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xs,
-    paddingVertical: SPACING.fixed.xs + 2,
-    paddingHorizontal: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.surfaceStrong,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
-  filtroChipActive: {
-    backgroundColor: I.primary,
-    borderColor: I.primary,
-  },
-  filtroChipText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.body,
-  },
-  filtroChipTextActive: {
-    color: I.onPrimary,
   },
   monthButton: {
     width: 40,

@@ -1,4 +1,5 @@
 import { getAPI } from '@/services/api';
+import type { EstadoProveedor } from '@/services/api';
 
 export type ProveedorAgendaIds = {
   tipoProveedor: 'taller' | 'mecanico';
@@ -13,11 +14,23 @@ function extractList(data: unknown): Array<{ id?: number }> {
   return [];
 }
 
+/** Resuelve el ID del proveedor autenticado para consultas de agenda. */
 export async function resolveProveedorAgendaIds(
   tipoProveedor?: 'taller' | 'mecanico',
 ): Promise<ProveedorAgendaIds | null> {
   const api = await getAPI();
   const preferido = tipoProveedor ?? 'taller';
+
+  try {
+    const estadoRes = await api.get<EstadoProveedor>('/usuarios/estado-proveedor/');
+    const estado = estadoRes.data;
+    if (estado?.tiene_perfil && typeof estado.proveedor_id === 'number') {
+      const tipo = estado.tipo_proveedor === 'mecanico' ? 'mecanico' : 'taller';
+      return { tipoProveedor: tipo, proveedorId: estado.proveedor_id };
+    }
+  } catch {
+    /* fallback abajo */
+  }
 
   if (preferido === 'mecanico') {
     const res = await api.get('/usuarios/mecanicos-domicilio/');

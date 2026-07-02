@@ -46,12 +46,16 @@ import { nombreContactoAgendable } from '@/utils/nombreContactoAgendable';
 import { parseReferenciaDate } from '@/utils/fechaLocal';
 import { serviciosProveedorAPI, type ServicioOferta } from '@/services/serviciosApi';
 import { agruparOfertasPorCatalogo } from '@/utils/agruparOfertasPorCatalogo';
-import { buildCatalogoOpcionesAgenda } from '@/utils/mecanicosAgenda';
+import { buildCatalogoOpcionesAgenda, filtrarMecanicosParaAgenda } from '@/utils/mecanicosAgenda';
 import {
   obtenerDisponibilidadConDuracion,
   obtenerDiasDisponiblesAgenda,
 } from '@/services/disponibilidadProveedorService';
 import { resolveProveedorAgendaIds, type ProveedorAgendaIds } from '@/utils/resolveProveedorAgenda';
+import equipoTallerService, {
+  type MiembroTaller,
+  etiquetaModalidadMecanico,
+} from '@/services/equipoTallerService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 
 const I = COLORS.institutional;
@@ -192,6 +196,10 @@ export function AgendarDesdeCanalModal({
   const [horasDisponibles, setHorasDisponibles] = useState<string[] | null>(null);
   const [cargandoHoras, setCargandoHoras] = useState(false);
   const [mensajeSinHoras, setMensajeSinHoras] = useState<string | undefined>();
+  const [mecanicosAptos, setMecanicosAptos] = useState<MiembroTaller[]>([]);
+  const [cargandoMecanicos, setCargandoMecanicos] = useState(false);
+  const [miembroSeleccionado, setMiembroSeleccionado] = useState<number | null>(null);
+  const [slotsFinPorHora, setSlotsFinPorHora] = useState<Record<string, string>>({});
   const [descripcion, setDescripcion] = useState('');
   const [tipoServicio, setTipoServicio] = useState<'taller' | 'domicilio'>('taller');
   const [direccion, setDireccion] = useState('');
@@ -236,10 +244,9 @@ export function AgendarDesdeCanalModal({
     return catalogoOpcionSeleccionada.ofertaId;
   }, [modoServicio, catalogoOpcionSeleccionada]);
 
-  const modalidadApi = useMemo(
-    () => (tipoServicio === 'domicilio' ? 'a_domicilio' : 'en_taller') as const,
-    [tipoServicio],
-  );
+  const modalidadApi = useMemo((): 'a_domicilio' | 'en_taller' => (
+    tipoServicio === 'domicilio' ? 'a_domicilio' : 'en_taller'
+  ), [tipoServicio]);
 
   useEffect(() => {
     if (!visible) return;
@@ -260,6 +267,9 @@ export function AgendarDesdeCanalModal({
     setMensajeSinFechas(undefined);
     setHorasDisponibles(null);
     setMensajeSinHoras(undefined);
+    setMecanicosAptos([]);
+    setMiembroSeleccionado(null);
+    setSlotsFinPorHora({});
     setDescripcion('');
     setTipoServicio(esMecanico ? 'domicilio' : 'taller');
     setDireccion('');
@@ -310,25 +320,84 @@ export function AgendarDesdeCanalModal({
   );
 
   const agendaParamsListos = useMemo(() => {
-    if (!proveedorAgenda) return false;
     if (modoServicio === 'catalogo') return Boolean(selectedOfertaId);
     return servicioManual.trim().length > 0;
-  }, [proveedorAgenda, modoServicio, selectedOfertaId, servicioManual]);
+  }, [modoServicio, selectedOfertaId, servicioManual]);
 
   useEffect(() => {
     setHorasDisponibles([]);
     setFechasDisponibles(null);
     setMensajeSinHoras(undefined);
     setMensajeSinFechas(undefined);
+    setMiembroSeleccionado(null);
+    setSlotsFinPorHora({});
     setFechaHora((prev) => ({ ...prev, hora: null, horaFin: null }));
   }, [selectedOfertaId, modalidadApi, modoServicio, catalogoOpcionKey, tipoServicio, servicioManual]);
+
+  const categoriasServicioAgenda = useMemo(() => {
+    if (modoServicio !== 'catalogo' || !catalogoOpcionSeleccionada) return [];
+    return catalogoOpcionSeleccionada.categoriasIds;
+  }, [modoServicio, catalogoOpcionSeleccionada]);
+
+  const mecanicosCompatibles = useMemo(
+    () =>
+      filtrarMecanicosParaAgenda(mecanicosAptos, {
+        tipoServicio,
+        categoriasIds: categoriasServicioAgenda,
+      }),
+    [mecanicosAptos, tipoServicio, categoriasServicioAgenda],
+  );
+
+  useEffect(() => {
+    if (miembroSeleccionado == null) return;
+    const sigueCompatible = mecanicosCompatibles.some((m) => m.id === miembroSeleccionado);
+    if (!sigueCompatible) setMiembroSeleccionado(null);
+  }, [mecanicosCompatibles, miembroSeleccionado]);
+
+  useEffect(() => {
+    if (!visible || !proveedorAgenda || proveedorAgenda.tipoProveedor !== 'taller') {
+      setMecanicosAptos([]);
+      return;
+    }
+
+    let cancelled = false;
+    setCargandoMecanicos(true);
+
+    equipoTallerService
+      .listar({ rol: 'mecanico', activo: true })
+      .then((equipo) => {
+        if (cancelled) return;
+        setMecanicosAptos(equipo);
+        setMiembroSeleccionado((prev) => {
+          if (prev == null) return null;
+          return equipo.some((m) => m.id === prev) ? prev : null;
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setMecanicosAptos([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCargandoMecanicos(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, proveedorAgenda]);
+
+  useEffect(() => {
+    setHorasDisponibles([]);
+    setSlotsFinPorHora({});
+    setFechaHora((prev) => ({ ...prev, hora: null, horaFin: null }));
+  }, [miembroSeleccionado]);
 
   useEffect(() => {
     if (esMecanico) setTipoServicio('domicilio');
   }, [esMecanico]);
 
   useEffect(() => {
-    if (!visible || !proveedorAgenda || !agendaParamsListos) {
+    if (!visible || !agendaParamsListos) {
       setFechasDisponibles(null);
       setCargandoFechas(false);
       return;
@@ -339,10 +408,9 @@ export function AgendarDesdeCanalModal({
     setMensajeSinFechas(undefined);
 
     obtenerDiasDisponiblesAgenda({
-      tipoProveedor: proveedorAgenda.tipoProveedor,
-      proveedorId: proveedorAgenda.proveedorId,
       ofertaServicioId: ofertaAgendaId,
       modalidad: modalidadApi,
+      miembroTallerId: miembroSeleccionado ?? undefined,
       dias: 21,
     })
       .then((data) => {
@@ -352,7 +420,9 @@ export function AgendarDesdeCanalModal({
         setMensajeSinFechas(
           fechas.length > 0
             ? undefined
-            : 'No hay fechas disponibles según la agenda configurada del taller.',
+            : miembroSeleccionado
+              ? 'Este técnico no tiene fechas disponibles para este servicio. Revisa su agenda en Horarios.'
+              : 'No hay fechas disponibles según la agenda configurada del taller.',
         );
         setFechaHora((prev) => {
           const key = formatDateApi(prev.fecha);
@@ -380,10 +450,10 @@ export function AgendarDesdeCanalModal({
     return () => {
       cancelled = true;
     };
-  }, [visible, proveedorAgenda, agendaParamsListos, modalidadApi, ofertaAgendaId]);
+  }, [visible, agendaParamsListos, modalidadApi, ofertaAgendaId, miembroSeleccionado]);
 
   useEffect(() => {
-    if (!visible || !proveedorAgenda || !agendaParamsListos) {
+    if (!visible || !agendaParamsListos) {
       setHorasDisponibles(null);
       setCargandoHoras(false);
       return;
@@ -417,25 +487,38 @@ export function AgendarDesdeCanalModal({
     setMensajeSinHoras(undefined);
     setCargandoHoras(true);
     obtenerDisponibilidadConDuracion({
-      tipoProveedor: proveedorAgenda.tipoProveedor,
-      proveedorId: proveedorAgenda.proveedorId,
       fecha,
       ofertaServicioId: ofertaAgendaId,
       modalidad: modalidadApi,
+      miembroTallerId: miembroSeleccionado ?? undefined,
     })
       .then((data) => {
         if (cancelled) return;
+        const finPorHora: Record<string, string> = {};
         const horas = (data.slots_disponibles ?? [])
-          .map((slot) => slot.hora)
+          .map((slot) => {
+            if (slot.hora && slot.hora_fin_estimada) {
+              finPorHora[slot.hora] = slot.hora_fin_estimada;
+            }
+            return slot.hora;
+          })
           .filter((h): h is string => Boolean(h));
+        setSlotsFinPorHora(finPorHora);
         setHorasDisponibles(horas);
         setMensajeSinHoras(
           horas.length > 0 ? undefined : (data.mensaje || 'No hay horarios disponibles para esta fecha.'),
         );
         setFechaHora((prev) => {
-          if (!prev.hora || horas.includes(prev.hora)) return prev;
+          if (!prev.hora || horas.includes(prev.hora)) {
+            const finEstimada = prev.hora ? finPorHora[prev.hora] : null;
+            if (prev.hora && finEstimada && prev.horaFin !== finEstimada) {
+              return { ...prev, horaFin: finEstimada };
+            }
+            return prev;
+          }
           const nextHora = horas[0] ?? null;
-          return { ...prev, hora: nextHora, horaFin: null };
+          const nextFin = nextHora ? finPorHora[nextHora] ?? null : null;
+          return { ...prev, hora: nextHora, horaFin: nextFin };
         });
       })
       .catch(() => {
@@ -452,14 +535,22 @@ export function AgendarDesdeCanalModal({
     };
   }, [
     visible,
-    proveedorAgenda,
     agendaParamsListos,
     fechaHora.fecha,
     modalidadApi,
     ofertaAgendaId,
     fechasDisponibles,
     cargandoFechas,
+    miembroSeleccionado,
   ]);
+
+  useEffect(() => {
+    if (!fechaHora.hora) return;
+    const finEstimada = slotsFinPorHora[fechaHora.hora];
+    if (finEstimada && fechaHora.horaFin !== finEstimada) {
+      setFechaHora((prev) => ({ ...prev, horaFin: finEstimada }));
+    }
+  }, [fechaHora.hora, fechaHora.horaFin, slotsFinPorHora]);
 
   const resetVehiculoManual = useCallback(() => {
     const vacio = limpiarVehiculo();
@@ -596,7 +687,7 @@ export function AgendarDesdeCanalModal({
       hora_servicio: `${fechaHora.hora}:00`,
       duracion_minutos: calcularDuracionMinutos(fechaHora.hora!, fechaHora.horaFin!),
       tipo_servicio: tipoServicio,
-      miembro_taller: null,
+      miembro_taller: miembroSeleccionado,
       detalle,
     };
   }, [
@@ -617,6 +708,7 @@ export function AgendarDesdeCanalModal({
     direccion,
     direccionValidada,
     fechaHora,
+    miembroSeleccionado,
   ]);
 
   const handleAgendar = useCallback(async () => {
@@ -875,6 +967,127 @@ export function AgendarDesdeCanalModal({
               />
             </View>
 
+            {proveedorAgenda?.tipoProveedor === 'taller' ? (
+              <>
+                <InstitutionalSectionHeader title="Mecánico asignado" />
+                <View style={styles.section}>
+                  {cargandoMecanicos ? (
+                    <ActivityIndicator color={I.primary} style={styles.loader} />
+                  ) : mecanicosCompatibles.length === 0 ? (
+                    <Text style={styles.helperText}>
+                      {mecanicosAptos.length === 0
+                        ? 'No hay mecánicos activos en tu taller. Agrégalos en Mis mecánicos.'
+                        : modoServicio === 'catalogo' && !catalogoOpcionKey
+                          ? 'Selecciona un servicio del catálogo para ver mecánicos compatibles por especialidad y modalidad.'
+                          : modoServicio === 'catalogo'
+                            ? 'Ningún mecánico tiene la especialidad y modalidad requeridas para este servicio. Revisa Mis mecánicos o elige otro servicio.'
+                            : `No hay mecánicos con modalidad compatible para servicio ${
+                                tipoServicio === 'domicilio' ? 'a domicilio' : 'en taller'
+                              }. Revisa la modalidad en Mis mecánicos.`}
+                    </Text>
+                  ) : (
+                    <>
+                      <Text style={styles.helperText}>
+                        Solo se listan técnicos con especialidad y modalidad compatibles con el servicio
+                        {modoServicio === 'catalogo' && catalogoOpcionSeleccionada
+                          ? ` «${catalogoOpcionSeleccionada.label}»`
+                          : ''}
+                        . Elige uno para ver su agenda o deja Automático.
+                      </Text>
+                      <View style={styles.catalogoList}>
+                        <TouchableOpacity
+                          style={[
+                            styles.catalogoItem,
+                            miembroSeleccionado === null && styles.catalogoItemSelected,
+                          ]}
+                          onPress={() => setMiembroSeleccionado(null)}
+                          activeOpacity={0.85}
+                        >
+                          <Text
+                            style={[
+                              styles.catalogoItemTitle,
+                              miembroSeleccionado === null && styles.catalogoItemTitleOn,
+                            ]}
+                          >
+                            Automático
+                          </Text>
+                          {miembroSeleccionado === null ? (
+                            <InstitutionalIcon
+                              name="check-circle"
+                              size={18}
+                              color={I.onPrimary}
+                              strokeWidth={ICON_STROKE_WIDTH}
+                            />
+                          ) : null}
+                        </TouchableOpacity>
+                        {mecanicosCompatibles.map((m) => {
+                          const selected = miembroSeleccionado === m.id;
+                          const modalidadLabel = etiquetaModalidadMecanico(m);
+                          return (
+                            <TouchableOpacity
+                              key={m.id}
+                              style={[styles.catalogoItem, selected && styles.catalogoItemSelected]}
+                              onPress={() => setMiembroSeleccionado(m.id)}
+                              activeOpacity={0.85}
+                            >
+                              <View style={styles.catalogoItemContent}>
+                                <Text
+                                  style={[
+                                    styles.catalogoItemTitle,
+                                    selected && styles.catalogoItemTitleOn,
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {m.nombre}
+                                </Text>
+                                {modalidadLabel ? (
+                                  <View style={[styles.modalidadBadge, selected && styles.modalidadBadgeOn]}>
+                                    <Text
+                                      style={[
+                                        styles.modalidadBadgeText,
+                                        selected && styles.modalidadBadgeTextOn,
+                                      ]}
+                                      numberOfLines={1}
+                                    >
+                                      {modalidadLabel}
+                                    </Text>
+                                  </View>
+                                ) : null}
+                                {m.especialidades_detalle.map((esp) => (
+                                  <View
+                                    key={esp.id}
+                                    style={[styles.especialidadBadge, selected && styles.especialidadBadgeOn]}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.especialidadBadgeText,
+                                        selected && styles.especialidadBadgeTextOn,
+                                      ]}
+                                      numberOfLines={1}
+                                    >
+                                      {esp.nombre}
+                                    </Text>
+                                  </View>
+                                ))}
+                              </View>
+                              {selected ? (
+                                <InstitutionalIcon
+                                  name="check-circle"
+                                  size={18}
+                                  color={I.onPrimary}
+                                  strokeWidth={ICON_STROKE_WIDTH}
+                                />
+                              ) : null}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </>
+                  )}
+                </View>
+              </>
+            ) : null}
+
             <InstitutionalSectionHeader title="Fecha y hora" />
             <View style={styles.section}>
               <CatalogoFechaHoraPickers
@@ -882,14 +1095,14 @@ export function AgendarDesdeCanalModal({
                 onChange={setFechaHora}
                 modo="rango"
                 fechasDisponibles={agendaParamsListos ? fechasDisponibles : null}
-                cargandoFechas={Boolean(proveedorAgenda) && cargandoFechas}
+                cargandoFechas={agendaParamsListos && cargandoFechas}
                 mensajeSinFechas={
                   agendaParamsListos
                     ? mensajeSinFechas
                     : 'Selecciona modalidad (En taller / A domicilio) y un servicio para ver fechas disponibles.'
                 }
                 horasDisponibles={agendaParamsListos ? (horasDisponibles ?? []) : null}
-                cargandoHoras={Boolean(proveedorAgenda) && agendaParamsListos && cargandoHoras}
+                cargandoHoras={agendaParamsListos && cargandoHoras}
                 mensajeSinHoras={mensajeSinHoras}
               />
               {(!fechaHora.hora || !fechaHora.horaFin) ? (
@@ -1127,6 +1340,26 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   modalidadBadgeTextOn: {
+    color: I.onPrimary,
+  },
+  especialidadBadge: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceSoft,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  especialidadBadgeOn: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  especialidadBadgeText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansMedium,
+    color: I.body,
+  },
+  especialidadBadgeTextOn: {
     color: I.onPrimary,
   },
   loader: {

@@ -33,11 +33,20 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/ap
 import { agendaProveedorService, type CitaAgendaPersonalCreatePayload } from '@/services/agendaProveedorService';
 import { serviciosProveedorAPI, type ServicioOferta } from '@/services/serviciosApi';
 import { agruparOfertasPorCatalogo } from '@/utils/agruparOfertasPorCatalogo';
+import {
+  categoriasIdsFromGrupo,
+  filtrarMecanicosParaAgenda,
+} from '@/utils/mecanicosAgenda';
+import {
+  obtenerDisponibilidadConDuracion,
+  obtenerDiasDisponiblesAgenda,
+} from '@/services/disponibilidadProveedorService';
+import { resolveProveedorAgendaIds, type ProveedorAgendaIds } from '@/utils/resolveProveedorAgenda';
 import equipoTallerService, {
   type MiembroTaller,
   etiquetaModalidadMecanico,
-  mecanicoCompatibleConTipoServicio,
 } from '@/services/equipoTallerService';
+import { parseReferenciaDate } from '@/utils/fechaLocal';
 import { useAuth } from '@/context/AuthContext';
 import { showAlert } from '@/utils/platformAlert';
 
@@ -87,6 +96,14 @@ export default function AgendarCitaPersonalScreen() {
   const [loadingServicios, setLoadingServicios] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [resultadoEnvio, setResultadoEnvio] = useState<ResultadoEnvio | null>(null);
+  const [proveedorAgenda, setProveedorAgenda] = useState<ProveedorAgendaIds | null>(null);
+  const [fechasDisponibles, setFechasDisponibles] = useState<string[] | null>(null);
+  const [cargandoFechas, setCargandoFechas] = useState(false);
+  const [mensajeSinFechas, setMensajeSinFechas] = useState<string | undefined>();
+  const [horasDisponibles, setHorasDisponibles] = useState<string[] | null>(null);
+  const [cargandoHoras, setCargandoHoras] = useState(false);
+  const [mensajeSinHoras, setMensajeSinHoras] = useState<string | undefined>();
+  const [slotsFinPorHora, setSlotsFinPorHora] = useState<Record<string, string>>({});
 
   const puedeAgendar = !esSupervisor || puede('agenda');
 
@@ -101,21 +118,10 @@ export default function AgendarCitaPersonalScreen() {
     }
   }, [esMecanico]);
 
-  const mecanicosCompatibles = useMemo(
-    () => mecanicos.filter((m) => mecanicoCompatibleConTipoServicio(m, tipoServicio)),
-    [mecanicos, tipoServicio],
-  );
-
-  useEffect(() => {
-    if (miembroSeleccionado == null) return;
-    const sigueCompatible = mecanicosCompatibles.some((m) => m.id === miembroSeleccionado);
-    if (!sigueCompatible) setMiembroSeleccionado(null);
-  }, [mecanicosCompatibles, miembroSeleccionado]);
-
   useEffect(() => {
     let mounted = true;
     equipoTallerService
-      .listar({ rol: 'mecanico' })
+      .listar({ rol: 'mecanico', activo: true })
       .then((equipo) => {
         if (mounted) setMecanicos(equipo);
       })
@@ -152,6 +158,223 @@ export default function AgendarCitaPersonalScreen() {
     [serviciosCatalogo],
   );
 
+  const categoriasServicioAgenda = useMemo(() => {
+    if (modoServicio !== 'catalogo' || !catalogoGrupoKey) return [];
+    const grupo = serviciosCatalogoGrupos.find((g) => g.key === catalogoGrupoKey);
+    return grupo ? categoriasIdsFromGrupo(grupo) : [];
+  }, [modoServicio, catalogoGrupoKey, serviciosCatalogoGrupos]);
+
+  const mecanicosCompatibles = useMemo(
+    () =>
+      filtrarMecanicosParaAgenda(mecanicos, {
+        tipoServicio,
+        categoriasIds: categoriasServicioAgenda,
+      }),
+    [mecanicos, tipoServicio, categoriasServicioAgenda],
+  );
+
+  useEffect(() => {
+    if (miembroSeleccionado == null) return;
+    const sigueCompatible = mecanicosCompatibles.some((m) => m.id === miembroSeleccionado);
+    if (!sigueCompatible) setMiembroSeleccionado(null);
+  }, [mecanicosCompatibles, miembroSeleccionado]);
+
+  const selectedOfertaId = useMemo(() => {
+    if (modoServicio !== 'catalogo' || !catalogoGrupoKey) return undefined;
+    const grupo = serviciosCatalogoGrupos.find((g) => g.key === catalogoGrupoKey);
+    return grupo?.representante.id;
+  }, [modoServicio, catalogoGrupoKey, serviciosCatalogoGrupos]);
+
+  const modalidadApi = useMemo((): 'a_domicilio' | 'en_taller' => (
+    tipoServicio === 'domicilio' ? 'a_domicilio' : 'en_taller'
+  ), [tipoServicio]);
+
+  const agendaParamsListos = useMemo(() => {
+    if (modoServicio === 'catalogo') return Boolean(selectedOfertaId);
+    return servicioManual.trim().length > 0;
+  }, [modoServicio, selectedOfertaId, servicioManual]);
+
+  useEffect(() => {
+    let mounted = true;
+    void resolveProveedorAgendaIds(estadoProveedor?.tipo_proveedor).then((ctx) => {
+      if (mounted) setProveedorAgenda(ctx);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [estadoProveedor?.tipo_proveedor]);
+
+  useEffect(() => {
+    setHorasDisponibles([]);
+    setFechasDisponibles(null);
+    setMensajeSinHoras(undefined);
+    setMensajeSinFechas(undefined);
+    setSlotsFinPorHora({});
+    setFechaHora((prev) => ({ ...prev, hora: null, horaFin: null }));
+  }, [selectedOfertaId, modalidadApi, modoServicio, catalogoGrupoKey, tipoServicio, servicioManual]);
+
+  useEffect(() => {
+    setHorasDisponibles([]);
+    setSlotsFinPorHora({});
+    setFechaHora((prev) => ({ ...prev, hora: null, horaFin: null }));
+  }, [miembroSeleccionado]);
+
+  useEffect(() => {
+    if (!agendaParamsListos) {
+      setFechasDisponibles(null);
+      setCargandoFechas(false);
+      return;
+    }
+
+    let cancelled = false;
+    setCargandoFechas(true);
+    setMensajeSinFechas(undefined);
+
+    obtenerDiasDisponiblesAgenda({
+      ofertaServicioId: selectedOfertaId,
+      modalidad: modalidadApi,
+      miembroTallerId: miembroSeleccionado ?? undefined,
+      dias: 21,
+    })
+      .then((data) => {
+        if (cancelled) return;
+        const fechas = [...(data.fechas_disponibles ?? [])].sort();
+        setFechasDisponibles(fechas);
+        setMensajeSinFechas(
+          fechas.length > 0
+            ? undefined
+            : miembroSeleccionado
+              ? 'Este técnico no tiene fechas disponibles para este servicio. Revisa su agenda en Horarios.'
+              : 'No hay fechas disponibles según la agenda configurada.',
+        );
+        setFechaHora((prev) => {
+          const key = formatDateApi(prev.fecha);
+          if (fechas.includes(key)) return prev;
+          if (fechas.length === 0) {
+            return { ...prev, hora: null, horaFin: null };
+          }
+          return {
+            ...prev,
+            fecha: parseReferenciaDate(fechas[0]),
+            hora: null,
+            horaFin: null,
+          };
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFechasDisponibles([]);
+        setMensajeSinFechas('No se pudieron cargar las fechas disponibles.');
+      })
+      .finally(() => {
+        if (!cancelled) setCargandoFechas(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [agendaParamsListos, modalidadApi, selectedOfertaId, miembroSeleccionado]);
+
+  useEffect(() => {
+    if (!agendaParamsListos) {
+      setHorasDisponibles(null);
+      setCargandoHoras(false);
+      return;
+    }
+
+    if (cargandoFechas || fechasDisponibles === null) {
+      setHorasDisponibles(null);
+      setCargandoHoras(false);
+      return;
+    }
+
+    if (fechasDisponibles.length === 0) {
+      setHorasDisponibles([]);
+      setMensajeSinHoras('No hay horarios disponibles para esta fecha.');
+      setCargandoHoras(false);
+      return;
+    }
+
+    const fechaKey = formatDateApi(fechaHora.fecha);
+    if (!fechasDisponibles.includes(fechaKey)) {
+      setHorasDisponibles([]);
+      setMensajeSinHoras('Selecciona una fecha disponible.');
+      setCargandoHoras(false);
+      return;
+    }
+
+    let cancelled = false;
+    const fecha = formatDateApi(fechaHora.fecha);
+
+    setHorasDisponibles([]);
+    setMensajeSinHoras(undefined);
+    setCargandoHoras(true);
+
+    obtenerDisponibilidadConDuracion({
+      fecha,
+      ofertaServicioId: selectedOfertaId,
+      modalidad: modalidadApi,
+      miembroTallerId: miembroSeleccionado ?? undefined,
+    })
+      .then((data) => {
+        if (cancelled) return;
+        const finPorHora: Record<string, string> = {};
+        const horas = (data.slots_disponibles ?? [])
+          .map((slot) => {
+            if (slot.hora && slot.hora_fin_estimada) {
+              finPorHora[slot.hora] = slot.hora_fin_estimada;
+            }
+            return slot.hora;
+          })
+          .filter((h): h is string => Boolean(h));
+        setSlotsFinPorHora(finPorHora);
+        setHorasDisponibles(horas);
+        setMensajeSinHoras(
+          horas.length > 0 ? undefined : (data.mensaje || 'No hay horarios disponibles para esta fecha.'),
+        );
+        setFechaHora((prev) => {
+          if (!prev.hora || horas.includes(prev.hora)) {
+            const finEstimada = prev.hora ? finPorHora[prev.hora] : null;
+            if (prev.hora && finEstimada && prev.horaFin !== finEstimada) {
+              return { ...prev, horaFin: finEstimada };
+            }
+            return prev;
+          }
+          const nextHora = horas[0] ?? null;
+          const nextFin = nextHora ? finPorHora[nextHora] ?? null : null;
+          return { ...prev, hora: nextHora, horaFin: nextFin };
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setHorasDisponibles([]);
+        setMensajeSinHoras('No se pudieron cargar los horarios.');
+      })
+      .finally(() => {
+        if (!cancelled) setCargandoHoras(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    agendaParamsListos,
+    fechaHora.fecha,
+    modalidadApi,
+    selectedOfertaId,
+    fechasDisponibles,
+    cargandoFechas,
+    miembroSeleccionado,
+  ]);
+
+  useEffect(() => {
+    if (!fechaHora.hora) return;
+    const finEstimada = slotsFinPorHora[fechaHora.hora];
+    if (finEstimada && fechaHora.horaFin !== finEstimada) {
+      setFechaHora((prev) => ({ ...prev, horaFin: finEstimada }));
+    }
+  }, [fechaHora.hora, fechaHora.horaFin, slotsFinPorHora]);
+
   const validarFormulario = useCallback((): string | null => {
     if (!clienteNombre.trim()) return 'Ingresa el nombre del cliente.';
     const telError = getChilePhoneError(extraerNueveDigitosDesdeGuardado(clienteTelefono), true);
@@ -174,8 +397,10 @@ export default function AgendarCitaPersonalScreen() {
     if (!esRangoHorarioValido(fechaHora.hora, fechaHora.horaFin)) {
       return 'La hora de término debe ser al menos 15 minutos después del inicio.';
     }
-    if (mecanicos.length > 0 && mecanicosCompatibles.length === 0) {
-      return 'No hay mecánicos compatibles con el tipo de servicio seleccionado.';
+    if (mecanicos.length > 0 && mecanicosCompatibles.length === 0 && agendaParamsListos) {
+      return modoServicio === 'catalogo'
+        ? 'No hay mecánicos con la especialidad y modalidad requeridas para este servicio.'
+        : 'No hay mecánicos compatibles con la modalidad seleccionada.';
     }
     return null;
   }, [
@@ -192,6 +417,8 @@ export default function AgendarCitaPersonalScreen() {
     fechaHora,
     mecanicos,
     mecanicosCompatibles,
+    agendaParamsListos,
+    modoServicio,
   ]);
 
   const construirPayload = useCallback((): CitaAgendaPersonalCreatePayload => {
@@ -418,69 +645,6 @@ export default function AgendarCitaPersonalScreen() {
             )}
           </Section>
 
-          {mecanicos.length > 0 && (
-            <Section title="Mecánico asignado">
-              <Text style={styles.helperText}>
-                {mecanicosCompatibles.length > 0
-                  ? 'En automático el sistema asigna al mejor mecánico disponible compatible con el tipo de servicio. También puedes elegir uno específico.'
-                  : 'No hay mecánicos compatibles con este tipo de servicio. Cambia a "En taller" o "A domicilio" según corresponda.'}
-              </Text>
-              <View style={styles.catalogoList}>
-                <TouchableOpacity
-                  style={[
-                    styles.catalogoItem,
-                    miembroSeleccionado === null && styles.catalogoItemSelected,
-                    mecanicosCompatibles.length === 0 && styles.catalogoItemDisabled,
-                  ]}
-                  onPress={() => mecanicosCompatibles.length > 0 && setMiembroSeleccionado(null)}
-                  disabled={mecanicosCompatibles.length === 0}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.catalogoItemTitle, miembroSeleccionado === null && styles.catalogoItemTitleOn]}>
-                    Automático
-                  </Text>
-                  {miembroSeleccionado === null && mecanicosCompatibles.length > 0 && (
-                    <InstitutionalIcon name="check-circle" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                  )}
-                </TouchableOpacity>
-                {mecanicosCompatibles.map((m) => {
-                  const selected = miembroSeleccionado === m.id;
-                  const modalidadLabel = etiquetaModalidadMecanico(m);
-                  return (
-                    <TouchableOpacity
-                      key={m.id}
-                      style={[styles.catalogoItem, selected && styles.catalogoItemSelected]}
-                      onPress={() => setMiembroSeleccionado(m.id)}
-                      activeOpacity={0.85}
-                    >
-                      <View style={styles.catalogoItemContent}>
-                        <Text
-                          style={[styles.catalogoItemTitle, selected && styles.catalogoItemTitleOn]}
-                          numberOfLines={1}
-                        >
-                          {m.nombre}
-                        </Text>
-                        {modalidadLabel ? (
-                          <View style={[styles.modalidadBadge, selected && styles.modalidadBadgeOn]}>
-                            <Text
-                              style={[styles.modalidadBadgeText, selected && styles.modalidadBadgeTextOn]}
-                              numberOfLines={1}
-                            >
-                              {modalidadLabel}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      {selected && (
-                        <InstitutionalIcon name="check-circle" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </Section>
-          )}
-
           <Section title="Servicio">
             <View style={styles.segmentRow}>
               <SegmentButton
@@ -543,6 +707,95 @@ export default function AgendarCitaPersonalScreen() {
             <MontoCLPField value={precioReferencia} onChangeValue={setPrecioReferencia} />
           </Section>
 
+          {mecanicos.length > 0 && (
+            <Section title="Mecánico asignado">
+              <Text style={styles.helperText}>
+                {mecanicosCompatibles.length > 0
+                  ? `Solo técnicos con especialidad y modalidad compatibles${
+                      modoServicio === 'catalogo' && catalogoGrupoKey
+                        ? ` con «${
+                            serviciosCatalogoGrupos.find((g) => g.key === catalogoGrupoKey)?.nombre ?? 'el servicio'
+                          }»`
+                        : ''
+                    }. Automático elige al mejor disponible.`
+                  : modoServicio === 'catalogo' && !catalogoGrupoKey
+                    ? 'Selecciona un servicio del catálogo para ver mecánicos compatibles por especialidad y modalidad.'
+                    : modoServicio === 'catalogo'
+                      ? 'Ningún mecánico tiene la especialidad y modalidad requeridas para este servicio.'
+                      : 'No hay mecánicos compatibles con la modalidad seleccionada.'}
+              </Text>
+              <View style={styles.catalogoList}>
+                <TouchableOpacity
+                  style={[
+                    styles.catalogoItem,
+                    miembroSeleccionado === null && styles.catalogoItemSelected,
+                    mecanicosCompatibles.length === 0 && styles.catalogoItemDisabled,
+                  ]}
+                  onPress={() => mecanicosCompatibles.length > 0 && setMiembroSeleccionado(null)}
+                  disabled={mecanicosCompatibles.length === 0}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.catalogoItemTitle, miembroSeleccionado === null && styles.catalogoItemTitleOn]}>
+                    Automático
+                  </Text>
+                  {miembroSeleccionado === null && mecanicosCompatibles.length > 0 && (
+                    <InstitutionalIcon name="check-circle" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                  )}
+                </TouchableOpacity>
+                {mecanicosCompatibles.map((m) => {
+                  const selected = miembroSeleccionado === m.id;
+                  const modalidadLabel = etiquetaModalidadMecanico(m);
+                  return (
+                    <TouchableOpacity
+                      key={m.id}
+                      style={[styles.catalogoItem, selected && styles.catalogoItemSelected]}
+                      onPress={() => setMiembroSeleccionado(m.id)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.catalogoItemContent}>
+                        <Text
+                          style={[styles.catalogoItemTitle, selected && styles.catalogoItemTitleOn]}
+                          numberOfLines={1}
+                        >
+                          {m.nombre}
+                        </Text>
+                        {modalidadLabel ? (
+                          <View style={[styles.modalidadBadge, selected && styles.modalidadBadgeOn]}>
+                            <Text
+                              style={[styles.modalidadBadgeText, selected && styles.modalidadBadgeTextOn]}
+                              numberOfLines={1}
+                            >
+                              {modalidadLabel}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {m.especialidades_detalle.map((esp) => (
+                          <View
+                            key={esp.id}
+                            style={[styles.especialidadBadge, selected && styles.especialidadBadgeOn]}
+                          >
+                            <Text
+                              style={[
+                                styles.especialidadBadgeText,
+                                selected && styles.especialidadBadgeTextOn,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {esp.nombre}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                      {selected && (
+                        <InstitutionalIcon name="check-circle" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </Section>
+          )}
+
           {!puedeAgendar && (
             <View style={styles.bannerWrap}>
               <EstadoBanner
@@ -555,7 +808,21 @@ export default function AgendarCitaPersonalScreen() {
           )}
 
           <Section title="Fecha y hora">
-            <CatalogoFechaHoraPickers value={fechaHora} onChange={setFechaHora} modo="rango" />
+            <CatalogoFechaHoraPickers
+              value={fechaHora}
+              onChange={setFechaHora}
+              modo="rango"
+              fechasDisponibles={agendaParamsListos ? fechasDisponibles : null}
+              cargandoFechas={agendaParamsListos && cargandoFechas}
+              mensajeSinFechas={
+                agendaParamsListos
+                  ? mensajeSinFechas
+                  : 'Selecciona modalidad, servicio y mecánico (si aplica) para ver fechas disponibles.'
+              }
+              horasDisponibles={agendaParamsListos ? (horasDisponibles ?? []) : null}
+              cargandoHoras={agendaParamsListos && cargandoHoras}
+              mensajeSinHoras={mensajeSinHoras}
+            />
             {(!fechaHora.hora || !fechaHora.horaFin) && (
               <Text style={styles.helperTextWarn}>Selecciona hora de inicio y término para confirmar la cita.</Text>
             )}
@@ -755,6 +1022,23 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   modalidadBadgeTextOn: {
+    color: I.onPrimary,
+  },
+  especialidadBadge: {
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: 2,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceStrong,
+  },
+  especialidadBadgeOn: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  especialidadBadgeText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansMedium,
+    color: I.muted,
+  },
+  especialidadBadgeTextOn: {
     color: I.onPrimary,
   },
   loader: {
