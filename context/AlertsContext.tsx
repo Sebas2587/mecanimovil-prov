@@ -3,6 +3,12 @@ import { useAuth } from './AuthContext';
 import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
 import serviceAreasApi from '@/services/serviceAreasApi';
 import suscripcionesService, { type SaludSuscripcion } from '@/services/suscripcionesService';
+import {
+  alertaDesdePushMecanico,
+  esTipoAlertaMecanico,
+  TIPOS_ALERTA_TALLER,
+} from '@/utils/push/mecanicoPushAlerts';
+import type { PushNotificationData } from '@/utils/push/navigateByPushNotification';
 
 export type TipoAlerta = 
   | 'mercado_pago_no_configurado'
@@ -12,7 +18,9 @@ export type TipoAlerta =
   | 'suscripcion_por_vencer'
   | 'suscripcion_vencida'
   | 'suscripcion_pago_fallido'
-  | 'creditos_agotados';
+  | 'creditos_agotados'
+  | 'orden_asignada_mecanico'
+  | 'checklist_pendiente';
 
 export interface Alerta {
   id: string;
@@ -30,9 +38,11 @@ export interface Alerta {
 
 interface AlertsContextType {
   alertas: Alerta[];
+  alertasVisibles: Alerta[];
   alertasNoLeidas: number;
   saludSuscripcion: SaludSuscripcion | null;
   agregarAlerta: (alerta: Omit<Alerta, 'id' | 'fecha' | 'leida'>) => void;
+  registrarAlertaPushMecanico: (data: PushNotificationData) => void;
   marcarComoLeida: (id: string) => void;
   eliminarAlerta: (id: string) => void;
   verificarYGenerarAlertas: () => Promise<void>;
@@ -44,7 +54,7 @@ const AlertsContext = createContext<AlertsContextType | undefined>(undefined);
 export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [saludSuscripcion, setSaludSuscripcion] = useState<SaludSuscripcion | null>(null);
-  const { estadoProveedor, usuario } = useAuth();
+  const { estadoProveedor, usuario, esMecanicoEquipo } = useAuth();
   const verificarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const verificarInFlightRef = useRef(false);
 
@@ -55,7 +65,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         estadoProveedor?.tiene_perfil ?? false,
         estadoProveedor?.onboarding_completado ?? false,
         estadoProveedor?.tipo_proveedor ?? '',
-        estadoProveedor?.estado_verificacion ?? '',
+        estadoProveedor?.rol_taller ?? '',
       ].join('|'),
     [
       usuario?.id,
@@ -63,11 +73,18 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       estadoProveedor?.onboarding_completado,
       estadoProveedor?.tipo_proveedor,
       estadoProveedor?.estado_verificacion,
+      estadoProveedor?.rol_taller,
     ],
   );
 
-  // Calcular alertas no leídas
-  const alertasNoLeidas = alertas.filter(a => !a.leida).length;
+  const alertasVisibles = useMemo(() => {
+    if (esMecanicoEquipo) {
+      return alertas.filter((alerta) => esTipoAlertaMecanico(alerta.tipo));
+    }
+    return alertas.filter((alerta) => !esTipoAlertaMecanico(alerta.tipo));
+  }, [alertas, esMecanicoEquipo]);
+
+  const alertasNoLeidas = alertasVisibles.filter((alerta) => !alerta.leida).length;
 
   // Agregar nueva alerta
   const agregarAlerta = (alertaData: Omit<Alerta, 'id' | 'fecha' | 'leida'>) => {
@@ -112,13 +129,27 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setAlertas(prev => prev.filter(alerta => !tipos.includes(alerta.tipo)));
   };
 
+  const registrarAlertaPushMecanico = (data: PushNotificationData) => {
+    if (!esMecanicoEquipo) return;
+    const alertaData = alertaDesdePushMecanico(data);
+    if (alertaData) {
+      agregarAlerta(alertaData);
+    }
+  };
+
   // Verificar y generar alertas automáticamente
   const verificarYGenerarAlertas = async () => {
     if (verificarInFlightRef.current) return;
     verificarInFlightRef.current = true;
     try {
       if (!estadoProveedor || !usuario) {
-        eliminarAlertasDeConfiguracion(['mercado_pago_no_configurado', 'zonas_cobertura_no_configuradas']);
+        eliminarAlertasDeConfiguracion([...TIPOS_ALERTA_TALLER]);
+        return;
+      }
+
+      if (esMecanicoEquipo) {
+        eliminarAlertasDeConfiguracion([...TIPOS_ALERTA_TALLER]);
+        setSaludSuscripcion(null);
         return;
       }
 
@@ -300,6 +331,10 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   useEffect(() => {
     if (!estadoProveedor || !usuario) return;
     if (!estadoProveedor.onboarding_completado) return;
+    if (esMecanicoEquipo) {
+      eliminarAlertasDeConfiguracion([...TIPOS_ALERTA_TALLER]);
+      return;
+    }
     if (verificarTimerRef.current) {
       clearTimeout(verificarTimerRef.current);
     }
@@ -311,15 +346,17 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         clearTimeout(verificarTimerRef.current);
       }
     };
-  }, [alertasContextKey]);
+  }, [alertasContextKey, esMecanicoEquipo]);
 
   return (
     <AlertsContext.Provider
       value={{
         alertas,
+        alertasVisibles,
         alertasNoLeidas,
         saludSuscripcion,
         agregarAlerta,
+        registrarAlertaPushMecanico,
         marcarComoLeida,
         eliminarAlerta,
         verificarYGenerarAlertas,

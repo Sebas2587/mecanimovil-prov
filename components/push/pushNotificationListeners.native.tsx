@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
+import { useAlerts } from '@/context/AlertsContext';
 import {
   navigateByPushNotification,
   type PushNotificationData,
@@ -13,10 +14,16 @@ const SOLICITUD_PUSH_TYPES = new Set([
   'catalog_assignment',
 ]);
 
+const MECANICO_PUSH_TYPES = new Set([
+  'orden_asignada_mecanico',
+  'checklist_pendiente',
+]);
+
 export function PushNotificationListeners() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
+  const { registrarAlertaPushMecanico } = useAlerts();
   const lastHandledId = useRef<string | null>(null);
   const lastResponse = Notifications.useLastNotificationResponse();
 
@@ -42,6 +49,9 @@ export function PushNotificationListeners() {
     const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
       const data = notification.request.content.data as PushNotificationData;
       const type = typeof data?.type === 'string' ? data.type : '';
+      if (MECANICO_PUSH_TYPES.has(type)) {
+        registrarAlertaPushMecanico(data);
+      }
       if (SOLICITUD_PUSH_TYPES.has(type) && __DEV__) {
         console.log('[Push] Nueva solicitud recibida en foreground:', data);
       }
@@ -55,7 +65,7 @@ export function PushNotificationListeners() {
       receivedSub.remove();
       responseSub.remove();
     };
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, registrarAlertaPushMecanico]);
 
   return null;
 }

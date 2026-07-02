@@ -175,6 +175,7 @@ export async function getWebPushStatus(): Promise<WebPushStatus> {
 export function setupWebPushMessageListeners(
   onNotificationClick: (data: Record<string, unknown>) => void,
   onSubscriptionRotated: (subscription: PushSubscriptionJSON) => void,
+  onNotificationReceived?: (data: Record<string, unknown>) => void,
 ): () => void {
   if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
     return () => {};
@@ -185,6 +186,9 @@ export function setupWebPushMessageListeners(
     if (!payload || typeof payload !== 'object') return;
     if (payload.type === 'NOTIFICATION_CLICK' && payload.data) {
       onNotificationClick(payload.data as Record<string, unknown>);
+    }
+    if (payload.type === 'PUSH_RECEIVED' && payload.data && onNotificationReceived) {
+      onNotificationReceived(payload.data as Record<string, unknown>);
     }
     if (payload.type === 'PUSH_SUBSCRIPTION_ROTATED' && payload.subscription) {
       void onSubscriptionRotated(payload.subscription as PushSubscriptionJSON);

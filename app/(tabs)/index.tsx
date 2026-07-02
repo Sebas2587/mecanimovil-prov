@@ -266,13 +266,16 @@ export default function HomeScreen() {
   useFocusEffect(
     React.useCallback(() => {
       if (!cuentaAprobadaPorAdmin) return;
-      verificarYGenerarAlertas();
+      if (!esMecanicoEquipo) {
+        verificarYGenerarAlertas();
+      }
       if (dashboardFinanzasEnabled && puede('finanzas')) {
         invalidateDashboardFinanzasQueries(queryClient);
       }
     }, [
       cuentaAprobadaPorAdmin,
       dashboardFinanzasEnabled,
+      esMecanicoEquipo,
       verificarYGenerarAlertas,
       puede,
       queryClient,

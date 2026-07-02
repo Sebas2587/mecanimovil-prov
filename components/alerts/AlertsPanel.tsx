@@ -46,7 +46,7 @@ function alertToneForType(tipo: Alerta['tipo']): InstitutionalStatusTone {
 }
 
 export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', iconColor }) => {
-  const { alertas, alertasNoLeidas, marcarComoLeida, eliminarAlerta } = useAlerts();
+  const { alertasVisibles, alertasNoLeidas, marcarComoLeida, eliminarAlerta } = useAlerts();
   const [modalVisible, setModalVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(400)).current;
   const router = useRouter();
@@ -106,7 +106,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
     }
   };
 
-  const alertasOrdenadas = [...alertas].sort((a, b) => {
+  const alertasOrdenadas = [...alertasVisibles].sort((a, b) => {
     const prioridadOrder = { alta: 3, media: 2, baja: 1 };
     if (prioridadOrder[a.prioridad] !== prioridadOrder[b.prioridad]) {
       return prioridadOrder[b.prioridad] - prioridadOrder[a.prioridad];

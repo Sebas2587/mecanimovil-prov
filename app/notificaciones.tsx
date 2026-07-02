@@ -55,6 +55,10 @@ const getAlertIcon = (tipo: TipoAlerta) => {
     case 'suscripcion_vencida':
     case 'suscripcion_pago_fallido':
       return { Icon: AlertTriangle, bg: dangerBg, color: danger };
+    case 'orden_asignada_mecanico':
+      return { Icon: Bell, bg: plate, color: primary };
+    case 'checklist_pendiente':
+      return { Icon: Clock, bg: warnBg, color: COLORS.warning.text };
     default:
       return { Icon: Bell, bg: plate, color: I.muted };
   }
@@ -158,7 +162,7 @@ const AlertCard = ({
 export default function NotificacionesScreen() {
   const router = useRouter();
   const {
-    alertas,
+    alertasVisibles,
     alertasNoLeidas,
     marcarComoLeida,
     eliminarAlerta,
@@ -168,7 +172,7 @@ export default function NotificacionesScreen() {
 
   const [refreshing, setRefreshing] = React.useState(false);
 
-  const alertasOrdenadas = [...alertas].sort((a, b) => {
+  const alertasOrdenadas = [...alertasVisibles].sort((a, b) => {
     const prioridadOrder = { alta: 3, media: 2, baja: 1 };
     if (prioridadOrder[a.prioridad] !== prioridadOrder[b.prioridad]) {
       return prioridadOrder[b.prioridad] - prioridadOrder[a.prioridad];
@@ -214,7 +218,7 @@ export default function NotificacionesScreen() {
         backgroundColor={I.canvas}
         titleColor={I.ink}
         rightComponent={
-          alertas.length > 0 ? (
+          alertasVisibles.length > 0 ? (
             <TouchableOpacity
               onPress={limpiarAlertas}
               style={styles.headerIconHit}

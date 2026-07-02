@@ -38,7 +38,7 @@ function buildTargetUrl(data) {
     return `${APP_ORIGIN}/solicitudes-disponibles`;
   }
 
-  if (type === 'checklist_pendiente') {
+  if (type === 'checklist_pendiente' || type === 'orden_asignada_mecanico') {
     if (ordenId) {
       return `${APP_ORIGIN}/orden-detalle/${encodeURIComponent(String(ordenId))}`;
     }
@@ -97,6 +97,7 @@ self.addEventListener('push', (event) => {
     'nueva_solicitud',
     'solicitud_por_vencer',
     'checklist_pendiente',
+    'orden_asignada_mecanico',
     'chat_message',
   ].includes(type);
 
@@ -104,15 +105,24 @@ self.addEventListener('push', (event) => {
     data.solicitud_id || data.orden_id || data.conversation_id || data.oferta_id || '';
 
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon: '/assets/images/app-icon.png',
-      badge: '/assets/images/app-icon.png',
-      data: { ...data, url: buildTargetUrl(data) },
-      requireInteraction,
-      tag: `${type}-${tagSuffix}`,
-      renotify: true,
-    }),
+    Promise.all([
+      self.registration.showNotification(title, {
+        body,
+        icon: '/assets/images/app-icon.png',
+        badge: '/assets/images/app-icon.png',
+        data: { ...data, url: buildTargetUrl(data) },
+        requireInteraction,
+        tag: `${type}-${tagSuffix}`,
+        renotify: true,
+      }),
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        for (const client of clientList) {
+          if (client.url.startsWith(APP_ORIGIN)) {
+            client.postMessage({ type: 'PUSH_RECEIVED', data });
+          }
+        }
+      }),
+    ]),
   );
 });
 
