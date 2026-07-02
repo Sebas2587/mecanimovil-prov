@@ -335,6 +335,8 @@ export interface EstadoProveedor {
   fecha_verificacion?: string | null;
   activo: boolean;
   necesita_onboarding?: boolean;
+  /** ID del Taller o MecanicoDomicilio del proveedor autenticado. */
+  proveedor_id?: number;
   datos_proveedor?: {
     descripcion?: string;
     telefono?: string;
