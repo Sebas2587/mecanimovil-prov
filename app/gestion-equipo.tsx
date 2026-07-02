@@ -90,6 +90,7 @@ type FormState = {
   permisos: PermisosSupervisor;
   fotoUri: string | null;
   fotoUrlExistente: string | null;
+  darAccesoApp: boolean;
 };
 
 const EMPTY_FORM: FormState = {
@@ -105,6 +106,7 @@ const EMPTY_FORM: FormState = {
   permisos: { ...DEFAULT_PERMISOS },
   fotoUri: null,
   fotoUrlExistente: null,
+  darAccesoApp: false,
 };
 
 export default function GestionEquipoScreen() {
@@ -156,6 +158,7 @@ export default function GestionEquipoScreen() {
       permisos: { ...DEFAULT_PERMISOS, ...(m.permisos || {}) },
       fotoUri: null,
       fotoUrlExistente: m.foto_url || null,
+      darAccesoApp: Boolean(m.tiene_acceso),
     });
     setModalVisible(true);
   };
@@ -221,6 +224,16 @@ export default function GestionEquipoScreen() {
         return;
       }
     }
+    if (form.rol === 'mecanico' && form.darAccesoApp) {
+      const creandoAcceso = !form.tieneAcceso;
+      if (creandoAcceso && (!form.username.trim() || !form.password.trim())) {
+        Alert.alert(
+          'Faltan credenciales',
+          'Para dar acceso a la app, ingresa usuario y contraseña.',
+        );
+        return;
+      }
+    }
     setSaving(true);
     try {
       const payload: CrearMiembroData = {
@@ -233,6 +246,11 @@ export default function GestionEquipoScreen() {
         payload.permisos = form.permisos;
         if (form.email.trim()) payload.email = form.email.trim();
         // Credenciales: en alta siempre; en edición, solo si se ingresan.
+        if (!form.tieneAcceso && form.username.trim()) payload.username = form.username.trim();
+        if (form.password.trim()) payload.password = form.password.trim();
+      }
+      if (form.rol === 'mecanico' && (form.darAccesoApp || form.tieneAcceso)) {
+        if (form.email.trim()) payload.email = form.email.trim();
         if (!form.tieneAcceso && form.username.trim()) payload.username = form.username.trim();
         if (form.password.trim()) payload.password = form.password.trim();
       }
@@ -516,6 +534,63 @@ export default function GestionEquipoScreen() {
 
               {form.rol === 'mecanico' && (
                 <>
+                  <View style={styles.permRow}>
+                    <View style={{ flex: 1, paddingRight: SPACING.sm }}>
+                      <Text style={styles.permLabel}>Dar acceso a la app</Text>
+                      <Text style={styles.permDesc}>
+                        Permite que el mecánico inicie sesión y vea sus órdenes asignadas.
+                      </Text>
+                    </View>
+                    <Switch
+                      value={form.darAccesoApp || form.tieneAcceso}
+                      onValueChange={(value) => setForm((p) => ({ ...p, darAccesoApp: value }))}
+                    />
+                  </View>
+
+                  {(form.darAccesoApp || form.tieneAcceso) && (
+                    <>
+                      <Text style={styles.sectionMini}>Acceso del mecánico</Text>
+                      <Text style={styles.helperText}>
+                        {form.tieneAcceso
+                          ? 'Este mecánico ya tiene acceso. Cambia la contraseña solo si quieres reemplazarla.'
+                          : 'Crea un usuario y contraseña para que el mecánico inicie sesión.'}
+                      </Text>
+
+                      <Text style={styles.label}>Usuario</Text>
+                      <TextInput
+                        style={[styles.input, form.tieneAcceso && styles.inputDisabled]}
+                        value={form.username}
+                        onChangeText={(t) => setForm((p) => ({ ...p, username: t }))}
+                        placeholder="usuario.mecanico"
+                        placeholderTextColor={I.muted}
+                        autoCapitalize="none"
+                        editable={!form.tieneAcceso}
+                      />
+
+                      <Text style={styles.label}>Correo (opcional)</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={form.email}
+                        onChangeText={(t) => setForm((p) => ({ ...p, email: t }))}
+                        placeholder="correo@ejemplo.com"
+                        placeholderTextColor={I.muted}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                      />
+
+                      <Text style={styles.label}>{form.tieneAcceso ? 'Nueva contraseña' : 'Contraseña'}</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={form.password}
+                        onChangeText={(t) => setForm((p) => ({ ...p, password: t }))}
+                        placeholder={form.tieneAcceso ? 'Dejar en blanco para no cambiar' : 'Contraseña de acceso'}
+                        placeholderTextColor={I.muted}
+                        secureTextEntry
+                        autoCapitalize="none"
+                      />
+                    </>
+                  )}
+
                   <Text style={styles.label}>Foto de perfil</Text>
                   <View style={styles.fotoRow}>
                     {form.fotoUri || form.fotoUrlExistente ? (

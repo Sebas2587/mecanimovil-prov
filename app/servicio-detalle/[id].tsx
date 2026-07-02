@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
+import { useAuth } from '@/context/AuthContext';
 import { ordenesProveedorService, obtenerNombreSeguro, obtenerTelefonoSeguro, esClienteCompleto, type ClienteCompleto } from '@/services/ordenesProveedor';
 import { checklistService, type ChecklistInstance } from '@/services/checklistService';
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
@@ -34,6 +35,7 @@ const warningStatus = institutionalStatusColors('warning');
 
 export default function ServicioDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { esMecanicoEquipo } = useAuth();
   const [orden, setOrden] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [procesando, setProcesando] = useState(false);
@@ -841,7 +843,7 @@ export default function ServicioDetalleScreen() {
       </ScrollView>
 
       {/* Botones de acción */}
-      {orden.estado === 'pendiente_aceptacion_proveedor' && (
+      {!esMecanicoEquipo && orden.estado === 'pendiente_aceptacion_proveedor' && (
         <View style={styles.actionsContainer}>
           <InstitutionalButton
             label="Rechazar"

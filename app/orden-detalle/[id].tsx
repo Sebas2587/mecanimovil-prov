@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
+import { useAuth } from '@/context/AuthContext';
 import { ordenesProveedorService, type Orden } from '@/services/ordenesProveedor';
 import { checklistService, type ChecklistInstance } from '@/services/checklistService';
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
@@ -24,6 +25,7 @@ import {
 } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import { AsistenteDiagnosticoCard } from '@/components/orden-detalle/AsistenteDiagnosticoCard';
 
 const I = COLORS.institutional;
 const successStatus = institutionalStatusColors('success');
@@ -34,6 +36,7 @@ const neutralStatus = institutionalStatusColors('neutral');
 
 export default function OrdenDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { esMecanicoEquipo } = useAuth();
   const [orden, setOrden] = useState<Orden | null>(null);
   const [loading, setLoading] = useState(true);
   const [procesando, setProcesando] = useState(false);
@@ -717,6 +720,12 @@ export default function OrdenDetalleScreen() {
           </View>
         )}
 
+        {orden.mecanico_asignado_id ? (
+          <View style={styles.section}>
+            <AsistenteDiagnosticoCard ordenId={orden.id} />
+          </View>
+        ) : null}
+
         {/* Notas del proveedor */}
         {orden.notas_proveedor && (
           <View style={styles.section}>
@@ -747,7 +756,7 @@ export default function OrdenDetalleScreen() {
       {/* Botones de acción */}
       {orden.puede_gestionar && (
         <View style={styles.actionsContainer}>
-          {orden.estado === 'pendiente_aceptacion_proveedor' && (
+          {!esMecanicoEquipo && orden.estado === 'pendiente_aceptacion_proveedor' && (
             <>
               <InstitutionalButton
                 label="Rechazar"

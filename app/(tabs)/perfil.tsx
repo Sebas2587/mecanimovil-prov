@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Image,
   Linking,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/context/AuthContext';
 import { router, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,6 +26,7 @@ import {
   Headphones,
   FileText,
   MessageCircle,
+  Camera,
   type LucideIcon,
 } from 'lucide-react-native';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
@@ -35,6 +37,7 @@ import { institutionalStatusColors } from '@/app/design-system/styles/institutio
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { WebPushSettingsRow } from '@/components/push/WebPushPermissionBanner';
+import { equipoTallerService } from '@/services/equipoTallerService';
 
 const I = COLORS.institutional;
 const warningStatus = institutionalStatusColors('warning');
@@ -59,15 +62,67 @@ export default function PerfilScreen() {
     logout,
     obtenerNombreProveedor,
     esSupervisor,
+    esMecanicoEquipo,
+    miembroId,
   } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [fotoMecanicoUrl, setFotoMecanicoUrl] = useState<string | null>(null);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
 
   const fotoProveedor = useMemo(() => {
+    if (esMecanicoEquipo && fotoMecanicoUrl) return fotoMecanicoUrl;
     const fotoDesdeDatos = (estadoProveedor?.datos_proveedor as { foto_perfil?: string } | undefined)?.foto_perfil;
     if (fotoDesdeDatos) return fotoDesdeDatos;
     if (usuario?.foto_perfil) return usuario.foto_perfil;
     return null;
-  }, [estadoProveedor?.datos_proveedor, usuario?.foto_perfil]);
+  }, [esMecanicoEquipo, fotoMecanicoUrl, estadoProveedor?.datos_proveedor, usuario?.foto_perfil]);
+
+  const cargarFotoMecanico = useCallback(async () => {
+    if (!miembroId) return;
+    try {
+      const miembros = await equipoTallerService.listar();
+      const propio = miembros.find((m) => m.id === miembroId);
+      if (propio?.foto_url) setFotoMecanicoUrl(propio.foto_url);
+    } catch {
+      // silencioso
+    }
+  }, [miembroId]);
+
+  React.useEffect(() => {
+    if (esMecanicoEquipo) {
+      void cargarFotoMecanico();
+    }
+  }, [esMecanicoEquipo, cargarFotoMecanico]);
+
+  const cambiarFotoMecanico = async () => {
+    if (!miembroId) return;
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso requerido', 'Necesitamos acceso a tus fotos para cambiar la imagen de perfil.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+      if (result.canceled || !result.assets[0]) return;
+      setSubiendoFoto(true);
+      const asset = result.assets[0];
+      const actualizado = await equipoTallerService.subirFoto(miembroId, {
+        uri: asset.uri,
+        type: 'image/jpeg',
+        name: `mecanico_${miembroId}.jpg`,
+      });
+      setFotoMecanicoUrl(actualizado.foto_url || asset.uri);
+    } catch {
+      Alert.alert('Error', 'No se pudo actualizar la foto de perfil.');
+    } finally {
+      setSubiendoFoto(false);
+    }
+  };
 
   const handleContactarSoporte = () => {
     const phoneNumber = '+56995945258';
@@ -214,7 +269,7 @@ export default function PerfilScreen() {
         <Header
           title="Configuración"
           rightComponent={
-            esSupervisor ? undefined : (
+            esSupervisor || esMecanicoEquipo ? undefined : (
               <TouchableOpacity
                 onPress={() => router.push('/configuracion-perfil')}
                 style={styles.buttonTertiaryText}
@@ -248,6 +303,20 @@ export default function PerfilScreen() {
                   <User size={36} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                 </View>
               )}
+              {esMecanicoEquipo ? (
+                <TouchableOpacity
+                  style={[styles.fotoEditBtn, { backgroundColor: I.primary }]}
+                  onPress={() => void cambiarFotoMecanico()}
+                  disabled={subiendoFoto}
+                  activeOpacity={0.85}
+                >
+                  {subiendoFoto ? (
+                    <ActivityIndicator size="small" color={I.onPrimary} />
+                  ) : (
+                    <Camera size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                  )}
+                </TouchableOpacity>
+              ) : null}
             </View>
             <Text style={[styles.profileName, { color: I.ink }]}>{obtenerNombreProveedor() || 'Proveedor'}</Text>
             <View style={[styles.statusPill, { backgroundColor: I.surfaceStrong }]}>
@@ -259,6 +328,11 @@ export default function PerfilScreen() {
               {esSupervisor ? (
                 <View style={[styles.tipoProveedorPill, { backgroundColor: warningStatus.bg }]}>
                   <Text style={[styles.tipoProveedorPillText, { color: warningStatus.text }]}>SUPERVISOR</Text>
+                </View>
+              ) : null}
+              {esMecanicoEquipo ? (
+                <View style={[styles.tipoProveedorPill, { backgroundColor: primaryStatus.bg }]}>
+                  <Text style={[styles.tipoProveedorPillText, { color: primaryStatus.text }]}>MECÁNICO</Text>
                 </View>
               ) : null}
               {estadoProveedor?.tipo_proveedor ? (
@@ -291,6 +365,8 @@ export default function PerfilScreen() {
           </View>
 
           <View style={{ paddingHorizontal: GLASS_INSET }}>
+            {!esMecanicoEquipo ? (
+              <>
             <SectionKicker label="CUENTA" />
             <View
               style={[
@@ -356,6 +432,8 @@ export default function PerfilScreen() {
               ))}
               <WebPushSettingsRow showTopBorder={settingsRows.length > 0} />
             </View>
+              </>
+            ) : null}
 
             <View style={[styles.footerBlock, { borderTopColor: I.hairline }]}>
               <TouchableOpacity
@@ -375,7 +453,9 @@ export default function PerfilScreen() {
 
               <TouchableOpacity style={styles.privacyRow} onPress={handleContactarSoporte} activeOpacity={0.88}>
                 <FileText size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[styles.privacyText, { color: I.muted }]}>Privacidad y política · contacto</Text>
+                <Text style={[styles.privacyText, { color: I.muted }]}>
+                  {esMecanicoEquipo ? 'Contacto soporte' : 'Privacidad y política · contacto'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -441,7 +521,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     alignItems: 'center',
   },
-  avatarWrap: { marginBottom: SPACING.sm },
+  avatarWrap: { marginBottom: SPACING.sm, position: 'relative' },
+  fotoEditBtn: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: I.canvas,
+  },
   avatar: {
     width: 88,
     height: 88,
