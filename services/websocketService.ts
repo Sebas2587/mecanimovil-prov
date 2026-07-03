@@ -107,6 +107,16 @@ export interface OrdenesListRefreshEvent {
 
 export type OrdenesListRefreshCallback = (event: OrdenesListRefreshEvent) => void;
 
+export interface AsignacionMecanicoEvent {
+  type: 'orden_asignada_mecanico' | 'cita_asignada_mecanico' | 'asignacion_mecanico';
+  orden_id?: string;
+  cita_id?: string;
+  solicitud_id?: string;
+  miembro_id?: string;
+}
+
+export type AsignacionMecanicoCallback = (event: AsignacionMecanicoEvent) => void;
+
 class WebSocketService {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
@@ -125,11 +135,22 @@ class WebSocketService {
   private solicitudCanceladaClienteCallbacks: Set<SolicitudCanceladaClienteCallback> = new Set();
   private servicioCerradoPorClienteCallbacks: Set<ServicioCerradoPorClienteCallback> = new Set();
   private ordenesListRefreshCallbacks: Set<OrdenesListRefreshCallback> = new Set();
+  private asignacionMecanicoCallbacks: Set<AsignacionMecanicoCallback> = new Set();
+  /** Mecánico de equipo: mantener WS aunque el radar de oportunidades esté apagado */
+  private mecanicoEquipoSession = false;
   /** Pantallas de chat abiertas: mantener WS aunque el radar esté apagado */
   private chatSessionCount = 0;
 
   shouldMaintainConnection(): boolean {
-    return isRadarOportunidadesActivo() || this.chatSessionCount > 0;
+    return isRadarOportunidadesActivo() || this.chatSessionCount > 0 || this.mecanicoEquipoSession;
+  }
+
+  setMecanicoEquipoSession(active: boolean): void {
+    this.mecanicoEquipoSession = active;
+  }
+
+  isMecanicoEquipoSessionActive(): boolean {
+    return this.mecanicoEquipoSession;
   }
 
   isChatSessionActive(): boolean {
@@ -352,6 +373,19 @@ class WebSocketService {
         case 'servicio_cerrado_por_cliente':
           devLog('✅ Servicio cerrado por firma del cliente:', data);
           this.handleServicioCerradoPorCliente(data as ServicioCerradoPorClienteEvent);
+          break;
+
+        case 'orden_asignada_mecanico':
+        case 'cita_asignada_mecanico':
+        case 'asignacion_mecanico':
+          devLog('🔧 Asignación recibida para mecánico:', data);
+          this.handleAsignacionMecanico({
+            type: data.type as AsignacionMecanicoEvent['type'],
+            orden_id: data.orden_id != null ? String(data.orden_id) : undefined,
+            cita_id: data.cita_id != null ? String(data.cita_id) : undefined,
+            solicitud_id: data.solicitud_id != null ? String(data.solicitud_id) : undefined,
+            miembro_id: data.miembro_id != null ? String(data.miembro_id) : undefined,
+          });
           break;
 
         default:
@@ -761,6 +795,24 @@ class WebSocketService {
     };
   }
 
+  private handleAsignacionMecanico(event: AsignacionMecanicoEvent): void {
+    this.asignacionMecanicoCallbacks.forEach((callback) => {
+      try {
+        callback(event);
+      } catch (error) {
+        console.error('❌ Error en callback asignacion_mecanico:', error);
+      }
+    });
+  }
+
+  /** Nueva orden o cita asignada al mecánico de equipo */
+  onAsignacionMecanico(callback: AsignacionMecanicoCallback): () => void {
+    this.asignacionMecanicoCallbacks.add(callback);
+    return () => {
+      this.asignacionMecanicoCallbacks.delete(callback);
+    };
+  }
+
   /**
    * Limpia los listeners al destruir el servicio
    */
@@ -775,6 +827,8 @@ class WebSocketService {
     this.solicitudCanceladaClienteCallbacks.clear();
     this.servicioCerradoPorClienteCallbacks.clear();
     this.ordenesListRefreshCallbacks.clear();
+    this.asignacionMecanicoCallbacks.clear();
+    this.mecanicoEquipoSession = false;
     this.disconnect();
   }
 }

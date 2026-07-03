@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
 import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
 import serviceAreasApi from '@/services/serviceAreasApi';
@@ -9,6 +10,7 @@ import {
   TIPOS_ALERTA_TALLER,
 } from '@/utils/push/mecanicoPushAlerts';
 import type { PushNotificationData } from '@/utils/push/navigateByPushNotification';
+import { invalidateAsignacionesMecanicoQueries } from '@/utils/invalidateAsignacionesMecanico';
 
 export type TipoAlerta = 
   | 'mercado_pago_no_configurado'
@@ -54,6 +56,7 @@ const AlertsContext = createContext<AlertsContextType | undefined>(undefined);
 export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [saludSuscripcion, setSaludSuscripcion] = useState<SaludSuscripcion | null>(null);
+  const queryClient = useQueryClient();
   const { estadoProveedor, usuario, esMecanicoEquipo } = useAuth();
   const verificarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const verificarInFlightRef = useRef(false);
@@ -131,6 +134,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const registrarAlertaPushMecanico = (data: PushNotificationData) => {
     if (!esMecanicoEquipo) return;
+    invalidateAsignacionesMecanicoQueries(queryClient);
     const alertaData = alertaDesdePushMecanico(data);
     if (alertaData) {
       agregarAlerta(alertaData);

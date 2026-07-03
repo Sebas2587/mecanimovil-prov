@@ -11,6 +11,8 @@ import {
 import { useFocusEffect } from 'expo-router';
 import { router } from 'expo-router';
 import { Calendar, Car, Clock, User, Wrench } from 'lucide-react-native';
+import { ASIGNACIONES_MECANICO_QUERY_KEY } from '@/utils/invalidateAsignacionesMecanico';
+import { useAsignacionesMecanicoRealtime } from '@/hooks/useAsignacionesMecanicoRealtime';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
@@ -160,12 +162,14 @@ export function MecanicoHomeView() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
+  useAsignacionesMecanicoRealtime(miembroId);
+
   const {
     data: asignaciones = [],
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ['asignaciones-mecanico', miembroId],
+    queryKey: [ASIGNACIONES_MECANICO_QUERY_KEY, miembroId],
     queryFn: fetchAsignacionesMecanico,
     enabled: Boolean(miembroId),
     staleTime: 30_000,

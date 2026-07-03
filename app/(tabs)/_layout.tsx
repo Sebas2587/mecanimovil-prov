@@ -21,6 +21,10 @@ export default function TabLayout() {
   const { totalMensajesNoLeidos } = useChats();
   const insets = useSafeAreaInsets();
 
+  useEffect(() => {
+    websocketService.setMecanicoEquipoSession(Boolean(esMecanicoEquipo));
+  }, [esMecanicoEquipo]);
+
   // Monitorear estado de autenticación y manejar conexión WebSocket
   useEffect(() => {
     // Log solo en desarrollo (__DEV__), nunca en producción (APK)
@@ -38,17 +42,25 @@ export default function TabLayout() {
       router.replace('/(auth)/login');
     }
 
-    // Si está autenticado y el radar está activo, iniciar WebSocket y marcar conexión en API
+    // WebSocket: radar de oportunidades (mandante) o sesión de mecánico de equipo
     if (!isLoading && isAuthenticated && radarPreferenciaCargada) {
-      if (radarOportunidadesActivo) {
+      const mantenerWs = radarOportunidadesActivo || esMecanicoEquipo;
+      if (mantenerWs) {
         if (__DEV__) {
-          console.log('🔗 TabLayout - Radar activo: WebSocket y conexión proveedor');
+          console.log('🔗 TabLayout - WebSocket activo', {
+            radar: radarOportunidadesActivo,
+            mecanico: esMecanicoEquipo,
+          });
         }
-        websocketService.connect();
-        connectionService.startConnectionMonitoring();
+        void websocketService.connect({ force: esMecanicoEquipo });
+        if (radarOportunidadesActivo) {
+          connectionService.startConnectionMonitoring();
+        } else {
+          connectionService.stopConnectionMonitoring();
+        }
       } else {
         if (__DEV__) {
-          console.log('⏸️ TabLayout - Radar inactivo: sin conexión de oportunidades');
+          console.log('⏸️ TabLayout - Sin radar ni sesión mecánico: WebSocket apagado');
         }
         if (!websocketService.isChatSessionActive()) {
           websocketService.disconnect();
@@ -56,7 +68,7 @@ export default function TabLayout() {
         connectionService.stopConnectionMonitoring();
       }
     }
-  }, [isAuthenticated, isLoading, radarOportunidadesActivo, radarPreferenciaCargada]);
+  }, [isAuthenticated, isLoading, radarOportunidadesActivo, radarPreferenciaCargada, esMecanicoEquipo]);
 
   // Limpiar al desmontar
   useEffect(() => {
