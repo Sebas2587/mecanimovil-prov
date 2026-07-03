@@ -38,7 +38,13 @@ import { institutionalStatusColors } from '@/app/design-system/styles/institutio
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { WebPushSettingsRow } from '@/components/push/WebPushPermissionBanner';
-import { equipoTallerService } from '@/services/equipoTallerService';
+import { equipoTallerService, type MiembroTaller } from '@/services/equipoTallerService';
+import {
+  obtenerEtiquetasPerfil,
+  obtenerNombreDisplayPerfil,
+  obtenerSubtituloTallerPerfil,
+  type PerfilBadgeVariant,
+} from '@/utils/perfilSesionDisplay';
 
 const I = COLORS.institutional;
 const warningStatus = institutionalStatusColors('warning');
@@ -55,6 +61,19 @@ function SectionKicker({ label }: { label: string }) {
   );
 }
 
+function badgeStyles(variant: PerfilBadgeVariant) {
+  switch (variant) {
+    case 'warning':
+      return { bg: warningStatus.bg, text: warningStatus.text, border: warningStatus.border };
+    case 'primary':
+      return { bg: primaryStatus.bg, text: primaryStatus.text, border: primaryStatus.border };
+    case 'success':
+      return { bg: successStatus.bg, text: successStatus.text, border: successStatus.border };
+    default:
+      return { bg: I.surfaceStrong, text: I.muted, border: I.hairline };
+  }
+}
+
 export default function PerfilScreen() {
   const {
     isLoading,
@@ -64,10 +83,12 @@ export default function PerfilScreen() {
     obtenerNombreProveedor,
     esSupervisor,
     esMecanicoEquipo,
+    rolTaller,
     miembroId,
   } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [fotoMecanicoUrl, setFotoMecanicoUrl] = useState<string | null>(null);
+  const [miembroEquipo, setMiembroEquipo] = useState<MiembroTaller | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
 
   const fotoProveedor = useMemo(() => {
@@ -78,22 +99,64 @@ export default function PerfilScreen() {
     return null;
   }, [esMecanicoEquipo, fotoMecanicoUrl, estadoProveedor?.datos_proveedor, usuario?.foto_perfil]);
 
-  const cargarFotoMecanico = useCallback(async () => {
-    if (!miembroId) return;
-    try {
-      const miembros = await equipoTallerService.listar();
-      const propio = miembros.find((m) => m.id === miembroId);
-      if (propio?.foto_url) setFotoMecanicoUrl(propio.foto_url);
-    } catch {
-      // silencioso
+  const cargarMiembroEquipo = useCallback(async () => {
+    if (!esMecanicoEquipo && !esSupervisor) {
+      setMiembroEquipo(null);
+      return;
     }
-  }, [miembroId]);
+    try {
+      if (esMecanicoEquipo) {
+        if (miembroId) {
+          const propio = await equipoTallerService.obtener(miembroId);
+          setMiembroEquipo(propio);
+          if (propio.foto_url) setFotoMecanicoUrl(propio.foto_url);
+          return;
+        }
+        const miembros = await equipoTallerService.listar({ rol: 'mecanico' });
+        const propio =
+          miembros.find((m) => m.usuario === usuario?.id)
+          ?? miembros[0];
+        if (propio) {
+          setMiembroEquipo(propio);
+          if (propio.foto_url) setFotoMecanicoUrl(propio.foto_url);
+        }
+        return;
+      }
+      if (esSupervisor && usuario?.id) {
+        const miembros = await equipoTallerService.listar({ rol: 'supervisor' });
+        const propio = miembros.find((m) => m.usuario === usuario.id);
+        if (propio) setMiembroEquipo(propio);
+      }
+    } catch {
+      // silencioso: las etiquetas usan fallback desde estadoProveedor
+    }
+  }, [esMecanicoEquipo, esSupervisor, miembroId, usuario?.id]);
 
   React.useEffect(() => {
-    if (esMecanicoEquipo) {
-      void cargarFotoMecanico();
-    }
-  }, [esMecanicoEquipo, cargarFotoMecanico]);
+    void cargarMiembroEquipo();
+  }, [cargarMiembroEquipo]);
+
+  const nombreDisplay = useMemo(
+    () =>
+      obtenerNombreDisplayPerfil({
+        rolTaller,
+        estadoProveedor,
+        usuario,
+        miembroEquipo,
+        nombreProveedorFallback: obtenerNombreProveedor(),
+      }),
+    [rolTaller, estadoProveedor, usuario, miembroEquipo, obtenerNombreProveedor],
+  );
+
+  const subtituloTaller = useMemo(
+    () => obtenerSubtituloTallerPerfil({ rolTaller, estadoProveedor }),
+    [rolTaller, estadoProveedor],
+  );
+
+  const etiquetasPerfil = useMemo(
+    () => obtenerEtiquetasPerfil({ rolTaller, estadoProveedor, miembroEquipo }),
+    [rolTaller, estadoProveedor, miembroEquipo],
+  );
 
   const cambiarFotoMecanico = async () => {
     if (!miembroId) return;
@@ -319,49 +382,37 @@ export default function PerfilScreen() {
                 </TouchableOpacity>
               ) : null}
             </View>
-            <Text style={[styles.profileName, { color: I.ink }]}>{obtenerNombreProveedor() || 'Proveedor'}</Text>
-            <View style={[styles.statusPill, { backgroundColor: I.surfaceStrong }]}>
-              <View style={[styles.statusDot, { backgroundColor: estadoInk }]} />
-              <Text style={[styles.statusLabel, { color: estadoInk }]}>{getEstadoTexto()}</Text>
-            </View>
-            {/* Fila de badges: tipo proveedor + cobertura de marcas */}
+            <Text style={[styles.profileName, { color: I.ink }]}>{nombreDisplay}</Text>
+            {subtituloTaller ? (
+              <Text style={[styles.profileSubtitle, { color: I.muted }]}>{subtituloTaller}</Text>
+            ) : null}
+            {rolTaller === 'mandante' ? (
+              <View style={[styles.statusPill, { backgroundColor: I.surfaceStrong }]}>
+                <View style={[styles.statusDot, { backgroundColor: estadoInk }]} />
+                <Text style={[styles.statusLabel, { color: estadoInk }]}>{getEstadoTexto()}</Text>
+              </View>
+            ) : null}
             <View style={styles.badgesRow}>
-              {esSupervisor ? (
-                <View style={[styles.tipoProveedorPill, { backgroundColor: warningStatus.bg }]}>
-                  <Text style={[styles.tipoProveedorPillText, { color: warningStatus.text }]}>SUPERVISOR</Text>
-                </View>
-              ) : null}
-              {esMecanicoEquipo ? (
-                <View style={[styles.tipoProveedorPill, { backgroundColor: primaryStatus.bg }]}>
-                  <Text style={[styles.tipoProveedorPillText, { color: primaryStatus.text }]}>MECÁNICO</Text>
-                </View>
-              ) : null}
-              {estadoProveedor?.tipo_proveedor ? (
-                <View style={[styles.tipoProveedorPill, { backgroundColor: I.surfaceStrong }]}>
-                  <Text style={[styles.tipoProveedorPillText, { color: I.muted }]}>
-                    {estadoProveedor.tipo_proveedor === 'taller' ? 'TALLER MECÁNICO' : 'MECÁNICO A DOMICILIO'}
-                  </Text>
-                </View>
-              ) : null}
-              {(() => {
-                const cobertura = estadoProveedor?.tipo_cobertura_marca
-                  || (estadoProveedor?.datos_proveedor as any)?.tipo_cobertura_marca;
-                if (!cobertura) return null;
-                const isMultimarca = cobertura === 'multimarca';
+              {etiquetasPerfil.map((badge) => {
+                const palette = badgeStyles(badge.variant);
                 return (
-                  <View style={[
-                    styles.coberturaPill,
-                    {
-                      backgroundColor: isMultimarca ? primaryStatus.bg : successStatus.bg,
-                      borderColor: isMultimarca ? primaryStatus.border : successStatus.border,
-                    }
-                  ]}>
-                    <Text style={[styles.coberturaPillText, { color: isMultimarca ? I.primary : I.semanticUp }]}>
-                      {isMultimarca ? '🌐 MULTIMARCA' : '⭐ ESPECIALISTA'}
+                  <View
+                    key={badge.label}
+                    style={[
+                      styles.tipoProveedorPill,
+                      {
+                        backgroundColor: palette.bg,
+                        borderWidth: badge.variant === 'success' || badge.variant === 'primary' ? StyleSheet.hairlineWidth : 0,
+                        borderColor: palette.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.tipoProveedorPillText, { color: palette.text }]}>
+                      {badge.label}
                     </Text>
                   </View>
                 );
-              })()}
+              })}
             </View>
           </View>
 
@@ -581,6 +632,12 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize['2xl'],
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    textAlign: 'center',
+    marginBottom: SPACING.xs,
+  },
+  profileSubtitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     textAlign: 'center',
     marginBottom: SPACING.sm,
   },

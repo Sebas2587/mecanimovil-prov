@@ -328,6 +328,10 @@ export interface EstadoProveedor {
   miembro_id?: number | null;
   /** Nombre del miembro cuando la sesión es de mecánico del equipo. */
   miembro_nombre?: string | null;
+  /** Modalidad del mecánico del equipo (en_taller / a_domicilio / ambas). */
+  miembro_modalidad_tecnico?: 'en_taller' | 'a_domicilio' | 'ambas' | null;
+  miembro_modalidad_display?: string | null;
+  miembro_especialidades?: Array<{ id: number; nombre: string }>;
   /** Cobertura de marcas: especialista en marcas específicas o multimarca */
   tipo_cobertura_marca?: 'especialista' | 'multimarca';
   nombre?: string;
