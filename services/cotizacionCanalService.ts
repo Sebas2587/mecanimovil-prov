@@ -41,6 +41,9 @@ export interface CotizacionPlantilla {
   id: number;
   titulo: string;
   snapshot: Record<string, unknown>;
+  vehiculo_marca?: string;
+  vehiculo_modelo?: string;
+  vehiculo_cilindraje?: string;
   uso_count: number;
   creado_en: string;
   actualizado_en: string;
@@ -100,8 +103,20 @@ class CotizacionCanalService {
     return response.data as CotizacionCanal;
   }
 
-  async listarPlantillas(): Promise<CotizacionPlantilla[]> {
-    const response = await api.get('/ordenes/cotizaciones-canal-plantillas/');
+  async listarPlantillas(filtro?: {
+    marca?: string;
+    modelo?: string;
+    cilindraje?: string;
+  }): Promise<CotizacionPlantilla[]> {
+    const params = new URLSearchParams();
+    if (filtro?.marca?.trim()) params.set('marca', filtro.marca.trim());
+    if (filtro?.modelo?.trim()) params.set('modelo', filtro.modelo.trim());
+    if (filtro?.cilindraje?.trim()) params.set('cilindraje', filtro.cilindraje.trim());
+    const qs = params.toString();
+    const url = qs
+      ? `/ordenes/cotizaciones-canal-plantillas/?${qs}`
+      : '/ordenes/cotizaciones-canal-plantillas/';
+    const response = await api.get(url);
     const data = response.data as CotizacionPlantilla[] | { results?: CotizacionPlantilla[] };
     if (Array.isArray(data)) return data;
     return data?.results ?? [];

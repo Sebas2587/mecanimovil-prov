@@ -276,6 +276,16 @@ export default function PerfilScreen() {
             onPress: () => router.push('/configuracion-canales' as never),
           },
         ] as SettingRow[]),
+    ...(!esMecanicoEquipo
+      ? ([
+          {
+            Icon: FileText,
+            title: 'Plantillas de cotización',
+            subtitle: 'Cotizaciones guardadas por vehículo',
+            onPress: () => router.push('/cotizaciones-plantillas' as never),
+          },
+        ] as SettingRow[])
+      : []),
     {
       Icon: Headphones,
       title: 'Soporte',

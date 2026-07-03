@@ -386,13 +386,46 @@ export default function ChatOmnicanalScreen() {
               renderItem={({ item }) => {
                 const meta = item.channel_metadata;
                 if (meta?.tipo === 'cotizacion_canal') {
+                  const repuestosRaw = meta.repuestos;
+                  const repuestos = Array.isArray(repuestosRaw)
+                    ? repuestosRaw.map((r) => {
+                        const row = r as Record<string, unknown>;
+                        return {
+                          nombre: String(row.nombre || 'Repuesto'),
+                          cantidad: Number(row.cantidad || 1),
+                          precio_unitario_clp: Number(row.precio_unitario_clp || 0),
+                        };
+                      })
+                    : [];
+                  const advertenciasRaw = meta.advertencias;
+                  const advertencias = Array.isArray(advertenciasRaw)
+                    ? advertenciasRaw.map((a) => String(a))
+                    : [];
                   return (
                     <View style={item.es_proveedor ? styles.bubbleWrapOwn : styles.bubbleWrapOther}>
                       <CotizacionCanalBubble
                         servicioNombre={String(meta.servicio_nombre || 'Servicio')}
                         totalClp={Number(meta.total_clp || 0)}
+                        manoObraClp={Number(meta.mano_obra_clp || 0)}
+                        costoRepuestosClp={Number(meta.costo_repuestos_clp || 0)}
                         estado={String(meta.estado || 'enviada')}
                         esPropio={item.es_proveedor}
+                        vehiculoMarca={String(meta.vehiculo_marca || '')}
+                        vehiculoModelo={String(meta.vehiculo_modelo || '')}
+                        vehiculoAnio={meta.vehiculo_anio as number | string | null | undefined}
+                        vehiculoCilindraje={String(meta.vehiculo_cilindraje || '')}
+                        vehiculoPatente={String(meta.vehiculo_patente || '')}
+                        tipoMotorLabel={String(meta.tipo_motor_label || '')}
+                        modalidad={String(meta.modalidad || 'taller')}
+                        descripcionProblema={String(meta.descripcion_problema || '')}
+                        duracionMinutos={
+                          meta.duracion_minutos_estimada != null
+                            ? Number(meta.duracion_minutos_estimada)
+                            : null
+                        }
+                        repuestos={repuestos}
+                        advertencias={advertencias}
+                        fallbackDetalle={item.mensaje}
                       />
                     </View>
                   );

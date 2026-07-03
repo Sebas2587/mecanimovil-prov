@@ -59,8 +59,11 @@ import equipoTallerService, {
 } from '@/services/equipoTallerService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
-import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
-import { Sparkles } from 'lucide-react-native';
+import cotizacionCanalService, {
+  type CotizacionCanal,
+  type CotizacionPlantilla,
+} from '@/services/cotizacionCanalService';
+import { etiquetaVehiculoActual } from '@/utils/plantillasCotizacionVehiculo';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -247,7 +250,8 @@ export function AgendarDesdeCanalModal({
   const [enviandoCotizacion, setEnviandoCotizacion] = useState(false);
   const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
   const [errorIa, setErrorIa] = useState<string | null>(null);
-  const [plantillas, setPlantillas] = useState<{ id: number; titulo: string }[]>([]);
+  const [plantillas, setPlantillas] = useState<CotizacionPlantilla[]>([]);
+  const [cargandoPlantillas, setCargandoPlantillas] = useState(false);
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const [descripcionAltura, setDescripcionAltura] = useState(88);
 
@@ -348,12 +352,42 @@ export function AgendarDesdeCanalModal({
     };
   }, [visible, cotizacionAceptadaId]);
 
+  const vehiculoFiltroPlantillas = useMemo(
+    () => ({
+      marca: vehiculoMarca.trim(),
+      modelo: vehiculoModelo.trim(),
+      cilindraje: vehiculoCilindraje.trim(),
+    }),
+    [vehiculoMarca, vehiculoModelo, vehiculoCilindraje],
+  );
+
+  const vehiculoListoParaPlantillas =
+    vehiculoFiltroPlantillas.marca.length > 0 && vehiculoFiltroPlantillas.modelo.length > 0;
+
   useEffect(() => {
     if (!visible || !conversationId) return;
-    void cotizacionCanalService.listarPlantillas().then((rows) => {
-      setPlantillas(rows.map((p) => ({ id: p.id, titulo: p.titulo })));
-    }).catch(() => setPlantillas([]));
-  }, [visible, conversationId]);
+    if (!vehiculoListoParaPlantillas) {
+      setPlantillas([]);
+      setCargandoPlantillas(false);
+      return;
+    }
+    let mounted = true;
+    setCargandoPlantillas(true);
+    void cotizacionCanalService
+      .listarPlantillas(vehiculoFiltroPlantillas)
+      .then((rows) => {
+        if (mounted) setPlantillas(rows);
+      })
+      .catch(() => {
+        if (mounted) setPlantillas([]);
+      })
+      .finally(() => {
+        if (mounted) setCargandoPlantillas(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [visible, conversationId, vehiculoMarca, vehiculoModelo, vehiculoCilindraje, vehiculoListoParaPlantillas]);
 
   useEffect(() => {
     if (!visible) return;
@@ -845,8 +879,15 @@ export function AgendarDesdeCanalModal({
           vehiculo: vehiculoPayload,
           plantilla_id: plantillaId,
         });
-        if (res.cotizacion) setCotizacion(res.cotizacion);
-        else setErrorIa(res.error || 'No se pudo aplicar la plantilla.');
+        if (res.cotizacion) {
+          setCotizacion(res.cotizacion);
+          if (!servicioManual.trim() && res.cotizacion.servicio_nombre) {
+            setServicioManual(res.cotizacion.servicio_nombre);
+          }
+          if (res.cotizacion.descripcion_problema && !descripcion.trim()) {
+            setDescripcion(res.cotizacion.descripcion_problema);
+          }
+        } else setErrorIa(res.error || 'No se pudo aplicar la plantilla.');
       } catch (err) {
         setErrorIa(extractApiError(err, 'Error al aplicar plantilla.'));
       } finally {
@@ -1190,28 +1231,69 @@ export function AgendarDesdeCanalModal({
 
               {modoServicio === 'manual' && conversationId && !esMecanico ? (
                 <View style={styles.cotizacionIaBlock}>
-                  <TouchableOpacity
-                    style={styles.plantillasLink}
-                    onPress={() => router.push('/cotizaciones-plantillas')}
-                  >
-                    <Text style={styles.plantillasLinkText}>Ver plantillas guardadas</Text>
-                  </TouchableOpacity>
-                  {plantillas.length > 0 && !cotizacion ? (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.plantillasScroll}>
-                      {plantillas.slice(0, 8).map((p) => (
-                        <TouchableOpacity
-                          key={p.id}
-                          style={styles.plantillaChip}
-                          onPress={() => void handleAplicarPlantilla(p.id)}
-                          disabled={generandoIa}
+                  {vehiculoListoParaPlantillas ? (
+                    <View style={styles.plantillasVehiculoBox}>
+                      <Text style={styles.plantillasVehiculoTitle}>Plantillas para este vehículo</Text>
+                      <View style={styles.vehiculoGrid}>
+                        <VehiculoSpecItem label="Marca" value={vehiculoMarca} />
+                        <VehiculoSpecItem label="Modelo" value={vehiculoModelo} />
+                      </View>
+                      {vehiculoCilindraje.trim() ? (
+                        <View style={styles.vehiculoGrid}>
+                          <VehiculoSpecItem label="Cilindraje" value={vehiculoCilindraje} />
+                          <View style={styles.vehiculoGridItem} />
+                        </View>
+                      ) : null}
+
+                      {cargandoPlantillas ? (
+                        <ActivityIndicator color={I.primary} style={styles.loader} />
+                      ) : plantillas.length > 0 && !cotizacion ? (
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          style={styles.plantillasScroll}
                         >
-                          <Text style={styles.plantillaChipText} numberOfLines={1}>
-                            {p.titulo}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  ) : null}
+                          {plantillas.map((p) => (
+                            <TouchableOpacity
+                              key={p.id}
+                              style={styles.plantillaChip}
+                              onPress={() => void handleAplicarPlantilla(p.id)}
+                              disabled={generandoIa}
+                            >
+                              <Text style={styles.plantillaChipText} numberOfLines={2}>
+                                {p.titulo}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      ) : !cotizacion ? (
+                        <Text style={styles.plantillasEmptyHint}>
+                          No hay plantillas guardadas para{' '}
+                          {etiquetaVehiculoActual(vehiculoFiltroPlantillas)}.
+                        </Text>
+                      ) : null}
+
+                      <TouchableOpacity
+                        style={styles.plantillasLink}
+                        onPress={() =>
+                          router.push({
+                            pathname: '/cotizaciones-plantillas',
+                            params: {
+                              marca: vehiculoFiltroPlantillas.marca,
+                              modelo: vehiculoFiltroPlantillas.modelo,
+                              cilindraje: vehiculoFiltroPlantillas.cilindraje,
+                            },
+                          })
+                        }
+                      >
+                        <Text style={styles.plantillasLinkText}>Ver plantillas de este vehículo</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <Text style={styles.plantillasEmptyHint}>
+                      Completa patente o marca y modelo del vehículo para ver plantillas asociadas.
+                    </Text>
+                  )}
                   {!cotizacion ? (
                     <>
                       <TouchableOpacity
@@ -1720,23 +1802,45 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: '#C62828',
   },
-  plantillasLink: { alignSelf: 'flex-start' },
+  plantillasLink: { alignSelf: 'flex-start', marginTop: SPACING.xs },
   plantillasLinkText: {
     fontFamily: FF.sansSemiBold,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.primary,
     textDecorationLine: 'underline',
   },
-  plantillasScroll: { maxHeight: 36 },
-  plantillaChip: {
+  plantillasVehiculoBox: {
+    gap: SPACING.sm,
+    padding: SPACING.sm,
     backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.full,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    marginBottom: SPACING.sm,
+  },
+  plantillasVehiculoTitle: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.ink,
+  },
+  plantillasEmptyHint: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.muted,
+    lineHeight: 20,
+  },
+  plantillasScroll: { maxHeight: 56 },
+  plantillaChip: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.md,
     paddingHorizontal: SPACING.sm,
-    paddingVertical: 6,
+    paddingVertical: SPACING.xs,
     marginRight: SPACING.xs,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    maxWidth: 160,
+    maxWidth: 200,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   plantillaChipText: {
     fontFamily: FF.sansMedium,
