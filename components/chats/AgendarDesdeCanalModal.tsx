@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react-native';
+import { Sparkles, X } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { ChilePhoneField, getChilePhoneError } from '@/components/forms/ChilePhoneField';
