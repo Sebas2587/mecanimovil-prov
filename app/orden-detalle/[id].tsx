@@ -37,8 +37,9 @@ const neutralStatus = institutionalStatusColors('neutral');
 
 export default function OrdenDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { esMecanicoEquipo, miembroId, estadoProveedor } = useAuth();
+  const { esMecanicoEquipo, miembroId, estadoProveedor, esSupervisor, rolTaller } = useAuth();
   const esProveedorDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
+  const esMandanteTaller = rolTaller === 'mandante';
   const [orden, setOrden] = useState<Orden | null>(null);
   const [loading, setLoading] = useState(true);
   const [procesando, setProcesando] = useState(false);
@@ -513,6 +514,8 @@ export default function OrdenDetalleScreen() {
   const puedeUsarAsistenteIa = puedeUsarAsistenteIaEnOrden({
     esMecanicoEquipo,
     esProveedorDomicilio,
+    esMandanteTaller,
+    esSupervisor,
     miembroId,
     mecanicoAsignadoId: orden.mecanico_asignado_id,
   });
@@ -728,7 +731,7 @@ export default function OrdenDetalleScreen() {
           </View>
         )}
 
-        {orden.mecanico_asignado_id && puedeUsarAsistenteIa ? (
+        {puedeUsarAsistenteIa ? (
           <View style={styles.section}>
             <AsistenteDiagnosticoCard origen="orden" entityId={orden.id} habilitado />
           </View>

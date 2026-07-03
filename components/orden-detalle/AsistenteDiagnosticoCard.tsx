@@ -5,9 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
-import { Sparkles, ExternalLink, AlertTriangle, Bookmark } from 'lucide-react-native';
+import { Sparkles, Bookmark } from 'lucide-react-native';
 import { showAlert } from '@/utils/platformAlert';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import {
@@ -16,6 +15,8 @@ import {
   type AsistenteDiagnosticoResponse,
 } from '@/services/asistenteDiagnosticoService';
 import { guiasReparacionService } from '@/services/guiasReparacionService';
+import { GuiaReparacionContenido } from '@/components/orden-detalle/GuiaReparacionContenido';
+import { useAuth } from '@/context/AuthContext';
 
 const I = COLORS.institutional;
 
@@ -32,6 +33,8 @@ export function AsistenteDiagnosticoCardOrden({ ordenId }: { ordenId: number }) 
 }
 
 export function AsistenteDiagnosticoCard({ origen, entityId, habilitado = true }: AsistenteDiagnosticoCardProps) {
+  const { esMecanicoEquipo } = useAuth();
+  const puedeGuardarGuia = esMecanicoEquipo;
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -126,49 +129,7 @@ export function AsistenteDiagnosticoCard({ origen, entityId, habilitado = true }
               {data?.error || 'Genera una guía con procedimiento sugerido y referencia de manual.'}
             </Text>
           ) : (
-            <View style={styles.body}>
-              {contenido.causas_probables?.length ? (
-                <View style={styles.block}>
-                  <Text style={styles.blockTitle}>Causas probables</Text>
-                  {contenido.causas_probables.map((causa, idx) => (
-                    <Text key={`causa-${idx}`} style={styles.bullet}>• {causa}</Text>
-                  ))}
-                </View>
-              ) : null}
-
-              {contenido.procedimiento_reparacion_detallado?.length ? (
-                <View style={styles.block}>
-                  <Text style={styles.blockTitle}>Procedimiento sugerido</Text>
-                  {contenido.procedimiento_reparacion_detallado.map((paso, idx) => (
-                    <Text key={`paso-${idx}`} style={styles.step}>{paso}</Text>
-                  ))}
-                </View>
-              ) : null}
-
-              {contenido.referencia_manual?.url ? (
-                <TouchableOpacity
-                  style={styles.linkRow}
-                  onPress={() => Linking.openURL(contenido.referencia_manual.url!)}
-                  activeOpacity={0.85}
-                >
-                  <ExternalLink size={16} color={I.primary} strokeWidth={2} />
-                  <Text style={styles.linkText}>
-                    {contenido.referencia_manual.titulo || 'Abrir referencia de manual'}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-
-              {contenido.advertencias_seguridad?.length ? (
-                <View style={styles.warningBox}>
-                  <AlertTriangle size={16} color={I.accentYellow} strokeWidth={2} />
-                  <View style={{ flex: 1 }}>
-                    {contenido.advertencias_seguridad.map((adv, idx) => (
-                      <Text key={`adv-${idx}`} style={styles.warningText}>{adv}</Text>
-                    ))}
-                  </View>
-                </View>
-              ) : null}
-            </View>
+            <GuiaReparacionContenido contenido={contenido} />
           )}
 
           <TouchableOpacity
@@ -186,7 +147,7 @@ export function AsistenteDiagnosticoCard({ origen, entityId, habilitado = true }
             )}
           </TouchableOpacity>
 
-          {contenido && data?.diagnostico_id ? (
+          {contenido && data?.diagnostico_id && puedeGuardarGuia ? (
             <TouchableOpacity
               style={[styles.saveButton, (saving || saved) && styles.buttonDisabled]}
               onPress={() => void guardarGuia()}
@@ -254,54 +215,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.body,
     lineHeight: 20,
-  },
-  body: {
-    gap: SPACING.md,
-  },
-  block: {
-    gap: SPACING.xs,
-  },
-  blockTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
-  },
-  bullet: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.body,
-    lineHeight: 20,
-  },
-  step: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.body,
-    lineHeight: 20,
-    marginBottom: 4,
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  linkText: {
-    flex: 1,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.primary,
-  },
-  warningBox: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.sm,
-  },
-  warningText: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.body,
-    lineHeight: 18,
   },
   button: {
     backgroundColor: I.primary,

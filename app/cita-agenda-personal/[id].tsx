@@ -128,8 +128,9 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { esMecanicoEquipo, miembroId, estadoProveedor } = useAuth();
+  const { esMecanicoEquipo, miembroId, estadoProveedor, esSupervisor, rolTaller } = useAuth();
   const esProveedorDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
+  const esMandanteTaller = rolTaller === 'mandante';
   const scrollRef = useRef<ScrollView>(null);
   const citaId = Number(id);
   const permitirEditarCita = !esMecanicoEquipo;
@@ -567,6 +568,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const puedeUsarAsistenteIa = puedeUsarAsistenteIaEnCita({
     esMecanicoEquipo,
     esProveedorDomicilio,
+    esMandanteTaller,
+    esSupervisor,
     miembroId,
     citaMiembroTallerId: cita.miembro_taller,
   });

@@ -151,8 +151,9 @@ export default function SolicitudDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { esMecanicoEquipo, miembroId, estadoProveedor } = useAuth();
+  const { esMecanicoEquipo, miembroId, estadoProveedor, esSupervisor, rolTaller } = useAuth();
   const esProveedorDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
+  const esMandanteTaller = rolTaller === 'mandante';
 
   const invalidateOrdenesYOfertas = useCallback(() => {
     invalidateProveedorMarketplaceQueries(queryClient);
@@ -915,10 +916,11 @@ export default function SolicitudDetalleScreen() {
             </View>
 
             {miOferta?.solicitud_servicio_id
-            && miOferta?.miembro_taller_asignado
             && puedeUsarAsistenteIaEnOrden({
               esMecanicoEquipo,
               esProveedorDomicilio,
+              esMandanteTaller,
+              esSupervisor,
               miembroId,
               mecanicoAsignadoId: miOferta.miembro_taller_asignado,
             }) ? (

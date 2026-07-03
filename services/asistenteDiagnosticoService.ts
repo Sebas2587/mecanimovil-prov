@@ -8,6 +8,8 @@ export interface ReferenciaManualIA {
 export interface ContenidoAsistenteDiagnostico {
   vehiculo: string;
   problema_reportado: string;
+  tipo_motor?: string;
+  tipo_motor_codigo?: string;
   causas_probables: string[];
   procedimiento_reparacion_detallado: string[];
   referencia_manual: ReferenciaManualIA;

@@ -6,78 +6,25 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Linking,
   RefreshControl,
 } from 'react-native';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Sparkles, ChevronRight, Trash2, ExternalLink, AlertTriangle } from 'lucide-react-native';
+import { Sparkles, ChevronRight, Trash2 } from 'lucide-react-native';
+import { GuiaReparacionContenido } from '@/components/orden-detalle/GuiaReparacionContenido';
 import { useAuth } from '@/context/AuthContext';
 import Header from '@/components/Header';
 import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { showAlert } from '@/utils/platformAlert';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
 import {
   guiasReparacionService,
   type GuiaReparacionGrupoMarca,
   type GuiaReparacionGuardada,
 } from '@/services/guiasReparacionService';
-import type { ContenidoAsistenteDiagnostico } from '@/services/asistenteDiagnosticoService';
 
 const I = COLORS.institutional;
-
-function GuiaContenidoBody({ contenido }: { contenido: ContenidoAsistenteDiagnostico }) {
-  return (
-    <View style={styles.guiaBody}>
-      {contenido.problema_reportado ? (
-        <Text style={styles.problemaText}>{contenido.problema_reportado}</Text>
-      ) : null}
-
-      {contenido.causas_probables?.length ? (
-        <View style={styles.block}>
-          <Text style={styles.blockTitle}>Causas probables</Text>
-          {contenido.causas_probables.map((causa, idx) => (
-            <Text key={`causa-${idx}`} style={styles.bullet}>• {causa}</Text>
-          ))}
-        </View>
-      ) : null}
-
-      {contenido.procedimiento_reparacion_detallado?.length ? (
-        <View style={styles.block}>
-          <Text style={styles.blockTitle}>Procedimiento sugerido</Text>
-          {contenido.procedimiento_reparacion_detallado.map((paso, idx) => (
-            <Text key={`paso-${idx}`} style={styles.step}>{paso}</Text>
-          ))}
-        </View>
-      ) : null}
-
-      {contenido.referencia_manual?.url ? (
-        <TouchableOpacity
-          style={styles.linkRow}
-          onPress={() => Linking.openURL(contenido.referencia_manual.url!)}
-          activeOpacity={0.85}
-        >
-          <ExternalLink size={16} color={I.primary} strokeWidth={2} />
-          <Text style={styles.linkText}>
-            {contenido.referencia_manual.titulo || 'Abrir referencia de manual'}
-          </Text>
-        </TouchableOpacity>
-      ) : null}
-
-      {contenido.advertencias_seguridad?.length ? (
-        <View style={styles.warningBox}>
-          <AlertTriangle size={16} color={I.accentYellow} strokeWidth={2} />
-          <View style={{ flex: 1 }}>
-            {contenido.advertencias_seguridad.map((adv, idx) => (
-              <Text key={`adv-${idx}`} style={styles.warningText}>{adv}</Text>
-            ))}
-          </View>
-        </View>
-      ) : null}
-    </View>
-  );
-}
 
 export default function GuiasReparacionScreen() {
   const { esMecanicoEquipo } = useAuth();
@@ -140,26 +87,20 @@ export default function GuiasReparacionScreen() {
   };
 
   const eliminarGuia = (guia: GuiaReparacionGuardada) => {
-    Alert.alert('Eliminar guía', '¿Quieres quitar esta guía de tu biblioteca?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            try {
-              await guiasReparacionService.eliminar(guia.id);
-              setGuias((prev) => prev.filter((g) => g.id !== guia.id));
-              if (guiaDetalle?.id === guia.id) setGuiaDetalle(null);
-              await cargarGrupos();
-            } catch (error) {
-              const mensaje = error instanceof Error ? error.message : 'No se pudo eliminar la guía.';
-              showAlert('Error', mensaje);
-            }
-          })();
-        },
+    showConfirm('Eliminar guía', '¿Quieres quitar esta guía de tu biblioteca?', {
+      confirmText: 'Eliminar',
+      onConfirm: async () => {
+        try {
+          await guiasReparacionService.eliminar(guia.id);
+          setGuias((prev) => prev.filter((g) => g.id !== guia.id));
+          if (guiaDetalle?.id === guia.id) setGuiaDetalle(null);
+          await cargarGrupos();
+        } catch (error) {
+          const mensaje = error instanceof Error ? error.message : 'No se pudo eliminar la guía.';
+          showAlert('Error', mensaje);
+        }
       },
-    ]);
+    });
   };
 
   const onRefresh = async () => {
@@ -236,7 +177,7 @@ export default function GuiasReparacionScreen() {
             {guiaDetalle.vehiculo_patente ? (
               <Text style={styles.patenteText}>Patente {guiaDetalle.vehiculo_patente}</Text>
             ) : null}
-            <GuiaContenidoBody contenido={guiaDetalle.contenido} />
+            <GuiaReparacionContenido contenido={guiaDetalle.contenido} />
           </View>
         ) : marcaSel && modeloSel ? (
           loadingGuias ? (
@@ -393,56 +334,6 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.muted,
-  },
-  guiaBody: { gap: SPACING.md },
-  problemaText: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.body,
-    lineHeight: 20,
-  },
-  block: { gap: SPACING.xs },
-  blockTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
-  },
-  bullet: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.body,
-    lineHeight: 20,
-  },
-  step: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.body,
-    lineHeight: 20,
-    marginBottom: 4,
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  linkText: {
-    flex: 1,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.primary,
-  },
-  warningBox: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.sm,
-  },
-  warningText: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.body,
-    lineHeight: 18,
   },
   emptyWrap: {
     alignItems: 'center',
