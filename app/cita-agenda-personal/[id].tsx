@@ -48,6 +48,7 @@ import { extraerNueveDigitosDesdeGuardado, normalizarTelefonoChileParaGuardar } 
 import { calcularDuracionMinutos, esRangoHorarioValido, sumarMinutosAHora } from '@/utils/citaPersonalHorario';
 import { parseFechaLocal } from '@/utils/fechaLocal';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { consultarPatente } from '@/services/vehiculoService';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
@@ -159,6 +160,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const [vehiculoMarca, setVehiculoMarca] = useState('');
   const [vehiculoModelo, setVehiculoModelo] = useState('');
   const [vehiculoPatente, setVehiculoPatente] = useState('');
+  const [vehiculoVin, setVehiculoVin] = useState('');
+  const [buscandoPatente, setBuscandoPatente] = useState(false);
   const [servicioNombre, setServicioNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [precioReferencia, setPrecioReferencia] = useState('');
@@ -190,6 +193,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     setVehiculoMarca(det.vehiculo_marca || '');
     setVehiculoModelo(det.vehiculo_modelo || '');
     setVehiculoPatente(det.vehiculo_patente || '');
+    setVehiculoVin(det.vehiculo_vin || '');
     setServicioNombre(det.servicio_nombre || det.servicio_nombre_resuelto || '');
     setDescripcion(det.descripcion || '');
     setPrecioReferencia(
@@ -237,6 +241,23 @@ export default function CitaAgendaPersonalDetalleScreen() {
     const tel = cita?.detalle.cliente_telefono;
     if (tel) Linking.openURL(`tel:${tel}`);
   }, [cita]);
+
+  const handlePatenteBlur = useCallback(async () => {
+    const patente = vehiculoPatente.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (patente.length < 5) return;
+    setBuscandoPatente(true);
+    try {
+      const data = await consultarPatente(patente);
+      setVehiculoPatente(data.patente || patente);
+      if (data.marca_nombre?.trim()) setVehiculoMarca(data.marca_nombre.trim());
+      if (data.modelo_nombre?.trim()) setVehiculoModelo(data.modelo_nombre.trim());
+      if (data.vin?.trim()) setVehiculoVin(data.vin.trim().toUpperCase());
+    } catch {
+      // Mantener datos manuales si la patente no se encuentra.
+    } finally {
+      setBuscandoPatente(false);
+    }
+  }, [vehiculoPatente]);
 
   const ejecutarCerrar = useCallback(async () => {
     setFeedbackAccion(null);
@@ -405,6 +426,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     };
 
     if (vehiculoPatente.trim()) detalle.vehiculo_patente = vehiculoPatente.trim();
+    if (vehiculoVin.trim()) detalle.vehiculo_vin = vehiculoVin.trim().toUpperCase();
     if (descripcion.trim()) detalle.descripcion = descripcion.trim();
 
     if (tipoServicio === 'domicilio') {
@@ -620,7 +642,19 @@ export default function CitaAgendaPersonalDetalleScreen() {
               <EditSection title="Vehículo">
                 <InstitutionalField label="Marca" value={vehiculoMarca} onChangeText={setVehiculoMarca} />
                 <InstitutionalField label="Modelo" value={vehiculoModelo} onChangeText={setVehiculoModelo} />
-                <InstitutionalField label="Patente" value={vehiculoPatente} onChangeText={setVehiculoPatente} autoCapitalize="characters" />
+                <InstitutionalField
+                  label="Patente"
+                  value={vehiculoPatente}
+                  onChangeText={(t) => setVehiculoPatente(t.toUpperCase())}
+                  onBlur={() => void handlePatenteBlur()}
+                  autoCapitalize="characters"
+                />
+                {buscandoPatente ? (
+                  <ActivityIndicator color={I.primary} style={{ marginVertical: SPACING.xs }} />
+                ) : null}
+                {vehiculoVin ? (
+                  <InstitutionalField label="VIN" value={vehiculoVin} onChangeText={setVehiculoVin} editable={false} />
+                ) : null}
               </EditSection>
               {tipoServicio === 'domicilio' && (
                 <EditSection title="Dirección">
@@ -707,10 +741,12 @@ export default function CitaAgendaPersonalDetalleScreen() {
                   <View style={styles.vehiculoGrid}>
                     <View style={styles.vehiculoGridItem}>
                       <View style={styles.vehiculoGridItemHeader}>
-                        <InstitutionalIcon name="settings" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                        <Text style={styles.vehiculoGridItemLabel}>Motor</Text>
+                        <InstitutionalIcon name="document" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.vehiculoGridItemLabel}>VIN</Text>
                       </View>
-                      <Text style={styles.vehiculoGridItemValue}>N/A</Text>
+                      <Text style={styles.vehiculoGridItemValue} numberOfLines={2}>
+                        {det.vehiculo_vin || 'N/A'}
+                      </Text>
                     </View>
                     <View style={styles.vehiculoGridItem}>
                       <View style={styles.vehiculoGridItemHeader}>

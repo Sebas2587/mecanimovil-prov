@@ -677,6 +677,7 @@ export function AgendarDesdeCanalModal({
     }
     if (vehiculoColor.trim()) detalle.vehiculo_color = vehiculoColor.trim();
     if (vehiculoCilindraje.trim()) detalle.vehiculo_cilindraje = vehiculoCilindraje.trim();
+    if (vehiculoVin.trim()) detalle.vehiculo_vin = vehiculoVin.trim().toUpperCase();
     if (tipoServicio === 'domicilio') {
       detalle.direccion = (direccionValidada?.line ?? direccion).trim();
     }
@@ -698,6 +699,7 @@ export function AgendarDesdeCanalModal({
     vehiculoPatente,
     vehiculoAnio,
     vehiculoColor,
+    vehiculoVin,
     vehiculoCilindraje,
     modoServicio,
     catalogoOpcionSeleccionada,

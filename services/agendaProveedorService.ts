@@ -13,6 +13,7 @@ export interface CitaAgendaPersonalDetalle {
   vehiculo_marca: string;
   vehiculo_modelo: string;
   vehiculo_patente?: string;
+  vehiculo_vin?: string;
   vehiculo_anio?: number | null;
   vehiculo_cilindraje?: string;
   vehiculo_color?: string;

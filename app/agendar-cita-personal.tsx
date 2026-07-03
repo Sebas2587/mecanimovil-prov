@@ -31,6 +31,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { agendaProveedorService, type CitaAgendaPersonalCreatePayload } from '@/services/agendaProveedorService';
+import { consultarPatente } from '@/services/vehiculoService';
 import { serviciosProveedorAPI, type ServicioOferta } from '@/services/serviciosApi';
 import { agruparOfertasPorCatalogo } from '@/utils/agruparOfertasPorCatalogo';
 import {
@@ -73,7 +74,9 @@ export default function AgendarCitaPersonalScreen() {
   const [vehiculoMarca, setVehiculoMarca] = useState('');
   const [vehiculoModelo, setVehiculoModelo] = useState('');
   const [vehiculoPatente, setVehiculoPatente] = useState('');
+  const [vehiculoVin, setVehiculoVin] = useState('');
   const [vehiculoAnio, setVehiculoAnio] = useState('');
+  const [buscandoPatente, setBuscandoPatente] = useState(false);
   const [modoServicio, setModoServicio] = useState<ModoServicio>('catalogo');
   const [servicioManual, setServicioManual] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -421,6 +424,24 @@ export default function AgendarCitaPersonalScreen() {
     modoServicio,
   ]);
 
+  const handlePatenteBlur = useCallback(async () => {
+    const patente = vehiculoPatente.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (patente.length < 5) return;
+    setBuscandoPatente(true);
+    try {
+      const data = await consultarPatente(patente);
+      setVehiculoPatente(data.patente || patente);
+      if (data.marca_nombre?.trim()) setVehiculoMarca(data.marca_nombre.trim());
+      if (data.modelo_nombre?.trim()) setVehiculoModelo(data.modelo_nombre.trim());
+      if (data.year) setVehiculoAnio(String(data.year));
+      if (data.vin?.trim()) setVehiculoVin(data.vin.trim().toUpperCase());
+    } catch {
+      setVehiculoVin('');
+    } finally {
+      setBuscandoPatente(false);
+    }
+  }, [vehiculoPatente]);
+
   const construirPayload = useCallback((): CitaAgendaPersonalCreatePayload => {
     const detalle: CitaAgendaPersonalCreatePayload['detalle'] = {
       cliente_nombre: clienteNombre.trim(),
@@ -429,7 +450,8 @@ export default function AgendarCitaPersonalScreen() {
       vehiculo_modelo: vehiculoModelo.trim(),
     };
 
-    if (vehiculoPatente.trim()) detalle.vehiculo_patente = vehiculoPatente.trim();
+    if (vehiculoPatente.trim()) detalle.vehiculo_patente = vehiculoPatente.trim().toUpperCase();
+    if (vehiculoVin.trim()) detalle.vehiculo_vin = vehiculoVin.trim().toUpperCase();
 
     if (vehiculoAnio.trim()) {
       const anio = parseInt(vehiculoAnio.trim(), 10);
@@ -468,6 +490,7 @@ export default function AgendarCitaPersonalScreen() {
     vehiculoMarca,
     vehiculoModelo,
     vehiculoPatente,
+    vehiculoVin,
     vehiculoAnio,
     tipoServicio,
     direccion,
@@ -600,7 +623,8 @@ export default function AgendarCitaPersonalScreen() {
                 <InstitutionalField
                   label="Patente"
                   value={vehiculoPatente}
-                  onChangeText={setVehiculoPatente}
+                  onChangeText={(t) => setVehiculoPatente(t.toUpperCase())}
+                  onBlur={() => void handlePatenteBlur()}
                   placeholder="AA1234"
                   autoCapitalize="characters"
                 />
@@ -615,6 +639,12 @@ export default function AgendarCitaPersonalScreen() {
                 />
               </View>
             </View>
+            {buscandoPatente ? (
+              <ActivityIndicator color={I.primary} style={styles.loader} />
+            ) : null}
+            {vehiculoVin ? (
+              <InstitutionalField label="VIN" value={vehiculoVin} editable={false} />
+            ) : null}
           </Section>
 
           <Section title="Tipo de servicio">
