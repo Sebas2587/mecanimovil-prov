@@ -253,7 +253,6 @@ export function AgendarDesdeCanalModal({
   const [plantillas, setPlantillas] = useState<CotizacionPlantilla[]>([]);
   const [cargandoPlantillas, setCargandoPlantillas] = useState(false);
   const [errorForm, setErrorForm] = useState<string | null>(null);
-  const [descripcionAltura, setDescripcionAltura] = useState(88);
 
   const channelLabel = useMemo(
     () => (channel ? channelRespondLabel(channel) : null),
@@ -322,7 +321,6 @@ export function AgendarDesdeCanalModal({
     setPatenteHint(null);
     setErrorForm(null);
     setGuardando(false);
-    setDescripcionAltura(88);
     setCotizacion(null);
     setGenerandoIa(false);
     setEnviandoCotizacion(false);
@@ -1219,14 +1217,7 @@ export function AgendarDesdeCanalModal({
                 onChangeText={setDescripcion}
                 placeholder="Detalle adicional (opcional)"
                 multiline
-                inputStyle={{ minHeight: descripcionAltura }}
-                textInputProps={{
-                  scrollEnabled: false,
-                  onContentSizeChange: (event) => {
-                    const next = Math.max(88, Math.ceil(event.nativeEvent.contentSize.height) + 12);
-                    setDescripcionAltura((prev) => (prev === next ? prev : next));
-                  },
-                }}
+                textInputProps={{ scrollEnabled: true }}
               />
 
               {modoServicio === 'manual' && conversationId && !esMecanico ? (
