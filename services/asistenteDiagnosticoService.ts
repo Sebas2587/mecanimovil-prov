@@ -10,6 +10,8 @@ export interface ContenidoAsistenteDiagnostico {
   problema_reportado: string;
   tipo_motor?: string;
   tipo_motor_codigo?: string;
+  aviso_motor?: string;
+  servicio_motor_incoherente?: boolean;
   causas_probables: string[];
   procedimiento_reparacion_detallado: string[];
   referencia_manual: ReferenciaManualIA;

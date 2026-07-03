@@ -40,6 +40,20 @@ export function GuiaReparacionContenido({ contenido }: GuiaReparacionContenidoPr
         </View>
       ) : null}
 
+      {contenido.aviso_motor ? (
+        <View style={styles.warningBox}>
+          <View style={styles.warningHeader}>
+            <AlertTriangle size={16} color={I.accentYellow} strokeWidth={2} />
+            <Text style={styles.warningTitle}>
+              {contenido.servicio_motor_incoherente
+                ? 'Servicio no concuerda con el vehículo'
+                : 'Datos de motor inconsistentes'}
+            </Text>
+          </View>
+          <Text style={styles.warningText}>{contenido.aviso_motor}</Text>
+        </View>
+      ) : null}
+
       {contenido.problema_reportado ? (
         <View style={styles.problemaBox}>
           <Text style={styles.problemaLabel}>Problema reportado</Text>
