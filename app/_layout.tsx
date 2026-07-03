@@ -166,9 +166,9 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <DesignSystemThemeProvider>
           <AuthProvider>
-            <PushNotificationSetup />
             <RadarOportunidadesProvider>
             <AlertsProvider>
+              <PushNotificationSetup />
               <ChatsProvider>
                 <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
                   <PlatformAlertHost />
@@ -201,6 +201,7 @@ export default function RootLayout() {
                   <Stack.Screen name="gestionar-taller" options={{ headerShown: false }} />
                   <Stack.Screen name="gestion-equipo" options={{ headerShown: false }} />
                   <Stack.Screen name="rendimiento-kpis" options={{ headerShown: false }} />
+                  <Stack.Screen name="guias-reparacion" options={{ headerShown: false }} />
                   <Stack.Screen name="actualizar-ubicacion" options={{ headerShown: false }} />
                   <Stack.Screen name="orden-detalle/[id]" options={{ headerShown: false }} />
                   <Stack.Screen name="servicio-detalle/[id]" options={{ headerShown: false }} />

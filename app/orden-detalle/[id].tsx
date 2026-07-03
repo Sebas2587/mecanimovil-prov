@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import { puedeUsarAsistenteIaEnOrden } from '@/utils/asistenteIaPermisos';
 import { ordenesProveedorService, type Orden } from '@/services/ordenesProveedor';
 import { checklistService, type ChecklistInstance } from '@/services/checklistService';
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
@@ -36,7 +37,8 @@ const neutralStatus = institutionalStatusColors('neutral');
 
 export default function OrdenDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { esMecanicoEquipo } = useAuth();
+  const { esMecanicoEquipo, miembroId, estadoProveedor } = useAuth();
+  const esProveedorDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
   const [orden, setOrden] = useState<Orden | null>(null);
   const [loading, setLoading] = useState(true);
   const [procesando, setProcesando] = useState(false);
@@ -508,6 +510,12 @@ export default function OrdenDetalleScreen() {
   }
 
   const colorEstado = ordenesProveedorService.obtenerColorEstado(orden.estado);
+  const puedeUsarAsistenteIa = puedeUsarAsistenteIaEnOrden({
+    esMecanicoEquipo,
+    esProveedorDomicilio,
+    miembroId,
+    mecanicoAsignadoId: orden.mecanico_asignado_id,
+  });
 
   return (
     <View style={styles.container}>
@@ -720,9 +728,9 @@ export default function OrdenDetalleScreen() {
           </View>
         )}
 
-        {orden.mecanico_asignado_id ? (
+        {orden.mecanico_asignado_id && puedeUsarAsistenteIa ? (
           <View style={styles.section}>
-            <AsistenteDiagnosticoCard origen="orden" entityId={orden.id} />
+            <AsistenteDiagnosticoCard origen="orden" entityId={orden.id} habilitado />
           </View>
         ) : null}
 

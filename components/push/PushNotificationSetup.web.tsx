@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
-import { useAuth } from '@/context/AuthContext';
 import {
   navigateByPushNotification,
   type PushNotificationData,

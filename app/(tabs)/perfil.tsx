@@ -27,6 +27,7 @@ import {
   FileText,
   MessageCircle,
   Camera,
+  Bookmark,
   type LucideIcon,
 } from 'lucide-react-native';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
@@ -433,7 +434,35 @@ export default function PerfilScreen() {
               <WebPushSettingsRow showTopBorder={settingsRows.length > 0} />
             </View>
               </>
-            ) : null}
+            ) : (
+              <>
+                <SectionKicker label="HERRAMIENTAS" />
+                <View
+                  style={[
+                    styles.groupCard,
+                    { backgroundColor: I.canvas, borderColor: I.hairline },
+                    SHADOWS.editorial,
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={styles.settingRow}
+                    onPress={() => router.push('/guias-reparacion' as never)}
+                    activeOpacity={0.88}
+                  >
+                    <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceStrong }]}>
+                      <Bookmark size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                    </View>
+                    <View style={styles.rowText}>
+                      <Text style={[styles.settingTitle, { color: I.ink }]}>Guías de reparación</Text>
+                      <Text style={[styles.settingSubtitle, { color: I.body }]}>
+                        Procedimientos guardados por marca y modelo
+                      </Text>
+                    </View>
+                    <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
 
             <View style={[styles.footerBlock, { borderTopColor: I.hairline }]}>
               <TouchableOpacity

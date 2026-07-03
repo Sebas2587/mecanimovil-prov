@@ -50,6 +50,8 @@ import {
 } from '@/components/solicitud-detalle/SolicitudDetalleChecklistOverlay';
 import { calcularAlturaFooterEjecucion } from '@/utils/calcularAlturaFooterEjecucion';
 import { AsistenteDiagnosticoCard } from '@/components/orden-detalle/AsistenteDiagnosticoCard';
+import { useAuth } from '@/context/AuthContext';
+import { puedeUsarAsistenteIaEnOrden } from '@/utils/asistenteIaPermisos';
 
 const ESTADOS_EJECUCION_UI = new Set([
   'pendiente_creditos',
@@ -149,6 +151,8 @@ export default function SolicitudDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { esMecanicoEquipo, miembroId, estadoProveedor } = useAuth();
+  const esProveedorDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
 
   const invalidateOrdenesYOfertas = useCallback(() => {
     invalidateProveedorMarketplaceQueries(queryClient);
@@ -910,9 +914,16 @@ export default function SolicitudDetalleScreen() {
               <Text style={styles.descriptionText}>{solicitud.descripcion_problema}</Text>
             </View>
 
-            {miOferta?.solicitud_servicio_id && miOferta?.miembro_taller_asignado ? (
+            {miOferta?.solicitud_servicio_id
+            && miOferta?.miembro_taller_asignado
+            && puedeUsarAsistenteIaEnOrden({
+              esMecanicoEquipo,
+              esProveedorDomicilio,
+              miembroId,
+              mecanicoAsignadoId: miOferta.miembro_taller_asignado,
+            }) ? (
               <View style={styles.section}>
-                <AsistenteDiagnosticoCard origen="orden" entityId={miOferta.solicitud_servicio_id} />
+                <AsistenteDiagnosticoCard origen="orden" entityId={miOferta.solicitud_servicio_id} habilitado />
               </View>
             ) : null}
 

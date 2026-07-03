@@ -54,6 +54,7 @@ import { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
 import { useCitaPersonalQuery } from '@/hooks/useCitaPersonalQuery';
 import { useAuth } from '@/context/AuthContext';
+import { puedeUsarAsistenteIaEnCita } from '@/utils/asistenteIaPermisos';
 import { AsistenteDiagnosticoCard } from '@/components/orden-detalle/AsistenteDiagnosticoCard';
 
 const I = COLORS.institutional;
@@ -127,7 +128,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { esMecanicoEquipo } = useAuth();
+  const { esMecanicoEquipo, miembroId, estadoProveedor } = useAuth();
+  const esProveedorDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
   const scrollRef = useRef<ScrollView>(null);
   const citaId = Number(id);
   const permitirEditarCita = !esMecanicoEquipo;
@@ -562,6 +564,12 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const textoUbicacion = esDomicilio
     ? det.direccion?.trim() || 'Dirección no registrada'
     : 'El cliente acudirá al taller';
+  const puedeUsarAsistenteIa = puedeUsarAsistenteIaEnCita({
+    esMecanicoEquipo,
+    esProveedorDomicilio,
+    miembroId,
+    citaMiembroTallerId: cita.miembro_taller,
+  });
 
   return (
     <View style={styles.container}>
@@ -781,9 +789,9 @@ export default function CitaAgendaPersonalDetalleScreen() {
                   </View>
                 ) : null}
 
-                {esActiva ? (
+                {esActiva && puedeUsarAsistenteIa ? (
                   <View style={styles.asistenteIaWrap}>
-                    <AsistenteDiagnosticoCard origen="cita" entityId={cita.id} />
+                    <AsistenteDiagnosticoCard origen="cita" entityId={cita.id} habilitado />
                   </View>
                 ) : null}
               </View>
