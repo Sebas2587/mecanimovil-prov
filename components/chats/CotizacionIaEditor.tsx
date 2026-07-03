@@ -9,18 +9,54 @@ import {
 } from 'react-native';
 import { AlertTriangle, Fuel, Plus, Trash2 } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import {
+  formatearMontoCLP,
+  redondearCLP,
+} from '@/utils/formatearMontoCLP';
+import {
+  formatMontoInputLocalized,
+  parseMontoDecimal,
+} from '@/utils/parseMontoDecimal';
 import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 
-function formatearCLP(valor: number): string {
-  return `$${Math.round(valor || 0).toLocaleString('es-CL')}`;
+function subtotalRepuesto(rep: RepuestoCotizacion): number {
+  return redondearCLP(redondearCLP(rep.cantidad || 1) * redondearCLP(rep.precio_unitario_clp));
 }
 
-function parseCLPInput(texto: string): number {
-  const digits = texto.replace(/\D/g, '');
-  return digits ? parseInt(digits, 10) : 0;
+interface ClpMoneyInputProps {
+  value: number;
+  onChangeValue: (next: number) => void;
+  editable: boolean;
+  placeholder?: string;
+  compact?: boolean;
+}
+
+function ClpMoneyInput({
+  value,
+  onChangeValue,
+  editable,
+  placeholder = '0',
+  compact = false,
+}: ClpMoneyInputProps) {
+  const display = value > 0 ? formatMontoInputLocalized(value) : '';
+
+  return (
+    <View style={[styles.moneyInputRow, compact && styles.moneyInputRowCompact]}>
+      <Text style={styles.moneyPrefix}>$</Text>
+      <TextInput
+        style={[styles.moneyInput, compact && styles.moneyInputCompact]}
+        keyboardType="numeric"
+        editable={editable}
+        placeholder={placeholder}
+        placeholderTextColor={I.mutedSoft}
+        value={display}
+        onChangeText={(t) => onChangeValue(redondearCLP(parseMontoDecimal(t)))}
+      />
+    </View>
+  );
 }
 
 interface CotizacionIaEditorProps {
@@ -46,14 +82,17 @@ export function CotizacionIaEditor({
 }: CotizacionIaEditorProps) {
   const repuestos = cotizacion.repuestos ?? [];
   const editable = !readonly && cotizacion.estado === 'borrador';
+  const manoObra = redondearCLP(cotizacion.mano_obra_clp);
 
-  const totalCalculado = useMemo(() => {
-    const rep = repuestos.reduce(
-      (acc, r) => acc + (r.cantidad || 1) * (r.precio_unitario_clp || 0),
-      0,
-    );
-    return rep + (cotizacion.mano_obra_clp || 0);
-  }, [repuestos, cotizacion.mano_obra_clp]);
+  const totalRepuestos = useMemo(
+    () => repuestos.reduce((acc, r) => acc + subtotalRepuesto(r), 0),
+    [repuestos],
+  );
+
+  const totalCalculado = useMemo(
+    () => totalRepuestos + manoObra,
+    [totalRepuestos, manoObra],
+  );
 
   const actualizarRepuesto = useCallback(
     (index: number, patch: Partial<RepuestoCotizacion>) => {
@@ -87,7 +126,12 @@ export function CotizacionIaEditor({
 
   return (
     <View style={styles.root}>
-      <Text style={styles.sectionTitle}>Cotización IA</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.sectionTitle}>Cotización IA</Text>
+        <View style={styles.estadoBadge}>
+          <Text style={styles.estadoBadgeText}>{cotizacion.estado}</Text>
+        </View>
+      </View>
 
       {cotizacion.tipo_motor_label ? (
         <View style={styles.motorChip}>
@@ -103,83 +147,122 @@ export function CotizacionIaEditor({
         </View>
       ) : null}
 
-      <View style={styles.estadoRow}>
-        <Text style={styles.estadoLabel}>Estado:</Text>
-        <Text style={styles.estadoValue}>{cotizacion.estado}</Text>
+      <View style={styles.section}>
+        <Text style={styles.fieldLabel}>Mano de obra</Text>
+        <ClpMoneyInput
+          value={manoObra}
+          editable={editable}
+          onChangeValue={(next) => onChange({ ...cotizacion, mano_obra_clp: next })}
+        />
       </View>
 
-      <Text style={styles.fieldLabel}>Mano de obra (CLP)</Text>
-      <TextInput
-        style={styles.input}
-        keyboardType="numeric"
-        editable={editable}
-        value={String(cotizacion.mano_obra_clp || 0)}
-        onChangeText={(t) => onChange({ ...cotizacion, mano_obra_clp: parseCLPInput(t) })}
-      />
-
-      <View style={styles.repuestosHeader}>
-        <Text style={styles.fieldLabel}>Repuestos</Text>
-        {editable ? (
-          <TouchableOpacity style={styles.addBtn} onPress={agregarRepuesto}>
-            <Plus size={16} color={I.primary} />
-            <Text style={styles.addBtnText}>Agregar</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      {repuestos.map((rep, idx) => (
-        <View key={rep.id ?? `rep-${idx}`} style={styles.repuestoCard}>
-          <TextInput
-            style={styles.input}
-            editable={editable}
-            placeholder="Nombre repuesto"
-            value={rep.nombre}
-            onChangeText={(t) => actualizarRepuesto(idx, { nombre: t })}
-          />
-          <View style={styles.repuestoRow}>
-            <View style={styles.repuestoField}>
-              <Text style={styles.miniLabel}>Cant.</Text>
-              <TextInput
-                style={styles.inputSmall}
-                keyboardType="numeric"
-                editable={editable}
-                value={String(rep.cantidad || 1)}
-                onChangeText={(t) =>
-                  actualizarRepuesto(idx, { cantidad: Math.max(1, parseInt(t, 10) || 1) })
-                }
-              />
-            </View>
-            <View style={styles.repuestoFieldFlex}>
-              <Text style={styles.miniLabel}>Precio unit.</Text>
-              <TextInput
-                style={styles.inputSmall}
-                keyboardType="numeric"
-                editable={editable}
-                value={String(rep.precio_unitario_clp || 0)}
-                onChangeText={(t) =>
-                  actualizarRepuesto(idx, { precio_unitario_clp: parseCLPInput(t) })
-                }
-              />
-            </View>
-            {editable ? (
-              <TouchableOpacity
-                style={styles.deleteBtn}
-                onPress={() => eliminarRepuesto(idx)}
-                accessibilityLabel="Eliminar repuesto"
-              >
-                <Trash2 size={18} color="#C62828" />
-              </TouchableOpacity>
-            ) : null}
-          </View>
-          <Text style={styles.subtotalRep}>
-            Subtotal: {formatearCLP((rep.cantidad || 1) * (rep.precio_unitario_clp || 0))}
-          </Text>
+      <View style={styles.section}>
+        <View style={styles.repuestosHeader}>
+          <Text style={styles.fieldLabel}>Repuestos</Text>
+          {editable ? (
+            <TouchableOpacity style={styles.addBtn} onPress={agregarRepuesto}>
+              <Plus size={16} color={I.primary} />
+              <Text style={styles.addBtnText}>Agregar</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
-      ))}
 
-      <View style={styles.totalBox}>
-        <Text style={styles.totalLabel}>Total estimado</Text>
-        <Text style={styles.totalValue}>{formatearCLP(totalCalculado)}</Text>
+        {repuestos.length === 0 ? (
+          <Text style={styles.emptyRepuestos}>Sin repuestos listados</Text>
+        ) : (
+          <>
+            <View style={styles.gridHeaderRow}>
+              <View style={styles.gridColCant}>
+                <Text style={styles.colLabel}>Cant.</Text>
+              </View>
+              <View style={styles.gridColPrecio}>
+                <Text style={styles.colLabel}>Precio unit.</Text>
+              </View>
+              <View style={styles.gridColSubtotal}>
+                <Text style={[styles.colLabel, styles.colLabelRight]}>Subtotal</Text>
+              </View>
+            </View>
+
+            {repuestos.map((rep, idx) => {
+              const subtotal = subtotalRepuesto(rep);
+              return (
+                <View key={rep.id ?? `rep-${idx}`} style={styles.repuestoCard}>
+                  <View style={styles.repuestoTopRow}>
+                    <TextInput
+                      style={styles.nombreInput}
+                      editable={editable}
+                      placeholder="Nombre del repuesto"
+                      placeholderTextColor={I.mutedSoft}
+                      value={rep.nombre}
+                      onChangeText={(t) => actualizarRepuesto(idx, { nombre: t })}
+                    />
+                    {editable ? (
+                      <TouchableOpacity
+                        style={styles.deleteBtn}
+                        onPress={() => eliminarRepuesto(idx)}
+                        accessibilityLabel="Eliminar repuesto"
+                      >
+                        <Trash2 size={18} color="#C62828" />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.repuestoGrid}>
+                    <View style={styles.gridColCant}>
+                      {editable ? (
+                        <TextInput
+                          style={styles.cantidadInput}
+                          keyboardType="numeric"
+                          value={String(redondearCLP(rep.cantidad || 1))}
+                          onChangeText={(t) =>
+                            actualizarRepuesto(idx, {
+                              cantidad: Math.max(1, parseInt(t.replace(/\D/g, ''), 10) || 1),
+                            })
+                          }
+                        />
+                      ) : (
+                        <Text style={styles.colValue}>{redondearCLP(rep.cantidad || 1)}</Text>
+                      )}
+                    </View>
+
+                    <View style={styles.gridColPrecio}>
+                      <ClpMoneyInput
+                        compact
+                        value={redondearCLP(rep.precio_unitario_clp)}
+                        editable={editable}
+                        onChangeValue={(next) =>
+                          actualizarRepuesto(idx, { precio_unitario_clp: next })
+                        }
+                      />
+                    </View>
+
+                    <View style={styles.gridColSubtotal}>
+                      <Text style={styles.subtotalValue} numberOfLines={1}>
+                        {formatearMontoCLP(subtotal)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        )}
+      </View>
+
+      <View style={styles.summaryBox}>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Repuestos</Text>
+          <Text style={styles.summaryAmount}>{formatearMontoCLP(totalRepuestos)}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Mano de obra</Text>
+          <Text style={styles.summaryAmount}>{formatearMontoCLP(manoObra)}</Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryRow}>
+          <Text style={styles.totalLabel}>Total estimado</Text>
+          <Text style={styles.totalValue}>{formatearMontoCLP(totalCalculado)}</Text>
+        </View>
       </View>
 
       {cotizacion.advertencias?.length ? (
@@ -227,17 +310,36 @@ export function CotizacionIaEditor({
 
 const styles = StyleSheet.create({
   root: {
-    gap: SPACING.sm,
+    gap: SPACING.md,
     backgroundColor: I.canvas,
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     padding: SPACING.md,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   sectionTitle: {
     fontFamily: FF.sansSemiBold,
     fontSize: TYPOGRAPHY.fontSize.md,
     color: I.ink,
+  },
+  estadoBadge: {
+    backgroundColor: I.surfaceSoft,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.full,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  estadoBadgeText: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.body,
+    textTransform: 'capitalize',
   },
   motorChip: {
     flexDirection: 'row',
@@ -270,24 +372,44 @@ const styles = StyleSheet.create({
     color: I.body,
     lineHeight: 20,
   },
-  estadoRow: { flexDirection: 'row', gap: SPACING.xs, alignItems: 'center' },
-  estadoLabel: { fontFamily: FF.sansMedium, fontSize: TYPOGRAPHY.fontSize.sm, color: I.muted },
-  estadoValue: { fontFamily: FF.sansSemiBold, fontSize: TYPOGRAPHY.fontSize.sm, color: I.ink },
+  section: { marginBottom: SPACING.xs },
   fieldLabel: {
     fontFamily: FF.sansSemiBold,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.ink,
+    marginBottom: SPACING.xs,
   },
-  input: {
+  moneyInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
     backgroundColor: I.surfaceSoft,
     borderRadius: BORDERS.radius.md,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     paddingHorizontal: SPACING.sm,
+    minHeight: 44,
+  },
+  moneyInputRowCompact: {
+    minHeight: 40,
+    paddingHorizontal: SPACING.xs + 2,
+  },
+  moneyPrefix: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.muted,
+    marginRight: SPACING.xs,
+  },
+  moneyInput: {
+    flex: 1,
+    minWidth: 0,
     paddingVertical: SPACING.sm,
     fontFamily: FF.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.ink,
+  },
+  moneyInputCompact: {
+    paddingVertical: 8,
   },
   repuestosHeader: {
     flexDirection: 'row',
@@ -296,36 +418,136 @@ const styles = StyleSheet.create({
   },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   addBtnText: { fontFamily: FF.sansSemiBold, fontSize: TYPOGRAPHY.fontSize.sm, color: I.primary },
-  repuestoCard: {
-    gap: SPACING.xs,
-    padding: SPACING.sm,
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.md,
+  emptyRepuestos: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.muted,
+    fontStyle: 'italic',
   },
-  repuestoRow: { flexDirection: 'row', gap: SPACING.sm, alignItems: 'flex-end' },
-  repuestoField: { width: 72 },
-  repuestoFieldFlex: { flex: 1 },
-  miniLabel: { fontFamily: FF.sansMedium, fontSize: TYPOGRAPHY.fontSize.xs, color: I.muted },
-  inputSmall: {
+  repuestoCard: {
+    marginBottom: SPACING.sm,
+    padding: SPACING.sm,
     backgroundColor: I.surfaceSoft,
     borderRadius: BORDERS.radius.md,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
+  },
+  repuestoTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  nombreInput: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: SPACING.xs,
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
     paddingHorizontal: SPACING.sm,
-    paddingVertical: 6,
-    fontFamily: FF.sansRegular,
+    paddingVertical: SPACING.sm,
+    fontFamily: FF.sansSemiBold,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.ink,
   },
-  deleteBtn: { padding: SPACING.xs },
-  subtotalRep: { fontFamily: FF.sansMedium, fontSize: TYPOGRAPHY.fontSize.xs, color: I.muted },
-  totalBox: {
+  gridHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: SPACING.xs,
+  },
+  repuestoGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  gridColCant: {
+    width: 64,
+    marginRight: SPACING.sm,
+    flexShrink: 0,
+  },
+  gridColPrecio: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: SPACING.sm,
+  },
+  gridColSubtotal: {
+    width: 100,
+    flexShrink: 0,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  colLabel: {
+    fontFamily: FF.sansMedium,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  colLabelRight: {
+    textAlign: 'right',
+    width: '100%',
+  },
+  cantidadInput: {
+    width: '100%',
+    minHeight: 40,
+    textAlign: 'center',
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 8,
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.ink,
+  },
+  colValue: {
+    minHeight: 40,
+    textAlign: 'center',
+    lineHeight: 40,
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.ink,
+  },
+  subtotalValue: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.primary,
+    textAlign: 'right',
+  },
+  deleteBtn: {
+    padding: SPACING.xs,
+    flexShrink: 0,
+  },
+  summaryBox: {
+    gap: SPACING.xs,
+    padding: SPACING.sm,
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: SPACING.sm,
-    borderTopWidth: BORDERS.width.thin,
-    borderTopColor: I.hairline,
+  },
+  summaryLabel: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.body,
+  },
+  summaryAmount: {
+    fontFamily: FF.sansMedium,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.ink,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: I.hairline,
+    marginVertical: SPACING.xs,
   },
   totalLabel: { fontFamily: FF.sansSemiBold, fontSize: TYPOGRAPHY.fontSize.sm, color: I.ink },
   totalValue: { fontFamily: FF.sansSemiBold, fontSize: TYPOGRAPHY.fontSize.lg, color: I.primary },

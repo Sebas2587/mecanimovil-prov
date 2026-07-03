@@ -2,12 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { FileText } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 
 const I = COLORS.institutional;
-
-function formatearCLP(valor: number): string {
-  return `$${Math.round(valor || 0).toLocaleString('es-CL')}`;
-}
 
 const ESTADO_LABEL: Record<string, string> = {
   enviada: 'Enviada — esperando respuesta',
@@ -39,7 +36,7 @@ export function CotizacionCanalBubble({
         {servicioNombre}
       </Text>
       <Text style={[styles.total, esPropio && styles.textOnPrimary]}>
-        Total: {formatearCLP(totalClp)}
+        Total: {formatearMontoCLP(totalClp)}
       </Text>
       <Text style={[styles.estado, esPropio && styles.textOnPrimaryMuted]}>
         {ESTADO_LABEL[estado] || estado}

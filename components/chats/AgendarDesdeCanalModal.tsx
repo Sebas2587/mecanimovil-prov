@@ -122,6 +122,10 @@ type Props = {
   conversationId?: string;
   /** Pre-cargar cotización aceptada para agendar */
   cotizacionAceptadaId?: number;
+  /** Motivo de desconexión del canal (WhatsApp/Messenger/IG) */
+  channelDisconnectedReason?: string | null;
+  /** Tras enviar cotización al chat (refrescar mensajes) */
+  onCotizacionEnviada?: () => void;
 };
 
 function suggestTelefono(channel: ChannelSlug | undefined, phone: string | null | undefined): string {
@@ -167,6 +171,24 @@ function valorSpec(text: string): string {
   return text.trim() || 'N/A';
 }
 
+function extractApiError(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const data = (error as { response?: { data?: Record<string, unknown> } }).response?.data;
+    if (data) {
+      const partes: string[] = [];
+      for (const value of Object.values(data)) {
+        if (Array.isArray(value)) {
+          partes.push(value.map(String).join(', '));
+        } else if (typeof value === 'string' && value.trim()) {
+          partes.push(value.trim());
+        }
+      }
+      if (partes.length) return partes.join(' ');
+    }
+  }
+  return fallback;
+}
+
 export function AgendarDesdeCanalModal({
   visible,
   onClose,
@@ -177,6 +199,8 @@ export function AgendarDesdeCanalModal({
   subtitle,
   conversationId,
   cotizacionAceptadaId,
+  channelDisconnectedReason = null,
+  onCotizacionEnviada,
 }: Props) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -823,8 +847,8 @@ export function AgendarDesdeCanalModal({
         });
         if (res.cotizacion) setCotizacion(res.cotizacion);
         else setErrorIa(res.error || 'No se pudo aplicar la plantilla.');
-      } catch {
-        setErrorIa('Error al aplicar plantilla.');
+      } catch (err) {
+        setErrorIa(extractApiError(err, 'Error al aplicar plantilla.'));
       } finally {
         setGenerandoIa(false);
       }
@@ -858,13 +882,28 @@ export function AgendarDesdeCanalModal({
       const saved = await persistirCotizacion(cotizacion);
       const res = await cotizacionCanalService.enviar(saved.id);
       setCotizacion(res.cotizacion);
-      showAlert('Cotización enviada', 'El cliente recibirá la cotización en el chat.');
-    } catch {
-      setErrorIa('No se pudo enviar la cotización.');
+      onCotizacionEnviada?.();
+
+      const canalExterno = channel && channel !== 'app';
+      if (canalExterno && channelDisconnectedReason) {
+        showAlert(
+          'Cotización en el chat',
+          'La cotización ya aparece en esta conversación. Para que el cliente la reciba por WhatsApp, Messenger o Instagram, conecta el canal en Configuración de canales.',
+        );
+      } else if (canalExterno) {
+        showAlert(
+          'Cotización enviada',
+          'Apareció en el chat y se enviará al cliente por el canal conectado.',
+        );
+      } else {
+        showAlert('Cotización enviada', 'La cotización apareció en el chat de la conversación.');
+      }
+    } catch (err) {
+      setErrorIa(extractApiError(err, 'No se pudo enviar la cotización.'));
     } finally {
       setEnviandoCotizacion(false);
     }
-  }, [cotizacion, persistirCotizacion]);
+  }, [cotizacion, persistirCotizacion, channel, channelDisconnectedReason, onCotizacionEnviada]);
 
   const handleGuardarPlantilla = useCallback(async () => {
     if (!cotizacion?.id) return;

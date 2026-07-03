@@ -159,6 +159,7 @@ export default function ChatOmnicanalScreen() {
       fecha_envio: String(raw.timestamp ?? new Date().toISOString()),
       enviado_por_nombre: String(raw.enviado_por ?? (esPropio ? 'Tú' : conversationMeta.contactName)),
       archivo_adjunto: (raw.archivo_adjunto ?? raw.attachment ?? null) as string | null,
+      channel_metadata: (raw.channel_metadata as Record<string, unknown>) ?? undefined,
     };
   }, [conversationMeta.contactName]);
 
@@ -351,6 +352,10 @@ export default function ChatOmnicanalScreen() {
           contactPhone={conversationMeta.contactPhone}
           conversationId={convId}
           cotizacionAceptadaId={cotizacionAceptadaId}
+          channelDisconnectedReason={channelDisconnectedReason}
+          onCotizacionEnviada={() => {
+            void cargar();
+          }}
         />
 
         {cotizacionAceptadaId ? (
