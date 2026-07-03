@@ -50,8 +50,10 @@ export function useSaldoCreditosQuery(enabled: boolean) {
     staleTime: DASHBOARD_QUERY_STALE_MS,
     placeholderData: (previous) => previous,
     retry: (failureCount, error) => {
-      const status = (error as { response?: { status?: number } })?.response?.status;
-      if (status === 401 || status === 403) return false;
+      const err = error as { response?: { status?: number }; code?: string; name?: string };
+      if (err?.code === 'ERR_NO_AUTH' || err?.name === 'CanceledError') return false;
+      const status = err?.response?.status;
+      if (status === 401 || status === 403 || status === 429) return false;
       return failureCount < 2;
     },
   });
@@ -81,8 +83,10 @@ export function useGananciasResumenQuery(enabled: boolean) {
     staleTime: DASHBOARD_QUERY_STALE_MS,
     placeholderData: (previous) => previous,
     retry: (failureCount, error) => {
-      const status = (error as { response?: { status?: number } })?.response?.status;
-      if (status === 401 || status === 403) return false;
+      const err = error as { response?: { status?: number }; code?: string; name?: string };
+      if (err?.code === 'ERR_NO_AUTH' || err?.name === 'CanceledError') return false;
+      const status = err?.response?.status;
+      if (status === 401 || status === 403 || status === 429) return false;
       return failureCount < 2;
     },
   });
@@ -112,8 +116,10 @@ export function useSuscripcionProveedorQuery(enabled: boolean) {
     staleTime: DASHBOARD_QUERY_STALE_MS,
     placeholderData: (previous) => previous,
     retry: (failureCount, error) => {
-      const status = (error as { response?: { status?: number } })?.response?.status;
-      if (status === 401 || status === 403) return false;
+      const err = error as { response?: { status?: number }; code?: string; name?: string };
+      if (err?.code === 'ERR_NO_AUTH' || err?.name === 'CanceledError') return false;
+      const status = err?.response?.status;
+      if (status === 401 || status === 403 || status === 429) return false;
       return failureCount < 2;
     },
   });

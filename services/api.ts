@@ -1,6 +1,12 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 import { deleteItem, getItem, setItem } from '@/utils/authStorage';
+import {
+  clearAuthTokenCache,
+  persistAuthToken,
+  resolveAuthToken,
+  waitForAuthHydration,
+} from '@/utils/authTokenCache';
 import { fetchAllPaginated } from '@/utils/fetchPaginated';
 import ServerConfig from './serverConfig';
 
@@ -143,11 +149,18 @@ const setupInterceptors = (api: any) => {
       // Agregar token de autenticación
       if (!isPublicEndpoint) {
         try {
-          const token = await getItem('authToken');
-          if (token) {
-            config.headers.Authorization = `Token ${token}`;
+          await waitForAuthHydration();
+          const token = await resolveAuthToken();
+          if (!token) {
+            const err = new axios.CanceledError('Sin sesión activa');
+            (err as { code?: string }).code = 'ERR_NO_AUTH';
+            return Promise.reject(err);
           }
+          config.headers.Authorization = `Token ${token}`;
         } catch (error) {
+          if (axios.isCancel(error)) {
+            return Promise.reject(error);
+          }
           // Log solo en desarrollo
           if (__DEV__) {
             console.log('❌ Error obteniendo token (detalles solo en desarrollo):', error);
@@ -216,7 +229,7 @@ const setupInterceptors = (api: any) => {
           console.log('🧹 Limpiando tokens expirados...');
         }
         try {
-          await deleteItem('authToken');
+          await clearAuthTokenCache();
           await deleteItem('userData');
           if (__DEV__) {
             console.log('✅ Tokens limpiados correctamente');
@@ -507,7 +520,7 @@ export const authAPI = {
         }
 
         if (data.token) {
-          await setItem('authToken', data.token);
+          await persistAuthToken(data.token);
           await setItem('userData', JSON.stringify(data.user));
           if (__DEV__) {
             console.log('✅ Login exitoso - Credenciales guardadas');
@@ -554,7 +567,7 @@ export const authAPI = {
     }
 
     try {
-      await deleteItem('authToken');
+      await clearAuthTokenCache();
       await deleteItem('userData');
 
       if (__DEV__) {

@@ -60,6 +60,8 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const { estadoProveedor, usuario, esMecanicoEquipo, isAuthenticated, isLoading: authLoading } = useAuth();
   const verificarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const verificarInFlightRef = useRef(false);
+  const lastVerificarAtRef = useRef(0);
+  const MIN_VERIFICAR_MS = 60_000;
 
   const alertasContextKey = useMemo(
     () =>
@@ -144,7 +146,10 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // Verificar y generar alertas automáticamente
   const verificarYGenerarAlertas = async () => {
     if (verificarInFlightRef.current) return;
+    const now = Date.now();
+    if (now - lastVerificarAtRef.current < MIN_VERIFICAR_MS) return;
     verificarInFlightRef.current = true;
+    lastVerificarAtRef.current = now;
     try {
       if (!isAuthenticated || authLoading || !estadoProveedor || !usuario) {
         eliminarAlertasDeConfiguracion([...TIPOS_ALERTA_TALLER]);

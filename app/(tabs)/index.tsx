@@ -205,6 +205,8 @@ export default function HomeScreen() {
   }, []);
 
   const queryClient = useQueryClient();
+  const lastFinanzasInvalidateRef = useRef(0);
+  const FINANZAS_INVALIDATE_MIN_MS = 60_000;
 
   const handleOpenSolicitudDetalle = useCallback((solicitudId: string) => {
     const solicitud = solicitudesDisponibles.find((s) => String(s.id) === String(solicitudId));
@@ -268,18 +270,17 @@ export default function HomeScreen() {
   useFocusEffect(
     React.useCallback(() => {
       if (!isAuthenticated || !cuentaAprobadaPorAdmin) return;
-      if (!esMecanicoEquipo) {
-        verificarYGenerarAlertas();
-      }
       if (dashboardFinanzasEnabled && puede('finanzas')) {
-        invalidateDashboardFinanzasQueries(queryClient);
+        const now = Date.now();
+        if (now - lastFinanzasInvalidateRef.current >= FINANZAS_INVALIDATE_MIN_MS) {
+          lastFinanzasInvalidateRef.current = now;
+          invalidateDashboardFinanzasQueries(queryClient);
+        }
       }
     }, [
       cuentaAprobadaPorAdmin,
       dashboardFinanzasEnabled,
-      esMecanicoEquipo,
       isAuthenticated,
-      verificarYGenerarAlertas,
       puede,
       queryClient,
     ]),

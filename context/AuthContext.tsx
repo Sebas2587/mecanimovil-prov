@@ -5,6 +5,11 @@ import { authAPI, EstadoProveedor } from '@/services/api';
 import { googleLoginProveedor, type GoogleLoginProveedorResponse } from '@/services/auth/googleAuth';
 import NotificationService from '@/services/push/notificationService';
 import { deleteItem, getItem, setItem } from '@/utils/authStorage';
+import {
+  beginAuthHydration,
+  clearAuthTokenCache,
+  completeAuthHydration,
+} from '@/utils/authTokenCache';
 
 const IS_EXPO_GO = Constants.appOwnership === 'expo';
 const CAN_USE_NATIVE_GOOGLE = Platform.OS !== 'web' && !IS_EXPO_GO;
@@ -125,7 +130,7 @@ function isAuthSessionError(error: any): boolean {
 
 async function clearStoredAuthSession(): Promise<void> {
   try {
-    await deleteItem('authToken');
+    await clearAuthTokenCache();
     await deleteItem('userData');
   } catch {
     /* no crítico */
@@ -229,6 +234,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const checkAuthStatus = async () => {
+    beginAuthHydration();
     try {
       // Log solo en desarrollo
       if (__DEV__) {
@@ -246,6 +252,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (__DEV__) {
           console.log('📱 Token encontrado, obteniendo datos del usuario...');
         }
+        const storedToken = await getItem('authToken');
+        completeAuthHydration(storedToken);
         const userData = await authAPI.getUserData();
         if (__DEV__) {
           console.log('👤 Datos del usuario obtenidos:', userData ? 'SÍ' : 'NO', userData?.username);
@@ -284,7 +292,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               }
               // Limpiar tokens si aún existen
               try {
-                await deleteItem('authToken');
+                await clearAuthTokenCache();
                 await deleteItem('userData');
               } catch (cleanupError) {
                 if (__DEV__) {
@@ -295,6 +303,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               setUsuario(null);
               setIsAuthenticated(false);
               setEstadoProveedor(null);
+              completeAuthHydration(null);
               if (__DEV__) {
                 console.log('✅ Estado limpiado por error 401 en obtenerDatosUsuario');
               }
@@ -334,7 +343,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               }
               // Limpiar tokens si aún existen
               try {
-                await deleteItem('authToken');
+                await clearAuthTokenCache();
                 await deleteItem('userData');
               } catch (cleanupError) {
                 if (__DEV__) {
@@ -403,6 +412,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setIsAuthenticated(false);
         setUsuario(null);
         setEstadoProveedor(null);
+        completeAuthHydration(null);
       }
     } catch (error) {
       // Log solo en desarrollo
@@ -412,6 +422,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsAuthenticated(false);
       setUsuario(null);
       setEstadoProveedor(null);
+      completeAuthHydration(null);
     } finally {
       if (__DEV__) {
         console.log('🏁 checkAuthStatus completado, estableciendo isLoading = false');
@@ -431,7 +442,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await googleLoginProveedor(idToken, flow);
 
       if ('__clientAccount' in response && response.__clientAccount) {
-        await deleteItem('authToken').catch(() => {});
+        await clearAuthTokenCache().catch(() => {});
         await deleteItem('userData').catch(() => {});
         setUsuario(null);
         setIsAuthenticated(false);
