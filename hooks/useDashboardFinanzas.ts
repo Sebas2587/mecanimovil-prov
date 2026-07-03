@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/context/AuthContext';
 import creditosService, { type CreditoProveedor } from '@/services/creditosService';
 import {
   kpisProveedorService,
@@ -34,6 +35,8 @@ export function invalidateDashboardFinanzasQueries(queryClient: QueryClient) {
 }
 
 export function useSaldoCreditosQuery(enabled: boolean) {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const queryEnabled = Boolean(enabled && isAuthenticated && !authLoading);
   const { data, isPending, isFetching, error, refetch } = useQuery({
     queryKey: saldoCreditosQueryKey(),
     queryFn: async (): Promise<CreditoProveedor> => {
@@ -43,9 +46,14 @@ export function useSaldoCreditosQuery(enabled: boolean) {
       }
       return result.data;
     },
-    enabled,
+    enabled: queryEnabled,
     staleTime: DASHBOARD_QUERY_STALE_MS,
     placeholderData: (previous) => previous,
+    retry: (failureCount, error) => {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 401 || status === 403) return false;
+      return failureCount < 2;
+    },
   });
 
   return {
@@ -58,6 +66,8 @@ export function useSaldoCreditosQuery(enabled: boolean) {
 }
 
 export function useGananciasResumenQuery(enabled: boolean) {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const queryEnabled = Boolean(enabled && isAuthenticated && !authLoading);
   const { data, isPending, isFetching, error, refetch } = useQuery({
     queryKey: gananciasResumenQueryKey(),
     queryFn: async (): Promise<GananciasTallerResumen> => {
@@ -67,9 +77,14 @@ export function useGananciasResumenQuery(enabled: boolean) {
       }
       return result.data;
     },
-    enabled,
+    enabled: queryEnabled,
     staleTime: DASHBOARD_QUERY_STALE_MS,
     placeholderData: (previous) => previous,
+    retry: (failureCount, error) => {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 401 || status === 403) return false;
+      return failureCount < 2;
+    },
   });
 
   return {
@@ -82,6 +97,8 @@ export function useGananciasResumenQuery(enabled: boolean) {
 }
 
 export function useSuscripcionProveedorQuery(enabled: boolean) {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const queryEnabled = Boolean(enabled && isAuthenticated && !authLoading);
   const { data, isPending, isFetching, error, refetch } = useQuery({
     queryKey: suscripcionProveedorQueryKey(),
     queryFn: async (): Promise<SuscripcionProveedor | null> => {
@@ -91,9 +108,14 @@ export function useSuscripcionProveedorQuery(enabled: boolean) {
       }
       return result.suscripcion ?? null;
     },
-    enabled,
+    enabled: queryEnabled,
     staleTime: DASHBOARD_QUERY_STALE_MS,
     placeholderData: (previous) => previous,
+    retry: (failureCount, error) => {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 401 || status === 403) return false;
+      return failureCount < 2;
+    },
   });
 
   return {

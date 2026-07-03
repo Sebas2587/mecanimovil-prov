@@ -120,7 +120,9 @@ export default function HomeScreen() {
   ]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const dashboardFinanzasEnabled = Boolean(cuentaAprobadaPorAdmin && !isLoading);
+  const dashboardFinanzasEnabled = Boolean(
+    isAuthenticated && cuentaAprobadaPorAdmin && !isLoading,
+  );
   const saldoCreditosQuery = useSaldoCreditosQuery(dashboardFinanzasEnabled && puede('finanzas'));
   const gananciasQuery = useGananciasResumenQuery(dashboardFinanzasEnabled && puede('finanzas'));
   const suscripcionQuery = useSuscripcionProveedorQuery(dashboardFinanzasEnabled && !esSupervisor);
@@ -265,7 +267,7 @@ export default function HomeScreen() {
   // Al volver al tab: alertas y finanzas actualizadas (tras cerrar órdenes o citas).
   useFocusEffect(
     React.useCallback(() => {
-      if (!cuentaAprobadaPorAdmin) return;
+      if (!isAuthenticated || !cuentaAprobadaPorAdmin) return;
       if (!esMecanicoEquipo) {
         verificarYGenerarAlertas();
       }
@@ -276,6 +278,7 @@ export default function HomeScreen() {
       cuentaAprobadaPorAdmin,
       dashboardFinanzasEnabled,
       esMecanicoEquipo,
+      isAuthenticated,
       verificarYGenerarAlertas,
       puede,
       queryClient,

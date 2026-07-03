@@ -57,7 +57,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [saludSuscripcion, setSaludSuscripcion] = useState<SaludSuscripcion | null>(null);
   const queryClient = useQueryClient();
-  const { estadoProveedor, usuario, esMecanicoEquipo } = useAuth();
+  const { estadoProveedor, usuario, esMecanicoEquipo, isAuthenticated, isLoading: authLoading } = useAuth();
   const verificarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const verificarInFlightRef = useRef(false);
 
@@ -146,7 +146,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (verificarInFlightRef.current) return;
     verificarInFlightRef.current = true;
     try {
-      if (!estadoProveedor || !usuario) {
+      if (!isAuthenticated || authLoading || !estadoProveedor || !usuario) {
         eliminarAlertasDeConfiguracion([...TIPOS_ALERTA_TALLER]);
         return;
       }
@@ -333,7 +333,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   // Verificar alertas cuando cambia el estado relevante del proveedor (debounced)
   useEffect(() => {
-    if (!estadoProveedor || !usuario) return;
+    if (!isAuthenticated || authLoading || !estadoProveedor || !usuario) return;
     if (!estadoProveedor.onboarding_completado) return;
     if (esMecanicoEquipo) {
       eliminarAlertasDeConfiguracion([...TIPOS_ALERTA_TALLER]);
@@ -350,7 +350,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         clearTimeout(verificarTimerRef.current);
       }
     };
-  }, [alertasContextKey, esMecanicoEquipo]);
+  }, [alertasContextKey, esMecanicoEquipo, isAuthenticated, authLoading]);
 
   return (
     <AlertsContext.Provider
