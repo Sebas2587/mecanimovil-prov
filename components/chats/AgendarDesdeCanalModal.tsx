@@ -777,6 +777,10 @@ export function AgendarDesdeCanalModal({
 
   const handleGenerarCotizacionIa = useCallback(async () => {
     if (!conversationId) return;
+    if (!vehiculoMarca.trim() || !vehiculoModelo.trim()) {
+      setErrorIa('Completa los datos del vehículo (patente o marca y modelo) antes de generar la cotización.');
+      return;
+    }
     if (!servicioManual.trim()) {
       setErrorIa('Ingresa el nombre del servicio antes de generar la cotización.');
       return;
@@ -801,7 +805,7 @@ export function AgendarDesdeCanalModal({
     } finally {
       setGenerandoIa(false);
     }
-  }, [conversationId, servicioManual, descripcion, tipoServicio, vehiculoPayload]);
+  }, [conversationId, vehiculoMarca, vehiculoModelo, servicioManual, descripcion, tipoServicio, vehiculoPayload]);
 
   const handleAplicarPlantilla = useCallback(
     async (plantillaId: number) => {
