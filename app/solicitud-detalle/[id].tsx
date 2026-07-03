@@ -912,7 +912,7 @@ export default function SolicitudDetalleScreen() {
 
             {miOferta?.solicitud_servicio_id && miOferta?.miembro_taller_asignado ? (
               <View style={styles.section}>
-                <AsistenteDiagnosticoCard ordenId={miOferta.solicitud_servicio_id} />
+                <AsistenteDiagnosticoCard origen="orden" entityId={miOferta.solicitud_servicio_id} />
               </View>
             ) : null}
 

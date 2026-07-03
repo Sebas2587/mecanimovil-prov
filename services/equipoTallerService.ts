@@ -105,8 +105,27 @@ export interface MecanicoKpisComparativoMes {
   facturacion: number;
 }
 
+export interface UsoIaGemini {
+  usa_ia: boolean;
+  consultas: number;
+  consultas_ordenes: number;
+  consultas_citas_personales: number;
+  tokens_entrada: number;
+  tokens_salida: number;
+  tokens_total: number;
+  tokens_mes_calendario: number;
+  limite_mensual_tokens: number;
+  pct_limite_mensual: number | null;
+  renovacion_tokens_en: string;
+  dias_hasta_renovacion: number;
+  alerta_nivel: 'warning' | 'critical' | null;
+  alerta_mensaje: string | null;
+  gemini_configurado: boolean;
+  asistente_habilitado: boolean;
+}
+
 export interface MecanicoKpis {
-  mecanico_id: number;
+  mecanico_id: number | null;
   nombre: string;
   foto_url: string | null;
   especialidades: { id: number; nombre: string }[];
@@ -151,6 +170,8 @@ export interface MecanicoKpis {
   score_rendimiento_global: number | null;
   ventana_desde?: string;
   ventana_hasta?: string;
+  uso_ia_gemini?: UsoIaGemini;
+  solo_uso_ia?: boolean;
 }
 
 const BASE = '/usuarios/taller/equipo/';

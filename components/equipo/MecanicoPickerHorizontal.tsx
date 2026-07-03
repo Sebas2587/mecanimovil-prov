@@ -11,7 +11,7 @@ const FF = TYPOGRAPHY.fontFamily;
 type Props = {
   mecanicos: MecanicoKpis[];
   selectedId: number | null;
-  onSelect: (id: number) => void;
+  onSelect: (id: number | null) => void;
 };
 
 export function MecanicoPickerHorizontal({ mecanicos, selectedId, onSelect }: Props) {
@@ -33,7 +33,7 @@ export function MecanicoPickerHorizontal({ mecanicos, selectedId, onSelect }: Pr
         const active = m.mecanico_id === selectedId;
         return (
           <TouchableOpacity
-            key={m.mecanico_id}
+            key={m.mecanico_id ?? 'taller'}
             style={[styles.card, active && styles.cardActive, !m.activo && styles.cardOff]}
             onPress={() => onSelect(m.mecanico_id)}
             activeOpacity={0.88}

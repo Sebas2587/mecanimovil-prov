@@ -52,6 +52,8 @@ import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
 import { useCitaPersonalQuery } from '@/hooks/useCitaPersonalQuery';
+import { useAuth } from '@/context/AuthContext';
+import { AsistenteDiagnosticoCard } from '@/components/orden-detalle/AsistenteDiagnosticoCard';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -124,8 +126,11 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { esMecanicoEquipo } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
   const citaId = Number(id);
+  const permitirEditarCita = !esMecanicoEquipo;
+  const permitirEliminarCita = !esMecanicoEquipo;
 
   const {
     data: cita,
@@ -211,13 +216,22 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
   const footerBottomPad = Math.max(insets.bottom, Platform.OS === 'web' ? 12 : 0);
 
-  const muestraFooterAcciones = esActiva || esCancelada;
+  const muestraFooterAcciones = esActiva || (esCancelada && permitirEliminarCita);
+
+  useEffect(() => {
+    if (esMecanicoEquipo && editando) {
+      setEditando(false);
+    }
+  }, [esMecanicoEquipo, editando]);
 
   const footerReserve = useMemo(() => {
     if (!muestraFooterAcciones) return SPACING.fixed.lg + footerBottomPad;
-    if (esActiva && !editando) return 132 + footerBottomPad + SPACING.fixed.md;
+    if (esActiva && !editando) {
+      const filasFooter = permitirEditarCita ? 132 : 72;
+      return filasFooter + footerBottomPad + SPACING.fixed.md;
+    }
     return 72 + footerBottomPad + SPACING.fixed.md;
-  }, [muestraFooterAcciones, esActiva, editando, footerBottomPad]);
+  }, [muestraFooterAcciones, esActiva, editando, footerBottomPad, permitirEditarCita]);
 
   const handleLlamar = useCallback(() => {
     const tel = cita?.detalle.cliente_telefono;
@@ -597,7 +611,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
             ) : null}
           </View>
 
-          {editando && esActiva ? (
+          {editando && esActiva && permitirEditarCita ? (
             <>
               <EditSection title="Cliente">
                 <InstitutionalField label="Nombre" value={clienteNombre} onChangeText={setClienteNombre} />
@@ -730,6 +744,12 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     <Text style={styles.descriptionText}>{det.descripcion}</Text>
                   </View>
                 ) : null}
+
+                {esActiva ? (
+                  <View style={styles.asistenteIaWrap}>
+                    <AsistenteDiagnosticoCard origen="cita" entityId={cita.id} />
+                  </View>
+                ) : null}
               </View>
 
               <View style={styles.section}>
@@ -817,6 +837,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
             editando={editando}
             procesando={procesando}
             bottomPad={footerBottomPad}
+            permitirEditar={permitirEditarCita}
+            permitirEliminar={permitirEliminarCita}
             onEditar={() => {
               setFeedbackAccion(null);
               setEditando(true);
@@ -852,6 +874,8 @@ type CitaPersonalFooterProps = {
   editando: boolean;
   procesando: boolean;
   bottomPad: number;
+  permitirEditar: boolean;
+  permitirEliminar: boolean;
   onEditar: () => void;
   onCompletar: () => void;
   onCancelar: () => void;
@@ -866,6 +890,8 @@ function CitaPersonalFooter({
   editando,
   procesando,
   bottomPad,
+  permitirEditar,
+  permitirEliminar,
   onEditar,
   onCompletar,
   onCancelar,
@@ -876,23 +902,66 @@ function CitaPersonalFooter({
   return (
     <View style={[styles.footer, { paddingBottom: bottomPad }]}>
       {esActiva && !editando ? (
-        <>
-          <View style={styles.footerRow}>
+        permitirEditar ? (
+          <>
+            <View style={styles.footerRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.footerBtnOutline,
+                  (pressed || procesando) && styles.footerBtnPressed,
+                  procesando && styles.footerBtnDisabled,
+                ]}
+                onPress={onEditar}
+                disabled={procesando}
+              >
+                <InstitutionalIcon name="create" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.footerBtnOutlineNeutralText} numberOfLines={1}>Editar</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.footerBtnSuccess,
+                  (pressed || procesando) && styles.footerBtnPressed,
+                  procesando && styles.footerBtnDisabled,
+                ]}
+                onPress={onCompletar}
+                disabled={procesando}
+              >
+                <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Completar</Text>
+              </Pressable>
+            </View>
             <Pressable
               style={({ pressed }) => [
-                styles.footerBtnOutline,
+                styles.footerBtnCancel,
                 (pressed || procesando) && styles.footerBtnPressed,
                 procesando && styles.footerBtnDisabled,
               ]}
-              onPress={onEditar}
+              onPress={onCancelar}
               disabled={procesando}
             >
-              <InstitutionalIcon name="create" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.footerBtnOutlineNeutralText} numberOfLines={1}>Editar</Text>
+              <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Cancelar cita</Text>
+            </Pressable>
+          </>
+        ) : (
+          <View style={styles.footerRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.footerBtnCancel,
+                styles.footerBtnNarrow,
+                (pressed || procesando) && styles.footerBtnPressed,
+                procesando && styles.footerBtnDisabled,
+              ]}
+              onPress={onCancelar}
+              disabled={procesando}
+            >
+              <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Cancelar cita</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
                 styles.footerBtnSuccess,
+                styles.footerBtnWide,
                 (pressed || procesando) && styles.footerBtnPressed,
                 procesando && styles.footerBtnDisabled,
               ]}
@@ -903,22 +972,10 @@ function CitaPersonalFooter({
               <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Completar</Text>
             </Pressable>
           </View>
-          <Pressable
-            style={({ pressed }) => [
-              styles.footerBtnCancel,
-              (pressed || procesando) && styles.footerBtnPressed,
-              procesando && styles.footerBtnDisabled,
-            ]}
-            onPress={onCancelar}
-            disabled={procesando}
-          >
-            <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Cancelar cita</Text>
-          </Pressable>
-        </>
+        )
       ) : null}
 
-      {esActiva && editando ? (
+      {esActiva && editando && permitirEditar ? (
         <View style={styles.footerRow}>
           <Pressable
             style={({ pressed }) => [
@@ -953,7 +1010,7 @@ function CitaPersonalFooter({
         </View>
       ) : null}
 
-      {esCancelada ? (
+      {esCancelada && permitirEliminar ? (
         <Pressable
           style={({ pressed }) => [
             styles.footerBtnCancel,
@@ -1204,6 +1261,9 @@ const styles = StyleSheet.create({
     borderTopWidth: BORDERS.width.thin,
     borderTopColor: I.hairline,
   },
+  asistenteIaWrap: {
+    marginTop: SPACING.fixed.md,
+  },
   descripcionBlockHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1395,6 +1455,12 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.pill,
     backgroundColor: I.semanticUp,
     ...SHADOWS.editorial,
+  },
+  footerBtnWide: {
+    flex: 1.65,
+  },
+  footerBtnNarrow: {
+    flex: 1,
   },
   footerBtnOutlineText: {
     fontSize: TS.button.fontSize,

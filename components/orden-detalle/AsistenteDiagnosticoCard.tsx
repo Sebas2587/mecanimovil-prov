@@ -11,16 +11,23 @@ import { Sparkles, ExternalLink, AlertTriangle } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import {
   asistenteDiagnosticoService,
+  type AsistenteDiagnosticoOrigen,
   type AsistenteDiagnosticoResponse,
 } from '@/services/asistenteDiagnosticoService';
 
 const I = COLORS.institutional;
 
 interface AsistenteDiagnosticoCardProps {
-  ordenId: number;
+  origen: AsistenteDiagnosticoOrigen;
+  entityId: number;
 }
 
-export function AsistenteDiagnosticoCard({ ordenId }: AsistenteDiagnosticoCardProps) {
+/** Compatibilidad con integraciones previas en detalle de orden. */
+export function AsistenteDiagnosticoCardOrden({ ordenId }: { ordenId: number }) {
+  return <AsistenteDiagnosticoCard origen="orden" entityId={ordenId} />;
+}
+
+export function AsistenteDiagnosticoCard({ origen, entityId }: AsistenteDiagnosticoCardProps) {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [data, setData] = useState<AsistenteDiagnosticoResponse | null>(null);
@@ -28,14 +35,17 @@ export function AsistenteDiagnosticoCard({ ordenId }: AsistenteDiagnosticoCardPr
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const resp = await asistenteDiagnosticoService.obtener(ordenId);
+      const resp =
+        origen === 'cita'
+          ? await asistenteDiagnosticoService.obtenerCita(entityId)
+          : await asistenteDiagnosticoService.obtenerOrden(entityId);
       setData(resp);
     } catch {
       setData({ disponible: false, contenido: null, error: 'No se pudo cargar el asistente.' });
     } finally {
       setLoading(false);
     }
-  }, [ordenId]);
+  }, [origen, entityId]);
 
   useEffect(() => {
     void cargar();
@@ -44,7 +54,10 @@ export function AsistenteDiagnosticoCard({ ordenId }: AsistenteDiagnosticoCardPr
   const generar = async () => {
     setGenerating(true);
     try {
-      const resp = await asistenteDiagnosticoService.generar(ordenId);
+      const resp =
+        origen === 'cita'
+          ? await asistenteDiagnosticoService.generarCita(entityId)
+          : await asistenteDiagnosticoService.generarOrden(entityId);
       setData(resp);
     } catch {
       setData({ disponible: false, contenido: null, error: 'No se pudo generar la guía.' });
@@ -174,13 +187,13 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
   subtitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.sans,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.muted,
     marginTop: 2,
   },
   helper: {
-    fontFamily: TYPOGRAPHY.fontFamily.sans,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.body,
     lineHeight: 20,
@@ -197,13 +210,13 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
   bullet: {
-    fontFamily: TYPOGRAPHY.fontFamily.sans,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.body,
     lineHeight: 20,
   },
   step: {
-    fontFamily: TYPOGRAPHY.fontFamily.sans,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.body,
     lineHeight: 20,
@@ -228,7 +241,7 @@ const styles = StyleSheet.create({
     padding: SPACING.sm,
   },
   warningText: {
-    fontFamily: TYPOGRAPHY.fontFamily.sans,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.body,
     lineHeight: 18,
@@ -250,7 +263,7 @@ const styles = StyleSheet.create({
     color: I.onPrimary,
   },
   disclaimer: {
-    fontFamily: TYPOGRAPHY.fontFamily.sans,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.xs,
     color: I.muted,
     lineHeight: 16,

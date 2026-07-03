@@ -722,7 +722,7 @@ export default function OrdenDetalleScreen() {
 
         {orden.mecanico_asignado_id ? (
           <View style={styles.section}>
-            <AsistenteDiagnosticoCard ordenId={orden.id} />
+            <AsistenteDiagnosticoCard origen="orden" entityId={orden.id} />
           </View>
         ) : null}
 

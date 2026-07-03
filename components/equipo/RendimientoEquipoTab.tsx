@@ -16,6 +16,7 @@ import { KpiProgressRow } from '@/components/equipo/KpiProgressRow';
 import { ComparativoMensual } from '@/components/equipo/ComparativoMensual';
 import { FacturacionComparisonChart } from '@/components/equipo/FacturacionComparisonChart';
 import { TwoColumnMetricGrid } from '@/components/ui/TwoColumnMetricGrid';
+import { UsoGeminiRendimientoCard } from '@/components/equipo/UsoGeminiRendimientoCard';
 import type { MecanicoKpis } from '@/services/equipoTallerService';
 
 const I = COLORS.institutional;
@@ -79,7 +80,8 @@ export function RendimientoEquipoTab() {
   useEffect(() => {
     setSelectedId((prev) => {
       if (prev != null && kpis.some((m) => m.mecanico_id === prev)) return prev;
-      return kpis[0]?.mecanico_id ?? null;
+      const first = kpis[0]?.mecanico_id;
+      return first === undefined ? null : first;
     });
   }, [kpis]);
 
@@ -139,10 +141,27 @@ export function RendimientoEquipoTab() {
 
       {!selected ? (
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyText}>Agrega mecánicos para ver métricas</Text>
+          <Text style={styles.emptyText}>No hay datos de rendimiento disponibles</Text>
         </View>
       ) : (
         <View style={styles.detail}>
+          <UsoGeminiRendimientoCard
+            uso={selected.uso_ia_gemini}
+            titular={
+              selected.mecanico_id == null
+                ? 'Uso del taller (sin mecánicos registrados)'
+                : selected.uso_ia_gemini?.usa_ia
+                  ? `${selected.nombre} está usando el asistente IA`
+                  : `${selected.nombre} no ha usado el asistente IA en este periodo`
+            }
+          />
+
+          {selected.solo_uso_ia ? (
+            <Text style={styles.mecanicoLegend}>
+              Agrega mecánicos al equipo para ver scores de productividad y checklist.
+            </Text>
+          ) : (
+            <>
           <Text style={styles.mecanicoHeader}>
             Métricas de {selected.nombre} en órdenes donde fue asignado.
           </Text>
@@ -159,7 +178,7 @@ export function RendimientoEquipoTab() {
             </View>
           </View>
 
-          <FacturacionComparisonChart mecanicoId={selected.mecanico_id} />
+          <FacturacionComparisonChart mecanicoId={selected.mecanico_id!} />
 
           <View style={styles.card}>
             <Text style={styles.sectionLabel}>Detalle de órdenes</Text>
@@ -218,6 +237,8 @@ export function RendimientoEquipoTab() {
               )}
             </Text>
           </View>
+            </>
+          )}
         </View>
       )}
     </ScrollView>

@@ -23,17 +23,40 @@ export interface AsistenteDiagnosticoResponse {
   diagnostico_id?: number;
 }
 
-class AsistenteDiagnosticoService {
-  private baseUrl = '/ordenes/proveedor-ordenes';
+export type AsistenteDiagnosticoOrigen = 'orden' | 'cita';
 
-  async obtener(ordenId: number): Promise<AsistenteDiagnosticoResponse> {
-    const response = await api.get(`${this.baseUrl}/${ordenId}/asistente-ia/`);
+class AsistenteDiagnosticoService {
+  private ordenesUrl = '/ordenes/proveedor-ordenes';
+  private citasUrl = '/ordenes/citas-agenda-personal';
+
+  async obtenerOrden(ordenId: number): Promise<AsistenteDiagnosticoResponse> {
+    const response = await api.get(`${this.ordenesUrl}/${ordenId}/asistente-ia/`);
     return response.data as AsistenteDiagnosticoResponse;
   }
 
-  async generar(ordenId: number): Promise<AsistenteDiagnosticoResponse> {
-    const response = await api.post(`${this.baseUrl}/${ordenId}/asistente-ia/`);
+  async generarOrden(ordenId: number): Promise<AsistenteDiagnosticoResponse> {
+    const response = await api.post(`${this.ordenesUrl}/${ordenId}/asistente-ia/`);
     return response.data as AsistenteDiagnosticoResponse;
+  }
+
+  async obtenerCita(citaId: number): Promise<AsistenteDiagnosticoResponse> {
+    const response = await api.get(`${this.citasUrl}/${citaId}/asistente-ia/`);
+    return response.data as AsistenteDiagnosticoResponse;
+  }
+
+  async generarCita(citaId: number): Promise<AsistenteDiagnosticoResponse> {
+    const response = await api.post(`${this.citasUrl}/${citaId}/asistente-ia/`);
+    return response.data as AsistenteDiagnosticoResponse;
+  }
+
+  /** @deprecated Usar obtenerOrden */
+  async obtener(ordenId: number): Promise<AsistenteDiagnosticoResponse> {
+    return this.obtenerOrden(ordenId);
+  }
+
+  /** @deprecated Usar generarOrden */
+  async generar(ordenId: number): Promise<AsistenteDiagnosticoResponse> {
+    return this.generarOrden(ordenId);
   }
 }
 
