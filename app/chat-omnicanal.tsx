@@ -21,6 +21,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import chatService from '@/services/chatService';
 import { OmnichannelChatHeader } from '@/components/chats/OmnichannelChatHeader';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
+import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
+import cotizacionCanalService from '@/services/cotizacionCanalService';
 import type { CanalSlug } from '@/services/omnichannelService';
 import { useOmnichannelConversationMeta } from '@/hooks/useOmnichannelConversationMeta';
 import { useOmnichannelConnectionMap } from '@/hooks/useOmnichannelConnections';
@@ -35,7 +37,7 @@ import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
 import websocketService, { type NuevoMensajeChatEvent } from '@/app/services/websocketService';
 import { BLANK_GLASS } from '@/app/design-system/blankGlass';
-import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { isChatAttachmentImage } from '@/utils/chatAttachmentMedia';
 
@@ -55,6 +57,7 @@ type ChatRow = {
   fecha_envio: string;
   enviado_por_nombre: string;
   archivo_adjunto: string | null;
+  channel_metadata?: Record<string, unknown>;
 };
 
 function resolveConversationId(params: Record<string, string | string[] | undefined>): string {
@@ -101,6 +104,7 @@ export default function ChatOmnicanalScreen() {
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [agendarVisible, setAgendarVisible] = useState(false);
+  const [cotizacionAceptadaId, setCotizacionAceptadaId] = useState<number | undefined>();
   const [attachment, setAttachment] = useState<AttachmentState | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -141,6 +145,7 @@ export default function ChatOmnicanalScreen() {
       fecha_envio: String(row.timestamp ?? new Date().toISOString()),
       enviado_por_nombre: String(row.sender_name ?? (esPropio ? 'Tú' : conversationMeta.contactName)),
       archivo_adjunto: adjunto,
+      channel_metadata: (row.channel_metadata as Record<string, unknown>) ?? undefined,
     };
   }, [conversationMeta.contactName, usuario?.id]);
 
@@ -165,6 +170,13 @@ export default function ChatOmnicanalScreen() {
       const mapped = (rows as Record<string, unknown>[]).map(mapApiMessage);
       setMensajes(mapped);
       await chatService.markRead(convId);
+      try {
+        const cotizaciones = await cotizacionCanalService.listarPorConversacion(parseInt(convId, 10));
+        const aceptada = cotizaciones.find((c) => c.estado === 'aceptada');
+        setCotizacionAceptadaId(aceptada?.id);
+      } catch {
+        setCotizacionAceptadaId(undefined);
+      }
     } catch (e) {
       console.error('[chat-omnicanal]', e);
       Alert.alert('Error', 'No se pudo cargar la conversación.');
@@ -337,7 +349,21 @@ export default function ChatOmnicanalScreen() {
           channel={conversationMeta.channel || undefined}
           contactName={conversationMeta.nombreAgendable}
           contactPhone={conversationMeta.contactPhone}
+          conversationId={convId}
+          cotizacionAceptadaId={cotizacionAceptadaId}
         />
+
+        {cotizacionAceptadaId ? (
+          <TouchableOpacity
+            style={styles.cotizacionAceptadaBanner}
+            onPress={() => setAgendarVisible(true)}
+            activeOpacity={0.9}
+          >
+            <Text style={styles.cotizacionAceptadaText}>
+              Cotización aceptada — toca para agendar la cita
+            </Text>
+          </TouchableOpacity>
+        ) : null}
 
         <View style={styles.chatArea}>
           {loading ? (
@@ -352,24 +378,39 @@ export default function ChatOmnicanalScreen() {
               contentContainerStyle={[styles.listContent, { paddingBottom: 88 }]}
               onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
               onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-              renderItem={({ item }) => (
-                <ChatBubble
-                  mensaje={{
-                    id: item.id,
-                    oferta: convId,
-                    mensaje: item.mensaje,
-                    enviado_por: 0,
-                    enviado_por_nombre: item.enviado_por_nombre,
-                    es_proveedor: item.es_proveedor,
-                    fecha_envio: item.fecha_envio,
-                    leido: true,
-                    fecha_lectura: null,
-                    archivo_adjunto: item.archivo_adjunto,
-                  }}
-                  esPropio={item.es_proveedor}
-                  onImagePress={(url) => setSelectedImage(url)}
-                />
-              )}
+              renderItem={({ item }) => {
+                const meta = item.channel_metadata;
+                if (meta?.tipo === 'cotizacion_canal') {
+                  return (
+                    <View style={item.es_proveedor ? styles.bubbleWrapOwn : styles.bubbleWrapOther}>
+                      <CotizacionCanalBubble
+                        servicioNombre={String(meta.servicio_nombre || 'Servicio')}
+                        totalClp={Number(meta.total_clp || 0)}
+                        estado={String(meta.estado || 'enviada')}
+                        esPropio={item.es_proveedor}
+                      />
+                    </View>
+                  );
+                }
+                return (
+                  <ChatBubble
+                    mensaje={{
+                      id: item.id,
+                      oferta: convId,
+                      mensaje: item.mensaje,
+                      enviado_por: 0,
+                      enviado_por_nombre: item.enviado_por_nombre,
+                      es_proveedor: item.es_proveedor,
+                      fecha_envio: item.fecha_envio,
+                      leido: true,
+                      fecha_lectura: null,
+                      archivo_adjunto: item.archivo_adjunto,
+                    }}
+                    esPropio={item.es_proveedor}
+                    onImagePress={(url) => setSelectedImage(url)}
+                  />
+                );
+              }}
             />
           ) : (
             <View style={styles.centered}>
@@ -475,5 +516,27 @@ const styles = StyleSheet.create({
   modalImage: {
     width: '92%',
     height: '70%',
+  },
+  cotizacionAceptadaBanner: {
+    backgroundColor: I.primary,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.xs,
+    borderRadius: BORDERS.radius.md,
+  },
+  cotizacionAceptadaText: {
+    ...TYPOGRAPHY.styles.body,
+    color: I.onPrimary,
+    textAlign: 'center',
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+  },
+  bubbleWrapOwn: {
+    alignSelf: 'flex-end',
+    marginVertical: SPACING.xs,
+  },
+  bubbleWrapOther: {
+    alignSelf: 'flex-start',
+    marginVertical: SPACING.xs,
   },
 });

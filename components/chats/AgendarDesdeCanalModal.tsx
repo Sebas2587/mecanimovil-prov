@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react-native';
+import { router } from 'expo-router';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { ChilePhoneField, getChilePhoneError } from '@/components/forms/ChilePhoneField';
 import ChileAddressField from '@/components/forms/ChileAddressField';
@@ -57,6 +58,9 @@ import equipoTallerService, {
   etiquetaModalidadMecanico,
 } from '@/services/equipoTallerService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
+import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
+import { Sparkles } from 'lucide-react-native';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -114,6 +118,10 @@ type Props = {
   initialFecha?: string;
   /** Subtítulo del sheet; si no se indica, se infiere del canal o la fecha */
   subtitle?: string;
+  /** Conversación omnicanal para cotización IA */
+  conversationId?: string;
+  /** Pre-cargar cotización aceptada para agendar */
+  cotizacionAceptadaId?: number;
 };
 
 function suggestTelefono(channel: ChannelSlug | undefined, phone: string | null | undefined): string {
@@ -167,6 +175,8 @@ export function AgendarDesdeCanalModal({
   contactPhone = null,
   initialFecha,
   subtitle,
+  conversationId,
+  cotizacionAceptadaId,
 }: Props) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -208,6 +218,12 @@ export function AgendarDesdeCanalModal({
   const [buscandoPatente, setBuscandoPatente] = useState(false);
   const [patenteHint, setPatenteHint] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [cotizacion, setCotizacion] = useState<CotizacionCanal | null>(null);
+  const [generandoIa, setGenerandoIa] = useState(false);
+  const [enviandoCotizacion, setEnviandoCotizacion] = useState(false);
+  const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
+  const [errorIa, setErrorIa] = useState<string | null>(null);
+  const [plantillas, setPlantillas] = useState<{ id: number; titulo: string }[]>([]);
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const [descripcionAltura, setDescripcionAltura] = useState(88);
 
@@ -279,7 +295,41 @@ export function AgendarDesdeCanalModal({
     setErrorForm(null);
     setGuardando(false);
     setDescripcionAltura(88);
+    setCotizacion(null);
+    setGenerandoIa(false);
+    setEnviandoCotizacion(false);
+    setGuardandoPlantilla(false);
+    setErrorIa(null);
   }, [visible, contactName, contactPhone, channel, initialFecha, esMecanico]);
+
+  useEffect(() => {
+    if (!visible || !cotizacionAceptadaId) return;
+    let mounted = true;
+    void cotizacionCanalService.obtener(cotizacionAceptadaId).then((cot) => {
+      if (!mounted || cot.estado !== 'aceptada') return;
+      setCotizacion(cot);
+      setModoServicio('manual');
+      setServicioManual(cot.servicio_nombre || '');
+      setDescripcion(cot.descripcion_problema || '');
+      setTipoServicio(cot.modalidad === 'domicilio' ? 'domicilio' : 'taller');
+      if (cot.vehiculo_marca) setVehiculoMarca(cot.vehiculo_marca);
+      if (cot.vehiculo_modelo) setVehiculoModelo(cot.vehiculo_modelo);
+      if (cot.vehiculo_patente) setVehiculoPatente(cot.vehiculo_patente);
+      if (cot.vehiculo_anio) setVehiculoAnio(String(cot.vehiculo_anio));
+      if (cot.vehiculo_cilindraje) setVehiculoCilindraje(cot.vehiculo_cilindraje);
+      if (cot.vehiculo_vin) setVehiculoVin(cot.vehiculo_vin);
+    }).catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [visible, cotizacionAceptadaId]);
+
+  useEffect(() => {
+    if (!visible || !conversationId) return;
+    void cotizacionCanalService.listarPlantillas().then((rows) => {
+      setPlantillas(rows.map((p) => ({ id: p.id, titulo: p.titulo })));
+    }).catch(() => setPlantillas([]));
+  }, [visible, conversationId]);
 
   useEffect(() => {
     if (!visible) return;
@@ -713,6 +763,133 @@ export function AgendarDesdeCanalModal({
     miembroSeleccionado,
   ]);
 
+  const vehiculoPayload = useMemo(
+    () => ({
+      marca: vehiculoMarca.trim(),
+      modelo: vehiculoModelo.trim(),
+      patente: vehiculoPatente.trim().toUpperCase(),
+      anio: vehiculoAnio.trim() ? parseInt(vehiculoAnio.trim(), 10) : undefined,
+      cilindraje: vehiculoCilindraje.trim(),
+      vin: vehiculoVin.trim().toUpperCase(),
+    }),
+    [vehiculoMarca, vehiculoModelo, vehiculoPatente, vehiculoAnio, vehiculoCilindraje, vehiculoVin],
+  );
+
+  const handleGenerarCotizacionIa = useCallback(async () => {
+    if (!conversationId) return;
+    if (!servicioManual.trim()) {
+      setErrorIa('Ingresa el nombre del servicio antes de generar la cotización.');
+      return;
+    }
+    setErrorIa(null);
+    setGenerandoIa(true);
+    try {
+      const res = await cotizacionCanalService.generarIa({
+        conversation_id: parseInt(conversationId, 10),
+        servicio_nombre: servicioManual.trim(),
+        descripcion_problema: descripcion.trim(),
+        modalidad: tipoServicio === 'domicilio' ? 'domicilio' : 'taller',
+        vehiculo: vehiculoPayload,
+      });
+      if (!res.disponible || !res.cotizacion) {
+        setErrorIa(res.error || 'No se pudo generar la cotización con IA.');
+        return;
+      }
+      setCotizacion(res.cotizacion);
+    } catch {
+      setErrorIa('Error al generar cotización. Intenta de nuevo.');
+    } finally {
+      setGenerandoIa(false);
+    }
+  }, [conversationId, servicioManual, descripcion, tipoServicio, vehiculoPayload]);
+
+  const handleAplicarPlantilla = useCallback(
+    async (plantillaId: number) => {
+      if (!conversationId) return;
+      setGenerandoIa(true);
+      setErrorIa(null);
+      try {
+        const res = await cotizacionCanalService.generarIa({
+          conversation_id: parseInt(conversationId, 10),
+          servicio_nombre: servicioManual.trim(),
+          descripcion_problema: descripcion.trim(),
+          modalidad: tipoServicio === 'domicilio' ? 'domicilio' : 'taller',
+          vehiculo: vehiculoPayload,
+          plantilla_id: plantillaId,
+        });
+        if (res.cotizacion) setCotizacion(res.cotizacion);
+        else setErrorIa(res.error || 'No se pudo aplicar la plantilla.');
+      } catch {
+        setErrorIa('Error al aplicar plantilla.');
+      } finally {
+        setGenerandoIa(false);
+      }
+    },
+    [conversationId, servicioManual, descripcion, tipoServicio, vehiculoPayload],
+  );
+
+  const persistirCotizacion = useCallback(async (next: CotizacionCanal) => {
+    setCotizacion(next);
+    if (next.estado !== 'borrador' || !next.id) return next;
+    try {
+      const saved = await cotizacionCanalService.actualizar(next.id, {
+        repuestos: next.repuestos,
+        mano_obra_clp: next.mano_obra_clp,
+        servicio_nombre: next.servicio_nombre,
+        descripcion_problema: next.descripcion_problema,
+        duracion_minutos_estimada: next.duracion_minutos_estimada,
+      });
+      setCotizacion(saved);
+      return saved;
+    } catch {
+      return next;
+    }
+  }, []);
+
+  const handleEnviarCotizacion = useCallback(async () => {
+    if (!cotizacion?.id) return;
+    setEnviandoCotizacion(true);
+    setErrorIa(null);
+    try {
+      const saved = await persistirCotizacion(cotizacion);
+      const res = await cotizacionCanalService.enviar(saved.id);
+      setCotizacion(res.cotizacion);
+      showAlert('Cotización enviada', 'El cliente recibirá la cotización en el chat.');
+    } catch {
+      setErrorIa('No se pudo enviar la cotización.');
+    } finally {
+      setEnviandoCotizacion(false);
+    }
+  }, [cotizacion, persistirCotizacion]);
+
+  const handleGuardarPlantilla = useCallback(async () => {
+    if (!cotizacion?.id) return;
+    setGuardandoPlantilla(true);
+    try {
+      await persistirCotizacion(cotizacion);
+      await cotizacionCanalService.guardarPlantilla({
+        titulo: cotizacion.servicio_nombre || 'Plantilla cotización',
+        cotizacion_id: cotizacion.id,
+      });
+      showAlert('Plantilla guardada', 'Podrás reutilizarla en futuras cotizaciones.');
+    } catch {
+      setErrorIa('No se pudo guardar la plantilla.');
+    } finally {
+      setGuardandoPlantilla(false);
+    }
+  }, [cotizacion, persistirCotizacion]);
+
+  const handleMarcarAceptada = useCallback(async () => {
+    if (!cotizacion?.id) return;
+    try {
+      const updated = await cotizacionCanalService.marcarAceptada(cotizacion.id);
+      setCotizacion(updated);
+      showAlert('Cotización aceptada', 'Puedes continuar con el agendamiento.');
+    } catch {
+      setErrorIa('No se pudo marcar como aceptada.');
+    }
+  }, [cotizacion]);
+
   const handleAgendar = useCallback(async () => {
     setErrorForm(null);
     const validationError = validarFormulario();
@@ -967,6 +1144,65 @@ export function AgendarDesdeCanalModal({
                   },
                 }}
               />
+
+              {modoServicio === 'manual' && conversationId && !esMecanico ? (
+                <View style={styles.cotizacionIaBlock}>
+                  <TouchableOpacity
+                    style={styles.plantillasLink}
+                    onPress={() => router.push('/cotizaciones-plantillas')}
+                  >
+                    <Text style={styles.plantillasLinkText}>Ver plantillas guardadas</Text>
+                  </TouchableOpacity>
+                  {plantillas.length > 0 && !cotizacion ? (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.plantillasScroll}>
+                      {plantillas.slice(0, 8).map((p) => (
+                        <TouchableOpacity
+                          key={p.id}
+                          style={styles.plantillaChip}
+                          onPress={() => void handleAplicarPlantilla(p.id)}
+                          disabled={generandoIa}
+                        >
+                          <Text style={styles.plantillaChipText} numberOfLines={1}>
+                            {p.titulo}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  ) : null}
+                  {!cotizacion ? (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.iaBtn, generandoIa && styles.confirmBtnDisabled]}
+                        onPress={() => void handleGenerarCotizacionIa()}
+                        disabled={generandoIa}
+                        activeOpacity={0.85}
+                      >
+                        {generandoIa ? (
+                          <ActivityIndicator color={I.primary} />
+                        ) : (
+                          <>
+                            <Sparkles size={18} color={I.primary} strokeWidth={2} />
+                            <Text style={styles.iaBtnText}>Generar cotización con IA</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                      {errorIa ? <Text style={styles.errorIaText}>{errorIa}</Text> : null}
+                    </>
+                  ) : (
+                    <CotizacionIaEditor
+                      cotizacion={cotizacion}
+                      onChange={(next) => {
+                        void persistirCotizacion(next);
+                      }}
+                      onEnviar={() => void handleEnviarCotizacion()}
+                      onGuardarPlantilla={() => void handleGuardarPlantilla()}
+                      onMarcarAceptada={() => void handleMarcarAceptada()}
+                      enviando={enviandoCotizacion}
+                      guardandoPlantilla={guardandoPlantilla}
+                    />
+                  )}
+                </View>
+              ) : null}
             </View>
 
             {proveedorAgenda?.tipoProveedor === 'taller' ? (
@@ -1183,7 +1419,7 @@ const styles = StyleSheet.create({
   sheetHeaderText: {
     flex: 1,
     minWidth: 0,
-    gap: SPACING.xxs,
+    gap: SPACING.xs,
     ...(Platform.OS === 'web' ? ({ display: 'flex', flexDirection: 'column' } as object) : null),
   },
   sheetTitle: {
@@ -1239,7 +1475,7 @@ const styles = StyleSheet.create({
     padding: SPACING.sm + 2,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    gap: SPACING.xxs,
+    gap: SPACING.xs,
   },
   vehiculoGridItemLabel: {
     ...SPEC_LABEL,
@@ -1416,6 +1652,54 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   confirmBtnDisabled: { opacity: 0.6 },
+  cotizacionIaBlock: {
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  iaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.primary,
+    backgroundColor: I.surfaceSoft,
+  },
+  iaBtnText: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.primary,
+  },
+  errorIaText: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: '#C62828',
+  },
+  plantillasLink: { alignSelf: 'flex-start' },
+  plantillasLinkText: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.primary,
+    textDecorationLine: 'underline',
+  },
+  plantillasScroll: { maxHeight: 36 },
+  plantillaChip: {
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+    marginRight: SPACING.xs,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    maxWidth: 160,
+  },
+  plantillaChipText: {
+    fontFamily: FF.sansMedium,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.ink,
+  },
   confirmBtnText: {
     ...TYPOGRAPHY.styles.button,
     color: I.onPrimary,
