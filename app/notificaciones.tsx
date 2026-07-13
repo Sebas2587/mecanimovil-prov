@@ -44,6 +44,8 @@ const getAlertIcon = (tipo: TipoAlerta) => {
       return { Icon: CreditCard, bg: plate, color: primary };
     case 'zonas_cobertura_no_configuradas':
       return { Icon: MapPin, bg: plate, color: I.ink };
+    case 'ubicacion_no_configurada':
+      return { Icon: MapPin, bg: plate, color: primary };
     case 'creditos_bajos':
       return { Icon: Coins, bg: warnBg, color: COLORS.warning.text };
     case 'creditos_agotados':

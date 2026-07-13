@@ -9,6 +9,7 @@ export const TIPOS_ALERTA_MECANICO: TipoAlerta[] = [
 export const TIPOS_ALERTA_TALLER: TipoAlerta[] = [
   'mercado_pago_no_configurado',
   'zonas_cobertura_no_configuradas',
+  'ubicacion_no_configurada',
   'creditos_bajos',
   'pago_expirado',
   'suscripcion_por_vencer',

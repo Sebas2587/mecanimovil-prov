@@ -15,6 +15,7 @@ import { invalidateAsignacionesMecanicoQueries } from '@/utils/invalidateAsignac
 export type TipoAlerta = 
   | 'mercado_pago_no_configurado'
   | 'zonas_cobertura_no_configuradas'
+  | 'ubicacion_no_configurada'
   | 'creditos_bajos'
   | 'pago_expirado'
   | 'suscripcion_por_vencer'
@@ -166,6 +167,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const alertasConfiguracion: TipoAlerta[] = [];
       let necesitaMercadoPago = false;
       let necesitaZonas = false;
+      let necesitaUbicacion = false;
 
       // Verificar cuenta de Mercado Pago
       try {
@@ -188,6 +190,32 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         // En caso de error, asumir que no está configurado
         necesitaMercadoPago = true;
         alertasConfiguracion.push('mercado_pago_no_configurado');
+      }
+
+      // Dirección física obligatoria para todos los talleres (todas las modalidades)
+      try {
+        const dp = estadoProveedor.datos_proveedor as
+          | {
+              ubicacion_lat?: number | null;
+              ubicacion_lng?: number | null;
+              direccion?: string | null;
+              direccion_fisica?: { direccion_completa?: string } | null;
+            }
+          | undefined;
+        const lat = Number(dp?.ubicacion_lat);
+        const lng = Number(dp?.ubicacion_lng);
+        const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+        const isDefaultSantiago =
+          hasCoords && Math.abs(lat - -33.4489) < 0.00015 && Math.abs(lng - -70.6693) < 0.00015;
+        const hasText =
+          !!(dp?.direccion && String(dp.direccion).trim()) ||
+          !!(dp?.direccion_fisica?.direccion_completa && String(dp.direccion_fisica.direccion_completa).trim());
+        if (!hasCoords || isDefaultSantiago || !hasText) {
+          necesitaUbicacion = true;
+          alertasConfiguracion.push('ubicacion_no_configurada');
+        }
+      } catch (error) {
+        console.error('Error verificando ubicación del taller:', error);
       }
 
       // Verificar zonas de cobertura (solo para mecánicos a domicilio)
@@ -244,6 +272,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       eliminarAlertasDeConfiguracion([
         'mercado_pago_no_configurado',
         'zonas_cobertura_no_configuradas',
+        'ubicacion_no_configurada',
         'suscripcion_por_vencer',
         'suscripcion_vencida',
         'suscripcion_pago_fallido',
@@ -259,6 +288,20 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           accion: {
             texto: 'Configurar Mercado Pago',
             ruta: '/(tabs)/configuracion-mercadopago',
+          },
+          prioridad: 'alta',
+        });
+      }
+
+      if (necesitaUbicacion) {
+        agregarAlerta({
+          tipo: 'ubicacion_no_configurada',
+          titulo: 'Dirección del taller pendiente',
+          mensaje:
+            'Todos los talleres deben registrar su dirección física real. Así los clientes ven tu distancia correcta y pueden encontrarte.',
+          accion: {
+            texto: 'Registrar ubicación',
+            ruta: '/actualizar-ubicacion',
           },
           prioridad: 'alta',
         });
