@@ -59,23 +59,23 @@ const sizeStyles: Record<
 > = {
   sm: {
     tag: {
-      paddingHorizontal: SPACING.fixed.xs + 2,
-      paddingVertical: 2,
-      borderRadius: BORDERS.radius.sm,
+      paddingHorizontal: SPACING.fixed.sm,
+      paddingVertical: 4,
+      borderRadius: BORDERS.radius.pill,
       gap: SPACING.fixed.xxs,
     },
     text: {
       fontSize: TYPOGRAPHY.fontSize.xs,
       lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.tight),
-      letterSpacing: 0.4,
+      letterSpacing: TYPOGRAPHY.letterSpacing.wide,
     },
     uppercase: true,
   },
   md: {
     tag: {
-      paddingHorizontal: SPACING.fixed.sm,
+      paddingHorizontal: SPACING.fixed.sm + 2,
       paddingVertical: SPACING.fixed.xs,
-      borderRadius: BORDERS.radius.md,
+      borderRadius: BORDERS.radius.pill,
       gap: SPACING.fixed.xs,
     },
     text: {

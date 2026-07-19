@@ -9,13 +9,14 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { FileText, Trash2 } from 'lucide-react-native';
+import { ChevronRight, FileText, Trash2 } from 'lucide-react-native';
 import Header from '@/components/Header';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import cotizacionCanalService, { type CotizacionPlantilla } from '@/services/cotizacionCanalService';
 import { etiquetaVehiculoActual, resumenVehiculoPlantilla } from '@/utils/plantillasCotizacionVehiculo';
+import { PlantillaCotizacionDetalleModal } from '@/components/chats/PlantillaCotizacionDetalleModal';
 
 const I = COLORS.institutional;
 
@@ -41,6 +42,7 @@ export default function CotizacionesPlantillasScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [plantillas, setPlantillas] = useState<CotizacionPlantilla[]>([]);
+  const [detallePlantilla, setDetallePlantilla] = useState<CotizacionPlantilla | null>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -70,6 +72,7 @@ export default function CotizacionesPlantillasScreen() {
         try {
           await cotizacionCanalService.eliminarPlantilla(plantilla.id);
           setPlantillas((prev) => prev.filter((p) => p.id !== plantilla.id));
+          if (detallePlantilla?.id === plantilla.id) setDetallePlantilla(null);
         } catch {
           showAlert('Error', 'No se pudo eliminar.');
         }
@@ -123,14 +126,25 @@ export default function CotizacionesPlantillasScreen() {
                   .filter(Boolean)
                   .join(' · ');
               return (
-                <View key={p.id} style={styles.card}>
+                <TouchableOpacity
+                  key={p.id}
+                  style={styles.card}
+                  onPress={() => setDetallePlantilla(p)}
+                  activeOpacity={0.88}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver plantilla ${p.titulo}`}
+                >
                   <View style={styles.cardHeader}>
                     <FileText size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                     <Text style={styles.cardTitle} numberOfLines={2}>
                       {p.titulo}
                     </Text>
-                    <TouchableOpacity onPress={() => eliminar(p)} accessibilityLabel="Eliminar">
-                      <Trash2 size={18} color="#C62828" strokeWidth={ICON_STROKE_WIDTH} />
+                    <TouchableOpacity
+                      onPress={() => eliminar(p)}
+                      accessibilityLabel="Eliminar"
+                      hitSlop={8}
+                    >
+                      <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
                     </TouchableOpacity>
                   </View>
                   {vehiculoResumen ? (
@@ -138,32 +152,47 @@ export default function CotizacionesPlantillasScreen() {
                       {vehiculoResumen}
                     </Text>
                   ) : null}
-                  <Text style={styles.cardMeta}>
-                    Usada {p.uso_count} veces ·{' '}
-                    {new Date(p.actualizado_en).toLocaleDateString('es-CL')}
-                  </Text>
-                </View>
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.cardMeta}>
+                      Usada {p.uso_count} veces ·{' '}
+                      {new Date(p.actualizado_en).toLocaleDateString('es-CL')}
+                    </Text>
+                    <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                  </View>
+                </TouchableOpacity>
               );
             })
           )}
         </ScrollView>
       )}
+
+      <PlantillaCotizacionDetalleModal
+        visible={Boolean(detallePlantilla)}
+        plantilla={detallePlantilla}
+        onClose={() => setDetallePlantilla(null)}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: I.canvas },
+  root: { flex: 1, backgroundColor: COLORS.background.default },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  list: { padding: SPACING.md, gap: SPACING.sm },
+  list: {
+    paddingHorizontal: SPACING.container.horizontal,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.xl,
+    gap: SPACING.sm,
+  },
   vehiculoBox: {
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     padding: SPACING.md,
     gap: SPACING.xs,
     marginBottom: SPACING.xs,
+    ...SHADOWS.editorial,
   },
   vehiculoBoxTitle: {
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
@@ -189,12 +218,13 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xl,
   },
   card: {
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     padding: SPACING.md,
     gap: SPACING.xs,
+    ...SHADOWS.editorial,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   cardTitle: {
@@ -208,7 +238,15 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.xs,
     color: I.body,
   },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+    marginTop: 2,
+  },
   cardMeta: {
+    flex: 1,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.xs,
     color: I.muted,

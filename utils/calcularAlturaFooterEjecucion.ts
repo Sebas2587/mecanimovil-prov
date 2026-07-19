@@ -73,7 +73,8 @@ export function calcularAlturaFooterEjecucion(params: FooterEjecucionParams): nu
   }
 
   if (oferta.estado === 'pendiente_creditos') {
-    altura += 56 + 12;
+    /** Solo Liberar + Comprar (Chat vive en el scroll del detalle). */
+    altura += 52 + 12;
   } else if (oferta.estado === 'en_chat' || oferta.estado === 'aceptada') {
     altura += 52 + 12;
   }

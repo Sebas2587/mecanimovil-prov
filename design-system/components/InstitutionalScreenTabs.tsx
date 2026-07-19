@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   track: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    backgroundColor: I.surfaceStrong,
+    backgroundColor: COLORS.tab.unselectedBg,
     borderRadius: BORDERS.radius.lg,
     padding: SPACING.fixed.xxs + 2,
     gap: SPACING.fixed.xxs + 2,
@@ -85,7 +85,9 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xxs,
   },
   cellActive: {
-    backgroundColor: I.primary,
+    backgroundColor: COLORS.tab.selectedBg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: COLORS.tab.selectedBorder,
   },
   lead: {
     flexShrink: 0,
@@ -98,7 +100,7 @@ const styles = StyleSheet.create({
   },
   labelActive: {
     fontFamily: FF.sansSemiBold,
-    color: I.onPrimary,
+    color: COLORS.tab.selectedText,
   },
   badge: {
     minWidth: 18,
@@ -113,8 +115,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   badgeActive: {
-    backgroundColor: withOpacity(I.onPrimary, 0.22),
-    borderColor: 'transparent',
+    backgroundColor: COLORS.selection.background,
+    borderColor: COLORS.selection.border,
   },
   badgeText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
@@ -122,6 +124,6 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
   badgeTextActive: {
-    color: I.onPrimary,
+    color: COLORS.tab.selectedText,
   },
 });

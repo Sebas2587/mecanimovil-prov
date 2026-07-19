@@ -44,7 +44,7 @@ export default function Header({
 }: HeaderProps) {
   const insets = useSafeAreaInsets();
 
-  const bgColor = backgroundColor ?? I.canvas;
+  const bgColor = backgroundColor ?? COLORS.background.default;
   const textColor = titleColor ?? I.ink;
 
   return (
@@ -54,9 +54,8 @@ export default function Header({
         {
           paddingTop: Math.max(insets.top, SPACING.fixed.xs),
           backgroundColor: bgColor,
-          borderBottomColor: I.hairline,
+          borderBottomColor: COLORS.border.light,
           borderBottomWidth: BORDERS.width.thin,
-          ...SHADOWS.sm,
         },
         style,
       ]}

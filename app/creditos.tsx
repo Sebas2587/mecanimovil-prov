@@ -25,7 +25,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Wallet, CreditCard, Store, History, Receipt, ScrollText } from 'lucide-react-native';
+import { Wallet, CreditCard, Store, History, Receipt, ScrollText, TrendingUp } from 'lucide-react-native';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import {COLORS, SPACING, TYPOGRAPHY, withOpacity, BORDERS, SHADOWS} from '@/app/design-system/tokens';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
@@ -63,13 +63,14 @@ import MercadoPagoWebViewModal from '@/components/creditos/MercadoPagoWebViewMod
 import Header from '@/components/Header';
 import { FALLBACK_PRECIO_CREDITO_BRUTO_CLP } from '@/constants/mercadoPagoPricing';
 import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
+import { RendimientoKpisContent } from '@/components/rendimiento';
 
 const I_TAB = COLORS.institutional;
 
 // ─────────────────────────────────────────────────────────────
 // Tipos
 // ─────────────────────────────────────────────────────────────
-type TabType = 'saldo' | 'suscripcion' | 'tienda' | 'historial';
+type TabType = 'saldo' | 'suscripcion' | 'tienda' | 'historial' | 'rendimiento';
 type HistorialSubTabType = 'compras' | 'consumos';
 
 interface ModalSuscripcion {
@@ -497,7 +498,7 @@ export default function CreditosScreen() {
 
   // Manejar cambio de pestaña por parámetros (navegación profunda)
   useEffect(() => {
-    if (tab && ['saldo', 'suscripcion', 'tienda', 'historial'].includes(tab)) {
+    if (tab && ['saldo', 'suscripcion', 'tienda', 'historial', 'rendimiento'].includes(tab)) {
       setActiveTab(tab as TabType);
     }
   }, [tab]);
@@ -558,7 +559,7 @@ export default function CreditosScreen() {
   const mostrarBannerComprarCreditos = saldoCero || saldoBajo;
 
   const tabsVisibles: TabType[] = useMemo(
-    () => ['saldo', 'suscripcion', 'tienda', 'historial'],
+    () => ['saldo', 'suscripcion', 'tienda', 'historial', 'rendimiento'],
     []
   );
 
@@ -1418,11 +1419,18 @@ export default function CreditosScreen() {
     </View>
   );
 
+  const renderTabRendimiento = () => (
+    <View style={styles.rendimientoContainer}>
+      <RendimientoKpisContent />
+    </View>
+  );
+
   const tabPillsConfig: Record<TabType, { label: string; Icon: typeof Wallet }> = {
     saldo: { label: 'Saldo', Icon: Wallet },
     suscripcion: { label: 'Suscripción', Icon: CreditCard },
     tienda: { label: 'Tienda', Icon: Store },
     historial: { label: 'Historial', Icon: History },
+    rendimiento: { label: 'Rendimiento', Icon: TrendingUp },
   };
 
   const historialItemsCount = compras.length + consumos.length;
@@ -1463,6 +1471,7 @@ export default function CreditosScreen() {
       {activeTab === 'suscripcion' && renderTabSuscripcion()}
       {activeTab === 'tienda' && renderTabTienda()}
       {activeTab === 'historial' && renderTabHistorial()}
+      {activeTab === 'rendimiento' && renderTabRendimiento()}
       </CreditosScreenBackground>
 
       {/* Modal MP Suscripción (fuera del gradiente para capa completa) */}
@@ -2145,6 +2154,7 @@ const styles = StyleSheet.create({
 
   // ─── Historial ────────────────────────────────────────────
   historialContainer: { flex: 1 },
+  rendimientoContainer: { flex: 1 },
   botonVerificar: {
     flexDirection: 'row',
     alignItems: 'center',

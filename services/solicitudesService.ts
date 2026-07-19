@@ -1,5 +1,6 @@
 import api, { getAPI } from './api';
 import { getItem } from '@/utils/authStorage';
+import { appendChatFileToFormData } from '@/utils/chatAttachmentMedia';
 
 // Tipos para solicitudes públicas
 export interface ServicioSolicitado {
@@ -327,6 +328,8 @@ export interface MensajeChat {
   archivo_adjunto?: string | null;
   /** API chat unificada (alias de archivo_adjunto) */
   attachment?: string | null;
+  attachment_mime?: string | null;
+  attachment_name?: string | null;
   solicitud_detail?: any; // Add this to fix the error, type could be more specific but 'any' or partial SolicitudDetail is fine for now
 }
 
@@ -596,17 +599,21 @@ export const enviarMensajeChat = async (
           tipoArchivo = 'image/png';
         } else if (nombreLower.endsWith('.jpg') || nombreLower.endsWith('.jpeg')) {
           tipoArchivo = 'image/jpeg';
+        } else if (nombreLower.endsWith('.m4a')) {
+          tipoArchivo = 'audio/m4a';
+        } else if (nombreLower.endsWith('.mp3')) {
+          tipoArchivo = 'audio/mpeg';
+        } else if (nombreLower.endsWith('.mp4') || nombreLower.endsWith('.mov')) {
+          tipoArchivo = 'video/mp4';
         } else {
-          tipoArchivo = 'image/jpeg'; // Default seguro
+          tipoArchivo = 'application/octet-stream';
         }
       }
 
-      // Adjuntar archivo
-      // @ts-ignore - React Native FormData expects this format
-      formData.append('archivo_adjunto', {
+      await appendChatFileToFormData(formData, 'archivo_adjunto', {
         uri: attachment.uri,
         name: nombreArchivo,
-        type: tipoArchivo,
+        mimeType: tipoArchivo,
       });
 
       console.log('📤 [SOLICITUDES SERVICE] Enviando mensaje con adjunto:', attachment.name);
@@ -987,6 +994,18 @@ export const terminarServicio = async (ofertaId: string): Promise<ApiResponse<Of
   }
 };
 
+export type CreditosInsuficientesConfirmacion = {
+  codigo: 'creditos_insuficientes';
+  error: string;
+  mensaje_ux?: string;
+  creditos_necesarios: number;
+  saldo_actual: number;
+  creditos_faltantes: number;
+  oferta_id?: string;
+  solicitud_id?: string;
+  puede_rechazar?: boolean;
+};
+
 export const confirmarCatalogo = async (
   ofertaId: string
 ): Promise<ApiResponse<Record<string, unknown>>> => {
@@ -994,9 +1013,28 @@ export const confirmarCatalogo = async (
     const response = await api.post(`/ordenes/ofertas/${ofertaId}/confirmar-catalogo/`, {});
     return { success: true, data: response.data };
   } catch (error: any) {
+    const data = error.response?.data;
     return {
       success: false,
-      error: error.response?.data?.error || error.message || 'No se pudo confirmar',
+      error: data?.error || error.message || 'No se pudo confirmar',
+      data: data && typeof data === 'object' ? data : undefined,
+    };
+  }
+};
+
+export const liberarReservaCreditos = async (
+  ofertaId: string,
+  motivo?: string,
+): Promise<ApiResponse<Record<string, unknown>>> => {
+  try {
+    const response = await api.post(`/ordenes/ofertas/${ofertaId}/liberar-reserva-creditos/`, {
+      motivo: motivo || '',
+    });
+    return { success: true, data: response.data };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.response?.data?.error || error.message || 'No se pudo liberar la reserva',
     };
   }
 };
@@ -1046,6 +1084,7 @@ const solicitudesService = {
   obtenerDetalleSolicitud,
   crearOferta,
   confirmarCatalogo,
+  liberarReservaCreditos,
   rechazarCatalogo,
   proponerFechaCatalogo,
   crearOfertaSecundaria,

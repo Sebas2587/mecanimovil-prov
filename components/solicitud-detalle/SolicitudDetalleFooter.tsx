@@ -50,6 +50,9 @@ type EjecucionFooterProps = {
   onTerminarServicio: () => void;
   onOpenChecklist: () => void;
   onOpenCompletedChecklist: () => void;
+  /** Declinar reserva pendiente_creditos (legado) sin obligar a comprar. */
+  onLiberarReservaCreditos?: () => void;
+  liberandoReservaCreditos?: boolean;
   bottomPad: number;
 };
 
@@ -71,30 +74,20 @@ function CatalogFooter({
       <View style={styles.negotiationRow}>
         <InstitutionalButton
           label="Rechazar"
-          variant="destructiveOutline"
-          size="compact"
+          variant="outline"
+          size="default"
           onPress={onReject}
           disabled={rejectLoading || confirmLoading}
           loading={rejectLoading}
-          leading={
-            !rejectLoading ? (
-              <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-            ) : undefined
-          }
           style={footerBtn}
         />
         <InstitutionalButton
           label="Aceptar asignación"
           variant="primary"
-          size="compact"
+          size="default"
           onPress={onConfirm}
           disabled={confirmLoading || rejectLoading}
           loading={confirmLoading}
-          leading={
-            !confirmLoading ? (
-              <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-            ) : undefined
-          }
           style={footerBtn}
         />
       </View>
@@ -118,26 +111,18 @@ function NegotiationFooter({
       <View style={styles.negotiationRow}>
         <InstitutionalButton
           label="Rechazar oferta"
-          variant="destructiveOutline"
-          size="compact"
+          variant="outline"
+          size="default"
           onPress={onReject}
           disabled={rejectLoading}
           loading={rejectLoading}
-          leading={
-            !rejectLoading ? (
-              <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-            ) : undefined
-          }
           style={footerBtn}
         />
         <InstitutionalButton
           label="Crear oferta"
           variant="primary"
-          size="compact"
+          size="default"
           onPress={() => router.push(`/crear-oferta/${solicitudId}`)}
-          leading={
-            <InstitutionalIcon name="add-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-          }
           style={footerBtn}
         />
       </View>
@@ -164,6 +149,8 @@ function EjecucionFooter(props: EjecucionFooterProps) {
     onTerminarServicio,
     onOpenChecklist,
     onOpenCompletedChecklist,
+    onLiberarReservaCreditos,
+    liberandoReservaCreditos = false,
     bottomPad,
   } = props;
 
@@ -252,42 +239,28 @@ function EjecucionFooter(props: EjecucionFooterProps) {
         </>
       ) : null}
 
-      {miOferta.estado === 'pendiente_creditos' && mostrarChatFijo ? (
-        <View style={styles.fixedActionsRow}>
+      {miOferta.estado === 'pendiente_creditos' ? (
+        <View style={styles.negotiationRow}>
+          {onLiberarReservaCreditos ? (
+            <InstitutionalButton
+              label="Liberar reserva"
+              variant="outline"
+              size="default"
+              onPress={onLiberarReservaCreditos}
+              disabled={liberandoReservaCreditos}
+              loading={liberandoReservaCreditos}
+              style={footerBtn}
+            />
+          ) : null}
           <InstitutionalButton
             label="Comprar créditos"
             variant="primary"
-            size="compact"
+            size="default"
             onPress={navigateCreditos}
-            leading={
-              <InstitutionalIcon name="account-balance-wallet" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-            }
-            style={[footerBtn, styles.primaryInRow]}
-          />
-          <InstitutionalButton
-            label="Chat"
-            variant="outlineAccent"
-            size="compact"
-            onPress={() => router.push(`/chat-oferta/${miOferta.id}`)}
-            leading={
-              <InstitutionalIcon name="chat" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-            }
-            style={[footerBtn, styles.chatInRow]}
+            disabled={liberandoReservaCreditos}
+            style={footerBtn}
           />
         </View>
-      ) : null}
-
-      {miOferta.estado === 'pendiente_creditos' && !mostrarChatFijo ? (
-        <InstitutionalButton
-          label="Comprar créditos"
-          variant="primary"
-          size="compact"
-          onPress={navigateCreditos}
-          leading={
-            <InstitutionalIcon name="account-balance-wallet" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-          }
-          style={stackBtn}
-        />
       ) : null}
 
       {mostrarChatFijo && miOferta.estado !== 'pendiente_creditos' ? (

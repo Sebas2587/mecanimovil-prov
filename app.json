@@ -20,7 +20,8 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
-        ]
+        ],
+        "NSMicrophoneUsageDescription": "Permitir usar el micrófono para enviar mensajes de voz en el chat."
       }
     },
     "android": {
@@ -105,7 +106,9 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.REVERSED_IOS_CLIENT_ID_AQUI"
         }
-      ]
+      ],
+      "expo-audio",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

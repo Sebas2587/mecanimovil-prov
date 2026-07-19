@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,8 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/context/AuthContext';
-import { router, Stack } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import { router, Stack, useFocusEffect } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   User,
   Mail,
@@ -28,11 +28,12 @@ import {
   MessageCircle,
   Camera,
   Bookmark,
+  Users,
+  Clock,
   type LucideIcon,
 } from 'lucide-react-native';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
-import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -45,6 +46,16 @@ import {
   obtenerSubtituloTallerPerfil,
   type PerfilBadgeVariant,
 } from '@/utils/perfilSesionDisplay';
+import { PerformanceWidget } from '@/components/dashboard/PerformanceWidget';
+import { FinanzasTallerCard } from '@/components/dashboard/FinanzasTallerCard';
+import { FinanzasTallerCardSkeleton } from '@/components/dashboard/FinanzasTallerCardSkeleton';
+import { useProveedorKpisResumen } from '@/hooks/useProveedorKpisResumen';
+import {
+  useSaldoCreditosQuery,
+  useGananciasResumenQuery,
+  useSuscripcionProveedorQuery,
+  invalidateDashboardFinanzasQueries,
+} from '@/hooks/useDashboardFinanzas';
 
 const I = COLORS.institutional;
 const warningStatus = institutionalStatusColors('warning');
@@ -75,7 +86,12 @@ function badgeStyles(variant: PerfilBadgeVariant) {
 }
 
 export default function PerfilScreen() {
+  const queryClient = useQueryClient();
+  const lastFinanzasInvalidateRef = useRef(0);
+  const FINANZAS_INVALIDATE_MIN_MS = 60_000;
+
   const {
+    isAuthenticated,
     isLoading,
     estadoProveedor,
     usuario,
@@ -85,7 +101,81 @@ export default function PerfilScreen() {
     esMecanicoEquipo,
     rolTaller,
     miembroId,
+    puede,
   } = useAuth();
+
+  const cuentaAprobadaPorAdmin = estadoProveedor?.estado_verificacion === 'aprobado';
+  const dashboardFinanzasEnabled = Boolean(
+    isAuthenticated && cuentaAprobadaPorAdmin && !isLoading,
+  );
+
+  const kpisResumen = useProveedorKpisResumen({
+    enabled: dashboardFinanzasEnabled && !esMecanicoEquipo,
+    dias: 30,
+  });
+
+  const rendimientoWidgetPeriod = useMemo(() => {
+    if (kpisResumen.data) {
+      const d = kpisResumen.data.ventana_dias;
+      return `Índice del taller en Mecanimovil (últimos ${d} días). Posiciona tu negocio en la app de clientes.`;
+    }
+    if (kpisResumen.loading) {
+      return `Últimos ${kpisResumen.ventanaDiasMostrada} días con actividad · cargando…`;
+    }
+    if (kpisResumen.error) {
+      return 'No se pudo cargar. Entra para reintentar.';
+    }
+    return `Últimos ${kpisResumen.ventanaDiasMostrada} días · mismo índice que en detalle`;
+  }, [
+    kpisResumen.data,
+    kpisResumen.loading,
+    kpisResumen.error,
+    kpisResumen.ventanaDiasMostrada,
+  ]);
+
+  const saldoCreditosQuery = useSaldoCreditosQuery(dashboardFinanzasEnabled && puede('finanzas'));
+  const gananciasQuery = useGananciasResumenQuery(dashboardFinanzasEnabled && puede('finanzas'));
+  const suscripcionQuery = useSuscripcionProveedorQuery(dashboardFinanzasEnabled && !esSupervisor);
+  const saldoCreditos = saldoCreditosQuery.data;
+  const gananciasResumen = gananciasQuery.data;
+  const suscripcion = suscripcionQuery.data;
+  const showFinanzasCard = puede('finanzas') && (saldoCreditos || saldoCreditosQuery.loading);
+  const warningEmphasis = COLORS.warning.text;
+
+  const handlePerformanceWidgetPress = useCallback(() => {
+    router.push('/creditos?tab=rendimiento');
+  }, []);
+
+  const handleRecargarCreditos = useCallback(() => {
+    router.push('/creditos?tab=tienda');
+  }, []);
+
+  const handleFinanzasCardPress = useCallback(() => {
+    router.push('/creditos?tab=saldo');
+  }, []);
+
+  const handlePressPlanSuscripcion = useCallback(() => {
+    router.push('/creditos?tab=suscripcion');
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isAuthenticated || !cuentaAprobadaPorAdmin) return;
+      if (dashboardFinanzasEnabled && puede('finanzas')) {
+        const now = Date.now();
+        if (now - lastFinanzasInvalidateRef.current >= FINANZAS_INVALIDATE_MIN_MS) {
+          lastFinanzasInvalidateRef.current = now;
+          invalidateDashboardFinanzasQueries(queryClient);
+        }
+      }
+    }, [
+      cuentaAprobadaPorAdmin,
+      dashboardFinanzasEnabled,
+      isAuthenticated,
+      puede,
+      queryClient,
+    ]),
+  );
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [fotoMecanicoUrl, setFotoMecanicoUrl] = useState<string | null>(null);
   const [miembroEquipo, setMiembroEquipo] = useState<MiembroTaller | null>(null);
@@ -257,42 +347,107 @@ export default function PerfilScreen() {
     onPress: () => void;
   };
 
-  // El supervisor no gestiona suscripción ni la cuenta de Mercado Pago (módulos del dueño).
-  const settingsRows: SettingRow[] = [
-    ...(esSupervisor
-      ? []
-      : [
-          { Icon: CreditCard, title: 'Suscripción', subtitle: 'Plan y créditos', onPress: () => router.push('/creditos') },
-          {
-            Icon: Wallet,
-            title: 'Mercado Pago',
-            subtitle: 'Cobros y cuenta',
-            onPress: () => router.push('/configuracion-mercadopago'),
-          },
-          {
-            Icon: MessageCircle,
-            title: 'Canales de mensajería',
-            subtitle: 'WhatsApp, Facebook e Instagram',
-            onPress: () => router.push('/configuracion-canales' as never),
-          },
-        ] as SettingRow[]),
-    ...(!esMecanicoEquipo
-      ? ([
-          {
-            Icon: FileText,
-            title: 'Plantillas de cotización',
-            subtitle: 'Cotizaciones guardadas por vehículo',
-            onPress: () => router.push('/cotizaciones-plantillas' as never),
-          },
-        ] as SettingRow[])
-      : []),
-    {
+  const gestionRows: SettingRow[] = useMemo(() => {
+    if (esMecanicoEquipo) return [];
+    const rows: SettingRow[] = [];
+    if (!esSupervisor || puede('mecanicos')) {
+      rows.push({
+        Icon: Users,
+        title: 'Mi Equipo',
+        subtitle: 'Mecánicos y rendimiento',
+        onPress: () => router.push('/gestion-equipo'),
+      });
+    }
+    if (!esSupervisor || puede('horarios')) {
+      rows.push({
+        Icon: Clock,
+        title: 'Horarios',
+        subtitle: 'Agenda del taller y mecánicos',
+        onPress: () => router.push('/configuracion-horarios'),
+      });
+    }
+    return rows;
+  }, [esMecanicoEquipo, esSupervisor, puede]);
+
+  // Airbnb Hosts: Dinero separado de herramientas de operación.
+  const dineroRows: SettingRow[] = useMemo(() => {
+    if (esSupervisor || esMecanicoEquipo) return [];
+    return [
+      {
+        Icon: CreditCard,
+        title: 'Finanzas',
+        subtitle: 'Plan, créditos y rendimiento',
+        onPress: () => router.push('/creditos?tab=saldo'),
+      },
+      {
+        Icon: Wallet,
+        title: 'Mercado Pago',
+        subtitle: 'Cobros y cuenta',
+        onPress: () => router.push('/configuracion-mercadopago'),
+      },
+    ];
+  }, [esSupervisor, esMecanicoEquipo]);
+
+  const herramientasRows: SettingRow[] = useMemo(() => {
+    const rows: SettingRow[] = [];
+    if (!esSupervisor) {
+      rows.push({
+        Icon: MessageCircle,
+        title: 'Canales de mensajería',
+        subtitle: 'WhatsApp, Facebook e Instagram',
+        onPress: () => router.push('/configuracion-canales' as never),
+      });
+    }
+    if (!esMecanicoEquipo) {
+      rows.push({
+        Icon: FileText,
+        title: 'Plantillas de cotización',
+        subtitle: 'Cotizaciones guardadas por vehículo',
+        onPress: () => router.push('/cotizaciones-plantillas' as never),
+      });
+    }
+    rows.push({
       Icon: Headphones,
       title: 'Soporte',
       subtitle: 'Ayuda por WhatsApp',
       onPress: handleContactarSoporte,
-    },
-  ];
+    });
+    return rows;
+  }, [esSupervisor, esMecanicoEquipo]);
+
+  const renderSettingGroup = (rows: SettingRow[]) => (
+    <View
+      style={[
+        styles.groupCard,
+        { backgroundColor: I.canvas, borderColor: I.hairline },
+        SHADOWS.editorial,
+      ]}
+    >
+      {rows.map((item, index) => (
+        <TouchableOpacity
+          key={`${item.title}-${index}`}
+          style={[
+            styles.settingRow,
+            index < rows.length - 1 && {
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: I.hairline,
+            },
+          ]}
+          onPress={item.onPress}
+          activeOpacity={0.88}
+        >
+          <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceStrong }]}>
+            <item.Icon size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+          </View>
+          <View style={styles.rowText}>
+            <Text style={[styles.settingTitle, { color: I.ink }]}>{item.title}</Text>
+            <Text style={[styles.settingSubtitle, { color: I.body }]}>{item.subtitle}</Text>
+          </View>
+          <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
 
   const infoRows = useMemo(() => {
     const rows: { Icon: LucideIcon; label: string; value: string }[] = [
@@ -312,18 +467,12 @@ export default function PerfilScreen() {
   if (isLoading) {
     return (
       <TabScreenWrapper>
-        <LinearGradient
-          style={styles.gradient}
-          colors={BLANK_GLASS.gradient}
-          locations={BLANK_GLASS.gradientLocations}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-        >
+        <View style={styles.screen}>
           <View style={styles.centeredContainer}>
             <ActivityIndicator size="large" color={I.primary} />
-            <Text style={[styles.loadingText, { color: I.body }]}>Cargando configuración…</Text>
+            <Text style={[styles.loadingText, { color: I.body }]}>Cargando menú…</Text>
           </View>
-        </LinearGradient>
+        </View>
       </TabScreenWrapper>
     );
   }
@@ -332,16 +481,10 @@ export default function PerfilScreen() {
 
   return (
     <TabScreenWrapper>
-      <LinearGradient
-        style={styles.gradient}
-        colors={BLANK_GLASS.gradient}
-        locations={BLANK_GLASS.gradientLocations}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-      >
+      <View style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
         <Header
-          title="Configuración"
+          title="Menú"
           rightComponent={
             esSupervisor || esMecanicoEquipo ? undefined : (
               <TouchableOpacity
@@ -362,6 +505,7 @@ export default function PerfilScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: SPACING['2xl'] }]}
           showsVerticalScrollIndicator={false}
         >
+          {/* Identidad — fila horizontal estilo Airbnb Host Menu */}
           <View
             style={[
               styles.profileCard,
@@ -369,66 +513,169 @@ export default function PerfilScreen() {
               SHADOWS.editorial,
             ]}
           >
-            <View style={styles.avatarWrap}>
-              {fotoProveedor ? (
-                <Image source={{ uri: fotoProveedor }} style={[styles.avatar, { borderColor: I.hairline }]} />
-              ) : (
-                <View style={[styles.avatarPlaceholder, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
-                  <User size={36} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                </View>
-              )}
-              {esMecanicoEquipo ? (
-                <TouchableOpacity
-                  style={[styles.fotoEditBtn, { backgroundColor: I.primary }]}
-                  onPress={() => void cambiarFotoMecanico()}
-                  disabled={subiendoFoto}
-                  activeOpacity={0.85}
-                >
-                  {subiendoFoto ? (
-                    <ActivityIndicator size="small" color={I.onPrimary} />
-                  ) : (
-                    <Camera size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                  )}
-                </TouchableOpacity>
-              ) : null}
+            <View style={styles.profileIdentityRow}>
+              <View style={styles.avatarWrap}>
+                {fotoProveedor ? (
+                  <Image source={{ uri: fotoProveedor }} style={[styles.avatar, { borderColor: I.hairline }]} />
+                ) : (
+                  <View style={[styles.avatarPlaceholder, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
+                    <User size={28} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                  </View>
+                )}
+                {esMecanicoEquipo ? (
+                  <TouchableOpacity
+                    style={[styles.fotoEditBtn, { backgroundColor: I.primary }]}
+                    onPress={() => void cambiarFotoMecanico()}
+                    disabled={subiendoFoto}
+                    activeOpacity={0.85}
+                  >
+                    {subiendoFoto ? (
+                      <ActivityIndicator size="small" color={I.onPrimary} />
+                    ) : (
+                      <Camera size={14} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                    )}
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              <View style={styles.profileMeta}>
+                <Text style={[styles.profileName, { color: I.ink }]} numberOfLines={2}>
+                  {nombreDisplay}
+                </Text>
+                {subtituloTaller ? (
+                  <Text style={[styles.profileSubtitle, { color: I.muted }]} numberOfLines={1}>
+                    {subtituloTaller}
+                  </Text>
+                ) : null}
+                {rolTaller === 'mandante' ? (
+                  <View style={[styles.statusPill, { backgroundColor: I.surfaceStrong }]}>
+                    <View style={[styles.statusDot, { backgroundColor: estadoInk }]} />
+                    <Text style={[styles.statusLabel, { color: estadoInk }]}>{getEstadoTexto()}</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
-            <Text style={[styles.profileName, { color: I.ink }]}>{nombreDisplay}</Text>
-            {subtituloTaller ? (
-              <Text style={[styles.profileSubtitle, { color: I.muted }]}>{subtituloTaller}</Text>
-            ) : null}
-            {rolTaller === 'mandante' ? (
-              <View style={[styles.statusPill, { backgroundColor: I.surfaceStrong }]}>
-                <View style={[styles.statusDot, { backgroundColor: estadoInk }]} />
-                <Text style={[styles.statusLabel, { color: estadoInk }]}>{getEstadoTexto()}</Text>
+            {etiquetasPerfil.length > 0 ? (
+              <View style={styles.badgesRow}>
+                {etiquetasPerfil.map((badge) => {
+                  const palette = badgeStyles(badge.variant);
+                  return (
+                    <View
+                      key={badge.label}
+                      style={[
+                        styles.tipoProveedorPill,
+                        {
+                          backgroundColor: palette.bg,
+                          borderWidth:
+                            badge.variant === 'success' || badge.variant === 'primary'
+                              ? StyleSheet.hairlineWidth
+                              : 0,
+                          borderColor: palette.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.tipoProveedorPillText, { color: palette.text }]}>
+                        {badge.label}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             ) : null}
-            <View style={styles.badgesRow}>
-              {etiquetasPerfil.map((badge) => {
-                const palette = badgeStyles(badge.variant);
-                return (
-                  <View
-                    key={badge.label}
-                    style={[
-                      styles.tipoProveedorPill,
-                      {
-                        backgroundColor: palette.bg,
-                        borderWidth: badge.variant === 'success' || badge.variant === 'primary' ? StyleSheet.hairlineWidth : 0,
-                        borderColor: palette.border,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.tipoProveedorPillText, { color: palette.text }]}>
-                      {badge.label}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
           </View>
 
-          <View style={{ paddingHorizontal: GLASS_INSET }}>
+          <View style={{ paddingHorizontal: SPACING.container.horizontal }}>
             {!esMecanicoEquipo ? (
               <>
+            {/* 1. Insights del negocio */}
+            {cuentaAprobadaPorAdmin ? (
+              <>
+                <SectionKicker label="TU NEGOCIO" />
+                <View style={styles.tuNegocioStack}>
+                  <PerformanceWidget
+                    progress={kpisResumen.progress}
+                    targetTierName={kpisResumen.targetTierName}
+                    periodSubtitle={rendimientoWidgetPeriod}
+                    isLoading={kpisResumen.loading && !kpisResumen.hasData}
+                    onPress={handlePerformanceWidgetPress}
+                  />
+                  {showFinanzasCard ? (
+                    saldoCreditos ? (
+                      <FinanzasTallerCard
+                        ganancias={gananciasResumen}
+                        saldoCreditos={saldoCreditos}
+                        suscripcion={suscripcion}
+                        esSupervisor={esSupervisor}
+                        isLoadingGanancias={gananciasQuery.loading && !gananciasResumen}
+                        isLoadingCreditos={saldoCreditosQuery.loading && !saldoCreditos}
+                        warningEmphasis={warningEmphasis}
+                        onPress={handleFinanzasCardPress}
+                        onRecargarCreditos={handleRecargarCreditos}
+                        onPressPlan={handlePressPlanSuscripcion}
+                      />
+                    ) : (
+                      <FinanzasTallerCardSkeleton />
+                    )
+                  ) : null}
+                </View>
+              </>
+            ) : null}
+
+            {/* 2. Operar el taller */}
+            {gestionRows.length > 0 ? (
+              <>
+                <SectionKicker label="OPERAR" />
+                {renderSettingGroup(gestionRows)}
+              </>
+            ) : null}
+
+            {/* 3. Dinero */}
+            {dineroRows.length > 0 ? (
+              <>
+                <SectionKicker label="DINERO" />
+                {renderSettingGroup(dineroRows)}
+              </>
+            ) : null}
+
+            {/* 4. Herramientas / ajustes */}
+            {herramientasRows.length > 0 ? (
+              <>
+                <SectionKicker label="HERRAMIENTAS" />
+                <View
+                  style={[
+                    styles.groupCard,
+                    { backgroundColor: I.canvas, borderColor: I.hairline },
+                    SHADOWS.editorial,
+                  ]}
+                >
+                  {herramientasRows.map((item, index) => (
+                    <TouchableOpacity
+                      key={`${item.title}-${index}`}
+                      style={[
+                        styles.settingRow,
+                        index < herramientasRows.length - 1 && {
+                          borderBottomWidth: StyleSheet.hairlineWidth,
+                          borderBottomColor: I.hairline,
+                        },
+                      ]}
+                      onPress={item.onPress}
+                      activeOpacity={0.88}
+                    >
+                      <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceStrong }]}>
+                        <item.Icon size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                      </View>
+                      <View style={styles.rowText}>
+                        <Text style={[styles.settingTitle, { color: I.ink }]}>{item.title}</Text>
+                        <Text style={[styles.settingSubtitle, { color: I.body }]}>{item.subtitle}</Text>
+                      </View>
+                      <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                    </TouchableOpacity>
+                  ))}
+                  <WebPushSettingsRow showTopBorder={herramientasRows.length > 0} />
+                </View>
+              </>
+            ) : null}
+
+            {/* 5. Datos de cuenta (referencia, abajo) */}
             <SectionKicker label="CUENTA" />
             <View
               style={[
@@ -459,40 +706,6 @@ export default function PerfilScreen() {
                   </View>
                 </View>
               ))}
-            </View>
-
-            <SectionKicker label="GESTIÓN" />
-            <View
-              style={[
-                styles.groupCard,
-                { backgroundColor: I.canvas, borderColor: I.hairline },
-                SHADOWS.editorial,
-              ]}
-            >
-              {settingsRows.map((item, index) => (
-                <TouchableOpacity
-                  key={`${item.title}-${index}`}
-                  style={[
-                    styles.settingRow,
-                    index < settingsRows.length - 1 && {
-                      borderBottomWidth: StyleSheet.hairlineWidth,
-                      borderBottomColor: I.hairline,
-                    },
-                  ]}
-                  onPress={item.onPress}
-                  activeOpacity={0.88}
-                >
-                  <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceStrong }]}>
-                    <item.Icon size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                  </View>
-                  <View style={styles.rowText}>
-                    <Text style={[styles.settingTitle, { color: I.ink }]}>{item.title}</Text>
-                    <Text style={[styles.settingSubtitle, { color: I.body }]}>{item.subtitle}</Text>
-                  </View>
-                  <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                </TouchableOpacity>
-              ))}
-              <WebPushSettingsRow showTopBorder={settingsRows.length > 0} />
             </View>
               </>
             ) : (
@@ -550,13 +763,13 @@ export default function PerfilScreen() {
             </View>
           </View>
         </ScrollView>
-      </LinearGradient>
+      </View>
     </TabScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: { flex: 1 },
+  screen: { flex: 1, backgroundColor: COLORS.background.default },
   scroll: { flex: 1 },
   scrollContent: { paddingTop: SPACING.xs },
   centeredContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl },
@@ -602,62 +815,69 @@ const styles = StyleSheet.create({
     letterSpacing: TYPOGRAPHY.letterSpacing.wider,
   },
   profileCard: {
-    marginHorizontal: GLASS_INSET,
+    marginHorizontal: SPACING.container.horizontal,
     marginTop: SPACING.sm,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
     borderRadius: BORDERS.radius.xl,
     borderWidth: BORDERS.width.thin,
-    paddingVertical: SPACING.lg,
+    paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.md,
-    alignItems: 'center',
   },
-  avatarWrap: { marginBottom: SPACING.sm, position: 'relative' },
+  profileIdentityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  profileMeta: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  avatarWrap: { position: 'relative', flexShrink: 0 },
   fotoEditBtn: {
     position: 'absolute',
     right: -2,
     bottom: -2,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: I.canvas,
   },
   avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     borderWidth: BORDERS.width.thin,
   },
   avatarPlaceholder: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     borderWidth: BORDERS.width.thin,
     alignItems: 'center',
     justifyContent: 'center',
   },
   profileName: {
-    fontSize: TYPOGRAPHY.fontSize['2xl'],
+    fontSize: TYPOGRAPHY.fontSize.xl,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    textAlign: 'center',
-    marginBottom: SPACING.xs,
   },
   profileSubtitle: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    textAlign: 'center',
-    marginBottom: SPACING.sm,
   },
   statusPill: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: SPACING.sm,
-    paddingVertical: 6,
+    paddingVertical: 4,
     borderRadius: BORDERS.radius.pill,
+    marginTop: 4,
   },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   statusLabel: {
@@ -668,7 +888,6 @@ const styles = StyleSheet.create({
   badgesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
     gap: 8,
     marginTop: SPACING.sm,
   },
@@ -696,6 +915,10 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+  },
+  tuNegocioStack: {
+    gap: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   groupCard: {
     borderRadius: BORDERS.radius.lg,

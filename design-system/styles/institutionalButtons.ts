@@ -35,7 +35,8 @@ const sizeStyles: Record<
   },
   compact: {
     button: {
-      minHeight: 44,
+      /** Airbnb Hosts / design.md: CTAs 48–52; compact floor 48 */
+      minHeight: 48,
       paddingVertical: SPACING.fixed.sm,
       paddingHorizontal: SPACING.fixed.lg,
     },
@@ -52,24 +53,24 @@ const variantStyles: Record<
 > = {
   primary: {
     button: {
-      backgroundColor: I.primary,
-      borderWidth: BORDERS.width.thin,
-      borderColor: I.primary,
-      ...SHADOWS.editorial,
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      overflow: 'hidden',
     },
     text: {
       color: I.onPrimary,
     },
-    pressedOpacity: 0.9,
+    pressedOpacity: 0.92,
   },
   secondary: {
     button: {
-      backgroundColor: I.surfaceStrong,
+      backgroundColor: COLORS.buttonSecondary.background,
       borderWidth: BORDERS.width.thin,
-      borderColor: I.hairline,
+      borderColor: COLORS.buttonSecondary.border,
     },
     text: {
-      color: I.ink,
+      color: COLORS.buttonSecondary.text,
     },
     pressedOpacity: 0.92,
   },
@@ -86,12 +87,12 @@ const variantStyles: Record<
   },
   outlineAccent: {
     button: {
-      backgroundColor: I.canvas,
+      backgroundColor: COLORS.background.paper,
       borderWidth: BORDERS.width.thin,
-      borderColor: I.hairline,
+      borderColor: COLORS.buttonSecondary.outline,
     },
     text: {
-      color: I.primary,
+      color: COLORS.buttonSecondary.outlineText,
     },
     pressedOpacity: 0.92,
   },
@@ -133,7 +134,7 @@ export function institutionalButtonStyles(
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: BORDERS.radius.pill,
+      borderRadius: BORDERS.radius.md,
       gap: SPACING.fixed.xs,
       ...s.button,
       ...v.button,

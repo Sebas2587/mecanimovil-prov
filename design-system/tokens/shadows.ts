@@ -20,13 +20,13 @@ const BASE_SHADOWS = {
   // ============================================
   // SOMBRA PEQUEÑA
   // ============================================
-  /** Preferencia institucional: una sombra suave tipo marketing */
+  /** Sombra suave Hosts — opacity ≤ 0.06 */
   editorial: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
+    shadowColor: '#3B3B3B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 1,
   },
 
   sm: {

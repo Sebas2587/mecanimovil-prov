@@ -49,6 +49,7 @@ const getAlertIcon = (tipo: TipoAlerta) => {
     case 'creditos_bajos':
       return { Icon: Coins, bg: warnBg, color: COLORS.warning.text };
     case 'creditos_agotados':
+    case 'creditos_para_confirmar':
       return { Icon: Wallet, bg: dangerBg, color: danger };
     case 'pago_expirado':
       return { Icon: Clock, bg: dangerBg, color: danger };

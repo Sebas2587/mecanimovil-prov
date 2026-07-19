@@ -12,7 +12,10 @@ export function puedeUsarAsistenteIaEnOrden(params: {
   esSupervisor: boolean;
   miembroId: number | null;
   mecanicoAsignadoId?: number | null;
+  puedeServicios: boolean;
 }): boolean {
+  if (!params.puedeServicios) return false;
+
   const {
     esMecanicoEquipo,
     esProveedorDomicilio,
@@ -46,7 +49,10 @@ export function puedeUsarAsistenteIaEnCita(params: {
   esSupervisor: boolean;
   miembroId: number | null;
   citaMiembroTallerId?: number | null;
+  puedeServicios: boolean;
 }): boolean {
+  if (!params.puedeServicios) return false;
+
   const {
     esMecanicoEquipo,
     esProveedorDomicilio,

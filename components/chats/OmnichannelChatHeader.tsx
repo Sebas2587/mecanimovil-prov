@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
-import { ArrowLeft, CalendarPlus } from 'lucide-react-native';
+import { ArrowLeft, Sparkles } from 'lucide-react-native';
 import { ChannelBadge } from '@/components/chats/ChannelBadge';
 import { ChannelAvatar } from '@/components/chats/ChannelAvatar';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '@/app/design-system/tokens';
@@ -11,15 +11,15 @@ import { withWebLineHeight } from '@/utils/webTypography';
 const I = COLORS.institutional;
 const GLASS_INSET = SPACING.md;
 const TITLE = withWebLineHeight(TYPOGRAPHY.styles.h4);
+const ACTION_LABEL = withWebLineHeight(TYPOGRAPHY.styles.captionBold);
 
-type Props = {
+type HeaderProps = {
   channel: ChannelSlug;
   displayName: string;
   hasKnownChannel: boolean;
   isMetaPending: boolean;
   paddingTop: number;
   onBack: () => void;
-  onAgendarPress: () => void;
 };
 
 function OmnichannelChatHeaderComponent({
@@ -29,8 +29,7 @@ function OmnichannelChatHeaderComponent({
   isMetaPending,
   paddingTop,
   onBack,
-  onAgendarPress,
-}: Props) {
+}: HeaderProps) {
   const badge = useMemo(() => {
     if (isMetaPending && !hasKnownChannel) {
       return (
@@ -60,14 +59,44 @@ function OmnichannelChatHeaderComponent({
         </View>
       </View>
 
-      <TouchableOpacity onPress={onAgendarPress} style={styles.sideBtn} accessibilityLabel="Agendar cita">
-        <CalendarPlus size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-      </TouchableOpacity>
+      <View style={styles.sideBtn} />
     </View>
   );
 }
 
+type ActionBarProps = {
+  onPress: () => void;
+  cotizacionAceptada?: boolean;
+};
+
+function OmnichannelChatActionBarComponent({ onPress, cotizacionAceptada }: ActionBarProps) {
+  return (
+    <TouchableOpacity
+      style={[styles.actionBar, cotizacionAceptada && styles.actionBarAccepted]}
+      onPress={onPress}
+      activeOpacity={0.88}
+      accessibilityRole="button"
+      accessibilityLabel={
+        cotizacionAceptada
+          ? 'Cotización aceptada, agendar cita'
+          : 'Agendar cita y cotizar con IA'
+      }
+    >
+      <Sparkles size={18} color={cotizacionAceptada ? I.onPrimary : I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+      <Text
+        style={[styles.actionBarText, cotizacionAceptada && styles.actionBarTextOnPrimary]}
+        numberOfLines={2}
+      >
+        {cotizacionAceptada
+          ? 'Cotización aceptada — toca para agendar la cita'
+          : 'Agendar cita · Cotizar con IA'}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 export const OmnichannelChatHeader = memo(OmnichannelChatHeaderComponent);
+export const OmnichannelChatActionBar = memo(OmnichannelChatActionBarComponent);
 
 const styles = StyleSheet.create({
   header: {
@@ -128,5 +157,31 @@ const styles = StyleSheet.create({
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginHorizontal: SPACING.container.horizontal,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 14,
+    backgroundColor: I.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.primary,
+  },
+  actionBarAccepted: {
+    backgroundColor: I.primary,
+    borderColor: I.primary,
+  },
+  actionBarText: {
+    ...ACTION_LABEL,
+    flex: 1,
+    color: I.ink,
+  },
+  actionBarTextOnPrimary: {
+    color: I.onPrimary,
   },
 });

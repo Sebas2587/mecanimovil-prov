@@ -1,31 +1,28 @@
 /**
- * Tipografía — App Proveedores (DESIGN_PROVEEDORES_INSTITUCIONAL.md)
- * Inter sustituto sans; JetBrains Mono para tabular.
- * Carga real en app/_layout.tsx (@expo-google-fonts).
- *
- * IMPORTANTE: Sin lógica condicional (Hermes).
+ * Tipografía — App Proveedores (Airbnb Hosts + Poppins)
+ * Carga en app/_layout.tsx (@expo-google-fonts/poppins).
  */
 
 export const TYPOGRAPHY = {
   fontFamily: {
-    sansRegular: 'Inter_400Regular',
-    sansMedium: 'Inter_500Medium',
-    sansSemiBold: 'Inter_600SemiBold',
-    sansBold: 'Inter_700Bold',
+    sansRegular: 'Poppins_400Regular',
+    sansMedium: 'Poppins_500Medium',
+    sansSemiBold: 'Poppins_600SemiBold',
+    sansBold: 'Poppins_600SemiBold',
     monoMedium: 'JetBrainsMono_500Medium',
-    regular: 'Inter_400Regular',
-    medium: 'Inter_500Medium',
-    bold: 'Inter_700Bold',
+    regular: 'Poppins_400Regular',
+    medium: 'Poppins_500Medium',
+    bold: 'Poppins_600SemiBold',
   },
   fontSize: {
-    xs: 10,
+    xs: 11,
     sm: 12,
     base: 14,
-    md: 16,
-    lg: 18,
+    md: 15,
+    lg: 17,
     xl: 20,
     '2xl': 24,
-    '3xl': 28,
+    '3xl': 30,
     '4xl': 32,
     '5xl': 36,
   },
@@ -34,7 +31,7 @@ export const TYPOGRAPHY = {
     regular: '400',
     medium: '500',
     semibold: '600',
-    bold: '700',
+    bold: '600',
   },
   lineHeight: {
     tight: 1.2,
@@ -51,43 +48,55 @@ export const TYPOGRAPHY = {
   },
   styles: {
     display: {
-      fontSize: 28,
-      fontWeight: '400',
-      lineHeight: 1.13,
-      letterSpacing: -0.35,
+      fontSize: 30,
+      fontWeight: '600',
+      lineHeight: 1.2,
+      letterSpacing: -0.3,
     },
     h1: {
-      fontSize: 28,
-      fontWeight: '400',
-      lineHeight: 1.13,
-      letterSpacing: -0.35,
+      fontSize: 30,
+      fontWeight: '600',
+      lineHeight: 1.2,
+      letterSpacing: -0.3,
     },
     h2: {
       fontSize: 24,
-      fontWeight: '400',
-      lineHeight: 1.15,
-      letterSpacing: -0.3,
+      fontWeight: '600',
+      lineHeight: 1.25,
+      letterSpacing: -0.2,
     },
     h3: {
       fontSize: 20,
       fontWeight: '600',
-      lineHeight: 1.33,
+      lineHeight: 1.3,
       letterSpacing: 0,
     },
     h4: {
-      fontSize: 18,
+      fontSize: 17,
       fontWeight: '600',
-      lineHeight: 1.33,
+      lineHeight: 1.35,
       letterSpacing: 0,
     },
+    h5: {
+      fontSize: 15,
+      fontWeight: '500',
+      lineHeight: 1.4,
+      letterSpacing: 0,
+    },
+    h6: {
+      fontSize: 13,
+      fontWeight: '500',
+      lineHeight: 1.4,
+      letterSpacing: 0.5,
+    },
     body: {
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: '400',
       lineHeight: 1.5,
       letterSpacing: 0,
     },
     bodyBold: {
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: '600',
       lineHeight: 1.5,
       letterSpacing: 0,
@@ -99,21 +108,21 @@ export const TYPOGRAPHY = {
       letterSpacing: 0,
     },
     captionBold: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '600',
       lineHeight: 1.5,
       letterSpacing: 0,
     },
     small: {
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '400',
-      lineHeight: 1.5,
+      lineHeight: 1.45,
       letterSpacing: 0,
     },
     button: {
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: '600',
-      lineHeight: 1.15,
+      lineHeight: 1.2,
       letterSpacing: 0,
     },
     navLink: {
@@ -129,13 +138,12 @@ export const TYPOGRAPHY = {
       letterSpacing: 0,
     },
     label: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '500',
       lineHeight: 1.4,
-      letterSpacing: 0,
+      letterSpacing: 0.5,
     },
   },
 } as const;
 
 export default TYPOGRAPHY;
-

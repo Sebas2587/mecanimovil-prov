@@ -9,7 +9,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -34,9 +34,13 @@ import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { institutionalCardStyles } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
+import { BottomSheet } from '@/design-system/components/BottomSheet';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { OrigenOrdenBadge } from '@/components/ordenes/OrigenOrdenBadge';
+import type { OrigenOrden } from '@/utils/ordenProveedorUnificada';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const I = COLORS.institutional;
@@ -140,9 +144,6 @@ const AgendaEventCard = React.memo(function AgendaEventCard({
   const precio = evento.precio_referencia
     ? formatearMontoCLP(evento.precio_referencia)
     : '';
-  const esPersonal = evento.origen === 'personal';
-  const badgeBg = esPersonal ? withOpacity(I.primary, 0.12) : withOpacity(I.semanticUp, 0.12);
-  const badgeText = esPersonal ? I.primaryActive : I.semanticUp;
 
   return (
     <TouchableOpacity
@@ -155,11 +156,7 @@ const AgendaEventCard = React.memo(function AgendaEventCard({
           <Text style={styles.orderListCardTitle} numberOfLines={2}>
             {nombreServicio}
           </Text>
-          <View style={[styles.origenBadge, { backgroundColor: badgeBg }]}>
-            <Text style={[styles.origenBadgeText, { color: badgeText }]}>
-              {evento.etiqueta}
-            </Text>
-          </View>
+          <OrigenOrdenBadge origen={evento.origen as OrigenOrden} />
         </View>
 
         <Text style={styles.orderListCardDate}>
@@ -216,6 +213,7 @@ export default function CalendarioScreen() {
 
   const [fechaSeleccionada, setFechaSeleccionada] = useState<Date>(() => startOfDay(new Date()));
   const [mesActual, setMesActual] = useState(() => startOfDay(new Date()));
+  const [agendarOpcionesVisible, setAgendarOpcionesVisible] = useState(false);
   const [agendarModalVisible, setAgendarModalVisible] = useState(false);
 
   const {
@@ -387,8 +385,18 @@ export default function CalendarioScreen() {
       );
       return;
     }
+    setAgendarOpcionesVisible(true);
+  }, [puedeAgendarEnSeleccion]);
+
+  const handleAgendarPersonal = useCallback(() => {
+    setAgendarOpcionesVisible(false);
     setAgendarModalVisible(true);
-  }, [fechaSeleccionada, puedeAgendarEnSeleccion]);
+  }, []);
+
+  const handleVerSolicitudesDisponibles = useCallback(() => {
+    setAgendarOpcionesVisible(false);
+    router.push('/solicitudes-disponibles');
+  }, []);
 
   const formatearFechaCompleta = (fecha: Date): string => {
     return fecha.toLocaleDateString('es-CL', {
@@ -412,12 +420,10 @@ export default function CalendarioScreen() {
   }, [queryClient]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <TabScreenWrapper>
       <Header
-        title="Calendario"
-        showBack
-        onBackPress={() => router.back()}
-        backgroundColor={I.canvas}
+        title="Agenda"
+        backgroundColor={COLORS.background.default}
         titleColor={I.ink}
       />
 
@@ -452,7 +458,7 @@ export default function CalendarioScreen() {
                   </Text>
                   <InstitutionalButton
                     label="Hoy"
-                    variant="primary"
+                    variant="outline"
                     size="compact"
                     onPress={irAHoy}
                     style={styles.todayButton}
@@ -523,11 +529,29 @@ export default function CalendarioScreen() {
           onPress={handleAgendarCita}
           activeOpacity={0.88}
           accessibilityRole="button"
-          accessibilityLabel="Agendar cita personal"
+          accessibilityLabel="Agendar cita"
         >
           <InstitutionalIcon name="add" size={28} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
       )}
+
+      <BottomSheet visible={agendarOpcionesVisible} onClose={() => setAgendarOpcionesVisible(false)}>
+        <Text style={styles.agendarSheetTitle}>¿Qué quieres agendar?</Text>
+        <Text style={styles.agendarSheetSubtitle}>
+          Elige una cita personal o revisa solicitudes Mecanimovil disponibles.
+        </Text>
+        <InstitutionalButton
+          label="Cita personal"
+          onPress={handleAgendarPersonal}
+          style={styles.agendarSheetBtn}
+        />
+        <InstitutionalButton
+          label="Ver solicitudes disponibles"
+          variant="secondary"
+          onPress={handleVerSolicitudesDisponibles}
+          style={styles.agendarSheetBtn}
+        />
+      </BottomSheet>
 
       <AgendarDesdeCanalModal
         visible={agendarModalVisible}
@@ -535,7 +559,7 @@ export default function CalendarioScreen() {
         initialFecha={formatDateApi(fechaSeleccionada)}
         subtitle={`Cita para ${formatearFechaCompleta(fechaSeleccionada)}`}
       />
-    </SafeAreaView>
+    </TabScreenWrapper>
   );
 }
 
@@ -544,7 +568,7 @@ const hx = SPACING.container.horizontal;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: COLORS.background.default,
   },
   scrollView: {
     flex: 1,
@@ -594,7 +618,8 @@ const styles = StyleSheet.create({
   },
   todayButton: {
     alignSelf: 'center',
-    minHeight: 32,
+    /** Chip de navegación (no CTA primario); más compacto que el botón de acción */
+    minHeight: 36,
     paddingVertical: SPACING.fixed.xxs,
     paddingHorizontal: SPACING.fixed.md,
   },
@@ -639,19 +664,19 @@ const styles = StyleSheet.create({
     opacity: 0.32,
   },
   calendarDayToday: {
-    backgroundColor: COLORS.primary[50],
-    borderWidth: 2,
-    borderColor: I.primary,
+    backgroundColor: COLORS.selection.background,
+    borderWidth: BORDERS.width.thin,
+    borderColor: COLORS.selection.border,
   },
   calendarDaySelected: {
-    backgroundColor: COLORS.primary[100],
-    borderWidth: 2,
-    borderColor: I.primary,
+    backgroundColor: COLORS.selection.backgroundStrong,
+    borderWidth: BORDERS.width.thin,
+    borderColor: COLORS.selection.border,
   },
   calendarDayWithOrders: {
-    backgroundColor: withOpacity(I.semanticUp, 0.12),
+    backgroundColor: withOpacity(I.semanticUp, 0.1),
     borderWidth: BORDERS.width.thin,
-    borderColor: I.semanticUp,
+    borderColor: withOpacity(I.semanticUp, 0.35),
   },
   calendarDayText: {
     fontSize: TYPOGRAPHY.fontSize.base,
@@ -665,11 +690,11 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   calendarDayTextToday: {
-    color: I.primary,
+    color: COLORS.selection.text,
     fontFamily: FF.sansBold,
   },
   calendarDayTextSelected: {
-    color: I.ink,
+    color: COLORS.selection.text,
     fontFamily: FF.sansBold,
   },
   calendarDayTextWithOrders: {
@@ -812,5 +837,20 @@ const styles = StyleSheet.create({
     ...SHADOWS.editorial,
     borderWidth: BORDERS.width.thin,
     borderColor: withOpacity(I.primary, 0.2),
+  },
+  agendarSheetTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    marginBottom: SPACING.fixed.xs,
+  },
+  agendarSheetSubtitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginBottom: SPACING.fixed.lg,
+  },
+  agendarSheetBtn: {
+    marginBottom: SPACING.fixed.sm,
   },
 });

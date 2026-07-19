@@ -185,12 +185,9 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      {oferta.es_oferta_secundaria && (
-        <View style={styles.badgeSecundaria}>
-          <InstitutionalIcon name="add-circle" size={14} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.badgeSecundariaText}>SERVICIO ADICIONAL</Text>
-        </View>
-      )}
+      {oferta.es_oferta_secundaria ? (
+        <InstitutionalTag label="Servicio adicional" variant="primary" size="sm" style={styles.badgeSecundaria} />
+      ) : null}
 
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -414,21 +411,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.sm,
   },
   badgeSecundaria: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: I.accentYellow,
-    paddingHorizontal: SPACING.fixed.xs,
-    paddingVertical: SPACING.fixed.xxs,
-    borderRadius: BORDERS.radius.sm,
     marginBottom: SPACING.fixed.sm,
-    gap: SPACING.fixed.xxs,
-    alignSelf: 'flex-start',
-  },
-  badgeSecundariaText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: I.onPrimary,
-    letterSpacing: 0.5,
   },
   header: {
     flexDirection: 'row',

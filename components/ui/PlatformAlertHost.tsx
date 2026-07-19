@@ -101,7 +101,7 @@ export function PlatformAlertHost() {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(10, 11, 13, 0.45)',
+    backgroundColor: COLORS.background.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.fixed.lg,
@@ -109,12 +109,12 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 420,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
+    backgroundColor: COLORS.background.paper,
+    borderRadius: BORDERS.radius.modal.xl,
     borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
+    borderColor: COLORS.border.light,
     padding: SPACING.fixed.lg,
-    ...SHADOWS.editorial,
+    ...SHADOWS.sm,
   },
   title: {
     fontSize: TYPOGRAPHY.fontSize.lg,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   btn: {
     paddingHorizontal: SPACING.fixed.md,
     paddingVertical: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.md,
     minWidth: 96,
     alignItems: 'center',
   },

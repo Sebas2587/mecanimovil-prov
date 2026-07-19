@@ -22,6 +22,7 @@ export type TipoAlerta =
   | 'suscripcion_vencida'
   | 'suscripcion_pago_fallido'
   | 'creditos_agotados'
+  | 'creditos_para_confirmar'
   | 'orden_asignada_mecanico'
   | 'checklist_pendiente';
 

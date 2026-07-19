@@ -8,12 +8,13 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { COLORS } from '@/app/design-system/tokens';
+import { COLORS, BORDERS, SPACING } from '@/app/design-system/tokens';
 import {
   institutionalButtonStyles,
   type InstitutionalButtonSize,
   type InstitutionalButtonVariant,
 } from '@/app/design-system/styles/institutionalButtons';
+import { PrimaryGradientFill } from '@/app/design-system/components/PrimaryGradientFill';
 
 const I = COLORS.institutional;
 
@@ -22,8 +23,24 @@ const spinnerColor: Record<InstitutionalButtonVariant, string> = {
   success: I.onPrimary,
   secondary: I.primary,
   outline: I.primary,
-  outlineAccent: I.primary,
+  outlineAccent: COLORS.brand.orange,
   destructiveOutline: I.semanticDown,
+};
+
+const sizeFill: Record<
+  InstitutionalButtonSize,
+  { minHeight: number; paddingVertical: number; paddingHorizontal: number }
+> = {
+  default: {
+    minHeight: 52,
+    paddingVertical: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.lg,
+  },
+  compact: {
+    minHeight: 48,
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.lg,
+  },
 };
 
 export type InstitutionalButtonProps = {
@@ -38,6 +55,9 @@ export type InstitutionalButtonProps = {
   style?: StyleProp<ViewStyle>;
 };
 
+/**
+ * Botón institucional. Primario = gradiente Tinder (magenta→naranja), como app usuarios.
+ */
 export function InstitutionalButton({
   label,
   onPress,
@@ -51,6 +71,51 @@ export function InstitutionalButton({
 }: InstitutionalButtonProps) {
   const isDisabled = disabled || loading;
   const styles = institutionalButtonStyles(variant, size, isDisabled);
+  const fill = sizeFill[size];
+
+  const content = loading ? (
+    <View style={rowCenter}>
+      <ActivityIndicator size="small" color={spinnerColor[variant]} />
+      <Text style={styles.text as TextStyle}>{label}</Text>
+    </View>
+  ) : (
+    <View style={rowCenter}>
+      {leading}
+      <Text style={styles.text as TextStyle} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+
+  if (variant === 'primary' && !isDisabled) {
+    return (
+      <Pressable
+        onPress={onPress}
+        disabled={isDisabled}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? label}
+        style={({ pressed }) => [
+          primaryShell,
+          { minHeight: fill.minHeight },
+          pressed && (styles.pressed as ViewStyle),
+          style,
+        ]}
+      >
+        <PrimaryGradientFill
+          style={[
+            primaryFill,
+            {
+              minHeight: fill.minHeight,
+              paddingVertical: fill.paddingVertical,
+              paddingHorizontal: fill.paddingHorizontal,
+            },
+          ]}
+        >
+          {content}
+        </PrimaryGradientFill>
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable
@@ -64,19 +129,32 @@ export function InstitutionalButton({
         style,
       ]}
     >
-      {loading ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <ActivityIndicator size="small" color={spinnerColor[variant]} />
-          <Text style={styles.text as TextStyle}>{label}</Text>
-        </View>
-      ) : (
-        <>
-          {leading}
-          <Text style={styles.text as TextStyle} numberOfLines={1}>
-            {label}
-          </Text>
-        </>
-      )}
+      {content}
     </Pressable>
   );
 }
+
+const rowCenter = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+  gap: 8,
+};
+
+const primaryShell: ViewStyle = {
+  borderRadius: BORDERS.radius.md,
+  overflow: 'hidden',
+  /** Fallback si el gradiente no pinta (web): magenta brand */
+  backgroundColor: I.primary,
+  borderWidth: 0,
+  borderColor: 'transparent',
+};
+
+const primaryFill = {
+  flex: 1,
+  width: '100%' as const,
+  alignSelf: 'stretch' as const,
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};

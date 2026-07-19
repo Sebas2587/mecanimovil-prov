@@ -33,7 +33,10 @@ import solicitudesService, {
 import equipoTallerService, { mecanicoCompatibleConTipoServicio } from '@/services/equipoTallerService';
 import { RechazarSolicitudModal } from '@/components/solicitudes/RechazarSolicitudModal';
 import { ProponerFechaCatalogoModal, type MecanicoPropuestaOption } from '@/components/solicitudes/ProponerFechaCatalogoModal';
+import { Sparkles } from 'lucide-react-native';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
+import { institutionalTagIconColor } from '@/app/design-system/styles/institutionalTags';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { obtenerMecanicosAptosAgenda } from '@/services/disponibilidadProveedorService';
 import {
@@ -51,7 +54,10 @@ import {
 import { calcularAlturaFooterEjecucion } from '@/utils/calcularAlturaFooterEjecucion';
 import { AsistenteDiagnosticoCard } from '@/components/orden-detalle/AsistenteDiagnosticoCard';
 import { useAuth } from '@/context/AuthContext';
+import { useAlerts } from '@/context/AlertsContext';
 import { puedeUsarAsistenteIaEnOrden } from '@/utils/asistenteIaPermisos';
+import { ModalCreditosInsuficientes } from '@/components/creditos';
+import type { VerificacionCreditosOferta } from '@/services/creditosService';
 
 const ESTADOS_EJECUCION_UI = new Set([
   'pendiente_creditos',
@@ -151,7 +157,8 @@ export default function SolicitudDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { esMecanicoEquipo, miembroId, estadoProveedor, esSupervisor, rolTaller } = useAuth();
+  const { esMecanicoEquipo, miembroId, estadoProveedor, esSupervisor, rolTaller, puede } = useAuth();
+  const { agregarAlerta } = useAlerts();
   const esProveedorDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
   const esMandanteTaller = rolTaller === 'mandante';
 
@@ -174,10 +181,14 @@ export default function SolicitudDetalleScreen() {
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
   const [rechazando, setRechazando] = useState(false);
   const [confirmandoCatalogo, setConfirmandoCatalogo] = useState(false);
+  const [liberandoReserva, setLiberandoReserva] = useState(false);
   const [mostrarModalFecha, setMostrarModalFecha] = useState(false);
   const [proponiendoFecha, setProponiendoFecha] = useState(false);
   const [fotoAmpliadaUrl, setFotoAmpliadaUrl] = useState<string | null>(null);
   const [mecanicosPropuesta, setMecanicosPropuesta] = useState<MecanicoPropuestaOption[]>([]);
+  const [modalCreditosVisible, setModalCreditosVisible] = useState(false);
+  const [verificacionCreditosConfirm, setVerificacionCreditosConfirm] =
+    useState<VerificacionCreditosOferta | null>(null);
 
   const recargarDetalle = useCallback(async () => {
     await refetchDetalle();
@@ -355,6 +366,17 @@ export default function SolicitudDetalleScreen() {
     esAsignacionCatalogo &&
     (miOferta?.estado === 'pendiente_confirmacion' || miOferta?.estado === 'en_chat');
 
+  const puedeServiciosIa = !esSupervisor || puede('servicios');
+  const ofertaEnBorrador = Boolean(
+    miOferta && ['enviada', 'vista', 'en_chat'].includes(miOferta.estado),
+  );
+  const mostrarCtaChatOferta =
+    puedeChatCatalogo
+    || miOferta?.estado === 'aceptada'
+    || miOferta?.estado === 'pagada'
+    || miOferta?.estado === 'pendiente_creditos'
+    || ofertaEnBorrador;
+
   useEffect(() => {
     if (!esAsignacionCatalogo) {
       setMecanicosPropuesta([]);
@@ -426,26 +448,68 @@ export default function SolicitudDetalleScreen() {
     tecnicoSolicitud,
   ]);
 
+  const abrirTiendaCreditos = useCallback((minCreditos: number) => {
+    router.push(`/creditos?tab=tienda&minCreditos=${Math.max(1, minCreditos)}`);
+  }, []);
+
   const ejecutarConfirmarCatalogo = async () => {
     if (!miOferta?.id) return;
     setConfirmandoCatalogo(true);
     try {
       const result = await solicitudesService.confirmarCatalogo(miOferta.id);
       if (result.success) {
-        const estado = (result.data as { estado_resultado?: string })?.estado_resultado;
         showAlert(
-          estado === 'esperando_creditos_proveedor'
-            ? 'Créditos insuficientes'
-            : 'Asignación confirmada',
-          estado === 'esperando_creditos_proveedor'
-            ? 'Debes acreditar créditos antes de que el cliente pueda pagar.'
-            : 'El cliente fue notificado y puede proceder al pago.',
+          'Asignación confirmada',
+          'El cliente fue notificado y puede proceder al pago.',
         );
         invalidateOrdenesYOfertas();
         void recargarDetalle();
-      } else {
-        showAlert('Error', result.error || 'No se pudo confirmar');
+        return;
       }
+
+      const errData = result.data as {
+        codigo?: string;
+        mensaje_ux?: string;
+        creditos_necesarios?: number;
+        saldo_actual?: number;
+        creditos_faltantes?: number;
+        error?: string;
+      } | undefined;
+
+      if (errData?.codigo === 'creditos_insuficientes') {
+        const necesarios = Number(errData.creditos_necesarios ?? 0);
+        const saldo = Number(errData.saldo_actual ?? 0);
+        const faltantes = Number(
+          errData.creditos_faltantes ?? Math.max(0, necesarios - saldo),
+        );
+        const verificacion: VerificacionCreditosOferta = {
+          puede_ofertar: false,
+          saldo_actual: saldo,
+          creditos_necesarios: necesarios,
+          creditos_faltantes: faltantes,
+          detalle_servicios: [],
+          mensaje: errData.mensaje_ux || errData.error || result.error || '',
+        };
+        setVerificacionCreditosConfirm(verificacion);
+        setModalCreditosVisible(true);
+        agregarAlerta({
+          tipo: 'creditos_para_confirmar',
+          titulo: 'Créditos insuficientes para confirmar',
+          mensaje:
+            errData.mensaje_ux
+            || `Te faltan ${faltantes} crédito(s). La asignación sigue pendiente: puedes comprar y reintentar, o rechazar.`,
+          accion: {
+            texto: 'Comprar créditos',
+            ruta: `/creditos?tab=tienda&minCreditos=${Math.max(1, faltantes || necesarios || 1)}`,
+          },
+          prioridad: 'alta',
+        });
+        // Hard-gate: no mutó estados; refrescar por si el banner local quedó desfasado.
+        void recargarDetalle();
+        return;
+      }
+
+      showAlert('Error', result.error || 'No se pudo confirmar');
     } finally {
       setConfirmandoCatalogo(false);
     }
@@ -541,6 +605,47 @@ export default function SolicitudDetalleScreen() {
     );
   };
 
+  const ejecutarLiberarReservaCreditos = async () => {
+    if (!miOferta?.id) return;
+    setLiberandoReserva(true);
+    try {
+      const isCatalogo = miOferta.origen === 'catalogo';
+      const result = isCatalogo
+        ? await solicitudesService.rechazarCatalogo(miOferta.id, 'Sin créditos para confirmar')
+        : await solicitudesService.liberarReservaCreditos(miOferta.id, 'Sin créditos para confirmar');
+      if (result.success) {
+        invalidateOrdenesYOfertas();
+        showAlert(
+          'Reserva liberada',
+          isCatalogo
+            ? 'La asignación se canceló. El cliente fue notificado.'
+            : 'Liberaste la reserva. El cliente puede elegir otra oferta.',
+        );
+        router.back();
+      } else {
+        showAlert('Error', result.error || 'No se pudo liberar la reserva');
+      }
+    } finally {
+      setLiberandoReserva(false);
+    }
+  };
+
+  const handleLiberarReservaCreditos = () => {
+    if (!miOferta?.id || liberandoReserva) return;
+    showAlertButtons(
+      'Liberar reserva',
+      'No comprarás créditos ahora. El cliente quedará libre para continuar con otro taller. ¿Confirmas?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Liberar',
+          style: 'destructive',
+          onPress: () => void ejecutarLiberarReservaCreditos(),
+        },
+      ],
+    );
+  };
+
   const handleRechazar = async (motivo: MotivoRechazo, detalle: string) => {
     if (!id) return;
     try {
@@ -615,7 +720,8 @@ export default function SolicitudDetalleScreen() {
 
   const footerReserve = useMemo(() => {
     if (tienePieDecisionCatalogo || (!miOferta && solicitud?.estado !== 'pendiente_confirmacion')) {
-      return 72 + footerBottomPad + SPACING.fixed.md;
+      /** InstitutionalButton default minHeight 52 + footer padding */
+      return 68 + footerBottomPad + SPACING.fixed.md;
     }
     if (showEjecucionFooter && miOferta) {
       return calcularAlturaFooterEjecucion({
@@ -728,66 +834,50 @@ export default function SolicitudDetalleScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.badgesContainer}>
-            <View
-              style={[
-                styles.metaBadge,
-                solicitud.urgencia === 'urgente'
-                  ? {
-                      backgroundColor: withOpacity(I.semanticDown, 0.12),
-                      borderColor: withOpacity(I.semanticDown, 0.35),
-                    }
-                  : {
-                      backgroundColor: I.surfaceStrong,
-                      borderColor: I.hairline,
-                    },
-              ]}
-            >
-              <InstitutionalIcon
-                name={solicitud.urgencia === 'urgente' ? 'priority-high' : 'schedule'}
-                size={16}
-                color={solicitud.urgencia === 'urgente' ? I.semanticDown : I.muted}
-                strokeWidth={ICON_STROKE_WIDTH}
-              />
-              <Text
-                style={[
-                  styles.metaBadgeText,
-                  { color: solicitud.urgencia === 'urgente' ? I.semanticDown : I.muted },
-                ]}
-              >
-                {solicitud.urgencia === 'urgente' ? 'Urgente' : 'Normal'}
-              </Text>
-            </View>
+            <InstitutionalTag
+              label={solicitud.urgencia === 'urgente' ? 'Urgente' : 'Normal'}
+              variant={solicitud.urgencia === 'urgente' ? 'error' : 'neutral'}
+              size="md"
+              leading={
+                <InstitutionalIcon
+                  name={solicitud.urgencia === 'urgente' ? 'priority-high' : 'schedule'}
+                  size={16}
+                  color={institutionalTagIconColor(
+                    solicitud.urgencia === 'urgente' ? 'error' : 'neutral',
+                  )}
+                  strokeWidth={ICON_STROKE_WIDTH}
+                />
+              }
+            />
 
-            <View
-              style={[
-                styles.metaBadge,
-                requiereRepuestos
-                  ? {
-                      backgroundColor: withOpacity(I.primary, 0.1),
-                      borderColor: withOpacity(I.primary, 0.28),
-                    }
-                  : {
-                      backgroundColor: withOpacity(I.accentYellow, 0.14),
-                      borderColor: withOpacity(I.accentYellow, 0.45),
-                    },
-              ]}
-            >
-              <InstitutionalIcon
-                name={requiereRepuestos ? 'build' : 'build-circle'}
-                size={16}
-                color={requiereRepuestos ? I.primary : I.body}
-                strokeWidth={ICON_STROKE_WIDTH}
-              />
-              <Text style={[styles.metaBadgeText, { color: requiereRepuestos ? I.primary : I.body }]}>
-                {requiereRepuestos ? 'Con repuestos' : 'Sin repuestos'}
-              </Text>
-            </View>
+            <InstitutionalTag
+              label={requiereRepuestos ? 'Con repuestos' : 'Sin repuestos'}
+              variant={requiereRepuestos ? 'primary' : 'warning'}
+              size="md"
+              leading={
+                <InstitutionalIcon
+                  name={requiereRepuestos ? 'build' : 'build-circle'}
+                  size={16}
+                  color={institutionalTagIconColor(requiereRepuestos ? 'primary' : 'warning')}
+                  strokeWidth={ICON_STROKE_WIDTH}
+                />
+              }
+            />
 
             {solicitud.tiempo_restante ? (
-              <View style={[styles.metaBadge, styles.metaBadgeNeutral]}>
-                <InstitutionalIcon name="access-time" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[styles.metaBadgeText, { color: I.muted }]}>{solicitud.tiempo_restante}</Text>
-              </View>
+              <InstitutionalTag
+                label={solicitud.tiempo_restante}
+                variant="neutral"
+                size="md"
+                leading={
+                  <InstitutionalIcon
+                    name="access-time"
+                    size={16}
+                    color={institutionalTagIconColor('neutral')}
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
+                }
+              />
             ) : null}
           </View>
 
@@ -923,6 +1013,7 @@ export default function SolicitudDetalleScreen() {
               esSupervisor,
               miembroId,
               mecanicoAsignadoId: miOferta.miembro_taller_asignado,
+              puedeServicios: puedeServiciosIa,
             }) ? (
               <View style={styles.section}>
                 <AsistenteDiagnosticoCard origen="orden" entityId={miOferta.solicitud_servicio_id} habilitado />
@@ -1073,16 +1164,26 @@ export default function SolicitudDetalleScreen() {
                     minimumFractionDigits: 0,
                   })}
                 </Text>
-                {puedeChatCatalogo ||
-                miOferta.estado === 'aceptada' ||
-                miOferta.estado === 'pagada' ? (
+                {mostrarCtaChatOferta ? (
                   <TouchableOpacity
                     style={styles.chatButton}
                     onPress={() => router.push(`/chat-oferta/${miOferta.id}`)}
                     activeOpacity={0.85}
                   >
                     <InstitutionalIcon name="chat" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.chatButtonText}>Ver chat con cliente</Text>
+                    <View style={styles.chatButtonTextWrap}>
+                      <Text style={styles.chatButtonText}>
+                        {ofertaEnBorrador && puedeServiciosIa
+                          ? 'Abrir chat y cotizar'
+                          : 'Ver chat con cliente'}
+                      </Text>
+                      {ofertaEnBorrador && puedeServiciosIa ? (
+                        <View style={styles.cotizaIaHint}>
+                          <Sparkles size={12} color={I.accentYellow} strokeWidth={2} />
+                          <Text style={styles.cotizaIaHintText}>Cotiza con IA</Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -1207,6 +1308,27 @@ export default function SolicitudDetalleScreen() {
           onTerminarServicio={ejecucion.handleTerminarServicio}
           onOpenChecklist={() => ejecucion.setShowChecklistContainer(true)}
           onOpenCompletedChecklist={() => ejecucion.setShowCompletedChecklistModal(true)}
+          onLiberarReservaCreditos={handleLiberarReservaCreditos}
+          liberandoReservaCreditos={liberandoReserva}
+        />
+
+        <ModalCreditosInsuficientes
+          visible={modalCreditosVisible}
+          onClose={() => setModalCreditosVisible(false)}
+          onComprarCreditos={() => {
+            const min =
+              verificacionCreditosConfirm?.creditos_faltantes
+              || verificacionCreditosConfirm?.creditos_necesarios
+              || 1;
+            setModalCreditosVisible(false);
+            abrirTiendaCreditos(min);
+          }}
+          verificacion={verificacionCreditosConfirm}
+          title="Créditos insuficientes"
+          message={
+            verificacionCreditosConfirm?.mensaje
+            || 'No tienes créditos suficientes para confirmar. La asignación sigue pendiente: puedes comprar y reintentar, o rechazar.'
+          }
         />
 
         <SolicitudDetalleChecklistCompletedModal
@@ -1292,24 +1414,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: SPACING.fixed.sm,
     marginBottom: SPACING.fixed.md,
-  },
-  metaBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: 6,
-    borderRadius: BORDERS.radius.pill,
-    borderWidth: BORDERS.width.thin,
-  },
-  metaBadgeNeutral: {
-    backgroundColor: I.surfaceStrong,
-    borderColor: I.hairline,
-  },
-  metaBadgeText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
   },
 
   section: {
@@ -1768,6 +1872,21 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
     lineHeight: lh(TS.button.fontSize, TS.button.lineHeight),
     color: I.onPrimary,
+  },
+  chatButtonTextWrap: {
+    alignItems: 'flex-start',
+    gap: 2,
+  },
+  cotizaIaHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  cotizaIaHintText: {
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansMedium,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
+    color: I.accentYellow,
   },
 
   serviciosAdicionalesHeader: {

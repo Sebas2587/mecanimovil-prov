@@ -118,10 +118,10 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.lg,
     marginBottom: SPACING.fixed.md,
     position: 'relative',
-    backgroundColor: I.canvas,
+    backgroundColor: COLORS.background.paper,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    ...SHADOWS.editorial,
+    ...SHADOWS.sm,
   },
   containerDestacado: {
     borderWidth: BORDERS.width.medium,

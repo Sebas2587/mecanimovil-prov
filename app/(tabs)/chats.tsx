@@ -7,11 +7,11 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
-  MessageCircle, Check, CheckCheck,
+  MessageCircle, Check, CheckCheck, Sparkles,
 } from 'lucide-react-native';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -28,9 +28,9 @@ import websocketService from '@/app/services/websocketService';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
 import { useChats } from '@/context/ChatsContext';
+import { attachmentPreviewLabel, getMessageAttachmentUri } from '@/utils/chatAttachmentMedia';
 import { useAuth } from '@/context/AuthContext';
-import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
 import { ChannelBadge } from '@/components/chats/ChannelBadge';
@@ -42,14 +42,54 @@ import {
   getChannelDisconnectedReason,
 } from '@/utils/omnichannelConnection';
 import type { CanalSlug } from '@/services/omnichannelService';
+import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
+import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
+import { SolicitudesDisponiblesContent } from '@/components/solicitudes/SolicitudesDisponiblesContent';
+import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
+import { useSolicitudesDisponiblesQuery } from '@/hooks/useSolicitudesDisponiblesQuery';
+import type { ChannelSlug } from '@/utils/channelVisuals';
+
+type MensajesTab = 'chats' | 'solicitudes';
+
+type AgendarContactoState = {
+  channel?: ChannelSlug;
+  contactName?: string;
+  contactPhone?: string | null;
+  conversationId?: string;
+  channelDisconnectedReason?: string | null;
+} | null;
 
 const I = COLORS.institutional;
 /** Jerarquía tipo Coinbase / doc proveedores — tamaños desde `TYPOGRAPHY.styles`. */
 const T = TYPOGRAPHY.styles;
 
+/** Chats de canal (WhatsApp/Messenger/…): sí cotizan con IA. App Mecanimovil (oferta): no. */
+function isCanalOmnichannelChat(item: {
+  kind?: string;
+  oferta_id?: string | null;
+  conversation_id?: string | null;
+}): boolean {
+  if (item.kind === 'omnichannel') return true;
+  if (item.oferta_id) return false;
+  return Boolean(item.conversation_id);
+}
+
 export default function ChatsScreen() {
   const { totalMensajesNoLeidos, actualizarTotal, decrementarNoLeidos } = useChats();
-  const { isAuthenticated, usuario } = useAuth();
+  const { isAuthenticated, usuario, estadoProveedor } = useAuth();
+  const { radarOportunidadesActivo, radarPreferenciaCargada } = useRadarOportunidades();
+  const params = useLocalSearchParams<{ intent?: string | string[] }>();
+  const intentParam = Array.isArray(params.intent) ? params.intent[0] : params.intent;
+  /** Desde Hoy → Cotizar con IA: solo canales, sin marketplace ni chats de app. */
+  const cotizarIaMode = intentParam === 'cotizar-ia';
+  const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
+  const solicitudesQueryEnabled =
+    cuentaAprobada
+    && radarPreferenciaCargada
+    && radarOportunidadesActivo
+    && !cotizarIaMode;
+  const { data: solicitudesDisponibles = [] } = useSolicitudesDisponiblesQuery(solicitudesQueryEnabled);
   const queryClient = useQueryClient();
   const invalidateChatInbox = useInvalidateChatInbox();
   const {
@@ -60,15 +100,71 @@ export default function ChatsScreen() {
   const { map: channelConnections, featureEnabled, refetch: refetchConnections } =
     useOmnichannelConnectionMap(isAuthenticated && Boolean(usuario));
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<MensajesTab>('chats');
+  const [agendarContacto, setAgendarContacto] = useState<AgendarContactoState>(null);
   const [chatHighlighted, setChatHighlighted] = useState<string | null>(null);
   const [deletingOfertaId, setDeletingOfertaId] = useState<string | null>(null);
 
-  const loading = isPending && chats.length === 0;
+  const canalChats = useMemo(
+    () => chats.filter(isCanalOmnichannelChat),
+    [chats],
+  );
+  const chatsVisibles = cotizarIaMode ? canalChats : chats;
+
+  const loading = isPending && chatsVisibles.length === 0;
+
+  useEffect(() => {
+    if (cotizarIaMode) setActiveTab('chats');
+  }, [cotizarIaMode]);
 
   const totalNoLeidos = useMemo(
     () => chats.reduce((sum, chat) => sum + (chat.mensajes_no_leidos || 0), 0),
     [chats],
   );
+
+  const mensajesTabs = useMemo(() => {
+    const chatsTab = {
+      key: 'chats' as const,
+      label: cotizarIaMode ? 'Canales' : 'Chats',
+      badge: cotizarIaMode
+        ? (canalChats.reduce((s, c) => s + (c.mensajes_no_leidos || 0), 0) || null)
+        : totalNoLeidos > 0
+          ? totalNoLeidos
+          : null,
+    };
+    if (cotizarIaMode) return [chatsTab];
+    return [
+      chatsTab,
+      {
+        key: 'solicitudes' as const,
+        label: 'Solicitudes',
+        badge: solicitudesDisponibles.length > 0 ? solicitudesDisponibles.length : null,
+      },
+    ];
+  }, [canalChats, cotizarIaMode, solicitudesDisponibles.length, totalNoLeidos]);
+
+  const abrirAgendarDesdeFila = useCallback((item: {
+    channel?: string;
+    conversation_id?: string;
+    otra_persona?: { nombre?: string; telefono?: string | null };
+  }) => {
+    const channelSlug = (item.channel || '') as ChannelSlug;
+    const channelDisconnectedReason = item.channel
+      ? getChannelDisconnectedReason(
+          channelConnections[channelSlug as CanalSlug],
+          channelSlug as CanalSlug,
+          featureEnabled,
+          'inbox',
+        )
+      : null;
+    setAgendarContacto({
+      channel: channelSlug || undefined,
+      contactName: item.otra_persona?.nombre,
+      contactPhone: item.otra_persona?.telefono ?? null,
+      conversationId: item.conversation_id ? String(item.conversation_id) : undefined,
+      channelDisconnectedReason,
+    });
+  }, [channelConnections, featureEnabled]);
 
   useEffect(() => {
     actualizarTotal(totalNoLeidos);
@@ -233,13 +329,9 @@ export default function ChatsScreen() {
             </Text>
           ) : null}
 
-          {!!vehiculoPill && (
-            <View style={styles.vehiclePill}>
-              <Text style={styles.vehiclePillText} numberOfLines={1}>
-                {vehiculoPill}
-              </Text>
-            </View>
-          )}
+          {!!vehiculoPill ? (
+            <InstitutionalTag label={vehiculoPill} variant="neutral" size="sm" />
+          ) : null}
 
           <View style={styles.chatMessageRow}>
             {ultimo_mensaje?.es_propio && (
@@ -255,7 +347,11 @@ export default function ChatsScreen() {
               style={[styles.chatMessage, hasUnread && !ultimo_mensaje?.es_propio && styles.chatMessageUnread]}
               numberOfLines={1}
             >
-              {ultimo_mensaje?.es_propio ? 'Tú: ' : ''}{ultimo_mensaje?.mensaje || 'Sin mensajes'}
+              {ultimo_mensaje?.es_propio ? 'Tú: ' : ''}
+              {ultimo_mensaje?.mensaje ||
+                (getMessageAttachmentUri(ultimo_mensaje)
+                  ? attachmentPreviewLabel(ultimo_mensaje)
+                  : 'Sin mensajes')}
             </Text>
             {hasUnread && (
               <View style={styles.unreadBadge}>
@@ -271,13 +367,26 @@ export default function ChatsScreen() {
 
     if (isOmnichannel && chatHref) {
       return (
-        <ChatInboxLinkRow
-          href={chatHref}
-          onPress={markReadIfNeeded}
-          highlighted={isHighlighted}
-        >
-          {cardBody}
-        </ChatInboxLinkRow>
+        <View style={styles.chatRowWithAction}>
+          <View style={styles.chatRowMain}>
+            <ChatInboxLinkRow
+              href={chatHref}
+              onPress={markReadIfNeeded}
+              highlighted={isHighlighted}
+            >
+              {cardBody}
+            </ChatInboxLinkRow>
+          </View>
+          <TouchableOpacity
+            style={styles.quickActionBtn}
+            onPress={() => abrirAgendarDesdeFila(item)}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Agendar cita y cotizar con IA"
+          >
+            <Sparkles size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+          </TouchableOpacity>
+        </View>
       );
     }
 
@@ -297,6 +406,7 @@ export default function ChatsScreen() {
 
     return <View style={styles.listItemFallback}>{cardBody}</View>;
   }, [
+    abrirAgendarDesdeFila,
     channelConnections,
     chatHighlighted,
     decrementarNoLeidos,
@@ -309,40 +419,57 @@ export default function ChatsScreen() {
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <View style={styles.emptyIconWrap}>
-        <MessageCircle size={48} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+        {cotizarIaMode ? (
+          <Sparkles size={48} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+        ) : (
+          <MessageCircle size={48} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+        )}
       </View>
-      <Text style={styles.emptyTitle}>Sin conversaciones</Text>
+      <Text style={styles.emptyTitle}>
+        {cotizarIaMode ? 'Sin chats de canal' : 'Sin conversaciones'}
+      </Text>
       <Text style={styles.emptySubtitle}>
-        Tus conversaciones con clientes aparecerán aquí
+        {cotizarIaMode
+          ? 'La cotización con IA es para WhatsApp, Messenger u otros canales. Las solicitudes de la app Mecanimovil ya traen servicios elegidos.'
+          : 'Tus conversaciones con clientes aparecerán aquí'}
       </Text>
     </View>
   );
 
   return (
     <TabScreenWrapper>
-      <LinearGradient
-        colors={BLANK_GLASS.gradient}
-        locations={BLANK_GLASS.gradientLocations}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={styles.gradient}
-      >
+      <View style={styles.screen}>
         <Header
-          title="Chats"
-          badge={totalMensajesNoLeidos > 0 ? totalMensajesNoLeidos : undefined}
+          title={cotizarIaMode ? 'Cotizar con IA' : 'Mensajes'}
+          badge={!cotizarIaMode && totalMensajesNoLeidos > 0 ? totalMensajesNoLeidos : undefined}
         />
 
-        {loading && chats.length === 0 ? (
+        {!cotizarIaMode ? (
+          <View style={styles.tabsWrap}>
+            <InstitutionalScreenTabs
+              tabs={mensajesTabs}
+              activeKey={activeTab}
+              onChange={setActiveTab}
+            />
+          </View>
+        ) : null}
+
+        {activeTab === 'solicitudes' && !cotizarIaMode ? (
+          <SolicitudesDisponiblesContent variant="embedded" />
+        ) : loading && chatsVisibles.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={I.primary} />
-            <Text style={styles.loadingText}>Cargando chats…</Text>
+            <Text style={styles.loadingText}>Cargando mensajes…</Text>
           </View>
         ) : (
           <FlatList
-            data={chats}
+            data={chatsVisibles}
             renderItem={renderChatItem}
             keyExtractor={(item) => String(item.conversation_id || item.oferta_id || item.kind)}
-            contentContainerStyle={[styles.listContainer, chats.length === 0 && styles.listContainerEmpty]}
+            contentContainerStyle={[
+              styles.listContainer,
+              chatsVisibles.length === 0 && styles.listContainerEmpty,
+            ]}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} colors={[I.primary]} />
             }
@@ -350,14 +477,28 @@ export default function ChatsScreen() {
             showsVerticalScrollIndicator={false}
           />
         )}
-      </LinearGradient>
+
+        <AgendarDesdeCanalModal
+          visible={Boolean(agendarContacto)}
+          onClose={() => setAgendarContacto(null)}
+          channel={agendarContacto?.channel}
+          contactName={agendarContacto?.contactName}
+          contactPhone={agendarContacto?.contactPhone}
+          conversationId={agendarContacto?.conversationId}
+          channelDisconnectedReason={agendarContacto?.channelDisconnectedReason}
+          onCotizacionEnviada={() => {
+            void refetch();
+          }}
+        />
+      </View>
     </TabScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
+  screen: {
     flex: 1,
+    backgroundColor: COLORS.background.default,
   },
   loadingContainer: {
     flex: 1,
@@ -374,7 +515,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flexGrow: 1,
-    paddingHorizontal: GLASS_INSET,
+    paddingHorizontal: SPACING.container.horizontal,
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.lg,
   },
@@ -382,22 +523,48 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  tabsWrap: {
+    paddingHorizontal: SPACING.container.horizontal,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.xs,
+  },
+  chatRowWithAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  chatRowMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  quickActionBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.canvas,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
 
   chatCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
+    borderRadius: BORDERS.radius.xl,
     paddingVertical: SPACING.sm + 2,
     paddingHorizontal: SPACING.md,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     ...SHADOWS.editorial,
     gap: SPACING.sm + 4,
   },
   chatCardHighlighted: {
-    backgroundColor: I.surfaceStrong,
-    borderColor: I.primary,
+    backgroundColor: COLORS.selection.background,
+    borderColor: COLORS.selection.border,
   },
   listItemFallback: {
     marginBottom: SPACING.sm,
@@ -447,24 +614,6 @@ const styles = StyleSheet.create({
     color: I.primary,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: T.captionBold.fontWeight as '600',
-  },
-  /** Coinbase-style small uppercase pill (section label) */
-  vehiclePill: {
-    alignSelf: 'flex-start',
-    marginTop: SPACING.xs,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.surfaceStrong,
-    maxWidth: '100%',
-  },
-  vehiclePillText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
-    textTransform: 'uppercase',
-    color: I.muted,
   },
   chatMessageRow: {
     flexDirection: 'row',

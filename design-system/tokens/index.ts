@@ -6,6 +6,7 @@
 
 // Exportaciones nombradas directas
 export { COLORS, withOpacity, getColorWithOpacity } from './colors';
+export { GRADIENTS } from './gradients';
 export { default as COLORS_DEFAULT } from './colors';
 
 export { TYPOGRAPHY } from './typography';

@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Platform, View, Text, StyleSheet } from 'react-native';
-import { Home, ClipboardList, MessageCircle, Settings } from 'lucide-react-native';
+import { Home, ClipboardList, MessageCircle, Calendar, Menu } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
@@ -13,7 +13,7 @@ import { COLORS } from '@/app/design-system/tokens/colors';
 import { platformShadow } from '@/app/design-system/tokens';
 import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
 
-const I = COLORS.institutional;
+const C = COLORS;
 
 export default function TabLayout() {
   const { isAuthenticated, isLoading, esMecanicoEquipo } = useAuth();
@@ -25,14 +25,11 @@ export default function TabLayout() {
     websocketService.setMecanicoEquipoSession(Boolean(esMecanicoEquipo));
   }, [esMecanicoEquipo]);
 
-  // Monitorear estado de autenticación y manejar conexión WebSocket
   useEffect(() => {
-    // Log solo en desarrollo (__DEV__), nunca en producción (APK)
     if (__DEV__) {
       console.log('🏠 TabLayout - Monitoreando autenticación:', { isAuthenticated, isLoading });
     }
 
-    // Solo navegar al login si ya terminó de cargar y no está autenticado
     if (!isLoading && !isAuthenticated) {
       if (__DEV__) {
         console.log('🚪 TabLayout - Usuario no autenticado, navegando al login');
@@ -42,7 +39,6 @@ export default function TabLayout() {
       router.replace('/(auth)/login');
     }
 
-    // WebSocket: radar de oportunidades (mandante) o sesión de mecánico de equipo
     if (!isLoading && isAuthenticated && radarPreferenciaCargada) {
       const mantenerWs = radarOportunidadesActivo || esMecanicoEquipo;
       if (mantenerWs) {
@@ -70,10 +66,8 @@ export default function TabLayout() {
     }
   }, [isAuthenticated, isLoading, radarOportunidadesActivo, radarPreferenciaCargada, esMecanicoEquipo]);
 
-  // Limpiar al desmontar
   useEffect(() => {
     return () => {
-      // Log solo en desarrollo
       if (__DEV__) {
         console.log('🧹 TabLayout - Desmontando, desconectando WebSocket y monitoreo de conexión');
       }
@@ -83,25 +77,27 @@ export default function TabLayout() {
   }, []);
 
   const tabH = Platform.OS === 'ios' ? 84 : 64;
+  const activeTint = C.icon.active;
+  const inactiveTint = C.tab.unselected;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: I.primary,
-        tabBarInactiveTintColor: I.muted,
+        tabBarActiveTintColor: activeTint,
+        tabBarInactiveTintColor: inactiveTint,
         headerShown: false,
         tabBarBackground: () => (
-          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: I.canvas }]} />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: C.background.paper }]} />
         ),
         tabBarStyle: {
-          backgroundColor: I.canvas,
+          backgroundColor: C.background.paper,
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: I.hairline,
+          borderTopColor: C.border.light,
           height: tabH + insets.bottom,
           paddingBottom: insets.bottom,
           paddingTop: 6,
           ...platformShadow({
-            shadowColor: COLORS.base.inkBlack,
+            shadowColor: C.text.primary,
             shadowOffset: { width: 0, height: -2 },
             shadowOpacity: Platform.OS === 'ios' ? 0.04 : 0.06,
             shadowRadius: 8,
@@ -110,7 +106,7 @@ export default function TabLayout() {
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+          fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
           marginTop: 2,
         },
         tabBarIconStyle: {
@@ -119,25 +115,14 @@ export default function TabLayout() {
         tabBarItemStyle: {
           paddingVertical: 2,
         },
-      }}>
-
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Inicio',
+          title: 'Hoy',
           tabBarIcon: ({ color, focused }) => (
-            <Home size={22} color={color} strokeWidth={focused ? 2.4 : 1.8} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="ordenes"
-        options={{
-          title: 'Órdenes',
-          href: esMecanicoEquipo ? null : undefined,
-          tabBarIcon: ({ color, focused }) => (
-            <ClipboardList size={22} color={color} strokeWidth={focused ? 2.4 : 1.8} />
+            <Home size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
           ),
         }}
       />
@@ -145,11 +130,11 @@ export default function TabLayout() {
       <Tabs.Screen
         name="chats"
         options={{
-          title: 'Chats',
+          title: 'Mensajes',
           href: esMecanicoEquipo ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
             <View style={tabStyles.iconWrap}>
-              <MessageCircle size={22} color={color} strokeWidth={focused ? 2.4 : 1.8} />
+              <MessageCircle size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
               {totalMensajesNoLeidos > 0 && (
                 <View style={tabStyles.badge}>
                   <Text style={tabStyles.badgeText}>
@@ -163,17 +148,38 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="calendario"
+        options={{
+          title: 'Agenda',
+          href: esMecanicoEquipo ? null : undefined,
+          tabBarIcon: ({ color, focused }) => (
+            <Calendar size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="ordenes"
+        options={{
+          title: 'Servicios',
+          href: esMecanicoEquipo ? null : undefined,
+          tabBarIcon: ({ color, focused }) => (
+            <ClipboardList size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="perfil"
         options={{
-          title: 'Configuración',
+          title: 'Menú',
           tabBarIcon: ({ color, focused }) => (
-            <Settings size={22} color={color} strokeWidth={focused ? 2.4 : 1.8} />
+            <Menu size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
           ),
         }}
       />
 
       <Tabs.Screen name="checklist-demo" options={{ href: null }} />
-      <Tabs.Screen name="calendario" options={{ href: null }} />
     </Tabs>
   );
 }
@@ -189,7 +195,7 @@ const tabStyles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: -10,
-    backgroundColor: COLORS.institutional.semanticDown,
+    backgroundColor: C.primary[500],
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -197,11 +203,11 @@ const tabStyles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: COLORS.institutional.canvas,
+    borderColor: C.background.paper,
   },
   badgeText: {
-    color: COLORS.institutional.onPrimary,
+    color: C.text.onPrimary,
     fontSize: 10,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
   },
-}); 
+});

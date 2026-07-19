@@ -128,7 +128,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { esMecanicoEquipo, miembroId, estadoProveedor, esSupervisor, rolTaller } = useAuth();
+  const { esMecanicoEquipo, miembroId, estadoProveedor, esSupervisor, rolTaller, puede } = useAuth();
   const esProveedorDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
   const esMandanteTaller = rolTaller === 'mandante';
   const scrollRef = useRef<ScrollView>(null);
@@ -572,6 +572,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     esSupervisor,
     miembroId,
     citaMiembroTallerId: cita.miembro_taller,
+    puedeServicios: !esSupervisor || puede('servicios'),
   });
 
   return (

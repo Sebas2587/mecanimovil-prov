@@ -14,7 +14,7 @@ import {
   Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
@@ -345,6 +345,13 @@ export default function GestionEquipoScreen() {
       )}
 
       <View style={styles.cardActions}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => router.push(`/configuracion-horarios?miembroId=${m.id}`)}
+        >
+          <InstitutionalIcon name="schedule" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+          <Text style={styles.actionBtnText}>Horarios</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.actionBtn} onPress={() => abrirEditar(m)}>
           <InstitutionalIcon name="create" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.actionBtnText}>Editar</Text>

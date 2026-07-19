@@ -122,9 +122,7 @@ export function useOfertaEjecucion(options: {
 
   const mostrarChatFijo =
     !!miOferta
-    && (miOferta.estado === 'en_chat'
-      || miOferta.estado === 'aceptada'
-      || miOferta.estado === 'pendiente_creditos')
+    && (miOferta.estado === 'en_chat' || miOferta.estado === 'aceptada')
     && solicitudActivaParaChat;
 
   const handleChecklistComplete = useCallback(() => {

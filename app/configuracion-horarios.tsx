@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { horariosAPI, type HorarioProveedor, type ConfiguracionSemanal } from '@/services/api';
 import { navigateBack } from '@/utils/navigateBack';
 import {
@@ -373,6 +373,7 @@ const NumberPicker = ({
 
 export default function ConfiguracionHorariosScreen() {
   const { estadoProveedor } = useAuth();
+  const { miembroId: miembroIdParam } = useLocalSearchParams<{ miembroId?: string }>();
   const insets = useSafeAreaInsets();
   const perfilKey = useMemo(
     () => estadoProveedorReloadKey(estadoProveedor ?? null),
@@ -411,6 +412,15 @@ export default function ConfiguracionHorariosScreen() {
     duracion_slot: 60,
     tiempo_descanso: 0,
   });
+
+  useEffect(() => {
+    if (!miembroIdParam) return;
+    const id = parseInt(String(miembroIdParam), 10);
+    if (!Number.isFinite(id)) return;
+    if (mecanicos.some((m) => m.id === id)) {
+      setMiembroSeleccionado(id);
+    }
+  }, [miembroIdParam, mecanicos]);
 
   const diasSemana = [
     { id: 0, nombre: 'Lunes', corto: 'Lun' },

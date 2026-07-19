@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
-import { CheckCheck, Check, Film, Music } from 'lucide-react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { CheckCheck, Check, FileText } from 'lucide-react-native';
 import { MensajeChat } from '@/services/solicitudesService';
 import ServerConfig from '@/services/serverConfig';
 import {
@@ -8,7 +8,12 @@ import {
   isChatAttachmentImage,
   isChatAttachmentVideo,
   resolveChatAttachmentUri,
+  getMessageAttachmentUri,
+  getMessageAttachmentMeta,
+  normalizeMessageText,
 } from '@/utils/chatAttachmentMedia';
+import { AudioMessageBubble } from '@/components/chats/AudioMessageBubble';
+import { VideoMessageBubble } from '@/components/chats/VideoMessageBubble';
 import { COLORS, TYPOGRAPHY, SHADOWS, BORDERS, SPACING, withOpacity } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
@@ -30,18 +35,16 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ mensaje, esPropio, onIma
     return date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const attachmentRaw = mensaje.archivo_adjunto ?? (mensaje as { attachment?: string | null }).attachment;
+  const attachmentRaw = getMessageAttachmentUri(mensaje);
+  const { mime, name } = getMessageAttachmentMeta(mensaje);
   const imageUri = resolveChatAttachmentUri(attachmentRaw, () =>
     ServerConfig.getInstance().getMediaURLSync()
   );
-  const showImage = !!attachmentRaw && isChatAttachmentImage(attachmentRaw);
-  const showVideo = !!attachmentRaw && !showImage && isChatAttachmentVideo(attachmentRaw);
-  const showAudio = !!attachmentRaw && !showImage && !showVideo && isChatAttachmentAudio(attachmentRaw);
+  const showImage = !!attachmentRaw && isChatAttachmentImage(attachmentRaw, mime, name);
+  const showVideo = !!attachmentRaw && !showImage && isChatAttachmentVideo(attachmentRaw, mime, name);
+  const showAudio = !!attachmentRaw && !showImage && !showVideo && isChatAttachmentAudio(attachmentRaw, mime, name);
   const showFileLink = !!attachmentRaw && !showImage && !showVideo && !showAudio && !!imageUri;
-
-  const openAttachment = () => {
-    if (imageUri) Linking.openURL(imageUri).catch(() => {});
-  };
+  const messageText = normalizeMessageText(mensaje.mensaje);
 
   return (
     <View style={[styles.container, esPropio ? styles.containerPropio : styles.containerOtro]}>
@@ -76,34 +79,25 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ mensaje, esPropio, onIma
         ) : null}
 
         {showVideo && imageUri ? (
-          <TouchableOpacity style={styles.mediaLink} onPress={openAttachment} activeOpacity={0.8}>
-            <Film size={16} color={esPropio ? I.onPrimary : I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[styles.mediaLinkText, esPropio ? styles.textPropio : styles.textOtro]}>
-              Ver video
-            </Text>
-          </TouchableOpacity>
+          <VideoMessageBubble uri={imageUri} esPropio={esPropio} />
         ) : null}
 
         {showAudio && imageUri ? (
-          <TouchableOpacity style={styles.mediaLink} onPress={openAttachment} activeOpacity={0.8}>
-            <Music size={16} color={esPropio ? I.onPrimary : I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[styles.mediaLinkText, esPropio ? styles.textPropio : styles.textOtro]}>
-              Reproducir audio
-            </Text>
-          </TouchableOpacity>
+          <AudioMessageBubble uri={imageUri} esPropio={esPropio} />
         ) : null}
 
         {showFileLink ? (
-          <TouchableOpacity style={styles.mediaLink} onPress={openAttachment} activeOpacity={0.8}>
+          <View style={styles.mediaLink}>
+            <FileText size={16} color={esPropio ? I.onPrimary : I.primary} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.mediaLinkText, esPropio ? styles.textPropio : styles.textOtro]}>
               Ver archivo
             </Text>
-          </TouchableOpacity>
+          </View>
         ) : null}
 
-        {mensaje.mensaje ? (
+        {messageText ? (
           <Text style={[styles.messageText, esPropio ? styles.textPropio : styles.textOtro]}>
-            {mensaje.mensaje}
+            {messageText}
           </Text>
         ) : null}
 

@@ -27,6 +27,9 @@ interface ModalCreditosInsuficientesProps {
   onClose: () => void;
   onComprarCreditos: () => void;
   verificacion: VerificacionCreditosOferta | null;
+  /** Copy opcional (p. ej. confirmar asignación vs crear oferta). */
+  title?: string;
+  message?: string;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -36,6 +39,8 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
   onClose,
   onComprarCreditos,
   verificacion,
+  title = 'Créditos insuficientes',
+  message = 'No tienes suficientes créditos para crear esta oferta.',
 }) => {
   const scaleAnim = React.useRef(new Animated.Value(0.9)).current;
   const opacityAnim = React.useRef(new Animated.Value(0)).current;
@@ -112,11 +117,11 @@ export const ModalCreditosInsuficientes: React.FC<ModalCreditosInsuficientesProp
           </View>
 
           <InstitutionalText role="h3" style={styles.title}>
-            Créditos Insuficientes
+            {title}
           </InstitutionalText>
 
           <InstitutionalText role="body" color="body" style={styles.message}>
-            No tienes suficientes créditos para crear esta oferta.
+            {message}
           </InstitutionalText>
 
           <View style={[styles.creditosResumen, { borderColor: I.hairline }]}>

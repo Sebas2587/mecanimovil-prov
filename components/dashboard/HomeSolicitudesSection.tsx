@@ -7,10 +7,14 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { Radar, Search, ChevronRight } from 'lucide-react-native';
+import { Radar, Inbox, ChevronRight } from 'lucide-react-native';
 import type { SolicitudPublica } from '@/services/solicitudesService';
 import { HomeRadarSolicitudItem } from '@/components/solicitudes/HomeRadarSolicitudItem';
-import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+
+const I = COLORS.institutional;
+const T = TYPOGRAPHY.styles;
 
 export type HomeSolicitudesSectionProps = {
   radarActivo: boolean;
@@ -33,11 +37,14 @@ function HomeSolicitudesSectionInner({
   onOpenDetail,
   onVerTodas,
 }: HomeSolicitudesSectionProps) {
-  const renderList = () => {
+  const count = solicitudes.length;
+  const urgentes = solicitudes.filter((s) => s.urgencia === 'urgente').length;
+
+  const renderBody = () => {
     if (!radarPreferenciaCargada || loadingSolicitudes) {
       return (
         <View style={styles.centered}>
-          <ActivityIndicator size="small" color={COLORS.institutional.primary} />
+          <ActivityIndicator size="small" color={I.primary} />
         </View>
       );
     }
@@ -45,26 +52,32 @@ function HomeSolicitudesSectionInner({
     if (!radarActivo) {
       return (
         <View style={styles.emptyState}>
-          <Radar size={20} color={COLORS.institutional.mutedSoft} strokeWidth={2} />
-          <Text style={styles.emptyTitle}>Radar apagado</Text>
-          <Text style={styles.emptySub}>
-            Activa la disponibilidad para recibir solicitudes aquí.
-          </Text>
+          <Radar size={18} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
+          <View style={styles.emptyTextCol}>
+            <Text style={styles.emptyTitle}>Radar apagado</Text>
+            <Text style={styles.emptySub}>
+              Actívalo para recibir pedidos de clientes Mecanimovil.
+            </Text>
+          </View>
         </View>
       );
     }
 
-    if (solicitudes.length === 0) {
+    if (count === 0) {
       return (
         <View style={styles.emptyState}>
-          <Search size={20} color={COLORS.institutional.mutedSoft} strokeWidth={2} />
-          <Text style={styles.emptyTitle}>Sin solicitudes por ahora</Text>
-          <Text style={styles.emptySub}>Te avisaremos cuando haya nuevas oportunidades.</Text>
+          <Inbox size={18} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
+          <View style={styles.emptyTextCol}>
+            <Text style={styles.emptyTitle}>Sin solicitudes nuevas</Text>
+            <Text style={styles.emptySub}>
+              Cuando un cliente publique un pedido compatible, aparece aquí.
+            </Text>
+          </View>
         </View>
       );
     }
 
-    const visibles = solicitudes.slice(0, 3);
+    const visibles = solicitudes.slice(0, 4);
 
     return (
       <View style={styles.list}>
@@ -73,13 +86,13 @@ function HomeSolicitudesSectionInner({
             key={solicitud.id}
             solicitud={solicitud}
             onOpenDetail={onOpenDetail}
-            isLast={index === visibles.length - 1 && solicitudes.length <= 3}
+            isLast={index === visibles.length - 1 && count <= 4}
           />
         ))}
-        {solicitudes.length > 3 ? (
-          <TouchableOpacity style={styles.seeAll} onPress={onVerTodas} activeOpacity={0.7}>
-            <Text style={styles.seeAllText}>Ver todas ({solicitudes.length})</Text>
-            <ChevronRight size={14} color={COLORS.institutional.primary} />
+        {count > 4 ? (
+          <TouchableOpacity style={styles.seeAll} onPress={onVerTodas} activeOpacity={0.75}>
+            <Text style={styles.seeAllText}>Ver todas ({count})</Text>
+            <ChevronRight size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -89,30 +102,56 @@ function HomeSolicitudesSectionInner({
   return (
     <View style={styles.section}>
       <View style={styles.headerRow}>
-        <View style={styles.headerTextCol}>
-          <Text style={styles.headerTitle}>Solicitudes disponibles</Text>
-          <Text style={styles.headerSub}>
-            {radarActivo ? 'Conectado — recibes nuevas oportunidades' : 'Activa para conectarte'}
-          </Text>
+        <View style={styles.titleBlock}>
+          <View style={styles.titleRow}>
+            <Text style={styles.headerTitle}>Solicitudes</Text>
+            {radarActivo && count > 0 ? (
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{count > 99 ? '99+' : count}</Text>
+              </View>
+            ) : null}
+          </View>
+          <View style={styles.statusInline}>
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: radarActivo ? I.semanticUp : I.mutedSoft },
+              ]}
+            />
+            <Text style={[styles.statusText, { color: radarActivo ? I.semanticUp : I.muted }]}>
+              {radarActivo ? 'Disponible' : 'Pausado'}
+            </Text>
+            {radarActivo && urgentes > 0 ? (
+              <Text style={styles.urgenteHint}>· {urgentes} urgentes</Text>
+            ) : null}
+          </View>
         </View>
+
         {radarSwitchLoading ? (
-          <ActivityIndicator size="small" color={COLORS.institutional.primary} />
+          <ActivityIndicator size="small" color={I.primary} />
         ) : (
           <Switch
             value={radarActivo}
             onValueChange={onToggleRadar}
             disabled={!radarPreferenciaCargada}
             trackColor={{
-              false: COLORS.institutional.hairlineSoft,
+              false: I.hairlineSoft,
               true: COLORS.primary[100],
             }}
-            thumbColor={
-              radarActivo ? COLORS.institutional.primary : COLORS.institutional.mutedSoft
-            }
+            thumbColor={radarActivo ? I.primary : I.mutedSoft}
+            accessibilityLabel={radarActivo ? 'Pausar radar' : 'Activar radar'}
           />
         )}
       </View>
-      {renderList()}
+
+      {renderBody()}
+
+      {radarActivo && count > 0 && count <= 4 ? (
+        <TouchableOpacity style={styles.footerLink} onPress={onVerTodas} activeOpacity={0.75}>
+          <Text style={styles.footerLinkText}>Ver bandeja completa</Text>
+          <ChevronRight size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -121,69 +160,122 @@ export const HomeSolicitudesSection = memo(HomeSolicitudesSectionInner);
 
 const styles = StyleSheet.create({
   section: {
-    gap: SPACING.fixed.md,
+    gap: SPACING.sm,
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.sm,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
   },
-  headerTextCol: {
+  titleBlock: {
     flex: 1,
     minWidth: 0,
+    gap: 4,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
   },
   headerTitle: {
-    fontSize: TYPOGRAPHY.fontSize['2xl'],
-    lineHeight: TYPOGRAPHY.fontSize['2xl'] * TYPOGRAPHY.lineHeight.tight,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    color: COLORS.institutional.ink,
-    letterSpacing: TYPOGRAPHY.letterSpacing.tight,
+    fontSize: T.h3.fontSize,
+    lineHeight: Math.round(T.h3.fontSize * T.h3.lineHeight),
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.h3.fontWeight as '600',
+    color: I.ink,
   },
-  headerSub: {
-    marginTop: SPACING.fixed.xxs,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    lineHeight: TYPOGRAPHY.fontSize.sm * TYPOGRAPHY.lineHeight.normal,
+  countBadge: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: '600',
+    color: I.onPrimary,
+  },
+  statusInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: '600',
+  },
+  urgenteHint: {
+    fontSize: T.caption.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    color: COLORS.institutional.muted,
+    color: I.semanticDown,
   },
   list: {
-    marginTop: SPACING.fixed.xxs,
+    marginTop: SPACING.xs,
   },
   centered: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: SPACING.fixed.lg,
+    paddingVertical: SPACING.lg,
   },
   emptyState: {
-    alignItems: 'center',
-    paddingVertical: SPACING.fixed.xl,
-    paddingHorizontal: SPACING.fixed.sm,
-    gap: SPACING.fixed.xs,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.xs,
+  },
+  emptyTextCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   emptyTitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    lineHeight: TYPOGRAPHY.fontSize.sm * TYPOGRAPHY.lineHeight.tight,
+    fontSize: T.h5.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    color: COLORS.institutional.body,
+    fontWeight: '600',
+    color: I.body,
   },
   emptySub: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    lineHeight: TYPOGRAPHY.fontSize.sm * TYPOGRAPHY.lineHeight.normal,
+    fontSize: T.small.fontSize,
+    lineHeight: Math.round(T.small.fontSize * T.small.lineHeight),
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    color: COLORS.institutional.muted,
-    textAlign: 'center',
+    color: I.muted,
   },
   seeAll: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: SPACING.fixed.sm,
-    paddingBottom: SPACING.fixed.xxs,
-    gap: SPACING.fixed.xxs,
+    justifyContent: 'flex-start',
+    paddingTop: SPACING.sm,
+    gap: 4,
   },
   seeAllText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontSize: T.captionBold.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    color: COLORS.institutional.primary,
+    fontWeight: '600',
+    color: I.primary,
+  },
+  footerLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 2,
+    paddingTop: SPACING.xs,
+  },
+  footerLinkText: {
+    fontSize: T.captionBold.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: '600',
+    color: I.primary,
   },
 });

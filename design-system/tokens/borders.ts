@@ -4,7 +4,7 @@
  */
 
 // Definir valores de radio base primero para evitar problemas de inicialización
-/** Radios alineados a DESIGN_PROVEEDORES_INSTITUCIONAL.md (card xl 24, inputs md 12, pill CTAs) */
+/** Radios Airbnb Hosts (card 16, sheet 24, button 12) */
 const RADIUS_BASE = {
   none: 0,
   xs: 4,

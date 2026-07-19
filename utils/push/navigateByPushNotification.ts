@@ -122,6 +122,7 @@ export function navigateByPushNotification(
     case 'suscripcion_vencida':
     case 'suscripcion_pago_fallido':
     case 'creditos_agotados':
+    case 'creditos_para_confirmar':
       router.push('/creditos');
       return true;
 

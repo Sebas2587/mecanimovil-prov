@@ -1,18 +1,18 @@
 import React from 'react';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
-import type { OrigenOrden } from '@/utils/ordenProveedorUnificada';
+import { origenOrdenPresentation, type OrigenOrden } from '@/utils/ordenProveedorUnificada';
 
 type Props = {
   origen: OrigenOrden;
 };
 
 export function OrigenOrdenBadge({ origen }: Props) {
-  const esPersonal = origen === 'personal';
+  const { label, tagVariant } = origenOrdenPresentation(origen);
 
   return (
     <InstitutionalTag
-      label={esPersonal ? 'Personal' : 'Mecanimovil'}
-      variant={esPersonal ? 'primary' : 'success'}
+      label={label}
+      variant={tagVariant}
       size="sm"
     />
   );

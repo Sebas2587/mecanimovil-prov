@@ -27,6 +27,7 @@ type Props = {
   paddingBottom?: number;
   stripAttached?: boolean;
   attachmentPreview?: ReactNode;
+  voiceSlot?: ReactNode;
 };
 
 function ChatMessageComposerComponent({
@@ -42,9 +43,11 @@ function ChatMessageComposerComponent({
   paddingBottom = SPACING.sm,
   stripAttached = false,
   attachmentPreview,
+  voiceSlot,
 }: Props) {
   const canInteract = editable && !sending;
   const canSend = canInteract && (Boolean(value.trim()) || hasAttachment);
+  const showVoice = canInteract && !canSend && voiceSlot;
   const showPlaceholder = canInteract ? placeholder : disabledPlaceholder;
 
   return (
@@ -92,18 +95,22 @@ function ChatMessageComposerComponent({
               : undefined
           }
         />
-        <TouchableOpacity
-          style={[styles.sendBtn, (!canSend || sending) && styles.sendBtnDisabled]}
-          onPress={onSend}
-          disabled={!canSend || sending}
-          accessibilityLabel="Enviar"
-        >
-          {sending ? (
-            <ActivityIndicator size="small" color={I.onPrimary} />
-          ) : (
-            <Send size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-          )}
-        </TouchableOpacity>
+        {showVoice ? (
+          voiceSlot
+        ) : (
+          <TouchableOpacity
+            style={[styles.sendBtn, (!canSend || sending) && styles.sendBtnDisabled]}
+            onPress={onSend}
+            disabled={!canSend || sending}
+            accessibilityLabel="Enviar"
+          >
+            {sending ? (
+              <ActivityIndicator size="small" color={I.onPrimary} />
+            ) : (
+              <Send size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

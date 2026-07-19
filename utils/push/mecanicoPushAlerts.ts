@@ -16,6 +16,7 @@ export const TIPOS_ALERTA_TALLER: TipoAlerta[] = [
   'suscripcion_vencida',
   'suscripcion_pago_fallido',
   'creditos_agotados',
+  'creditos_para_confirmar',
 ];
 
 function pickOrdenId(data: PushNotificationData): string | null {

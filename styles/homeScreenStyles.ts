@@ -8,8 +8,10 @@ import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
 import { SPACING } from '@/app/design-system/tokens/spacing';
 import { BORDERS } from '@/app/design-system/tokens/borders';
 
+/** Airbnb Hosts surfaces */
 export type HomeScreenPalette = {
   canvas: string;
+  paper: string;
   surfaceSoft: string;
   surfaceStrong: string;
   ink: string;
@@ -459,10 +461,10 @@ export function createHomeScreenStyles(
       gap: SPACING.fixed.sm,
       padding: SPACING.fixed.md,
       borderRadius: L.radiusCard,
-      backgroundColor: c.canvas,
+      backgroundColor: c.paper,
       borderWidth: 1,
       borderColor: c.hairline,
-      ...SHADOWS.editorial,
+      ...SHADOWS.sm,
       overflow: 'hidden',
     },
     mgmtCardTextCol: {

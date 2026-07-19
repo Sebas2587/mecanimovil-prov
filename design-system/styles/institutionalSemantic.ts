@@ -85,11 +85,11 @@ const lh = (fontSize: number, mult: number) => Math.round(fontSize * mult);
 
 export const institutionalCardStyles = StyleSheet.create({
   surface: {
-    backgroundColor: I.canvas,
+    backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    ...SHADOWS.editorial,
+    ...SHADOWS.sm,
   } satisfies ViewStyle,
   surfacePadding: {
     padding: SPACING.fixed.md,

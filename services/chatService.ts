@@ -1,6 +1,7 @@
 import { get, post } from './api';
 import { getItem } from '@/utils/authStorage';
 import ServerConfig from './serverConfig';
+import { appendChatFileToFormData } from '@/utils/chatAttachmentMedia';
 
 type WsPayload = Record<string, unknown>;
 
@@ -50,12 +51,13 @@ class ChatService {
       const token = await getItem('authToken');
       const baseURL = await ServerConfig.getInstance().getBaseURL();
       const formData = new FormData();
-      if (content.content) formData.append('content', content.content);
-      formData.append('attachment', {
+      const safeContent = typeof content.content === 'string' ? content.content : '';
+      if (safeContent) formData.append('content', safeContent);
+      await appendChatFileToFormData(formData, 'attachment', {
         uri: content.attachment.uri,
         name: content.attachment.name,
-        type: content.attachment.type,
-      } as unknown as Blob);
+        mimeType: content.attachment.type,
+      });
 
       const response = await fetch(
         `${baseURL}/chat/conversations/${conversationId}/send_message/`,

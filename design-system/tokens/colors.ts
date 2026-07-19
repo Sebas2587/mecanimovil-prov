@@ -1,285 +1,385 @@
 /**
  * Sistema de Colores MecaniMóvil — App Proveedores
- * Alineado a DESIGN_PROVEEDORES_INSTITUCIONAL.md (adaptación RN).
- * Roles semánticos: COLORS.institutional + escalas primary / semantic legacy.
+ * Paleta Tinder + superficies Airbnb Hosts.
+ * Roles semánticos: https://paletacolorpro.com/en/ui-ux-palette-guide
+ *
+ * `COLORS.institutional` mantiene aliases para cascada sin rewrite masivo.
  */
 
-/**
- * Aplica opacidad a un color hexadecimal
- * @param color - Color en formato hexadecimal (#RRGGBB)
- * @param opacity - Opacidad entre 0 y 1
- * @returns Color en formato rgba
- */
 export const withOpacity = (color: string, opacity: number): string => {
-  if (color.startsWith('#')) {
-    const hex = color.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-  }
-  return color;
+  if (typeof color !== 'string' || !color.startsWith('#')) return color;
+  const hex = color.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 };
 
-/**
- * Obtiene un color de la paleta con opacidad
- * @param path - Ruta al color (ej: 'primary.500')
- * @param opacity - Opacidad entre 0 y 1
- * @returns Color con opacidad
- */
 export const getColorWithOpacity = (path: string, opacity: number): string => {
   const keys = path.split('.');
   let color: any = COLORS;
   for (const key of keys) {
-    color = color[key];
-    if (!color) return '#000000';
+    color = color?.[key];
+    if (color == null) return '#3B3B3B';
   }
-  if (typeof color !== 'string') return '#000000';
+  if (typeof color !== 'string') return '#3B3B3B';
   return withOpacity(color, opacity);
 };
 
+const MAGENTA = '#FD2B7B';
+const ORANGE = '#FF7158';
+const INK = '#3B3B3B';
+const CANVAS = '#F9F9F9';
+const TONAL = '#F3F3F3';
+const TAB_MUTED = '#B8B8B8';
+const ICON_DEFAULT = '#757575';
+const SOFT = '#FFF0F5';
+const HAIRLINE = '#E8E8E8';
+const SUCCESS = '#0d9f6e';
+const ERROR = '#d93049';
+const WARNING = '#e6a817';
+
 export const COLORS = {
-  // ============================================
-  // TOKENS INSTITUCIONALES (referencia única de marca RN)
-  // ============================================
-  institutional: {
-    canvas: '#ffffff',
-    surfaceSoft: '#f7f7f7',
-    surfaceStrong: '#eef0f3',
-    surfaceDark: '#0a0b0d',
-    surfaceDarkElevated: '#16181c',
-    ink: '#0a0b0d',
-    body: '#5b616e',
-    muted: '#7c828a',
-    mutedSoft: '#a8acb3',
-    hairline: '#dee1e6',
-    hairlineSoft: '#eef0f3',
-    primary: '#0052ff',
-    primaryActive: '#003ecc',
-    primaryDisabled: '#a8b8cc',
-    onPrimary: '#ffffff',
-    onDark: '#ffffff',
-    onDarkSoft: '#a8acb3',
-    semanticUp: '#05b169',
-    semanticDown: '#cf202f',
-    accentYellow: '#f4b000',
-  },
-
-  // ============================================
-  // COLORES BASE (compat / referencia histórica)
-  // ============================================
-
   base: {
     white: '#FFFFFF',
-    inkBlack: '#0a0b0d',
-    deepSpaceBlue: '#003459',
-    cerulean: '#007EA7',
-    freshSky: '#00A8E8',
+    inkBlack: INK,
+    deepSpaceBlue: INK,
+    canvas: CANVAS,
+    soft: SOFT,
   },
 
-  // ============================================
-  // PRIMARIOS — azul institucional (#0052ff)
-  // ============================================
+  brand: {
+    magenta: MAGENTA,
+    orange: ORANGE,
+  },
+
+  warm: ORANGE,
+
+  /** Aliases legacy — mapeados a paleta Hosts/Tinder */
+  institutional: {
+    canvas: CANVAS,
+    surfaceSoft: TONAL,
+    surfaceStrong: '#E8E8E8',
+    surfaceDark: INK,
+    surfaceDarkElevated: '#2A2A2A',
+    ink: INK,
+    body: ICON_DEFAULT,
+    muted: TAB_MUTED,
+    mutedSoft: '#C4C4C4',
+    hairline: HAIRLINE,
+    hairlineSoft: TONAL,
+    primary: MAGENTA,
+    primaryActive: '#E01A66',
+    primaryDisabled: '#FFB8D4',
+    onPrimary: '#FFFFFF',
+    onDark: '#FFFFFF',
+    onDarkSoft: TAB_MUTED,
+    semanticUp: SUCCESS,
+    semanticDown: ERROR,
+    accentYellow: WARNING,
+  },
+
   primary: {
-    50: '#EEF3FF',
-    100: '#DDE8FF',
-    200: '#B8CFFF',
-    300: '#7AA8FF',
-    400: '#3D7FFF',
-    500: '#0052ff',
-    600: '#003ecc',
-    700: '#0030a3',
-    800: '#002080',
-    900: '#001866',
+    50: SOFT,
+    100: '#FFE0EC',
+    200: '#FFB8D4',
+    300: '#FF85B4',
+    400: '#FE528F',
+    500: MAGENTA,
+    600: '#E01A66',
+    700: '#C2185B',
+    800: '#9C1449',
+    900: '#701035',
   },
 
-  // ============================================
-  // SECUNDARIOS — apoyo neutro frío (sin competir con primario)
-  // ============================================
   secondary: {
-    50: '#F4F5F7',
-    100: '#E8EAEE',
-    200: '#D2D6DD',
-    300: '#AEB4BF',
-    400: '#8E96A3',
-    500: '#5b616e',
-    600: '#494e59',
-    700: '#383c44',
-    800: '#26292e',
-    900: '#141619',
+    50: '#FFF1F2',
+    100: '#FFE2E5',
+    200: '#FFC5CB',
+    300: '#FF9AA5',
+    400: '#FD6F7D',
+    500: '#FD5564',
+    600: '#E63D4F',
+    700: '#C22D3D',
+    800: '#9E2432',
+    900: '#7A1C27',
   },
 
-  // ============================================
-  // ACENTO — mismo voltaje que primario (enlaces / highlights)
-  // ============================================
   accent: {
-    50: '#EEF3FF',
-    100: '#DDE8FF',
-    200: '#B8CFFF',
-    300: '#7AA8FF',
-    400: '#3D7FFF',
-    500: '#0052ff',
-    600: '#003ecc',
-    700: '#0030a3',
-    800: '#002080',
-    900: '#001866',
+    50: '#FFF5F2',
+    100: '#FFE8E2',
+    200: '#FFD0C4',
+    300: '#FFB09A',
+    400: '#FF8F72',
+    500: ORANGE,
+    600: '#E85A40',
+    700: '#C44832',
+    800: '#9E3928',
+    900: '#782B1E',
   },
 
-  // ============================================
-  // COLORES NEUTROS (Ink Black + White)
-  // ============================================
   neutral: {
     white: '#FFFFFF',
-    inkBlack: '#0a0b0d',
+    inkBlack: INK,
     gray: {
-      50: '#f7f7f7',
-      100: '#eef0f3',
-      200: '#dee1e6',
-      300: '#c8ccd4',
-      400: '#a8acb3',
-      500: '#7c828a',
-      600: '#5b616e',
-      700: '#454951',
-      800: '#2f3238',
-      900: '#0a0b0d',
-      950: '#0a0b0d',
+      50: CANVAS,
+      100: TONAL,
+      200: HAIRLINE,
+      300: TAB_MUTED,
+      400: '#9E9E9E',
+      500: ICON_DEFAULT,
+      600: '#616161',
+      700: INK,
+      800: '#2A2A2A',
+      900: '#1A1A1A',
+      950: INK,
     },
   },
 
-  // ============================================
-  // COLORES SEMÁNTICOS
-  // Diseñados para armonizar con la paleta base
-  // ============================================
-
-  // SUCCESS — alineado a semantic-up institucional (#05b169)
   success: {
-    light: '#E8F8F0',
-    main: '#05b169',
-    dark: '#048f56',
-    darker: '#036b41',
-    text: '#02422a',
-    50: '#E8F8F0',
-    100: '#D1F0E1',
-    200: '#A3E1C3',
-    300: '#75D2A5',
-    400: '#47C387',
-    500: '#05b169',
-    600: '#048f56',
-    700: '#036b41',
-    800: '#02482c',
-    900: '#012418',
+    light: '#e6f7ef',
+    main: SUCCESS,
+    dark: '#0a7f58',
+    darker: '#075f42',
+    text: INK,
+    badge: '#e6f7ef',
+    badgeText: SUCCESS,
+    50: '#e6f7ef',
+    100: '#ccefdf',
+    200: '#99dfbf',
+    300: '#66cf9f',
+    400: '#33bf7f',
+    500: SUCCESS,
+    600: '#0a7f58',
+    700: '#075f42',
+    800: '#05402c',
+    900: '#032016',
   },
 
-  // WARNING - Amarillo suave con tinte dorado que no rompe la armonía
   warning: {
-    light: '#FFF8E6',      // Fondo muy claro
-    main: '#FFB84D',       // Amarillo dorado suave
-    dark: '#E6A044',       // Amarillo más oscuro
-    darker: '#CC883B',     // Amarillo muy oscuro
-    text: '#664422',       // Texto sobre warning
-    // Variaciones completas
-    50: '#FFF8E6',
-    100: '#FFF1CC',
-    200: '#FFE399',
-    300: '#FFD566',
-    400: '#FFC733',
-    500: '#FFB84D',  // Principal
-    600: '#E6A044',
-    700: '#CC883B',
-    800: '#B37032',
-    900: '#995829',
+    light: '#fff8e6',
+    main: WARNING,
+    dark: '#b88612',
+    darker: '#8a650d',
+    text: INK,
+    50: '#fff8e6',
+    100: '#fff1cc',
+    200: '#ffe399',
+    300: '#ffd566',
+    400: '#ffc733',
+    500: WARNING,
+    600: '#b88612',
+    700: '#8a650d',
+    800: '#5c4309',
+    900: '#2e2104',
   },
 
-  // ERROR — alineado a semantic-down institucional (#cf202f)
   error: {
-    light: '#FDECEC',
-    main: '#cf202f',
-    dark: '#a61a26',
-    darker: '#7d141d',
-    text: '#4a0b10',
-    50: '#FDECEC',
-    100: '#FBD5D8',
-    200: '#F7ABB1',
-    300: '#F3818A',
-    400: '#EF5763',
-    500: '#cf202f',
-    600: '#a61a26',
-    700: '#7d141d',
-    800: '#530e14',
-    900: '#2a070a',
+    light: '#fde8ea',
+    main: ERROR,
+    dark: '#ae263a',
+    darker: '#831c2b',
+    text: INK,
+    50: '#fde8ea',
+    100: '#fbd1d5',
+    200: '#f7a3ab',
+    300: '#f37581',
+    400: '#ef4757',
+    500: ERROR,
+    600: '#ae263a',
+    700: '#831c2b',
+    800: '#58121c',
+    900: '#2d090e',
   },
 
   info: {
-    light: '#EEF3FF',
-    main: '#0052ff',
-    dark: '#003ecc',
-    darker: '#0030a3',
-    text: '#001866',
-    50: '#EEF3FF',
-    100: '#DDE8FF',
-    200: '#B8CFFF',
-    300: '#7AA8FF',
-    400: '#3D7FFF',
-    500: '#0052ff',
-    600: '#003ecc',
-    700: '#0030a3',
-    800: '#002080',
-    900: '#001866',
+    light: SOFT,
+    main: MAGENTA,
+    dark: '#C2185B',
+    darker: '#9C1449',
+    text: INK,
+    badge: SOFT,
+    badgeText: MAGENTA,
+    50: SOFT,
+    100: '#FFE0EC',
+    200: '#FFB8D4',
+    300: '#FF85B4',
+    400: '#FE528F',
+    500: MAGENTA,
+    600: '#E01A66',
+    700: '#C2185B',
+    800: '#9C1449',
+    900: '#701035',
   },
 
-  // ============================================
-  // COLORES DE TEXTO
-  // ============================================
   text: {
-    primary: '#0a0b0d',
-    secondary: '#5b616e',
-    tertiary: '#7c828a',
-    disabled: '#a8acb3',
+    primary: INK,
+    secondary: ICON_DEFAULT,
+    tertiary: TAB_MUTED,
+    disabled: '#C4C4C4',
     inverse: '#FFFFFF',
-    hint: '#7c828a',
-    // Colores semánticos de texto
-    onPrimary: '#FFFFFF',      // Texto sobre primary
-    onSecondary: '#FFFFFF',     // Texto sobre secondary
-    onAccent: '#FFFFFF',       // Texto sobre accent
-    onSuccess: '#003D32',      // Texto sobre success
-    onWarning: '#664422',      // Texto sobre warning
-    onError: '#8B1A1A',        // Texto sobre error
-    onInfo: '#003344',         // Texto sobre info
+    hint: TAB_MUTED,
+    onPrimary: '#FFFFFF',
+    onSecondary: INK,
+    onAccent: '#FFFFFF',
+    onSuccess: INK,
+    onWarning: INK,
+    onError: '#FFFFFF',
+    onInfo: INK,
   },
 
-  // ============================================
-  // COLORES DE FONDO
-  // ============================================
   background: {
-    default: '#f7f7f7',
+    default: CANVAS,
     paper: '#FFFFFF',
     elevated: '#FFFFFF',
-    overlay: 'rgba(10, 11, 13, 0.58)',
-    glass: 'rgba(255, 255, 255, 0.7)', // Glassmorphism
-    glassDark: 'rgba(10, 11, 13, 0.72)',
-    // Fondos semánticos
-    success: '#E6F7F4',
-    warning: '#FFF8E6',
-    error: '#FFEBEE',
-    info: '#EEF3FF',
+    secondary: TONAL,
+    overlay: withOpacity(INK, 0.45),
+    glass: CANVAS,
+    glassDark: withOpacity(INK, 0.72),
+    success: '#e6f7ef',
+    warning: '#fff8e6',
+    error: '#fde8ea',
+    info: SOFT,
   },
 
-  // ============================================
-  // COLORES DE BORDE
-  // ============================================
   border: {
-    light: '#eef0f3',
-    main: '#dee1e6',
-    dark: '#c8ccd4',
-    focus: '#0052ff',
-    error: '#cf202f',
-    success: '#05b169',
+    light: HAIRLINE,
+    main: '#E0E0E0',
+    dark: TAB_MUTED,
+    focus: MAGENTA,
+    error: ERROR,
+    success: SUCCESS,
   },
 
-  // ============================================
-  // OPACIDADES PREDEFINIDAS
-  // Para uso con cualquier color
-  // ============================================
+  icon: {
+    default: ICON_DEFAULT,
+    active: ORANGE,
+    muted: TAB_MUTED,
+  },
+
+  tab: {
+    unselected: TAB_MUTED,
+    unselectedBg: TONAL,
+    selectedBg: '#FFFFFF',
+    selectedText: ORANGE,
+    selectedBorder: ORANGE,
+    selectedOnFill: '#FFFFFF',
+  },
+
+  buttonSecondary: {
+    background: TONAL,
+    backgroundPaper: '#FFFFFF',
+    text: INK,
+    border: HAIRLINE,
+    outline: ORANGE,
+    outlineText: ORANGE,
+  },
+
+  selection: {
+    background: SOFT,
+    backgroundStrong: '#FFE0EC',
+    border: '#FFB8D4',
+    text: '#C2185B',
+    icon: ORANGE,
+    fill: MAGENTA,
+    onFill: '#FFFFFF',
+  },
+
+  badge: {
+    especialista: {
+      background: '#FFF5F2',
+      border: '#FFD0C4',
+      text: '#C44832',
+      icon: ORANGE,
+    },
+    multimarca: {
+      background: TONAL,
+      border: HAIRLINE,
+      text: INK,
+      icon: ICON_DEFAULT,
+    },
+    verified: {
+      fill: MAGENTA,
+      onFill: '#FFFFFF',
+      icon: MAGENTA,
+      text: MAGENTA,
+      border: '#FFE0EC',
+    },
+    meta: {
+      background: TONAL,
+      border: HAIRLINE,
+      text: '#616161',
+      icon: ICON_DEFAULT,
+    },
+  },
+
+  payment: {
+    completo: {
+      background: '#FFF5F2',
+      border: '#FFD0C4',
+      text: '#C44832',
+      icon: ORANGE,
+    },
+    parcial: {
+      background: '#fff8e6',
+      border: '#ffe399',
+      text: '#5c4309',
+      icon: WARNING,
+    },
+    adicional: {
+      background: TONAL,
+      border: HAIRLINE,
+      text: '#616161',
+      icon: ICON_DEFAULT,
+    },
+    aprobado: {
+      background: '#e6f7ef',
+      border: '#99dfbf',
+      text: '#075f42',
+      icon: SUCCESS,
+    },
+  },
+
+  kpi: {
+    elite: {
+      background: '#FFF3C4',
+      border: '#E8B923',
+      text: '#7A5C00',
+      icon: '#C9A227',
+      highlight: '#FFD700',
+    },
+    master: {
+      background: '#EEF1F5',
+      border: '#B8C0CC',
+      text: '#3D4A5C',
+      icon: '#8A96A8',
+    },
+    pro: {
+      background: '#F6E8DC',
+      border: '#C9956C',
+      text: '#6B3E1F',
+      icon: '#A66B3D',
+    },
+    ascenso: {
+      background: '#FBF1E8',
+      border: '#DDB892',
+      text: '#8B5E3C',
+      icon: '#B8875A',
+    },
+    enProgreso: {
+      background: TONAL,
+      border: '#E0E0E0',
+      text: '#616161',
+      icon: ICON_DEFAULT,
+    },
+    sinActividad: {
+      background: CANVAS,
+      border: HAIRLINE,
+      text: TAB_MUTED,
+      icon: TAB_MUTED,
+    },
+  },
+
   opacity: {
     5: 0.05,
     10: 0.1,
@@ -294,72 +394,33 @@ export const COLORS = {
     95: 0.95,
   },
 
-  // ============================================
-  // EFECTOS GLASSMÓRFICOS
-  // Basados en la paleta para transparencia y calma
-  // ============================================
+  /** Deprecated — no glass in Hosts UI */
   glass: {
-    // Glass claro (sobre fondos oscuros)
-    light: {
-      background: 'rgba(255, 255, 255, 0.7)',
-      border: 'rgba(255, 255, 255, 0.2)',
-      shadow: 'rgba(0, 23, 31, 0.1)',
-    },
-    // Glass oscuro (sobre fondos claros)
-    dark: {
-      background: 'rgba(10, 11, 13, 0.72)',
-      border: 'rgba(255, 255, 255, 0.12)',
-      shadow: 'rgba(10, 11, 13, 0.25)',
-    },
-    accent: {
-      background: 'rgba(0, 82, 255, 0.78)',
-      border: 'rgba(255, 255, 255, 0.28)',
-      shadow: 'rgba(0, 82, 255, 0.22)',
-    },
-    primary: {
-      background: 'rgba(0, 62, 204, 0.82)',
-      border: 'rgba(255, 255, 255, 0.28)',
-      shadow: 'rgba(10, 11, 13, 0.28)',
-    },
+    light: { background: CANVAS, border: HAIRLINE, shadow: withOpacity(INK, 0.06) },
+    dark: { background: withOpacity(INK, 0.72), border: HAIRLINE, shadow: withOpacity(INK, 0.25) },
+    accent: { background: SOFT, border: '#FFB8D4', shadow: withOpacity(MAGENTA, 0.12) },
+    primary: { background: SOFT, border: '#FFB8D4', shadow: withOpacity(MAGENTA, 0.12) },
   },
 
-  // ============================================
-  // GRADIENTES
-  // Para efectos visuales que mantienen la armonía
-  // ============================================
   gradients: {
-    primary: ['#0052ff', '#003ecc'],
-    secondary: ['#eef0f3', '#ffffff'],
-    accent: ['#0052ff', '#05b169'],
-    ocean: ['#003ecc', '#0052ff', '#7AA8FF'],
-    sunset: ['#0052ff', '#f4b000'],
-    calm: ['#f7f7f7', '#ffffff'],
-    dark: ['#0a0b0d', '#16181c'],
+    primary: [MAGENTA, ORANGE],
+    secondary: [TONAL, '#FFFFFF'],
+    accent: [MAGENTA, ORANGE],
+    ocean: [MAGENTA, ORANGE, SOFT],
+    sunset: [MAGENTA, ORANGE],
+    calm: [CANVAS, '#FFFFFF'],
+    dark: [INK, '#2A2A2A'],
   },
 
-  // ============================================
-  // ESTADOS DE INTERACCIÓN
-  // ============================================
   states: {
-    hover: {
-      primary: '#003ecc',
-      secondary: '#494e59',
-      accent: '#003ecc',
-    },
-    pressed: {
-      primary: '#0030a3',
-      secondary: '#383c44',
-      accent: '#0030a3',
-    },
+    hover: { primary: '#E01A66', secondary: '#E63D4F', accent: '#E85A40' },
+    pressed: { primary: '#C2185B', secondary: '#C22D3D', accent: '#C44832' },
     disabled: {
-      background: '#eef0f3',
-      text: '#a8acb3',
-      border: '#dee1e6',
+      background: TONAL,
+      text: '#C4C4C4',
+      border: HAIRLINE,
     },
-    focus: {
-      ring: '#0052ff',
-      ringOpacity: 0.28,
-    },
+    focus: { ring: MAGENTA, ringOpacity: 0.25 },
   },
 } as const;
 

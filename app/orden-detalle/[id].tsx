@@ -37,7 +37,7 @@ const neutralStatus = institutionalStatusColors('neutral');
 
 export default function OrdenDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { esMecanicoEquipo, miembroId, estadoProveedor, esSupervisor, rolTaller } = useAuth();
+  const { esMecanicoEquipo, miembroId, estadoProveedor, esSupervisor, rolTaller, puede } = useAuth();
   const esProveedorDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
   const esMandanteTaller = rolTaller === 'mandante';
   const [orden, setOrden] = useState<Orden | null>(null);
@@ -518,6 +518,7 @@ export default function OrdenDetalleScreen() {
     esSupervisor,
     miembroId,
     mecanicoAsignadoId: orden.mecanico_asignado_id,
+    puedeServicios: !esSupervisor || puede('servicios'),
   });
 
   return (

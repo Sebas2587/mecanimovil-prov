@@ -10,15 +10,11 @@ interface TabScreenWrapperProps {
 
 export default function TabScreenWrapper({ children, style }: TabScreenWrapperProps) {
   const insets = useSafeAreaInsets();
-  const bgPaper = COLORS.background.paper;
-  
+  const bgCanvas = COLORS.background.default;
+
   return (
-    <SafeAreaView 
-      style={[
-        styles.container, 
-        { backgroundColor: bgPaper },
-        style
-      ]} 
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: bgCanvas }, style]}
       edges={['left', 'right']}
     >
       <View style={styles.content}>

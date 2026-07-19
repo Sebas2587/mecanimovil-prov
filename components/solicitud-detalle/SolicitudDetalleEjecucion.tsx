@@ -269,6 +269,22 @@ export function SolicitudDetalleEjecucion({
         ) : null}
       </View>
 
+      {miOferta.estado === 'pendiente_creditos' ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionHeaderTitle}>Comunicación</Text>
+          <View style={styles.serviceActionsContainer}>
+            <TouchableOpacity
+              style={styles.chatButton}
+              onPress={() => router.push(`/chat-oferta/${miOferta.id}`)}
+              activeOpacity={0.85}
+            >
+              <InstitutionalIcon name="chat" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.chatButtonText}>Abrir Chat con Cliente</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
       {enEjecucionAbierto ? (
         <View style={styles.section}>
           <Text style={styles.sectionHeaderTitle}>Servicio en ejecución</Text>

@@ -25,7 +25,8 @@ import {
 } from '@/components/solicitudes/CatalogoFechaHoraPickers';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
   agendaProveedorService,
@@ -40,7 +41,7 @@ import { esRangoHorarioValido, calcularDuracionMinutos } from '@/utils/citaPerso
 import { useAuth } from '@/context/AuthContext';
 import type { ChannelSlug } from '@/utils/channelVisuals';
 import { channelRespondLabel } from '@/components/chats/ChannelBadge';
-import { showAlert } from '@/utils/platformAlert';
+import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import { withWebLineHeight } from '@/utils/webTypography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { nombreContactoAgendable } from '@/utils/nombreContactoAgendable';
@@ -59,11 +60,16 @@ import equipoTallerService, {
 } from '@/services/equipoTallerService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
+import { PlantillaCotizacionDetalleModal } from '@/components/chats/PlantillaCotizacionDetalleModal';
 import cotizacionCanalService, {
   type CotizacionCanal,
   type CotizacionPlantilla,
 } from '@/services/cotizacionCanalService';
 import { etiquetaVehiculoActual } from '@/utils/plantillasCotizacionVehiculo';
+import { obtenerMisOfertas } from '@/services/solicitudesService';
+import { fetchChatInboxQuery } from '@/hooks/useChatInboxQuery';
+import { buscarSolicitudActivaPorTelefono } from '@/utils/buscarSolicitudActivaPorTelefono';
+import { openSolicitudDetalle } from '@/utils/navigateProveedorDetalle';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -77,27 +83,12 @@ const TIPO_SERVICIO_TABS = [
   { key: 'domicilio' as const, label: 'A domicilio' },
 ];
 
-type ModoServicio = 'catalogo' | 'manual';
+const MODO_SERVICIO_TABS = [
+  { key: 'catalogo' as const, label: 'Catálogo' },
+  { key: 'manual' as const, label: 'Manual' },
+];
 
-function SegmentButton({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      style={[styles.segmentBtn, selected && styles.segmentBtnSelected]}
-      onPress={onPress}
-      activeOpacity={0.85}
-    >
-      <Text style={[styles.segmentBtnText, selected && styles.segmentBtnTextOn]}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
+type ModoServicio = 'catalogo' | 'manual';
 
 function VehiculoSpecItem({ label, value }: { label: string; value: string }) {
   return (
@@ -209,6 +200,7 @@ export function AgendarDesdeCanalModal({
   const queryClient = useQueryClient();
   const { puede, esSupervisor, estadoProveedor } = useAuth();
   const puedeAgendar = !esSupervisor || puede('agenda');
+  const puedeCotizacionIa = !esSupervisor || puede('servicios');
   const esMecanico = estadoProveedor?.tipo_proveedor === 'mecanico';
 
   const [clienteNombre, setClienteNombre] = useState('');
@@ -252,6 +244,7 @@ export function AgendarDesdeCanalModal({
   const [errorIa, setErrorIa] = useState<string | null>(null);
   const [plantillas, setPlantillas] = useState<CotizacionPlantilla[]>([]);
   const [cargandoPlantillas, setCargandoPlantillas] = useState(false);
+  const [plantillaDetalle, setPlantillaDetalle] = useState<CotizacionPlantilla | null>(null);
   const [errorForm, setErrorForm] = useState<string | null>(null);
 
   const channelLabel = useMemo(
@@ -326,6 +319,7 @@ export function AgendarDesdeCanalModal({
     setEnviandoCotizacion(false);
     setGuardandoPlantilla(false);
     setErrorIa(null);
+    setPlantillaDetalle(null);
   }, [visible, contactName, contactPhone, channel, initialFecha, esMecanico]);
 
   useEffect(() => {
@@ -972,6 +966,43 @@ export function AgendarDesdeCanalModal({
     }
   }, [cotizacion]);
 
+  const ejecutarCreacionCita = useCallback(
+    async (payload: CitaAgendaPersonalCreatePayload) => {
+      setGuardando(true);
+      try {
+        const validacion = await agendaProveedorService.validarSlot(payload);
+        if (!validacion.success || !validacion.data?.valido) {
+          setErrorForm(
+            validacion.data?.error || validacion.message || 'El horario seleccionado no está disponible.',
+          );
+          return;
+        }
+
+        const res = await agendaProveedorService.crearCita(payload);
+        if (!res.success || !res.data) {
+          setErrorForm(res.message || 'No se pudo crear la cita.');
+          return;
+        }
+
+        await queryClient.invalidateQueries({ queryKey: ['agenda-calendario'] });
+        await queryClient.invalidateQueries({ queryKey: ['citas-agenda-proveedor'] });
+        await queryClient.invalidateQueries({ queryKey: ['citas-activas-proveedor'] });
+
+        const mecanico = res.data.mecanico_nombre?.trim();
+        const mensaje = mecanico
+          ? `Cita creada y asignada a ${mecanico}.`
+          : 'La cita fue agendada correctamente.';
+        showAlert('Cita agendada', mensaje);
+        onClose();
+      } catch {
+        setErrorForm('Ocurrió un error al agendar. Inténtalo de nuevo.');
+      } finally {
+        setGuardando(false);
+      }
+    },
+    [queryClient, onClose],
+  );
+
   const handleAgendar = useCallback(async () => {
     setErrorForm(null);
     const validationError = validarFormulario();
@@ -981,64 +1012,83 @@ export function AgendarDesdeCanalModal({
     }
 
     const payload = construirPayload();
-    setGuardando(true);
+
     try {
-      const validacion = await agendaProveedorService.validarSlot(payload);
-      if (!validacion.success || !validacion.data?.valido) {
-        setErrorForm(
-          validacion.data?.error || validacion.message || 'El horario seleccionado no está disponible.',
+      const [ofertasRes, inbox] = await Promise.all([
+        obtenerMisOfertas(),
+        fetchChatInboxQuery(),
+      ]);
+      const match = buscarSolicitudActivaPorTelefono(
+        payload.detalle.cliente_telefono,
+        ofertasRes.success && ofertasRes.data ? ofertasRes.data : [],
+        inbox,
+      );
+
+      if (match) {
+        showAlertButtons(
+          'Solicitud Mecanimovil abierta',
+          'Este cliente tiene una solicitud abierta en Mecanimovil. ¿Continuar como cita personal o ir a esa solicitud?',
+          [
+            {
+              text: 'Ir a solicitud',
+              onPress: () => {
+                onClose();
+                openSolicitudDetalle(router, queryClient, match.solicitudId);
+              },
+            },
+            {
+              text: 'Cita personal',
+              onPress: () => {
+                void ejecutarCreacionCita(payload);
+              },
+            },
+            { text: 'Cancelar', style: 'cancel' },
+          ],
         );
         return;
       }
-
-      const res = await agendaProveedorService.crearCita(payload);
-      if (!res.success || !res.data) {
-        setErrorForm(res.message || 'No se pudo crear la cita.');
-        return;
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ['agenda-calendario'] });
-      await queryClient.invalidateQueries({ queryKey: ['citas-agenda-proveedor'] });
-
-      const mecanico = res.data.mecanico_nombre?.trim();
-      const mensaje = mecanico
-        ? `Cita creada y asignada a ${mecanico}.`
-        : 'La cita fue agendada correctamente.';
-      showAlert('Cita agendada', mensaje);
-      onClose();
     } catch {
-      setErrorForm('Ocurrió un error al agendar. Inténtalo de nuevo.');
-    } finally {
-      setGuardando(false);
+      // Si falla la búsqueda, continuar con cita personal.
     }
-  }, [validarFormulario, construirPayload, queryClient, onClose]);
+
+    await ejecutarCreacionCita(payload);
+  }, [validarFormulario, construirPayload, ejecutarCreacionCita, onClose, queryClient]);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+    <>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={onClose}
+    >
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.sheetWrap}
+          style={styles.flex}
         >
-          <View style={styles.sheet}>
-            <View style={styles.handleBar} />
-
-            <View style={styles.sheetHeader}>
-              <View style={styles.sheetHeaderText}>
-                <Text style={styles.sheetTitle}>Agendar cita</Text>
-                <Text style={styles.sheetSubtitle}>{sheetSubtitle}</Text>
-              </View>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn} accessibilityLabel="Cerrar">
-                <X size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-              </TouchableOpacity>
+          <View style={styles.header}>
+            <View style={styles.headerText}>
+              <Text style={styles.title}>Agendar cita</Text>
+              <Text style={styles.subtitle}>{sheetSubtitle}</Text>
             </View>
-
-            <ScrollView
-              style={styles.scroll}
-              contentContainerStyle={styles.scrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar"
             >
+              <X size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <InstitutionalSectionHeader title="Cliente" />
             <View style={styles.section}>
               <InstitutionalField
@@ -1158,18 +1208,11 @@ export function AgendarDesdeCanalModal({
                 />
               ) : null}
 
-              <View style={styles.segmentRow}>
-                <SegmentButton
-                  label="Catálogo"
-                  selected={modoServicio === 'catalogo'}
-                  onPress={() => setModoServicio('catalogo')}
-                />
-                <SegmentButton
-                  label="Manual"
-                  selected={modoServicio === 'manual'}
-                  onPress={() => setModoServicio('manual')}
-                />
-              </View>
+              <InstitutionalScreenTabs
+                tabs={MODO_SERVICIO_TABS}
+                activeKey={modoServicio}
+                onChange={setModoServicio}
+              />
 
               {modoServicio === 'catalogo' ? (
                 loadingServicios ? (
@@ -1195,7 +1238,12 @@ export function AgendarDesdeCanalModal({
                             {opcion.label}
                           </Text>
                           {selected ? (
-                            <InstitutionalIcon name="check-circle" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                            <InstitutionalIcon
+                              name="check-circle"
+                              size={18}
+                              color={COLORS.selection.text}
+                              strokeWidth={ICON_STROKE_WIDTH}
+                            />
                           ) : null}
                         </TouchableOpacity>
                       );
@@ -1220,7 +1268,7 @@ export function AgendarDesdeCanalModal({
                 textInputProps={{ scrollEnabled: true }}
               />
 
-              {modoServicio === 'manual' && conversationId && !esMecanico ? (
+              {modoServicio === 'manual' && conversationId && !esMecanico && puedeCotizacionIa ? (
                 <View style={styles.cotizacionIaBlock}>
                   {vehiculoListoParaPlantillas ? (
                     <View style={styles.plantillasVehiculoBox}>
@@ -1248,8 +1296,10 @@ export function AgendarDesdeCanalModal({
                             <TouchableOpacity
                               key={p.id}
                               style={styles.plantillaChip}
-                              onPress={() => void handleAplicarPlantilla(p.id)}
+                              onPress={() => setPlantillaDetalle(p)}
                               disabled={generandoIa}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Ver plantilla ${p.titulo}`}
                             >
                               <Text style={styles.plantillaChipText} numberOfLines={2}>
                                 {p.titulo}
@@ -1369,7 +1419,7 @@ export function AgendarDesdeCanalModal({
                             <InstitutionalIcon
                               name="check-circle"
                               size={18}
-                              color={I.onPrimary}
+                              color={COLORS.selection.text}
                               strokeWidth={ICON_STROKE_WIDTH}
                             />
                           ) : null}
@@ -1428,7 +1478,7 @@ export function AgendarDesdeCanalModal({
                                 <InstitutionalIcon
                                   name="check-circle"
                                   size={18}
-                                  color={I.onPrimary}
+                                  color={COLORS.selection.text}
                                   strokeWidth={ICON_STROKE_WIDTH}
                                 />
                               ) : null}
@@ -1468,96 +1518,97 @@ export function AgendarDesdeCanalModal({
           </ScrollView>
 
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={guardando}>
-              <Text style={styles.cancelBtnText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.confirmBtn, guardando && styles.confirmBtnDisabled]}
+            <InstitutionalButton
+              label="Cancelar"
+              variant="outline"
+              size="default"
+              onPress={onClose}
+              disabled={guardando}
+              style={styles.footerBtnSecondary}
+            />
+            <InstitutionalButton
+              label="Agendar cita"
+              variant="primary"
+              size="default"
               onPress={handleAgendar}
               disabled={guardando}
-            >
-              {guardando ? (
-                <ActivityIndicator color={I.onPrimary} size="small" />
-              ) : (
-                <Text style={styles.confirmBtnText}>Agendar cita</Text>
-              )}
-            </TouchableOpacity>
+              loading={guardando}
+              style={styles.footerBtnPrimary}
+            />
           </View>
-        </View>
         </KeyboardAvoidingView>
       </View>
     </Modal>
+
+    <PlantillaCotizacionDetalleModal
+      visible={Boolean(plantillaDetalle)}
+      plantilla={plantillaDetalle}
+      onClose={() => setPlantillaDetalle(null)}
+      primaryLabel="Usar plantilla"
+      primaryLoading={generandoIa}
+      onPrimaryAction={() => {
+        if (!plantillaDetalle) return;
+        const id = plantillaDetalle.id;
+        setPlantillaDetalle(null);
+        void handleAplicarPlantilla(id);
+      }}
+    />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  /** Modal a pantalla completa — Airbnb Hosts (hub form, no bottom sheet). */
+  screen: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
+    backgroundColor: COLORS.background.default,
+    ...(Platform.OS === 'web' ? { minHeight: '100vh' as unknown as number } : null),
   },
-  sheetWrap: {
-    width: '100%',
-    maxHeight: Platform.OS === 'web' ? '92vh' : '92%',
-    ...(Platform.OS === 'web' ? { height: '92vh' } : { flexShrink: 1 }),
-  },
-  sheet: {
-    backgroundColor: I.canvas,
-    borderTopLeftRadius: BORDERS.radius.xl,
-    borderTopRightRadius: BORDERS.radius.xl,
-    width: '100%',
+  flex: {
     flex: 1,
-    maxHeight: Platform.OS === 'web' ? '92vh' : '92%',
-    ...(Platform.OS === 'web' ? { height: '92vh' } : null),
-    ...SHADOWS.editorial,
-    overflow: 'hidden',
   },
-  handleBar: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: BORDERS.radius.full,
-    backgroundColor: I.hairline,
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.xs,
-  },
-  sheetHeader: {
+  header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
+    paddingHorizontal: SPACING.container.horizontal,
+    paddingTop: SPACING.md,
     paddingBottom: SPACING.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: I.hairline,
+    backgroundColor: COLORS.background.paper,
     gap: SPACING.sm,
   },
-  sheetHeaderText: {
+  headerText: {
     flex: 1,
     minWidth: 0,
     gap: SPACING.xs,
-    ...(Platform.OS === 'web' ? ({ display: 'flex', flexDirection: 'column' } as object) : null),
   },
-  sheetTitle: {
+  title: {
     ...SHEET_TITLE,
     color: I.ink,
     fontWeight: '600',
   },
-  sheetSubtitle: {
+  subtitle: {
     ...SHEET_SUBTITLE,
     color: I.muted,
   },
   closeBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.surfaceStrong,
   },
-  scroll: { flexGrow: 1, flexShrink: 1 },
+  scroll: {
+    flex: 1,
+  },
   scrollContent: {
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.lg,
+    paddingHorizontal: SPACING.container.horizontal,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.xl,
     gap: SPACING.sm,
   },
   section: {
@@ -1616,31 +1667,6 @@ const styles = StyleSheet.create({
     color: I.muted,
     marginTop: SPACING.xs,
   },
-  segmentRow: {
-    flexDirection: 'row',
-    gap: SPACING.xs,
-  },
-  segmentBtn: {
-    flex: 1,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.canvas,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    alignItems: 'center',
-  },
-  segmentBtnSelected: {
-    backgroundColor: I.primary,
-    borderColor: I.primary,
-  },
-  segmentBtnText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.body,
-  },
-  segmentBtnTextOn: {
-    color: I.onPrimary,
-  },
   catalogoList: {
     gap: SPACING.xs,
   },
@@ -1648,16 +1674,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.sm + 4,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.canvas,
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.md,
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: COLORS.background.paper,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
   },
   catalogoItemSelected: {
-    backgroundColor: I.primary,
-    borderColor: I.primary,
+    backgroundColor: COLORS.selection.background,
+    borderColor: COLORS.selection.border,
   },
   catalogoItemDisabled: {
     opacity: 0.45,
@@ -1669,7 +1695,8 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
   catalogoItemTitleOn: {
-    color: I.onPrimary,
+    color: COLORS.selection.text,
+    fontFamily: FF.sansSemiBold,
   },
   catalogoItemContent: {
     flex: 1,
@@ -1686,7 +1713,7 @@ const styles = StyleSheet.create({
     backgroundColor: I.surfaceStrong,
   },
   modalidadBadgeOn: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: COLORS.selection.backgroundStrong,
   },
   modalidadBadgeText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
@@ -1694,7 +1721,7 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   modalidadBadgeTextOn: {
-    color: I.onPrimary,
+    color: COLORS.selection.text,
   },
   especialidadBadge: {
     paddingHorizontal: SPACING.sm,
@@ -1705,8 +1732,8 @@ const styles = StyleSheet.create({
     borderColor: I.hairline,
   },
   especialidadBadgeOn: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: COLORS.selection.backgroundStrong,
+    borderColor: COLORS.selection.border,
   },
   especialidadBadgeText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
@@ -1714,7 +1741,7 @@ const styles = StyleSheet.create({
     color: I.body,
   },
   especialidadBadgeTextOn: {
-    color: I.onPrimary,
+    color: COLORS.selection.text,
   },
   loader: {
     paddingVertical: SPACING.md,
@@ -1741,33 +1768,21 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    gap: SPACING.md,
-    padding: SPACING.lg,
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.container.horizontal,
+    paddingTop: SPACING.md,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
+    backgroundColor: COLORS.background.paper,
   },
-  cancelBtn: {
+  footerBtnSecondary: {
     flex: 1,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: 1,
-    borderColor: I.hairline,
+    minWidth: 0,
   },
-  cancelBtnText: {
-    ...TYPOGRAPHY.styles.button,
-    color: I.muted,
-  },
-  confirmBtn: {
+  footerBtnPrimary: {
     flex: 2,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BORDERS.radius.lg,
-    backgroundColor: I.primary,
-    minHeight: 48,
+    minWidth: 0,
   },
-  confirmBtnDisabled: { opacity: 0.6 },
   cotizacionIaBlock: {
     gap: SPACING.sm,
     marginTop: SPACING.xs,
@@ -1837,10 +1852,5 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansMedium,
     fontSize: TYPOGRAPHY.fontSize.xs,
     color: I.ink,
-  },
-  confirmBtnText: {
-    ...TYPOGRAPHY.styles.button,
-    color: I.onPrimary,
-    fontWeight: '600',
   },
 });

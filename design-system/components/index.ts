@@ -12,6 +12,11 @@ export {
   type InstitutionalSectionHeaderProps,
 } from './InstitutionalSectionHeader';
 
+export { Card, type CardProps } from './Card';
+export { AppHeader, type AppHeaderProps } from './AppHeader';
+export { BottomSheet, type BottomSheetProps } from './BottomSheet';
+export { PrimaryGradientFill } from './PrimaryGradientFill';
+
 export { INSTITUTIONAL_SELECTION, institutionalSelectionStyles } from '../styles/institutionalSelection';
 export {
   institutionalButtonStyles,

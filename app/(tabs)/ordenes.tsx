@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,55 +11,36 @@ import {
 } from 'react-native';
 import {
   Briefcase, CheckCircle, Inbox, User, Car, Clock,
-  AlertTriangle, Shield,
-  PlusCircle, Package, XCircle,
+  AlertTriangle, Shield, XCircle,
 } from 'lucide-react-native';
 import {
   ordenesProveedorService,
-  type Orden,
   obtenerNombreSeguro,
   esClienteCompleto,
-  dedupeOrdenesPorIdYOferta,
 } from '@/services/ordenesProveedor';
-import { obtenerMisOfertas, type OfertaProveedor } from '@/services/solicitudesService';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { useFocusEffect } from '@react-navigation/native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
-import {
-  openCitaPersonalDetalle,
-  openOfertaDetalle,
-  openSolicitudDetalle,
-} from '@/utils/navigateProveedorDetalle';
 import websocketService from '@/app/services/websocketService';
 import Header from '@/components/Header';
 import { COLORS, withOpacity, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '@/app/design-system/tokens';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
+import type { InstitutionalTagVariant } from '@/app/design-system/styles/institutionalTags';
 import { TipoPagoClienteChip } from '@/components/solicitudes/TipoPagoClienteChip';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
-import {
-  resolveEstadoEfectivoMarketplace,
-  resolveEstadoEfectivoOrden,
-  resolveTextoEstadoActividad,
-  isActividadCompletada,
-  isActividadRechazada,
-} from '@/utils/estadoActividadProveedor';
-import {
-  agendaProveedorService,
-  nombreServicioCita,
-  type CitaAgendaPersonal,
-} from '@/services/agendaProveedorService';
+import { nombreServicioCita } from '@/services/agendaProveedorService';
 import { OrigenOrdenBadge } from '@/components/ordenes/OrigenOrdenBadge';
+import { useOrdenesUnificadas } from '@/hooks/useOrdenesUnificadas';
 import {
-  mergeOrdenesActivas,
   navigateToOrdenActiva,
-  labelEstadoPersonal,
+  estadoUnificadoLabel,
   type OrdenActivaItem,
-  type ActividadMarketplaceItem,
 } from '@/utils/ordenProveedorUnificada';
 
 const I = COLORS.institutional;
@@ -68,9 +49,7 @@ const TS = TYPOGRAPHY.styles;
 const hx = SPACING.container.horizontal;
 const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
-type EstadoBadgeVariant = 'success' | 'error' | 'warning' | 'info' | 'neutral';
-
-const ESTADO_VARIANT: Record<string, EstadoBadgeVariant> = {
+const ESTADO_VARIANT: Record<string, InstitutionalTagVariant> = {
   pendiente_aceptacion_proveedor: 'warning',
   aceptada_por_proveedor: 'success',
   en_proceso: 'info',
@@ -96,136 +75,7 @@ const ESTADO_VARIANT: Record<string, EstadoBadgeVariant> = {
   pendiente_confirmacion: 'warning',
 };
 
-function getEstadoBadgeColors(variant: EstadoBadgeVariant) {
-  switch (variant) {
-    case 'success':
-      return { bg: withOpacity(I.semanticUp, 0.12), dot: I.semanticUp, text: I.semanticUp };
-    case 'error':
-      return { bg: withOpacity(I.semanticDown, 0.1), dot: I.semanticDown, text: I.semanticDown };
-    case 'warning':
-      return {
-        bg: withOpacity(I.accentYellow, 0.22),
-        dot: I.accentYellow,
-        text: I.body,
-      };
-    case 'info':
-      return { bg: withOpacity(I.primary, 0.1), dot: I.primary, text: I.primaryActive };
-    case 'neutral':
-    default:
-      return { bg: I.surfaceStrong, dot: I.muted, text: I.body };
-  }
-}
-
 type TabType = 'activas' | 'completadas' | 'rechazadas';
-
-/** Una card en Activas: oferta y/o orden del mismo flujo (estado unificado) */
-type ActividadActivaItem = ActividadMarketplaceItem;
-
-const ESTADOS_ACTIVOS = [
-  'enviada',
-  'vista',
-  'en_chat',
-  'pendiente_confirmacion',
-  'pendiente_creditos',
-  'aceptada',
-  'pendiente_pago',
-  'pagada_parcialmente',
-  'pagada',
-  'en_ejecucion',
-];
-
-/** Solicitud pública aún «viva» para el proveedor (incluye adjudicada / pendiente de pago) */
-const SOLICITUD_ESTADOS_ACTIVOS = [
-  'publicada',
-  'con_ofertas',
-  'seleccionando_servicios',
-  'pendiente_confirmacion',
-  'esperando_creditos_proveedor',
-  'adjudicada',
-  'pendiente_pago',
-  'pagada',
-  'pagada_parcialmente', // pago parcial (repuestos): válido en oferta, puede llegar por dato obsoleto en solicitud
-  'en_ejecucion',
-];
-/** Éxito: solo estos van al tab Completadas */
-const ESTADOS_COMPLETADOS_OK = ['completado', 'completada'];
-/** La orden (SolicitudServicio) ya cerró: no usar estado viejo de la oferta en caché. */
-const ESTADOS_ORDEN_PRECEDENCIA_OFERTA = [
-  'completado',
-  'cancelado',
-  'rechazada_por_proveedor',
-  'devuelto',
-];
-/** Rechazo / cancelación / expiración: tab Rechazadas */
-const ESTADOS_RECHAZADAS = [
-  'cancelado',
-  'rechazada_por_proveedor',
-  'devuelto',
-  'rechazada',
-  'retirada',
-  'expirada',
-];
-const OFERTA_LABELS: Record<string, string> = {
-  enviada: 'Oferta Enviada',
-  vista: 'Vista por Cliente',
-  en_chat: 'En Conversación',
-  pendiente_confirmacion: 'Confirmar asignación',
-  pendiente_creditos: 'Pendiente créditos',
-  aceptada: 'Adjudicada — espera pago',
-  pendiente_pago: 'Pendiente de Pago',
-  pagada_parcialmente: 'Pago parcial',
-  pagada: 'Pagada',
-  en_ejecucion: 'En Ejecución',
-  completada: 'Completada',
-  rechazada: 'Rechazada',
-  retirada: 'Retirada',
-  expirada: 'Expirada',
-};
-
-async function fetchOrdenes(): Promise<Orden[]> {
-  const [pendientesRes, activasRes, completadasRes, canceladasRes] = await Promise.all([
-    ordenesProveedorService.obtenerPendientes(),
-    ordenesProveedorService.obtenerActivas(),
-    ordenesProveedorService.obtenerCompletadas(),
-    ordenesProveedorService.obtenerTodas({ estado: 'cancelado' }),
-  ]);
-
-  const todas: Orden[] = [];
-  if (pendientesRes.success && Array.isArray(pendientesRes.data)) todas.push(...pendientesRes.data);
-  if (activasRes.success && Array.isArray(activasRes.data)) todas.push(...activasRes.data);
-  if (completadasRes.success && Array.isArray(completadasRes.data)) todas.push(...completadasRes.data);
-  if (canceladasRes.success && Array.isArray(canceladasRes.data)) todas.push(...canceladasRes.data);
-
-  const unicas = dedupeOrdenesPorIdYOferta(todas);
-  unicas.sort((a, b) => new Date(b.fecha_hora_solicitud).getTime() - new Date(a.fecha_hora_solicitud).getTime());
-  return unicas;
-}
-
-async function fetchOfertas(): Promise<OfertaProveedor[]> {
-  const response = await obtenerMisOfertas();
-  if (response.success && response.data) {
-    const data = Array.isArray(response.data) ? response.data : [];
-    data.sort((a, b) => new Date(b.fecha_envio || 0).getTime() - new Date(a.fecha_envio || 0).getTime());
-    return data;
-  }
-  return [];
-}
-
-async function fetchCitasActivas(): Promise<CitaAgendaPersonal[]> {
-  const result = await agendaProveedorService.obtenerCitasActivas();
-  return result.success && result.data ? result.data : [];
-}
-
-async function fetchCitasAgenda(): Promise<{ cerradas: CitaAgendaPersonal[]; canceladas: CitaAgendaPersonal[] }> {
-  const [cerradasRes, canceladasRes] = await Promise.all([
-    agendaProveedorService.obtenerCitasCerradas(),
-    agendaProveedorService.obtenerCitasCanceladas(),
-  ]);
-  return {
-    cerradas: cerradasRes.success && cerradasRes.data ? cerradasRes.data : [],
-    canceladas: canceladasRes.success && canceladasRes.data ? canceladasRes.data : [],
-  };
-}
 
 export default function OrdenesScreen() {
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -239,6 +89,18 @@ export default function OrdenesScreen() {
 
   const isVerified = estadoProveedor?.estado_verificacion === 'aprobado';
   const queryClient = useQueryClient();
+
+  const {
+    activas,
+    completadas,
+    rechazadas,
+    activasMarketplace,
+    loading,
+    refreshing,
+    onRefresh,
+    refetchAll,
+    counts,
+  } = useOrdenesUnificadas(!!isVerified);
 
   const invalidateOrdenesYOfertas = useCallback(() => {
     invalidateProveedorMarketplaceQueries(queryClient);
@@ -254,318 +116,22 @@ export default function OrdenesScreen() {
     };
   }, [isVerified, invalidateOrdenesYOfertas]);
 
-  const {
-    data: ordenesCompletas = [],
-    isLoading: loadingOrdenes,
-    refetch: refetchOrdenes,
-  } = useQuery({
-    queryKey: ['ordenes-proveedor'],
-    queryFn: fetchOrdenes,
-    enabled: !!isVerified,
-    staleTime: 30_000,
-    placeholderData: (prev) => prev,
-  });
-
-  const {
-    data: ofertas = [],
-    isLoading: loadingOfertas,
-    refetch: refetchOfertas,
-  } = useQuery({
-    queryKey: ['ofertas-proveedor'],
-    queryFn: fetchOfertas,
-    enabled: !!isVerified,
-    staleTime: 30_000,
-    placeholderData: (prev) => prev,
-  });
-
-  const {
-    data: citasAgenda = { cerradas: [], canceladas: [] },
-    isLoading: loadingCitas,
-    refetch: refetchCitas,
-  } = useQuery({
-    queryKey: ['citas-agenda-proveedor'],
-    queryFn: fetchCitasAgenda,
-    enabled: !!isVerified,
-    staleTime: 30_000,
-    placeholderData: (prev) => prev,
-  });
-
-  const {
-    data: citasActivas = [],
-    isLoading: loadingCitasActivas,
-    refetch: refetchCitasActivas,
-  } = useQuery({
-    queryKey: ['citas-activas-proveedor'],
-    queryFn: fetchCitasActivas,
-    enabled: !!isVerified,
-    staleTime: 30_000,
-    placeholderData: (prev) => prev,
-  });
-
-  const loading =
-    (loadingOrdenes || loadingOfertas || loadingCitas || loadingCitasActivas)
-    && ordenesCompletas.length === 0
-    && ofertas.length === 0;
-  const [refreshing, setRefreshing] = useState(false);
-
   useFocusEffect(
     useCallback(() => {
       if (isVerified) {
-        refetchOrdenes();
-        refetchOfertas();
-        refetchCitas();
-        refetchCitasActivas();
+        refetchAll();
       }
-    }, [isVerified, refetchOrdenes, refetchOfertas, refetchCitas, refetchCitasActivas])
+    }, [isVerified, refetchAll]),
   );
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([refetchOrdenes(), refetchOfertas(), refetchCitas(), refetchCitasActivas()]);
-    setRefreshing(false);
-  }, [refetchOrdenes, refetchOfertas, refetchCitas, refetchCitasActivas]);
-
-  const ofertasMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const oferta of ofertas) {
-      map[String(oferta.id)] = oferta.estado;
-    }
-    return map;
-  }, [ofertas]);
-
-  const getEstadoEfectivo = useCallback((orden: Orden): string => {
-    const raw = resolveEstadoEfectivoOrden(orden, ofertasMap);
-    return raw === 'completado' ? 'completada' : raw;
-  }, [ofertasMap]);
-
-  const ordenPorOfertaId = useMemo(() => {
-    const map = new Map<string, Orden>();
-    for (const orden of ordenesCompletas) {
-      if (!orden.oferta_proveedor_id) continue;
-      const k = String(orden.oferta_proveedor_id);
-      const prev = map.get(k);
-      if (!prev || orden.id > prev.id) {
-        map.set(k, orden);
-      }
-    }
-    return map;
-  }, [ordenesCompletas]);
-
-  const getEstadoEfectivoOferta = useCallback(
-    (oferta: OfertaProveedor): string => {
-      const orden = ordenPorOfertaId.get(String(oferta.id));
-      const ordenRef = orden ?? (oferta.estado_solicitud_servicio
-        ? { estado: oferta.estado_solicitud_servicio }
-        : null);
-      return resolveEstadoEfectivoMarketplace(oferta, ordenRef);
-    },
-    [ordenPorOfertaId],
-  );
-
-  const getTextoEstado = useCallback((orden: Orden): string => {
-    if (ESTADOS_ORDEN_PRECEDENCIA_OFERTA.includes(orden.estado)) {
-      if (orden.estado === 'completado') {
-        return OFERTA_LABELS.completada;
-      }
-      return orden.estado_display || orden.estado.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    }
-    const ofertaId = orden.oferta_proveedor_id ? String(orden.oferta_proveedor_id) : null;
-    const estadoOferta = ofertaId ? ofertasMap[ofertaId] : null;
-    if (estadoOferta && OFERTA_LABELS[estadoOferta]) return OFERTA_LABELS[estadoOferta];
-    return orden.estado_display || orden.estado.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  }, [ofertasMap]);
-
-  const ofertasActivas = useMemo(
-    () =>
-      ofertas.filter((oferta) => {
-        if (oferta.es_oferta_secundaria) {
-          if (!ESTADOS_ACTIVOS.includes(oferta.estado)) return false;
-        } else if (!ESTADOS_ACTIVOS.includes(oferta.estado)) {
-          return false;
-        }
-
-        const efectivo = getEstadoEfectivoOferta(oferta);
-        if (isActividadCompletada(efectivo) || isActividadRechazada(efectivo)) {
-          return false;
-        }
-
-        if (!oferta.solicitud_estado) return true;
-        if (oferta.solicitud_estado === 'completada') return false;
-        return SOLICITUD_ESTADOS_ACTIVOS.includes(oferta.solicitud_estado);
-      }),
-    [ofertas, getEstadoEfectivoOferta],
-  );
-
-  const ofertasById = useMemo(() => {
-    const map = new Map<string, OfertaProveedor>();
-    for (const o of ofertas) {
-      map.set(String(o.id), o);
-    }
-    return map;
-  }, [ofertas]);
-
-  const ofertasTabCompletadas = useMemo(
-    () => ofertas.filter((o) => {
-      if (o.estado === 'completada') return true;
-      return isActividadCompletada(getEstadoEfectivoOferta(o));
-    }),
-    [ofertas, getEstadoEfectivoOferta],
-  );
-
-  const ofertasTabRechazadas = useMemo(() => ofertas.filter(oferta => {
-    // Nunca considerar como rechazada una oferta activa (con pago total, parcial o en ejecución)
-    if (['completada', 'pagada', 'pagada_parcialmente', 'en_ejecucion'].includes(oferta.estado)) {
-      return false;
-    }
-    if (['rechazada', 'retirada', 'expirada'].includes(oferta.estado)) return true;
-    const solCancel = oferta.solicitud_estado === 'cancelada' || oferta.solicitud_estado === 'expirada';
-    return solCancel;
-  }), [ofertas]);
-
-  const ordenesActivas = useMemo(() => ordenesCompletas.filter(o => {
-    const efectivo = getEstadoEfectivo(o);
-    return !ESTADOS_COMPLETADOS_OK.includes(efectivo) && !ESTADOS_RECHAZADAS.includes(efectivo);
-  }), [ordenesCompletas, getEstadoEfectivo]);
-
-  const ordenesCompletadasTab = useMemo(() => ordenesCompletas.filter(o => {
-    const efectivo = getEstadoEfectivo(o);
-    return ESTADOS_COMPLETADOS_OK.includes(efectivo);
-  }), [ordenesCompletas, getEstadoEfectivo]);
-
-  const ordenesRechazadasTab = useMemo(() => ordenesCompletas.filter(o => {
-    const efectivo = getEstadoEfectivo(o);
-    return ESTADOS_RECHAZADAS.includes(efectivo);
-  }), [ordenesCompletas, getEstadoEfectivo]);
-
-  const activasUnificadas = useMemo((): ActividadActivaItem[] => {
-    const ordenes = ordenesActivas ?? [];
-    const ofertasAct = ofertasActivas ?? [];
-    const ordenPorOferta = new Map<string, Orden>();
-    for (const orden of ordenes) {
-      if (!orden.oferta_proveedor_id) continue;
-      const k = String(orden.oferta_proveedor_id);
-      const prev = ordenPorOferta.get(k);
-      if (!prev || orden.id > prev.id) {
-        ordenPorOferta.set(k, orden);
-      }
-    }
-
-    const items: ActividadActivaItem[] = [];
-    const ofertaIdsUsados = new Set<string>();
-
-    for (const oferta of ofertasAct) {
-      const id = String(oferta.id);
-      ofertaIdsUsados.add(id);
-      const orden = ordenPorOferta.get(id);
-      items.push({
-        key: orden ? `u-${orden.id}` : `u-oferta-${id}`,
-        oferta,
-        orden,
-        estadoEfectivo: orden
-          ? getEstadoEfectivo(orden)
-          : getEstadoEfectivoOferta(oferta),
-      });
-    }
-
-    for (const orden of ordenes) {
-      const ofertaId = orden.oferta_proveedor_id ? String(orden.oferta_proveedor_id) : null;
-      if (ofertaId && ofertaIdsUsados.has(ofertaId)) continue;
-      items.push({
-        key: `u-orden-${orden.id}`,
-        oferta: ofertaId ? ofertasById.get(ofertaId) : undefined,
-        orden,
-        estadoEfectivo: getEstadoEfectivo(orden),
-      });
-    }
-
-    const ts = (item: ActividadActivaItem) => {
-      const raw =
-        item.orden?.fecha_hora_solicitud
-        || item.orden?.fecha_servicio
-        || item.oferta?.fecha_envio
-        || item.oferta?.fecha_disponible
-        || '';
-      return raw ? new Date(raw).getTime() : 0;
-    };
-    items.sort((a, b) => ts(b) - ts(a));
-    return items.filter(
-      (item) =>
-        !isActividadCompletada(item.estadoEfectivo)
-        && !isActividadRechazada(item.estadoEfectivo),
-    );
-  }, [ofertasActivas, ordenesActivas, ofertasById, getEstadoEfectivo, getEstadoEfectivoOferta]);
-
-  const activasUnificadasCompletas = useMemo(
-    () => mergeOrdenesActivas(activasUnificadas, citasActivas),
-    [activasUnificadas, citasActivas],
-  );
-
-  // In completadas tab, de-duplicate: if an order references an offer via oferta_proveedor_id,
-  // don't show that offer separately -- the order card already shows the effective state.
-  const ofertaIdsConOrden = useMemo(() => {
-    const ids = new Set<string>();
-    for (const o of ordenesCompletas) {
-      if (o.oferta_proveedor_id) ids.add(String(o.oferta_proveedor_id));
-    }
-    return ids;
-  }, [ordenesCompletas]);
-
-  const ofertasCompletadasSinDuplicar = useMemo(
-    () => ofertasTabCompletadas.filter(o => !ofertaIdsConOrden.has(String(o.id))),
-    [ofertasTabCompletadas, ofertaIdsConOrden]
-  );
-
-  const ofertasRechazadasSinDuplicar = useMemo(
-    () => ofertasTabRechazadas.filter(o => !ofertaIdsConOrden.has(String(o.id))),
-    [ofertasTabRechazadas, ofertaIdsConOrden]
-  );
-
-  const citasCompletadasTab = citasAgenda.cerradas ?? [];
-  const citasRechazadasTab = citasAgenda.canceladas ?? [];
-
-  const activasCount = activasUnificadasCompletas.length;
-  const completadasCount = ordenesCompletadasTab.length + ofertasCompletadasSinDuplicar.length + citasCompletadasTab.length;
-  const rechazadasCount = ordenesRechazadasTab.length + ofertasRechazadasSinDuplicar.length + citasRechazadasTab.length;
-
-  const ordenesMostrar =
+  const itemsTab =
     tabActivo === 'activas'
-      ? ordenesActivas
+      ? activas
       : tabActivo === 'completadas'
-        ? ordenesCompletadasTab
-        : ordenesRechazadasTab;
-  const ofertasMostrar =
-    tabActivo === 'activas'
-      ? ofertasActivas
-      : tabActivo === 'completadas'
-        ? ofertasCompletadasSinDuplicar
-        : ofertasRechazadasSinDuplicar;
-  const tieneDatos =
-    tabActivo === 'activas'
-      ? activasUnificadasCompletas.length > 0
-      : tabActivo === 'completadas'
-        ? ordenesMostrar.length > 0 || ofertasMostrar.length > 0 || citasCompletadasTab.length > 0
-        : ordenesMostrar.length > 0 || ofertasMostrar.length > 0 || citasRechazadasTab.length > 0;
+        ? completadas
+        : rechazadas;
 
-  const handleOrdenPress = useCallback((orden: Orden) => {
-    if (orden.oferta_proveedor_id) {
-      const oferta = ofertasById.get(String(orden.oferta_proveedor_id));
-      openOfertaDetalle(router, queryClient, String(orden.oferta_proveedor_id), oferta);
-    } else {
-      router.push(`/servicio-detalle/${orden.id}`);
-    }
-  }, [ofertasById, queryClient]);
-
-  const handleOfertaPress = useCallback((oferta: OfertaProveedor) => {
-    if (oferta.solicitud) {
-      openSolicitudDetalle(router, queryClient, oferta.solicitud, { oferta });
-    } else {
-      openOfertaDetalle(router, queryClient, oferta.id, oferta);
-    }
-  }, [queryClient]);
-
-  const handleCitaPress = useCallback((cita: CitaAgendaPersonal) => {
-    openCitaPersonalDetalle(router, queryClient, cita.id, cita);
-  }, [queryClient]);
+  const tieneDatos = itemsTab.length > 0;
 
   const formatearFecha = (fecha: string) => new Date(fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -577,265 +143,75 @@ export default function OrdenesScreen() {
     return obtenerNombreSeguro(cliente);
   };
 
-  const renderOfertaCard = useCallback((oferta: OfertaProveedor) => {
-    const orden = ordenPorOfertaId.get(String(oferta.id));
-    const estadoEfectivo = getEstadoEfectivoOferta(oferta);
-    const estadoStyle = getEstadoBadgeColors(ESTADO_VARIANT[estadoEfectivo] || 'neutral');
-    const textoEstado = resolveTextoEstadoActividad(estadoEfectivo, orden);
-    const clienteFoto = oferta.solicitud_detail?.cliente_foto;
-    const nombreCliente = oferta.solicitud_detail?.cliente_nombre || 'Cliente';
-    const vehiculo = oferta.solicitud_detail?.vehiculo;
-    const serviciosNombres = oferta.solicitud_detail?.servicios_solicitados?.map(s => s.nombre) || [];
-    const nombreServicio = serviciosNombres.length > 0
-      ? (serviciosNombres.length === 1 ? serviciosNombres[0] : serviciosNombres.join(', '))
-      : 'Servicio';
-    const precioFormateado = formatearPrecio(oferta.precio_total_ofrecido);
-    const fechaDisponible = oferta.fecha_disponible
-      ? new Date(oferta.fecha_disponible).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
-      : '';
+  const renderOrdenUnificadaCard = useCallback(
+    (item: OrdenActivaItem) => {
+      if (item.origen === 'personal') {
+        const { cita } = item;
+        const estadoVariant: InstitutionalTagVariant =
+          cita.estado === 'cerrada' ? 'success' : cita.estado === 'cancelada' ? 'error' : 'info';
+        const textoEstado = estadoUnificadoLabel(cita.estado, 'personal');
+        const nombreServicio = nombreServicioCita(cita);
+        const precioFormateado = cita.detalle.precio_referencia
+          ? formatearPrecio(cita.detalle.precio_referencia)
+          : '';
 
-    return (
-      <TouchableOpacity
-        key={`oferta-${oferta.id}`}
-        style={styles.listCardOuter}
-        onPress={() => handleOfertaPress(oferta)}
-        activeOpacity={0.88}
-      >
-        <View style={styles.listCardInner}>
-          <View style={styles.cardTop}>
-            <View style={[styles.statusBadge, { backgroundColor: estadoStyle.bg }]}>
-              <View style={[styles.statusDot, { backgroundColor: estadoStyle.dot }]} />
-              <Text style={[styles.statusText, { color: estadoStyle.text }]}>{textoEstado}</Text>
-            </View>
-            <OrigenOrdenBadge origen="mecanimovil" />
-            {oferta.es_oferta_secundaria && (
-              <View style={styles.additionalBadge}>
-                <PlusCircle size={10} color={I.onPrimary} />
-                <Text style={styles.additionalBadgeText}>Adicional</Text>
+        return (
+          <TouchableOpacity
+            key={item.key}
+            style={styles.listCardOuter}
+            onPress={() => navigateToOrdenActiva(router, queryClient, item)}
+            activeOpacity={0.88}
+          >
+            <View style={styles.listCardInner}>
+              <View style={styles.cardTop}>
+                <InstitutionalTag label={textoEstado} variant={estadoVariant} size="sm" />
+                <OrigenOrdenBadge origen="personal" />
+                <View style={{ flex: 1 }} />
+                {precioFormateado ? <Text style={styles.cardPrice}>{precioFormateado}</Text> : null}
               </View>
-            )}
-            <View style={{ flex: 1 }} />
-            <Text style={styles.cardPrice}>{precioFormateado}</Text>
-          </View>
 
-          <Text style={styles.cardTitle} numberOfLines={2}>{nombreServicio}</Text>
+              <Text style={styles.cardTitle} numberOfLines={2}>{nombreServicio}</Text>
 
-          <View style={styles.cardMeta}>
-            <Clock size={13} color={I.muted} />
-            <Text style={styles.cardMetaText}>
-              {fechaDisponible || formatearFecha(oferta.fecha_envio)}
-              {oferta.hora_disponible && ` · ${oferta.hora_disponible.substring(0, 5)}`}
-            </Text>
-          </View>
+              <View style={styles.cardMeta}>
+                <Clock size={13} color={I.muted} />
+                <Text style={styles.cardMetaText}>
+                  {formatearFecha(cita.fecha_servicio)}
+                  {cita.hora_servicio && ` · ${cita.hora_servicio.substring(0, 5)}`}
+                </Text>
+                <InstitutionalTag
+                  label={cita.tipo_servicio === 'domicilio' ? 'Domicilio' : 'Taller'}
+                  variant="neutral"
+                  size="sm"
+                />
+              </View>
 
-          <View style={styles.cardDivider} />
+              <View style={styles.cardDivider} />
 
-          <View style={styles.cardBottom}>
-            <View style={styles.cardUser}>
-              {clienteFoto ? (
-                <Image source={{ uri: clienteFoto }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <User size={14} color={I.onPrimary} />
-                </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.userName} numberOfLines={1}>{nombreCliente}</Text>
-                {vehiculo && (
-                  <View style={styles.vehicleRow}>
-                    <Car size={12} color={I.muted} />
-                    <Text style={styles.vehicleText} numberOfLines={1}>
-                      {vehiculo.marca} {vehiculo.modelo}{vehiculo.año ? ` (${vehiculo.año})` : ''}
-                    </Text>
+              <View style={styles.cardBottom}>
+                <View style={styles.cardUser}>
+                  <View style={styles.avatarPlaceholder}>
+                    <User size={14} color={I.onPrimary} />
                   </View>
-                )}
-              </View>
-            </View>
-            {oferta.incluye_repuestos === true && (
-              <View style={styles.repuestosBadge}>
-                <Package size={10} color={I.semanticUp} />
-                <Text style={styles.repuestosText}>Repuestos</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  }, [handleOfertaPress, getEstadoEfectivoOferta, ordenPorOfertaId]);
-
-  const renderOrdenCard = useCallback((orden: Orden) => {
-    const estadoEfectivo = getEstadoEfectivo(orden);
-    const estadoStyle = getEstadoBadgeColors(ESTADO_VARIANT[estadoEfectivo] || 'neutral');
-    const textoEstado = getTextoEstado(orden);
-    const clienteFoto = (orden.cliente_detail as any)?.foto_perfil;
-    const nombreCompleto2 = obtenerNombreCompleto(orden.cliente_detail);
-    const esClienteCompletoFlag = esClienteCompleto(orden.cliente_detail);
-    const tieneRepuestos = orden.lineas?.some(linea => linea.con_repuestos) || false;
-    const urgencia = ordenesProveedorService.esOrdenUrgente(orden);
-    const serviciosNombres = orden.lineas?.map(linea => linea.servicio_nombre) || [];
-    const nombreServicio = serviciosNombres.length > 0
-      ? (serviciosNombres.length === 1 ? serviciosNombres[0] : serviciosNombres.join(', '))
-      : 'Servicio';
-    const precioFormateado = formatearPrecio(orden.total);
-
-    return (
-      <TouchableOpacity
-        key={`orden-${orden.id}`}
-        style={styles.listCardOuter}
-        onPress={() => handleOrdenPress(orden)}
-        activeOpacity={0.88}
-      >
-        <View style={styles.listCardInner}>
-          <View style={styles.cardTop}>
-            <View style={[styles.statusBadge, { backgroundColor: estadoStyle.bg }]}>
-              <View style={[styles.statusDot, { backgroundColor: estadoStyle.dot }]} />
-              <Text style={[styles.statusText, { color: estadoStyle.text }]}>{textoEstado}</Text>
-            </View>
-            <OrigenOrdenBadge origen="mecanimovil" />
-            {urgencia && (
-              <View style={styles.urgentBadge}>
-                <AlertTriangle size={10} color={I.onPrimary} />
-              </View>
-            )}
-            {!esClienteCompletoFlag && (
-              <View style={styles.protectedBadge}>
-                <Shield size={10} color={I.accentYellow} />
-              </View>
-            )}
-            <View style={{ flex: 1 }} />
-            <Text style={styles.cardPrice}>{precioFormateado}</Text>
-          </View>
-
-          <Text style={styles.cardTitle} numberOfLines={2}>{nombreServicio}</Text>
-
-          <View style={styles.cardMeta}>
-            <Clock size={13} color={I.muted} />
-            <Text style={styles.cardMetaText}>
-              {formatearFecha(orden.fecha_servicio || orden.fecha_hora_solicitud)}
-              {orden.hora_servicio && ` · ${orden.hora_servicio.substring(0, 5)}`}
-            </Text>
-            <View style={styles.serviceTypePill}>
-              <Text style={styles.serviceTypeText}>
-                {orden.tipo_servicio === 'domicilio' ? 'Domicilio' : 'Taller'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.cardDivider} />
-
-          <View style={styles.cardBottom}>
-            <View style={styles.cardUser}>
-              {clienteFoto ? (
-                <Image source={{ uri: clienteFoto }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <User size={14} color={I.onPrimary} />
-                </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.userName} numberOfLines={1}>{nombreCompleto2}</Text>
-                <View style={styles.vehicleRow}>
-                  <Car size={12} color={I.muted} />
-                  <Text style={styles.vehicleText} numberOfLines={1}>
-                    {orden.vehiculo_detail?.marca} {orden.vehiculo_detail?.modelo}
-                    {orden.vehiculo_detail?.año ? ` (${orden.vehiculo_detail.año})` : ''}
-                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.userName} numberOfLines={1}>{cita.detalle.cliente_nombre}</Text>
+                    <View style={styles.vehicleRow}>
+                      <Car size={12} color={I.muted} />
+                      <Text style={styles.vehicleText} numberOfLines={1}>
+                        {cita.detalle.vehiculo_marca} {cita.detalle.vehiculo_modelo}
+                        {cita.detalle.vehiculo_anio ? ` (${cita.detalle.vehiculo_anio})` : ''}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
               </View>
             </View>
-            <View style={styles.cardBadges}>
-              {tieneRepuestos && (
-                <View style={styles.repuestosBadge}>
-                  <Package size={10} color={I.semanticUp} />
-                  <Text style={styles.repuestosText}>Repuestos</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  }, [getEstadoEfectivo, getTextoEstado, handleOrdenPress]);
+          </TouchableOpacity>
+        );
+      }
 
-  const renderCitaPersonalCard = useCallback((cita: CitaAgendaPersonal) => {
-    const variant: EstadoBadgeVariant =
-      cita.estado === 'cerrada' ? 'success' : cita.estado === 'cancelada' ? 'error' : 'info';
-    const estadoStyle = getEstadoBadgeColors(variant);
-    const textoEstado = labelEstadoPersonal(cita.estado);
-    const nombreServicio = nombreServicioCita(cita);
-    const precioFormateado = cita.detalle.precio_referencia
-      ? formatearPrecio(cita.detalle.precio_referencia)
-      : '';
-
-    return (
-      <TouchableOpacity
-        key={`cita-${cita.id}`}
-        style={styles.listCardOuter}
-        onPress={() => handleCitaPress(cita)}
-        activeOpacity={0.88}
-      >
-        <View style={styles.listCardInner}>
-          <View style={styles.cardTop}>
-            <View style={[styles.statusBadge, { backgroundColor: estadoStyle.bg }]}>
-              <View style={[styles.statusDot, { backgroundColor: estadoStyle.dot }]} />
-              <Text style={[styles.statusText, { color: estadoStyle.text }]}>{textoEstado}</Text>
-            </View>
-            <OrigenOrdenBadge origen="personal" />
-            <View style={{ flex: 1 }} />
-            {precioFormateado ? <Text style={styles.cardPrice}>{precioFormateado}</Text> : null}
-          </View>
-
-          <Text style={styles.cardTitle} numberOfLines={2}>{nombreServicio}</Text>
-
-          <View style={styles.cardMeta}>
-            <Clock size={13} color={I.muted} />
-            <Text style={styles.cardMetaText}>
-              {formatearFecha(cita.fecha_servicio)}
-              {cita.hora_servicio && ` · ${cita.hora_servicio.substring(0, 5)}`}
-            </Text>
-            <View style={styles.serviceTypePill}>
-              <Text style={styles.serviceTypeText}>
-                {cita.tipo_servicio === 'domicilio' ? 'Domicilio' : 'Taller'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.cardDivider} />
-
-          <View style={styles.cardBottom}>
-            <View style={styles.cardUser}>
-              <View style={styles.avatarPlaceholder}>
-                <User size={14} color={I.onPrimary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.userName} numberOfLines={1}>{cita.detalle.cliente_nombre}</Text>
-                <View style={styles.vehicleRow}>
-                  <Car size={12} color={I.muted} />
-                  <Text style={styles.vehicleText} numberOfLines={1}>
-                    {cita.detalle.vehiculo_marca} {cita.detalle.vehiculo_modelo}
-                    {cita.detalle.vehiculo_anio ? ` (${cita.detalle.vehiculo_anio})` : ''}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  }, [handleCitaPress]);
-
-  const renderActividadUnificadaCard = useCallback(
-    (item: ActividadActivaItem) => {
       const { oferta, orden, estadoEfectivo } = item;
-      const estadoStyle = getEstadoBadgeColors(ESTADO_VARIANT[estadoEfectivo] || 'neutral');
-      const textoEstado = orden
-        ? getTextoEstado(orden)
-        : resolveTextoEstadoActividad(estadoEfectivo);
-
-      const onPress = () => {
-        navigateToOrdenActiva(router, queryClient, { origen: 'mecanimovil', ...item });
-      };
-
+      const estadoVariant = ESTADO_VARIANT[estadoEfectivo] || 'neutral';
+      const textoEstado = estadoUnificadoLabel(estadoEfectivo, 'mecanimovil', orden);
       const precioRaw = orden?.total ?? oferta?.precio_total_ofrecido ?? '0';
       const precioFormateado = formatearPrecio(precioRaw);
 
@@ -876,21 +252,15 @@ export default function OrdenesScreen() {
         <TouchableOpacity
           key={item.key}
           style={styles.listCardOuter}
-          onPress={onPress}
+          onPress={() => navigateToOrdenActiva(router, queryClient, item)}
           activeOpacity={0.88}
         >
           <View style={styles.listCardInner}>
             <View style={styles.cardTop}>
-              <View style={[styles.statusBadge, { backgroundColor: estadoStyle.bg }]}>
-                <View style={[styles.statusDot, { backgroundColor: estadoStyle.dot }]} />
-                <Text style={[styles.statusText, { color: estadoStyle.text }]}>{textoEstado}</Text>
-              </View>
+              <InstitutionalTag label={textoEstado} variant={estadoVariant} size="sm" />
               <OrigenOrdenBadge origen="mecanimovil" />
               {oferta?.es_oferta_secundaria ? (
-                <View style={styles.additionalBadge}>
-                  <PlusCircle size={10} color={I.onPrimary} />
-                  <Text style={styles.additionalBadgeText}>Adicional</Text>
-                </View>
+                <InstitutionalTag label="Adicional" variant="primary" size="sm" />
               ) : null}
               {urgencia ? (
                 <View style={styles.urgentBadge}>
@@ -916,16 +286,22 @@ export default function OrdenesScreen() {
                 {fechaTexto}
                 {horaRaw ? ` · ${String(horaRaw).substring(0, 5)}` : ''}
               </Text>
-              {orden?.tipo_servicio ? (
-                <View style={styles.serviceTypePill}>
-                  <Text style={styles.serviceTypeText}>
-                    {orden.tipo_servicio === 'domicilio' ? 'Domicilio' : 'Taller'}
-                  </Text>
-                </View>
+              {(orden?.tipo_servicio || oferta) ? (
+                <InstitutionalTag
+                  label={
+                    orden?.tipo_servicio === 'domicilio'
+                      ? 'Domicilio'
+                      : orden?.tipo_servicio
+                        ? 'Taller'
+                        : 'Mecanimovil'
+                  }
+                  variant="neutral"
+                  size="sm"
+                />
               ) : null}
             </View>
 
-            {oferta ? (
+            {oferta && tabActivo === 'activas' ? (
               <View style={styles.tipoPagoRow}>
                 <TipoPagoClienteChip oferta={oferta} compact />
               </View>
@@ -959,10 +335,7 @@ export default function OrdenesScreen() {
               </View>
               <View style={styles.cardBadges}>
                 {tieneRepuestos ? (
-                  <View style={styles.repuestosBadge}>
-                    <Package size={10} color={I.semanticUp} />
-                    <Text style={styles.repuestosText}>Repuestos</Text>
-                  </View>
+                  <InstitutionalTag label="Repuestos" variant="success" size="sm" />
                 ) : null}
               </View>
             </View>
@@ -970,24 +343,23 @@ export default function OrdenesScreen() {
         </TouchableOpacity>
       );
     },
-    [getTextoEstado],
+    [queryClient, tabActivo],
   );
 
-  const renderOrdenActivaCard = useCallback(
-    (item: OrdenActivaItem) => {
-      if (item.origen === 'personal') {
-        return renderCitaPersonalCard(item.cita);
-      }
-      return renderActividadUnificadaCard(item);
-    },
-    [renderCitaPersonalCard, renderActividadUnificadaCard],
-  );
+  const sectionMeta =
+    tabActivo === 'activas'
+      ? { title: 'Próximos servicios', icon: Briefcase, count: counts.activas }
+      : tabActivo === 'completadas'
+        ? { title: 'Completadas', icon: CheckCircle, count: counts.completadas }
+        : { title: 'Rechazadas y canceladas', icon: XCircle, count: counts.rechazadas };
+
+  const SectionIcon = sectionMeta.icon;
 
   if (!isVerified) {
     return (
       <TabScreenWrapper>
         <View style={styles.screenRoot}>
-          <Header title="Servicios" backgroundColor={I.canvas} titleColor={I.ink} />
+          <Header title="Servicios" backgroundColor={COLORS.background.default} titleColor={I.ink} />
           <View style={styles.centeredContainer}>
             <Shield size={64} color={I.muted} />
             <Text style={styles.noVerificadoTitle}>Perfil en Verificación</Text>
@@ -1014,19 +386,19 @@ export default function OrdenesScreen() {
                 key: 'activas',
                 label: 'Activas',
                 leading: <Briefcase size={14} color={tabActivo === 'activas' ? I.onPrimary : I.muted} />,
-                badge: activasCount > 0 ? activasCount : undefined,
+                badge: counts.activas > 0 ? counts.activas : undefined,
               },
               {
                 key: 'completadas',
                 label: 'Completadas',
                 leading: <CheckCircle size={14} color={tabActivo === 'completadas' ? I.onPrimary : I.muted} />,
-                badge: completadasCount > 0 ? completadasCount : undefined,
+                badge: counts.completadas > 0 ? counts.completadas : undefined,
               },
               {
                 key: 'rechazadas',
                 label: 'Rechazadas',
                 leading: <XCircle size={14} color={tabActivo === 'rechazadas' ? I.onPrimary : I.muted} />,
-                badge: rechazadasCount > 0 ? rechazadasCount : undefined,
+                badge: counts.rechazadas > 0 ? counts.rechazadas : undefined,
               },
             ]}
           />
@@ -1046,9 +418,9 @@ export default function OrdenesScreen() {
             </View>
           ) : tieneDatos ? (
             <>
-              {tabActivo === 'activas' && activasUnificadas.length > 0 && (
+              {tabActivo === 'activas' && activasMarketplace.length > 0 && (
                 <View style={styles.bannerWrap}>
-                  {activasUnificadas.some(
+                  {activasMarketplace.some(
                     (i) =>
                       i.estadoEfectivo === 'aceptada' || i.estadoEfectivo === 'pendiente_pago',
                   ) && (
@@ -1059,7 +431,7 @@ export default function OrdenesScreen() {
                       icon="info"
                     />
                   )}
-                  {activasUnificadas.some((i) => i.estadoEfectivo === 'pagada') && (
+                  {activasMarketplace.some((i) => i.estadoEfectivo === 'pagada') && (
                     <EstadoBanner
                       type="success"
                       title="Listo para realizar"
@@ -1067,7 +439,7 @@ export default function OrdenesScreen() {
                       icon="check-circle"
                     />
                   )}
-                  {activasUnificadas.some((i) => i.estadoEfectivo === 'pendiente_confirmacion') && (
+                  {activasMarketplace.some((i) => i.estadoEfectivo === 'pendiente_confirmacion') && (
                     <EstadoBanner
                       type="info"
                       title="Confirma la asignación"
@@ -1078,38 +450,14 @@ export default function OrdenesScreen() {
                 </View>
               )}
 
-              {tabActivo === 'activas' ? (
-                <View style={styles.section}>
-                  <InstitutionalSectionHeader
-                    title="Próximos servicios"
-                    count={activasUnificadasCompletas.length}
-                    leading={<Briefcase size={18} color={I.ink} />}
-                  />
-                  {activasUnificadasCompletas.map(renderOrdenActivaCard)}
-                </View>
-              ) : tabActivo === 'completadas' ? (
-                <View style={styles.section}>
-                  <InstitutionalSectionHeader
-                    title="Completadas"
-                    count={completadasCount}
-                    leading={<CheckCircle size={18} color={I.ink} />}
-                  />
-                  {ordenesMostrar.map(renderOrdenCard)}
-                  {ofertasMostrar.map(renderOfertaCard)}
-                  {citasCompletadasTab.map(renderCitaPersonalCard)}
-                </View>
-              ) : (
-                <View style={styles.section}>
-                  <InstitutionalSectionHeader
-                    title="Rechazadas y canceladas"
-                    count={rechazadasCount}
-                    leading={<XCircle size={18} color={I.ink} />}
-                  />
-                  {ordenesMostrar.map(renderOrdenCard)}
-                  {ofertasMostrar.map(renderOfertaCard)}
-                  {citasRechazadasTab.map(renderCitaPersonalCard)}
-                </View>
-              )}
+              <View style={styles.section}>
+                <InstitutionalSectionHeader
+                  title={sectionMeta.title}
+                  count={sectionMeta.count}
+                  leading={<SectionIcon size={18} color={I.ink} />}
+                />
+                {itemsTab.map(renderOrdenUnificadaCard)}
+              </View>
             </>
           ) : (
             <View style={styles.centeredContainer}>
@@ -1210,24 +558,6 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xs,
     marginBottom: SPACING.fixed.sm,
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: SPACING.fixed.xxs,
-    borderRadius: BORDERS.radius.pill,
-    gap: 5,
-  },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-  },
-  statusText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
-  },
   cardPrice: {
     fontSize: TS.numberDisplay.fontSize,
     fontFamily: FF.monoMedium,
@@ -1254,20 +584,6 @@ const styles = StyleSheet.create({
     lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
     color: I.body,
     flex: 1,
-  },
-  serviceTypePill: {
-    backgroundColor: I.surfaceStrong,
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: 2,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
-  serviceTypeText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.normal),
-    color: I.body,
   },
   cardDivider: {
     height: BORDERS.width.thin,
@@ -1323,23 +639,6 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xs,
     flexShrink: 0,
   },
-  repuestosBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: withOpacity(I.semanticUp, 0.1),
-    paddingHorizontal: SPACING.fixed.xs + 2,
-    paddingVertical: 3,
-    borderRadius: BORDERS.radius.md,
-    gap: 3,
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.semanticUp, 0.25),
-  },
-  repuestosText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.normal),
-    color: I.semanticUp,
-  },
   tipoPagoRow: {
     marginTop: SPACING.fixed.xs,
   },
@@ -1377,39 +676,6 @@ const styles = StyleSheet.create({
     borderColor: I.accentYellow,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  additionalBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: I.primary,
-    paddingHorizontal: SPACING.fixed.xs + 2,
-    paddingVertical: 2,
-    borderRadius: BORDERS.radius.sm,
-    gap: 3,
-  },
-  additionalBadgeText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.tight),
-    color: I.onPrimary,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
-  personalBadge: {
-    backgroundColor: withOpacity(I.primary, 0.12),
-    paddingHorizontal: SPACING.fixed.xs + 2,
-    paddingVertical: 2,
-    borderRadius: BORDERS.radius.sm,
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.primary, 0.2),
-  },
-  personalBadgeText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.tight),
-    color: I.primaryActive,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
   },
   bannerWrap: {
     marginBottom: SPACING.fixed.md,

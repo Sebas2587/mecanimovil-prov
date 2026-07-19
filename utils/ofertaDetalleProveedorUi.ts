@@ -111,7 +111,8 @@ export function resolverBannerPrincipal(ctx: OfertaDetalleUiContext): BannerConf
       return {
         type: 'warning',
         title: 'Confirmá con créditos',
-        message: 'Comprá los créditos necesarios en la tienda antes del plazo para confirmar esta adjudicación.',
+        message:
+          'Podés comprar créditos y completar la adjudicación, o liberar la reserva para que el cliente no quede atrapado.',
         icon: 'account-balance-wallet',
       };
     case 'aceptada':

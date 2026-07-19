@@ -218,13 +218,13 @@ export function FinanzasTallerCard({
 
 const styles = StyleSheet.create({
   cardOuter: {
-    borderRadius: BORDERS.radius.card.xl,
+    borderRadius: BORDERS.radius.card.lg,
     borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    backgroundColor: I.canvas,
+    borderColor: COLORS.border.light,
+    backgroundColor: COLORS.background.paper,
     overflow: 'hidden',
     minHeight: CARD_MIN_HEIGHT,
-    ...SHADOWS.editorial,
+    ...SHADOWS.sm,
   },
   cardOuterFill: {
     flex: 1,

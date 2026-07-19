@@ -8,45 +8,26 @@ import {
   TouchableOpacity,
   Image,
   Animated,
-  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Bell, Calendar,
-  ShieldCheck, Clock,
-  ChevronRight,
-  Wrench, Settings, Map, MapPin, AlertTriangle, CreditCard,
-  Users,
+  Bell,
+  Clock,
+  AlertTriangle, CreditCard,
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
-import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
-import { router, useFocusEffect } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
-import { openSolicitudDetalle } from '@/utils/navigateProveedorDetalle';
+import { router } from 'expo-router';
 import EstadoRevisionScreen from '@/components/EstadoRevisionScreen';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import websocketService, { type NuevaSolicitudEvent } from '@/app/services/websocketService';
-import {
-  useSolicitudesDisponiblesQuery,
-  useSolicitudesDisponiblesRealtime,
-} from '@/hooks/useSolicitudesDisponiblesQuery';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import { HomeInlineAlert } from '@/components/dashboard/HomeInlineAlert';
-import { HomeSolicitudesSection } from '@/components/dashboard/HomeSolicitudesSection';
+import { HomeTodayActions } from '@/components/dashboard/HomeTodayActions';
+import { HomeServiciosRecientesSection } from '@/components/dashboard/HomeServiciosRecientesSection';
 import AlertaPagoExpirado from '@/components/alerts/AlertaPagoExpirado';
 import { useAlerts } from '@/context/AlertsContext';
-import { PerformanceWidget } from '@/components/dashboard/PerformanceWidget';
-import { FinanzasTallerCard } from '@/components/dashboard/FinanzasTallerCard';
-import { FinanzasTallerCardSkeleton } from '@/components/dashboard/FinanzasTallerCardSkeleton';
-import { useProveedorKpisResumen } from '@/hooks/useProveedorKpisResumen';
-import {
-  useSaldoCreditosQuery,
-  useGananciasResumenQuery,
-  useSuscripcionProveedorQuery,
-  invalidateDashboardFinanzasQueries,
-} from '@/hooks/useDashboardFinanzas';
+import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
@@ -60,11 +41,9 @@ export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
-  const { verificarYGenerarAlertas, saludSuscripcion, alertasNoLeidas } = useAlerts();
+  const { saludSuscripcion, alertasNoLeidas } = useAlerts();
 
   const {
-    isAuthenticated,
     isLoading,
     estadoProveedor,
     usuario,
@@ -74,72 +53,15 @@ export default function HomeScreen() {
     puede,
   } = useAuth();
 
-  const {
-    radarOportunidadesActivo,
-    radarPreferenciaCargada,
-    setRadarOportunidadesActivo,
-  } = useRadarOportunidades();
-
-  const esMecanicoDomicilio = estadoProveedor?.tipo_proveedor === 'mecanico';
-  const esMultimarca = useMemo(() => {
-    const cobertura =
-      estadoProveedor?.tipo_cobertura_marca
-      || (estadoProveedor?.datos_proveedor as { tipo_cobertura_marca?: string } | undefined)
-        ?.tipo_cobertura_marca;
-    return cobertura === 'multimarca';
-  }, [estadoProveedor]);
   /** Habilitado por admin para operar (≠ sello "Verificado" en perfil). */
   const cuentaAprobadaPorAdmin = estadoProveedor?.estado_verificacion === 'aprobado';
   const perfilProveedorKey = useMemo(
     () => estadoProveedorReloadKey(estadoProveedor ?? null),
     [estadoProveedor]
   );
-  const kpisResumen = useProveedorKpisResumen({
-    enabled: Boolean(isAuthenticated && cuentaAprobadaPorAdmin && !isLoading),
-    dias: 30,
-  });
-
-  /** Misma lectura que el hero de `RendimientoKpisContent` (ventana 30 días en home). */
-  const rendimientoWidgetPeriod = useMemo(() => {
-    if (kpisResumen.data) {
-      const d = kpisResumen.data.ventana_dias;
-      return `Índice del taller en Mecanimovil (últimos ${d} días). Posiciona tu negocio en la app de clientes.`;
-    }
-    if (kpisResumen.loading) {
-      return `Últimos ${kpisResumen.ventanaDiasMostrada} días con actividad · cargando…`;
-    }
-    if (kpisResumen.error) {
-      return 'No se pudo cargar. Entra para reintentar.';
-    }
-    return `Últimos ${kpisResumen.ventanaDiasMostrada} días · mismo índice que en detalle`;
-  }, [
-    kpisResumen.data,
-    kpisResumen.loading,
-    kpisResumen.error,
-    kpisResumen.ventanaDiasMostrada,
-  ]);
   const [refreshing, setRefreshing] = useState(false);
-
-  const dashboardFinanzasEnabled = Boolean(
-    isAuthenticated && cuentaAprobadaPorAdmin && !isLoading,
-  );
-  const saldoCreditosQuery = useSaldoCreditosQuery(dashboardFinanzasEnabled && puede('finanzas'));
-  const gananciasQuery = useGananciasResumenQuery(dashboardFinanzasEnabled && puede('finanzas'));
-  const suscripcionQuery = useSuscripcionProveedorQuery(dashboardFinanzasEnabled && !esSupervisor);
-  const saldoCreditos = saldoCreditosQuery.data;
-  const gananciasResumen = gananciasQuery.data;
-  const suscripcion = suscripcionQuery.data;
-
-  // Solicitudes del radar (TanStack Query + invalidación por WS)
+  const [agendarRapidoVisible, setAgendarRapidoVisible] = useState(false);
   const [nuevasSolicitudesIds, setNuevasSolicitudesIds] = useState<Set<string>>(new Set());
-  const solicitudesRadarEnabled =
-    cuentaAprobadaPorAdmin && radarPreferenciaCargada && radarOportunidadesActivo;
-  const {
-    data: solicitudesDisponibles = [],
-    isLoading: loadingSolicitudes,
-    refetch: refetchSolicitudesDisponibles,
-  } = useSolicitudesDisponiblesQuery(solicitudesRadarEnabled);
-  useSolicitudesDisponiblesRealtime({ enabled: solicitudesRadarEnabled });
 
   // Estado para alertas de pago expirado
   const [mostrarAlertaPago, setMostrarAlertaPago] = useState(false);
@@ -149,7 +71,6 @@ export default function HomeScreen() {
   const [alertaSolicitudId, setAlertaSolicitudId] = useState<string | undefined>(undefined);
   const [alertaCreditosDevueltos, setAlertaCreditosDevueltos] = useState(false);
 
-  const [radarSwitchLoading, setRadarSwitchLoading] = useState(false);
   /** null = aún no consultado; true = falta configurar horarios en BD */
   const [necesitaConfigurarHorarios, setNecesitaConfigurarHorarios] = useState<boolean | null>(null);
 
@@ -188,52 +109,6 @@ export default function HomeScreen() {
     return theme?.borders || BORDERS || {};
   }, [theme]);
 
-  const handlePerformanceWidgetPress = useCallback(() => {
-    router.push('/rendimiento-kpis');
-  }, []);
-
-  const handleRecargarCreditos = useCallback(() => {
-    router.push('/creditos?tab=tienda');
-  }, []);
-
-  const handleFinanzasCardPress = useCallback(() => {
-    router.push('/creditos?tab=saldo');
-  }, []);
-
-  const handlePressPlanSuscripcion = useCallback(() => {
-    router.push('/creditos?tab=suscripcion');
-  }, []);
-
-  const queryClient = useQueryClient();
-  const lastFinanzasInvalidateRef = useRef(0);
-  const FINANZAS_INVALIDATE_MIN_MS = 60_000;
-
-  const handleOpenSolicitudDetalle = useCallback((solicitudId: string) => {
-    const solicitud = solicitudesDisponibles.find((s) => String(s.id) === String(solicitudId));
-    openSolicitudDetalle(
-      router,
-      queryClient,
-      solicitudId,
-      solicitud ? { solicitud } : undefined,
-    );
-  }, [queryClient, solicitudesDisponibles]);
-
-  const handleVerSolicitudesDisponibles = useCallback(() => {
-    router.push('/solicitudes-disponibles');
-  }, []);
-
-  const handleRadarOportunidadesToggle = useCallback(
-    async (activo: boolean) => {
-      setRadarSwitchLoading(true);
-      try {
-        await setRadarOportunidadesActivo(activo);
-      } finally {
-        setRadarSwitchLoading(false);
-      }
-    },
-    [setRadarOportunidadesActivo]
-  );
-
   const verificarHorariosConfigurados = useCallback(async () => {
     if (!cuentaAprobadaPorAdmin) {
       setNecesitaConfigurarHorarios(null);
@@ -265,26 +140,6 @@ export default function HomeScreen() {
       verificarHorariosConfigurados();
     }
   }, [perfilProveedorKey, cuentaAprobadaPorAdmin, verificarHorariosConfigurados]);
-
-  // Al volver al tab: alertas y finanzas actualizadas (tras cerrar órdenes o citas).
-  useFocusEffect(
-    React.useCallback(() => {
-      if (!isAuthenticated || !cuentaAprobadaPorAdmin) return;
-      if (dashboardFinanzasEnabled && puede('finanzas')) {
-        const now = Date.now();
-        if (now - lastFinanzasInvalidateRef.current >= FINANZAS_INVALIDATE_MIN_MS) {
-          lastFinanzasInvalidateRef.current = now;
-          invalidateDashboardFinanzasQueries(queryClient);
-        }
-      }
-    }, [
-      cuentaAprobadaPorAdmin,
-      dashboardFinanzasEnabled,
-      isAuthenticated,
-      puede,
-      queryClient,
-    ]),
-  );
 
   // Badge de novedad en header al recibir solicitud por WebSocket
   useEffect(() => {
@@ -455,17 +310,7 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    const tasks: Promise<unknown>[] = [
-      saldoCreditosQuery.refresh(),
-      gananciasQuery.refresh(),
-      suscripcionQuery.refresh(),
-      kpisResumen.refresh(),
-      verificarHorariosConfigurados(),
-    ];
-    if (solicitudesRadarEnabled) {
-      tasks.push(refetchSolicitudesDisponibles());
-    }
-    await Promise.all(tasks);
+    await verificarHorariosConfigurados();
     setRefreshing(false);
   };
 
@@ -488,6 +333,7 @@ export default function HomeScreen() {
     const warn = (safeColors as any)?.warning ?? COLORS.warning;
     return {
       ...inst,
+      paper: COLORS.background.paper,
       primary: primaryColor,
       warningEmphasis: typeof warn?.text === 'string' ? warn.text : COLORS.warning.text,
     };
@@ -554,13 +400,7 @@ export default function HomeScreen() {
 
     return (
       <TabScreenWrapper>
-        <LinearGradient
-          style={themedStyles.screen}
-          colors={[palette.surfaceSoft, palette.canvas] as const}
-          locations={[0, 1] as const}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-        >
+        <View style={[themedStyles.screen, { backgroundColor: palette.canvas }]}>
           <SafeAreaView edges={['top']} style={{ backgroundColor: palette.canvas }}>
             <View style={themedStyles.header}>
               <View style={themedStyles.headerLeft}>
@@ -597,25 +437,16 @@ export default function HomeScreen() {
             </View>
           </SafeAreaView>
           <MecanicoHomeView />
-        </LinearGradient>
+        </View>
       </TabScreenWrapper>
     );
   }
 
   // Cuenta aprobada: dashboard principal
-  const showFinanzasCard = puede('finanzas') && (saldoCreditos || saldoCreditosQuery.loading);
-  const dashboardTwoColumns = showFinanzasCard && windowWidth >= 560;
-
   return (
     <TabScreenWrapper>
-      <LinearGradient
-        style={themedStyles.screen}
-        colors={[palette.surfaceSoft, palette.canvas] as const}
-        locations={[0, 1] as const}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-      >
-        {/* 1. HEADER */}
+      <View style={[themedStyles.screen, { backgroundColor: palette.canvas }]}>
+        {/* 1. HEADER — Today */}
         <SafeAreaView edges={['top']} style={{ backgroundColor: palette.canvas }}>
           <View style={themedStyles.header}>
             <View style={themedStyles.headerLeft}>
@@ -629,7 +460,7 @@ export default function HomeScreen() {
                 </View>
               )}
               <View style={{ flex: 1 }}>
-                <Text style={themedStyles.welcomeLabel}>Bienvenido</Text>
+                <Text style={themedStyles.welcomeLabel}>{obtenerSaludo()}</Text>
                 <Text style={themedStyles.providerName} numberOfLines={1}>{obtenerNombreProveedor()}</Text>
               </View>
             </View>
@@ -701,138 +532,19 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          {/* Rendimiento + finanzas (2 columnas en pantallas anchas) */}
+          {/* Acciones del día: Agendar + Cotizar con IA (cards) */}
           <View style={themedStyles.sectionWrap}>
-            <View
-              style={
-                dashboardTwoColumns
-                  ? themedStyles.dashboardDualRow
-                  : themedStyles.dashboardDualStack
-              }
-            >
-              <View style={dashboardTwoColumns ? themedStyles.dashboardDualCol : undefined}>
-                <PerformanceWidget
-                  progress={kpisResumen.progress}
-                  targetTierName={kpisResumen.targetTierName}
-                  periodSubtitle={rendimientoWidgetPeriod}
-                  isLoading={kpisResumen.loading && !kpisResumen.hasData}
-                  onPress={handlePerformanceWidgetPress}
-                  fill={dashboardTwoColumns}
-                />
-              </View>
-              {showFinanzasCard ? (
-                <View style={dashboardTwoColumns ? themedStyles.dashboardDualCol : undefined}>
-                  {saldoCreditos ? (
-                    <FinanzasTallerCard
-                      ganancias={gananciasResumen}
-                      saldoCreditos={saldoCreditos}
-                      suscripcion={suscripcion}
-                      esSupervisor={esSupervisor}
-                      isLoadingGanancias={gananciasQuery.loading && !gananciasResumen}
-                      isLoadingCreditos={saldoCreditosQuery.loading && !saldoCreditos}
-                      warningEmphasis={palette.warningEmphasis}
-                      onPress={handleFinanzasCardPress}
-                      onRecargarCreditos={handleRecargarCreditos}
-                      onPressPlan={handlePressPlanSuscripcion}
-                      fill={dashboardTwoColumns}
-                    />
-                  ) : (
-                    <FinanzasTallerCardSkeleton fill={dashboardTwoColumns} />
-                  )}
-                </View>
-              ) : null}
-            </View>
-          </View>
-
-          {/* Solicitudes disponibles (toggle + listado unificado) */}
-          <View style={themedStyles.sectionWrap}>
-            <HomeSolicitudesSection
-              radarActivo={radarOportunidadesActivo}
-              radarPreferenciaCargada={radarPreferenciaCargada}
-              radarSwitchLoading={radarSwitchLoading}
-              loadingSolicitudes={loadingSolicitudes}
-              solicitudes={solicitudesDisponibles}
-              onToggleRadar={handleRadarOportunidadesToggle}
-              onOpenDetail={handleOpenSolicitudDetalle}
-              onVerTodas={handleVerSolicitudesDisponibles}
+            <HomeTodayActions
+              onAgendar={() => setAgendarRapidoVisible(true)}
+              onCotizarIa={() => router.push('/(tabs)/chats?intent=cotizar-ia')}
+              showCotizarIa={puede('servicios')}
             />
           </View>
 
-          {/* 4. CATEGORÍAS DE GESTIÓN (filtradas por rol/permisos del supervisor) */}
-          {(() => {
-            const mgmtItems: {
-              key: string;
-              title: string;
-              Icon: typeof Calendar;
-              color: string;
-              route: string;
-            }[] = [];
-
-            // Calendario / agenda
-            if (puede('agenda')) {
-              mgmtItems.push({ key: 'calendario', title: 'Calendario', Icon: Calendar, color: palette.primary, route: '/(tabs)/calendario' });
-            }
-            // Marcas (identidad del taller): solo el dueño la edita
-            if (!esMultimarca && !esSupervisor) {
-              mgmtItems.push({ key: 'marcas', title: 'Marcas', Icon: Wrench, color: palette.ink, route: '/especialidades-marcas' });
-            }
-            // Servicios
-            if (puede('servicios')) {
-              mgmtItems.push({ key: 'servicios', title: 'Servicios', Icon: Settings, color: palette.ink, route: '/mis-servicios' });
-            }
-            // Horarios
-            if (puede('horarios')) {
-              mgmtItems.push({ key: 'horarios', title: 'Horarios', Icon: Clock, color: palette.ink, route: '/configuracion-horarios' });
-            }
-            // Equipo (mecánicos)
-            if (!esMecanicoDomicilio && puede('mecanicos')) {
-              mgmtItems.push({ key: 'equipo', title: 'Equipo', Icon: Users, color: palette.ink, route: '/gestion-equipo' });
-            }
-            // Ubicación / zonas (modalidad a domicilio)
-            if (esMecanicoDomicilio) {
-              // 'Mi ubicación' es del dueño legacy; no se muestra al supervisor.
-              if (!esSupervisor) {
-                mgmtItems.push({ key: 'ubicacion', title: 'Mi ubicación', Icon: MapPin, color: palette.ink, route: '/actualizar-ubicacion' });
-              }
-              if (puede('zonas_cobertura')) {
-                mgmtItems.push({ key: 'zonas', title: 'Zonas', Icon: Map, color: palette.ink, route: '/zonas-servicio' });
-              }
-            }
-
-            if (mgmtItems.length === 0) return null;
-
-            const filas: (typeof mgmtItems)[] = [];
-            for (let i = 0; i < mgmtItems.length; i += 2) {
-              filas.push(mgmtItems.slice(i, i + 2));
-            }
-
-            return (
-              <View style={themedStyles.sectionWrap}>
-                <Text style={themedStyles.mgmtTitle}>Gestión del Taller</Text>
-                <View style={themedStyles.mgmtGrid}>
-                  {filas.map((fila, idx) => (
-                    <View style={themedStyles.mgmtRow} key={`mgmt-row-${idx}`}>
-                      {fila.map((item) => (
-                        <TouchableOpacity
-                          key={item.key}
-                          style={themedStyles.mgmtCard}
-                          onPress={() => router.push(item.route as any)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={themedStyles.mgmtIconBox}>
-                            <item.Icon size={22} color={item.color} />
-                          </View>
-                          <View style={themedStyles.mgmtCardTextCol}>
-                            <Text style={themedStyles.mgmtCardTitle}>{item.title}</Text>
-                          </View>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  ))}
-                </View>
-              </View>
-            );
-          })()}
+          {/* Últimos 5 servicios → Ver todos en tab Servicios */}
+          <View style={themedStyles.sectionWrap}>
+            <HomeServiciosRecientesSection enabled={cuentaAprobadaPorAdmin} />
+          </View>
         </ScrollView>
 
         <AlertaPagoExpirado
@@ -854,7 +566,13 @@ export default function HomeScreen() {
             }
           }}
         />
-      </LinearGradient>
+
+        <AgendarDesdeCanalModal
+          visible={agendarRapidoVisible}
+          onClose={() => setAgendarRapidoVisible(false)}
+          subtitle="Agenda una cita personal para un cliente"
+        />
+        </View>
     </TabScreenWrapper>
   );
 }

@@ -19,7 +19,7 @@ import { X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import chatService from '@/services/chatService';
-import { OmnichannelChatHeader } from '@/components/chats/OmnichannelChatHeader';
+import { OmnichannelChatHeader, OmnichannelChatActionBar } from '@/components/chats/OmnichannelChatHeader';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
 import cotizacionCanalService from '@/services/cotizacionCanalService';
@@ -31,7 +31,6 @@ import { getWhatsAppReplyBlockReason } from '@/utils/whatsappMessagingWindow';
 import { OmnichannelChatRestrictionBanner } from '@/components/chats/OmnichannelChatRestrictionBanner';
 import {
   ChatMessageComposer,
-  chatComposerAttachPreviewStyles,
 } from '@/components/chats/ChatMessageComposer';
 import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
@@ -39,16 +38,17 @@ import websocketService, { type NuevoMensajeChatEvent } from '@/app/services/web
 import { BLANK_GLASS } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { isChatAttachmentImage } from '@/utils/chatAttachmentMedia';
+import {
+  isChatAttachmentImage,
+  normalizeChatMessage,
+  normalizeMessageText,
+} from '@/utils/chatAttachmentMedia';
+import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
+import { AudioRecorderBar } from '@/components/chats/AudioRecorderBar';
 
 const I = COLORS.institutional;
 
-type AttachmentState = {
-  uri: string;
-  type: 'image' | 'video' | 'audio';
-  name: string;
-  mime: string;
-};
+type AttachmentState = StagedAttachment & { mime: string };
 
 type ChatRow = {
   id: string;
@@ -57,6 +57,8 @@ type ChatRow = {
   fecha_envio: string;
   enviado_por_nombre: string;
   archivo_adjunto: string | null;
+  attachment_mime?: string | null;
+  attachment_name?: string | null;
   channel_metadata?: Record<string, unknown>;
 };
 
@@ -105,7 +107,7 @@ export default function ChatOmnicanalScreen() {
   const [enviando, setEnviando] = useState(false);
   const [agendarVisible, setAgendarVisible] = useState(false);
   const [cotizacionAceptadaId, setCotizacionAceptadaId] = useState<number | undefined>();
-  const [attachment, setAttachment] = useState<AttachmentState | null>(null);
+  const [attachments, setAttachments] = useState<AttachmentState[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const conversationMeta = useOmnichannelConversationMeta(convId);
@@ -137,14 +139,16 @@ export default function ChatOmnicanalScreen() {
     const direction = row.direction as string | undefined;
     const senderId = row.sender_id as number | null | undefined;
     const esPropio = direction === 'outbound' || (usuario?.id != null && senderId === usuario.id);
-    const adjunto = (row.attachment ?? row.archivo_adjunto ?? null) as string | null;
+    const normalized = normalizeChatMessage(row);
     return {
       id: String(row.id),
-      mensaje: String(row.content ?? row.mensaje ?? ''),
+      mensaje: normalizeMessageText(normalized.content ?? normalized.mensaje),
       es_proveedor: esPropio,
       fecha_envio: String(row.timestamp ?? new Date().toISOString()),
       enviado_por_nombre: String(row.sender_name ?? (esPropio ? 'Tú' : conversationMeta.contactName)),
-      archivo_adjunto: adjunto,
+      archivo_adjunto: normalized.archivo_adjunto,
+      attachment_mime: normalized.attachment_mime as string | null | undefined,
+      attachment_name: normalized.attachment_name as string | null | undefined,
       channel_metadata: (row.channel_metadata as Record<string, unknown>) ?? undefined,
     };
   }, [conversationMeta.contactName, usuario?.id]);
@@ -152,13 +156,16 @@ export default function ChatOmnicanalScreen() {
   const mapWsEvent = useCallback((event: NuevoMensajeChatEvent | Record<string, unknown>): ChatRow => {
     const raw = event as Record<string, unknown>;
     const esPropio = Boolean(raw.es_proveedor);
+    const normalized = normalizeChatMessage(raw);
     return {
       id: String(raw.mensaje_id ?? raw.id ?? ''),
-      mensaje: String(raw.mensaje ?? raw.message ?? raw.content ?? ''),
+      mensaje: normalizeMessageText(raw.mensaje ?? raw.message ?? normalized.content),
       es_proveedor: esPropio,
       fecha_envio: String(raw.timestamp ?? new Date().toISOString()),
       enviado_por_nombre: String(raw.enviado_por ?? (esPropio ? 'Tú' : conversationMeta.contactName)),
-      archivo_adjunto: (raw.archivo_adjunto ?? raw.attachment ?? null) as string | null,
+      archivo_adjunto: normalized.archivo_adjunto,
+      attachment_mime: normalized.attachment_mime as string | null | undefined,
+      attachment_name: normalized.attachment_name as string | null | undefined,
       channel_metadata: (raw.channel_metadata as Record<string, unknown>) ?? undefined,
     };
   }, [conversationMeta.contactName]);
@@ -226,20 +233,24 @@ export default function ChatOmnicanalScreen() {
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ['images', 'videos'],
+        allowsMultipleSelection: true,
+        selectionLimit: 10,
         allowsEditing: false,
         quality: 0.8,
         videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
       });
       if (!result.canceled && result.assets?.length) {
-        const asset = result.assets[0];
-        const isVideo = asset.type === 'video';
-        setAttachment({
-          uri: asset.uri,
-          type: isVideo ? 'video' : 'image',
-          name: asset.fileName || `${isVideo ? 'video' : 'image'}_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
-          mime: isVideo ? 'video/mp4' : 'image/jpeg',
+        const mapped = result.assets.map((asset) => {
+          const isVideo = asset.type === 'video';
+          return {
+            uri: asset.uri,
+            type: isVideo ? 'video' as const : 'image' as const,
+            name: asset.fileName || `${isVideo ? 'video' : 'image'}_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+            mime: isVideo ? 'video/mp4' : 'image/jpeg',
+          };
         });
+        setAttachments((prev) => [...prev, ...mapped].slice(0, 10));
       }
     } catch {
       Alert.alert('Error', 'No se pudo seleccionar el archivo.');
@@ -254,12 +265,15 @@ export default function ChatOmnicanalScreen() {
       });
       if (!result.canceled && result.assets?.length) {
         const asset = result.assets[0];
-        setAttachment({
-          uri: asset.uri,
-          type: 'audio',
-          name: asset.name || `audio_${Date.now()}.m4a`,
-          mime: asset.mimeType || 'audio/m4a',
-        });
+        setAttachments((prev) => [
+          ...prev,
+          {
+            uri: asset.uri,
+            type: 'audio' as const,
+            name: asset.name || `audio_${Date.now()}.m4a`,
+            mime: asset.mimeType || 'audio/m4a',
+          },
+        ].slice(0, 10));
       }
     } catch {
       Alert.alert('Error', 'No se pudo seleccionar el audio.');
@@ -278,47 +292,65 @@ export default function ChatOmnicanalScreen() {
     ]);
   };
 
-  const enviar = async () => {
+  const enviar = async (audioAttachment?: AttachmentState) => {
     const trimmed = texto.trim();
-    if ((!trimmed && !attachment) || !convId || !canSendMessages) return;
+    const queue = audioAttachment ? [audioAttachment] : [...attachments];
+    if ((!trimmed && queue.length === 0) || !convId || !canSendMessages) return;
     setEnviando(true);
     setTexto('');
-    const attachmentTemp = attachment;
-    setAttachment(null);
+    const queueSnapshot = [...queue];
+    if (!audioAttachment) setAttachments([]);
     Keyboard.dismiss();
-    const tempId = `temp-${Date.now()}`;
+
+    const payloads = queueSnapshot.length
+      ? queueSnapshot.map((att, index) => ({
+          attachment: att,
+          content: index === queueSnapshot.length - 1 ? trimmed : '',
+        }))
+      : [{ attachment: null as AttachmentState | null, content: trimmed }];
+
+    const tempIds = payloads.map((_, i) => `temp-${Date.now()}-${i}`);
     setMensajes((prev) => [
       ...prev,
-      {
-        id: tempId,
-        mensaje: trimmed,
+      ...payloads.map((p, i) => ({
+        id: tempIds[i],
+        mensaje: typeof p.content === 'string' ? p.content : '',
         es_proveedor: true,
         fecha_envio: new Date().toISOString(),
         enviado_por_nombre: 'Tú',
-        archivo_adjunto: attachmentTemp ? attachmentTemp.uri : null,
-      },
+        archivo_adjunto: p.attachment?.uri ?? null,
+        attachment_mime: p.attachment?.mime || p.attachment?.mimeType || null,
+        attachment_name: p.attachment?.name || null,
+      })),
     ]);
+
     try {
-      const sent = await chatService.sendMessageHTTP(
-        convId,
-        {
-          content: trimmed,
-          attachment: attachmentTemp
-            ? { uri: attachmentTemp.uri, name: attachmentTemp.name, type: attachmentTemp.mime }
-            : null,
-        },
-        Boolean(attachmentTemp),
-      );
-      const mapped = mapApiMessage(sent as Record<string, unknown>);
-      setMensajes((prev) => {
-        const withoutTemp = prev.filter((m) => m.id !== tempId);
-        return mergeChatRow(withoutTemp, mapped);
-      });
+      for (let i = 0; i < payloads.length; i += 1) {
+        const sent = await chatService.sendMessageHTTP(
+          convId,
+          {
+            content: payloads[i].content,
+            attachment: payloads[i].attachment
+              ? {
+                  uri: payloads[i].attachment!.uri,
+                  name: payloads[i].attachment!.name,
+                  type: payloads[i].attachment!.mime,
+                }
+              : null,
+          },
+          Boolean(payloads[i].attachment),
+        );
+        const mapped = mapApiMessage(sent as Record<string, unknown>);
+        setMensajes((prev) => {
+          const withoutTemp = prev.filter((m) => m.id !== tempIds[i]);
+          return mergeChatRow(withoutTemp, mapped);
+        });
+      }
     } catch (error) {
       Alert.alert('No se puede enviar', extractSendMessageError(error));
-      setMensajes((prev) => prev.filter((m) => m.id !== tempId));
+      setMensajes((prev) => prev.filter((m) => !tempIds.includes(m.id)));
       setTexto(trimmed);
-      setAttachment(attachmentTemp);
+      if (!audioAttachment) setAttachments(queueSnapshot);
     } finally {
       setEnviando(false);
     }
@@ -341,7 +373,11 @@ export default function ChatOmnicanalScreen() {
           isMetaPending={conversationMeta.isMetaPending}
           paddingTop={insets.top + SPACING.sm}
           onBack={() => router.back()}
-          onAgendarPress={() => setAgendarVisible(true)}
+        />
+
+        <OmnichannelChatActionBar
+          cotizacionAceptada={Boolean(cotizacionAceptadaId)}
+          onPress={() => setAgendarVisible(true)}
         />
 
         <AgendarDesdeCanalModal
@@ -357,18 +393,6 @@ export default function ChatOmnicanalScreen() {
             void cargar();
           }}
         />
-
-        {cotizacionAceptadaId ? (
-          <TouchableOpacity
-            style={styles.cotizacionAceptadaBanner}
-            onPress={() => setAgendarVisible(true)}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.cotizacionAceptadaText}>
-              Cotización aceptada — toca para agendar la cita
-            </Text>
-          </TouchableOpacity>
-        ) : null}
 
         <View style={styles.chatArea}>
           {loading ? (
@@ -472,30 +496,25 @@ export default function ChatOmnicanalScreen() {
           <ChatMessageComposer
             value={texto}
             onChangeText={setTexto}
-            onSend={enviar}
+            onSend={() => enviar()}
             onAttachPress={handleAttachPress}
             editable={canSendMessages}
             sending={enviando}
-            hasAttachment={Boolean(attachment)}
+            hasAttachment={attachments.length > 0}
             paddingBottom={Math.max(insets.bottom, SPACING.sm)}
             stripAttached={Boolean(inputRestrictionMessage)}
+            voiceSlot={
+              <AudioRecorderBar
+                disabled={enviando || !canSendMessages}
+                onRecorded={(att) => enviar({ ...att, mime: att.mime || 'audio/m4a' })}
+              />
+            }
             attachmentPreview={
-              attachment ? (
-                <View style={chatComposerAttachPreviewStyles.row}>
-                  {attachment.type === 'image' ? (
-                    <Image source={{ uri: attachment.uri }} style={chatComposerAttachPreviewStyles.thumb} />
-                  ) : (
-                    <Text style={chatComposerAttachPreviewStyles.label}>
-                      {attachment.type === 'video' ? 'Video' : 'Audio'} · {attachment.name}
-                    </Text>
-                  )}
-                  <TouchableOpacity
-                    style={chatComposerAttachPreviewStyles.remove}
-                    onPress={() => setAttachment(null)}
-                  >
-                    <X size={14} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                  </TouchableOpacity>
-                </View>
+              attachments.length > 0 ? (
+                <AttachmentStagingTray
+                  attachments={attachments}
+                  onRemove={(index) => setAttachments((prev) => prev.filter((_, i) => i !== index))}
+                />
               ) : null
             }
           />

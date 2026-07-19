@@ -20,6 +20,11 @@ import {
   ArrowLeft, User, Send, X, MessageCircle,
 } from 'lucide-react-native';
 import solicitudesService, { type MensajeChat, type OfertaProveedor } from '@/services/solicitudesService';
+import {
+  normalizeChatMessage,
+  normalizeAttachmentRef,
+  normalizeMessageText,
+} from '@/utils/chatAttachmentMedia';
 import chatService from '@/services/chatService';
 import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
@@ -29,6 +34,8 @@ import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { COLORS, TYPOGRAPHY, SHADOWS, BORDERS, SPACING, withOpacity } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
+import { AudioRecorderBar } from '@/components/chats/AudioRecorderBar';
 import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
 
 const I = COLORS.institutional;
@@ -76,11 +83,12 @@ function mapApiRowToMensaje(
 ): MensajeChat {
   const senderId = Number(row.sender_id ?? (row.sender as { id?: number })?.id ?? row.enviado_por ?? 0);
   const esProveedor = row.es_proveedor === true || (currentUserId != null && senderId === currentUserId);
+  const normalized = normalizeChatMessage(row);
 
   return {
     id: String(row.id),
     oferta: ofertaIdStr,
-    mensaje: String(row.content ?? row.mensaje ?? row.message ?? ''),
+    mensaje: normalizeMessageText(normalized.content ?? normalized.mensaje),
     enviado_por: senderId,
     enviado_por_nombre: String(
       row.enviado_por_nombre
@@ -92,7 +100,9 @@ function mapApiRowToMensaje(
     fecha_envio: String(row.timestamp ?? row.fecha_envio ?? row.created_at ?? new Date().toISOString()),
     leido: Boolean(row.is_read ?? row.leido ?? false),
     fecha_lectura: (row.fecha_lectura as string | null) ?? null,
-    archivo_adjunto: (row.attachment ?? row.archivo_adjunto ?? null) as string | null,
+    archivo_adjunto: normalized.archivo_adjunto,
+    attachment_mime: normalized.attachment_mime as string | null | undefined,
+    attachment_name: normalized.attachment_name as string | null | undefined,
     solicitud_detail: solicitudDetail,
   };
 }
@@ -108,7 +118,7 @@ export default function ChatOfertaScreen() {
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [attachment, setAttachment] = useState<{ uri: string; type: 'image' | 'video'; name: string } | null>(null);
+  const [attachments, setAttachments] = useState<StagedAttachment[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
@@ -339,90 +349,137 @@ export default function ChatOfertaScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permiso necesario', 'Se necesita acceso a la galería para enviar imágenes.');
+        Alert.alert('Permiso necesario', 'Se necesita acceso a la galería para enviar archivos.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images', 'videos'],
+        allowsMultipleSelection: true,
+        selectionLimit: 10,
         allowsEditing: false,
         quality: 0.8,
       });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        setAttachment({ uri: asset.uri, type: 'image', name: asset.fileName || `image_${Date.now()}.jpg` });
+      if (!result.canceled && result.assets?.length) {
+        const mapped = result.assets.map((asset) => {
+          const isVideo = asset.type === 'video' || (asset.mimeType || '').startsWith('video/');
+          return {
+            uri: asset.uri,
+            type: isVideo ? 'video' as const : 'image' as const,
+            name: asset.fileName || `${isVideo ? 'video' : 'image'}_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+            mime: asset.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'),
+          };
+        });
+        setAttachments((prev) => [...prev, ...mapped].slice(0, 10));
       }
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo seleccionar la imagen.');
+    } catch {
+      Alert.alert('Error', 'No se pudo seleccionar el archivo.');
     }
   };
 
-  const handleEnviarMensaje = async () => {
-    if ((!nuevoMensaje.trim() && !attachment) || !ofertaId || enviando) return;
+  const sendSingleMessage = async ({
+    mensajeTexto,
+    attachmentItem,
+    mensajeId,
+    solicitudDetail,
+  }: {
+    mensajeTexto: string;
+    attachmentItem: StagedAttachment | null;
+    mensajeId: string;
+    solicitudDetail: MensajeChat['solicitud_detail'];
+  }) => {
+    const convId = conversationIdRef.current;
+    let realMsg: MensajeChat | null = null;
+
+    if (convId) {
+      const apiMsg = await chatService.sendMessageHTTP(
+        convId,
+        {
+          content: mensajeTexto,
+          attachment: attachmentItem
+            ? {
+                uri: attachmentItem.uri,
+                name: attachmentItem.name,
+                type: attachmentItem.mime || (attachmentItem.type === 'video' ? 'video/mp4' : 'image/jpeg'),
+              }
+            : null,
+        },
+        Boolean(attachmentItem),
+      );
+      realMsg = mapApiRowToMensaje(
+        apiMsg as Record<string, unknown>,
+        String(ofertaId),
+        solicitudDetail,
+        usuario?.id,
+      );
+    } else {
+      const legacyAttachment = attachmentItem
+        ? { uri: attachmentItem.uri, type: attachmentItem.type === 'video' ? 'video' as const : 'image' as const, name: attachmentItem.name }
+        : null;
+      const result = await solicitudesService.enviarMensajeChat(ofertaId!, mensajeTexto, legacyAttachment);
+      if (result.success && result.data) realMsg = result.data;
+    }
+
+    if (realMsg) {
+      mensajesEnviadosRef.current.add(String(realMsg.id));
+      setMensajes((prev) => prev.map((m) => (m.id === mensajeId ? realMsg! : m)));
+      setTimeout(() => mensajesEnviadosRef.current.delete(String(realMsg!.id)), 15000);
+    } else {
+      throw new Error('send failed');
+    }
+  };
+
+  const handleEnviarMensaje = async (audioAttachment?: StagedAttachment) => {
+    const queue = audioAttachment ? [audioAttachment] : [...attachments];
+    if ((!nuevoMensaje.trim() && queue.length === 0) || !ofertaId || enviando) return;
+
     const mensajeTexto = nuevoMensaje.trim();
-    const mensajeId = `temp-${Date.now()}`;
-    const attachmentTemp = attachment;
-
-    const mensajeOptimista: MensajeChat = {
-      id: mensajeId, oferta: ofertaId, mensaje: mensajeTexto,
-      enviado_por: usuario?.id || 0, enviado_por_nombre: usuario?.first_name || 'Tú',
-      es_proveedor: true, fecha_envio: new Date().toISOString(),
-      leido: false, fecha_lectura: null,
-      archivo_adjunto: attachmentTemp ? attachmentTemp.uri : null,
-      solicitud_detail: mensajes[0]?.solicitud_detail || null,
-    };
-
-    setMensajes(prev => [...prev, mensajeOptimista]);
+    const queueSnapshot = [...queue];
     setNuevoMensaje('');
-    setAttachment(null);
+    if (!audioAttachment) setAttachments([]);
     setEnviando(true);
 
+    const payloads = queueSnapshot.length
+      ? queueSnapshot.map((att, index) => ({
+          attachment: att,
+          content: index === queueSnapshot.length - 1 ? mensajeTexto : '',
+        }))
+      : [{ attachment: null, content: mensajeTexto }];
+
+    const tempIds = payloads.map((_, i) => `temp-${Date.now()}-${i}`);
+    const solicitudDetail = mensajes[0]?.solicitud_detail || null;
+
+    setMensajes((prev) => [
+      ...prev,
+      ...payloads.map((p, i) => ({
+        id: tempIds[i],
+        oferta: ofertaId,
+        mensaje: typeof p.content === 'string' ? p.content : '',
+        enviado_por: usuario?.id || 0,
+        enviado_por_nombre: usuario?.first_name || 'Tú',
+        es_proveedor: true,
+        fecha_envio: new Date().toISOString(),
+        leido: false,
+        fecha_lectura: null,
+        archivo_adjunto: p.attachment?.uri ?? null,
+        attachment_mime: p.attachment?.mime || p.attachment?.mimeType || null,
+        attachment_name: p.attachment?.name || null,
+        solicitud_detail: solicitudDetail,
+      })),
+    ]);
+
     try {
-      const convId = conversationIdRef.current;
-      let realMsg: MensajeChat | null = null;
-
-      if (convId) {
-        const apiMsg = await chatService.sendMessageHTTP(
-          convId,
-          {
-            content: mensajeTexto,
-            attachment: attachmentTemp
-              ? {
-                  uri: attachmentTemp.uri,
-                  name: attachmentTemp.name,
-                  type: attachmentTemp.type === 'image' ? 'image/jpeg' : 'video/mp4',
-                }
-              : null,
-          },
-          Boolean(attachmentTemp),
-        );
-        const detail = oferta?.solicitud_detail ?? mensajeOptimista.solicitud_detail ?? null;
-        realMsg = mapApiRowToMensaje(
-          apiMsg as Record<string, unknown>,
-          String(ofertaId),
-          detail,
-          usuario?.id,
-        );
-      } else {
-        const result = await solicitudesService.enviarMensajeChat(ofertaId, mensajeTexto, attachmentTemp);
-        if (result.success && result.data) {
-          realMsg = result.data;
-        }
-      }
-
-      if (realMsg) {
-        mensajesEnviadosRef.current.add(String(realMsg.id));
-        setMensajes((prev) => prev.map((m) => (m.id === mensajeId ? realMsg! : m)));
-        setTimeout(() => mensajesEnviadosRef.current.delete(String(realMsg!.id)), 15000);
-      } else {
-        setMensajes(prev => prev.filter(m => m.id !== mensajeId));
-        setNuevoMensaje(mensajeTexto);
-        setAttachment(attachmentTemp);
-        Alert.alert('Error', 'No se pudo enviar el mensaje');
+      for (let i = 0; i < payloads.length; i += 1) {
+        await sendSingleMessage({
+          mensajeTexto: payloads[i].content,
+          attachmentItem: payloads[i].attachment,
+          mensajeId: tempIds[i],
+          solicitudDetail,
+        });
       }
     } catch {
-      setMensajes(prev => prev.filter(m => m.id !== mensajeId));
+      setMensajes((prev) => prev.filter((m) => !tempIds.includes(m.id)));
       setNuevoMensaje(mensajeTexto);
-      setAttachment(attachmentTemp);
+      if (!audioAttachment) setAttachments(queueSnapshot);
       Alert.alert('Error', 'Ocurrió un error al enviar el mensaje');
     } finally {
       setEnviando(false);
@@ -538,14 +595,10 @@ export default function ChatOfertaScreen() {
             },
           ]}
         >
-          {attachment && (
-            <View style={styles.attachPreview}>
-              <Image source={{ uri: attachment.uri }} style={styles.attachThumb} />
-              <TouchableOpacity style={styles.attachRemove} onPress={() => setAttachment(null)}>
-                <X size={14} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-              </TouchableOpacity>
-            </View>
-          )}
+          <AttachmentStagingTray
+            attachments={attachments}
+            onRemove={(index) => setAttachments((prev) => prev.filter((_, i) => i !== index))}
+          />
           <View style={styles.inputRow}>
             <TouchableOpacity style={styles.attachBtn} onPress={handlePickAttachment} accessibilityLabel="Adjuntar imagen">
               <InstitutionalIcon name="image" size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
@@ -561,7 +614,7 @@ export default function ChatOfertaScreen() {
               editable={!enviando}
               blurOnSubmit={false}
               returnKeyType="send"
-              onSubmitEditing={Platform.OS !== 'web' ? handleEnviarMensaje : undefined}
+              onSubmitEditing={Platform.OS !== 'web' ? () => handleEnviarMensaje() : undefined}
               onKeyPress={Platform.OS === 'web' ? (e: any) => {
                 if (e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
                   e.preventDefault?.();
@@ -569,17 +622,24 @@ export default function ChatOfertaScreen() {
                 }
               } : undefined}
             />
-            <TouchableOpacity
-              style={[styles.sendBtn, (!nuevoMensaje.trim() && !attachment || enviando) && styles.sendBtnDisabled]}
-              onPress={handleEnviarMensaje}
-              disabled={(!nuevoMensaje.trim() && !attachment) || enviando}
-            >
-              {enviando ? (
-                <ActivityIndicator size="small" color={I.onPrimary} />
-              ) : (
-                <Send size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              )}
-            </TouchableOpacity>
+            {!nuevoMensaje.trim() && attachments.length === 0 && !enviando ? (
+              <AudioRecorderBar
+                disabled={enviando}
+                onRecorded={(att) => handleEnviarMensaje(att)}
+              />
+            ) : (
+              <TouchableOpacity
+                style={[styles.sendBtn, ((!nuevoMensaje.trim() && attachments.length === 0) || enviando) && styles.sendBtnDisabled]}
+                onPress={() => handleEnviarMensaje()}
+                disabled={(!nuevoMensaje.trim() && attachments.length === 0) || enviando}
+              >
+                {enviando ? (
+                  <ActivityIndicator size="small" color={I.onPrimary} />
+                ) : (
+                  <Send size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
