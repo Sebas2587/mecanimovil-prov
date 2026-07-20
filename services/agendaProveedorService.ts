@@ -41,6 +41,13 @@ export interface CitaAgendaPersonal {
   editable: boolean;
   tiene_checklist: boolean;
   checklist_id?: number | null;
+  checklist_estado?: string | null;
+  checklist_progreso_porcentaje?: number;
+  checklist_fecha_inicio?: string | null;
+  checklist_items_completados?: number;
+  checklist_items_total?: number;
+  checklist_minutos_transcurridos?: number | null;
+  puede_cancelar?: boolean;
   template_generado_por_ia?: boolean;
   estado_operativo?: string;
   mecanico_nombre?: string | null;

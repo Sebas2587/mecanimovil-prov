@@ -228,6 +228,32 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const esActiva = cita?.estado === 'activa';
   const esCancelada = cita?.estado === 'cancelada';
 
+  const checklistEstado = cita?.checklist_estado ?? null;
+  const checklistIniciado = !!checklistEstado && checklistEstado !== 'PENDIENTE';
+  const checklistEnCurso =
+    checklistEstado === 'EN_PROGRESO'
+    || checklistEstado === 'PAUSADO'
+    || checklistEstado === 'PENDIENTE_FIRMA_CLIENTE';
+  const checklistCompletado = checklistEstado === 'COMPLETADO';
+  const puedeCancelarCita = esActiva && (cita?.puede_cancelar !== false) && !checklistIniciado;
+
+  // Técnico asignado siempre puede operar. Taller/supervisor puede iniciar
+  // si aún no arrancó; una vez iniciado por el técnico, solo ven progreso.
+  const esTecnicoAsignado =
+    esMecanicoEquipo
+    && miembroId != null
+    && cita?.miembro_taller != null
+    && Number(miembroId) === Number(cita.miembro_taller);
+  const puedeOperarChecklist = (() => {
+    if (esMecanicoEquipo) return esTecnicoAsignado;
+    if (!cita?.miembro_taller) return true;
+    return !checklistIniciado;
+  })();
+  const mostrarProgresoChecklist =
+    !!cita?.checklist_id
+    && checklistIniciado
+    && !puedeOperarChecklist;
+
   const estadoStyle = useMemo(
     () => (cita ? estadoColors(cita.estado) : estadoColors('activa')),
     [cita],
@@ -243,14 +269,37 @@ export default function CitaAgendaPersonalDetalleScreen() {
     }
   }, [esMecanicoEquipo, editando]);
 
+  // Taller/supervisor: refrescar progreso mientras el técnico trabaja el checklist.
+  useEffect(() => {
+    if (!mostrarProgresoChecklist || !citaId || Number.isNaN(citaId)) return;
+    const timer = setInterval(() => {
+      void refetchCita();
+    }, 15_000);
+    return () => clearInterval(timer);
+  }, [mostrarProgresoChecklist, citaId, refetchCita]);
+
   const footerReserve = useMemo(() => {
     if (!muestraFooterAcciones) return SPACING.fixed.lg + footerBottomPad;
     if (esActiva && !editando) {
-      const filasFooter = permitirEditarCita ? 132 : 72;
+      if (checklistEnCurso && !puedeOperarChecklist) {
+        return 24 + footerBottomPad + SPACING.fixed.md;
+      }
+      const filasFooter = permitirEditarCita
+        ? (puedeCancelarCita ? 132 : 72)
+        : (puedeCancelarCita ? 72 : 72);
       return filasFooter + footerBottomPad + SPACING.fixed.md;
     }
     return 72 + footerBottomPad + SPACING.fixed.md;
-  }, [muestraFooterAcciones, esActiva, editando, footerBottomPad, permitirEditarCita]);
+  }, [
+    muestraFooterAcciones,
+    esActiva,
+    editando,
+    footerBottomPad,
+    permitirEditarCita,
+    puedeCancelarCita,
+    checklistEnCurso,
+    puedeOperarChecklist,
+  ]);
 
   const handleLlamar = useCallback(() => {
     const tel = cita?.detalle.cliente_telefono;
@@ -893,20 +942,54 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
               {cita.tiene_checklist ? (
                 <View style={styles.section}>
-                  <Text style={styles.sectionHeaderTitle}>Checklist operativo</Text>
-                  <InstitutionalTag
-                    label={ESTADO_OPERATIVO_LABELS[estadoOperativo]}
-                    variant={ESTADO_OPERATIVO_VARIANT[estadoOperativo]}
-                    size="sm"
-                  />
-                  {cita.checklist_id ? (
-                    <InstitutionalButton
-                      label="Completar checklist"
-                      variant="primary"
-                      onPress={() => setShowChecklist(true)}
-                      style={{ marginTop: SPACING.sm }}
+                  <View style={styles.sectionHeaderRow}>
+                    <Text style={styles.sectionHeaderTitle}>Checklist operativo</Text>
+                    <InstitutionalTag
+                      label={ESTADO_OPERATIVO_LABELS[estadoOperativo]}
+                      variant={ESTADO_OPERATIVO_VARIANT[estadoOperativo]}
+                      size="sm"
                     />
-                  ) : (
+                  </View>
+
+                  {mostrarProgresoChecklist ? (
+                    <View style={styles.checklistProgressCard}>
+                      <Text style={styles.checklistProgressTitle}>
+                        {checklistCompletado
+                          ? 'Checklist completado por el técnico'
+                          : 'En ejecución por el técnico'}
+                      </Text>
+                      <Text style={styles.checklistProgressMeta}>
+                        {(cita.checklist_items_completados ?? 0)} de{' '}
+                        {(cita.checklist_items_total ?? 0)} ítems
+                        {cita.checklist_minutos_transcurridos != null
+                          ? ` · ${cita.checklist_minutos_transcurridos} min`
+                          : ''}
+                      </Text>
+                      <View style={styles.checklistProgressTrack}>
+                        <View
+                          style={[
+                            styles.checklistProgressFill,
+                            {
+                              width: `${Math.max(
+                                0,
+                                Math.min(100, cita.checklist_progreso_porcentaje ?? 0),
+                              )}%`,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.checklistProgressPct}>
+                        {cita.checklist_progreso_porcentaje ?? 0}% completado
+                      </Text>
+                      {!checklistCompletado ? (
+                        <Text style={styles.checklistProgressHint}>
+                          El progreso se actualiza automáticamente mientras el técnico completa el servicio.
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  {puedeOperarChecklist && !cita.checklist_id ? (
                     <InstitutionalButton
                       label={iniciandoChecklist ? 'Preparando checklist…' : 'Iniciar servicio'}
                       variant="primary"
@@ -914,7 +997,24 @@ export default function CitaAgendaPersonalDetalleScreen() {
                       onPress={() => void handleIniciarServicioChecklist()}
                       style={{ marginTop: SPACING.sm }}
                     />
-                  )}
+                  ) : null}
+
+                  {puedeOperarChecklist && cita.checklist_id && !checklistCompletado ? (
+                    <InstitutionalButton
+                      label={
+                        checklistEnCurso ? 'Continuar checklist' : 'Completar checklist'
+                      }
+                      variant="primary"
+                      onPress={() => setShowChecklist(true)}
+                      style={{ marginTop: SPACING.sm }}
+                    />
+                  ) : null}
+
+                  {!puedeOperarChecklist && !cita.checklist_id && esActiva ? (
+                    <Text style={styles.checklistProgressHint}>
+                      El técnico asignado debe iniciar el servicio para comenzar el checklist.
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -981,8 +1081,10 @@ export default function CitaAgendaPersonalDetalleScreen() {
             editando={editando}
             procesando={procesando}
             bottomPad={footerBottomPad}
-            permitirEditar={permitirEditarCita}
+            permitirEditar={permitirEditarCita && !checklistEnCurso}
             permitirEliminar={permitirEliminarCita}
+            permitirCancelar={puedeCancelarCita}
+            permitirCerrarManual={esActiva && !checklistEnCurso && !checklistCompletado}
             onEditar={() => {
               setFeedbackAccion(null);
               setEditando(true);
@@ -1038,6 +1140,8 @@ type CitaPersonalFooterProps = {
   bottomPad: number;
   permitirEditar: boolean;
   permitirEliminar: boolean;
+  permitirCancelar: boolean;
+  permitirCerrarManual: boolean;
   onEditar: () => void;
   onCompletar: () => void;
   onCancelar: () => void;
@@ -1054,6 +1158,8 @@ function CitaPersonalFooter({
   bottomPad,
   permitirEditar,
   permitirEliminar,
+  permitirCancelar,
+  permitirCerrarManual,
   onEditar,
   onCompletar,
   onCancelar,
@@ -1066,74 +1172,88 @@ function CitaPersonalFooter({
       {esActiva && !editando ? (
         permitirEditar ? (
           <>
-            <View style={styles.footerRow}>
+            {(permitirEditar || permitirCerrarManual) ? (
+              <View style={styles.footerRow}>
+                {permitirEditar ? (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.footerBtnOutline,
+                      (pressed || procesando) && styles.footerBtnPressed,
+                      procesando && styles.footerBtnDisabled,
+                    ]}
+                    onPress={onEditar}
+                    disabled={procesando}
+                  >
+                    <InstitutionalIcon name="create" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.footerBtnOutlineNeutralText} numberOfLines={1}>Editar</Text>
+                  </Pressable>
+                ) : null}
+                {permitirCerrarManual ? (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.footerBtnSuccess,
+                      (pressed || procesando) && styles.footerBtnPressed,
+                      procesando && styles.footerBtnDisabled,
+                    ]}
+                    onPress={onCompletar}
+                    disabled={procesando}
+                  >
+                    <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Completar</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+            {permitirCancelar ? (
               <Pressable
                 style={({ pressed }) => [
-                  styles.footerBtnOutline,
+                  styles.footerBtnCancel,
                   (pressed || procesando) && styles.footerBtnPressed,
                   procesando && styles.footerBtnDisabled,
                 ]}
-                onPress={onEditar}
+                onPress={onCancelar}
                 disabled={procesando}
               >
-                <InstitutionalIcon name="create" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.footerBtnOutlineNeutralText} numberOfLines={1}>Editar</Text>
+                <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Cancelar cita</Text>
               </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.footerBtnSuccess,
-                  (pressed || procesando) && styles.footerBtnPressed,
-                  procesando && styles.footerBtnDisabled,
-                ]}
-                onPress={onCompletar}
-                disabled={procesando}
-              >
-                <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Completar</Text>
-              </Pressable>
-            </View>
-            <Pressable
-              style={({ pressed }) => [
-                styles.footerBtnCancel,
-                (pressed || procesando) && styles.footerBtnPressed,
-                procesando && styles.footerBtnDisabled,
-              ]}
-              onPress={onCancelar}
-              disabled={procesando}
-            >
-              <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Cancelar cita</Text>
-            </Pressable>
+            ) : null}
           </>
         ) : (
-          <View style={styles.footerRow}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.footerBtnCancel,
-                styles.footerBtnNarrow,
-                (pressed || procesando) && styles.footerBtnPressed,
-                procesando && styles.footerBtnDisabled,
-              ]}
-              onPress={onCancelar}
-              disabled={procesando}
-            >
-              <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Cancelar cita</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.footerBtnSuccess,
-                styles.footerBtnWide,
-                (pressed || procesando) && styles.footerBtnPressed,
-                procesando && styles.footerBtnDisabled,
-              ]}
-              onPress={onCompletar}
-              disabled={procesando}
-            >
-              <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Completar</Text>
-            </Pressable>
-          </View>
+          (permitirCancelar || permitirCerrarManual) ? (
+            <View style={styles.footerRow}>
+              {permitirCancelar ? (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.footerBtnCancel,
+                    styles.footerBtnNarrow,
+                    (pressed || procesando) && styles.footerBtnPressed,
+                    procesando && styles.footerBtnDisabled,
+                  ]}
+                  onPress={onCancelar}
+                  disabled={procesando}
+                >
+                  <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Cancelar cita</Text>
+                </Pressable>
+              ) : null}
+              {permitirCerrarManual ? (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.footerBtnSuccess,
+                    styles.footerBtnWide,
+                    (pressed || procesando) && styles.footerBtnPressed,
+                    procesando && styles.footerBtnDisabled,
+                  ]}
+                  onPress={onCompletar}
+                  disabled={procesando}
+                >
+                  <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Completar</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null
         )
       ) : null}
 
@@ -1259,6 +1379,49 @@ const styles = StyleSheet.create({
     letterSpacing: TS.h4.letterSpacing,
     color: I.ink,
     marginBottom: SPACING.fixed.sm,
+  },
+  checklistProgressCard: {
+    marginTop: SPACING.fixed.sm,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.surfaceStrong,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    gap: SPACING.fixed.xs,
+  },
+  checklistProgressTitle: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  checklistProgressMeta: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+  },
+  checklistProgressTrack: {
+    marginTop: SPACING.fixed.xs,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: I.hairline,
+    overflow: 'hidden',
+  },
+  checklistProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: I.primary,
+  },
+  checklistProgressPct: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  checklistProgressHint: {
+    marginTop: SPACING.fixed.xs,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
   },
   sectionHeaderRow: {
     flexDirection: 'row',
