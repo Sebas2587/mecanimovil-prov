@@ -462,7 +462,7 @@ export default function ChatsScreen() {
           <TouchableOpacity
             style={styles.canalPendienteBanner}
             activeOpacity={0.85}
-            onPress={() => router.push('/pipeline-seguimiento?filtro=esperando_24h')}
+            onPress={() => router.push('/(tabs)/bandeja?filtro=esperando_24h')}
             accessibilityRole="button"
             accessibilityLabel="Ver cotizaciones de canal sin respuesta hace más de 24 horas"
           >

@@ -22,6 +22,8 @@ export interface ChecklistTemplate {
   servicio_nombre: string;
   tipo_intencion_default?: ChecklistIntencion;
   activo: boolean;
+  generado_por_ia?: boolean;
+  revisado_en?: string | null;
   version: string;
   total_items: number;
   items: ChecklistItemTemplate[];
@@ -111,13 +113,23 @@ export interface ChecklistPreviewImpacto {
 
 export interface ChecklistInstance {
   id: number;
-  orden: number;
+  orden?: number | null;
+  cita_personal?: number | null;
   orden_info: {
     id: number;
     estado: string;
     fecha_servicio: string;
     hora_servicio: string;
-  };
+  } | null;
+  cita_personal_info?: {
+    id: number;
+    estado: string;
+    fecha_servicio: string;
+    hora_servicio: string;
+    cliente?: string;
+    vehiculo?: string;
+  } | null;
+  template_generado_por_ia?: boolean;
   checklist_template: number;
   checklist_template_info: {
     id: number;
@@ -874,6 +886,21 @@ class ChecklistService {
     }
   }
 
+  async createInstanceForCita(
+    citaPersonalId: number,
+    templateId: number,
+  ): Promise<ServiceResponse<ChecklistInstance>> {
+    try {
+      const response = await api.post(`${this.baseUrl}/instances/`, {
+        cita_personal: citaPersonalId,
+        checklist_template: templateId,
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return this.handleServiceError(error, 'crear instancia de checklist para cita personal');
+    }
+  }
+
   async getInstance(instanceId: number): Promise<ServiceResponse<ChecklistInstance>> {
     try {
       // Intentar obtener online primero
@@ -931,6 +958,27 @@ class ChecklistService {
         data: null as any,
         message: 'No hay checklist para esta orden',
         isEmpty: true
+      };
+    }
+  }
+
+  async getInstanceByCitaPersonal(citaId: number): Promise<ServiceResponse<ChecklistInstance>> {
+    try {
+      const response = await api.get(`/checklists/instances/by_cita_personal/${citaId}/`);
+      return {
+        success: true,
+        data: response.data,
+        message: 'Checklist encontrado exitosamente',
+        isEmpty: false,
+      };
+    } catch (error: unknown) {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      console.log('❌ Error obteniendo checklist para cita:', citaId, '- Error:', status);
+      return {
+        success: false,
+        data: null as any,
+        message: 'No hay checklist para esta cita',
+        isEmpty: true,
       };
     }
   }

@@ -13,13 +13,15 @@ import { checklistQueryKeys } from '@/hooks/checklistQueryKeys';
 import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
 import {
   fetchChecklistBundle,
+  fetchChecklistBundleForCita,
   calcProgreso,
   respuestaCompletadaParaItem,
   type ChecklistBundle,
 } from '@/hooks/fetchChecklistBundle';
 
 interface UseChecklistProps {
-  ordenId: number;
+  ordenId?: number;
+  citaPersonalId?: number;
 }
 
 interface ChecklistUiState {
@@ -31,8 +33,11 @@ interface ChecklistUiState {
   localError: string | null;
 }
 
-export const useChecklist = ({ ordenId }: UseChecklistProps) => {
+export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => {
   const queryClient = useQueryClient();
+  const entityKey = citaPersonalId
+    ? checklistQueryKeys.instanceCita(citaPersonalId)
+    : checklistQueryKeys.instance(ordenId ?? 0);
 
   const [uiState, setUiState] = useState<ChecklistUiState>({
     currentStep: 0,
@@ -48,11 +53,14 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: checklistQueryKeys.instance(ordenId),
-    queryFn: () => fetchChecklistBundle(ordenId),
+    queryKey: entityKey,
+    queryFn: () =>
+      citaPersonalId
+        ? fetchChecklistBundleForCita(citaPersonalId)
+        : fetchChecklistBundle(ordenId!),
     staleTime: 30_000,
     gcTime: 5 * 60 * 1000,
-    enabled: !!ordenId,
+    enabled: !!(citaPersonalId || ordenId),
   });
 
   const instance = bundle?.instance ?? null;
@@ -68,22 +76,17 @@ export const useChecklist = ({ ordenId }: UseChecklistProps) => {
   }, []);
 
   const invalidateChecklist = useCallback(async () => {
-    await queryClient.invalidateQueries({
-      queryKey: checklistQueryKeys.instance(ordenId),
-    });
-  }, [queryClient, ordenId]);
+    await queryClient.invalidateQueries({ queryKey: entityKey });
+  }, [queryClient, entityKey]);
 
   const patchBundle = useCallback(
     (updater: (current: ChecklistBundle) => ChecklistBundle) => {
-      queryClient.setQueryData<ChecklistBundle>(
-        checklistQueryKeys.instance(ordenId),
-        (old) => {
-          if (!old) return old;
-          return updater(old);
-        },
-      );
+      queryClient.setQueryData<ChecklistBundle>(entityKey, (old) => {
+        if (!old) return old;
+        return updater(old);
+      });
     },
-    [queryClient, ordenId],
+    [queryClient, entityKey],
   );
 
   const patchInstance = useCallback(

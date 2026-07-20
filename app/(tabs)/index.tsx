@@ -33,7 +33,7 @@ import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
 import { horariosAPI } from '@/services/api';
 import { MecanicoHomeView } from '@/components/home/MecanicoHomeView';
-import { HomeAtencionSection } from '@/components/dashboard/HomeAtencionSection';
+import { HomeBandejaEntry } from '@/components/dashboard/HomeBandejaEntry';
 import {
   normalizarEstadoAgendaApi,
 } from '@/utils/horariosProveedor';
@@ -542,10 +542,10 @@ export default function HomeScreen() {
             />
           </View>
 
-          {/* 2) Cola de atención (helpdesk): solo lo que espera respuesta del taller */}
+          {/* 2) Acceso primario a Bandeja (también es tab inferior) */}
           {!esMecanicoEquipo && cuentaAprobadaPorAdmin ? (
             <View style={themedStyles.sectionWrap}>
-              <HomeAtencionSection enabled={cuentaAprobadaPorAdmin} />
+              <HomeBandejaEntry enabled={cuentaAprobadaPorAdmin} />
             </View>
           ) : null}
 

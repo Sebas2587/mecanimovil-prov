@@ -209,11 +209,11 @@ function HomeAtencionSectionInner({
   const totalPendientes = totalAtencion;
 
   const abrirSeguimiento = useCallback(() => {
-    router.push('/pipeline-seguimiento');
+    router.push('/(tabs)/bandeja');
   }, []);
 
   const abrirEsperando24h = useCallback(() => {
-    router.push('/pipeline-seguimiento?filtro=esperando_24h');
+    router.push('/(tabs)/bandeja?filtro=esperando_24h');
   }, []);
 
   if (!enabled) return null;
@@ -252,10 +252,10 @@ function HomeAtencionSectionInner({
           onPress={abrirSeguimiento}
           activeOpacity={0.75}
           accessibilityRole="button"
-          accessibilityLabel="Ver seguimiento comercial completo"
+          accessibilityLabel="Abrir bandeja del taller"
         >
           <InstitutionalText role="small" color="primary">
-            Ver todo
+            Bandeja
           </InstitutionalText>
           <ChevronRight size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
@@ -305,7 +305,7 @@ function HomeAtencionSectionInner({
           <View style={styles.emptyTextCol}>
             <InstitutionalText role="bodyBold">Todo al día</InstitutionalText>
             <InstitutionalText role="caption" color="muted">
-              No hay solicitudes ni cotizaciones pendientes. El seguimiento completo está en Ver todo.
+              No hay solicitudes ni cotizaciones pendientes. Abre Bandeja para el historial completo.
             </InstitutionalText>
           </View>
         </View>

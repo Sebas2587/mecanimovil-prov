@@ -27,6 +27,8 @@ import {
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { AsistenteDiagnosticoCard } from '@/components/orden-detalle/AsistenteDiagnosticoCard';
+import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBottomSheet';
+import equipoTallerService, { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 
 const I = COLORS.institutional;
 const successStatus = institutionalStatusColors('success');
@@ -52,6 +54,12 @@ export default function OrdenDetalleScreen() {
   // Estados para checklist en progreso/pendiente
   const [showChecklistContainer, setShowChecklistContainer] = useState(false);
   const [selectedOrdenIdForContainer, setSelectedOrdenIdForContainer] = useState<number | null>(null);
+  const [asignarVisible, setAsignarVisible] = useState(false);
+  const [mecanicoDetalle, setMecanicoDetalle] = useState<{
+    nombre: string;
+    modalidad?: string;
+    especialidades?: string;
+  } | null>(null);
   
   // ✅ Estado para verificar si hay checklist disponible
   const [tieneChecklistDisponible, setTieneChecklistDisponible] = useState<boolean | null>(null);
@@ -61,6 +69,25 @@ export default function OrdenDetalleScreen() {
       cargarOrden();
     }
   }, [id]);
+
+  useEffect(() => {
+    const mecanicoId = orden?.mecanico_asignado_id;
+    if (!mecanicoId) {
+      setMecanicoDetalle(null);
+      return;
+    }
+    void equipoTallerService.obtener(mecanicoId).then((m) => {
+      if (!m) {
+        setMecanicoDetalle(null);
+        return;
+      }
+      setMecanicoDetalle({
+        nombre: m.nombre,
+        modalidad: etiquetaModalidadMecanico(m),
+        especialidades: m.especialidades_detalle?.map((e) => e.nombre).join(' · '),
+      });
+    });
+  }, [orden?.mecanico_asignado_id]);
 
   const cargarOrden = async () => {
     try {
@@ -697,6 +724,26 @@ export default function OrdenDetalleScreen() {
           </View>
         </View>
 
+        <View style={styles.section}>
+          <InstitutionalSectionHeader
+            title="Técnico asignado"
+            level="h4"
+            style={styles.sectionHeader}
+            actionLabel={!esMecanicoEquipo ? (orden.mecanico_asignado_id ? 'Reasignar' : 'Asignar') : undefined}
+            onActionPress={!esMecanicoEquipo ? () => setAsignarVisible(true) : undefined}
+            leading={<InstitutionalIcon name="engineering" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
+          <Text style={styles.infoText}>
+            {mecanicoDetalle?.nombre || 'Sin técnico asignado'}
+          </Text>
+          {mecanicoDetalle?.modalidad ? (
+            <Text style={styles.detailValue}>Atiende: {mecanicoDetalle.modalidad}</Text>
+          ) : null}
+          {mecanicoDetalle?.especialidades ? (
+            <Text style={styles.detailValue}>{mecanicoDetalle.especialidades}</Text>
+          ) : null}
+        </View>
+
         {/* Información de pago */}
         <View style={styles.section}>
           <InstitutionalSectionHeader
@@ -856,6 +903,23 @@ export default function OrdenDetalleScreen() {
           setSelectedOrdenIdForChecklist(null);
         }}
         ordenId={selectedOrdenIdForChecklist || 0}
+      />
+
+      <AsignarTecnicoBottomSheet
+        visible={asignarVisible}
+        onClose={() => setAsignarVisible(false)}
+        target={
+          orden
+            ? {
+                tipo: 'orden',
+                ordenId: orden.id,
+                miembroActualId: orden.mecanico_asignado_id,
+              }
+            : null
+        }
+        onAsignado={() => {
+          void cargarOrden();
+        }}
       />
     </View>
   );

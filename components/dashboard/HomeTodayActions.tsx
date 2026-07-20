@@ -37,14 +37,14 @@ function HomeTodayActionsInner({
           onPress={onAgendar}
           activeOpacity={0.88}
           accessibilityRole="button"
-          accessibilityLabel="Agendar cita"
+          accessibilityLabel="Nueva solicitud del taller"
         >
           <View style={[hostIconPlateStyle, styles.iconPlateLg]}>
             <CalendarPlus size={22} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
-          <Text style={styles.title}>Agendar</Text>
+          <Text style={styles.title}>Nueva solicitud</Text>
           <Text style={styles.sub} numberOfLines={2}>
-            Cita para cliente propio
+            Cliente propio del taller, no marketplace
           </Text>
         </TouchableOpacity>
 

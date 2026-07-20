@@ -56,6 +56,15 @@ import { useCitaPersonalQuery } from '@/hooks/useCitaPersonalQuery';
 import { useAuth } from '@/context/AuthContext';
 import { puedeUsarAsistenteIaEnCita } from '@/utils/asistenteIaPermisos';
 import { AsistenteDiagnosticoCard } from '@/components/orden-detalle/AsistenteDiagnosticoCard';
+import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
+import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBottomSheet';
+import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
+import { InstitutionalTag } from '@/design-system/components/InstitutionalTag';
+import {
+  ESTADO_OPERATIVO_LABELS,
+  ESTADO_OPERATIVO_VARIANT,
+  mapCitaEstadoOperativo,
+} from '@/utils/estadoOperativo';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -148,6 +157,9 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const [procesando, setProcesando] = useState(false);
   const [editando, setEditando] = useState(false);
   const [feedbackAccion, setFeedbackAccion] = useState<FeedbackAccion | null>(null);
+  const [showChecklist, setShowChecklist] = useState(false);
+  const [asignarVisible, setAsignarVisible] = useState(false);
+  const [iniciandoChecklist, setIniciandoChecklist] = useState(false);
 
   const mostrarFeedback = useCallback((feedback: FeedbackAccion) => {
     setFeedbackAccion(feedback);
@@ -530,6 +542,25 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
   const formatearHora = (hora: string) => hora.substring(0, 5);
 
+  const handleIniciarServicioChecklist = useCallback(async () => {
+    if (Number.isNaN(citaId)) return;
+    setIniciandoChecklist(true);
+    try {
+      const res = await agendaProveedorService.iniciarServicio(citaId);
+      if (!res.success) {
+        showAlert('Error', res.message || 'No se pudo iniciar el servicio');
+        return;
+      }
+      if (res.data?.checklist_id) {
+        setShowChecklist(true);
+      }
+      await recargarCita();
+      await invalidateProveedorMarketplaceQueries(queryClient);
+    } finally {
+      setIniciandoChecklist(false);
+    }
+  }, [citaId, queryClient, recargarCita]);
+
   if (showInitialLoader) {
     return (
       <View style={styles.container}>
@@ -560,6 +591,21 @@ export default function CitaAgendaPersonalDetalleScreen() {
     cita.mecanico_especialidades && cita.mecanico_especialidades.length > 0
       ? cita.mecanico_especialidades.join(' · ')
       : null;
+  const estadoOperativo = mapCitaEstadoOperativo(cita.estado_operativo, cita.estado);
+
+  if (showChecklist) {
+    return (
+      <ChecklistContainer
+        citaPersonalId={cita.id}
+        onComplete={() => {
+          setShowChecklist(false);
+          void recargarCita();
+        }}
+        onCancel={() => setShowChecklist(false)}
+      />
+    );
+  }
+
   const duracionLabel = formatDuracion(cita.duracion_minutos);
   const esDomicilio = cita.tipo_servicio === 'domicilio';
   const textoUbicacion = esDomicilio
@@ -611,9 +657,13 @@ export default function CitaAgendaPersonalDetalleScreen() {
             >
               <InstitutionalIcon name="ellipse-outline" size={10} color={estadoStyle.text} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={[styles.metaBadgeText, { color: estadoStyle.text }]}>
-                {estadoLabel(cita.estado)}
+                {ESTADO_OPERATIVO_LABELS[estadoOperativo]}
               </Text>
             </View>
+
+            {cita.template_generado_por_ia ? (
+              <InstitutionalTag label="Checklist generado por IA" variant="info" size="sm" />
+            ) : null}
 
             <View
               style={[
@@ -801,7 +851,17 @@ export default function CitaAgendaPersonalDetalleScreen() {
               </View>
 
               <View style={styles.section}>
-                <Text style={styles.sectionHeaderTitle}>Técnico asignado</Text>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionHeaderTitle}>Técnico asignado</Text>
+                  {esActiva && permitirEditarCita ? (
+                    <InstitutionalButton
+                      label={cita.miembro_taller ? 'Reasignar' : 'Asignar'}
+                      variant="tertiary"
+                      size="compact"
+                      onPress={() => setAsignarVisible(true)}
+                    />
+                  ) : null}
+                </View>
                 <View style={styles.tecnicoCard}>
                   <View style={styles.tecnicoAvatarPlaceholder}>
                     <InstitutionalIcon name="person" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -821,6 +881,33 @@ export default function CitaAgendaPersonalDetalleScreen() {
                   </View>
                 </View>
               </View>
+
+              {cita.tiene_checklist ? (
+                <View style={styles.section}>
+                  <Text style={styles.sectionHeaderTitle}>Checklist operativo</Text>
+                  <InstitutionalTag
+                    label={ESTADO_OPERATIVO_LABELS[estadoOperativo]}
+                    variant={ESTADO_OPERATIVO_VARIANT[estadoOperativo]}
+                    size="sm"
+                  />
+                  {cita.checklist_id ? (
+                    <InstitutionalButton
+                      label="Completar checklist"
+                      variant="primary"
+                      onPress={() => setShowChecklist(true)}
+                      style={{ marginTop: SPACING.sm }}
+                    />
+                  ) : (
+                    <InstitutionalButton
+                      label={iniciandoChecklist ? 'Preparando checklist…' : 'Iniciar servicio'}
+                      variant="primary"
+                      loading={iniciandoChecklist}
+                      onPress={() => void handleIniciarServicioChecklist()}
+                      style={{ marginTop: SPACING.sm }}
+                    />
+                  )}
+                </View>
+              ) : null}
 
               <View style={styles.section}>
                 <Text style={styles.sectionHeaderTitle}>Fecha y hora</Text>
@@ -903,6 +990,24 @@ export default function CitaAgendaPersonalDetalleScreen() {
           />
         ) : null}
       </KeyboardAvoidingView>
+
+      <AsignarTecnicoBottomSheet
+        visible={asignarVisible}
+        onClose={() => setAsignarVisible(false)}
+        target={
+          cita
+            ? {
+                tipo: 'cita_personal',
+                citaId: cita.id,
+                miembroActualId: cita.miembro_taller,
+              }
+            : null
+        }
+        onAsignado={() => {
+          void recargarCita();
+          void invalidateProveedorMarketplaceQueries(queryClient);
+        }}
+      />
     </View>
   );
 }
@@ -1144,6 +1249,13 @@ const styles = StyleSheet.create({
     lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
     letterSpacing: TS.h4.letterSpacing,
     color: I.ink,
+    marginBottom: SPACING.fixed.sm,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
     marginBottom: SPACING.fixed.sm,
   },
   editFields: {

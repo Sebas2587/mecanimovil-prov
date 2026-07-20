@@ -125,7 +125,7 @@ export async function fetchChecklistTemplate(
   return null;
 }
 
-/** Carga instancia + template (compatibilidad con flujo anterior). */
+/** Carga instancia + template para orden marketplace. */
 export async function fetchChecklistBundle(ordenId: number): Promise<ChecklistBundle> {
   try {
     const instanceResponse = await checklistService.getInstanceByOrder(ordenId);
@@ -165,6 +165,31 @@ export async function fetchChecklistBundle(ordenId: number): Promise<ChecklistBu
     };
   } catch (error) {
     console.error('❌ Error inicializando checklist:', error);
+    return {
+      instance: null,
+      template: null,
+      isOffline: false,
+      fetchError: 'Error al cargar el checklist',
+    };
+  }
+}
+
+/** Carga instancia + template para cita personal del taller. */
+export async function fetchChecklistBundleForCita(citaPersonalId: number): Promise<ChecklistBundle> {
+  try {
+    const instanceResponse = await checklistService.getInstanceByCitaPersonal(citaPersonalId);
+
+    if (instanceResponse.success && instanceResponse.data) {
+      return loadInstanceWithTemplate(instanceResponse.data, false);
+    }
+
+    return {
+      instance: null,
+      template: null,
+      isOffline: false,
+      fetchError: instanceResponse.isEmpty ? null : instanceResponse.message || null,
+    };
+  } catch {
     return {
       instance: null,
       template: null,

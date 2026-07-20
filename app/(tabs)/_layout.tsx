@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Platform, View, Text, StyleSheet } from 'react-native';
-import { Home, ClipboardList, MessageCircle, Calendar, Menu } from 'lucide-react-native';
+import { Home, ClipboardList, MessageCircle, Calendar, Menu, Inbox } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
@@ -127,6 +127,18 @@ export default function TabLayout() {
         }}
       />
 
+      {/* Inbox comercial: acceso principal (no un link escondido en Hoy). */}
+      <Tabs.Screen
+        name="bandeja"
+        options={{
+          title: 'Bandeja',
+          href: esMecanicoEquipo ? null : undefined,
+          tabBarIcon: ({ color, focused }) => (
+            <Inbox size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
+          ),
+        }}
+      />
+
       <Tabs.Screen
         name="chats"
         options={{
@@ -158,11 +170,12 @@ export default function TabLayout() {
         }}
       />
 
+      {/* Órdenes en curso: sigue disponible desde Hoy y Menú (evita 6 tabs). */}
       <Tabs.Screen
         name="ordenes"
         options={{
           title: 'Servicios',
-          href: esMecanicoEquipo ? null : undefined,
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <ClipboardList size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
           ),

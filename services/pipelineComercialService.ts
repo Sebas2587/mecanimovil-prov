@@ -41,6 +41,7 @@ export interface PipelineComercialItem {
   cotizacion_id: number | null;
   miembro_taller_id: number | null;
   miembro_taller_nombre: string | null;
+  template_generado_por_ia?: boolean;
 }
 
 export interface PipelineComercialResponse {

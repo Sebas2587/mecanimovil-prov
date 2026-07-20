@@ -31,7 +31,6 @@ import { COLORS, withOpacity, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '@/ap
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
-import type { InstitutionalTagVariant } from '@/app/design-system/styles/institutionalTags';
 import { TipoPagoClienteChip } from '@/components/solicitudes/TipoPagoClienteChip';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { nombreServicioCita } from '@/services/agendaProveedorService';
@@ -39,41 +38,20 @@ import { OrigenOrdenBadge } from '@/components/ordenes/OrigenOrdenBadge';
 import { useOrdenesUnificadas } from '@/hooks/useOrdenesUnificadas';
 import {
   navigateToOrdenActiva,
-  estadoUnificadoLabel,
   type OrdenActivaItem,
 } from '@/utils/ordenProveedorUnificada';
+import {
+  ESTADO_OPERATIVO_LABELS,
+  ESTADO_OPERATIVO_VARIANT,
+  mapCitaEstadoOperativo,
+  mapOrdenEstadoToOperativo,
+} from '@/utils/estadoOperativo';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const TS = TYPOGRAPHY.styles;
 const hx = SPACING.container.horizontal;
 const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
-
-const ESTADO_VARIANT: Record<string, InstitutionalTagVariant> = {
-  pendiente_aceptacion_proveedor: 'warning',
-  aceptada_por_proveedor: 'success',
-  en_proceso: 'info',
-  checklist_en_progreso: 'info',
-  servicio_iniciado: 'info',
-  cancelado: 'error',
-  rechazada_por_proveedor: 'error',
-  completado: 'success',
-  enviada: 'info',
-  vista: 'info',
-  en_chat: 'warning',
-  pendiente_creditos: 'warning',
-  aceptada: 'success',
-  pendiente_pago: 'warning',
-  pagada_parcialmente: 'warning',
-  pagada: 'success',
-  en_ejecucion: 'info',
-  completada: 'success',
-  rechazada: 'error',
-  retirada: 'error',
-  expirada: 'neutral',
-  devuelto: 'error',
-  pendiente_confirmacion: 'warning',
-};
 
 type TabType = 'activas' | 'completadas' | 'rechazadas';
 
@@ -147,9 +125,9 @@ export default function OrdenesScreen() {
     (item: OrdenActivaItem) => {
       if (item.origen === 'personal') {
         const { cita } = item;
-        const estadoVariant: InstitutionalTagVariant =
-          cita.estado === 'cerrada' ? 'success' : cita.estado === 'cancelada' ? 'error' : 'info';
-        const textoEstado = estadoUnificadoLabel(cita.estado, 'personal');
+        const estadoOperativo = mapCitaEstadoOperativo(cita.estado_operativo, cita.estado);
+        const textoEstado = ESTADO_OPERATIVO_LABELS[estadoOperativo];
+        const estadoVariant = ESTADO_OPERATIVO_VARIANT[estadoOperativo];
         const nombreServicio = nombreServicioCita(cita);
         const precioFormateado = cita.detalle.precio_referencia
           ? formatearPrecio(cita.detalle.precio_referencia)
@@ -165,6 +143,9 @@ export default function OrdenesScreen() {
             <View style={styles.listCardInner}>
               <View style={styles.cardTop}>
                 <InstitutionalTag label={textoEstado} variant={estadoVariant} size="sm" />
+                {cita.template_generado_por_ia ? (
+                  <InstitutionalTag label="Checklist IA" variant="info" size="sm" />
+                ) : null}
                 <OrigenOrdenBadge origen="personal" />
                 <View style={{ flex: 1 }} />
                 {precioFormateado ? <Text style={styles.cardPrice}>{precioFormateado}</Text> : null}
@@ -210,8 +191,9 @@ export default function OrdenesScreen() {
       }
 
       const { oferta, orden, estadoEfectivo } = item;
-      const estadoVariant = ESTADO_VARIANT[estadoEfectivo] || 'neutral';
-      const textoEstado = estadoUnificadoLabel(estadoEfectivo, 'mecanimovil', orden);
+      const estadoOperativo = mapOrdenEstadoToOperativo(estadoEfectivo);
+      const textoEstado = ESTADO_OPERATIVO_LABELS[estadoOperativo];
+      const estadoVariant = ESTADO_OPERATIVO_VARIANT[estadoOperativo];
       const precioRaw = orden?.total ?? oferta?.precio_total_ofrecido ?? '0';
       const precioFormateado = formatearPrecio(precioRaw);
 

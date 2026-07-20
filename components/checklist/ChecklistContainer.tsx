@@ -45,17 +45,19 @@ function labelEstadoChecklist(estado?: string): string {
 }
 
 interface ChecklistContainerProps {
-  ordenId: number;
+  ordenId?: number;
+  citaPersonalId?: number;
   onComplete?: () => void;
   onCancel?: () => void;
 }
 
 export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   ordenId,
+  citaPersonalId,
   onComplete,
   onCancel,
 }) => {
-  console.log('🚀 ChecklistContainer montado para orden:', ordenId);
+  console.log('🚀 ChecklistContainer montado', { ordenId, citaPersonalId });
 
   const insets = useSafeAreaInsets();
   const {
@@ -96,7 +98,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     takePicture,
     pickFromGallery,
     uploadPhoto,
-  } = useChecklist({ ordenId });
+  } = useChecklist({ ordenId, citaPersonalId });
 
   const esperandoFirmaCliente = instance?.estado === 'PENDIENTE_FIRMA_CLIENTE';
   const ordenSignatureDisplay = useOrdenSignatureDisplay(instance?.orden);

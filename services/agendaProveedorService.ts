@@ -40,6 +40,9 @@ export interface CitaAgendaPersonal {
   etiqueta: string;
   editable: boolean;
   tiene_checklist: boolean;
+  checklist_id?: number | null;
+  template_generado_por_ia?: boolean;
+  estado_operativo?: string;
   mecanico_nombre?: string | null;
   mecanico_especialidades?: string[];
   mecanico_modalidad_tecnico?: 'en_taller' | 'a_domicilio' | 'ambas' | null;
@@ -273,6 +276,37 @@ class AgendaProveedorService {
         };
       }
       return handleServiceError(error, 'validar horario');
+    }
+  }
+
+  async iniciarServicio(id: number): Promise<
+    ServiceResponse<{
+      message: string;
+      tiene_checklist: boolean;
+      checklist_id?: number;
+      template_generado_por_ia?: boolean;
+      cita: CitaAgendaPersonal;
+    }>
+  > {
+    try {
+      const response = await api.post(`${this.citasUrl}/${id}/iniciar-servicio/`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return handleServiceError(error, 'iniciar servicio de cita personal');
+    }
+  }
+
+  async asignarMecanico(
+    id: number,
+    miembroTallerId: number | null,
+  ): Promise<ServiceResponse<{ message: string; cita: CitaAgendaPersonal }>> {
+    try {
+      const response = await api.post(`${this.citasUrl}/${id}/asignar-mecanico/`, {
+        miembro_taller_id: miembroTallerId,
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return handleServiceError(error, 'asignar técnico a cita personal');
     }
   }
 }
