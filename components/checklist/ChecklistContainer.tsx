@@ -26,6 +26,7 @@ import { showAlert, showConfirm, showAlertButtons } from '@/utils/platformAlert'
 import { useOrdenSignatureDisplay } from '@/hooks/useOrdenSignatureDisplay';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { MecanicoAsignadoCard } from '@/components/equipo/MecanicoAsignadoCard';
+import { useAuth } from '@/context/AuthContext';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -68,6 +69,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   console.log('🚀 ChecklistContainer montado', { ordenId, citaPersonalId });
 
   const insets = useSafeAreaInsets();
+  const { estadoProveedor } = useAuth();
   const {
     // Estado
     template,
@@ -113,6 +115,25 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   const esperandoFirmaSupervisor = instance?.estado === 'PENDIENTE_FIRMA_SUPERVISOR';
   const esperandoFirmaCliente = instance?.estado === 'PENDIENTE_FIRMA_CLIENTE';
   const ordenSignatureDisplay = useOrdenSignatureDisplay(instance?.orden);
+
+  const ubicacionPreferida = useMemo(() => {
+    const lat = estadoProveedor?.datos_proveedor?.ubicacion_lat;
+    const lng = estadoProveedor?.datos_proveedor?.ubicacion_lng;
+    if (lat == null || lng == null) return null;
+    const latN = Number(lat);
+    const lngN = Number(lng);
+    if (!Number.isFinite(latN) || !Number.isFinite(lngN)) return null;
+    if (latN === 0 && lngN === 0) return null;
+    return { lat: latN, lng: lngN };
+  }, [estadoProveedor?.datos_proveedor?.ubicacion_lat, estadoProveedor?.datos_proveedor?.ubicacion_lng]);
+
+  const modoUbicacionFirma = useMemo<'taller' | 'domicilio'>(() => {
+    const tipoCita = instance?.cita_personal_info?.tipo_servicio;
+    if (tipoCita === 'taller') return 'taller';
+    if (tipoCita === 'domicilio') return 'domicilio';
+    // Marketplace / sin cita: preferir GPS, con fallback a ubicación del proveedor.
+    return 'domicilio';
+  }, [instance?.cita_personal_info?.tipo_servicio]);
 
   console.log('📊 Estado del hook useChecklist:', {
     template: template ? `Template cargado: ${template.nombre}` : 'No template',
@@ -337,6 +358,15 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         : 'Debes completar todos los campos obligatorios antes de finalizar.';
 
       showAlert('Checklist incompleto', mensaje);
+      return;
+    }
+
+    // Citas personales no tienen FK a Vehiculo: el preview-impacto falla con
+    // "La orden no tiene vehículo asociado". El impacto real se comunica en el
+    // informe público (IA) tras la firma del supervisor; aquí vamos directo a firma.
+    if (citaPersonalId) {
+      console.log('✅ Cita personal: saltando preview de impacto → firmas');
+      setShowSignatureModal(true);
       return;
     }
 
@@ -861,6 +891,8 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           vehiculo: ordenSignatureDisplay.vehiculo,
         }}
         mecanicoAsignado={instance.mecanico_asignado ?? null}
+        ubicacionPreferida={ubicacionPreferida}
+        modoUbicacion="taller"
       />
 
       {/* Modal de firma del técnico (firma diferida del cliente) */}
@@ -875,6 +907,8 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           vehiculo: ordenSignatureDisplay.vehiculo,
         }}
         mecanicoAsignado={instance.mecanico_asignado ?? null}
+        ubicacionPreferida={ubicacionPreferida}
+        modoUbicacion={modoUbicacionFirma}
       />
 
       {/* Vista de checklist completado (resumen para técnico y usuario) */}
@@ -884,14 +918,16 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         ordenId={ordenId}
       />
 
-      {/* Modal de diff de salud antes de finalizar */}
-      <ChecklistDiffModal
-        visible={showDiffModal}
-        instanceId={instance?.id ?? null}
-        onCancel={() => setShowDiffModal(false)}
-        onConfirm={handleDiffConfirm}
-        finalizing={finalizing}
-      />
+      {/* Modal de diff de salud (solo marketplace con Vehiculo real) */}
+      {!citaPersonalId ? (
+        <ChecklistDiffModal
+          visible={showDiffModal}
+          instanceId={instance?.id ?? null}
+          onCancel={() => setShowDiffModal(false)}
+          onConfirm={handleDiffConfirm}
+          finalizing={finalizing}
+        />
+      ) : null}
     </SafeAreaView>
   );
 };

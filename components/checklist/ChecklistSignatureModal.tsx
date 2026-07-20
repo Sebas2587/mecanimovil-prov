@@ -46,6 +46,16 @@ interface ChecklistSignatureModalProps {
   /** Si es un item de "solo técnico" o "solo cliente", capturar una sola firma. Por defecto 'both'. */
   signatureMode?: SignatureMode;
   mecanicoAsignado?: MecanicoAsignadoInfo | null;
+  /**
+   * Ubicación del taller o última registrada del proveedor.
+   * Evita depender del GPS live (timeouts en web / talleres sin permiso).
+   */
+  ubicacionPreferida?: { lat: number; lng: number } | null;
+  /**
+   * - taller: usa ubicacionPreferida de inmediato (sin GPS live)
+   * - domicilio: última GPS conocida → GPS corto → ubicacionPreferida
+   */
+  modoUbicacion?: 'taller' | 'domicilio';
 }
 
 interface SignatureData {
@@ -64,6 +74,8 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
   ordenInfo,
   signatureMode = 'both',
   mecanicoAsignado = null,
+  ubicacionPreferida = null,
+  modoUbicacion = 'domicilio',
 }) => {
   const initialStep: 'tecnico' | 'cliente' =
     signatureMode === 'cliente_only' ? 'cliente' : 'tecnico';
@@ -181,108 +193,101 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
     showAlert('Firma requerida', 'Por favor firma antes de continuar');
   };
 
-  // Obtener ubicación GPS
-  const obtenerUbicacion = async (finalSignatures: SignatureData) => {
-    setObtainingLocation(true);
-    
-    try {
-      console.log('📍 Iniciando proceso de obtención de ubicación GPS...');
-      
-      // Verificar que los servicios de ubicación están habilitados
-      const enabled = await Location.hasServicesEnabledAsync();
-      if (!enabled) {
-        console.log('⚠️ Servicios de ubicación deshabilitados');
-        showAlertButtons(
-          'Servicios de ubicación',
-          'Los servicios de ubicación están deshabilitados. ¿Deseas continuar sin ubicación GPS?',
-          [
-            { text: 'Continuar sin GPS', onPress: () => finalizarSinUbicacion(finalSignatures) },
-          ],
-        );
-        return;
-      }
-
-      // Solicitar permisos explícitamente
-      console.log('🔐 Solicitando permisos de ubicación...');
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      console.log('📋 Estado de permisos:', status);
-      
-      if (status !== 'granted') {
-        console.log('❌ Permisos de ubicación denegados:', status);
-        showAlertButtons(
-          'Permisos de ubicación',
-          'Se requieren permisos de ubicación para finalizar el checklist. Sin GPS, se usarán coordenadas por defecto.',
-          [
-            { text: 'Continuar sin GPS', onPress: () => finalizarSinUbicacion(finalSignatures) },
-          ],
-        );
-        return;
-      }
-
-      console.log('✅ Permisos otorgados, obteniendo ubicación...');
-
-      // Crear una promesa con timeout para evitar que se cuelgue
-      const locationPromise = Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout obteniendo ubicación')), 15000)
-      );
-
-      // Race entre obtener ubicación y timeout
-      const currentLocation = await Promise.race([locationPromise, timeoutPromise]) as any;
-
-      const coords = {
-        lat: currentLocation.coords.latitude,
-        lng: currentLocation.coords.longitude,
-      };
-
-      console.log('🎯 Ubicación obtenida exitosamente:', coords);
-      setLocation(coords);
-      
-      // Finalizar con ubicación (en modo única firma solo uno vendrá; en modo both ambos)
-      const firmaTecnico = finalSignatures.tecnico || '';
-      const firmaCliente = finalSignatures.cliente || null;
-      if (firmaTecnico || firmaCliente) {
-        console.log('🏁 Finalizando con ubicación GPS');
-        onComplete(firmaTecnico, firmaCliente, coords);
-      }
-      
-    } catch (error: any) {
-      console.error('❌ Error obteniendo ubicación:', error);
-      
-      let errorMessage = 'No se pudo obtener la ubicación GPS.';
-      if (error.message?.includes('Timeout')) {
-        errorMessage = 'Tiempo de espera agotado al obtener la ubicación GPS.';
-      } else if (error.message?.includes('denied') || error.message?.includes('permission')) {
-        errorMessage = 'Permisos de ubicación denegados.';
-      } else if (error.message?.includes('unavailable')) {
-        errorMessage = 'Servicios de ubicación no disponibles.';
-      }
-      
-      showAlertButtons(
-        'Error de ubicación',
-        `${errorMessage}\n\n¿Deseas continuar sin ubicación GPS?`,
-        [
-          {
-            text: 'Continuar sin GPS',
-            onPress: () => finalizarSinUbicacion(finalSignatures),
-          },
-        ],
-      );
-    } finally {
-      setObtainingLocation(false);
-    }
-  };
-
-  // Finalizar sin ubicación GPS
-  const finalizarSinUbicacion = (finalSignatures: SignatureData) => {
-    console.log('📍 Finalizando sin ubicación GPS (usando coordenadas por defecto)');
+  const completarConUbicacion = (
+    finalSignatures: SignatureData,
+    coords: { lat: number; lng: number },
+  ) => {
+    setLocation(coords);
     const firmaTecnico = finalSignatures.tecnico || '';
     const firmaCliente = finalSignatures.cliente || null;
     if (firmaTecnico || firmaCliente) {
-      onComplete(firmaTecnico, firmaCliente, { lat: 0, lng: 0 });
+      onComplete(firmaTecnico, firmaCliente, coords);
+    }
+  };
+
+  /**
+   * Resuelve ubicación sin bloquear la firma con alerts de GPS.
+   * Taller → ubicación registrada del local.
+   * Domicilio → última GPS conocida, intento corto, o última del proveedor.
+   */
+  const obtenerUbicacion = async (finalSignatures: SignatureData) => {
+    setObtainingLocation(true);
+
+    try {
+      const preferida =
+        ubicacionPreferida
+        && Number.isFinite(ubicacionPreferida.lat)
+        && Number.isFinite(ubicacionPreferida.lng)
+        && !(ubicacionPreferida.lat === 0 && ubicacionPreferida.lng === 0)
+          ? ubicacionPreferida
+          : null;
+
+      // Servicio en taller (o firma de supervisor): no pedir GPS live.
+      if (modoUbicacion === 'taller' || signatureMode === 'supervisor_only') {
+        if (preferida) {
+          console.log('📍 Usando ubicación del taller:', preferida);
+          completarConUbicacion(finalSignatures, preferida);
+          return;
+        }
+      }
+
+      // Última ubicación conocida del dispositivo (rápida, típica en domicilio).
+      try {
+        const last = await Location.getLastKnownPositionAsync({
+          maxAge: 30 * 60 * 1000,
+          requiredAccuracy: 500,
+        });
+        if (last?.coords) {
+          const coords = {
+            lat: last.coords.latitude,
+            lng: last.coords.longitude,
+          };
+          console.log('📍 Usando última ubicación conocida:', coords);
+          completarConUbicacion(finalSignatures, coords);
+          return;
+        }
+      } catch (e) {
+        console.warn('No hay última ubicación conocida:', e);
+      }
+
+      // Intento corto de GPS actual (sin alert si falla).
+      try {
+        const enabled = await Location.hasServicesEnabledAsync();
+        if (enabled) {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            const currentLocation = (await Promise.race([
+              Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+              }),
+              new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Timeout ubicacion')), 5000);
+              }),
+            ])) as Location.LocationObject;
+
+            const coords = {
+              lat: currentLocation.coords.latitude,
+              lng: currentLocation.coords.longitude,
+            };
+            console.log('📍 GPS actual:', coords);
+            completarConUbicacion(finalSignatures, coords);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('GPS live no disponible, usando fallback:', e);
+      }
+
+      if (preferida) {
+        console.log('📍 Fallback a ubicación del proveedor:', preferida);
+        completarConUbicacion(finalSignatures, preferida);
+        return;
+      }
+
+      console.log('📍 Sin ubicación disponible; continuando con (0,0)');
+      completarConUbicacion(finalSignatures, { lat: 0, lng: 0 });
+    } finally {
+      setObtainingLocation(false);
     }
   };
 

@@ -128,6 +128,7 @@ export interface ChecklistInstance {
     hora_servicio: string;
     cliente?: string;
     vehiculo?: string;
+    tipo_servicio?: 'taller' | 'domicilio';
   } | null;
   template_generado_por_ia?: boolean;
   checklist_template: number;
