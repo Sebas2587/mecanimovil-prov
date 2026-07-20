@@ -25,12 +25,37 @@ function extractTemplateId(instance: ChecklistInstance): number {
   throw new Error('Template ID inválido');
 }
 
+function nestedTemplateFromInstance(instance: ChecklistInstance): ChecklistTemplate | null {
+  const nested = instance.checklist_template;
+  if (
+    nested
+    && typeof nested === 'object'
+    && Array.isArray((nested as ChecklistTemplate).items)
+    && (nested as ChecklistTemplate).items.length > 0
+  ) {
+    return nested as ChecklistTemplate;
+  }
+  return null;
+}
+
 async function loadInstanceWithTemplate(
   instance: ChecklistInstance,
   isOffline: boolean,
 ): Promise<ChecklistBundle> {
   if (!Array.isArray(instance.respuestas)) {
     instance.respuestas = [];
+  }
+
+  // La instancia ya trae el template serializado: úsalo y evita un GET extra
+  // que falla para mecánicos de equipo si el queryset de templates está vacío.
+  const nested = nestedTemplateFromInstance(instance);
+  if (nested) {
+    return {
+      instance,
+      template: nested,
+      isOffline,
+      fetchError: null,
+    };
   }
 
   try {
@@ -183,11 +208,22 @@ export async function fetchChecklistBundleForCita(citaPersonalId: number): Promi
       return loadInstanceWithTemplate(instanceResponse.data, false);
     }
 
+    // Si aún no hay instancia (p.ej. IA tardó / falló al iniciar), pedir generación
+    // vía by_service + create, o dejar que el detalle reintente iniciar-servicio.
+    if (instanceResponse.isEmpty) {
+      return {
+        instance: null,
+        template: null,
+        isOffline: false,
+        fetchError: 'Preparando checklist del servicio…',
+      };
+    }
+
     return {
       instance: null,
       template: null,
       isOffline: false,
-      fetchError: instanceResponse.isEmpty ? null : instanceResponse.message || null,
+      fetchError: instanceResponse.message || 'Error al cargar el checklist',
     };
   } catch {
     return {

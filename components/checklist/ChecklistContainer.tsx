@@ -73,6 +73,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     isOffline,
     pendingSync,
     error,
+    refetch,
 
     // Métodos
     startChecklist,
@@ -325,17 +326,33 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   }
 
   if (error) {
+    const preparando = error.toLowerCase().includes('preparando');
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <InstitutionalIcon name="error" size={64} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.errorTitle}>No se pudo cargar</Text>
+          <InstitutionalIcon
+            name={preparando ? 'assignment' : 'error'}
+            size={64}
+            color={preparando ? I.muted : I.semanticDown}
+            strokeWidth={ICON_STROKE_WIDTH}
+          />
+          <Text style={styles.errorTitle}>
+            {preparando ? 'Preparando checklist…' : 'No se pudo cargar'}
+          </Text>
           <Text style={styles.errorMessage}>{error}</Text>
+          <InstitutionalButton
+            label="Reintentar"
+            onPress={() => {
+              void refetch?.();
+            }}
+            variant="primary"
+            style={{ minWidth: 160 }}
+          />
           <InstitutionalButton
             label="Volver"
             onPress={() => onCancel?.()}
-            variant="primary"
-            style={{ minWidth: 160 }}
+            variant="secondary"
+            style={{ minWidth: 160, marginTop: SPACING.fixed.sm }}
           />
         </View>
       </SafeAreaView>

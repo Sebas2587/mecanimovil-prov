@@ -548,6 +548,7 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
     isOffline,
     pendingSync: uiState.pendingSync,
     error,
+    refetch,
 
     initializeChecklist,
     createChecklistFromService,

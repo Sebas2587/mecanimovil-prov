@@ -551,11 +551,20 @@ export default function CitaAgendaPersonalDetalleScreen() {
         showAlert('Error', res.message || 'No se pudo iniciar el servicio');
         return;
       }
-      if (res.data?.checklist_id) {
-        setShowChecklist(true);
-      }
       await recargarCita();
       await invalidateProveedorMarketplaceQueries(queryClient);
+      // Abrir checklist si se creó, o si la cita ya quedó con checklist_id.
+      if (res.data?.checklist_id || res.data?.tiene_checklist || res.data?.cita?.checklist_id) {
+        setShowChecklist(true);
+      } else if (res.data?.tiene_checklist === false) {
+        showAlert(
+          'Checklist no disponible',
+          'No se pudo generar el checklist para este servicio. Revisa el nombre del servicio e inténtalo de nuevo.',
+        );
+      } else {
+        // Backend puede estar generando con IA; abrir contenedor (reintenta carga).
+        setShowChecklist(true);
+      }
     } finally {
       setIniciandoChecklist(false);
     }
