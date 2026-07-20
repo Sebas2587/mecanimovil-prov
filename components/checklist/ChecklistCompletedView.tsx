@@ -21,11 +21,17 @@ import { signatureStoredToImageUri } from '@/utils/signatureImageUri';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { InstitutionalText } from '@/design-system/components/InstitutionalText';
+import { InstitutionalSectionHeader } from '@/design-system/components/InstitutionalSectionHeader';
+import { InstitutionalTag } from '@/design-system/components/InstitutionalTag';
+import { institutionalCardStyles } from '@/design-system/styles/institutionalSemantic';
 import { showAlert } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
+const FF = TYPOGRAPHY.fontFamily;
 const INSET = SPACING.fixed.md;
+const lh = (size: number, mult: number) => Math.round(size * mult);
 
 const REC_COLORS: Record<string, string> = {
   URGENTE: I.semanticDown,
@@ -305,18 +311,22 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
               <InstitutionalIcon name="close" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
             <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>Resumen del checklist</Text>
-              <View style={styles.orderPill}>
-                <Text style={styles.orderPillText}>
-                  {citaPersonalId
+              <InstitutionalText role="h3" color="ink" style={styles.headerTitle}>
+                Resumen del checklist
+              </InstitutionalText>
+              <InstitutionalTag
+                label={
+                  citaPersonalId
                     ? `Cita #${citaPersonalId}`
                     : ordenId
                       ? `Orden #${ordenId}`
                       : instanceId
                         ? `Checklist #${instanceId}`
-                        : 'Checklist'}
-                </Text>
-              </View>
+                        : 'Checklist'
+                }
+                variant="neutral"
+                size="sm"
+              />
             </View>
             <View style={styles.headerIconBtn} />
           </View>
@@ -324,7 +334,9 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
           {loading ? (
             <View style={styles.loadingBox}>
               <ActivityIndicator size="large" color={I.primary} />
-              <Text style={styles.loadingHint}>Cargando checklist…</Text>
+              <InstitutionalText role="caption" color="muted" style={{ marginTop: SPACING.sm }}>
+                Cargando checklist…
+              </InstitutionalText>
             </View>
           ) : instance ? (
             <ScrollView
@@ -332,74 +344,85 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
               contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + SPACING.lg }]}
               showsVerticalScrollIndicator={false}
             >
-              <View style={styles.card}>
-                <View style={styles.sectionPillWrap}>
-                  <View style={styles.sectionPill}>
-                    <Text style={styles.sectionPillText}>Resumen</Text>
-                  </View>
+              <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
+                <InstitutionalText role="h6" color="muted" style={styles.kicker}>
+                  Servicio
+                </InstitutionalText>
+                <InstitutionalSectionHeader title="Resumen" level="h4" />
+                <View style={styles.sectionRule} />
+
+                <View style={styles.factRow}>
+                  <InstitutionalText role="body" color="body">Estado</InstitutionalText>
+                  <InstitutionalTag
+                    label={instance.estado === 'COMPLETADO' ? 'Completado' : instance.estado}
+                    variant={instance.estado === 'COMPLETADO' ? 'success' : 'neutral'}
+                    size="sm"
+                  />
                 </View>
-
-                <View style={styles.summaryGrid}>
-                  <View style={styles.summaryRow2}>
-                    <View style={styles.summaryCell}>
-                      <Text style={styles.fieldLabel}>Estado</Text>
-                      <View style={styles.doneBadge}>
-                        <InstitutionalIcon name="check-circle" size={14} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
-                        <Text style={styles.doneBadgeText}>Completado</Text>
-                      </View>
-                    </View>
-                    <View style={styles.summaryCell}>
-                      <Text style={styles.fieldLabel}>Progreso</Text>
-                      <Text style={styles.fieldValueMono}>{instance.progreso_porcentaje}%</Text>
-                    </View>
-                  </View>
-
-                  {(instance.fecha_inicio || instance.fecha_finalizacion) && (
-                    <View style={styles.summaryRow2}>
-                      <View style={styles.summaryCell}>
-                        <Text style={styles.fieldLabel}>Inicio</Text>
-                        <Text style={styles.fieldValue}>
-                          {instance.fecha_inicio ? formatearFechaHora(instance.fecha_inicio) : '—'}
-                        </Text>
-                      </View>
-                      <View style={styles.summaryCell}>
-                        <Text style={styles.fieldLabel}>Cierre</Text>
-                        <Text style={styles.fieldValue}>
-                          {instance.fecha_finalizacion ? formatearFechaHora(instance.fecha_finalizacion) : '—'}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-
-                  {instance.tiempo_total_minutos != null && (
-                    <View style={styles.summaryRow2}>
-                      <View style={[styles.summaryCell, styles.summaryCellGrow]}>
-                        <Text style={styles.fieldLabel}>Duración</Text>
-                        <Text style={styles.fieldValueMono}>{instance.tiempo_total_minutos} min</Text>
-                      </View>
-                    </View>
-                  )}
+                <View style={styles.factRow}>
+                  <InstitutionalText role="body" color="body">Progreso</InstitutionalText>
+                  <InstitutionalText role="numberDisplay" color="ink">
+                    {instance.progreso_porcentaje}%
+                  </InstitutionalText>
                 </View>
+                {instance.fecha_inicio ? (
+                  <View style={styles.factRow}>
+                    <InstitutionalText role="body" color="body">Inicio</InstitutionalText>
+                    <InstitutionalText role="captionBold" color="ink" style={styles.factValue}>
+                      {formatearFechaHora(instance.fecha_inicio)}
+                    </InstitutionalText>
+                  </View>
+                ) : null}
+                {instance.fecha_finalizacion ? (
+                  <View style={styles.factRow}>
+                    <InstitutionalText role="body" color="body">Cierre</InstitutionalText>
+                    <InstitutionalText role="captionBold" color="ink" style={styles.factValue}>
+                      {formatearFechaHora(instance.fecha_finalizacion)}
+                    </InstitutionalText>
+                  </View>
+                ) : null}
+                {instance.tiempo_total_minutos != null ? (
+                  <View style={[styles.factRow, styles.factRowLast]}>
+                    <InstitutionalText role="body" color="body">Duración</InstitutionalText>
+                    <InstitutionalText role="numberDisplay" color="ink">
+                      {instance.tiempo_total_minutos} min
+                    </InstitutionalText>
+                  </View>
+                ) : null}
               </View>
 
-              {(instance.firma_tecnico || instance.firma_cliente) && (
-                <View style={styles.card}>
-                  <View style={styles.sectionPillWrap}>
-                    <View style={styles.sectionPill}>
-                      <Text style={styles.sectionPillText}>Firmas</Text>
-                    </View>
-                  </View>
+              {(instance.firma_tecnico || instance.firma_cliente || instance.firma_supervisor) && (
+                <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
+                  <InstitutionalText role="h6" color="muted" style={styles.kicker}>
+                    Conformidad
+                  </InstitutionalText>
+                  <InstitutionalSectionHeader title="Firmas" level="h4" />
+                  <View style={styles.sectionRule} />
                   <View style={styles.signaturesRow2}>
                     {instance.firma_tecnico ? (
                       <View
                         style={[
                           styles.sigCell,
-                          !instance.firma_cliente ? styles.sigCellSingle : null,
+                          !instance.firma_cliente && !instance.firma_supervisor ? styles.sigCellSingle : null,
                         ]}
                       >
-                        <Text style={styles.sigCaption}>Técnico</Text>
+                        <InstitutionalText role="caption" color="muted" style={styles.sigCaption}>
+                          Técnico
+                        </InstitutionalText>
                         <Image
                           source={{ uri: signatureStoredToImageUri(instance.firma_tecnico) || '' }}
+                          style={styles.sigImage}
+                          resizeMode="contain"
+                        />
+                      </View>
+                    ) : null}
+                    {instance.firma_supervisor ? (
+                      <View style={styles.sigCell}>
+                        <InstitutionalText role="caption" color="muted" style={styles.sigCaption}>
+                          Supervisor
+                        </InstitutionalText>
+                        <Image
+                          source={{ uri: signatureStoredToImageUri(instance.firma_supervisor) || '' }}
                           style={styles.sigImage}
                           resizeMode="contain"
                         />
@@ -409,10 +432,12 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
                       <View
                         style={[
                           styles.sigCell,
-                          !instance.firma_tecnico ? styles.sigCellSingle : null,
+                          !instance.firma_tecnico && !instance.firma_supervisor ? styles.sigCellSingle : null,
                         ]}
                       >
-                        <Text style={styles.sigCaption}>Cliente</Text>
+                        <InstitutionalText role="caption" color="muted" style={styles.sigCaption}>
+                          Cliente
+                        </InstitutionalText>
                         <Image
                           source={{ uri: signatureStoredToImageUri(instance.firma_cliente) || '' }}
                           style={styles.sigImage}
@@ -424,17 +449,21 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
                 </View>
               )}
 
-              <View style={styles.card}>
-                <Text style={styles.sectionEyebrow}>Inspección</Text>
-                <Text style={styles.sectionTitle}>
-                  Respuestas del técnico
-                </Text>
-                <Text style={styles.sectionMeta}>
+              <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
+                <InstitutionalText role="h6" color="muted" style={styles.kicker}>
+                  Inspección
+                </InstitutionalText>
+                <InstitutionalSectionHeader
+                  title="Respuestas del técnico"
+                  level="h4"
+                  count={instance.respuestas?.length ?? 0}
+                />
+                <InstitutionalText role="caption" color="muted" style={{ marginTop: 4 }}>
                   {instance.respuestas?.filter((r) => r.completado).length ?? 0}
                   {' de '}
                   {instance.respuestas?.length ?? 0}
                   {' puntos revisados'}
-                </Text>
+                </InstitutionalText>
                 <View style={styles.sectionRule} />
 
                 {instance.respuestas && instance.respuestas.length > 0 ? (
@@ -453,24 +482,25 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
 
               {/* Sección de Recomendaciones ML */}
               {loadingRec ? (
-                <View style={styles.card}>
+                <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
                   <ActivityIndicator color={I.primary} style={{ marginVertical: SPACING.md }} />
-                  <Text style={[styles.emptyItems, { textAlign: 'center' }]}>
-                    Analizando checklist con IA...
-                  </Text>
+                  <InstitutionalText role="caption" color="muted" style={{ textAlign: 'center' }}>
+                    Analizando checklist con IA…
+                  </InstitutionalText>
                 </View>
               ) : recomendaciones.length > 0 ? (
-                <View style={styles.card}>
-                  <View style={styles.sectionPillWrap}>
-                    <View style={styles.sectionPill}>
-                      <Text style={styles.sectionPillText}>
-                        Recomendaciones para el cliente ({recomendaciones.length})
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={{ fontSize: 12, color: I.muted, marginBottom: SPACING.sm }}>
-                    Generadas por análisis ML basado en el estado de los componentes evaluados.
-                  </Text>
+                <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
+                  <InstitutionalText role="h6" color="muted" style={styles.kicker}>
+                    Sugerencias
+                  </InstitutionalText>
+                  <InstitutionalSectionHeader
+                    title="Recomendaciones para el cliente"
+                    level="h4"
+                    count={recomendaciones.length}
+                  />
+                  <InstitutionalText role="caption" color="muted" style={{ marginBottom: SPACING.sm, marginTop: 4 }}>
+                    Generadas por análisis ML según el estado de los componentes evaluados.
+                  </InstitutionalText>
                   {recomendaciones.map((rec, idx) => (
                     <View
                       key={idx}
@@ -553,29 +583,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     minWidth: 0,
+    gap: SPACING.xs,
   },
   headerTitle: {
-    fontSize: T.h3.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: T.h3.fontWeight as '600',
-    lineHeight: Math.round(T.h3.fontSize * T.h3.lineHeight),
-    color: I.ink,
     textAlign: 'center',
-  },
-  orderPill: {
-    marginTop: SPACING.xs,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.surfaceStrong,
-  },
-  orderPillText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
-    textTransform: 'uppercase',
-    color: I.muted,
   },
   scroll: {
     flex: 1,
@@ -591,113 +602,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: INSET,
   },
-  loadingHint: {
-    marginTop: SPACING.sm,
-    fontSize: T.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    color: I.muted,
-  },
   errorTitle: {
     marginTop: SPACING.sm,
     fontSize: T.h4.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontFamily: FF.sansSemiBold,
     color: I.ink,
   },
   errorHint: {
     marginTop: SPACING.xs,
     fontSize: T.small.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontFamily: FF.sansRegular,
     color: I.muted,
     textAlign: 'center',
   },
-  card: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    paddingVertical: SPACING.sm + 4,
-    paddingHorizontal: SPACING.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    ...SHADOWS.editorial,
-  },
-  sectionPillWrap: {
-    marginBottom: SPACING.sm,
-  },
-  sectionPill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.surfaceStrong,
-  },
-  sectionPillText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+  kicker: {
+    textTransform: 'uppercase',
     letterSpacing: TYPOGRAPHY.letterSpacing.wider,
-    textTransform: 'uppercase',
-    color: I.muted,
+    marginBottom: 2,
   },
-  summaryGrid: {
-    gap: SPACING.sm,
-  },
-  summaryRow2: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    alignItems: 'stretch',
-  },
-  summaryCell: {
-    flex: 1,
-    minWidth: 0,
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-  },
-  summaryCellGrow: {
-    flexGrow: 1,
-    flexBasis: '100%',
-  },
-  fieldLabel: {
-    fontSize: T.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
-    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
-    color: I.muted,
+  sectionRule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: I.hairline,
+    marginTop: SPACING.sm,
     marginBottom: SPACING.xs,
-    textTransform: 'uppercase',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
   },
-  fieldValue: {
-    fontSize: T.body.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: T.body.fontWeight as '400',
-    lineHeight: Math.round(T.body.fontSize * T.body.lineHeight),
-    color: I.ink,
-  },
-  fieldValueMono: {
-    fontSize: T.numberDisplay.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
-    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
-    color: I.ink,
-  },
-  doneBadge: {
+  factRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.canvas,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
   },
-  doneBadgeText: {
-    fontSize: T.captionBold.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: T.captionBold.fontWeight as '600',
-    color: I.semanticUp,
+  factRowLast: {
+    borderBottomWidth: 0,
+  },
+  factValue: {
+    flexShrink: 1,
+    textAlign: 'right',
+    maxWidth: '58%',
   },
   signaturesRow2: {
     flexDirection: 'row',
@@ -718,46 +662,16 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   sigCaption: {
-    fontSize: T.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
-    color: I.muted,
     marginBottom: SPACING.xs,
     textAlign: 'center',
   },
   sigImage: {
     width: '100%',
     height: 88,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: I.hairline,
-  },
-  sectionEyebrow: {
-    fontSize: T.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
-    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
-    textTransform: 'uppercase',
-    color: I.muted,
-    marginBottom: 2,
-  },
-  sectionTitle: {
-    fontSize: T.h3.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: T.h3.fontWeight as '600',
-    lineHeight: Math.round(T.h3.fontSize * T.h3.lineHeight),
-    color: I.ink,
-  },
-  sectionMeta: {
-    marginTop: 4,
-    fontSize: T.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    color: I.muted,
-  },
-  sectionRule: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: I.hairline,
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.xs,
   },
   amenityBlock: {
     paddingVertical: SPACING.md,
@@ -778,8 +692,8 @@ const styles = StyleSheet.create({
   },
   amenityLabel: {
     fontSize: T.body.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    lineHeight: Math.round(T.body.fontSize * T.body.lineHeight),
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(T.body.fontSize, T.body.lineHeight),
     color: I.ink,
   },
   amenityValue: {
@@ -787,9 +701,9 @@ const styles = StyleSheet.create({
     maxWidth: '42%',
     textAlign: 'right',
     fontSize: T.body.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    fontFamily: FF.sansMedium,
     color: I.body,
-    lineHeight: Math.round(T.body.fontSize * T.body.lineHeight),
+    lineHeight: lh(T.body.fontSize, T.body.lineHeight),
   },
   severityChip: {
     alignSelf: 'flex-start',
@@ -798,8 +712,8 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.sm,
   },
   severityChipText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
     letterSpacing: TYPOGRAPHY.letterSpacing.wide,
     textTransform: 'uppercase',
   },
@@ -822,7 +736,7 @@ const styles = StyleSheet.create({
   },
   pctValueText: {
     fontSize: T.body.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontFamily: FF.sansSemiBold,
     fontWeight: '600',
   },
   photosBlock: {
@@ -842,23 +756,23 @@ const styles = StyleSheet.create({
   },
   photoCaption: {
     fontSize: T.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    fontFamily: FF.sansMedium,
     color: I.ink,
     marginTop: SPACING.xs,
   },
   responseMeta: {
     fontSize: T.small.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontFamily: FF.sansRegular,
     color: I.muted,
-    lineHeight: Math.round(T.small.fontSize * T.small.lineHeight),
+    lineHeight: lh(T.small.fontSize, T.small.lineHeight),
   },
   emptyItems: {
     fontSize: T.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontFamily: FF.sansRegular,
     color: I.muted,
     textAlign: 'center',
     paddingVertical: SPACING.md,
-    lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
+    lineHeight: lh(T.caption.fontSize, T.caption.lineHeight),
   },
   // ── Estilos para cards de recomendaciones ML ─────────────────────────────
   recCard: {

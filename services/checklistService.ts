@@ -152,6 +152,7 @@ export interface ChecklistInstance {
   ubicacion_finalizacion?: any;
   firma_tecnico?: string;
   firma_cliente?: string;
+  firma_supervisor?: string;
   progreso_porcentaje: number;
   progreso_calculado: number;
   tiempo_total_minutos?: number;
