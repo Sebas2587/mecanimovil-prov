@@ -71,6 +71,7 @@ export interface EventoAgendaUnificado {
   orden_id?: number | null;
   miembro_taller_id?: number | null;
   mecanico_nombre?: string | null;
+  conversation_id?: number | null;
 }
 
 export interface CitaAgendaPersonalCreatePayload {
@@ -79,6 +80,8 @@ export interface CitaAgendaPersonalCreatePayload {
   duracion_minutos?: number;
   tipo_servicio: TipoServicioAgenda;
   miembro_taller?: number | null;
+  /** Trazabilidad: conversación de canal desde la que se creó la cita, si aplica. */
+  conversation_id?: number;
   detalle: Partial<CitaAgendaPersonalDetalle> & {
     cliente_nombre: string;
     cliente_telefono: string;

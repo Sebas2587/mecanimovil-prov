@@ -22,16 +22,27 @@ import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { OrigenConversacionChip } from '@/components/pipeline/OrigenConversacionChip';
 
 const I = COLORS.institutional;
 
-const FILTROS_ESTADO: Array<{ key: EstadoPipelineNormalizado | 'todos'; label: string }> = [
-  { key: 'todos', label: 'Todos' },
+/** Embudo comercial completo (pantalla Ver todo). Perdidos al final a propósito. */
+const FILTROS_ESTADO: Array<{ key: EstadoPipelineNormalizado | 'todos' | 'activos'; label: string }> = [
+  { key: 'activos', label: 'Activos' },
   { key: 'nuevo', label: 'Nuevos' },
   { key: 'cotizacion_enviada', label: 'Esperando' },
   { key: 'en_negociacion', label: 'Negociando' },
   { key: 'aceptado_agendado', label: 'Agendados' },
   { key: 'rechazado_perdido', label: 'Perdidos' },
+  { key: 'todos', label: 'Todos' },
+];
+
+const ESTADOS_ACTIVOS: EstadoPipelineNormalizado[] = [
+  'nuevo',
+  'cotizacion_enviada',
+  'en_negociacion',
+  'aceptado_agendado',
+  'en_ejecucion',
 ];
 
 const FILTROS_ORIGEN: Array<{ key: OrigenPipeline | 'todos'; label: string }> = [
@@ -62,11 +73,14 @@ function tagVariant(estado: EstadoPipelineNormalizado) {
   }
 }
 
+/**
+ * Prioriza el destino de la orden/agendamiento sobre la conversación: si el
+ * ítem representa una entidad de negocio (solicitud/oferta/cita/orden), el tap
+ * principal va ahí. Solo cuando es una conversación pura (cotización de canal
+ * sin entidad propia todavía) el tap va al chat. La conversación asociada
+ * siempre queda accesible además vía el chip "Ver conversación".
+ */
 function navegarItem(item: PipelineComercialItem) {
-  if (item.conversation_id) {
-    router.push(`/chat-omnicanal?conversationId=${item.conversation_id}`);
-    return;
-  }
   if (item.solicitud_id) {
     router.push(`/solicitud-detalle/${item.solicitud_id}`);
     return;
@@ -77,7 +91,16 @@ function navegarItem(item: PipelineComercialItem) {
   }
   if (item.orden_id) {
     router.push(`/orden-detalle/${item.orden_id}`);
+    return;
   }
+  if (item.conversation_id) {
+    router.push(`/chat-omnicanal?conversationId=${item.conversation_id}`);
+  }
+}
+
+/** True si el ítem es una entidad de negocio propia (no solo un hilo de chat). */
+function esEntidadDeNegocio(item: PipelineComercialItem): boolean {
+  return Boolean(item.solicitud_id || item.oferta_id || item.cita_id || item.orden_id);
 }
 
 const PipelineItemCard = React.memo(function PipelineItemCard({
@@ -118,6 +141,12 @@ const PipelineItemCard = React.memo(function PipelineItemCard({
         </InstitutionalText>
       ) : null}
 
+      {item.conversation_id && esEntidadDeNegocio(item) ? (
+        <View style={styles.origenChipRow}>
+          <OrigenConversacionChip conversationId={item.conversation_id} />
+        </View>
+      ) : null}
+
       <View style={styles.footerRow}>
         {item.vehiculo_resumen ? (
           <InstitutionalText role="small" color="muted" numberOfLines={1}>
@@ -152,7 +181,9 @@ export function PipelineSeguimientoSection({
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PipelineComercialItem[]>([]);
   const [esperando24h, setEsperando24h] = useState(0);
-  const [filtro, setFiltro] = useState<EstadoPipelineNormalizado | 'todos'>('todos');
+  const [filtro, setFiltro] = useState<EstadoPipelineNormalizado | 'todos' | 'activos'>(
+    compact ? 'todos' : 'activos',
+  );
   const [origen, setOrigen] = useState<OrigenPipeline | 'todos'>(filtroOrigen ?? 'todos');
 
   useEffect(() => {
@@ -174,14 +205,18 @@ export function PipelineSeguimientoSection({
         estado_normalizado:
           filtroEsperando24h
             ? 'cotizacion_enviada'
-            : filtro === 'todos'
+            : filtro === 'todos' || filtro === 'activos'
               ? undefined
               : filtro,
         origen: origen === 'todos' ? undefined : origen,
         esperando_24h: filtroEsperando24h || undefined,
         limite,
       });
-      setItems(data.results);
+      const results =
+        !filtroEsperando24h && filtro === 'activos'
+          ? data.results.filter((row) => ESTADOS_ACTIVOS.includes(row.estado_normalizado))
+          : data.results;
+      setItems(results);
       setEsperando24h(data.esperando_respuesta_24h_count);
     } catch {
       setItems([]);
@@ -382,6 +417,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.xs,
   },
   resumen: { marginBottom: SPACING.fixed.xs },
+  origenChipRow: { marginBottom: SPACING.fixed.xs },
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',

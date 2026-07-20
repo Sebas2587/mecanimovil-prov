@@ -9,7 +9,7 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   MessageCircle, Check, CheckCheck, Sparkles,
 } from 'lucide-react-native';
@@ -48,6 +48,7 @@ import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModa
 import { SolicitudesDisponiblesContent } from '@/components/solicitudes/SolicitudesDisponiblesContent';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
 import { useSolicitudesDisponiblesQuery } from '@/hooks/useSolicitudesDisponiblesQuery';
+import { useCotizacionesCanalPendientesQuery } from '@/hooks/useCotizacionesCanalPendientesQuery';
 import type { ChannelSlug } from '@/utils/channelVisuals';
 
 type MensajesTab = 'chats' | 'solicitudes';
@@ -90,6 +91,9 @@ export default function ChatsScreen() {
     && radarOportunidadesActivo
     && !cotizarIaMode;
   const { data: solicitudesDisponibles = [] } = useSolicitudesDisponiblesQuery(solicitudesQueryEnabled);
+  const { data: cotizacionesCanalPendientes = 0 } = useCotizacionesCanalPendientesQuery(
+    cuentaAprobada && !cotizarIaMode,
+  );
   const queryClient = useQueryClient();
   const invalidateChatInbox = useInvalidateChatInbox();
   const {
@@ -454,6 +458,21 @@ export default function ChatsScreen() {
           </View>
         ) : null}
 
+        {!cotizarIaMode && activeTab === 'chats' && cotizacionesCanalPendientes > 0 ? (
+          <TouchableOpacity
+            style={styles.canalPendienteBanner}
+            activeOpacity={0.85}
+            onPress={() => router.push('/pipeline-seguimiento?filtro=esperando_24h')}
+            accessibilityRole="button"
+            accessibilityLabel="Ver cotizaciones de canal sin respuesta hace más de 24 horas"
+          >
+            <Text style={styles.canalPendienteBannerText}>
+              {cotizacionesCanalPendientes} cotización{cotizacionesCanalPendientes === 1 ? '' : 'es'} por
+              WhatsApp/canal sin respuesta hace más de 24h
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
         {activeTab === 'solicitudes' && !cotizarIaMode ? (
           <SolicitudesDisponiblesContent variant="embedded" />
         ) : loading && chatsVisibles.length === 0 ? (
@@ -522,6 +541,19 @@ const styles = StyleSheet.create({
   listContainerEmpty: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  canalPendienteBanner: {
+    marginHorizontal: SPACING.container.horizontal,
+    marginBottom: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: COLORS.institutional.accentYellow,
+  },
+  canalPendienteBannerText: {
+    fontSize: TYPOGRAPHY.styles.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    color: I.ink,
   },
   tabsWrap: {
     paddingHorizontal: SPACING.container.horizontal,

@@ -57,7 +57,7 @@ export default function PipelineSeguimientoScreen() {
         }
       >
         <InstitutionalText role="caption" color="muted" style={styles.subtitle}>
-          Cotizaciones y clientes de Mecanimovil, WhatsApp, Instagram y agenda personal en un solo lugar.
+          Embudo completo del taller: filtra por estado y origen (Mecanimovil, WhatsApp, Instagram, citas personales). Los cerrados/perdidos solo viven aquí, no en el inicio.
         </InstitutionalText>
         <PipelineSeguimientoSection
           compact={false}

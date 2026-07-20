@@ -149,7 +149,7 @@ function HomeServiciosRecientesSectionInner({ enabled }: HomeServiciosRecientesS
       <View style={styles.headerRow}>
         <View style={styles.titleBlock}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>En curso</Text>
+            <Text style={styles.title}>Órdenes del taller</Text>
             {totalActivas > 0 ? (
               <View style={styles.countBadge}>
                 <Text style={styles.countBadgeText}>
@@ -159,7 +159,7 @@ function HomeServiciosRecientesSectionInner({ enabled }: HomeServiciosRecientesS
             ) : null}
           </View>
           <Text style={styles.subtitle}>
-            Activas y pendientes de tu acción
+            Trabajo activo: ofertas, órdenes y citas
           </Text>
         </View>
         <TouchableOpacity
@@ -182,9 +182,9 @@ function HomeServiciosRecientesSectionInner({ enabled }: HomeServiciosRecientesS
         <View style={styles.emptyCard}>
           <ClipboardList size={20} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
           <View style={styles.emptyTextCol}>
-            <Text style={styles.emptyTitle}>Nada en curso</Text>
+            <Text style={styles.emptyTitle}>Sin trabajo activo</Text>
             <Text style={styles.emptySub}>
-              Cuando tengas ofertas, órdenes o citas activas, aparecerán aquí.
+              Cuando aceptes o agendes un servicio, las órdenes del día aparecerán aquí.
             </Text>
           </View>
         </View>

@@ -33,7 +33,7 @@ import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
 import { horariosAPI } from '@/services/api';
 import { MecanicoHomeView } from '@/components/home/MecanicoHomeView';
-import { PipelineSeguimientoSection } from '@/components/pipeline/PipelineSeguimientoSection';
+import { HomeAtencionSection } from '@/components/dashboard/HomeAtencionSection';
 import {
   normalizarEstadoAgendaApi,
 } from '@/utils/horariosProveedor';
@@ -533,14 +533,7 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          {/* Seguimiento comercial unificado */}
-          {!esMecanicoEquipo && cuentaAprobadaPorAdmin ? (
-            <View style={themedStyles.sectionWrap}>
-              <PipelineSeguimientoSection compact limite={5} />
-            </View>
-          ) : null}
-
-          {/* Acciones del día: Agendar + Cotizar con IA (cards) */}
+          {/* 1) Crear: agendar / cotizar IA */}
           <View style={themedStyles.sectionWrap}>
             <HomeTodayActions
               onAgendar={() => setAgendarRapidoVisible(true)}
@@ -549,7 +542,14 @@ export default function HomeScreen() {
             />
           </View>
 
-          {/* Últimos 5 servicios → Ver todos en tab Servicios */}
+          {/* 2) Cola de atención (helpdesk): solo lo que espera respuesta del taller */}
+          {!esMecanicoEquipo && cuentaAprobadaPorAdmin ? (
+            <View style={themedStyles.sectionWrap}>
+              <HomeAtencionSection enabled={cuentaAprobadaPorAdmin} />
+            </View>
+          ) : null}
+
+          {/* 3) Operación: órdenes/citas/ofertas activas del taller */}
           <View style={themedStyles.sectionWrap}>
             <HomeServiciosRecientesSection enabled={cuentaAprobadaPorAdmin} />
           </View>

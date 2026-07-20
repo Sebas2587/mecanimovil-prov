@@ -26,40 +26,46 @@ function HomeTodayActionsInner({
   showCotizarIa = true,
 }: HomeTodayActionsProps) {
   return (
-    <View style={styles.row}>
-      <TouchableOpacity
-        style={styles.card}
-        onPress={onAgendar}
-        activeOpacity={0.88}
-        accessibilityRole="button"
-        accessibilityLabel="Agendar cita"
-      >
-        <View style={[hostIconPlateStyle, styles.iconPlateLg]}>
-          <CalendarPlus size={22} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
-        </View>
-        <Text style={styles.title}>Agendar</Text>
-        <Text style={styles.sub} numberOfLines={2}>
-          Crear cita personal
-        </Text>
-      </TouchableOpacity>
-
-      {showCotizarIa ? (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Crear</Text>
+        <Text style={styles.sectionSub}>Agendamientos y cotizaciones del día</Text>
+      </View>
+      <View style={styles.row}>
         <TouchableOpacity
           style={styles.card}
-          onPress={onCotizarIa}
+          onPress={onAgendar}
           activeOpacity={0.88}
           accessibilityRole="button"
-          accessibilityLabel="Cotizar con IA"
+          accessibilityLabel="Agendar cita"
         >
           <View style={[hostIconPlateStyle, styles.iconPlateLg]}>
-            <Sparkles size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            <CalendarPlus size={22} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
-          <Text style={styles.title}>Cotizar con IA</Text>
+          <Text style={styles.title}>Agendar</Text>
           <Text style={styles.sub} numberOfLines={2}>
-            Por canal de mensajes
+            Cita para cliente propio
           </Text>
         </TouchableOpacity>
-      ) : null}
+
+        {showCotizarIa ? (
+          <TouchableOpacity
+            style={styles.card}
+            onPress={onCotizarIa}
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel="Cotizar con IA"
+          >
+            <View style={[hostIconPlateStyle, styles.iconPlateLg]}>
+              <Sparkles size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            </View>
+            <Text style={styles.title}>Cotizar con IA</Text>
+            <Text style={styles.sub} numberOfLines={2}>
+              Por WhatsApp u otro canal
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -67,6 +73,24 @@ function HomeTodayActionsInner({
 export const HomeTodayActions = memo(HomeTodayActionsInner);
 
 const styles = StyleSheet.create({
+  section: {
+    gap: SPACING.sm,
+  },
+  sectionHeader: {
+    gap: 2,
+  },
+  sectionTitle: {
+    fontSize: T.h4.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: '600',
+    color: I.ink,
+  },
+  sectionSub: {
+    fontSize: T.caption.fontSize,
+    lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.muted,
+  },
   row: {
     flexDirection: 'row',
     gap: SPACING.sm,

@@ -789,6 +789,8 @@ export function AgendarDesdeCanalModal({
       duracion_minutos: calcularDuracionMinutos(fechaHora.hora!, fechaHora.horaFin!),
       tipo_servicio: tipoServicio,
       miembro_taller: miembroSeleccionado,
+      // Trazabilidad: si la cita nace de un chat, queda enlazada a esa conversación.
+      conversation_id: conversationId ? parseInt(conversationId, 10) : undefined,
       detalle,
     };
   }, [
@@ -811,6 +813,7 @@ export function AgendarDesdeCanalModal({
     direccionValidada,
     fechaHora,
     miembroSeleccionado,
+    conversationId,
   ]);
 
   const vehiculoPayload = useMemo(
