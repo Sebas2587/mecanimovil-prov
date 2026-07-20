@@ -1,15 +1,17 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { SolicitudPublica } from '@/services/solicitudesService';
 import {
   INSTITUTIONAL_SEMANTIC,
   institutionalCardStyles,
 } from '@/app/design-system/styles/institutionalSemantic';
+import { Card } from '@/design-system/components/Card';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import type { InstitutionalTagVariant } from '@/app/design-system/styles/institutionalTags';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { SPACING } from '@/app/design-system/tokens';
 
 interface SolicitudCardProps {
   solicitud: SolicitudPublica;
@@ -57,8 +59,7 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
   };
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.88} style={styles.touch}>
-      <View style={[institutionalCardStyles.surface, styles.card]}>
+    <Card onPress={onPress} style={styles.card} elevated>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <InstitutionalTag
@@ -147,49 +148,46 @@ export const SolicitudCard: React.FC<SolicitudCardProps> = ({
             strokeWidth={ICON_STROKE_WIDTH}
           />
         </View>
-      </View>
-    </TouchableOpacity>
+    </Card>
   );
 };
 
 const styles = StyleSheet.create({
-  touch: {
-    marginBottom: 14,
-  },
   card: {
-    padding: 16,
+    marginBottom: SPACING.fixed.sm + 2,
+    padding: SPACING.fixed.md,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: SPACING.fixed.sm,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.fixed.xs,
     flex: 1,
   },
   vehiculoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: SPACING.fixed.xs,
+    gap: SPACING.fixed.xs,
   },
   vehiculoTexto: {
     flex: 1,
   },
   descripcion: {
     lineHeight: 20,
-    marginBottom: 12,
+    marginBottom: SPACING.fixed.sm,
   },
   serviciosContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 6,
+    marginBottom: SPACING.fixed.sm,
+    gap: SPACING.fixed.xxs + 2,
   },
   servicioBadge: {
     maxWidth: '100%',
@@ -201,17 +199,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: SPACING.fixed.sm,
   },
   footerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: SPACING.fixed.sm + 2,
     flex: 1,
   },
   footerItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: SPACING.fixed.xxs + 1,
   },
 });

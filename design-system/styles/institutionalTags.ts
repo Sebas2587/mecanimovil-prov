@@ -17,38 +17,43 @@ export type InstitutionalTagSize = 'sm' | 'md';
 
 const lh = (fontSize: number, mult: number) => Math.round(fontSize * mult);
 
+/**
+ * Tags Airbnb Host: chips soft (30% superficie), sin pills pesados.
+ * Brand (10%) solo en variant primary/info — tint suave, no fill sólido.
+ * Ver 60-30-10: https://paletacolorpro.com/en/ui-ux-palette-guide
+ */
 const variantPalette: Record<
   InstitutionalTagVariant,
   { bg: string; border: string; text: string }
 > = {
   neutral: {
-    bg: I.surfaceStrong,
+    bg: I.surfaceSoft,
     border: I.hairline,
     text: I.body,
   },
   primary: {
-    bg: withOpacity(I.primary, 0.12),
-    border: withOpacity(I.primary, 0.2),
+    bg: COLORS.base.soft,
+    border: withOpacity(I.primary, 0.18),
     text: I.primaryActive,
   },
   success: {
-    bg: withOpacity(I.semanticUp, 0.12),
-    border: withOpacity(I.semanticUp, 0.28),
+    bg: COLORS.background.success,
+    border: withOpacity(I.semanticUp, 0.22),
     text: I.semanticUp,
   },
   warning: {
-    bg: withOpacity(I.accentYellow, 0.12),
+    bg: COLORS.background.warning,
     border: withOpacity(I.accentYellow, 0.28),
-    text: I.accentYellow,
+    text: COLORS.warning.dark,
   },
   error: {
-    bg: withOpacity(I.semanticDown, 0.08),
-    border: withOpacity(I.semanticDown, 0.28),
+    bg: COLORS.background.error,
+    border: withOpacity(I.semanticDown, 0.22),
     text: I.semanticDown,
   },
   info: {
-    bg: withOpacity(I.primary, 0.08),
-    border: withOpacity(I.primary, 0.18),
+    bg: COLORS.base.soft,
+    border: withOpacity(I.primary, 0.14),
     text: I.primaryActive,
   },
 };
@@ -60,28 +65,30 @@ const sizeStyles: Record<
   sm: {
     tag: {
       paddingHorizontal: SPACING.fixed.sm,
-      paddingVertical: 4,
-      borderRadius: BORDERS.radius.pill,
+      paddingVertical: 3,
+      borderRadius: BORDERS.radius.sm,
       gap: SPACING.fixed.xxs,
     },
     text: {
       fontSize: TYPOGRAPHY.fontSize.xs,
       lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.tight),
-      letterSpacing: TYPOGRAPHY.letterSpacing.wide,
+      letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+      fontFamily: FF.sansMedium,
     },
     uppercase: true,
   },
   md: {
     tag: {
       paddingHorizontal: SPACING.fixed.sm + 2,
-      paddingVertical: SPACING.fixed.xs,
-      borderRadius: BORDERS.radius.pill,
+      paddingVertical: 5,
+      borderRadius: BORDERS.radius.sm,
       gap: SPACING.fixed.xs,
     },
     text: {
       fontSize: TS.caption.fontSize,
       lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
       letterSpacing: 0,
+      fontFamily: FF.sansMedium,
     },
     uppercase: false,
   },
@@ -113,10 +120,12 @@ export function institutionalTagStyles(
       ...s.tag,
     },
     text: {
-      fontFamily: FF.sansSemiBold,
       color: palette.text,
+      fontFamily: s.text.fontFamily ?? FF.sansMedium,
       ...(useUppercase ? { textTransform: 'uppercase' } : {}),
-      ...s.text,
+      fontSize: s.text.fontSize,
+      lineHeight: s.text.lineHeight,
+      letterSpacing: s.text.letterSpacing,
     },
   });
 }

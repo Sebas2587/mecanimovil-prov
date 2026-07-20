@@ -1,6 +1,6 @@
 /**
- * Botones institucionales — primario filled, secundario surface, outline canvas.
- * Alineado a onboarding, SolicitudDetalleFooter y configuracion-perfil.
+ * Botones Airbnb Hosts — 60-30-10:
+ * primary (10% brand gradient) · secondary/outline (30% paper) · tertiary (texto).
  */
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '../tokens';
@@ -15,7 +15,8 @@ export type InstitutionalButtonVariant =
   | 'outline'
   | 'outlineAccent'
   | 'destructiveOutline'
-  | 'success';
+  | 'success'
+  | 'tertiary';
 export type InstitutionalButtonSize = 'default' | 'compact';
 
 const sizeStyles: Record<
@@ -35,7 +36,6 @@ const sizeStyles: Record<
   },
   compact: {
     button: {
-      /** Airbnb Hosts / design.md: CTAs 48–52; compact floor 48 */
       minHeight: 48,
       paddingVertical: SPACING.fixed.sm,
       paddingHorizontal: SPACING.fixed.lg,
@@ -76,7 +76,7 @@ const variantStyles: Record<
   },
   outline: {
     button: {
-      backgroundColor: I.canvas,
+      backgroundColor: COLORS.background.paper,
       borderWidth: BORDERS.width.thin,
       borderColor: I.hairline,
     },
@@ -98,7 +98,7 @@ const variantStyles: Record<
   },
   destructiveOutline: {
     button: {
-      backgroundColor: I.canvas,
+      backgroundColor: COLORS.background.paper,
       borderWidth: BORDERS.width.thin,
       borderColor: withOpacity(I.semanticDown, 0.35),
     },
@@ -119,6 +119,23 @@ const variantStyles: Record<
     },
     pressedOpacity: 0.9,
   },
+  /** Link de header / acciones quietas — sin fill (Airbnb text button). */
+  tertiary: {
+    button: {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      minHeight: 44,
+      paddingVertical: 10,
+      paddingHorizontal: SPACING.fixed.xs,
+    },
+    text: {
+      color: I.primary,
+      fontSize: TS.button.fontSize,
+      lineHeight: Math.round(TS.button.fontSize * TS.button.lineHeight),
+    },
+    pressedOpacity: 0.65,
+  },
 };
 
 export function institutionalButtonStyles(
@@ -128,15 +145,16 @@ export function institutionalButtonStyles(
 ) {
   const v = variantStyles[variant];
   const s = sizeStyles[size];
+  const isTertiary = variant === 'tertiary';
 
   return StyleSheet.create({
     button: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: BORDERS.radius.md,
+      borderRadius: isTertiary ? 0 : BORDERS.radius.md,
       gap: SPACING.fixed.xs,
-      ...s.button,
+      ...(isTertiary ? {} : s.button),
       ...v.button,
       ...(disabled && (variant === 'primary' || variant === 'success')
         ? {
@@ -150,7 +168,7 @@ export function institutionalButtonStyles(
     },
     text: {
       fontFamily: FF.sansSemiBold,
-      letterSpacing: TYPOGRAPHY.letterSpacing.wide,
+      letterSpacing: TYPOGRAPHY.letterSpacing.normal,
       ...s.text,
       ...v.text,
     },

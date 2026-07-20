@@ -58,6 +58,7 @@ import { useAlerts } from '@/context/AlertsContext';
 import { puedeUsarAsistenteIaEnOrden } from '@/utils/asistenteIaPermisos';
 import { ModalCreditosInsuficientes } from '@/components/creditos';
 import type { VerificacionCreditosOferta } from '@/services/creditosService';
+import creditosService from '@/services/creditosService';
 
 const ESTADOS_EJECUCION_UI = new Set([
   'pendiente_creditos',
@@ -189,6 +190,9 @@ export default function SolicitudDetalleScreen() {
   const [modalCreditosVisible, setModalCreditosVisible] = useState(false);
   const [verificacionCreditosConfirm, setVerificacionCreditosConfirm] =
     useState<VerificacionCreditosOferta | null>(null);
+  const [verificacionCreditosOferta, setVerificacionCreditosOferta] =
+    useState<VerificacionCreditosOferta | null>(null);
+  const [modalCreditosOfertaVisible, setModalCreditosOfertaVisible] = useState(false);
 
   const recargarDetalle = useCallback(async () => {
     await refetchDetalle();
@@ -208,6 +212,35 @@ export default function SolicitudDetalleScreen() {
     });
     return () => sub.remove();
   }, [id, detalleBundle, refetchDetalle]);
+
+  useEffect(() => {
+    if (!solicitud || miOferta || !id) {
+      setVerificacionCreditosOferta(null);
+      return;
+    }
+    let cancelled = false;
+    const serviciosIds = solicitud.servicios_solicitados_detail?.map((s) => s.id) ?? [];
+    void creditosService.verificarCreditosOferta(id, serviciosIds).then((result) => {
+      if (cancelled) return;
+      if (result.success && result.data) {
+        setVerificacionCreditosOferta(result.data);
+      } else {
+        setVerificacionCreditosOferta(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [solicitud, miOferta, id]);
+
+  const handleCrearOferta = useCallback(() => {
+    if (!id) return;
+    if (verificacionCreditosOferta && !verificacionCreditosOferta.puede_ofertar) {
+      setModalCreditosOfertaVisible(true);
+      return;
+    }
+    router.push(`/crear-oferta/${id}`);
+  }, [id, verificacionCreditosOferta]);
 
   const handleOfertaUpdated = useCallback(
     (oferta: OfertaProveedor) => {
@@ -1291,6 +1324,8 @@ export default function SolicitudDetalleScreen() {
           rechazando={rechazando}
           onRejectSolicitud={() => setMostrarModalRechazo(true)}
           bottomPad={footerBottomPad}
+          verificacionCreditosOferta={verificacionCreditosOferta}
+          onCrearOferta={handleCrearOferta}
           showEjecucionFooter={showEjecucionFooter}
           checklistInstance={ejecucion.checklistInstance}
           loadingChecklist={ejecucion.loadingChecklist}
@@ -1310,6 +1345,25 @@ export default function SolicitudDetalleScreen() {
           onOpenCompletedChecklist={() => ejecucion.setShowCompletedChecklistModal(true)}
           onLiberarReservaCreditos={handleLiberarReservaCreditos}
           liberandoReservaCreditos={liberandoReserva}
+        />
+
+        <ModalCreditosInsuficientes
+          visible={modalCreditosOfertaVisible}
+          onClose={() => setModalCreditosOfertaVisible(false)}
+          onComprarCreditos={() => {
+            const min =
+              verificacionCreditosOferta?.creditos_faltantes
+              || verificacionCreditosOferta?.creditos_necesarios
+              || 1;
+            setModalCreditosOfertaVisible(false);
+            abrirTiendaCreditos(min);
+          }}
+          verificacion={verificacionCreditosOferta}
+          title="Créditos insuficientes"
+          message={
+            verificacionCreditosOferta?.mensaje
+            || 'No tienes créditos suficientes para crear una oferta en esta solicitud.'
+          }
         />
 
         <ModalCreditosInsuficientes

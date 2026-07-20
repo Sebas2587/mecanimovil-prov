@@ -15,6 +15,8 @@ export type AppHeaderProps = {
   showBack?: boolean;
   onBackPress?: () => void;
   backgroundColor?: string;
+  titleColor?: string;
+  titleRole?: 'h3' | 'h4' | 'h5';
   badge?: number | string;
   style?: object;
 };
@@ -27,6 +29,8 @@ export function AppHeader({
   showBack = false,
   onBackPress,
   backgroundColor,
+  titleColor,
+  titleRole = 'h5',
   badge,
   style,
 }: AppHeaderProps) {
@@ -61,7 +65,7 @@ export function AppHeader({
         </View>
 
         <View style={styles.center}>
-          <InstitutionalText role="h5" numberOfLines={1} style={{ textAlign: 'center' }}>
+          <InstitutionalText role={titleRole} color={titleColor} numberOfLines={1} style={{ textAlign: 'center' }}>
             {title}
           </InstitutionalText>
           {badge != null && badge !== 0 ? (

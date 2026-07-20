@@ -18,6 +18,11 @@ import {
   withOpacity,
 } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { PrimaryGradientFill } from '@/app/design-system/components/PrimaryGradientFill';
+import {
+  hostIconPlateColor,
+  hostIconPlateStyle,
+} from '@/app/design-system/styles/institutionalSemantic';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import type { GananciasTallerResumen } from '@/services/kpisProveedorService';
 import type { CreditoProveedor } from '@/services/creditosService';
@@ -27,7 +32,7 @@ import { formatearDeltaMesAnterior, progresoCalendarioMes } from '@/utils/finanz
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const TS = TYPOGRAPHY.styles;
-const CARD_MIN_HEIGHT = 148;
+const CARD_MIN_HEIGHT = 168;
 
 const lh = (fontSize: number, mult: number) => Math.round(fontSize * mult);
 
@@ -63,7 +68,7 @@ export function FinanzasTallerCard({
   esSupervisor = false,
   isLoadingGanancias = false,
   isLoadingCreditos = false,
-  warningEmphasis = COLORS.warning.text,
+  warningEmphasis = COLORS.warning.dark,
   onPress,
   onRecargarCreditos,
   onPressPlan,
@@ -96,8 +101,8 @@ export function FinanzasTallerCard({
       accessibilityRole="button"
       accessibilityLabel="Finanzas del mes, ver detalle"
       style={({ pressed }) => [
-        styles.cardOuter,
-        fill && styles.cardOuterFill,
+        styles.card,
+        fill && styles.cardFill,
         pressed && styles.pressed,
         style,
       ]}
@@ -105,7 +110,9 @@ export function FinanzasTallerCard({
       <View style={[styles.inner, fill && styles.innerFill]}>
         <View style={styles.headerRow}>
           <View style={styles.titleLeft}>
-            <Wallet size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            <View style={hostIconPlateStyle}>
+              <Wallet size={20} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
+            </View>
             <Text style={styles.title}>Finanzas del mes</Text>
           </View>
           <View style={styles.headerActions}>
@@ -127,7 +134,7 @@ export function FinanzasTallerCard({
               </Pressable>
             ) : null}
             <View style={styles.chevronCircle}>
-              <ChevronRight size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+              <ChevronRight size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
           </View>
         </View>
@@ -183,12 +190,12 @@ export function FinanzasTallerCard({
         ) : null}
 
         <View style={styles.footerRow}>
-          <Text style={styles.footerMeta} numberOfLines={2}>
-            {loadingGanancias
-              ? '—'
-              : `App ${formatCompactMonto(resumen.mecanimovil)} · Propias ${formatCompactMonto(resumen.propias)}`}
-          </Text>
-          <View style={styles.creditsInline}>
+          <View style={styles.footerMetaBlock}>
+            <Text style={styles.footerMeta} numberOfLines={2}>
+              {loadingGanancias
+                ? '—'
+                : `App ${formatCompactMonto(resumen.mecanimovil)} · Propias ${formatCompactMonto(resumen.propias)}`}
+            </Text>
             {isLoadingCreditos && !saldoCreditos ? (
               <ActivityIndicator size="small" color={I.muted} />
             ) : (
@@ -196,20 +203,21 @@ export function FinanzasTallerCard({
                 {creditos.toLocaleString('es-CL')} pts
               </Text>
             )}
-            {!esSupervisor ? (
-              <Pressable
-                onPress={onRecargarCreditos}
-                style={({ pressed: recargaPressed }) => [
-                  styles.recargaBtn,
-                  recargaPressed && styles.pressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Recargar créditos"
-              >
-                <Text style={styles.recargaBtnText}>Recargar</Text>
-              </Pressable>
-            ) : null}
           </View>
+          {!esSupervisor ? (
+            <Pressable
+              onPress={onRecargarCreditos}
+              style={({ pressed: recargaPressed }) => [
+                styles.recargaBtn,
+                recargaPressed && styles.pressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Recargar créditos"
+            >
+              <PrimaryGradientFill style={StyleSheet.absoluteFillObject} />
+              <Text style={styles.recargaBtnText}>Recargar</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     </Pressable>
@@ -217,27 +225,26 @@ export function FinanzasTallerCard({
 }
 
 const styles = StyleSheet.create({
-  cardOuter: {
-    borderRadius: BORDERS.radius.card.lg,
+  card: {
+    borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.border.light,
+    borderColor: I.hairline,
     backgroundColor: COLORS.background.paper,
     overflow: 'hidden',
     minHeight: CARD_MIN_HEIGHT,
-    ...SHADOWS.sm,
+    ...SHADOWS.editorial,
   },
-  cardOuterFill: {
+  cardFill: {
     flex: 1,
     alignSelf: 'stretch',
   },
   pressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.985 }],
+    opacity: 0.94,
+    transform: [{ scale: 0.99 }],
   },
   inner: {
     padding: SPACING.md,
-    paddingBottom: SPACING.lg,
-    gap: SPACING.xs,
+    gap: SPACING.sm,
     minHeight: CARD_MIN_HEIGHT,
   },
   innerFill: {
@@ -248,7 +255,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: SPACING.xxs,
   },
   titleLeft: {
     flexDirection: 'row',
@@ -258,8 +264,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   title: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    lineHeight: lh(TYPOGRAPHY.fontSize.lg, 1.25),
+    fontSize: TS.h4.fontSize,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
     fontFamily: FF.sansSemiBold,
     color: I.ink,
     flexShrink: 1,
@@ -270,9 +276,9 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   planBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: BORDERS.width.thin,
@@ -281,7 +287,7 @@ const styles = StyleSheet.create({
   },
   planBadgeDestacado: {
     borderColor: withOpacity(I.accentYellow, 0.5),
-    backgroundColor: withOpacity(I.accentYellow, 0.08),
+    backgroundColor: COLORS.background.warning,
   },
   chevronCircle: {
     width: 28,
@@ -289,11 +295,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: I.surfaceStrong,
+    backgroundColor: I.surfaceSoft,
   },
   monthLine: {
-    fontSize: TS.small.fontSize,
-    lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),
+    fontSize: TS.caption.fontSize,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
     fontFamily: FF.sansRegular,
     color: I.body,
     textTransform: 'capitalize',
@@ -310,8 +316,8 @@ const styles = StyleSheet.create({
     letterSpacing: TYPOGRAPHY.letterSpacing.tight,
   },
   contextLine: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    lineHeight: 16,
+    fontSize: TS.small.fontSize,
+    lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),
     fontFamily: FF.sansRegular,
     color: I.muted,
   },
@@ -326,37 +332,34 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: BORDERS.radius.pill,
     overflow: 'hidden',
-    backgroundColor: I.surfaceStrong,
-    marginTop: 2,
+    backgroundColor: I.surfaceSoft,
   },
   splitFillPrimary: {
     backgroundColor: I.primary,
   },
   splitFillSecondary: {
-    backgroundColor: I.mutedSoft,
+    backgroundColor: withOpacity(COLORS.brand.orange, 0.45),
   },
   footerRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     gap: SPACING.sm,
-    marginTop: SPACING.xxs,
+    marginTop: SPACING.xs,
     paddingTop: SPACING.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
   },
-  footerMeta: {
+  footerMetaBlock: {
     flex: 1,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    lineHeight: 15,
+    gap: 4,
+    minWidth: 0,
+  },
+  footerMeta: {
+    fontSize: TS.small.fontSize,
+    lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),
     fontFamily: FF.sansRegular,
     color: I.body,
-  },
-  creditsInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    flexShrink: 0,
   },
   creditsText: {
     fontSize: TS.captionBold.fontSize,
@@ -365,15 +368,20 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
   recargaBtn: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.primary,
+    overflow: 'hidden',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 8,
+    borderRadius: BORDERS.radius.md,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   recargaBtnText: {
-    fontSize: TS.small.fontSize,
-    lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),
+    fontSize: TS.captionBold.fontSize,
+    lineHeight: lh(TS.captionBold.fontSize, TS.captionBold.lineHeight),
     fontFamily: FF.sansSemiBold,
     color: I.onPrimary,
+    zIndex: 1,
   },
 });

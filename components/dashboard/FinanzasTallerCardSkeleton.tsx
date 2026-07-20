@@ -6,11 +6,11 @@ import { SkeletonPulse } from '@/components/ui/Skeleton/SkeletonPulse';
 const I = COLORS.institutional;
 const SKELETON_BASE = I.hairlineSoft;
 const SKELETON_MUTED = I.surfaceStrong;
-const CARD_MIN_HEIGHT = 148;
+const CARD_MIN_HEIGHT = 168;
 
 export function FinanzasTallerCardSkeleton({ fill = false }: { fill?: boolean }) {
   return (
-    <View style={[styles.cardOuter, fill && styles.cardOuterFill]}>
+    <View style={[styles.card, fill && styles.cardFill]}>
       <View style={[styles.inner, fill && styles.innerFill]}>
         <SkeletonPulse>
           <View style={[styles.titleBar, { backgroundColor: SKELETON_BASE }]} />
@@ -30,21 +30,20 @@ export function FinanzasTallerCardSkeleton({ fill = false }: { fill?: boolean })
 }
 
 const styles = StyleSheet.create({
-  cardOuter: {
-    borderRadius: BORDERS.radius.card.xl,
+  card: {
+    borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    backgroundColor: I.canvas,
+    backgroundColor: COLORS.background.paper,
     minHeight: CARD_MIN_HEIGHT,
     ...SHADOWS.editorial,
   },
-  cardOuterFill: {
+  cardFill: {
     flex: 1,
     alignSelf: 'stretch',
   },
   inner: {
     padding: SPACING.md,
-    paddingBottom: SPACING.lg,
     gap: SPACING.sm,
     minHeight: CARD_MIN_HEIGHT,
   },

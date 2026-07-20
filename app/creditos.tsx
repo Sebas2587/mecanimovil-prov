@@ -58,6 +58,7 @@ import {
   TablaServiciosCreditosModal,
 } from '@/components/creditos';
 import { InteractiveStatsChart } from '@/components/creditos/InteractiveStatsChart';
+import FinanzasLiquidacionSection from '@/components/creditos/FinanzasLiquidacionSection';
 import { SaldoBenefitGrid } from '@/components/creditos/SaldoBenefitGrid';
 import MercadoPagoWebViewModal from '@/components/creditos/MercadoPagoWebViewModal';
 import Header from '@/components/Header';
@@ -846,6 +847,10 @@ export default function CreditosScreen() {
           disabled={true}
         />
       )}
+
+      <View style={{ paddingHorizontal: SPACING.fixed.md, marginTop: SPACING.fixed.md }}>
+        <FinanzasLiquidacionSection />
+      </View>
 
       {/* Gráfica interactiva */}
       <InteractiveStatsChart consumos={consumos} precioCreditoReferenciaClp={precioTopUpClp} />

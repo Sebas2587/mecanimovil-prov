@@ -15,6 +15,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { SolicitudPublica, OfertaProveedor } from '@/services/solicitudesService';
 import type { ChecklistInstance } from '@/services/checklistService';
+import type { VerificacionCreditosOferta } from '@/services/creditosService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -100,14 +101,26 @@ function NegotiationFooter({
   onReject,
   rejectLoading,
   bottomPad,
+  verificacionCreditos,
+  onCrearOferta,
 }: {
   solicitudId: string;
   onReject: () => void;
   rejectLoading: boolean;
   bottomPad: number;
+  verificacionCreditos?: VerificacionCreditosOferta | null;
+  onCrearOferta: () => void;
 }) {
   return (
     <View style={[styles.negotiationFooter, { paddingBottom: bottomPad }]}>
+      {verificacionCreditos && !verificacionCreditos.puede_ofertar ? (
+        <View style={styles.creditosWarn}>
+          <InstitutionalIcon name="account-balance-wallet" size={18} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
+          <Text style={styles.creditosWarnText}>
+            Necesitas {verificacionCreditos.creditos_necesarios} créditos (saldo: {verificacionCreditos.saldo_actual})
+          </Text>
+        </View>
+      ) : null}
       <View style={styles.negotiationRow}>
         <InstitutionalButton
           label="Rechazar oferta"
@@ -122,7 +135,7 @@ function NegotiationFooter({
           label="Crear oferta"
           variant="primary"
           size="default"
-          onPress={() => router.push(`/crear-oferta/${solicitudId}`)}
+          onPress={onCrearOferta}
           style={footerBtn}
         />
       </View>
@@ -321,6 +334,8 @@ export type SolicitudDetalleFooterProps = {
   rechazando: boolean;
   onRejectSolicitud: () => void;
   bottomPad: number;
+  verificacionCreditosOferta?: VerificacionCreditosOferta | null;
+  onCrearOferta?: () => void;
   showEjecucionFooter?: boolean;
 } & Partial<Omit<EjecucionFooterProps, 'miOferta' | 'bottomPad'>>;
 
@@ -335,6 +350,8 @@ export function SolicitudDetalleFooter(props: SolicitudDetalleFooterProps) {
     rechazando,
     onRejectSolicitud,
     bottomPad,
+    verificacionCreditosOferta,
+    onCrearOferta,
     showEjecucionFooter,
     ...ejecucionProps
   } = props;
@@ -358,6 +375,11 @@ export function SolicitudDetalleFooter(props: SolicitudDetalleFooterProps) {
         onReject={onRejectSolicitud}
         rejectLoading={rechazando}
         bottomPad={bottomPad}
+        verificacionCreditos={verificacionCreditosOferta}
+        onCrearOferta={
+          onCrearOferta
+          ?? (() => router.push(`/crear-oferta/${solicitud.id}`))
+        }
       />
     );
   }
@@ -432,6 +454,24 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+  },
+  creditosWarn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.sm,
+    padding: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: withOpacity(I.accentYellow, 0.12),
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(I.accentYellow, 0.35),
+  },
+  creditosWarnText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
     lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
   },
 });

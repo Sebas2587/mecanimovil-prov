@@ -33,6 +33,7 @@ import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
 import { horariosAPI } from '@/services/api';
 import { MecanicoHomeView } from '@/components/home/MecanicoHomeView';
+import { PipelineSeguimientoSection } from '@/components/pipeline/PipelineSeguimientoSection';
 import {
   normalizarEstadoAgendaApi,
 } from '@/utils/horariosProveedor';
@@ -529,6 +530,13 @@ export default function HomeScreen() {
                   }
                 />
               ) : null}
+            </View>
+          ) : null}
+
+          {/* Seguimiento comercial unificado */}
+          {!esMecanicoEquipo && cuentaAprobadaPorAdmin ? (
+            <View style={themedStyles.sectionWrap}>
+              <PipelineSeguimientoSection compact limite={5} />
             </View>
           ) : null}
 

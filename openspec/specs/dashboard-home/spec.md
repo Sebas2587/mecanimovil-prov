@@ -27,5 +27,14 @@ Atajos del taller SHALL NOT duplicate routes available as primary tabs (Agenda l
 - WHEN toca ver todas
 - THEN navega a solicitudes disponibles
 
-### Requirement: Modo radar de oportunidades
-The provider MAY toggle radar availability from the Hoy screen solicitudes section.
+### Requirement: Seguimiento comercial unificado
+La pestaña Hoy SHALL incluir bloque "Seguimiento comercial" con alertas de cotizaciones sin respuesta >24h y enlace a `pipeline-seguimiento`.
+
+#### Scenario: Alerta 24h
+- GIVEN cotizaciones en estado `cotizacion_enviada` hace más de 24h
+- WHEN abre Hoy
+- THEN ve banner con conteo y puede abrir la bandeja completa
+
+### Requirement: Vista mecánico
+WHEN el usuario es mecánico de equipo (`esMecanicoEquipo`), THEN Hoy SHALL renderizar `MecanicoHomeView` en lugar del dashboard mandante.
+

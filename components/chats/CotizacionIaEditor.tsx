@@ -202,7 +202,7 @@ export function CotizacionIaEditor({
                         onPress={() => eliminarRepuesto(idx)}
                         accessibilityLabel="Eliminar repuesto"
                       >
-                        <Trash2 size={18} color="#C62828" />
+                        <Trash2 size={18} color={COLORS.error.dark} />
                       </TouchableOpacity>
                     ) : null}
                   </View>
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   warningBox: {
     flexDirection: 'row',
     gap: SPACING.sm,
-    backgroundColor: '#FFF8E6',
+    backgroundColor: COLORS.background.warning,
     borderRadius: BORDERS.radius.md,
     padding: SPACING.sm,
     borderWidth: BORDERS.width.thin,

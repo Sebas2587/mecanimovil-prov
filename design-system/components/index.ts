@@ -41,5 +41,7 @@ export {
   INSTITUTIONAL_SEMANTIC,
   institutionalStatusColors,
   institutionalCardStyles,
+  hostIconPlateStyle,
+  hostIconPlateColor,
   type InstitutionalStatusTone,
 } from '../styles/institutionalSemantic';

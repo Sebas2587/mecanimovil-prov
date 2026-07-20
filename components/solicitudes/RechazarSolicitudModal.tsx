@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   TextInput,
   ScrollView,
@@ -14,6 +13,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SPACING, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalModal } from '@/design-system/components/InstitutionalModal';
 import {
   institutionalCardStyles,
   institutionalStatusColors,
@@ -76,148 +76,119 @@ export const RechazarSolicitudModal: React.FC<RechazarSolicitudModalProps> = ({
   };
 
   return (
-    <Modal
+    <InstitutionalModal
       visible={visible}
-      transparent
-      animationType="slide"
       onRequestClose={handleClose}
-    >
-      <View style={styles.overlay}>
-        <View style={styles.modalContainer}>
-          <View style={styles.header}>
-            <InstitutionalText role="h3">Rechazar Solicitud</InstitutionalText>
-            <TouchableOpacity onPress={handleClose} disabled={loading}>
-              <InstitutionalIcon name="close" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            <InstitutionalText role="body" color="body" style={styles.subtitle}>
-              Selecciona el motivo por el que no puedes atender esta solicitud
-            </InstitutionalText>
-
-            <View style={styles.motivosContainer}>
-              {MOTIVOS_RECHAZO.map((motivo) => {
-                const selected = motivoSeleccionado === motivo.value;
-                return (
-                  <TouchableOpacity
-                    key={motivo.value}
-                    style={[
-                      styles.motivoCard,
-                      institutionalCardStyles.surface,
-                      selected && {
-                        borderColor: errorStatus.border,
-                        backgroundColor: errorStatus.bg,
-                      },
-                    ]}
-                    onPress={() => setMotivoSeleccionado(motivo.value)}
-                    activeOpacity={0.7}
-                    disabled={loading}
-                  >
-                    <View
-                      style={[
-                        styles.radioButton,
-                        { borderColor: selected ? errorStatus.icon : I.hairline },
-                      ]}
-                    >
-                      {selected ? (
-                        <View style={[styles.radioButtonInner, { backgroundColor: errorStatus.icon }]} />
-                      ) : null}
-                    </View>
-                    <InstitutionalIcon
-                      name={motivo.icon}
-                      size={24}
-                      color={selected ? errorStatus.icon : I.muted}
-                      strokeWidth={ICON_STROKE_WIDTH}
-                    />
-                    <InstitutionalText
-                      role="body"
-                      color={selected ? 'semanticDown' : 'ink'}
-                      style={[styles.motivoText, selected && styles.motivoTextSelected]}
-                    >
-                      {motivo.label}
-                    </InstitutionalText>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {motivoSeleccionado ? (
-              <View style={styles.detalleContainer}>
-                <InstitutionalText role="body" style={styles.detalleLabel}>
-                  Detalle adicional (opcional)
-                </InstitutionalText>
-                <TextInput
-                  style={[
-                    styles.detalleInput,
-                    {
-                      borderColor: I.hairline,
-                      color: I.ink,
-                    },
-                  ]}
-                  placeholder="Puedes agregar más información..."
-                  placeholderTextColor={I.muted}
-                  value={detalle}
-                  onChangeText={setDetalle}
-                  multiline
-                  numberOfLines={4}
-                  maxLength={500}
-                  editable={!loading}
-                />
-                <InstitutionalText role="small" color="muted" style={styles.characterCount}>
-                  {detalle.length}/500
-                </InstitutionalText>
-              </View>
-            ) : null}
-          </ScrollView>
-
-          <View style={styles.footer}>
-            <InstitutionalButton
-              label="Cancelar"
-              variant="secondary"
-              size="compact"
-              onPress={handleClose}
-              disabled={loading}
-              style={styles.footerButton}
-            />
-            <InstitutionalButton
-              label="Confirmar Rechazo"
-              variant="primary"
-              size="compact"
-              onPress={handleConfirm}
-              disabled={!motivoSeleccionado}
-              loading={loading}
-              style={[styles.footerButton, styles.confirmButton, { backgroundColor: I.semanticDown, borderColor: I.semanticDown }]}
-            />
-          </View>
+      onClose={handleClose}
+      title="Rechazar solicitud"
+      footer={
+        <View style={styles.footer}>
+          <InstitutionalButton
+            label="Cancelar"
+            variant="secondary"
+            size="compact"
+            onPress={handleClose}
+            disabled={loading}
+            style={styles.footerButton}
+          />
+          <InstitutionalButton
+            label="Confirmar Rechazo"
+            variant="primary"
+            size="compact"
+            onPress={handleConfirm}
+            disabled={!motivoSeleccionado}
+            loading={loading}
+            style={[styles.footerButton, styles.confirmButton, { backgroundColor: I.semanticDown, borderColor: I.semanticDown }]}
+          />
         </View>
-      </View>
-    </Modal>
+      }
+    >
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.content}>
+        <InstitutionalText role="body" color="body" style={styles.subtitle}>
+          Selecciona el motivo por el que no puedes atender esta solicitud
+        </InstitutionalText>
+
+        <View style={styles.motivosContainer}>
+          {MOTIVOS_RECHAZO.map((motivo) => {
+            const selected = motivoSeleccionado === motivo.value;
+            return (
+              <TouchableOpacity
+                key={motivo.value}
+                style={[
+                  styles.motivoCard,
+                  institutionalCardStyles.surface,
+                  selected && {
+                    borderColor: errorStatus.border,
+                    backgroundColor: errorStatus.bg,
+                  },
+                ]}
+                onPress={() => setMotivoSeleccionado(motivo.value)}
+                activeOpacity={0.7}
+                disabled={loading}
+              >
+                <View
+                  style={[
+                    styles.radioButton,
+                    { borderColor: selected ? errorStatus.icon : I.hairline },
+                  ]}
+                >
+                  {selected ? (
+                    <View style={[styles.radioButtonInner, { backgroundColor: errorStatus.icon }]} />
+                  ) : null}
+                </View>
+                <InstitutionalIcon
+                  name={motivo.icon}
+                  size={24}
+                  color={selected ? errorStatus.icon : I.muted}
+                  strokeWidth={ICON_STROKE_WIDTH}
+                />
+                <InstitutionalText
+                  role="body"
+                  color={selected ? 'semanticDown' : 'ink'}
+                  style={[styles.motivoText, selected && styles.motivoTextSelected]}
+                >
+                  {motivo.label}
+                </InstitutionalText>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {motivoSeleccionado ? (
+          <View style={styles.detalleContainer}>
+            <InstitutionalText role="body" style={styles.detalleLabel}>
+              Detalle adicional (opcional)
+            </InstitutionalText>
+            <TextInput
+              style={[
+                styles.detalleInput,
+                {
+                  borderColor: I.hairline,
+                  color: I.ink,
+                },
+              ]}
+              placeholder="Puedes agregar más información..."
+              placeholderTextColor={I.muted}
+              value={detalle}
+              onChangeText={setDetalle}
+              multiline
+              numberOfLines={4}
+              maxLength={500}
+              editable={!loading}
+            />
+            <InstitutionalText role="small" color="muted" style={styles.characterCount}>
+              {detalle.length}/500
+            </InstitutionalText>
+          </View>
+        ) : null}
+      </ScrollView>
+    </InstitutionalModal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: withOpacity(I.ink, 0.5),
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: I.canvas,
-    borderTopLeftRadius: BORDERS.radius.xl,
-    borderTopRightRadius: BORDERS.radius.xl,
-    maxHeight: '90%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACING.lg,
-    borderBottomWidth: BORDERS.width.thin,
-    borderBottomColor: I.hairline,
-  },
   content: {
-    padding: SPACING.lg,
+    maxHeight: 420,
   },
   subtitle: {
     marginBottom: SPACING.lg,
@@ -273,9 +244,6 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     gap: SPACING.sm,
-    padding: SPACING.lg,
-    borderTopWidth: BORDERS.width.thin,
-    borderTopColor: I.hairline,
   },
   footerButton: {
     flex: 1,

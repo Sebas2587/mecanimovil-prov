@@ -3,6 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CalendarPlus, Sparkles } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import {
+  hostIconPlateColor,
+  hostIconPlateStyle,
+} from '@/app/design-system/styles/institutionalSemantic';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
@@ -30,8 +34,8 @@ function HomeTodayActionsInner({
         accessibilityRole="button"
         accessibilityLabel="Agendar cita"
       >
-        <View style={styles.iconPlate}>
-          <CalendarPlus size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+        <View style={[hostIconPlateStyle, styles.iconPlateLg]}>
+          <CalendarPlus size={22} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
         </View>
         <Text style={styles.title}>Agendar</Text>
         <Text style={styles.sub} numberOfLines={2}>
@@ -47,7 +51,7 @@ function HomeTodayActionsInner({
           accessibilityRole="button"
           accessibilityLabel="Cotizar con IA"
         >
-          <View style={[styles.iconPlate, styles.iconPlateAccent]}>
+          <View style={[hostIconPlateStyle, styles.iconPlateLg]}>
             <Sparkles size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
           <Text style={styles.title}>Cotizar con IA</Text>
@@ -69,8 +73,8 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.xl,
+    backgroundColor: COLORS.background.paper,
+    borderRadius: BORDERS.radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: I.hairline,
     padding: SPACING.md,
@@ -78,17 +82,11 @@ const styles = StyleSheet.create({
     minHeight: 132,
     ...SHADOWS.editorial,
   },
-  iconPlate: {
+  iconPlateLg: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: I.surfaceStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: SPACING.xs,
-  },
-  iconPlateAccent: {
-    backgroundColor: I.surfaceStrong,
   },
   title: {
     fontSize: T.h4.fontSize,

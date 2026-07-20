@@ -1,19 +1,21 @@
 import { Link, Stack } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { COLORS, SPACING } from '@/app/design-system/tokens';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+const I = COLORS.institutional;
 
 export default function NotFoundScreen() {
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
-      <ThemedView style={styles.container}>
-        <ThemedText type="title">This screen does not exist.</ThemedText>
-        <Link href="/" style={styles.link}>
-          <ThemedText type="link">Go to home screen!</ThemedText>
+      <Stack.Screen options={{ title: 'No encontrada' }} />
+      <View style={styles.container}>
+        <InstitutionalText role="h4">Esta pantalla no existe.</InstitutionalText>
+        <Link href="/" asChild>
+          <InstitutionalButton label="Ir al inicio" variant="primary" size="compact" style={styles.link} />
         </Link>
-      </ThemedView>
+      </View>
     </>
   );
 }
@@ -23,10 +25,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: SPACING.fixed.lg,
+    backgroundColor: I.canvas,
   },
   link: {
-    marginTop: 15,
-    paddingVertical: 15,
+    marginTop: SPACING.fixed.md,
   },
 });

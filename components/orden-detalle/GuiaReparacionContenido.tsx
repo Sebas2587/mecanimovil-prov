@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     color: I.primary,
   },
   warningBox: {
-    backgroundColor: '#FFF8E6',
+    backgroundColor: COLORS.background.warning,
     borderRadius: BORDERS.radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: I.accentYellow,

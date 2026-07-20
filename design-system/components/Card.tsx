@@ -39,3 +39,6 @@ export function Card({ children, onPress, padding = 'md', style, elevated = fals
 }
 
 export default Card;
+
+/** Alias semántico para cards de negocio que extienden la superficie base del DS. */
+export const BaseCard = Card;

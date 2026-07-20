@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Image,
 } from 'react-native';
 import { OfertaProveedor } from '@/services/solicitudesService';
@@ -13,11 +12,12 @@ import {
   COLORS,
   BORDERS,
   SPACING,
+  TYPOGRAPHY,
 } from '@/app/design-system/tokens';
+import { Card } from '@/design-system/components/Card';
 import {
   INSTITUTIONAL_SEMANTIC,
   institutionalStatusColors,
-  institutionalCardStyles,
 } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import {
@@ -180,11 +180,7 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
   const bannerColors = estadoInfo.success ? successStatus : warningStatus;
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
+    <Card onPress={onPress} style={styles.card} elevated>
       {oferta.es_oferta_secundaria ? (
         <InstitutionalTag label="Servicio adicional" variant="primary" size="sm" style={styles.badgeSecundaria} />
       ) : null}
@@ -399,13 +395,14 @@ export const OfertaCard: React.FC<OfertaCardProps> = ({
       <View style={styles.footer}>
         <InstitutionalIcon name="chevron-right" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
-    </TouchableOpacity>
+    </Card>
   );
 };
 
+const FS = TYPOGRAPHY.fontSize;
+
 const styles = StyleSheet.create({
   card: {
-    ...institutionalCardStyles.surface,
     borderRadius: BORDERS.radius.md,
     padding: SPACING.fixed.md,
     marginBottom: SPACING.fixed.sm,
@@ -423,13 +420,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   subtitle: {
-    fontSize: 11,
+    fontSize: FS.xs,
     fontWeight: '500',
     marginTop: SPACING.fixed.xxs,
     marginLeft: 2,
   },
   fecha: {
-    fontSize: 12,
+    fontSize: FS.sm,
     marginLeft: SPACING.fixed.xs,
     color: I.muted,
   },
@@ -445,7 +442,7 @@ const styles = StyleSheet.create({
   },
   infoBannerText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: FS.sm,
     fontWeight: '500',
   },
   pagoParcialCard: {
@@ -461,7 +458,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.xs,
   },
   pagoParcialTitulo: {
-    fontSize: 14,
+    fontSize: FS.base,
     fontWeight: '600',
     color: I.accentYellow,
   },
@@ -472,12 +469,12 @@ const styles = StyleSheet.create({
     marginTop: SPACING.fixed.xxs,
   },
   pagoParcialLabel: {
-    fontSize: 13,
+    fontSize: FS.md,
     color: I.body,
     fontWeight: '500',
   },
   pagoParcialMonto: {
-    fontSize: 13,
+    fontSize: FS.md,
     fontWeight: '600',
     color: INSTITUTIONAL_SEMANTIC.ink,
     lineHeight: 16,
@@ -512,7 +509,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   clientName: {
-    fontSize: 16,
+    fontSize: FS.lg,
     fontWeight: '700',
     color: INSTITUTIONAL_SEMANTIC.ink,
     marginBottom: SPACING.fixed.xxs,
@@ -523,7 +520,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   vehicleText: {
-    fontSize: 14,
+    fontSize: FS.base,
     color: I.body,
     fontWeight: '500',
   },
@@ -537,7 +534,7 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xs,
   },
   precio: {
-    fontSize: 20,
+    fontSize: FS.xl,
     fontWeight: '700',
     color: INSTITUTIONAL_SEMANTIC.ink,
   },
@@ -547,12 +544,12 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xxs,
   },
   precioParcialLabel: {
-    fontSize: 12,
+    fontSize: FS.sm,
     fontWeight: '500',
     color: I.accentYellow,
   },
   precioTotalLabel: {
-    fontSize: 12,
+    fontSize: FS.sm,
     fontWeight: '400',
     color: I.body,
   },
@@ -565,11 +562,11 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xxs,
   },
   repuestosText: {
-    fontSize: 10,
+    fontSize: FS.xs,
     fontWeight: '600',
   },
   descripcion: {
-    fontSize: 14,
+    fontSize: FS.base,
     lineHeight: 20,
     color: I.muted,
     marginBottom: SPACING.fixed.sm,
@@ -585,7 +582,7 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xxs,
   },
   detalleText: {
-    fontSize: 12,
+    fontSize: FS.sm,
     color: I.muted,
   },
   footer: {

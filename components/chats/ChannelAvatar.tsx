@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import { User } from 'lucide-react-native';
-import { BORDERS } from '@/app/design-system/tokens';
+import { BORDERS, COLORS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { getChannelVisual, type ChannelSlug } from '@/utils/channelVisuals';
 import { ChannelBrandIcon, ChannelBrandGlyph } from '@/components/chats/ChannelBrandIcon';
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   },
   photo: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border.light,
   },
   placeholder: {
     alignItems: 'center',

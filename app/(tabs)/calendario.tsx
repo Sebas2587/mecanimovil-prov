@@ -22,6 +22,7 @@ import {
   type EventoAgendaUnificado,
 } from '@/services/agendaProveedorService';
 import { useAgendaCalendarioQuery } from '@/hooks/useAgendaCalendarioQuery';
+import { useEquipoTallerQuery } from '@/hooks/useEquipoTallerQuery';
 import { formatDateApi } from '@/components/solicitudes/CatalogoFechaHoraPickers';
 import {
   parseFechaLocal,
@@ -210,6 +211,17 @@ export default function CalendarioScreen() {
   const { estadoProveedor, esMecanicoEquipo, miembroId } = useAuth();
   const { fecha: fechaParam } = useLocalSearchParams<{ fecha?: string }>();
   const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
+  const { miembros: equipoMiembros } = useEquipoTallerQuery(cuentaAprobada && !esMecanicoEquipo);
+  const mecanicos = useMemo(
+    () => equipoMiembros.filter((m) => m.rol === 'mecanico' && m.activo),
+    [equipoMiembros],
+  );
+  const [miembroFiltroManual, setMiembroFiltroManual] = useState<number | null>(null);
+
+  const miembroFiltro = useMemo(() => {
+    if (esMecanicoEquipo && miembroId) return miembroId;
+    return miembroFiltroManual;
+  }, [esMecanicoEquipo, miembroId, miembroFiltroManual]);
 
   const [fechaSeleccionada, setFechaSeleccionada] = useState<Date>(() => startOfDay(new Date()));
   const [mesActual, setMesActual] = useState(() => startOfDay(new Date()));
@@ -223,7 +235,7 @@ export default function CalendarioScreen() {
     refresh,
   } = useAgendaCalendarioQuery({
     mesActual,
-    miembroFiltro: esMecanicoEquipo && miembroId ? miembroId : null,
+    miembroFiltro,
     enabled: cuentaAprobada,
   });
 
@@ -441,6 +453,36 @@ export default function CalendarioScreen() {
           </View>
         ) : (
           <>
+            {!esMecanicoEquipo && mecanicos.length > 0 ? (
+              <View style={styles.mecanicoFilterWrap}>
+                <Text style={styles.mecanicoFilterLabel}>Filtrar por mecánico</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mecanicoFilterRow}>
+                  <TouchableOpacity
+                    style={[styles.mecanicoChip, miembroFiltroManual === null && styles.mecanicoChipActive]}
+                    onPress={() => setMiembroFiltroManual(null)}
+                  >
+                    <Text style={[styles.mecanicoChipText, miembroFiltroManual === null && styles.mecanicoChipTextActive]}>
+                      Todos
+                    </Text>
+                  </TouchableOpacity>
+                  {mecanicos.map((m) => {
+                    const active = miembroFiltroManual === m.id;
+                    return (
+                      <TouchableOpacity
+                        key={m.id}
+                        style={[styles.mecanicoChip, active && styles.mecanicoChipActive]}
+                        onPress={() => setMiembroFiltroManual(m.id)}
+                      >
+                        <Text style={[styles.mecanicoChipText, active && styles.mecanicoChipTextActive]}>
+                          {m.nombre}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            ) : null}
+
             <View style={styles.calendarCard}>
               <View style={styles.monthNavRow}>
                 <TouchableOpacity
@@ -852,5 +894,40 @@ const styles = StyleSheet.create({
   },
   agendarSheetBtn: {
     marginBottom: SPACING.fixed.sm,
+  },
+  mecanicoFilterWrap: {
+    marginHorizontal: hx,
+    marginBottom: SPACING.fixed.sm,
+  },
+  mecanicoFilterLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    color: I.muted,
+    marginBottom: SPACING.fixed.xs,
+  },
+  mecanicoFilterRow: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.xs,
+    paddingBottom: SPACING.fixed.xxs,
+  },
+  mecanicoChip: {
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.xs,
+    borderRadius: BORDERS.radius.full,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: COLORS.background.paper,
+  },
+  mecanicoChipActive: {
+    backgroundColor: I.primary,
+    borderColor: I.primary,
+  },
+  mecanicoChipText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansMedium,
+    color: I.body,
+  },
+  mecanicoChipTextActive: {
+    color: I.onPrimary,
   },
 });

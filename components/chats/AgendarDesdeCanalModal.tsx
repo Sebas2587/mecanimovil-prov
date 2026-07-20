@@ -1806,7 +1806,7 @@ const styles = StyleSheet.create({
   errorIaText: {
     fontFamily: FF.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: '#C62828',
+    color: COLORS.error.dark,
   },
   plantillasLink: { alignSelf: 'flex-start', marginTop: SPACING.xs },
   plantillasLinkText: {

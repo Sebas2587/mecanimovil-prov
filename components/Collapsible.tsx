@@ -1,8 +1,7 @@
 import { PropsWithChildren, useState } from 'react';
-import { StyleSheet, TouchableOpacity } from 'react-native';
-import { COLORS } from '@/app/design-system/tokens';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { COLORS, SPACING } from '@/app/design-system/tokens';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 
 const I = COLORS.institutional;
@@ -11,7 +10,7 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <ThemedView>
+    <View>
       <TouchableOpacity
         style={styles.heading}
         onPress={() => setIsOpen((value) => !value)}
@@ -24,10 +23,10 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
           color={I.muted}
           style={{ transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }}
         />
-        <ThemedText type="defaultSemiBold">{title}</ThemedText>
+        <InstitutionalText role="bodyBold">{title}</InstitutionalText>
       </TouchableOpacity>
-      {isOpen ? <ThemedView style={styles.content}>{children}</ThemedView> : null}
-    </ThemedView>
+      {isOpen ? <View style={styles.content}>{children}</View> : null}
+    </View>
   );
 }
 
@@ -35,10 +34,10 @@ const styles = StyleSheet.create({
   heading: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: SPACING.fixed.xs,
   },
   content: {
-    marginTop: 6,
-    marginLeft: 24,
+    marginTop: SPACING.fixed.xs,
+    marginLeft: SPACING.fixed.lg,
   },
 });

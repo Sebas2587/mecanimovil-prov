@@ -52,10 +52,10 @@ export function institutionalStatusColors(tone: InstitutionalStatusTone) {
       };
     case 'warning':
       return {
-        bg: withOpacity(I.accentYellow, 0.14),
-        border: withOpacity(I.accentYellow, 0.32),
-        text: I.accentYellow,
-        icon: I.accentYellow,
+        bg: COLORS.background.warning,
+        border: withOpacity(I.accentYellow, 0.28),
+        text: COLORS.warning.dark,
+        icon: COLORS.warning.dark,
       };
     case 'error':
       return {
@@ -73,13 +73,25 @@ export function institutionalStatusColors(tone: InstitutionalStatusTone) {
       };
     default:
       return {
-        bg: I.surfaceStrong,
+        bg: I.surfaceSoft,
         border: I.hairline,
         text: I.body,
         icon: I.muted,
       };
   }
 }
+
+/** Plato de ícono Host: 30% tonal, ink quieto — brand solo en CTAs (10%). */
+export const hostIconPlateStyle = {
+  width: 36,
+  height: 36,
+  borderRadius: 18,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+  backgroundColor: I.surfaceSoft,
+};
+
+export const hostIconPlateColor = I.ink;
 
 const lh = (fontSize: number, mult: number) => Math.round(fontSize * mult);
 
@@ -89,7 +101,7 @@ export const institutionalCardStyles = StyleSheet.create({
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    ...SHADOWS.sm,
+    ...SHADOWS.editorial,
   } satisfies ViewStyle,
   surfacePadding: {
     padding: SPACING.fixed.md,

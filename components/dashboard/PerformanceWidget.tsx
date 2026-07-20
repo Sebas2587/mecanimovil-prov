@@ -8,23 +8,38 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { Activity, ChevronRight } from 'lucide-react-native';
-import { COLORS } from '@/app/design-system/tokens/colors';
-import { SPACING } from '@/app/design-system/tokens/spacing';
-import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
-import { SHADOWS } from '@/app/design-system/tokens/shadows';
-import { pointerEventsNone } from '@/app/design-system/tokens';
-import { BORDERS } from '@/app/design-system/tokens/borders';
+import {
+  COLORS,
+  SPACING,
+  TYPOGRAPHY,
+  SHADOWS,
+  BORDERS,
+} from '@/app/design-system/tokens';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import {
+  hostIconPlateColor,
+  hostIconPlateStyle,
+} from '@/app/design-system/styles/institutionalSemantic';
 
 const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
+const CARD_MIN_HEIGHT = 168;
 
-/** Acento decorativo azul (primario usado con mesura, patrón hero oscuro). */
-const ACCENT_GLOW = {
-  soft: 'rgba(0, 82, 255, 0.14)',
-  strong: 'rgba(0, 82, 255, 0.22)',
-} as const;
+const lh = (fontSize: number, mult: number) => Math.round(fontSize * mult);
+
+type KpiTierKey = keyof typeof COLORS.kpi;
+
+function tierKeyForName(name: string): KpiTierKey {
+  const n = name.toLowerCase();
+  if (n.includes('elite')) return 'elite';
+  if (n.includes('máster') || n.includes('master')) return 'master';
+  if (n.includes('pro')) return 'pro';
+  if (n.includes('ascenso')) return 'ascenso';
+  if (n.includes('sin') || n.includes('actividad')) return 'sinActividad';
+  return 'enProgreso';
+}
 
 export type PerformanceWidgetProps = {
   progress?: number | null;
@@ -33,7 +48,6 @@ export type PerformanceWidgetProps = {
   isLoading?: boolean;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
-  /** Igualar altura en layout de 2 columnas del home. */
   fill?: boolean;
 };
 
@@ -63,12 +77,10 @@ export function PerformanceWidget({
   const hasValue = progress != null && !Number.isNaN(progress);
   const pct = useMemo(
     () => (hasValue ? clampPercent(progress as number) : 0),
-    [hasValue, progress]
+    [hasValue, progress],
   );
-  const badgeText = useMemo(() => (hasValue ? motivationalLabel(pct) : '…'), [hasValue, pct]);
-
-  const gradientColors = [I.surfaceDark, I.surfaceDarkElevated] as const;
-  const ff = TYPOGRAPHY.fontFamily;
+  const tip = useMemo(() => (hasValue ? motivationalLabel(pct) : '…'), [hasValue, pct]);
+  const tierPalette = COLORS.kpi[tierKeyForName(targetTierName)];
 
   return (
     <Pressable
@@ -80,197 +92,189 @@ export function PerformanceWidget({
           : `Tu rendimiento, ${isLoading ? 'cargando' : 'sin datos'}`
       }
       style={({ pressed }) => [
-        styles.outer,
-        fill && styles.outerFill,
-        SHADOWS.editorial,
+        styles.card,
+        fill && styles.cardFill,
         pressed && styles.pressed,
         style,
       ]}
     >
-      <LinearGradient
-        colors={[...gradientColors]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.gradient, fill && styles.gradientFill]}
-      >
-        <View style={[styles.decorWrap, pointerEventsNone]}>
-          <View style={[styles.glowOuter, { backgroundColor: ACCENT_GLOW.soft }]} />
-          <View style={[styles.glowInner, { backgroundColor: ACCENT_GLOW.strong }]} />
+      <View style={[styles.inner, fill && styles.innerFill]}>
+        <View style={styles.headerRow}>
+          <View style={styles.titleLeft}>
+            <View style={hostIconPlateStyle}>
+              <Activity size={20} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
+            </View>
+            <Text style={styles.title}>Tu rendimiento</Text>
+          </View>
+          <View style={styles.chevronCircle}>
+            <ChevronRight size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+          </View>
         </View>
 
-        <View style={styles.inner}>
-          <View style={styles.headerRow}>
-            <View style={styles.titleLeft}>
-              <Activity size={22} color={COLORS.primary[300]} strokeWidth={2.25} />
-              <Text style={[styles.title, { fontFamily: ff.sansSemiBold }]}>Tu Rendimiento</Text>
-            </View>
-
-            <View style={styles.chevronCircle}>
-              <BlurView intensity={32} tint="light" style={StyleSheet.absoluteFill} />
-              <View style={[styles.chevronIcon, pointerEventsNone]}>
-                <ChevronRight size={18} color={I.onDark} strokeWidth={2.5} />
-              </View>
-            </View>
+        <View style={styles.tierRow}>
+          <View
+            style={[
+              styles.tierBadge,
+              {
+                backgroundColor: tierPalette.background,
+                borderColor: tierPalette.border,
+              },
+            ]}
+          >
+            <Text style={[styles.tierBadgeText, { color: tierPalette.text }]} numberOfLines={1}>
+              {targetTierName}
+            </Text>
           </View>
-
-          <Text style={[styles.subtitle, { fontFamily: ff.sansMedium }]} numberOfLines={1}>
-            Nivel: {targetTierName}
-          </Text>
-          {periodSubtitle ? (
-            <Text
-              style={[styles.periodLine, { fontFamily: ff.sansRegular }, fill && styles.periodLineCompact]}
-              numberOfLines={fill ? 3 : 2}
-            >
-              {periodSubtitle}
+          {hasValue ? (
+            <Text style={styles.tipText} numberOfLines={1}>
+              {tip}
             </Text>
           ) : null}
+        </View>
 
-          <View style={styles.kpiRow}>
-            {hasValue ? (
-              <Text style={[styles.percent, { fontFamily: ff.monoMedium }]}>{pct}%</Text>
-            ) : isLoading ? (
-              <View style={styles.percentRow}>
-                <ActivityIndicator color={I.onDark} size="small" />
-              </View>
-            ) : (
-              <Text style={[styles.percentPlaceholder, { fontFamily: ff.monoMedium }]}>—</Text>
-            )}
-            <View style={styles.badge}>
-              <Text style={[styles.badgeText, { fontFamily: ff.sansSemiBold }]}>{badgeText}</Text>
-            </View>
+        {periodSubtitle ? (
+          <Text style={styles.periodLine} numberOfLines={fill ? 3 : 2}>
+            {periodSubtitle}
+          </Text>
+        ) : null}
+
+        <View style={styles.kpiBlock}>
+          {hasValue ? (
+            <Text style={styles.percent}>{pct}%</Text>
+          ) : isLoading ? (
+            <ActivityIndicator color={I.primary} size="small" />
+          ) : (
+            <Text style={styles.percentPlaceholder}>—</Text>
+          )}
+
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${hasValue ? pct : 0}%`,
+                  backgroundColor: hasValue ? I.primary : I.surfaceSoft,
+                },
+              ]}
+            />
           </View>
         </View>
-      </LinearGradient>
+      </View>
     </Pressable>
   );
 }
 
-const radius = BORDERS.radius.card.xl;
-
 const styles = StyleSheet.create({
-  outer: {
-    borderRadius: radius,
+  card: {
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: COLORS.background.paper,
     overflow: 'hidden',
+    minHeight: CARD_MIN_HEIGHT,
+    ...SHADOWS.editorial,
   },
-  outerFill: {
+  cardFill: {
     flex: 1,
     alignSelf: 'stretch',
   },
   pressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.985 }],
-  },
-  gradient: {
-    borderRadius: radius,
-    overflow: 'hidden',
-    padding: SPACING.md,
-    paddingBottom: SPACING.lg,
-    minHeight: 148,
-  },
-  gradientFill: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  decorWrap: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'flex-end',
-  },
-  glowOuter: {
-    position: 'absolute',
-    top: -56,
-    right: -48,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-  },
-  glowInner: {
-    position: 'absolute',
-    top: -36,
-    right: -28,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    opacity: 0.94,
+    transform: [{ scale: 0.99 }],
   },
   inner: {
-    zIndex: 1,
+    padding: SPACING.md,
+    gap: SPACING.sm,
+    minHeight: CARD_MIN_HEIGHT,
+  },
+  innerFill: {
+    flex: 1,
+    justifyContent: 'space-between',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: SPACING.sm,
   },
   titleLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
     flex: 1,
+    minWidth: 0,
     paddingRight: SPACING.sm,
   },
   title: {
-    color: I.onDark,
-    fontSize: TYPOGRAPHY.fontSize.lg,
+    color: I.ink,
+    fontSize: TS.h4.fontSize,
+    lineHeight: lh(TS.h4.fontSize, TS.h4.lineHeight),
+    fontFamily: FF.sansSemiBold,
+    flexShrink: 1,
   },
   chevronCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    overflow: 'hidden',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: I.surfaceSoft,
   },
-  chevronIcon: {
-    ...StyleSheet.absoluteFillObject,
+  tierRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
+    gap: SPACING.sm,
+    flexWrap: 'wrap',
   },
-  subtitle: {
-    color: I.onDarkSoft,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    marginBottom: SPACING.xs,
+  tierBadge: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radius.sm,
+    borderWidth: BORDERS.width.thin,
+  },
+  tierBadgeText: {
+    fontSize: TS.caption.fontSize,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
+    fontFamily: FF.sansMedium,
+  },
+  tipText: {
+    fontSize: TS.caption.fontSize,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
+    fontFamily: FF.sansRegular,
+    color: I.body,
+    flexShrink: 1,
   },
   periodLine: {
-    color: I.mutedSoft,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    marginBottom: SPACING.sm,
-    lineHeight: 16,
+    color: I.muted,
+    fontSize: TS.small.fontSize,
+    lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),
+    fontFamily: FF.sansRegular,
   },
-  periodLineCompact: {
-    fontSize: 11,
-    lineHeight: 14,
-  },
-  kpiRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    flexWrap: 'wrap',
+  kpiBlock: {
     gap: SPACING.sm,
   },
   percent: {
-    color: I.onDark,
-    fontSize: TYPOGRAPHY.fontSize['4xl'],
+    color: I.ink,
+    fontSize: TYPOGRAPHY.fontSize['3xl'],
+    lineHeight: lh(TYPOGRAPHY.fontSize['3xl'], TS.numberDisplay.lineHeight),
+    fontFamily: FF.monoMedium,
     letterSpacing: TYPOGRAPHY.letterSpacing.tight,
-  },
-  percentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
   },
   percentPlaceholder: {
-    color: I.onDarkSoft,
-    fontSize: TYPOGRAPHY.fontSize['4xl'],
+    color: I.muted,
+    fontSize: TYPOGRAPHY.fontSize['3xl'],
+    lineHeight: lh(TYPOGRAPHY.fontSize['3xl'], TS.numberDisplay.lineHeight),
+    fontFamily: FF.monoMedium,
     letterSpacing: TYPOGRAPHY.letterSpacing.tight,
   },
-  badge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
+  progressTrack: {
+    height: 4,
     borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceSoft,
+    overflow: 'hidden',
   },
-  badgeText: {
-    color: I.onDark,
-    fontSize: TYPOGRAPHY.fontSize.sm,
+  progressFill: {
+    height: '100%',
+    borderRadius: BORDERS.radius.pill,
   },
 });
 

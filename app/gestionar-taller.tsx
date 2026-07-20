@@ -905,6 +905,28 @@ export default function GestionarTallerScreen() {
             </View>
           </View>
 
+          {/* Accesos rápidos del taller */}
+          <View style={styles.glassOuter}>
+            <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
+            <View style={styles.glassInner}>
+              <InstitutionalSectionHeader title="Administración del taller" level="h4" style={styles.sectionHeaderWrap} />
+              <TouchableOpacity
+                style={[styles.quickLinkRow, { borderColor: inputBorder }]}
+                onPress={() => router.push('/gestion-equipo')}
+                activeOpacity={0.85}
+              >
+                <InstitutionalIcon name="people" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <View style={styles.quickLinkTextWrap}>
+                  <Text style={[styles.quickLinkTitle, { color: textPrimary }]}>Gestión de equipo</Text>
+                  <Text style={[styles.quickLinkSubtitle, { color: textMuted }]}>
+                    Mecánicos, supervisor, horarios y accesos a la app
+                  </Text>
+                </View>
+                <InstitutionalIcon name="chevron-forward" size={20} color={textMuted} strokeWidth={ICON_STROKE_WIDTH} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* Información del Taller */}
           <View style={styles.glassOuter}>
             <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
@@ -1303,6 +1325,26 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 18,
+  },
+  quickLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    gap: 12,
+  },
+  quickLinkTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  quickLinkTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  quickLinkSubtitle: {
+    fontSize: 13,
   },
   modalidadOption: {
     flexDirection: 'row',

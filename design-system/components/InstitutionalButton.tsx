@@ -22,9 +22,10 @@ const spinnerColor: Record<InstitutionalButtonVariant, string> = {
   primary: I.onPrimary,
   success: I.onPrimary,
   secondary: I.primary,
-  outline: I.primary,
+  outline: I.ink,
   outlineAccent: COLORS.brand.orange,
   destructiveOutline: I.semanticDown,
+  tertiary: I.primary,
 };
 
 const sizeFill: Record<
@@ -56,7 +57,7 @@ export type InstitutionalButtonProps = {
 };
 
 /**
- * Botón institucional. Primario = gradiente Tinder (magenta→naranja), como app usuarios.
+ * Botón Host. Primario = gradiente brand (10%). Tertiary = link de texto.
  */
 export function InstitutionalButton({
   label,
@@ -144,7 +145,6 @@ const rowCenter = {
 const primaryShell: ViewStyle = {
   borderRadius: BORDERS.radius.md,
   overflow: 'hidden',
-  /** Fallback si el gradiente no pinta (web): magenta brand */
   backgroundColor: I.primary,
   borderWidth: 0,
   borderColor: 'transparent',

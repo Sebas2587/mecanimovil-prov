@@ -31,7 +31,7 @@ export const TYPOGRAPHY = {
     regular: '400',
     medium: '500',
     semibold: '600',
-    bold: '600',
+    bold: '700',
   },
   lineHeight: {
     tight: 1.2,

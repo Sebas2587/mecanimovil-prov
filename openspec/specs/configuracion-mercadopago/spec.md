@@ -51,3 +51,11 @@ El proveedor puede desvincular su cuenta MP (no podrá recibir pagos hasta recon
 - CUANDO toca "Desconectar cuenta"
 - THEN se muestra un modal de confirmación advirtiendo que no recibirá pagos
 - AND al confirmar, se elimina la integración en el backend
+
+### Requirement: Liquidación al proveedor tras cobro MP
+Cuando un pago Checkout Pro queda aprobado, el sistema SHALL registrar una liquidación con comisión de plataforma (20% + IVA) y monto neto transferible, consultable desde la app.
+
+#### Scenario: Saldo pendiente de liquidación
+- GIVEN pagos aprobados de ofertas del taller
+- CUANDO el proveedor abre Finanzas en Créditos
+- THEN ve liquidaciones pendientes y monto neto por cobrar

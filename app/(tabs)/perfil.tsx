@@ -35,7 +35,9 @@ import {
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
-import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import type { InstitutionalTagVariant } from '@/app/design-system/styles/institutionalTags';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { WebPushSettingsRow } from '@/components/push/WebPushPermissionBanner';
@@ -58,30 +60,25 @@ import {
 } from '@/hooks/useDashboardFinanzas';
 
 const I = COLORS.institutional;
-const warningStatus = institutionalStatusColors('warning');
-const primaryStatus = institutionalStatusColors('primary');
-const successStatus = institutionalStatusColors('success');
 
 function SectionKicker({ label }: { label: string }) {
   return (
     <View style={styles.sectionKickerWrap}>
-      <View style={[styles.sectionPill, { backgroundColor: I.surfaceStrong }]}>
-        <Text style={[styles.sectionPillText, { color: I.muted }]}>{label}</Text>
-      </View>
+      <Text style={styles.sectionKickerText}>{label}</Text>
     </View>
   );
 }
 
-function badgeStyles(variant: PerfilBadgeVariant) {
+function perfilBadgeToTag(variant: PerfilBadgeVariant): InstitutionalTagVariant {
   switch (variant) {
     case 'warning':
-      return { bg: warningStatus.bg, text: warningStatus.text, border: warningStatus.border };
+      return 'warning';
     case 'primary':
-      return { bg: primaryStatus.bg, text: primaryStatus.text, border: primaryStatus.border };
+      return 'primary';
     case 'success':
-      return { bg: successStatus.bg, text: successStatus.text, border: successStatus.border };
+      return 'success';
     default:
-      return { bg: I.surfaceStrong, text: I.muted, border: I.hairline };
+      return 'neutral';
   }
 }
 
@@ -140,7 +137,7 @@ export default function PerfilScreen() {
   const gananciasResumen = gananciasQuery.data;
   const suscripcion = suscripcionQuery.data;
   const showFinanzasCard = puede('finanzas') && (saldoCreditos || saldoCreditosQuery.loading);
-  const warningEmphasis = COLORS.warning.text;
+  const warningEmphasis = COLORS.warning.dark;
 
   const handlePerformanceWidgetPress = useCallback(() => {
     router.push('/creditos?tab=rendimiento');
@@ -308,35 +305,20 @@ export default function PerfilScreen() {
     });
   };
 
-  const getEstadoInk = () => {
-    if (estadoProveedor?.verificado) return I.semanticUp;
-    if (estadoProveedor?.estado_verificacion === 'aprobado' && !estadoProveedor?.verificado) return I.primary;
-    switch (estadoProveedor?.estado_verificacion) {
-      case 'pendiente':
-        return I.accentYellow;
-      case 'en_revision':
-        return I.primary;
-      case 'rechazado':
-        return I.semanticDown;
-      default:
-        return I.muted;
-    }
-  };
-
-  const getEstadoTexto = () => {
-    if (estadoProveedor?.verificado) return 'Verificado';
+  const getEstadoTag = (): { label: string; variant: InstitutionalTagVariant } => {
+    if (estadoProveedor?.verificado) return { label: 'Verificado', variant: 'success' };
     if (estadoProveedor?.estado_verificacion === 'aprobado' && !estadoProveedor?.verificado) {
-      return 'Validando documentación';
+      return { label: 'Validando documentación', variant: 'warning' };
     }
     switch (estadoProveedor?.estado_verificacion) {
       case 'pendiente':
-        return 'Pendiente de revisión';
+        return { label: 'Pendiente de revisión', variant: 'warning' };
       case 'en_revision':
-        return 'En revisión';
+        return { label: 'En revisión', variant: 'primary' };
       case 'rechazado':
-        return 'Rechazado';
+        return { label: 'Rechazado', variant: 'error' };
       default:
-        return 'Sin estado';
+        return { label: 'Sin estado', variant: 'neutral' };
     }
   };
 
@@ -416,13 +398,7 @@ export default function PerfilScreen() {
   }, [esSupervisor, esMecanicoEquipo]);
 
   const renderSettingGroup = (rows: SettingRow[]) => (
-    <View
-      style={[
-        styles.groupCard,
-        { backgroundColor: I.canvas, borderColor: I.hairline },
-        SHADOWS.editorial,
-      ]}
-    >
+    <View style={[styles.groupCard, SHADOWS.editorial]}>
       {rows.map((item, index) => (
         <TouchableOpacity
           key={`${item.title}-${index}`}
@@ -436,7 +412,7 @@ export default function PerfilScreen() {
           onPress={item.onPress}
           activeOpacity={0.88}
         >
-          <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceStrong }]}>
+          <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceSoft }]}>
             <item.Icon size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
           <View style={styles.rowText}>
@@ -477,7 +453,7 @@ export default function PerfilScreen() {
     );
   }
 
-  const estadoInk = getEstadoInk();
+  const estadoTag = getEstadoTag();
 
   return (
     <TabScreenWrapper>
@@ -487,15 +463,12 @@ export default function PerfilScreen() {
           title="Menú"
           rightComponent={
             esSupervisor || esMecanicoEquipo ? undefined : (
-              <TouchableOpacity
+              <InstitutionalButton
+                label="Gestionar perfil"
+                variant="tertiary"
                 onPress={() => router.push('/configuracion-perfil')}
-                style={styles.buttonTertiaryText}
-                activeOpacity={0.65}
-                accessibilityRole="button"
                 accessibilityLabel="Gestionar perfil"
-              >
-                <Text style={[styles.buttonTertiaryTextLabel, { color: I.primary }]}>Gestionar perfil</Text>
-              </TouchableOpacity>
+              />
             )
           }
         />
@@ -505,14 +478,8 @@ export default function PerfilScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: SPACING['2xl'] }]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Identidad — fila horizontal estilo Airbnb Host Menu */}
-          <View
-            style={[
-              styles.profileCard,
-              { backgroundColor: I.canvas, borderColor: I.hairline },
-              SHADOWS.editorial,
-            ]}
-          >
+          {/* Identidad — misma superficie paper que insights (Airbnb Host Menu) */}
+          <View style={styles.profileCard}>
             <View style={styles.profileIdentityRow}>
               <View style={styles.avatarWrap}>
                 {fotoProveedor ? (
@@ -547,38 +514,25 @@ export default function PerfilScreen() {
                   </Text>
                 ) : null}
                 {rolTaller === 'mandante' ? (
-                  <View style={[styles.statusPill, { backgroundColor: I.surfaceStrong }]}>
-                    <View style={[styles.statusDot, { backgroundColor: estadoInk }]} />
-                    <Text style={[styles.statusLabel, { color: estadoInk }]}>{getEstadoTexto()}</Text>
-                  </View>
+                  <InstitutionalTag
+                    label={estadoTag.label}
+                    variant={estadoTag.variant}
+                    size="md"
+                    style={styles.statusTag}
+                  />
                 ) : null}
               </View>
             </View>
             {etiquetasPerfil.length > 0 ? (
               <View style={styles.badgesRow}>
-                {etiquetasPerfil.map((badge) => {
-                  const palette = badgeStyles(badge.variant);
-                  return (
-                    <View
-                      key={badge.label}
-                      style={[
-                        styles.tipoProveedorPill,
-                        {
-                          backgroundColor: palette.bg,
-                          borderWidth:
-                            badge.variant === 'success' || badge.variant === 'primary'
-                              ? StyleSheet.hairlineWidth
-                              : 0,
-                          borderColor: palette.border,
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.tipoProveedorPillText, { color: palette.text }]}>
-                        {badge.label}
-                      </Text>
-                    </View>
-                  );
-                })}
+                {etiquetasPerfil.map((badge) => (
+                  <InstitutionalTag
+                    key={badge.label}
+                    label={badge.label}
+                    variant={perfilBadgeToTag(badge.variant)}
+                    size="sm"
+                  />
+                ))}
               </View>
             ) : null}
           </View>
@@ -640,13 +594,7 @@ export default function PerfilScreen() {
             {herramientasRows.length > 0 ? (
               <>
                 <SectionKicker label="HERRAMIENTAS" />
-                <View
-                  style={[
-                    styles.groupCard,
-                    { backgroundColor: I.canvas, borderColor: I.hairline },
-                    SHADOWS.editorial,
-                  ]}
-                >
+                <View style={[styles.groupCard, SHADOWS.editorial]}>
                   {herramientasRows.map((item, index) => (
                     <TouchableOpacity
                       key={`${item.title}-${index}`}
@@ -660,7 +608,7 @@ export default function PerfilScreen() {
                       onPress={item.onPress}
                       activeOpacity={0.88}
                     >
-                      <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceStrong }]}>
+                      <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceSoft }]}>
                         <item.Icon size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
                       </View>
                       <View style={styles.rowText}>
@@ -677,13 +625,7 @@ export default function PerfilScreen() {
 
             {/* 5. Datos de cuenta (referencia, abajo) */}
             <SectionKicker label="CUENTA" />
-            <View
-              style={[
-                styles.groupCard,
-                { backgroundColor: I.canvas, borderColor: I.hairline },
-                SHADOWS.editorial,
-              ]}
-            >
+            <View style={[styles.groupCard, SHADOWS.editorial]}>
               {infoRows.map((item, index) => (
                 <View
                   key={`${item.label}-${index}`}
@@ -695,7 +637,7 @@ export default function PerfilScreen() {
                     },
                   ]}
                 >
-                  <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceStrong }]}>
+                  <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceSoft }]}>
                     <item.Icon size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                   </View>
                   <View style={styles.rowText}>
@@ -711,19 +653,13 @@ export default function PerfilScreen() {
             ) : (
               <>
                 <SectionKicker label="HERRAMIENTAS" />
-                <View
-                  style={[
-                    styles.groupCard,
-                    { backgroundColor: I.canvas, borderColor: I.hairline },
-                    SHADOWS.editorial,
-                  ]}
-                >
+                <View style={[styles.groupCard, SHADOWS.editorial]}>
                   <TouchableOpacity
                     style={styles.settingRow}
                     onPress={() => router.push('/guias-reparacion' as never)}
                     activeOpacity={0.88}
                   >
-                    <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceStrong }]}>
+                    <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceSoft }]}>
                       <Bookmark size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
                     </View>
                     <View style={styles.rowText}>
@@ -778,50 +714,29 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
   },
-  /**
-   * Coinbase-style `button-tertiary-text`: sin fill ni borde; copy en `primary`;
-   * tipografía CTA (`TYPOGRAPHY.styles.button`); área mínima 44pt (DESIGN_PROVEEDORES_INSTITUCIONAL).
-   */
-  buttonTertiaryText: {
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    minHeight: 44,
-    minWidth: 44,
-    paddingVertical: 10,
-    paddingHorizontal: SPACING.xs,
-  },
-  buttonTertiaryTextLabel: {
-    fontSize: TYPOGRAPHY.styles.button.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.styles.button.fontWeight as '600',
-    lineHeight: Math.round(
-      TYPOGRAPHY.styles.button.fontSize * TYPOGRAPHY.styles.button.lineHeight
-    ),
-  },
   sectionKickerWrap: {
     marginTop: SPACING.md,
     marginBottom: SPACING.sm,
   },
-  sectionPill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
-  },
-  sectionPillText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+  sectionKickerText: {
+    fontSize: TYPOGRAPHY.styles.h6.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    fontWeight: '500',
     letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
+    color: I.muted,
   },
   profileCard: {
     marginHorizontal: SPACING.container.horizontal,
     marginTop: SPACING.sm,
-    marginBottom: SPACING.sm,
-    borderRadius: BORDERS.radius.xl,
+    marginBottom: SPACING.md,
+    borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: COLORS.background.paper,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.md,
+    ...SHADOWS.editorial,
   },
   profileIdentityRow: {
     flexDirection: 'row',
@@ -861,29 +776,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   profileName: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontSize: TYPOGRAPHY.styles.h3.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    fontWeight: '600',
+    lineHeight: Math.round(TYPOGRAPHY.styles.h3.fontSize * TYPOGRAPHY.styles.h3.lineHeight),
   },
   profileSubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontSize: TYPOGRAPHY.styles.caption.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    lineHeight: Math.round(TYPOGRAPHY.styles.caption.fontSize * TYPOGRAPHY.styles.caption.lineHeight),
   },
-  statusPill: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
+  statusTag: {
     marginTop: 4,
-  },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
   badgesRow: {
     flexDirection: 'row',
@@ -891,40 +795,17 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: SPACING.sm,
   },
-  /** Misma semántica que `sectionPill` / kicker: etiqueta pequeña mayúsculas */
-  tipoProveedorPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
-  },
-  tipoProveedorPillText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
-    textTransform: 'uppercase',
-  },
-  coberturaPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
-    borderWidth: 1,
-  },
-  coberturaPillText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
-  },
   tuNegocioStack: {
-    gap: SPACING.sm,
-    marginBottom: SPACING.xs,
+    gap: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   groupCard: {
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
     overflow: 'hidden',
-    marginBottom: SPACING.xs,
+    marginBottom: SPACING.sm,
+    backgroundColor: COLORS.background.paper,
   },
   infoRow: {
     flexDirection: 'row',

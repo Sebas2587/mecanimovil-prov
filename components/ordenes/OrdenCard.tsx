@@ -10,8 +10,10 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import {
   COLORS,
   SPACING,
+  TYPOGRAPHY,
   platformShadow,
 } from '@/app/design-system/tokens';
+import { Card } from '@/design-system/components/Card';
 import {
   institutionalStatusColors,
   institutionalCardStyles,
@@ -349,13 +351,14 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({
 
   return (
     <>
-      <TouchableOpacity 
+      <Card
+        onPress={onPress}
         style={[
           styles.card,
           necesitaChecklistUrgente && styles.cardUrgente,
-          puedeSerCerrada && styles.cardCompletable
-        ]} 
-        onPress={onPress}
+          puedeSerCerrada && styles.cardCompletable,
+        ]}
+        elevated
       >
         {/* Header con estado y urgencia */}
         <View style={styles.header}>
@@ -566,7 +569,7 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({
             </Text>
           </View>
         )}
-      </TouchableOpacity>
+      </Card>
 
       {/* Modal para checklist completado */}
       <ChecklistCompletedView
@@ -578,10 +581,10 @@ export const OrdenCard: React.FC<OrdenCardProps> = ({
   );
 };
 
+const FS = TYPOGRAPHY.fontSize;
+
 const styles = StyleSheet.create({
   card: {
-    ...institutionalCardStyles.surface,
-    padding: SPACING.fixed.md,
     marginBottom: SPACING.fixed.sm,
   },
   header: {
@@ -597,7 +600,7 @@ const styles = StyleSheet.create({
   },
   estadoTexto: {
     color: I.onPrimary,
-    fontSize: 12,
+    fontSize: FS.sm,
     fontWeight: '600',
   },
   urgenteBadge: {
@@ -611,7 +614,7 @@ const styles = StyleSheet.create({
   },
   urgenteTexto: {
     color: I.onPrimary,
-    fontSize: 10,
+    fontSize: FS.xs,
     fontWeight: '700',
   },
   clienteInfo: {
@@ -621,13 +624,13 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xs,
   },
   clienteNombre: {
-    fontSize: 16,
+    fontSize: FS.lg,
     fontWeight: '600',
     color: I.ink,
     flex: 1,
   },
   clienteTelefono: {
-    fontSize: 14,
+    fontSize: FS.base,
     color: I.muted,
   },
   protectedBadge: {
@@ -649,7 +652,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   restriccionTexto: {
-    fontSize: 12,
+    fontSize: FS.sm,
     color: infoStatus.text,
     flex: 1,
   },
@@ -660,7 +663,7 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xs,
   },
   vehiculoTexto: {
-    fontSize: 14,
+    fontSize: FS.base,
     color: I.body,
     flex: 1,
   },
@@ -673,7 +676,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   placaTexto: {
-    fontSize: 12,
+    fontSize: FS.sm,
     fontWeight: 'bold',
     color: I.primary,
   },
@@ -684,7 +687,7 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xs,
   },
   ubicacionTexto: {
-    fontSize: 14,
+    fontSize: FS.base,
     color: I.body,
     flex: 1,
   },
@@ -698,25 +701,25 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xxs,
   },
   protectedLocationText: {
-    fontSize: 10,
+    fontSize: FS.xs,
     color: errorStatus.text,
   },
   serviciosContainer: {
     marginBottom: SPACING.fixed.sm,
   },
   serviciosLabel: {
-    fontSize: 14,
+    fontSize: FS.base,
     fontWeight: '600',
     color: I.body,
     marginBottom: SPACING.fixed.xxs,
   },
   servicioItem: {
-    fontSize: 13,
+    fontSize: FS.md,
     color: I.muted,
     marginLeft: SPACING.fixed.xs,
   },
   masServicios: {
-    fontSize: 13,
+    fontSize: FS.md,
     color: I.primary,
     fontStyle: 'italic',
     marginLeft: SPACING.fixed.xs,
@@ -735,16 +738,16 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fechaTexto: {
-    fontSize: 13,
+    fontSize: FS.md,
     color: I.muted,
   },
   horaTexto: {
-    fontSize: 13,
+    fontSize: FS.md,
     color: I.muted,
     fontWeight: '500',
   },
   totalTexto: {
-    fontSize: 18,
+    fontSize: FS.xl,
     fontWeight: '700',
     color: I.semanticUp,
   },
@@ -775,7 +778,7 @@ const styles = StyleSheet.create({
   },
   botonTexto: {
     color: I.onPrimary,
-    fontSize: 14,
+    fontSize: FS.base,
     fontWeight: '600',
   },
   tiempoContainer: {
@@ -788,7 +791,7 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xxs,
   },
   tiempoTexto: {
-    fontSize: 12,
+    fontSize: FS.sm,
     color: I.semanticDown,
     fontWeight: '500',
   },
@@ -828,7 +831,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   checklistEstadoTexto: {
-    fontSize: 13,
+    fontSize: FS.md,
     fontWeight: '600',
   },
   checklistCompletedBadge: {
@@ -840,7 +843,7 @@ const styles = StyleSheet.create({
     borderRadius: SPACING.fixed.sm,
   },
   checklistCompletedText: {
-    fontSize: 10,
+    fontSize: FS.xs,
     fontWeight: '600',
     color: successStatus.text,
     marginLeft: SPACING.fixed.xxs,
@@ -856,7 +859,7 @@ const styles = StyleSheet.create({
     borderColor: errorStatus.border,
   },
   alertaUrgenteTexto: {
-    fontSize: 11,
+    fontSize: FS.xs,
     color: errorStatus.text,
     marginLeft: SPACING.fixed.xxs,
     flex: 1,
@@ -871,11 +874,11 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.xxs,
   },
   progresoTexto: {
-    fontSize: 11,
+    fontSize: FS.xs,
     color: I.muted,
   },
   progresoPercentage: {
-    fontSize: 11,
+    fontSize: FS.xs,
     fontWeight: '600',
     color: I.body,
   },
@@ -911,7 +914,7 @@ const styles = StyleSheet.create({
   },
   checklistButtonText: {
     color: I.onPrimary,
-    fontSize: 13,
+    fontSize: FS.md,
     fontWeight: '600',
   },
 }); 

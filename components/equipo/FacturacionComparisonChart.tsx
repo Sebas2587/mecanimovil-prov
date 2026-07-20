@@ -29,7 +29,7 @@ const END_SPACING = 16;
 const SCROLL_SPACING = 12;
 const LINE_COLOR_APP = I.primary;
 /** Segunda serie — contraste frente a la línea azul (referencia Figma) */
-const LINE_COLOR_PERSONAL = '#E80054';
+const LINE_COLOR_PERSONAL = COLORS.brand.magenta;
 const CHART_RULES_COLOR = 'rgba(228,228,228,0.2)';
 const LINE_THICKNESS = 2.5;
 
