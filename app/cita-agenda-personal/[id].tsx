@@ -58,9 +58,12 @@ import { useAuth } from '@/context/AuthContext';
 import { puedeUsarAsistenteIaEnCita } from '@/utils/asistenteIaPermisos';
 import { AsistenteDiagnosticoCard } from '@/components/orden-detalle/AsistenteDiagnosticoCard';
 import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
+import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
+import { ChecklistSignatureModal } from '@/components/checklist/ChecklistSignatureModal';
 import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBottomSheet';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import { InstitutionalTag } from '@/design-system/components/InstitutionalTag';
+import { checklistService } from '@/services/checklistService';
 import {
   ESTADO_OPERATIVO_LABELS,
   ESTADO_OPERATIVO_VARIANT,
@@ -159,6 +162,9 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const [editando, setEditando] = useState(false);
   const [feedbackAccion, setFeedbackAccion] = useState<FeedbackAccion | null>(null);
   const [showChecklist, setShowChecklist] = useState(false);
+  const [showChecklistResumen, setShowChecklistResumen] = useState(false);
+  const [showSupervisorFirmaModal, setShowSupervisorFirmaModal] = useState(false);
+  const [firmandoSupervisor, setFirmandoSupervisor] = useState(false);
   const [asignarVisible, setAsignarVisible] = useState(false);
   const [iniciandoChecklist, setIniciandoChecklist] = useState(false);
 
@@ -190,6 +196,54 @@ export default function CitaAgendaPersonalDetalleScreen() {
     const result = await refetchCita();
     return result.data ?? null;
   }, [refetchCita]);
+
+  const ubicacionTallerPreferida = useMemo(() => {
+    const lat = estadoProveedor?.datos_proveedor?.ubicacion_lat;
+    const lng = estadoProveedor?.datos_proveedor?.ubicacion_lng;
+    if (lat == null || lng == null) return null;
+    const latN = Number(lat);
+    const lngN = Number(lng);
+    if (!Number.isFinite(latN) || !Number.isFinite(lngN) || (latN === 0 && lngN === 0)) {
+      return null;
+    }
+    return { lat: latN, lng: lngN };
+  }, [estadoProveedor?.datos_proveedor?.ubicacion_lat, estadoProveedor?.datos_proveedor?.ubicacion_lng]);
+
+  const handleFirmarSupervisorDesdeCita = useCallback(
+    async (firmaSupervisor: string) => {
+      if (!cita?.checklist_id) {
+        showAlert('Error', 'No hay checklist asociado a esta cita.');
+        return;
+      }
+      setShowSupervisorFirmaModal(false);
+      setFirmandoSupervisor(true);
+      try {
+        const result = await checklistService.firmarSupervisor(cita.checklist_id, firmaSupervisor);
+        if (!result.success) {
+          showAlert('Error', result.message || 'No se pudo registrar la firma del supervisor');
+          return;
+        }
+        const informeUrl = result.data?.informe?.url;
+        const enviado = result.data?.informe?.enviado;
+        await recargarCita();
+        if (informeUrl) {
+          showAlert(
+            'Informe generado',
+            enviado
+              ? 'El informe se envió al cliente. También puedes copiar el enlace desde esta pantalla.'
+              : 'Comparte el enlace del informe para que el cliente revise y firme el servicio.',
+          );
+        } else {
+          showAlert('Listo', 'Trabajo rectificado. Informe listo para el cliente.');
+        }
+      } catch {
+        showAlert('Error', 'Ocurrió un error al firmar como supervisor');
+      } finally {
+        setFirmandoSupervisor(false);
+      }
+    },
+    [cita?.checklist_id, recargarCita],
+  );
 
   useEffect(() => {
     if (cita) poblarFormulario(cita);
@@ -970,149 +1024,142 @@ export default function CitaAgendaPersonalDetalleScreen() {
               {cita.tiene_checklist ? (
                 <View style={styles.section}>
                   <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionHeaderTitle}>Checklist operativo</Text>
+                    <Text style={[styles.sectionHeaderTitle, styles.sectionHeaderTitleInline]}>
+                      Checklist operativo
+                    </Text>
                     <InstitutionalTag
-                      label={ESTADO_OPERATIVO_LABELS[estadoOperativo]}
-                      variant={ESTADO_OPERATIVO_VARIANT[estadoOperativo]}
+                      label={
+                        checklistPendienteSupervisor
+                          ? 'Esperando supervisor'
+                          : checklistPendienteFirmaCliente
+                            ? 'Esperando cliente'
+                            : ESTADO_OPERATIVO_LABELS[estadoOperativo]
+                      }
+                      variant={
+                        checklistPendienteSupervisor || checklistPendienteFirmaCliente
+                          ? 'warning'
+                          : ESTADO_OPERATIVO_VARIANT[estadoOperativo]
+                      }
                       size="sm"
                     />
                   </View>
 
-                  {mostrarProgresoChecklist ? (
-                    <View style={styles.checklistProgressCard}>
-                      <Text style={styles.checklistProgressTitle}>
-                        {checklistCompletado
-                          ? 'Checklist completado por el técnico'
-                          : checklistPendienteSupervisor
-                            ? 'Pendiente de rectificación del supervisor'
-                            : checklistPendienteFirmaCliente
-                              ? 'Esperando firma del cliente'
-                              : 'En ejecución por el técnico'}
-                      </Text>
-                      <Text style={styles.checklistProgressMeta}>
-                        {(cita.checklist_items_completados ?? 0)} de{' '}
-                        {(cita.checklist_items_total ?? 0)} ítems
-                        {cita.checklist_minutos_transcurridos != null
-                          ? ` · ${cita.checklist_minutos_transcurridos} min`
-                          : ''}
-                      </Text>
-                      <View style={styles.checklistProgressTrack}>
-                        <View
-                          style={[
-                            styles.checklistProgressFill,
-                            {
-                              width: `${Math.max(
-                                0,
-                                Math.min(100, cita.checklist_progreso_porcentaje ?? 0),
-                              )}%`,
-                            },
-                          ]}
-                        />
-                      </View>
-                      <Text style={styles.checklistProgressPct}>
-                        {cita.checklist_progreso_porcentaje ?? 0}% completado
-                      </Text>
-                      {checklistPendienteSupervisor && !puedeRectificarSupervisor ? (
-                        <Text style={styles.checklistProgressHint}>
-                          El técnico ya firmó. El supervisor del taller debe rectificar el trabajo para generar el informe.
+                  <View style={styles.checklistStatusCard}>
+                    {cita.checklist_id ? (
+                      <>
+                        <Text style={styles.checklistProgressTitle}>
+                          {checklistCompletado
+                            ? 'Servicio checklist completado'
+                            : checklistPendienteSupervisor
+                              ? puedeRectificarSupervisor
+                                ? 'Listo para tu rectificación'
+                                : 'Esperando firma del supervisor'
+                              : checklistPendienteFirmaCliente
+                                ? 'Informe listo para el cliente'
+                                : 'En ejecución por el técnico'}
                         </Text>
+                        <Text style={styles.checklistProgressMeta}>
+                          {(cita.checklist_items_completados ?? 0)} de{' '}
+                          {(cita.checklist_items_total ?? 0)} ítems
+                          {cita.checklist_minutos_transcurridos != null
+                            ? ` · ${cita.checklist_minutos_transcurridos} min`
+                            : ''}
+                        </Text>
+                        <View style={styles.checklistProgressTrack}>
+                          <View
+                            style={[
+                              styles.checklistProgressFill,
+                              {
+                                width: `${Math.max(
+                                  0,
+                                  Math.min(100, cita.checklist_progreso_porcentaje ?? 0),
+                                )}%`,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.checklistStatusCopy}>
+                          {checklistPendienteSupervisor
+                            ? puedeRectificarSupervisor
+                              ? 'Revisa el trabajo del técnico y firma para generar el informe al cliente.'
+                              : 'El técnico ya firmó. Cuando el supervisor rectifique, se generará el enlace del informe.'
+                            : checklistPendienteFirmaCliente
+                              ? 'Comparte el enlace para que el cliente vea lo realizado y certifique el servicio.'
+                              : checklistCompletado
+                                ? 'El checklist quedó cerrado y firmado.'
+                                : puedeOperarChecklist
+                                  ? 'Continúa el checklist paso a paso hasta finalizarlo.'
+                                  : 'El progreso se actualiza mientras el técnico completa el servicio.'}
+                        </Text>
+                      </>
+                    ) : (
+                      <Text style={styles.checklistStatusCopy}>
+                        {puedeOperarChecklist
+                          ? 'Inicia el servicio para generar y completar el checklist.'
+                          : 'El técnico asignado debe iniciar el servicio para comenzar el checklist.'}
+                      </Text>
+                    )}
+
+                    <View style={styles.checklistActions}>
+                      {puedeOperarChecklist && !cita.checklist_id ? (
+                        <InstitutionalButton
+                          label={iniciandoChecklist ? 'Preparando checklist…' : 'Iniciar servicio'}
+                          variant="primary"
+                          loading={iniciandoChecklist}
+                          onPress={() => void handleIniciarServicioChecklist()}
+                        />
                       ) : null}
-                      {!checklistCompletado
+
+                      {puedeOperarChecklist
+                        && cita.checklist_id
+                        && !checklistCompletado
                         && !checklistPendienteSupervisor
                         && !checklistPendienteFirmaCliente ? (
-                        <Text style={styles.checklistProgressHint}>
-                          El progreso se actualiza automáticamente mientras el técnico completa el servicio.
-                        </Text>
+                        <InstitutionalButton
+                          label={checklistEnCurso ? 'Continuar checklist' : 'Completar checklist'}
+                          variant="primary"
+                          onPress={() => setShowChecklist(true)}
+                        />
                       ) : null}
-                    </View>
-                  ) : null}
 
-                  {puedeRectificarSupervisor ? (
-                    <InstitutionalButton
-                      label="Rectificar y firmar informe"
-                      variant="primary"
-                      onPress={() => setShowChecklist(true)}
-                      style={{ marginTop: SPACING.sm }}
-                    />
-                  ) : null}
+                      {puedeRectificarSupervisor ? (
+                        <InstitutionalButton
+                          label={firmandoSupervisor ? 'Generando informe…' : 'Firmar y generar informe'}
+                          variant="primary"
+                          loading={firmandoSupervisor}
+                          disabled={firmandoSupervisor}
+                          onPress={() => setShowSupervisorFirmaModal(true)}
+                        />
+                      ) : null}
 
-                  {checklistPendienteSupervisor && !puedeRectificarSupervisor ? (
-                    <InstitutionalButton
-                      label="Ver resumen del checklist"
-                      variant="secondary"
-                      onPress={() => setShowChecklist(true)}
-                      style={{ marginTop: SPACING.sm }}
-                    />
-                  ) : null}
+                      {cita.checklist_id
+                        && (checklistPendienteSupervisor
+                          || checklistPendienteFirmaCliente
+                          || checklistCompletado) ? (
+                        <InstitutionalButton
+                          label="Ver resumen del trabajo"
+                          variant="secondary"
+                          onPress={() => setShowChecklistResumen(true)}
+                        />
+                      ) : null}
 
-                  {checklistPendienteFirmaCliente ? (
-                    <View style={{ marginTop: SPACING.sm, gap: SPACING.sm }}>
-                      {cita.informe_publico_url ? (
-                        <View style={styles.informeLinkCard}>
-                          <Text style={styles.informeLinkTitle}>Informe para el cliente</Text>
+                      {checklistPendienteFirmaCliente && cita.informe_publico_url ? (
+                        <View style={styles.informeLinkInline}>
                           <Text style={styles.informeLinkHint}>
-                            Comparte este enlace para que el cliente revise el servicio y firme.
+                            Enlace para el cliente
                           </Text>
                           <Text style={styles.informeLinkUrl} numberOfLines={2}>
                             {cita.informe_publico_url}
                           </Text>
                           <InstitutionalButton
-                            label="Copiar enlace del informe"
+                            label="Copiar enlace"
                             variant="primary"
                             onPress={() => void copiarEnlaceInformeCita(cita.informe_publico_url!)}
                           />
                         </View>
-                      ) : (
-                        <InstitutionalButton
-                          label="Abrir checklist / enlace del informe"
-                          variant="secondary"
-                          onPress={() => setShowChecklist(true)}
-                        />
-                      )}
+                      ) : null}
                     </View>
-                  ) : null}
-
-                  {puedeOperarChecklist && !cita.checklist_id ? (
-                    <InstitutionalButton
-                      label={iniciandoChecklist ? 'Preparando checklist…' : 'Iniciar servicio'}
-                      variant="primary"
-                      loading={iniciandoChecklist}
-                      onPress={() => void handleIniciarServicioChecklist()}
-                      style={{ marginTop: SPACING.sm }}
-                    />
-                  ) : null}
-
-                  {puedeOperarChecklist
-                    && cita.checklist_id
-                    && !checklistCompletado
-                    && !checklistPendienteSupervisor
-                    && !checklistPendienteFirmaCliente ? (
-                    <InstitutionalButton
-                      label={
-                        checklistEnCurso ? 'Continuar checklist' : 'Completar checklist'
-                      }
-                      variant="primary"
-                      onPress={() => setShowChecklist(true)}
-                      style={{ marginTop: SPACING.sm }}
-                    />
-                  ) : null}
-
-                  {puedeOperarChecklist
-                    && checklistPendienteSupervisor
-                    && !puedeRectificarSupervisor ? (
-                    <InstitutionalButton
-                      label="Ver resumen (esperando supervisor)"
-                      variant="secondary"
-                      onPress={() => setShowChecklist(true)}
-                      style={{ marginTop: SPACING.sm }}
-                    />
-                  ) : null}
-
-                  {!puedeOperarChecklist && !cita.checklist_id && esActiva ? (
-                    <Text style={styles.checklistProgressHint}>
-                      El técnico asignado debe iniciar el servicio para comenzar el checklist.
-                    </Text>
-                  ) : null}
+                  </View>
                 </View>
               ) : null}
 
@@ -1216,6 +1263,36 @@ export default function CitaAgendaPersonalDetalleScreen() {
           void recargarCita();
           void invalidateProveedorMarketplaceQueries(queryClient);
         }}
+      />
+
+      <ChecklistCompletedView
+        visible={showChecklistResumen}
+        onClose={() => setShowChecklistResumen(false)}
+        citaPersonalId={cita.id}
+        instanceId={cita.checklist_id ?? null}
+      />
+
+      <ChecklistSignatureModal
+        visible={showSupervisorFirmaModal}
+        onClose={() => setShowSupervisorFirmaModal(false)}
+        onComplete={(firmaSupervisor) => {
+          void handleFirmarSupervisorDesdeCita(firmaSupervisor);
+        }}
+        signatureMode="supervisor_only"
+        ordenInfo={{
+          id: cita.id,
+          cliente: cita.detalle.cliente_nombre || 'Cliente',
+          vehiculo: [
+            cita.detalle.vehiculo_marca,
+            cita.detalle.vehiculo_modelo,
+            cita.detalle.vehiculo_patente,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .trim() || 'Vehículo',
+        }}
+        ubicacionPreferida={ubicacionTallerPreferida}
+        modoUbicacion="taller"
       />
     </View>
   );
@@ -1478,14 +1555,24 @@ const styles = StyleSheet.create({
     color: I.ink,
     marginBottom: SPACING.fixed.sm,
   },
-  checklistProgressCard: {
-    marginTop: SPACING.fixed.sm,
+  checklistStatusCard: {
+    marginTop: SPACING.fixed.xxs,
     padding: SPACING.fixed.md,
     borderRadius: BORDERS.radius.md,
-    backgroundColor: I.surfaceStrong,
+    backgroundColor: I.surfaceSoft,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    gap: SPACING.fixed.xs,
+    gap: SPACING.fixed.sm,
+  },
+  checklistStatusCopy: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+  },
+  checklistActions: {
+    marginTop: SPACING.fixed.xs,
+    gap: SPACING.fixed.sm,
   },
   checklistProgressTitle: {
     fontSize: TYPOGRAPHY.fontSize.base,
@@ -1509,30 +1596,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: I.primary,
   },
-  checklistProgressPct: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
-  },
-  checklistProgressHint: {
+  informeLinkInline: {
     marginTop: SPACING.fixed.xs,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansRegular,
-    color: I.muted,
-    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
-  },
-  informeLinkCard: {
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    backgroundColor: I.surfaceSoft,
+    paddingTop: SPACING.fixed.sm,
+    borderTopWidth: BORDERS.width.thin,
+    borderTopColor: I.hairline,
     gap: SPACING.fixed.sm,
-  },
-  informeLinkTitle: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
   },
   informeLinkHint: {
     fontSize: TYPOGRAPHY.fontSize.sm,
@@ -1548,8 +1617,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: SPACING.sm,
+    gap: SPACING.fixed.sm,
     marginBottom: SPACING.fixed.sm,
+  },
+  sectionHeaderTitleInline: {
+    marginBottom: 0,
+    flex: 1,
   },
   editFields: {
     gap: SPACING.fixed.md,

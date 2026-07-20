@@ -157,6 +157,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   const [autoStarting, setAutoStarting] = useState(false);
   const autoStartTriedRef = useRef(false);
   const healedPhotoItemsRef = useRef<Set<number>>(new Set());
+  const exitedPostFirmaCitaRef = useRef(false);
 
   // Restaurar enlace del informe si el checklist ya está esperando firma del cliente.
   useEffect(() => {
@@ -170,6 +171,19 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
       });
     }
   }, [instance?.informe_publico?.url, instance?.informe_publico?.enviado_via]);
+
+  // Cita personal: estados post-firma viven en la ficha (no en esta pantalla intermedia).
+  useEffect(() => {
+    if (!citaPersonalId || !instance || exitedPostFirmaCitaRef.current) return;
+    if (
+      instance.estado === 'PENDIENTE_FIRMA_SUPERVISOR'
+      || instance.estado === 'PENDIENTE_FIRMA_CLIENTE'
+      || instance.estado === 'COMPLETADO'
+    ) {
+      exitedPostFirmaCitaRef.current = true;
+      onComplete?.();
+    }
+  }, [citaPersonalId, instance?.estado, onComplete]);
 
   // Inicio autónomo: al abrir un checklist PENDIENTE, pasarlo a EN_PROGRESO.
   useEffect(() => {
@@ -427,8 +441,13 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             'Firma enviada',
             'Tu firma quedó registrada. El supervisor del taller debe rectificar el trabajo para generar el informe al cliente.',
           );
-          // Quedar en el checklist: banner de espera + resumen disponible.
-          setShowCompletedView(true);
+          // Cita personal: el estado vive en la ficha (firma supervisor + enlace).
+          // Órdenes marketplace: quedar en el checklist con banner de espera.
+          if (citaPersonalId) {
+            onComplete?.();
+          } else {
+            setShowCompletedView(true);
+          }
         } else if (requiereFirmaCliente) {
           showAlert(
             'Firma enviada',
@@ -477,6 +496,9 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           ? `Se envió el informe al cliente por ${informe.via || 'canal conectado'}.`
           : 'Comparte el enlace del informe para que el cliente firme sin necesidad de cuenta.';
         showAlert('Informe generado', enviadoMsg);
+        if (citaPersonalId) {
+          onComplete?.();
+        }
       } else {
         showAlert('Error', result.message || 'No se pudo registrar la firma del supervisor');
       }

@@ -9,6 +9,8 @@ import {
 import { Sparkles, Bookmark } from 'lucide-react-native';
 import { showAlert } from '@/utils/platformAlert';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import {
   asistenteDiagnosticoService,
   type AsistenteDiagnosticoOrigen,
@@ -35,6 +37,7 @@ export function AsistenteDiagnosticoCardOrden({ ordenId }: { ordenId: number }) 
 export function AsistenteDiagnosticoCard({ origen, entityId, habilitado = true }: AsistenteDiagnosticoCardProps) {
   const { esMecanicoEquipo } = useAuth();
   const puedeGuardarGuia = esMecanicoEquipo;
+  const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -107,71 +110,95 @@ export function AsistenteDiagnosticoCard({ origen, entityId, habilitado = true }
   if (!habilitado) return null;
 
   const contenido = data?.contenido;
+  const summaryCollapsed = loading
+    ? 'Cargando…'
+    : contenido
+      ? 'Guía disponible · toca para ver'
+      : 'Toca para generar o ver la guía';
 
   return (
     <View style={styles.card}>
-      <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.header}
+        onPress={() => setExpanded((prev) => !prev)}
+        activeOpacity={0.88}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={`Asistente de reparación IA. ${expanded ? 'Contraer sección' : 'Expandir sección'}`}
+      >
         <View style={styles.iconWrap}>
           <Sparkles size={18} color={I.primary} strokeWidth={2} />
         </View>
-        <View style={{ flex: 1 }}>
+        <View style={styles.headerText}>
           <Text style={styles.title}>Asistente de reparación IA</Text>
-          <Text style={styles.subtitle}>Guía según vehículo y problema reportado</Text>
-        </View>
-      </View>
-
-      {loading ? (
-        <ActivityIndicator color={I.primary} style={{ marginVertical: SPACING.md }} />
-      ) : (
-        <>
-          {!contenido ? (
-            <Text style={styles.helper}>
-              {data?.error || 'Genera una guía con procedimiento sugerido y referencia de manual.'}
-            </Text>
-          ) : (
-            <GuiaReparacionContenido contenido={contenido} />
-          )}
-
-          <TouchableOpacity
-            style={[styles.button, (generating || loading) && styles.buttonDisabled]}
-            onPress={() => void generar()}
-            disabled={generating || loading}
-            activeOpacity={0.85}
-          >
-            {generating ? (
-              <ActivityIndicator color={I.onPrimary} size="small" />
-            ) : (
-              <Text style={styles.buttonText}>
-                {contenido ? 'Regenerar guía' : 'Generar guía de reparación'}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {contenido && data?.diagnostico_id && puedeGuardarGuia ? (
-            <TouchableOpacity
-              style={[styles.saveButton, (saving || saved) && styles.buttonDisabled]}
-              onPress={() => void guardarGuia()}
-              disabled={saving || saved}
-              activeOpacity={0.85}
-            >
-              {saving ? (
-                <ActivityIndicator color={I.primary} size="small" />
-              ) : (
-                <>
-                  <Bookmark size={16} color={saved ? I.muted : I.primary} strokeWidth={2} />
-                  <Text style={[styles.saveButtonText, saved && { color: I.muted }]}>
-                    {saved ? 'Guía guardada' : 'Guardar guía en mi biblioteca'}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          ) : null}
-
-          <Text style={styles.disclaimer}>
-            Guía generada por IA. Verifica procedimientos y especificaciones antes de aplicar en el taller.
+          <Text style={styles.subtitle} numberOfLines={2}>
+            {expanded ? 'Guía según vehículo y problema reportado' : summaryCollapsed}
           </Text>
-        </>
-      )}
+        </View>
+        <InstitutionalIcon
+          name={expanded ? 'expand-less' : 'chevron-down'}
+          size={22}
+          color={I.muted}
+          strokeWidth={ICON_STROKE_WIDTH}
+        />
+      </TouchableOpacity>
+
+      {expanded ? (
+        <View style={styles.body}>
+          {loading ? (
+            <ActivityIndicator color={I.primary} style={{ marginVertical: SPACING.md }} />
+          ) : (
+            <>
+              {!contenido ? (
+                <Text style={styles.helper}>
+                  {data?.error || 'Genera una guía con procedimiento sugerido y referencia de manual.'}
+                </Text>
+              ) : (
+                <GuiaReparacionContenido contenido={contenido} />
+              )}
+
+              <TouchableOpacity
+                style={[styles.button, (generating || loading) && styles.buttonDisabled]}
+                onPress={() => void generar()}
+                disabled={generating || loading}
+                activeOpacity={0.85}
+              >
+                {generating ? (
+                  <ActivityIndicator color={I.onPrimary} size="small" />
+                ) : (
+                  <Text style={styles.buttonText}>
+                    {contenido ? 'Regenerar guía' : 'Generar guía de reparación'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {contenido && data?.diagnostico_id && puedeGuardarGuia ? (
+                <TouchableOpacity
+                  style={[styles.saveButton, (saving || saved) && styles.buttonDisabled]}
+                  onPress={() => void guardarGuia()}
+                  disabled={saving || saved}
+                  activeOpacity={0.85}
+                >
+                  {saving ? (
+                    <ActivityIndicator color={I.primary} size="small" />
+                  ) : (
+                    <>
+                      <Bookmark size={16} color={saved ? I.muted : I.primary} strokeWidth={2} />
+                      <Text style={[styles.saveButtonText, saved && { color: I.muted }]}>
+                        {saved ? 'Guía guardada' : 'Guardar guía en mi biblioteca'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              ) : null}
+
+              <Text style={styles.disclaimer}>
+                Guía generada por IA. Verifica procedimientos y especificaciones antes de aplicar en el taller.
+              </Text>
+            </>
+          )}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -190,6 +217,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
+  },
+  headerText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  body: {
+    gap: SPACING.md,
+    paddingTop: SPACING.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
   },
   iconWrap: {
     width: 36,
