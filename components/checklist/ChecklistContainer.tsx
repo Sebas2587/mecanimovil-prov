@@ -23,6 +23,7 @@ import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { showAlert, showConfirm, showAlertButtons } from '@/utils/platformAlert';
 import { useOrdenSignatureDisplay } from '@/hooks/useOrdenSignatureDisplay';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { MecanicoAsignadoCard } from '@/components/equipo/MecanicoAsignadoCard';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
