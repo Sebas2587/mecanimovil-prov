@@ -233,8 +233,16 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const checklistEnCurso =
     checklistEstado === 'EN_PROGRESO'
     || checklistEstado === 'PAUSADO'
+    || checklistEstado === 'PENDIENTE_FIRMA_SUPERVISOR'
     || checklistEstado === 'PENDIENTE_FIRMA_CLIENTE';
   const checklistCompletado = checklistEstado === 'COMPLETADO';
+  const checklistPendienteSupervisor = checklistEstado === 'PENDIENTE_FIRMA_SUPERVISOR';
+  const checklistPendienteFirmaCliente = checklistEstado === 'PENDIENTE_FIRMA_CLIENTE';
+  const puedeRectificarSupervisor =
+    checklistPendienteSupervisor
+    && cita?.tipo_servicio === 'taller'
+    && (esMandanteTaller || esSupervisor)
+    && !esMecanicoEquipo;
   const puedeCancelarCita = esActiva && (cita?.puede_cancelar !== false) && !checklistIniciado;
 
   // Técnico asignado siempre puede operar. Taller/supervisor puede iniciar
@@ -655,6 +663,11 @@ export default function CitaAgendaPersonalDetalleScreen() {
     return (
       <ChecklistContainer
         citaPersonalId={cita.id}
+        puedeFirmarSupervisor={
+          cita.tipo_servicio === 'taller'
+          && (esMandanteTaller || esSupervisor)
+          && !esMecanicoEquipo
+        }
         onComplete={() => {
           setShowChecklist(false);
           void recargarCita();
@@ -956,7 +969,11 @@ export default function CitaAgendaPersonalDetalleScreen() {
                       <Text style={styles.checklistProgressTitle}>
                         {checklistCompletado
                           ? 'Checklist completado por el técnico'
-                          : 'En ejecución por el técnico'}
+                          : checklistPendienteSupervisor
+                            ? 'Pendiente de rectificación del supervisor'
+                            : checklistPendienteFirmaCliente
+                              ? 'Esperando firma del cliente'
+                              : 'En ejecución por el técnico'}
                       </Text>
                       <Text style={styles.checklistProgressMeta}>
                         {(cita.checklist_items_completados ?? 0)} de{' '}
@@ -981,12 +998,39 @@ export default function CitaAgendaPersonalDetalleScreen() {
                       <Text style={styles.checklistProgressPct}>
                         {cita.checklist_progreso_porcentaje ?? 0}% completado
                       </Text>
-                      {!checklistCompletado ? (
+                      {checklistPendienteSupervisor && !puedeRectificarSupervisor ? (
+                        <Text style={styles.checklistProgressHint}>
+                          El técnico ya firmó. El supervisor del taller debe rectificar el trabajo para generar el informe.
+                        </Text>
+                      ) : null}
+                      {!checklistCompletado
+                        && !checklistPendienteSupervisor
+                        && !checklistPendienteFirmaCliente ? (
                         <Text style={styles.checklistProgressHint}>
                           El progreso se actualiza automáticamente mientras el técnico completa el servicio.
                         </Text>
                       ) : null}
                     </View>
+                  ) : null}
+
+                  {puedeRectificarSupervisor ? (
+                    <InstitutionalButton
+                      label="Rectificar y firmar informe"
+                      variant="primary"
+                      onPress={() => setShowChecklist(true)}
+                      style={{ marginTop: SPACING.sm }}
+                    />
+                  ) : null}
+
+                  {checklistPendienteFirmaCliente
+                    && (esMandanteTaller || esSupervisor)
+                    && !esMecanicoEquipo ? (
+                    <InstitutionalButton
+                      label="Ver enlace del informe"
+                      variant="secondary"
+                      onPress={() => setShowChecklist(true)}
+                      style={{ marginTop: SPACING.sm }}
+                    />
                   ) : null}
 
                   {puedeOperarChecklist && !cita.checklist_id ? (

@@ -141,9 +141,10 @@ export interface ChecklistInstance {
     | 'PENDIENTE'
     | 'EN_PROGRESO'
     | 'PAUSADO'
+    | 'PENDIENTE_FIRMA_SUPERVISOR'
+    | 'PENDIENTE_FIRMA_CLIENTE'
     | 'COMPLETADO'
-    | 'CANCELADO'
-    | 'PENDIENTE_FIRMA_CLIENTE';
+    | 'CANCELADO';
   fecha_creacion: string;
   fecha_inicio?: string;
   fecha_finalizacion?: string;
@@ -158,6 +159,12 @@ export interface ChecklistInstance {
   requiere_sincronizacion: boolean;
   requiere_firma_cliente?: boolean;
   firma_cliente_disponible?: boolean;
+  informe_publico?: {
+    token: string;
+    url: string;
+    estado: string;
+    enviado_via?: string;
+  } | null;
   puede_finalizar_check: boolean;
   respuestas: ChecklistItemResponse[];
   mecanico_asignado?: {
@@ -1106,12 +1113,55 @@ class ChecklistService {
         success: true,
         data: {
           message: response.data.message || 'Checklist finalizado correctamente',
-          checklist: updatedInstance as ChecklistInstance
-        }
+          checklist: updatedInstance as ChecklistInstance,
+          requiere_firma_supervisor: response.data.requiere_firma_supervisor,
+          requiere_firma_cliente: response.data.requiere_firma_cliente,
+          informe: response.data.informe,
+        },
       };
     } catch (error) {
       console.error('❌ Error finalizando instancia:', error);
       return this.handleServiceError(error, 'finalizar checklist');
+    }
+  }
+
+  async firmarSupervisor(
+    instanceId: number,
+    firmaSupervisor: string,
+  ): Promise<
+    ServiceResponse<{
+      message: string;
+      informe?: { token: string; url: string; enviado?: boolean; via?: string; mensaje_envio?: string };
+      checklist?: ChecklistInstance;
+    }>
+  > {
+    try {
+      const response = await api.post(
+        `${this.baseUrl}/instances/${instanceId}/firmar-supervisor/`,
+        { firma_supervisor: firmaSupervisor },
+      );
+
+      let updatedInstance: ChecklistInstance | null = null;
+      try {
+        const instanceResponse = await api.get(`${this.baseUrl}/instances/${instanceId}/`);
+        updatedInstance = instanceResponse.data;
+        if (updatedInstance) {
+          await this.offlineManager.saveChecklistInstance(updatedInstance);
+        }
+      } catch {
+        // non-fatal
+      }
+
+      return {
+        success: true,
+        data: {
+          message: response.data.message,
+          informe: response.data.informe,
+          checklist: updatedInstance ?? undefined,
+        },
+      };
+    } catch (error) {
+      return this.handleServiceError(error, 'firmar supervisor');
     }
   }
 

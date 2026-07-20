@@ -22,7 +22,7 @@ import { MecanicoAsignadoCard, type MecanicoAsignadoInfo } from '@/components/eq
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 
-export type SignatureMode = 'both' | 'tecnico_only' | 'cliente_only';
+export type SignatureMode = 'both' | 'tecnico_only' | 'cliente_only' | 'supervisor_only';
 
 interface ChecklistSignatureModalProps {
   visible: boolean;
@@ -152,7 +152,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
     setHasDrawnSignature(false);
 
     // Modo una sola firma: ir directo a ubicación
-    if (signatureMode === 'tecnico_only' || signatureMode === 'cliente_only') {
+    if (signatureMode === 'tecnico_only' || signatureMode === 'cliente_only' || signatureMode === 'supervisor_only') {
       console.log('🎯 Firma única completada, obteniendo ubicación');
       obtenerUbicacion(newSignatures);
       return;
@@ -322,6 +322,15 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
 
   // Información del paso actual
   const getStepInfo = () => {
+    if (signatureMode === 'supervisor_only') {
+      return {
+        title: 'Firma del Supervisor / Taller',
+        subtitle:
+          'Rectifica y certifica el trabajo del técnico. Se generará el informe para que el cliente firme.',
+        icon: 'verified-user',
+        color: I.primaryActive,
+      };
+    }
     if (signatureMode === 'tecnico_only') {
       return {
         title: 'Firma del Técnico Responsable',

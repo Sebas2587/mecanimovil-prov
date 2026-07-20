@@ -27,15 +27,14 @@ function extractTemplateId(instance: ChecklistInstance): number {
 
 function nestedTemplateFromInstance(instance: ChecklistInstance): ChecklistTemplate | null {
   const nested = instance.checklist_template;
-  if (
-    nested
-    && typeof nested === 'object'
-    && Array.isArray((nested as ChecklistTemplate).items)
-    && (nested as ChecklistTemplate).items.length > 0
-  ) {
-    return nested as ChecklistTemplate;
+  if (!nested || typeof nested !== 'object' || !(nested as { id?: number }).id) {
+    return null;
   }
-  return null;
+  const tpl = nested as ChecklistTemplate;
+  return {
+    ...tpl,
+    items: Array.isArray(tpl.items) ? tpl.items : [],
+  };
 }
 
 async function loadInstanceWithTemplate(
@@ -46,10 +45,9 @@ async function loadInstanceWithTemplate(
     instance.respuestas = [];
   }
 
-  // La instancia ya trae el template serializado: úsalo y evita un GET extra
-  // que falla para mecánicos de equipo si el queryset de templates está vacío.
+  // Preferir template embebido (con o sin items). Solo pedir GET si falta o viene vacío.
   const nested = nestedTemplateFromInstance(instance);
-  if (nested) {
+  if (nested && nested.items.length > 0) {
     return {
       instance,
       template: nested,
@@ -71,6 +69,16 @@ async function loadInstanceWithTemplate(
       };
     }
 
+    // No borrar un template embebido usable si el GET falla (mecánico / red).
+    if (nested) {
+      return {
+        instance,
+        template: nested,
+        isOffline,
+        fetchError: null,
+      };
+    }
+
     return {
       instance,
       template: null,
@@ -78,6 +86,15 @@ async function loadInstanceWithTemplate(
       fetchError: `Error cargando template: ${templateResponse.message}`,
     };
   } catch {
+    if (nested) {
+      return {
+        instance,
+        template: nested,
+        isOffline,
+        fetchError: null,
+      };
+    }
+
     return {
       instance,
       template: null,
@@ -256,6 +273,38 @@ export function respuestaCompletadaParaItem(
       r.completado &&
       (r.item_template === itemTemplateId || String(r.item_template) === idStr),
   );
+}
+
+function findRespuestaForItem(
+  respuestas: ChecklistInstance['respuestas'] | undefined,
+  itemTemplateId: number,
+) {
+  if (!Array.isArray(respuestas)) return undefined;
+  const idStr = String(itemTemplateId);
+  return respuestas.find(
+    (r) => r.item_template === itemTemplateId || String(r.item_template) === idStr,
+  );
+}
+
+/**
+ * Completitud de ítem para UI/finalización.
+ * PHOTO: también cuenta si ya hay suficientes fotos en servidor aunque
+ * el flag completado haya quedado en false (p.ej. subida a medias).
+ */
+export function itemChecklistCompleto(
+  respuestas: ChecklistInstance['respuestas'] | undefined,
+  item: Pick<ChecklistTemplate['items'][number], 'id' | 'tipo_pregunta' | 'min_fotos'>,
+): boolean {
+  if (respuestaCompletadaParaItem(respuestas, item.id)) return true;
+
+  if (item.tipo_pregunta === 'PHOTO') {
+    const resp = findRespuestaForItem(respuestas, item.id);
+    const minFotos = item.min_fotos && item.min_fotos > 0 ? item.min_fotos : 1;
+    const fotosServidor = Array.isArray(resp?.fotos) ? resp.fotos.length : 0;
+    return fotosServidor >= minFotos;
+  }
+
+  return false;
 }
 
 export function calcProgreso(

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,12 @@ import {
   TouchableOpacity,
   Platform,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useChecklist } from '@/hooks/useChecklist';
-import { respuestaCompletadaParaItem } from '@/hooks/fetchChecklistBundle';
+import { itemChecklistCompleto } from '@/hooks/fetchChecklistBundle';
 import { ChecklistProgressBar } from '@/components/checklist/ChecklistProgressBar';
 import { ChecklistSignatureModal } from '@/components/checklist/ChecklistSignatureModal';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
@@ -37,6 +38,8 @@ function labelEstadoChecklist(estado?: string): string {
       return 'En progreso';
     case 'PAUSADO':
       return 'Pausado';
+    case 'PENDIENTE_FIRMA_SUPERVISOR':
+      return 'Esperando firma del supervisor';
     case 'PENDIENTE_FIRMA_CLIENTE':
       return 'Esperando firma del cliente';
     case 'COMPLETADO':
@@ -49,6 +52,8 @@ function labelEstadoChecklist(estado?: string): string {
 interface ChecklistContainerProps {
   ordenId?: number;
   citaPersonalId?: number;
+  /** Mandante o supervisor del taller puede rectificar (cita personal taller). */
+  puedeFirmarSupervisor?: boolean;
   onComplete?: () => void;
   onCancel?: () => void;
 }
@@ -56,6 +61,7 @@ interface ChecklistContainerProps {
 export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   ordenId,
   citaPersonalId,
+  puedeFirmarSupervisor = false,
   onComplete,
   onCancel,
 }) => {
@@ -82,6 +88,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     pauseChecklist,
     resumeChecklist,
     finalizeChecklist,
+    firmarSupervisorChecklist,
     saveResponse,
 
     // Navegación
@@ -103,6 +110,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     uploadPhoto,
   } = useChecklist({ ordenId, citaPersonalId });
 
+  const esperandoFirmaSupervisor = instance?.estado === 'PENDIENTE_FIRMA_SUPERVISOR';
   const esperandoFirmaCliente = instance?.estado === 'PENDIENTE_FIRMA_CLIENTE';
   const ordenSignatureDisplay = useOrdenSignatureDisplay(instance?.orden);
 
@@ -120,10 +128,27 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   });
 
   const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [showSupervisorSignatureModal, setShowSupervisorSignatureModal] = useState(false);
   const [showCompletedView, setShowCompletedView] = useState(false);
   const [showDiffModal, setShowDiffModal] = useState(false);
+  const [informeLink, setInformeLink] = useState<string | null>(null);
+  const [informeEnvio, setInformeEnvio] = useState<{ enviado?: boolean; via?: string } | null>(null);
   const [autoStarting, setAutoStarting] = useState(false);
   const autoStartTriedRef = useRef(false);
+  const healedPhotoItemsRef = useRef<Set<number>>(new Set());
+
+  // Restaurar enlace del informe si el checklist ya está esperando firma del cliente.
+  useEffect(() => {
+    const informe = instance?.informe_publico;
+    if (!informe?.url) return;
+    setInformeLink(informe.url);
+    if (informe.enviado_via) {
+      setInformeEnvio({
+        enviado: informe.enviado_via !== 'manual_link',
+        via: informe.enviado_via,
+      });
+    }
+  }, [instance?.informe_publico?.url, instance?.informe_publico?.enviado_via]);
 
   // Inicio autónomo: al abrir un checklist PENDIENTE, pasarlo a EN_PROGRESO.
   useEffect(() => {
@@ -142,6 +167,67 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
       })
       .finally(() => setAutoStarting(false));
   }, [loading, instance, template, startChecklist]);
+
+  const sortedItems = useMemo(() => {
+    if (!template?.items || !instance) return [];
+    return [...template.items].sort((a, b) => {
+      const aDone = itemChecklistCompleto(instance.respuestas, a);
+      const bDone = itemChecklistCompleto(instance.respuestas, b);
+      if (aDone !== bDone) return aDone ? 1 : -1;
+      return (a.orden_visual || 0) - (b.orden_visual || 0);
+    });
+  }, [template?.items, instance]);
+
+  const totalCompletados = useMemo(() => {
+    if (!template?.items?.length || !instance) return 0;
+    return template.items.filter((item) => itemChecklistCompleto(instance.respuestas, item)).length;
+  }, [template?.items, instance]);
+
+  const pendientesObligatorios = useMemo(() => {
+    if (!template?.items?.length || !instance) return [];
+    return template.items.filter((item) => {
+      const required = item.es_obligatorio_efectivo || item.es_obligatorio;
+      return required && !itemChecklistCompleto(instance.respuestas, item);
+    });
+  }, [template?.items, instance]);
+
+  // Autocorregir PHOTO con fotos en servidor pero flag completado=false
+  useEffect(() => {
+    if (!instance?.id || !template?.items?.length) return;
+    if (instance.estado !== 'EN_PROGRESO' && instance.estado !== 'PAUSADO') return;
+
+    const toHeal = template.items.filter((item) => {
+      if (item.tipo_pregunta !== 'PHOTO') return false;
+      if (healedPhotoItemsRef.current.has(item.id)) return false;
+      const resp = instance.respuestas?.find(
+        (r) => r.item_template === item.id || String(r.item_template) === String(item.id),
+      );
+      if (!resp?.id || resp.completado) return false;
+      const minFotos = item.min_fotos && item.min_fotos > 0 ? item.min_fotos : 1;
+      return (resp.fotos?.length ?? 0) >= minFotos;
+    });
+
+    if (toHeal.length === 0) return;
+
+    void (async () => {
+      for (const item of toHeal) {
+        healedPhotoItemsRef.current.add(item.id);
+        const resp = instance.respuestas?.find(
+          (r) => r.item_template === item.id || String(r.item_template) === String(item.id),
+        );
+        if (!resp?.id) continue;
+        await saveResponse(
+          item.id,
+          {
+            id: resp.id,
+            completado: true,
+            respuesta_texto: `${resp.fotos?.length ?? 0} foto(s) de evidencia`,
+          },
+          { skipInvalidate: true },
+        );
+      }
+    })();
+  }, [instance?.id, instance?.estado, instance?.respuestas, template?.items, saveResponse]);
 
   // ==================== HANDLERS ====================
 
@@ -236,7 +322,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         const esObligatorio = item.es_obligatorio_efectivo !== undefined
           ? item.es_obligatorio_efectivo
           : item.es_obligatorio;
-        return esObligatorio && !respuestaCompletadaParaItem(instance?.respuestas, item.id);
+        return esObligatorio && !itemChecklistCompleto(instance?.respuestas, item);
       }) || [];
 
       console.log('📋 Campos incompletos encontrados:', camposIncompletos.map(item => ({
@@ -262,6 +348,19 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
     console.log('✅ Diff confirmado, abriendo modal de firmas');
     setShowDiffModal(false);
     setShowSignatureModal(true);
+  };
+
+  const copiarEnlaceInforme = async (url: string) => {
+    try {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        showAlert('Enlace copiado', 'El enlace del informe quedó en el portapapeles.');
+        return;
+      }
+      await Share.share({ message: url, url });
+    } catch {
+      showAlert('Enlace del informe', url);
+    }
   };
 
   const handleSignaturesComplete = async (
@@ -290,9 +389,16 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
       console.log('🎊 Resultado de finalización:', result);
 
       if (result.success) {
-        const requiereFirmaCliente = !firmaCliente;
+        const requiereFirmaSupervisor = result.requiere_firma_supervisor;
+        const requiereFirmaCliente = !firmaCliente && !requiereFirmaSupervisor;
 
-        if (requiereFirmaCliente) {
+        if (requiereFirmaSupervisor) {
+          showAlert(
+            'Firma enviada',
+            'Tu firma quedó registrada. El supervisor del taller debe rectificar el trabajo para generar el informe al cliente.',
+          );
+          onComplete?.();
+        } else if (requiereFirmaCliente) {
           showAlert(
             'Firma enviada',
             'Tu firma quedó registrada. El cliente recibirá una notificación para firmar desde su app y cerrar el servicio.',
@@ -318,6 +424,33 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         'Error Inesperado',
         'Ocurrió un error al finalizar el checklist. Verifica tu conexión e intenta nuevamente.',
       );
+    }
+  };
+
+  const handleSupervisorSignatureComplete = async (
+    firmaSupervisor: string,
+    _firmaCliente: string | null,
+    _ubicacion: { lat: number; lng: number },
+  ) => {
+    setShowSupervisorSignatureModal(false);
+
+    try {
+      const result = await firmarSupervisorChecklist(firmaSupervisor);
+      if (result.success) {
+        const informe = result.data?.informe;
+        if (informe?.url) {
+          setInformeLink(informe.url);
+          setInformeEnvio({ enviado: informe.enviado, via: informe.via });
+        }
+        const enviadoMsg = informe?.enviado
+          ? `Se envió el informe al cliente por ${informe.via || 'canal conectado'}.`
+          : 'Comparte el enlace del informe para que el cliente firme sin necesidad de cuenta.';
+        showAlert('Informe generado', enviadoMsg);
+      } else {
+        showAlert('Error', result.message || 'No se pudo registrar la firma del supervisor');
+      }
+    } catch {
+      showAlert('Error', 'Ocurrió un error al firmar como supervisor');
     }
   };
 
@@ -406,8 +539,6 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
 
   // ==================== RENDER PRINCIPAL ====================
 
-  const totalCompletados = instance.respuestas?.filter(r => r.completado).length || 0;
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header Coinbase: canvas blanco + hairline */}
@@ -464,12 +595,78 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           </View>
         ) : null}
 
+        {esperandoFirmaSupervisor && (
+          <View style={styles.bannerWrap}>
+            <EstadoBanner
+              type="info"
+              title={
+                puedeFirmarSupervisor
+                  ? 'Rectificación del supervisor'
+                  : 'Esperando firma del supervisor'
+              }
+              message={
+                puedeFirmarSupervisor
+                  ? 'El técnico finalizó el checklist. Revisa el trabajo y firma para generar el informe al cliente.'
+                  : 'El técnico ya firmó. El supervisor del taller debe rectificar el servicio para continuar.'
+              }
+              icon="verified-user"
+            />
+            {puedeFirmarSupervisor ? (
+              <InstitutionalButton
+                label="Firmar como supervisor"
+                onPress={() => setShowSupervisorSignatureModal(true)}
+                variant="primary"
+                leading={
+                  <InstitutionalIcon name="draw" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                }
+                style={{ alignSelf: 'stretch' }}
+              />
+            ) : (
+              <TouchableOpacity
+                style={styles.secondaryOutlineButton}
+                onPress={() => setShowCompletedView(true)}
+              >
+                <InstitutionalIcon name="visibility" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.secondaryOutlineButtonText}>Ver resumen del checklist</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {esperandoFirmaCliente && citaPersonalId && (informeLink || informeEnvio) && (
+          <View style={styles.informeLinkCard}>
+            <Text style={styles.informeLinkTitle}>Informe para el cliente</Text>
+            {informeEnvio?.enviado ? (
+              <Text style={styles.informeLinkHint}>
+                Enviado automáticamente por {informeEnvio.via || 'canal conectado'}.
+              </Text>
+            ) : (
+              <Text style={styles.informeLinkHint}>
+                Comparte este enlace para que el cliente revise y firme el servicio.
+              </Text>
+            )}
+            {informeLink ? (
+              <TouchableOpacity
+                style={styles.secondaryOutlineButton}
+                onPress={() => void copiarEnlaceInforme(informeLink)}
+              >
+                <InstitutionalIcon name="link" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.secondaryOutlineButtonText}>Copiar enlace del informe</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
+
         {esperandoFirmaCliente && (
           <View style={styles.bannerWrap}>
             <EstadoBanner
               type="info"
               title="Esperando firma del cliente"
-              message="Ya registraste tu firma como técnico. El cliente debe firmar desde su app para cerrar el servicio."
+              message={
+                citaPersonalId
+                  ? 'El informe fue enviado al cliente (o comparte el enlace). Debe firmar desde la página pública para cerrar el servicio.'
+                  : 'Ya registraste tu firma como técnico. El cliente debe firmar desde su app para cerrar el servicio.'
+              }
               icon="schedule"
             />
             <TouchableOpacity
@@ -532,11 +729,15 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
 
         {instance.estado === 'EN_PROGRESO' && !isCompleted && template.items && (
           <View style={styles.checklistItemsList}>
-            {!canFinalize && totalCompletados > 0 && (
+            {!canFinalize && pendientesObligatorios.length > 0 && (
               <EstadoBanner
                 type="warning"
                 title="Ítems pendientes"
-                message="Completa todos los campos obligatorios para habilitar la finalización."
+                message={
+                  pendientesObligatorios.length === 1
+                    ? `Falta: ${pendientesObligatorios[0].pregunta_texto}`
+                    : `Faltan ${pendientesObligatorios.length} obligatorios. El primero: ${pendientesObligatorios[0].pregunta_texto}`
+                }
                 icon="assignment"
               />
             )}
@@ -545,11 +746,9 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                 {totalCompletados} de {totalSteps} completados
               </Text>
             </View>
-            {template.items
-              .sort((a, b) => (a.orden_visual || 0) - (b.orden_visual || 0))
-              .map((item) => {
-                const itemCompleted = respuestaCompletadaParaItem(instance.respuestas, item.id);
-                const isRequired = item.es_obligatorio_efectivo;
+            {sortedItems.map((item) => {
+                const itemCompleted = itemChecklistCompleto(instance.respuestas, item);
+                const isRequired = !!(item.es_obligatorio_efectivo || item.es_obligatorio);
 
                 return (
                   <TouchableOpacity
@@ -564,7 +763,8 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                         router.push({
                           pathname: '/checklist-item/[ordenId]/[itemId]',
                           params: {
-                            ordenId: 'cita',
+                            // citaId va en el path para no perderse al abrir el picker de fotos (web).
+                            ordenId: `cita-${citaPersonalId}`,
                             itemId: String(item.id),
                             citaId: String(citaPersonalId),
                           },
@@ -648,6 +848,20 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           />
         </View>
       )}
+
+      {/* Modal de firma del supervisor (rectificación taller) */}
+      <ChecklistSignatureModal
+        visible={showSupervisorSignatureModal}
+        onClose={() => setShowSupervisorSignatureModal(false)}
+        onComplete={handleSupervisorSignatureComplete}
+        signatureMode="supervisor_only"
+        ordenInfo={{
+          id: instance.orden,
+          cliente: ordenSignatureDisplay.cliente,
+          vehiculo: ordenSignatureDisplay.vehiculo,
+        }}
+        mecanicoAsignado={instance.mecanico_asignado ?? null}
+      />
 
       {/* Modal de firma del técnico (firma diferida del cliente) */}
       <ChecklistSignatureModal
@@ -820,6 +1034,26 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansSemiBold,
     color: I.primary,
+  },
+  informeLinkCard: {
+    marginHorizontal: SPACING.fixed.md,
+    marginTop: SPACING.fixed.md,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.surfaceSoft,
+    gap: SPACING.fixed.sm,
+  },
+  informeLinkTitle: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  informeLinkHint: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
   },
   completedCard: {
     backgroundColor: withOpacity(I.semanticUp, 0.08),

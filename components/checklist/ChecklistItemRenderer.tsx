@@ -280,6 +280,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   const [isModified, setIsModified] = useState(false);
   const [photos, setPhotos] = useState<any[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState<string | null>(null);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
 
   // Estado para el flujo de fotos con descripción
@@ -592,55 +593,29 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
     }
   };
 
-  // Confirmación: subir foto con descripción al backend
+  // Confirmación: agregar foto en local (sin subir aún). El mecánico decide cuántas
+  // tomar; al pulsar "Guardar y continuar" se suben todas juntas.
   const handlePhotoSubmit = async () => {
     if (!pendingPhotoData) return;
 
     setShowDescriptionModal(false);
-    setUploadingPhoto(true);
 
     const descripcion = photoDescriptionInput.trim() || `Foto ${photos.length + 1}`;
     const nextOrder = photos.length + 1;
     const localId = `photo_${response?.id || 'tmp'}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
     try {
-      // Paso 1: asegurar que existe una respuesta en el backend
-      // Usamos response?.id si ya existe (prop) o lo obtenemos al crear una nueva
       let responseId = response?.id;
       if (!responseId) {
-        console.log('📝 Creando respuesta inicial para item PHOTO...');
         const saveResult = await onSave({ completado: false }, { silent: true });
         responseId = saveResult?.data?.id;
         if (!responseId) {
           Alert.alert('Error', 'No se pudo registrar la respuesta del item. Intenta de nuevo.');
           return;
         }
-        console.log('✅ Respuesta inicial creada con ID:', responseId);
       }
 
-      // Paso 2: subir la imagen al servidor
-      let serverPhoto: any = null;
-      if (uploadPhoto) {
-        console.log(`☁️ Subiendo foto #${nextOrder} al servidor...`);
-        const uploadResult = await uploadPhoto(
-          pendingPhotoData.uri,
-          responseId,
-          nextOrder,
-          descripcion
-        );
-        if (uploadResult.success && uploadResult.data) {
-          serverPhoto = uploadResult.data;
-          console.log('✅ Foto subida exitosamente:', serverPhoto.id);
-          // Persistir/actualizar offline como sincronizada
-          await checklistService.markOfflinePhotoSynced(localId, serverPhoto);
-        } else {
-          console.warn('⚠️ Error al subir foto:', uploadResult.message);
-          Alert.alert('Advertencia', 'La foto se guardó localmente pero no se pudo subir al servidor. Se sincronizará cuando tengas conexión.');
-        }
-      }
-
-      // Paso 3: agregar a la lista local (usando datos del servidor si están disponibles)
-      const newPhoto = serverPhoto ?? {
+      const newPhoto = {
         local_id: localId,
         uri: pendingPhotoData.uri,
         imagen_url: pendingPhotoData.uri,
@@ -653,7 +628,6 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       const updatedPhotos = [...photos, newPhoto];
       setPhotos(updatedPhotos);
 
-      // Persistir offline SIEMPRE (aunque falle el upload)
       await checklistService.saveOfflinePhoto({
         local_id: localId,
         instanceId: instance?.id,
@@ -663,31 +637,111 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         descripcion,
         orden_en_respuesta: nextOrder,
         created_at: new Date().toISOString(),
-        synced: !!serverPhoto?.id,
-        server_id: serverPhoto?.id,
-        imagen_url: serverPhoto?.imagen_url,
+        synced: false,
       } as any);
 
-      // Paso 4: actualizar la respuesta como completada.
-      // IMPORTANTE: pasar el id explícitamente para que el hook use PATCH en vez de POST,
-      // evitando el error de unicidad cuando state.instance.respuestas aún tiene la closure
-      // anterior (stale state entre las dos llamadas a onSave dentro de la misma ejecución).
-      const isComplete = updatedPhotos.length >= (item.min_fotos || 1);
+      // Completo en checklist cuando hay el mínimo; las fotos pendientes
+      // se suben al "Guardar y continuar" o al finalizar el checklist.
+      const meetsMin = updatedPhotos.length >= (item.min_fotos || 1);
       await onSave({
         id: responseId,
-        completado: isComplete,
+        completado: meetsMin,
         respuesta_texto: `${updatedPhotos.length} foto(s) de evidencia`,
       }, { silent: true });
-
-      console.log(`🎯 Foto #${nextOrder} procesada. Total: ${updatedPhotos.length}. Completado: ${isComplete}`);
-
     } catch (error) {
-      console.error('❌ Error procesando foto:', error);
-      Alert.alert('Error', 'No se pudo procesar la foto. Intenta de nuevo.');
+      console.error('❌ Error agregando foto local:', error);
+      Alert.alert('Error', 'No se pudo agregar la foto. Intenta de nuevo.');
     } finally {
-      setUploadingPhoto(false);
       setPendingPhotoData(null);
       setPhotoDescriptionInput('');
+    }
+  };
+
+  const syncPendingPhotos = async (responseId: number) => {
+    if (!uploadPhoto) return { success: true as const, photos };
+
+    let nextPhotos = [...photos];
+    const pendingIndexes = nextPhotos
+      .map((p, index) => ({ p, index }))
+      .filter(({ p }) => !p.id && (p.uri || p.imagen_url));
+
+    for (let i = 0; i < pendingIndexes.length; i += 1) {
+      const { p, index } = pendingIndexes[i];
+      setUploadProgressText(`Subiendo foto ${i + 1} de ${pendingIndexes.length}…`);
+      const uri = p.uri || p.imagen_url;
+      const orden = p.orden_en_respuesta || index + 1;
+      const uploadResult = await uploadPhoto(uri, responseId, orden, p.descripcion);
+
+      if (uploadResult.success && uploadResult.data) {
+        const serverPhoto = uploadResult.data;
+        nextPhotos[index] = {
+          ...p,
+          ...serverPhoto,
+          local_id: p.local_id,
+          uri: p.uri,
+          imagen_url: serverPhoto.imagen_url || p.imagen_url || p.uri,
+          sincronizada: true,
+        };
+        if (p.local_id) {
+          await checklistService.markOfflinePhotoSynced(p.local_id, serverPhoto);
+        }
+      } else {
+        setPhotos(nextPhotos);
+        return {
+          success: false as const,
+          message: uploadResult.message || 'No se pudo subir una de las fotos',
+          photos: nextPhotos,
+        };
+      }
+    }
+
+    setPhotos(nextPhotos);
+    return { success: true as const, photos: nextPhotos };
+  };
+
+  const handlePhotoSaveAndContinue = async () => {
+    const minRequired = item.min_fotos || 1;
+    if (photos.length < minRequired) {
+      Alert.alert(
+        'Faltan fotos',
+        `Agrega al menos ${minRequired} foto${minRequired !== 1 ? 's' : ''} antes de continuar.`,
+      );
+      return;
+    }
+
+    const hasPendingUpload = photos.some((p) => !p.id);
+    setUploadingPhoto(true);
+    setUploadProgressText(hasPendingUpload ? 'Subiendo fotos…' : 'Guardando…');
+
+    try {
+      let responseId = response?.id;
+      if (!responseId) {
+        const saveResult = await onSave({ completado: false }, { silent: true });
+        responseId = saveResult?.data?.id;
+        if (!responseId) {
+          Alert.alert('Error', 'No se pudo registrar la respuesta del item. Intenta de nuevo.');
+          return;
+        }
+      }
+
+      // Mejor esfuerzo: si falla la red, igual marcamos completo y se reintenta al finalizar.
+      const syncResult = await syncPendingPhotos(responseId);
+      if (!syncResult.success) {
+        console.warn('⚠️ Fotos pendientes; se reintentarán al finalizar:', syncResult.message);
+      }
+
+      const finalPhotos = syncResult.photos;
+      await onSave({
+        id: responseId,
+        completado: finalPhotos.length >= minRequired,
+        respuesta_texto: `${finalPhotos.length} foto(s) de evidencia`,
+      });
+    } catch (error) {
+      console.error('❌ Error guardando fotos:', error);
+      Alert.alert('Error', 'No se pudo guardar el ítem de fotos. Intenta de nuevo.');
+    } finally {
+      setUploadingPhoto(false);
+      setUploadProgressText(null);
     }
   };
 
@@ -895,7 +949,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
             const desc = photo.descripcion || `Foto ${index + 1}`;
             const isSynced = !!photo.id;
             return (
-              <View key={photo.id ?? `local-${index}`} style={styles.photoCard}>
+              <View key={photo.local_id ?? photo.id ?? `local-${index}`} style={styles.photoCard}>
                 <View style={styles.photoCardImageWrapper}>
                   <Image
                     source={{ uri: imageUri }}
@@ -1114,31 +1168,38 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* Spinner mientras sube */}
             {uploadingPhoto && (
               <View style={styles.uploadingContainer}>
                 <ActivityIndicator size="small" color={I.primary} />
-                <Text style={styles.uploadingText}>Subiendo foto al servidor...</Text>
+                <Text style={styles.uploadingText}>
+                  {uploadProgressText || 'Subiendo fotos…'}
+                </Text>
               </View>
             )}
 
             {/* Requisito de fotos mínimas */}
-            {item.min_fotos != null && item.min_fotos > 0 && (
-              <View style={styles.photoRequirementRow}>
-                <InstitutionalIcon
-                  name={photos.length >= item.min_fotos ? 'check-circle' : 'info'}
-                  size={14}
-                  color={photos.length >= item.min_fotos ? I.semanticUp : I.muted}
-                 strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[
-                  styles.photoRequirement,
-                  photos.length >= item.min_fotos && styles.photoRequirementMet,
-                ]}>
-                  Mínimo {item.min_fotos} foto{item.min_fotos !== 1 ? 's' : ''} requerida{item.min_fotos !== 1 ? 's' : ''}
-                  {photos.length > 0 ? ` · ${photos.length} agregada${photos.length !== 1 ? 's' : ''}` : ''}
-                </Text>
-              </View>
-            )}
+            <View style={styles.photoRequirementRow}>
+              <InstitutionalIcon
+                name={photos.length >= (item.min_fotos || 1) ? 'check-circle' : 'info'}
+                size={14}
+                color={photos.length >= (item.min_fotos || 1) ? I.semanticUp : I.muted}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+              <Text style={[
+                styles.photoRequirement,
+                photos.length >= (item.min_fotos || 1) && styles.photoRequirementMet,
+              ]}>
+                {item.min_fotos != null && item.min_fotos > 0
+                  ? `Mínimo ${item.min_fotos} foto${item.min_fotos !== 1 ? 's' : ''} · `
+                  : ''}
+                {photos.length} agregada{photos.length !== 1 ? 's' : ''}
+                {photos.some((p) => !p.id)
+                  ? ` · ${photos.filter((p) => !p.id).length} pendiente${photos.filter((p) => !p.id).length !== 1 ? 's' : ''} de subir`
+                  : photos.length > 0
+                    ? ' · listas'
+                    : ''}
+              </Text>
+            </View>
 
             {/* Vista previa */}
             {renderPhotoPreview()}
@@ -1209,14 +1270,8 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                       onPress={handlePhotoSubmit}
                       disabled={uploadingPhoto}
                     >
-                      {uploadingPhoto ? (
-                        <ActivityIndicator size="small" color={I.onPrimary} />
-                      ) : (
-                        <>
-                          <InstitutionalIcon name="cloud-upload" size={18} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
-                          <Text style={styles.descriptionConfirmText}>Guardar foto</Text>
-                        </>
-                      )}
+                      <InstitutionalIcon name="add-photo-alternate" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                      <Text style={styles.descriptionConfirmText}>Agregar foto</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1573,8 +1628,34 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         )}
       </View>
 
-      {/* CTA principal — siempre visible (excepto PHOTO, que guarda al subir) */}
-      {item.tipo_pregunta !== 'PHOTO' ? (
+      {/* CTA principal */}
+      {item.tipo_pregunta === 'PHOTO' ? (
+        <View style={{ marginTop: 8, gap: 10 }}>
+          {response?.completado && photos.every((p) => p.id) ? (
+            <View style={styles.completedIndicator}>
+              <InstitutionalIcon name="check-circle" size={18} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.completedText}>Completado</Text>
+            </View>
+          ) : null}
+          <InstitutionalButton
+            label={
+              uploadingPhoto
+                ? (uploadProgressText || 'Subiendo…')
+                : response?.completado
+                  ? 'Actualizar y continuar'
+                  : 'Guardar y continuar'
+            }
+            variant="primary"
+            loading={uploadingPhoto || saving}
+            disabled={
+              uploadingPhoto
+              || saving
+              || photos.length < (item.min_fotos || 1)
+            }
+            onPress={handlePhotoSaveAndContinue}
+          />
+        </View>
+      ) : (
         <View style={{ marginTop: 8, gap: 10 }}>
           {response?.completado ? (
             <View style={styles.completedIndicator}>
@@ -1590,7 +1671,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
             onPress={handleSave}
           />
         </View>
-      ) : null}
+      )}
 
       {/* Modal de firma digital (una sola firma según el item: técnico o cliente) */}
       {showSignatureModal && (

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Alert, Platform } from 'react-native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -15,9 +15,28 @@ import {
   fetchChecklistBundle,
   fetchChecklistBundleForCita,
   calcProgreso,
-  respuestaCompletadaParaItem,
+  itemChecklistCompleto,
   type ChecklistBundle,
 } from '@/hooks/fetchChecklistBundle';
+
+type SaveResponseOptions = {
+  /** Evita refetch completo (p.ej. init PHOTO): patch local basta y no rompe la UI. */
+  skipInvalidate?: boolean;
+};
+
+function mergeChecklistBundle(
+  next: ChecklistBundle,
+  previous: ChecklistBundle | undefined,
+): ChecklistBundle {
+  if (!previous?.instance || !previous?.template) return next;
+  if (next.instance && next.template) return next;
+  return {
+    instance: next.instance ?? previous.instance,
+    template: next.template ?? previous.template,
+    isOffline: next.isOffline,
+    fetchError: next.instance && next.template ? null : next.fetchError,
+  };
+}
 
 interface UseChecklistProps {
   ordenId?: number;
@@ -51,16 +70,21 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
   const {
     data: bundle,
     isLoading,
+    isFetching,
     refetch,
   } = useQuery({
     queryKey: entityKey,
-    queryFn: () =>
-      citaPersonalId
-        ? fetchChecklistBundleForCita(citaPersonalId)
-        : fetchChecklistBundle(ordenId!),
+    queryFn: async () => {
+      const previous = queryClient.getQueryData<ChecklistBundle>(entityKey);
+      const next = citaPersonalId
+        ? await fetchChecklistBundleForCita(citaPersonalId)
+        : await fetchChecklistBundle(ordenId!);
+      return mergeChecklistBundle(next, previous);
+    },
     staleTime: 30_000,
     gcTime: 5 * 60 * 1000,
     enabled: !!(citaPersonalId || ordenId),
+    placeholderData: keepPreviousData,
   });
 
   const instance = bundle?.instance ?? null;
@@ -69,7 +93,7 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
   const totalSteps = template?.items?.length ?? 0;
   const progreso = useMemo(() => calcProgreso(instance, template), [instance, template]);
   const error = uiState.localError ?? bundle?.fetchError ?? null;
-  const loading = isLoading;
+  const loading = isLoading || (isFetching && !instance);
 
   const updateUi = useCallback((updates: Partial<ChecklistUiState>) => {
     setUiState((prev) => ({ ...prev, ...updates }));
@@ -102,17 +126,15 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
     if (instance.estado !== 'EN_PROGRESO' && instance.estado !== 'PAUSADO') return false;
 
     const respuestas = instance.respuestas || [];
-    const respuestasCompletadas = respuestas.filter((r) => r.completado);
+    const items = template.items || [];
+    if (items.length === 0) return false;
 
-    if (respuestasCompletadas.length === 0) return false;
+    const itemsCompletos = items.filter((item) => itemChecklistCompleto(respuestas, item));
+    if (itemsCompletos.length === 0) return false;
 
-    const totalItems = template.items?.length ?? template.total_items ?? 0;
-    const progresoLocal =
-      totalItems > 0
-        ? checklistService.calcularProgreso(respuestas, totalItems)
-        : progreso;
+    const progresoLocal = Math.round((itemsCompletos.length / items.length) * 100);
 
-    const itemsObligatorios = template.items.filter(
+    const itemsObligatorios = items.filter(
       (item) => item.es_obligatorio_efectivo || item.es_obligatorio,
     );
 
@@ -121,7 +143,7 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
     }
 
     for (const item of itemsObligatorios) {
-      if (!respuestaCompletadaParaItem(respuestas, item.id)) {
+      if (!itemChecklistCompleto(respuestas, item)) {
         return false;
       }
     }
@@ -130,7 +152,7 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
 
     // Fallback: confiar en flag del backend tras guardar respuestas
     return instance.puede_finalizar_check === true;
-  }, [instance, template, progreso]);
+  }, [instance, template]);
 
   const initializeChecklist = useCallback(async () => {
     updateUi({ localError: null });
@@ -242,7 +264,11 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
   }, [instance, patchInstance, invalidateChecklist]);
 
   const saveResponse = useCallback(
-    async (itemTemplateId: number, responseData: Partial<ChecklistItemResponse>) => {
+    async (
+      itemTemplateId: number,
+      responseData: Partial<ChecklistItemResponse>,
+      options?: SaveResponseOptions,
+    ) => {
       if (!instance) {
         return { success: false, message: 'No hay instancia de checklist' };
       }
@@ -296,7 +322,9 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
 
           patchInstance(updatedInstance);
           updateUi({ pendingSync: result.message?.includes('localmente') || false });
-          await invalidateChecklist();
+          if (!options?.skipInvalidate) {
+            await invalidateChecklist();
+          }
 
           return { success: true, data: result.data };
         }
@@ -412,20 +440,30 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
           formData.append('descripcion', descripcion);
         }
 
-        try {
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status === 'granted') {
-            const location = await Location.getCurrentPositionAsync({});
-            formData.append(
-              'ubicacion_captura',
-              JSON.stringify({
-                type: 'Point',
-                coordinates: [location.coords.longitude, location.coords.latitude],
-              }),
-            );
+        // Ubicación opcional: en web suele colgarse; en nativo limitar a 4s.
+        if (Platform.OS !== 'web') {
+          try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status === 'granted') {
+              const location = await Promise.race([
+                Location.getCurrentPositionAsync({
+                  accuracy: Location.Accuracy.Balanced,
+                }),
+                new Promise<never>((_, reject) => {
+                  setTimeout(() => reject(new Error('location-timeout')), 4000);
+                }),
+              ]);
+              formData.append(
+                'ubicacion_captura',
+                JSON.stringify({
+                  type: 'Point',
+                  coordinates: [location.coords.longitude, location.coords.latitude],
+                }),
+              );
+            }
+          } catch {
+            // ubicación opcional
           }
-        } catch {
-          // ubicación opcional
         }
 
         const result = await checklistService.uploadPhoto(formData);
@@ -481,11 +519,18 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
 
         const result = await checklistService.finalizeInstance(instance.id, finalizationData);
 
-        if (result.success) {
-          patchInstance(result.data.checklist);
+        if (result.success && result.data) {
+          if (result.data.checklist) {
+            patchInstance(result.data.checklist);
+          }
           await invalidateChecklist();
           invalidateProveedorMarketplaceQueries(queryClient);
-          return { success: true, data: result.data };
+          return {
+            success: true,
+            data: result.data,
+            requiere_firma_supervisor: result.data.requiere_firma_supervisor,
+            informe: result.data.informe,
+          };
         }
 
         return { success: false, message: result.message };
@@ -496,6 +541,30 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
       }
     },
     [instance, uploadPhoto, patchInstance, invalidateChecklist, queryClient, updateUi],
+  );
+
+  const firmarSupervisorChecklist = useCallback(
+    async (firmaSupervisor: string) => {
+      if (!instance) return { success: false, message: 'No hay instancia de checklist' };
+
+      updateUi({ finalizing: true });
+      try {
+        const result = await checklistService.firmarSupervisor(instance.id, firmaSupervisor);
+        if (result.success && result.data) {
+          if (result.data.checklist) {
+            patchInstance(result.data.checklist);
+          }
+          await invalidateChecklist();
+          return { success: true, data: result.data };
+        }
+        return { success: false, message: result.message };
+      } catch {
+        return { success: false, message: 'Error al firmar como supervisor' };
+      } finally {
+        updateUi({ finalizing: false });
+      }
+    },
+    [instance, patchInstance, invalidateChecklist, updateUi],
   );
 
   const goToStep = useCallback(
@@ -559,6 +628,7 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
     pauseChecklist,
     resumeChecklist,
     finalizeChecklist,
+    firmarSupervisorChecklist,
 
     saveResponse,
 

@@ -33,10 +33,16 @@ export default function ChecklistItemDetailScreen() {
   const insets = useSafeAreaInsets();
 
   const itemIdNum = parseInt(itemId || '0', 10);
+  // Preferir cita embebida en la ruta (cita-123): sobrevive remounts del picker de fotos en web.
+  const citaFromPath =
+    typeof ordenId === 'string' && /^cita-(\d+)$/.test(ordenId)
+      ? parseInt(ordenId.replace(/^cita-/, ''), 10)
+      : undefined;
   const citaPersonalIdNum =
-    citaId && /^\d+$/.test(citaId) ? parseInt(citaId, 10) : undefined;
+    citaFromPath
+    ?? (citaId && /^\d+$/.test(citaId) ? parseInt(citaId, 10) : undefined);
   const ordenIdNum =
-    ordenId && ordenId !== 'cita' && /^\d+$/.test(ordenId)
+    ordenId && !ordenId.startsWith('cita') && /^\d+$/.test(ordenId)
       ? parseInt(ordenId, 10)
       : undefined;
 
@@ -103,9 +109,10 @@ export default function ChecklistItemDetailScreen() {
     const ensurePhotoResponse = async () => {
       if (!item || !instance) return;
       if (item.tipo_pregunta !== 'PHOTO') return;
-      if (localResponse) return;
+      if (localResponse?.id) return;
 
-      const result = await saveResponse(item.id, { completado: false });
+      // skipInvalidate: un refetch fallido dejaba template=null y mostraba "No se pudo cargar".
+      const result = await saveResponse(item.id, { completado: false }, { skipInvalidate: true });
       if (result.success) {
         setLocalResponse(result.data ?? null);
       } else {
@@ -114,7 +121,7 @@ export default function ChecklistItemDetailScreen() {
     };
 
     ensurePhotoResponse();
-  }, [item, instance, localResponse, saveResponse]);
+  }, [item, instance, localResponse?.id, saveResponse]);
 
   const handleGoBack = () => {
     router.back();
@@ -123,7 +130,11 @@ export default function ChecklistItemDetailScreen() {
   const handleSave = async (responseData: Record<string, unknown>, options?: { silent?: boolean }) => {
     if (!item) return { success: false, message: 'Item no disponible' };
 
-    const result = await saveResponse(item.id, responseData);
+    const result = await saveResponse(
+      item.id,
+      responseData,
+      options?.silent ? { skipInvalidate: true } : undefined,
+    );
 
     if (result.success) {
       if (result.data) {
