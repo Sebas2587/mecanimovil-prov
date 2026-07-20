@@ -1147,6 +1147,11 @@ class ChecklistService {
           data: apiResponse.data
         };
       } catch (onlineError: any) {
+        const status = onlineError?.response?.status;
+        // Auth / validación: no fingir éxito offline (rompe el progreso en UI).
+        if (status === 400 || status === 403 || status === 404) {
+          return this.handleServiceError(onlineError, 'guardar respuesta');
+        }
         console.log('⚠️ Saved offline only, will sync later');
         return {
           success: true,

@@ -5,6 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -64,6 +66,8 @@ export default function ChecklistItemDetailScreen() {
     return instance.respuestas.find((r) => r.item_template === itemIdNum) ?? null;
   }, [instance, itemIdNum]);
 
+  const hasOrdenVehiculo = !!instance?.orden;
+
   const { data: snapshotRoot } = useQuery({
     queryKey: checklistQueryKeys.saludSnapshot(instance?.id ?? 0),
     queryFn: async () => {
@@ -74,7 +78,8 @@ export default function ChecklistItemDetailScreen() {
       return res.data;
     },
     staleTime: 60_000,
-    enabled: !!instance?.id,
+    enabled: !!instance?.id && hasOrdenVehiculo,
+    retry: false,
   });
 
   const kmActual = snapshotRoot?.kilometraje_actual ?? null;
@@ -111,6 +116,10 @@ export default function ChecklistItemDetailScreen() {
     ensurePhotoResponse();
   }, [item, instance, localResponse, saveResponse]);
 
+  const handleGoBack = () => {
+    router.back();
+  };
+
   const handleSave = async (responseData: Record<string, unknown>, options?: { silent?: boolean }) => {
     if (!item) return { success: false, message: 'Item no disponible' };
 
@@ -131,10 +140,6 @@ export default function ChecklistItemDetailScreen() {
       showAlert('Error', result.message || 'No se pudo guardar la respuesta');
     }
     return result;
-  };
-
-  const handleGoBack = () => {
-    router.back();
   };
 
   if (!ordenIdNum && !citaPersonalIdNum) {
@@ -162,8 +167,10 @@ export default function ChecklistItemDetailScreen() {
   if (loading && !instance) {
     return (
       <SafeAreaView style={styles.container}>
-        <LoadingSpinner />
-        <Text style={styles.loadingText}>Cargando item del checklist...</Text>
+        <View style={styles.loadingWrap}>
+          <LoadingSpinner />
+          <Text style={styles.loadingText}>Cargando ítem…</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -200,9 +207,9 @@ export default function ChecklistItemDetailScreen() {
             color={I.semanticDown}
             strokeWidth={ICON_STROKE_WIDTH}
           />
-          <Text style={styles.errorTitle}>Item no encontrado</Text>
+          <Text style={styles.errorTitle}>Ítem no encontrado</Text>
           <Text style={styles.errorMessage}>
-            No se pudo encontrar el item del checklist solicitado.
+            No se pudo encontrar el ítem del checklist solicitado.
           </Text>
           <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
             <Text style={styles.backButtonText}>Volver</Text>
@@ -212,58 +219,60 @@ export default function ChecklistItemDetailScreen() {
     );
   }
 
+  const stepLabel = `Paso ${item.orden_visual || '—'} de ${template.items?.length || 0}`;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleGoBack} style={styles.closeButton}>
-          <InstitutionalIcon
-            name="arrow-back"
-            size={ICON_SIZE.md}
-            color={I.ink}
-            strokeWidth={ICON_STROKE_WIDTH}
-          />
-        </TouchableOpacity>
-
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle} numberOfLines={2}>
-            {item.pregunta_texto}
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            Ítem {item.orden_visual || '—'} de {template.items?.length || 0}
-          </Text>
-        </View>
-      </View>
-
-      {item.descripcion_ayuda ? (
-        <View style={styles.helpBanner}>
-          <Text style={styles.helpText}>{item.descripcion_ayuda}</Text>
-        </View>
-      ) : null}
-
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={[
-          styles.contentContainer,
-          { paddingBottom: Math.max(insets.bottom, 20) + 20 },
-        ]}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ChecklistItemRenderer
-          item={item}
-          response={localResponse}
-          onSave={handleSave}
-          saving={saving}
-          instance={instance}
-          finalizeChecklist={finalizeChecklist}
-          takePicture={takePicture}
-          pickFromGallery={pickFromGallery}
-          uploadPhoto={uploadPhoto}
-          deletePhoto={deletePhoto}
-          saludSnapshot={saludSnapshot}
-          kmActual={kmActual}
-          hideHeader
-        />
-      </ScrollView>
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={handleGoBack} style={styles.closeButton} hitSlop={12}>
+            <InstitutionalIcon
+              name="arrow-back"
+              size={ICON_SIZE.md}
+              color={I.ink}
+              strokeWidth={ICON_STROKE_WIDTH}
+            />
+          </TouchableOpacity>
+          <Text style={styles.topBarStep}>{stepLabel}</Text>
+          <View style={styles.topBarSpacer} />
+        </View>
+
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingBottom: Math.max(insets.bottom, 24) + 32 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.heroTitle}>{item.pregunta_texto}</Text>
+          {item.descripcion_ayuda ? (
+            <Text style={styles.heroSupport}>{item.descripcion_ayuda}</Text>
+          ) : null}
+
+          <View style={styles.answerBlock}>
+            <ChecklistItemRenderer
+              item={item}
+              response={localResponse}
+              onSave={handleSave}
+              saving={saving}
+              instance={instance}
+              finalizeChecklist={finalizeChecklist}
+              takePicture={takePicture}
+              pickFromGallery={pickFromGallery}
+              uploadPhoto={uploadPhoto}
+              deletePhoto={deletePhoto}
+              saludSnapshot={saludSnapshot}
+              kmActual={kmActual}
+              hideHeader
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -271,65 +280,74 @@ export default function ChecklistItemDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: I.canvas,
+    backgroundColor: I.surfaceSoft,
   },
-  header: {
+  flex: { flex: 1 },
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.xs,
-    minHeight: 48,
-    backgroundColor: I.canvas,
-    borderBottomWidth: BORDERS.width.thin,
-    borderBottomColor: I.hairline,
+    paddingVertical: SPACING.fixed.sm,
+    backgroundColor: I.surfaceSoft,
   },
   closeButton: {
-    padding: SPACING.fixed.xxs,
-    marginRight: SPACING.fixed.sm,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: I.canvas,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
   },
-  headerContent: {
+  topBarStep: {
     flex: 1,
-    minWidth: 0,
-  },
-  headerTitle: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
-    lineHeight: Math.round(TYPOGRAPHY.fontSize.base * TYPOGRAPHY.lineHeight.normal),
-  },
-  headerSubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
+    textAlign: 'center',
+    fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansMedium,
     color: I.muted,
-    marginTop: 1,
   },
-  helpBanner: {
-    paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.xs,
-    backgroundColor: I.surfaceSoft,
-    borderBottomWidth: BORDERS.width.thin,
-    borderBottomColor: I.hairlineSoft,
-  },
-  helpText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansRegular,
-    color: I.body,
-    lineHeight: Math.round(TYPOGRAPHY.fontSize.sm * TYPOGRAPHY.lineHeight.normal),
-  },
+  topBarSpacer: { width: 40 },
   content: {
     flex: 1,
-    backgroundColor: I.canvas,
   },
   contentContainer: {
-    paddingHorizontal: SPACING.fixed.md,
-    paddingTop: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.lg,
+    paddingTop: SPACING.fixed.md,
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    lineHeight: 34,
+    letterSpacing: -0.4,
+    marginBottom: SPACING.fixed.sm,
+  },
+  heroSupport: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.base * 1.45),
+    marginBottom: SPACING.fixed.lg,
+  },
+  answerBlock: {
+    backgroundColor: I.canvas,
+    borderRadius: BORDERS.radius.xl,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    padding: SPACING.fixed.lg,
+  },
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.sm,
   },
   loadingText: {
     textAlign: 'center',
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansMedium,
     color: I.muted,
-    marginTop: SPACING.fixed.md,
   },
   errorContainer: {
     flex: 1,
@@ -355,8 +373,8 @@ const styles = StyleSheet.create({
     backgroundColor: I.primary,
     paddingHorizontal: SPACING.fixed.lg,
     paddingVertical: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.pill,
-    minHeight: 44,
+    borderRadius: BORDERS.radius.lg,
+    minHeight: 48,
     justifyContent: 'center',
   },
   backButtonText: {

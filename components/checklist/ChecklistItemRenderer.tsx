@@ -33,6 +33,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { useOrdenSignatureDisplay } from '@/hooks/useOrdenSignatureDisplay';
+import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import {
   checklistItemStyles as styles,
   saludStyles,
@@ -964,17 +965,28 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         return (
           <View style={styles.numberInputWrapper}>
             <TextInput
-              style={styles.modernTextInput}
+              style={
+                item.tipo_pregunta === 'KILOMETER_INPUT'
+                  ? styles.kilometerHeroInput
+                  : styles.modernTextInput
+              }
               value={inputValue}
               onChangeText={handleInputChange}
-              placeholder={item.placeholder || '0'}
+              placeholder={item.placeholder || (item.tipo_pregunta === 'KILOMETER_INPUT' ? '0' : '0')}
               placeholderTextColor={I.mutedSoft}
               keyboardType="numeric"
               editable={!false}
             />
-            {(item.valor_minimo !== null || item.valor_maximo !== null) && (
+            {item.tipo_pregunta === 'KILOMETER_INPUT' ? (
+              <Text style={styles.kilometerUnitLabel}>Kilómetros</Text>
+            ) : null}
+            {(item.valor_minimo != null || item.valor_maximo != null) && (
               <Text style={styles.rangeHint}>
-                Rango: {item.valor_minimo || 0} - {item.valor_maximo || '∞'}
+                {item.valor_minimo != null && item.valor_maximo != null
+                  ? `Entre ${Number(item.valor_minimo).toLocaleString('es-CL')} y ${Number(item.valor_maximo).toLocaleString('es-CL')}`
+                  : item.valor_minimo != null
+                    ? `Mínimo ${Number(item.valor_minimo).toLocaleString('es-CL')}`
+                    : `Máximo ${Number(item.valor_maximo).toLocaleString('es-CL')}`}
               </Text>
             )}
           </View>
@@ -1561,31 +1573,24 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         )}
       </View>
 
-      {/* Botón de guardar - Minimalista */}
-      {isModified && item.tipo_pregunta !== 'PHOTO' && (
-        <TouchableOpacity
-          style={[styles.modernSaveButton, saving && styles.modernSaveButtonDisabled]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color={I.onPrimary} />
-          ) : (
-            <>
-              <InstitutionalIcon name="save" size={18} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.modernSaveButtonText}>Guardar y Continuar</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      )}
-
-      {/* Indicador de completado */}
-      {response?.completado && (
-        <View style={styles.completedIndicator}>
-          <InstitutionalIcon name="check-circle" size={18} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.completedText}>Completado</Text>
+      {/* CTA principal — siempre visible (excepto PHOTO, que guarda al subir) */}
+      {item.tipo_pregunta !== 'PHOTO' ? (
+        <View style={{ marginTop: 8, gap: 10 }}>
+          {response?.completado ? (
+            <View style={styles.completedIndicator}>
+              <InstitutionalIcon name="check-circle" size={18} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.completedText}>Completado</Text>
+            </View>
+          ) : null}
+          <InstitutionalButton
+            label={saving ? 'Guardando…' : response?.completado ? 'Actualizar y continuar' : 'Guardar y continuar'}
+            variant="primary"
+            loading={saving}
+            disabled={saving || (!isModified && !response?.completado && String(inputValue ?? '').trim() === '')}
+            onPress={handleSave}
+          />
         </View>
-      )}
+      ) : null}
 
       {/* Modal de firma digital (una sola firma según el item: técnico o cliente) */}
       {showSignatureModal && (
