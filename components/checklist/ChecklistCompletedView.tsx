@@ -18,7 +18,7 @@ import {
   ChecklistRecomendacionesResponse,
 } from '@/services/checklistService';
 import { signatureStoredToImageUri } from '@/utils/signatureImageUri';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert } from '@/utils/platformAlert';
@@ -32,6 +32,49 @@ const REC_COLORS: Record<string, string> = {
   ATENCION: COLORS.warning.dark,
   PROACTIVA: I.primary,
 };
+
+type SeveridadPct = 'ok' | 'atencion' | 'alerta' | 'critico';
+
+const SEVERIDAD_COLOR: Record<SeveridadPct, string> = {
+  ok: I.semanticUp,
+  atencion: COLORS.warning.main,
+  alerta: COLORS.warning.dark,
+  critico: I.semanticDown,
+};
+
+function resolveTipoPregunta(response: ChecklistItemResponse): string {
+  return (
+    response.item_info?.tipo_pregunta
+    || response.item_template_info?.tipo_pregunta
+    || ''
+  );
+}
+
+function resolvePreguntaTexto(response: ChecklistItemResponse): string {
+  return (
+    response.item_info?.pregunta_texto
+    || response.item_template_info?.pregunta_texto
+    || response.item_info?.nombre
+    || 'Pregunta'
+  );
+}
+
+function esPorcentajeVidaUtil(tipo: string, pregunta: string): boolean {
+  if (tipo === 'COMPONENT_HEALTH') return true;
+  const p = pregunta.toLowerCase();
+  return p.includes('vida útil') || p.includes('vida util');
+}
+
+function severidadPorcentaje(pct: number): SeveridadPct {
+  if (pct >= 80) return 'ok';
+  if (pct >= 60) return 'atencion';
+  if (pct >= 35) return 'alerta';
+  return 'critico';
+}
+
+function formatKmDisplay(n: number): string {
+  return `${Math.round(n).toLocaleString('es-CL')} km`;
+}
 
 interface ChecklistCompletedViewProps {
   visible: boolean;
@@ -134,57 +177,91 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
       fotos,
     } = response;
 
-    let valorMostrar = '';
+    const tipo = resolveTipoPregunta(response);
+    const pregunta = resolvePreguntaTexto(response);
+    const num =
+      respuesta_numero !== undefined && respuesta_numero !== null
+        ? Number(respuesta_numero)
+        : NaN;
 
-    if (respuesta_texto) {
-      valorMostrar = respuesta_texto;
-    } else if (respuesta_numero !== undefined && respuesta_numero !== null) {
-      valorMostrar = respuesta_numero.toString();
-    } else if (respuesta_booleana !== undefined && respuesta_booleana !== null) {
-      valorMostrar = respuesta_booleana ? 'Sí' : 'No';
-    } else if (respuesta_fecha) {
-      valorMostrar = formatearFechaHora(String(respuesta_fecha));
+    let valorMostrar = '';
+    let formato: 'texto' | 'km' | 'porcentaje' = 'texto';
+    let porcentaje: number | null = null;
+    let severidad: SeveridadPct | null = null;
+
+    if (tipo === 'KILOMETER_INPUT' && Number.isFinite(num)) {
+      formato = 'km';
+      valorMostrar = formatKmDisplay(num);
+    } else if (esPorcentajeVidaUtil(tipo, pregunta) && Number.isFinite(num)) {
+      formato = 'porcentaje';
+      porcentaje = Math.max(0, Math.min(100, num));
+      severidad = severidadPorcentaje(porcentaje);
+      valorMostrar = `${Math.round(porcentaje)}%`;
     } else if (respuesta_seleccion) {
       if (Array.isArray(respuesta_seleccion)) {
         valorMostrar = respuesta_seleccion
-          .map(item => (typeof item === 'string' ? item : item.name || 'Item'))
+          .map((item) => (typeof item === 'string' ? item : item.name || 'Item'))
           .join(', ');
       } else if (typeof respuesta_seleccion === 'object') {
-        valorMostrar = JSON.stringify(respuesta_seleccion, null, 2);
+        valorMostrar = JSON.stringify(respuesta_seleccion);
       } else {
         valorMostrar = String(respuesta_seleccion);
       }
+    } else if (respuesta_booleana !== undefined && respuesta_booleana !== null) {
+      valorMostrar = respuesta_booleana ? 'Sí' : 'No';
+    } else if (respuesta_texto) {
+      valorMostrar = respuesta_texto;
+    } else if (Number.isFinite(num)) {
+      valorMostrar = Number.isInteger(num)
+        ? String(num)
+        : num.toLocaleString('es-CL', { maximumFractionDigits: 2 });
+    } else if (respuesta_fecha) {
+      valorMostrar = formatearFechaHora(String(respuesta_fecha));
     }
 
+    const sevColor = severidad ? SEVERIDAD_COLOR[severidad] : null;
+
     return (
-      <View key={response.id} style={styles.responseCard}>
-        <View style={styles.responseHeader}>
-          <Text style={styles.responseTitle} numberOfLines={4}>
-            {response.item_info?.pregunta_texto || 'Pregunta'}
-          </Text>
-          <View
-            style={[
-              styles.itemStatusPill,
-              response.completado ? styles.itemStatusPillDone : styles.itemStatusPillPending,
-            ]}
-          >
-            <InstitutionalIcon
-              name={response.completado ? 'check-circle' : 'radio-button-unchecked'}
-              size={12}
-              color={response.completado ? I.semanticUp : I.muted}
-              strokeWidth={ICON_STROKE_WIDTH}
-            />
-            <Text style={[styles.itemStatusText, response.completado ? styles.itemStatusTextDone : styles.itemStatusTextPending]}>
-              {response.completado ? 'Listo' : 'Pendiente'}
+      <View key={response.id} style={styles.amenityBlock}>
+        <View style={styles.amenityRow}>
+          <View style={styles.amenityLabelCol}>
+            <Text style={styles.amenityLabel} numberOfLines={3}>
+              {pregunta}
             </Text>
+            {severidad && severidad !== 'ok' ? (
+              <View style={[styles.severityChip, { backgroundColor: withOpacity(sevColor!, 0.12) }]}>
+                <Text style={[styles.severityChipText, { color: sevColor! }]}>
+                  {severidad === 'critico'
+                    ? 'Crítico'
+                    : severidad === 'alerta'
+                      ? 'Alerta'
+                      : 'Atención'}
+                </Text>
+              </View>
+            ) : null}
           </View>
+
+          {formato === 'porcentaje' && porcentaje != null && sevColor ? (
+            <View style={styles.pctValueWrap}>
+              <View style={styles.pctBarTrack}>
+                <View
+                  style={[
+                    styles.pctBarFill,
+                    { width: `${porcentaje}%`, backgroundColor: sevColor },
+                  ]}
+                />
+              </View>
+              <Text style={[styles.pctValueText, { color: sevColor }]}>{valorMostrar}</Text>
+            </View>
+          ) : (
+            <Text style={styles.amenityValue} numberOfLines={3}>
+              {valorMostrar || (response.completado ? '—' : 'Pendiente')}
+            </Text>
+          )}
         </View>
 
-        {!!valorMostrar && <Text style={styles.responseValue}>{valorMostrar}</Text>}
-
-        {fotos && fotos.length > 0 && (
+        {fotos && fotos.length > 0 ? (
           <View style={styles.photosBlock}>
-            <Text style={styles.photosLabel}>Evidencia ({fotos.length})</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {fotos.map((foto, index) => {
                 const uri =
@@ -194,23 +271,24 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
                       ? foto.imagen
                       : null;
                 if (!uri) return null;
+                const caption = (foto.descripcion || '').trim() || `Foto ${index + 1}`;
                 return (
                   <View key={foto.id ?? `foto-${response.id}-${index}`} style={styles.photoCell}>
                     <Image source={{ uri }} style={styles.photoThumb} resizeMode="cover" />
-                    {foto.descripcion ? (
-                      <Text style={styles.photoCaption} numberOfLines={2}>
-                        {foto.descripcion}
-                      </Text>
-                    ) : null}
+                    <Text style={styles.photoCaption} numberOfLines={2}>
+                      {caption}
+                    </Text>
                   </View>
                 );
               })}
             </ScrollView>
           </View>
-        )}
+        ) : null}
 
         {response.fecha_respuesta ? (
-          <Text style={styles.responseMeta}>Registrado · {formatearFechaHora(response.fecha_respuesta)}</Text>
+          <Text style={styles.responseMeta}>
+            Registrado · {formatearFechaHora(response.fecha_respuesta)}
+          </Text>
         ) : null}
       </View>
     );
@@ -227,9 +305,17 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
               <InstitutionalIcon name="close" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
             <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>Checklist completado</Text>
+              <Text style={styles.headerTitle}>Resumen del checklist</Text>
               <View style={styles.orderPill}>
-                <Text style={styles.orderPillText}>Orden #{ordenId}</Text>
+                <Text style={styles.orderPillText}>
+                  {citaPersonalId
+                    ? `Cita #${citaPersonalId}`
+                    : ordenId
+                      ? `Orden #${ordenId}`
+                      : instanceId
+                        ? `Checklist #${instanceId}`
+                        : 'Checklist'}
+                </Text>
               </View>
             </View>
             <View style={styles.headerIconBtn} />
@@ -339,17 +425,26 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
               )}
 
               <View style={styles.card}>
-                <View style={styles.sectionPillWrap}>
-                  <View style={styles.sectionPill}>
-                    <Text style={styles.sectionPillText}>
-                      Ítems ({instance.respuestas?.length ?? 0})
-                    </Text>
-                  </View>
-                </View>
+                <Text style={styles.sectionEyebrow}>Inspección</Text>
+                <Text style={styles.sectionTitle}>
+                  Respuestas del técnico
+                </Text>
+                <Text style={styles.sectionMeta}>
+                  {instance.respuestas?.filter((r) => r.completado).length ?? 0}
+                  {' de '}
+                  {instance.respuestas?.length ?? 0}
+                  {' puntos revisados'}
+                </Text>
+                <View style={styles.sectionRule} />
 
                 {instance.respuestas && instance.respuestas.length > 0 ? (
                   instance.respuestas
-                    .sort((a, b) => (a.item_template || 0) - (b.item_template || 0))
+                    .slice()
+                    .sort((a, b) => {
+                      const oa = a.item_template_info?.orden_visual ?? a.item_template ?? 0;
+                      const ob = b.item_template_info?.orden_visual ?? b.item_template ?? 0;
+                      return oa - ob;
+                    })
                     .map(renderRespuesta)
                 ) : (
                   <Text style={styles.emptyItems}>No hay respuestas registradas</Text>
@@ -637,86 +732,108 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: I.hairline,
   },
-  responseCard: {
-    paddingVertical: SPACING.sm + 4,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: I.hairline,
-  },
-  responseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: SPACING.sm,
-    marginBottom: SPACING.xs,
-  },
-  /** Pregunta del ítem — jerarquía `h4` (doc proveedores / Coinbase). */
-  responseTitle: {
-    flex: 1,
-    fontSize: T.h4.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: T.h4.fontWeight as '600',
-    lineHeight: Math.round(T.h4.fontSize * T.h4.lineHeight),
-    color: I.ink,
-  },
-  itemStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  itemStatusPillDone: {
-    backgroundColor: I.surfaceStrong,
-    borderColor: I.hairline,
-  },
-  itemStatusPillPending: {
-    backgroundColor: I.surfaceSoft,
-    borderColor: I.hairline,
-  },
-  itemStatusText: {
-    fontSize: T.small.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+  sectionEyebrow: {
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
     letterSpacing: TYPOGRAPHY.letterSpacing.wider,
     textTransform: 'uppercase',
-    lineHeight: Math.round(T.small.fontSize * T.small.lineHeight),
+    color: I.muted,
+    marginBottom: 2,
   },
-  itemStatusTextDone: {
-    color: I.semanticUp,
+  sectionTitle: {
+    fontSize: T.h3.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: T.h3.fontWeight as '600',
+    lineHeight: Math.round(T.h3.fontSize * T.h3.lineHeight),
+    color: I.ink,
   },
-  itemStatusTextPending: {
+  sectionMeta: {
+    marginTop: 4,
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     color: I.muted,
   },
-  /** Respuesta / detalle — cuerpo estándar. */
-  responseValue: {
+  sectionRule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: I.hairline,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  amenityBlock: {
+    paddingVertical: SPACING.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+    gap: SPACING.xs,
+  },
+  amenityRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+  },
+  amenityLabelCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
+  },
+  amenityLabel: {
     fontSize: T.body.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: T.body.fontWeight as '400',
     lineHeight: Math.round(T.body.fontSize * T.body.lineHeight),
+    color: I.ink,
+  },
+  amenityValue: {
+    flexShrink: 0,
+    maxWidth: '42%',
+    textAlign: 'right',
+    fontSize: T.body.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
     color: I.body,
-    marginBottom: SPACING.sm,
+    lineHeight: Math.round(T.body.fontSize * T.body.lineHeight),
   },
-  photosBlock: {
-    marginBottom: SPACING.sm,
+  severityChip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    borderRadius: BORDERS.radius.sm,
   },
-  photosLabel: {
-    fontSize: T.captionBold.fontSize,
+  severityChipText: {
+    fontSize: 10,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: T.captionBold.fontWeight as '600',
-    color: I.muted,
-    marginBottom: SPACING.xs,
     letterSpacing: TYPOGRAPHY.letterSpacing.wide,
     textTransform: 'uppercase',
   },
+  pctValueWrap: {
+    width: 112,
+    flexShrink: 0,
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  pctBarTrack: {
+    width: '100%',
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: I.surfaceStrong,
+    overflow: 'hidden',
+  },
+  pctBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  pctValueText: {
+    fontSize: T.body.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: '600',
+  },
+  photosBlock: {
+    marginTop: SPACING.xs,
+  },
   photoCell: {
     marginRight: SPACING.sm,
-    alignItems: 'center',
-    maxWidth: 88,
+    width: 96,
   },
   photoThumb: {
-    width: 72,
+    width: 96,
     height: 72,
     borderRadius: BORDERS.radius.md,
     backgroundColor: I.surfaceStrong,
@@ -725,12 +842,9 @@ const styles = StyleSheet.create({
   },
   photoCaption: {
     fontSize: T.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: T.caption.fontWeight as '400',
-    lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
-    color: I.muted,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    color: I.ink,
     marginTop: SPACING.xs,
-    textAlign: 'center',
   },
   responseMeta: {
     fontSize: T.small.fontSize,
