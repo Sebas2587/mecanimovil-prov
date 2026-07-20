@@ -182,12 +182,16 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
   const startChecklist = useCallback(async () => {
     if (!instance) return { success: false, message: 'No hay instancia de checklist' };
 
+    // Ya en progreso: no volver a llamar start (evita 400 y pantallas de error).
+    if (instance.estado === 'EN_PROGRESO') {
+      return { success: true, data: instance };
+    }
+
     try {
       const response = await checklistService.startInstance(instance.id);
 
       if (response.success && response.data) {
         if (!response.data.id || typeof response.data.id !== 'number') {
-          updateUi({ localError: 'Error: Respuesta inválida del servidor' });
           return { success: false, message: 'Respuesta inválida del servidor' };
         }
 
@@ -196,14 +200,12 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
         return { success: true, data: response.data };
       }
 
-      updateUi({ localError: response.message || 'Error iniciando checklist' });
+      // No usar localError aquí: tapa toda la UI aunque el checklist ya cargó.
       return { success: false, message: response.message };
     } catch {
-      const errorMessage = 'Error iniciando checklist';
-      updateUi({ localError: errorMessage });
-      return { success: false, message: errorMessage };
+      return { success: false, message: 'Error iniciando checklist' };
     }
-  }, [instance, patchInstance, invalidateChecklist, updateUi]);
+  }, [instance, patchInstance, invalidateChecklist]);
 
   const pauseChecklist = useCallback(async () => {
     if (!instance) return { success: false, message: 'No hay instancia de checklist' };

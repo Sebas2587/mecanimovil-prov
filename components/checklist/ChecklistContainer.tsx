@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -121,11 +122,33 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [showCompletedView, setShowCompletedView] = useState(false);
   const [showDiffModal, setShowDiffModal] = useState(false);
+  const [autoStarting, setAutoStarting] = useState(false);
+  const autoStartTriedRef = useRef(false);
+
+  // Inicio autónomo: al abrir un checklist PENDIENTE, pasarlo a EN_PROGRESO.
+  useEffect(() => {
+    if (loading || !instance || !template) return;
+    if (instance.estado !== 'PENDIENTE') return;
+    if (autoStartTriedRef.current) return;
+
+    autoStartTriedRef.current = true;
+    setAutoStarting(true);
+    void startChecklist()
+      .then((result) => {
+        if (!result.success) {
+          showAlert('Error', result.message || 'No se pudo iniciar el checklist');
+          autoStartTriedRef.current = false;
+        }
+      })
+      .finally(() => setAutoStarting(false));
+  }, [loading, instance, template, startChecklist]);
 
   // ==================== HANDLERS ====================
 
   const handleStart = async () => {
+    setAutoStarting(true);
     const result = await startChecklist();
+    setAutoStarting(false);
     if (!result.success) {
       showAlert('Error', result.message || 'No se pudo iniciar el checklist');
     }
@@ -344,6 +367,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           <InstitutionalButton
             label="Reintentar"
             onPress={() => {
+              autoStartTriedRef.current = false;
               void refetch?.();
             }}
             variant="primary"
@@ -463,19 +487,25 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             <View style={styles.onboardingIconWrap}>
               <InstitutionalIcon name="play-arrow" size={28} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
-            <Text style={styles.onboardingTitle}>Listo para iniciar</Text>
-            <Text style={styles.onboardingDescription}>
-              Completa el checklist paso a paso antes de finalizar el servicio. El cliente firmará al cierre.
+            <Text style={styles.onboardingTitle}>
+              {autoStarting ? 'Iniciando checklist…' : 'Listo para iniciar'}
             </Text>
-            <InstitutionalButton
-              label="Iniciar checklist"
-              onPress={handleStart}
-              variant="primary"
-              leading={
-                <InstitutionalIcon name="play-arrow" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              }
-              style={{ alignSelf: 'stretch' }}
-            />
+            <Text style={styles.onboardingDescription}>
+              Completa el checklist paso a paso antes de finalizar el servicio.
+            </Text>
+            {autoStarting ? (
+              <ActivityIndicator color={I.primary} style={{ marginTop: SPACING.fixed.sm }} />
+            ) : (
+              <InstitutionalButton
+                label="Iniciar checklist"
+                onPress={handleStart}
+                variant="primary"
+                leading={
+                  <InstitutionalIcon name="play-arrow" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                }
+                style={{ alignSelf: 'stretch' }}
+              />
+            )}
           </View>
         )}
 
