@@ -559,7 +559,22 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                       itemCompleted && styles.checklistItemCompleted,
                       isRequired && !itemCompleted && styles.checklistItemRequired,
                     ]}
-                    onPress={() => router.push(`/checklist-item/${ordenId}/${item.id}`)}
+                    onPress={() => {
+                      if (citaPersonalId) {
+                        router.push({
+                          pathname: '/checklist-item/[ordenId]/[itemId]',
+                          params: {
+                            ordenId: 'cita',
+                            itemId: String(item.id),
+                            citaId: String(citaPersonalId),
+                          },
+                        });
+                        return;
+                      }
+                      if (ordenId) {
+                        router.push(`/checklist-item/${ordenId}/${item.id}`);
+                      }
+                    }}
                   >
                     <View style={[styles.checkbox, itemCompleted && styles.checkboxCompleted]}>
                       {itemCompleted ? (

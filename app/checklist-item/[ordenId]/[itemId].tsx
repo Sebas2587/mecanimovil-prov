@@ -23,11 +23,20 @@ const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 
 export default function ChecklistItemDetailScreen() {
-  const { ordenId, itemId } = useLocalSearchParams<{ ordenId: string; itemId: string }>();
+  const { ordenId, itemId, citaId } = useLocalSearchParams<{
+    ordenId: string;
+    itemId: string;
+    citaId?: string;
+  }>();
   const insets = useSafeAreaInsets();
 
-  const ordenIdNum = parseInt(ordenId || '0', 10);
   const itemIdNum = parseInt(itemId || '0', 10);
+  const citaPersonalIdNum =
+    citaId && /^\d+$/.test(citaId) ? parseInt(citaId, 10) : undefined;
+  const ordenIdNum =
+    ordenId && ordenId !== 'cita' && /^\d+$/.test(ordenId)
+      ? parseInt(ordenId, 10)
+      : undefined;
 
   const {
     template,
@@ -40,7 +49,10 @@ export default function ChecklistItemDetailScreen() {
     uploadPhoto,
     deletePhoto,
     finalizeChecklist,
-  } = useChecklist({ ordenId: ordenIdNum });
+  } = useChecklist({
+    ordenId: ordenIdNum,
+    citaPersonalId: citaPersonalIdNum,
+  });
 
   const item = useMemo(
     () => template?.items?.find((i) => i.id === itemIdNum) ?? null,
@@ -125,6 +137,28 @@ export default function ChecklistItemDetailScreen() {
     router.back();
   };
 
+  if (!ordenIdNum && !citaPersonalIdNum) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <InstitutionalIcon
+            name="error"
+            size={48}
+            color={I.semanticDown}
+            strokeWidth={ICON_STROKE_WIDTH}
+          />
+          <Text style={styles.errorTitle}>Ruta inválida</Text>
+          <Text style={styles.errorMessage}>
+            No se pudo identificar la orden o cita del checklist.
+          </Text>
+          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
+            <Text style={styles.backButtonText}>Volver</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (loading && !instance) {
     return (
       <SafeAreaView style={styles.container}>
@@ -137,8 +171,21 @@ export default function ChecklistItemDetailScreen() {
   if (!template || !instance) {
     return (
       <SafeAreaView style={styles.container}>
-        <LoadingSpinner />
-        <Text style={styles.loadingText}>Cargando item del checklist...</Text>
+        <View style={styles.errorContainer}>
+          <InstitutionalIcon
+            name="error"
+            size={48}
+            color={I.semanticDown}
+            strokeWidth={ICON_STROKE_WIDTH}
+          />
+          <Text style={styles.errorTitle}>No se pudo cargar</Text>
+          <Text style={styles.errorMessage}>
+            No encontramos el checklist asociado a este ítem.
+          </Text>
+          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
+            <Text style={styles.backButtonText}>Volver</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
