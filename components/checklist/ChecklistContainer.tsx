@@ -427,7 +427,8 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             'Firma enviada',
             'Tu firma quedó registrada. El supervisor del taller debe rectificar el trabajo para generar el informe al cliente.',
           );
-          onComplete?.();
+          // Quedar en el checklist: banner de espera + resumen disponible.
+          setShowCompletedView(true);
         } else if (requiereFirmaCliente) {
           showAlert(
             'Firma enviada',
@@ -916,6 +917,8 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
         visible={showCompletedView}
         onClose={() => setShowCompletedView(false)}
         ordenId={ordenId}
+        citaPersonalId={citaPersonalId}
+        instanceId={instance?.id ?? null}
       />
 
       {/* Modal de diff de salud (solo marketplace con Vehiculo real) */}

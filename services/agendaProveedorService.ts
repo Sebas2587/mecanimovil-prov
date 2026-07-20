@@ -47,6 +47,8 @@ export interface CitaAgendaPersonal {
   checklist_items_completados?: number;
   checklist_items_total?: number;
   checklist_minutos_transcurridos?: number | null;
+  informe_publico_url?: string | null;
+  informe_publico_token?: string | null;
   puede_cancelar?: boolean;
   template_generado_por_ia?: boolean;
   estado_operativo?: string;

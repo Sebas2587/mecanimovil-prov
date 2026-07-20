@@ -36,13 +36,20 @@ const REC_COLORS: Record<string, string> = {
 interface ChecklistCompletedViewProps {
   visible: boolean;
   onClose: () => void;
-  ordenId: number;
+  /** Marketplace: carga por orden. */
+  ordenId?: number;
+  /** Cita personal de taller/domicilio: carga por cita. */
+  citaPersonalId?: number;
+  /** Preferido si ya se conoce el id de instancia. */
+  instanceId?: number | null;
 }
 
 export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
   visible,
   onClose,
   ordenId,
+  citaPersonalId,
+  instanceId,
 }) => {
   const insets = useSafeAreaInsets();
   const [instance, setInstance] = useState<ChecklistInstance | null>(null);
@@ -51,26 +58,42 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
   const [loadingRec, setLoadingRec] = useState(false);
 
   useEffect(() => {
-    if (visible && ordenId) {
-      loadChecklistData();
+    if (!visible) return;
+    if (!instanceId && !ordenId && !citaPersonalId) {
+      setInstance(null);
+      return;
     }
-  }, [visible, ordenId]);
+    void loadChecklistData();
+  }, [visible, ordenId, citaPersonalId, instanceId]);
 
   const loadChecklistData = async () => {
     setLoading(true);
     try {
-      const result = await checklistService.getInstanceByOrder(ordenId);
-      if (result.success) {
+      let result: Awaited<ReturnType<typeof checklistService.getInstance>>;
+      if (instanceId) {
+        result = await checklistService.getInstance(instanceId);
+      } else if (citaPersonalId) {
+        result = await checklistService.getInstanceByCitaPersonal(citaPersonalId);
+      } else if (ordenId) {
+        result = await checklistService.getInstanceByOrder(ordenId);
+      } else {
+        setInstance(null);
+        return;
+      }
+
+      if (result.success && result.data) {
         setInstance(result.data);
-        // Cargar recomendaciones ML si el checklist está completado
-        if (result.data?.estado === 'COMPLETADO' && result.data?.id) {
-          loadRecomendaciones(result.data.id);
+        // Recomendaciones ML solo con vehículo/marketplace completado
+        if (result.data.estado === 'COMPLETADO' && result.data.id && !citaPersonalId) {
+          void loadRecomendaciones(result.data.id);
         }
       } else {
+        setInstance(null);
         showAlert('Error', 'No se pudo cargar el checklist completado');
       }
     } catch (error) {
       console.error('Error loading completed checklist:', error);
+      setInstance(null);
       showAlert('Error', 'Error al cargar el checklist');
     } finally {
       setLoading(false);
@@ -393,7 +416,11 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
             <View style={styles.loadingBox}>
               <InstitutionalIcon name="error-outline" size={44} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.errorTitle}>Sin datos</Text>
-              <Text style={styles.errorHint}>No se pudo cargar el checklist para esta orden.</Text>
+              <Text style={styles.errorHint}>
+                {citaPersonalId
+                  ? 'No se pudo cargar el checklist de esta cita.'
+                  : 'No se pudo cargar el checklist para esta orden.'}
+              </Text>
             </View>
           )}
         </SafeAreaView>

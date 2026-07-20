@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
@@ -238,9 +239,10 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const checklistCompletado = checklistEstado === 'COMPLETADO';
   const checklistPendienteSupervisor = checklistEstado === 'PENDIENTE_FIRMA_SUPERVISOR';
   const checklistPendienteFirmaCliente = checklistEstado === 'PENDIENTE_FIRMA_CLIENTE';
+  // El backend decide PENDIENTE_FIRMA_SUPERVISOR cuando hay taller_id;
+  // no filtrar por tipo_servicio para no ocultar la firma si fue a domicilio del taller.
   const puedeRectificarSupervisor =
     checklistPendienteSupervisor
-    && cita?.tipo_servicio === 'taller'
     && (esMandanteTaller || esSupervisor)
     && !esMecanicoEquipo;
   const puedeCancelarCita = esActiva && (cita?.puede_cancelar !== false) && !checklistIniciado;
@@ -663,19 +665,31 @@ export default function CitaAgendaPersonalDetalleScreen() {
     return (
       <ChecklistContainer
         citaPersonalId={cita.id}
-        puedeFirmarSupervisor={
-          cita.tipo_servicio === 'taller'
-          && (esMandanteTaller || esSupervisor)
-          && !esMecanicoEquipo
-        }
+        puedeFirmarSupervisor={(esMandanteTaller || esSupervisor) && !esMecanicoEquipo}
         onComplete={() => {
           setShowChecklist(false);
           void recargarCita();
         }}
-        onCancel={() => setShowChecklist(false)}
+        onCancel={() => {
+          setShowChecklist(false);
+          void recargarCita();
+        }}
       />
     );
   }
+
+  const copiarEnlaceInformeCita = async (url: string) => {
+    try {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        showAlert('Enlace copiado', 'El enlace del informe quedó en el portapapeles.');
+        return;
+      }
+      await Share.share({ message: url, url });
+    } catch {
+      showAlert('Enlace del informe', url);
+    }
+  };
 
   const duracionLabel = formatDuracion(cita.duracion_minutos);
   const esDomicilio = cita.tipo_servicio === 'domicilio';
@@ -1022,15 +1036,40 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     />
                   ) : null}
 
-                  {checklistPendienteFirmaCliente
-                    && (esMandanteTaller || esSupervisor)
-                    && !esMecanicoEquipo ? (
+                  {checklistPendienteSupervisor && !puedeRectificarSupervisor ? (
                     <InstitutionalButton
-                      label="Ver enlace del informe"
+                      label="Ver resumen del checklist"
                       variant="secondary"
                       onPress={() => setShowChecklist(true)}
                       style={{ marginTop: SPACING.sm }}
                     />
+                  ) : null}
+
+                  {checklistPendienteFirmaCliente ? (
+                    <View style={{ marginTop: SPACING.sm, gap: SPACING.sm }}>
+                      {cita.informe_publico_url ? (
+                        <View style={styles.informeLinkCard}>
+                          <Text style={styles.informeLinkTitle}>Informe para el cliente</Text>
+                          <Text style={styles.informeLinkHint}>
+                            Comparte este enlace para que el cliente revise el servicio y firme.
+                          </Text>
+                          <Text style={styles.informeLinkUrl} numberOfLines={2}>
+                            {cita.informe_publico_url}
+                          </Text>
+                          <InstitutionalButton
+                            label="Copiar enlace del informe"
+                            variant="primary"
+                            onPress={() => void copiarEnlaceInformeCita(cita.informe_publico_url!)}
+                          />
+                        </View>
+                      ) : (
+                        <InstitutionalButton
+                          label="Abrir checklist / enlace del informe"
+                          variant="secondary"
+                          onPress={() => setShowChecklist(true)}
+                        />
+                      )}
+                    </View>
                   ) : null}
 
                   {puedeOperarChecklist && !cita.checklist_id ? (
@@ -1043,12 +1082,27 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     />
                   ) : null}
 
-                  {puedeOperarChecklist && cita.checklist_id && !checklistCompletado ? (
+                  {puedeOperarChecklist
+                    && cita.checklist_id
+                    && !checklistCompletado
+                    && !checklistPendienteSupervisor
+                    && !checklistPendienteFirmaCliente ? (
                     <InstitutionalButton
                       label={
                         checklistEnCurso ? 'Continuar checklist' : 'Completar checklist'
                       }
                       variant="primary"
+                      onPress={() => setShowChecklist(true)}
+                      style={{ marginTop: SPACING.sm }}
+                    />
+                  ) : null}
+
+                  {puedeOperarChecklist
+                    && checklistPendienteSupervisor
+                    && !puedeRectificarSupervisor ? (
+                    <InstitutionalButton
+                      label="Ver resumen (esperando supervisor)"
+                      variant="secondary"
                       onPress={() => setShowChecklist(true)}
                       style={{ marginTop: SPACING.sm }}
                     />
@@ -1466,6 +1520,29 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     color: I.muted,
     lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
+  },
+  informeLinkCard: {
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.surfaceSoft,
+    gap: SPACING.fixed.sm,
+  },
+  informeLinkTitle: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  informeLinkHint: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
+  },
+  informeLinkUrl: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.monoMedium,
+    color: I.primary,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
