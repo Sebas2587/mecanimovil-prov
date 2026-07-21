@@ -225,7 +225,7 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
     <BottomSheet visible={visible} onClose={handleClose}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <InstitutionalText role="title" style={styles.title}>
+          <InstitutionalText role="h4" style={styles.title}>
             Cotización libre
           </InstitutionalText>
           <InstitutionalText role="caption" color="muted" style={styles.subtitle}>

@@ -45,7 +45,7 @@ import type { CanalSlug } from '@/services/omnichannelService';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
-import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
+import { CotizacionesIaList } from '@/components/chats/CotizacionesIaList';
 import { SolicitudesDisponiblesContent } from '@/components/solicitudes/SolicitudesDisponiblesContent';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
 import { useSolicitudesDisponiblesQuery } from '@/hooks/useSolicitudesDisponiblesQuery';
@@ -65,17 +65,6 @@ type AgendarContactoState = {
 const I = COLORS.institutional;
 /** Jerarquía tipo Coinbase / doc proveedores — tamaños desde `TYPOGRAPHY.styles`. */
 const T = TYPOGRAPHY.styles;
-
-/** Chats de canal (WhatsApp/Messenger/…): sí cotizan con IA. App Mecanimovil (oferta): no. */
-function isCanalOmnichannelChat(item: {
-  kind?: string;
-  oferta_id?: string | null;
-  conversation_id?: string | null;
-}): boolean {
-  if (item.kind === 'omnichannel') return true;
-  if (item.oferta_id) return false;
-  return Boolean(item.conversation_id);
-}
 
 export default function ChatsScreen() {
   const { totalMensajesNoLeidos, actualizarTotal, decrementarNoLeidos } = useChats();
@@ -107,16 +96,10 @@ export default function ChatsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<MensajesTab>('chats');
   const [agendarContacto, setAgendarContacto] = useState<AgendarContactoState>(null);
-  const [cotizacionLibreVisible, setCotizacionLibreVisible] = useState(false);
   const [chatHighlighted, setChatHighlighted] = useState<string | null>(null);
   const [deletingOfertaId, setDeletingOfertaId] = useState<string | null>(null);
 
-  const canalChats = useMemo(
-    () => chats.filter(isCanalOmnichannelChat),
-    [chats],
-  );
-  const chatsVisibles = cotizarIaMode ? canalChats : chats;
-
+  const chatsVisibles = chats;
   const loading = isPending && chatsVisibles.length === 0;
 
   useEffect(() => {
@@ -128,26 +111,18 @@ export default function ChatsScreen() {
     [chats],
   );
 
-  const mensajesTabs = useMemo(() => {
-    const chatsTab = {
+  const mensajesTabs = useMemo(() => [
+    {
       key: 'chats' as const,
-      label: cotizarIaMode ? 'Canales' : 'Chats',
-      badge: cotizarIaMode
-        ? (canalChats.reduce((s, c) => s + (c.mensajes_no_leidos || 0), 0) || null)
-        : totalNoLeidos > 0
-          ? totalNoLeidos
-          : null,
-    };
-    if (cotizarIaMode) return [chatsTab];
-    return [
-      chatsTab,
-      {
-        key: 'solicitudes' as const,
-        label: 'Solicitudes',
-        badge: solicitudesDisponibles.length > 0 ? solicitudesDisponibles.length : null,
-      },
-    ];
-  }, [canalChats, cotizarIaMode, solicitudesDisponibles.length, totalNoLeidos]);
+      label: 'Chats',
+      badge: totalNoLeidos > 0 ? totalNoLeidos : null,
+    },
+    {
+      key: 'solicitudes' as const,
+      label: 'Solicitudes',
+      badge: solicitudesDisponibles.length > 0 ? solicitudesDisponibles.length : null,
+    },
+  ], [solicitudesDisponibles.length, totalNoLeidos]);
 
   const abrirAgendarDesdeFila = useCallback((item: {
     channel?: string;
@@ -425,65 +400,43 @@ export default function ChatsScreen() {
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <View style={styles.emptyIconWrap}>
-        {cotizarIaMode ? (
-          <Sparkles size={48} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-        ) : (
-          <MessageCircle size={48} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-        )}
+        <MessageCircle size={48} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
-      <Text style={styles.emptyTitle}>
-        {cotizarIaMode ? 'Sin chats de canal' : 'Sin conversaciones'}
-      </Text>
+      <Text style={styles.emptyTitle}>Sin conversaciones</Text>
       <Text style={styles.emptySubtitle}>
-        {cotizarIaMode
-          ? 'La cotización con IA es para WhatsApp, Messenger u otros canales. Las solicitudes de la app Mecanimovil ya traen servicios elegidos.'
-          : 'Tus conversaciones con clientes aparecerán aquí'}
+        Tus conversaciones con clientes aparecerán aquí
       </Text>
     </View>
   );
 
-  const renderCotizarIaHeader = useCallback(
-    () => (
-      <TouchableOpacity
-        style={styles.cotizacionLibreCard}
-        activeOpacity={0.9}
-        onPress={() => setCotizacionLibreVisible(true)}
-        accessibilityRole="button"
-        accessibilityLabel="Cotización libre sin chat"
-      >
-        <View style={styles.cotizacionLibreIconWrap}>
-          <Sparkles size={22} color={COLORS.text.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+  if (cotizarIaMode) {
+    return (
+      <TabScreenWrapper>
+        <View style={styles.screen}>
+          <Header title="Cotizar con IA" />
+          <CotizacionesIaList enabled={cuentaAprobada} />
         </View>
-        <View style={styles.cotizacionLibreTextWrap}>
-          <Text style={styles.cotizacionLibreTitle}>Cotización libre (sin chat)</Text>
-          <Text style={styles.cotizacionLibreSubtitle}>
-            Genera un link público para WhatsApp u otro canal
-          </Text>
-        </View>
-      </TouchableOpacity>
-    ),
-    [],
-  );
+      </TabScreenWrapper>
+    );
+  }
 
   return (
     <TabScreenWrapper>
       <View style={styles.screen}>
         <Header
-          title={cotizarIaMode ? 'Cotizar con IA' : 'Mensajes'}
-          badge={!cotizarIaMode && totalMensajesNoLeidos > 0 ? totalMensajesNoLeidos : undefined}
+          title="Mensajes"
+          badge={totalMensajesNoLeidos > 0 ? totalMensajesNoLeidos : undefined}
         />
 
-        {!cotizarIaMode ? (
-          <View style={styles.tabsWrap}>
-            <InstitutionalScreenTabs
-              tabs={mensajesTabs}
-              activeKey={activeTab}
-              onChange={setActiveTab}
-            />
-          </View>
-        ) : null}
+        <View style={styles.tabsWrap}>
+          <InstitutionalScreenTabs
+            tabs={mensajesTabs}
+            activeKey={activeTab}
+            onChange={setActiveTab}
+          />
+        </View>
 
-        {!cotizarIaMode && activeTab === 'chats' && cotizacionesCanalPendientes > 0 ? (
+        {activeTab === 'chats' && cotizacionesCanalPendientes > 0 ? (
           <TouchableOpacity
             style={styles.canalPendienteBanner}
             activeOpacity={0.85}
@@ -498,7 +451,7 @@ export default function ChatsScreen() {
           </TouchableOpacity>
         ) : null}
 
-        {activeTab === 'solicitudes' && !cotizarIaMode ? (
+        {activeTab === 'solicitudes' ? (
           <SolicitudesDisponiblesContent variant="embedded" />
         ) : loading && chatsVisibles.length === 0 ? (
           <View style={styles.loadingContainer}>
@@ -510,7 +463,6 @@ export default function ChatsScreen() {
             data={chatsVisibles}
             renderItem={renderChatItem}
             keyExtractor={(item) => String(item.conversation_id || item.oferta_id || item.kind)}
-            ListHeaderComponent={cotizarIaMode ? renderCotizarIaHeader : undefined}
             contentContainerStyle={[
               styles.listContainer,
               chatsVisibles.length === 0 && styles.listContainerEmpty,
@@ -522,14 +474,6 @@ export default function ChatsScreen() {
             showsVerticalScrollIndicator={false}
           />
         )}
-
-        <CotizacionLibreModal
-          visible={cotizacionLibreVisible}
-          onClose={() => setCotizacionLibreVisible(false)}
-          onEnviada={() => {
-            void refetch();
-          }}
-        />
 
         <AgendarDesdeCanalModal
           visible={Boolean(agendarContacto)}
@@ -575,36 +519,6 @@ const styles = StyleSheet.create({
   listContainerEmpty: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  cotizacionLibreCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.md,
-    padding: SPACING.md,
-    borderRadius: BORDERS.radius.lg,
-    backgroundColor: COLORS.brand.magenta,
-    ...SHADOWS.editorial,
-  },
-  cotizacionLibreIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cotizacionLibreTextWrap: { flex: 1 },
-  cotizacionLibreTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.text.onPrimary,
-    marginBottom: 2,
-  },
-  cotizacionLibreSubtitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: 'rgba(255,255,255,0.92)',
   },
   canalPendienteBanner: {
     marginHorizontal: SPACING.container.horizontal,

@@ -9,12 +9,22 @@ export interface RepuestoCotizacion {
   comentario?: string;
 }
 
+export type CanalCotizacion =
+  | 'whatsapp'
+  | 'instagram'
+  | 'messenger'
+  | 'directo'
+  | 'canal'
+  | string;
+
 export interface CotizacionCanal {
   id: number;
   conversation: number | null;
   es_libre?: boolean;
   cliente_nombre?: string;
   cliente_telefono?: string;
+  cliente_display?: string;
+  canal?: CanalCotizacion;
   token?: string | null;
   url_publica?: string | null;
   share_url?: string | null;
@@ -42,6 +52,8 @@ export interface CotizacionCanal {
   enviada_en?: string | null;
   aceptada_en?: string | null;
   rechazada_en?: string | null;
+  creado_en?: string;
+  actualizado_en?: string;
 }
 
 export interface CotizacionPlantilla {
@@ -107,6 +119,22 @@ class CotizacionCanalService {
   async marcarAceptada(id: number): Promise<CotizacionCanal> {
     const response = await api.post(`/ordenes/cotizaciones-canal/${id}/marcar-aceptada/`);
     return response.data as CotizacionCanal;
+  }
+
+  async marcarPerdida(id: number): Promise<CotizacionCanal> {
+    const response = await api.post(`/ordenes/cotizaciones-canal/${id}/marcar-perdida/`);
+    return response.data as CotizacionCanal;
+  }
+
+  async listar(params?: { page?: number; page_size?: number }): Promise<CotizacionCanal[]> {
+    const search = new URLSearchParams();
+    if (params?.page != null) search.set('page', String(params.page));
+    if (params?.page_size != null) search.set('page_size', String(params.page_size));
+    const qs = search.toString();
+    const url = qs ? `/ordenes/cotizaciones-canal/?${qs}` : '/ordenes/cotizaciones-canal/';
+    const response = await api.get(url);
+    const data = response.data as CotizacionCanal[] | { results?: CotizacionCanal[] };
+    return Array.isArray(data) ? data : data?.results ?? [];
   }
 
   async listarPorConversacion(conversationId: number): Promise<CotizacionCanal[]> {

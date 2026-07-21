@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
@@ -10,7 +11,16 @@ import {
   type RefreshControlProps,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ChevronRight, Filter, MessageCircle } from 'lucide-react-native';
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Link2,
+  MessageCircle,
+  SlidersHorizontal,
+  UserRound,
+  XCircle,
+} from 'lucide-react-native';
 import {
   type PipelineComercialItem,
   type EstadoPipelineNormalizado,
@@ -19,24 +29,29 @@ import {
   ORIGEN_PIPELINE_LABELS,
 } from '@/services/pipelineComercialService';
 import { usePipelineComercialQuery } from '@/hooks/usePipelineComercialQuery';
+import cotizacionCanalService from '@/services/cotizacionCanalService';
+import { BottomSheet } from '@/app/design-system/components/BottomSheet';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { AsignarTecnicoBottomSheet, type AsignarTecnicoTarget } from '@/components/equipo/AsignarTecnicoBottomSheet';
 import {
   ESTADO_OPERATIVO_LABELS,
   ESTADO_OPERATIVO_VARIANT,
   mapPipelineEstadoToOperativo,
 } from '@/utils/estadoOperativo';
-import { COLORS, SPACING, BORDERS, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { COLORS, SPACING, BORDERS, TYPOGRAPHY, SHADOWS } from '@/app/design-system/tokens';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
+const FF = TYPOGRAPHY.fontFamily;
 
 /**
- * Vistas de bandeja (estilo Intercom "Your inbox"), una sola fila horizontal.
- * El origen queda detrás del botón Filtro — no como segunda fila de chips.
+ * Filtros de bandeja estilo Airbnb Hosts:
+ * tabs tipográficos con underline (sin pills brand) + origen en bottom sheet.
  */
 const VISTAS_BANDEJA: Array<{
   key: EstadoPipelineNormalizado | 'abiertos';
@@ -88,7 +103,7 @@ function tiempoRelativo(fechaIso: string | null): string {
   return `${dias}d`;
 }
 
-function navegarItem(item: PipelineComercialItem) {
+function navegarDetalleDirecto(item: PipelineComercialItem) {
   if (item.solicitud_id) {
     router.push(`/solicitud-detalle/${item.solicitud_id}`);
     return;
@@ -101,32 +116,19 @@ function navegarItem(item: PipelineComercialItem) {
     router.push(`/orden-detalle/${item.orden_id}`);
     return;
   }
-  if (item.conversation_id) {
+  if (item.conversation_id && item.tipo_entidad !== 'cotizacion_canal') {
     router.push(`/chat-omnicanal?conversationId=${item.conversation_id}`);
-    return;
-  }
-  if (item.cotizacion_id && item.origen === 'directo') {
-    return;
   }
 }
 
-const InboxRow = React.memo(function InboxRow({
+const LeadCard = React.memo(function LeadCard({
   item,
   onPress,
-  onAsignar,
 }: {
   item: PipelineComercialItem;
   onPress: (item: PipelineComercialItem) => void;
-  onAsignar?: (item: PipelineComercialItem) => void;
 }) {
   const handlePress = useCallback(() => onPress(item), [onPress, item]);
-  const handleAsignar = useCallback(
-    (e?: { stopPropagation?: () => void }) => {
-      e?.stopPropagation?.();
-      onAsignar?.(item);
-    },
-    [onAsignar, item],
-  );
   const monto = item.monto_clp != null ? formatearMontoCLP(item.monto_clp) : null;
   const snippet =
     item.servicio_resumen
@@ -135,88 +137,57 @@ const InboxRow = React.memo(function InboxRow({
   const origenLabel = ORIGEN_PIPELINE_LABELS[item.origen] || item.origen;
   const tiempo = tiempoRelativo(item.fecha_referencia);
   const estadoOperativo = mapPipelineEstadoToOperativo(item.estado_normalizado);
-  const puedeAsignar = !!onAsignar && (item.cita_id || item.orden_id || item.oferta_id);
+  const vehiculo = item.vehiculo_resumen?.trim();
 
   return (
     <TouchableOpacity
-      style={styles.row}
+      style={styles.leadCard}
       onPress={handlePress}
-      activeOpacity={0.72}
+      activeOpacity={0.88}
       accessibilityRole="button"
-      accessibilityLabel={`Abrir ${item.cliente_nombre}`}
+      accessibilityLabel={`Gestionar ${item.cliente_nombre}`}
     >
-      <View style={styles.avatar}>
-        <InstitutionalText role="bodyBold" color="onPrimary">
-          {inicialCliente(item.cliente_nombre)}
-        </InstitutionalText>
-      </View>
-
-      <View style={styles.rowBody}>
-        <View style={styles.rowTop}>
-          <InstitutionalText role="bodyBold" numberOfLines={1} style={styles.cliente}>
-            {item.cliente_nombre}
-          </InstitutionalText>
-          {tiempo ? (
-            <InstitutionalText role="small" color="muted">
-              {tiempo}
-            </InstitutionalText>
-          ) : null}
-        </View>
-
-        <InstitutionalText role="caption" color="muted" numberOfLines={1} style={styles.snippet}>
-          {snippet}
-        </InstitutionalText>
-
-        <View style={styles.rowMeta}>
-          <View style={styles.origenPill}>
-            {item.conversation_id ? (
-              <MessageCircle size={11} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-            ) : null}
-            <InstitutionalText role="small" color="muted">
-              {origenLabel}
-            </InstitutionalText>
-          </View>
-          {item.template_generado_por_ia ? (
-            <InstitutionalTag label="Checklist IA" variant="info" size="sm" />
-          ) : null}
-          {item.esperando_respuesta_24h ? (
-            <InstitutionalText role="small" style={styles.warnText}>
-              +24h
-            </InstitutionalText>
-          ) : item.demorado_48h ? (
-            <InstitutionalText role="small" style={styles.warnText}>
-              +48h
-            </InstitutionalText>
-          ) : item.visto_sin_respuesta ? (
-            <InstitutionalTag label="Visto" variant="warning" size="sm" />
-          ) : (
-            <InstitutionalTag
-              label={ESTADO_OPERATIVO_LABELS[estadoOperativo]}
-              variant={ESTADO_OPERATIVO_VARIANT[estadoOperativo]}
-              size="sm"
-            />
-          )}
-          {monto ? (
-            <InstitutionalText role="small" style={styles.monto}>
-              {monto}
-            </InstitutionalText>
-          ) : null}
-        </View>
-      </View>
-
-      <View style={styles.rowActions}>
-        {puedeAsignar ? (
-          <TouchableOpacity
-            onPress={() => handleAsignar()}
-            style={styles.asignarBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Asignar técnico"
-          >
-            <InstitutionalText role="small" color="primary">
-              Técnico
-            </InstitutionalText>
-          </TouchableOpacity>
+      <View style={styles.cardTop}>
+        {item.esperando_respuesta_24h ? (
+          <InstitutionalTag label="+24h" variant="warning" size="sm" />
+        ) : item.demorado_48h ? (
+          <InstitutionalTag label="+48h" variant="warning" size="sm" />
+        ) : item.visto_sin_respuesta ? (
+          <InstitutionalTag label="Visto" variant="warning" size="sm" />
+        ) : (
+          <InstitutionalTag
+            label={ESTADO_OPERATIVO_LABELS[estadoOperativo]}
+            variant={ESTADO_OPERATIVO_VARIANT[estadoOperativo]}
+            size="sm"
+          />
+        )}
+        <InstitutionalTag label={origenLabel} variant="neutral" size="sm" />
+        {item.template_generado_por_ia ? (
+          <InstitutionalTag label="Checklist IA" variant="info" size="sm" />
         ) : null}
+        <View style={styles.cardTopSpacer} />
+        {monto ? <Text style={styles.cardPrice}>{monto}</Text> : null}
+      </View>
+
+      <Text style={styles.cardTitle} numberOfLines={2}>
+        {snippet}
+      </Text>
+
+      <View style={styles.cardMeta}>
+        <View style={styles.avatarSoft}>
+          <Text style={styles.avatarSoftText}>{inicialCliente(item.cliente_nombre)}</Text>
+        </View>
+        <View style={styles.cardMetaTextCol}>
+          <Text style={styles.cardClient} numberOfLines={1}>
+            {item.cliente_nombre}
+          </Text>
+          {vehiculo ? (
+            <Text style={styles.cardVehicle} numberOfLines={1}>
+              {vehiculo}
+            </Text>
+          ) : null}
+        </View>
+        {tiempo ? <Text style={styles.cardTime}>{tiempo}</Text> : null}
         <ChevronRight size={18} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
     </TouchableOpacity>
@@ -234,10 +205,6 @@ interface Props {
   listRefreshControl?: ReactElement<RefreshControlProps>;
 }
 
-const ListSeparator = React.memo(function ListSeparator() {
-  return <View style={styles.separator} />;
-});
-
 export function PipelineSeguimientoSection({
   compact = false,
   limite = compact ? 5 : 50,
@@ -249,9 +216,11 @@ export function PipelineSeguimientoSection({
 }: Props) {
   const [vista, setVista] = useState<EstadoPipelineNormalizado | 'abiertos'>('abiertos');
   const [origen, setOrigen] = useState<OrigenPipeline | 'todos'>(filtroOrigen ?? 'todos');
-  const [mostrarOrigenes, setMostrarOrigenes] = useState(false);
+  const [origenSheetVisible, setOrigenSheetVisible] = useState(false);
   const [asignarTarget, setAsignarTarget] = useState<AsignarTecnicoTarget | null>(null);
   const [asignarVisible, setAsignarVisible] = useState(false);
+  const [leadActivo, setLeadActivo] = useState<PipelineComercialItem | null>(null);
+  const [accionLoading, setAccionLoading] = useState(false);
 
   useEffect(() => {
     if (filtroOrigen) setOrigen(filtroOrigen);
@@ -308,10 +277,18 @@ export function PipelineSeguimientoSection({
   const loading = isPending && rawResults.length === 0;
 
   const handlePress = useCallback((item: PipelineComercialItem) => {
-    navegarItem(item);
+    if (item.tipo_entidad === 'cotizacion_canal') {
+      setLeadActivo(item);
+      return;
+    }
+    if (item.cita_id || item.orden_id || item.oferta_id) {
+      setLeadActivo(item);
+      return;
+    }
+    navegarDetalleDirecto(item);
   }, []);
 
-  const handleAsignar = useCallback((item: PipelineComercialItem) => {
+  const abrirAsignarDesdeLead = useCallback((item: PipelineComercialItem) => {
     if (item.cita_id) {
       setAsignarTarget({
         tipo: 'cita_personal',
@@ -333,14 +310,64 @@ export function PipelineSeguimientoSection({
     } else {
       return;
     }
+    setLeadActivo(null);
     setAsignarVisible(true);
   }, []);
 
+  const cerrarLeadCotizacion = useCallback(() => {
+    if (!leadActivo?.cotizacion_id) return;
+    const cotizacionId = leadActivo.cotizacion_id;
+    showConfirm('Cerrar caso', 'El lead pasará a Perdidos. Podrás seguir viéndolo en ese filtro.', {
+      confirmText: 'Cerrar caso',
+      onConfirm: async () => {
+        setAccionLoading(true);
+        try {
+          await cotizacionCanalService.marcarPerdida(cotizacionId);
+          setLeadActivo(null);
+          await refetch();
+          showAlert('Caso cerrado', 'La cotización quedó en Perdidos.');
+        } catch {
+          showAlert('Error', 'No se pudo cerrar el caso.');
+        } finally {
+          setAccionLoading(false);
+        }
+      },
+    });
+  }, [leadActivo, refetch]);
+
+  const marcarAceptadaLead = useCallback(async () => {
+    if (!leadActivo?.cotizacion_id) return;
+    setAccionLoading(true);
+    try {
+      await cotizacionCanalService.marcarAceptada(leadActivo.cotizacion_id);
+      setLeadActivo(null);
+      await refetch();
+      showAlert('Cotización aceptada', 'El caso quedó marcado como aceptado.');
+    } catch {
+      showAlert('Error', 'Solo cotizaciones enviadas pueden marcarse como aceptadas.');
+    } finally {
+      setAccionLoading(false);
+    }
+  }, [leadActivo, refetch]);
+
   const renderItem = useCallback(
     ({ item }: { item: PipelineComercialItem }) => (
-      <InboxRow item={item} onPress={handlePress} onAsignar={handleAsignar} />
+      <LeadCard item={item} onPress={handlePress} />
     ),
-    [handlePress, handleAsignar],
+    [handlePress],
+  );
+
+  const leadPuedeCerrar =
+    leadActivo?.tipo_entidad === 'cotizacion_canal'
+    && !!leadActivo.cotizacion_id
+    && !['aceptada', 'rechazada', 'cancelada'].includes(leadActivo.estado_raw);
+  const leadPuedeAceptar =
+    leadActivo?.tipo_entidad === 'cotizacion_canal'
+    && leadActivo.estado_raw === 'enviada';
+  const leadPuedeChat = !!leadActivo?.conversation_id;
+  const leadPuedeAsignar = !!(
+    leadActivo
+    && (leadActivo.cita_id || leadActivo.orden_id || leadActivo.oferta_id)
   );
 
   const keyExtractor = useCallback(
@@ -411,13 +438,18 @@ export function PipelineSeguimientoSection({
       ) : null}
 
       {filtroEsperando24h ? (
-        <View style={styles.alertBanner}>
-          <InstitutionalText role="caption">
-            Cotizaciones sin respuesta hace más de 24 horas
-          </InstitutionalText>
-          <TouchableOpacity onPress={() => router.replace('/(tabs)/bandeja')}>
-            <InstitutionalText role="small" color="primary">
-              Ver abiertos
+        <View style={styles.noticeRow}>
+          <View style={styles.noticeCopy}>
+            <InstitutionalText role="captionBold" color="ink">
+              Sin respuesta +24h
+            </InstitutionalText>
+            <InstitutionalText role="caption" color="muted">
+              Cotizaciones esperando al cliente
+            </InstitutionalText>
+          </View>
+          <TouchableOpacity onPress={() => router.replace('/(tabs)/bandeja')} hitSlop={8}>
+            <InstitutionalText role="captionBold" color="primary">
+              Ver todas
             </InstitutionalText>
           </TouchableOpacity>
         </View>
@@ -425,23 +457,30 @@ export function PipelineSeguimientoSection({
 
       {!compact && !filtroEsperando24h && esperando24h > 0 ? (
         <TouchableOpacity
-          style={styles.alertBanner}
+          style={styles.noticeRow}
           onPress={() => router.push('/(tabs)/bandeja?filtro=esperando_24h')}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={`${esperando24h} cotizaciones sin respuesta hace más de 24 horas`}
         >
-          <InstitutionalText role="caption">
-            {esperando24h} sin respuesta +24h
-          </InstitutionalText>
-          <ChevronRight size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+          <View style={styles.noticeCopy}>
+            <InstitutionalText role="captionBold" color="ink">
+              {esperando24h} sin respuesta +24h
+            </InstitutionalText>
+            <InstitutionalText role="caption" color="muted">
+              Revisar cotizaciones pendientes
+            </InstitutionalText>
+          </View>
+          <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
       ) : null}
 
       {!filtroEsperando24h ? (
-        <View style={styles.toolbar}>
+        <View style={styles.filterBar}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.vistasRow}
+            contentContainerStyle={styles.vistasTrack}
           >
             {VISTAS_BANDEJA.map((v) => {
               const active = vista === v.key;
@@ -449,18 +488,20 @@ export function PipelineSeguimientoSection({
               return (
                 <TouchableOpacity
                   key={v.key}
-                  style={[styles.vistaChip, active && styles.vistaChipActive]}
+                  style={[styles.vistaTab, active && styles.vistaTabActive]}
                   onPress={() => setVista(v.key)}
-                  activeOpacity={0.85}
+                  activeOpacity={0.75}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
                 >
-                  <InstitutionalText
-                    role="small"
-                    color={active ? 'onPrimary' : 'muted'}
-                    style={active ? styles.vistaChipLabelActive : undefined}
-                  >
+                  <Text style={[styles.vistaLabel, active && styles.vistaLabelActive]}>
                     {v.label}
-                    {badge > 0 ? ` · ${badge}` : ''}
-                  </InstitutionalText>
+                  </Text>
+                  {badge > 0 ? (
+                    <Text style={[styles.vistaCount, active && styles.vistaCountActive]}>
+                      {badge}
+                    </Text>
+                  ) : null}
                 </TouchableOpacity>
               );
             })}
@@ -468,59 +509,24 @@ export function PipelineSeguimientoSection({
 
           {!compact ? (
             <TouchableOpacity
-              style={[styles.filterBtn, origen !== 'todos' && styles.filterBtnActive]}
-              onPress={() => setMostrarOrigenes((o) => !o)}
-              activeOpacity={0.85}
-              accessibilityLabel="Filtrar por origen"
+              style={styles.origenTrigger}
+              onPress={() => setOrigenSheetVisible(true)}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={
+                origenActivoLabel
+                  ? `Filtrar origen: ${origenActivoLabel}`
+                  : 'Filtrar por origen'
+              }
             >
-              <Filter
-                size={16}
-                color={origen !== 'todos' ? I.onPrimary : I.ink}
-                strokeWidth={ICON_STROKE_WIDTH}
-              />
+              <SlidersHorizontal size={15} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.origenTriggerText} numberOfLines={1}>
+                {origenActivoLabel ?? 'Origen'}
+              </Text>
+              <ChevronDown size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
           ) : null}
         </View>
-      ) : null}
-
-      {mostrarOrigenes && !compact ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.origenesRow}
-        >
-          {ORIGENES.map((o) => {
-            const active = origen === o.key;
-            return (
-              <TouchableOpacity
-                key={o.key}
-                style={[styles.origenChip, active && styles.origenChipActive]}
-                onPress={() => {
-                  setOrigen(o.key);
-                  if (o.key === 'todos') setMostrarOrigenes(false);
-                }}
-              >
-                <InstitutionalText role="small" color={active ? 'onPrimary' : 'muted'}>
-                  {o.label}
-                </InstitutionalText>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      ) : null}
-
-      {origenActivoLabel && !mostrarOrigenes ? (
-        <TouchableOpacity
-          style={styles.origenActivoHint}
-          onPress={() => setMostrarOrigenes(true)}
-        >
-          <InstitutionalText role="small" color="muted">
-            Origen: {origenActivoLabel}
-          </InstitutionalText>
-          <InstitutionalText role="small" color="primary">
-            Cambiar
-          </InstitutionalText>
-        </TouchableOpacity>
       ) : null}
     </View>
   );
@@ -528,27 +534,27 @@ export function PipelineSeguimientoSection({
   return (
     <View style={[styles.section, !compact && styles.sectionFill]}>
       {listHeader}
-      <View style={[styles.listSurface, !compact && styles.listSurfaceFill]}>
-        <FlatList
-          data={items}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          scrollEnabled={!compact}
-          nestedScrollEnabled={compact}
-          style={!compact ? styles.listFill : undefined}
-          refreshControl={refreshControl}
-          ItemSeparatorComponent={ListSeparator}
-          contentContainerStyle={!compact ? styles.listContentPad : undefined}
-          ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <InstitutionalText role="bodyBold">Nada aquí</InstitutionalText>
-              <InstitutionalText role="caption" color="muted" style={styles.emptySub}>
-                No hay elementos en esta vista.
-              </InstitutionalText>
-            </View>
-          }
-        />
-      </View>
+      <FlatList
+        data={items}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        scrollEnabled={!compact}
+        nestedScrollEnabled={compact}
+        style={!compact ? styles.listFill : undefined}
+        refreshControl={refreshControl}
+        contentContainerStyle={[
+          styles.listContentPad,
+          items.length === 0 && styles.listContentEmpty,
+        ]}
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            <InstitutionalText role="bodyBold">Nada aquí</InstitutionalText>
+            <InstitutionalText role="caption" color="muted" style={styles.emptySub}>
+              No hay elementos en esta vista.
+            </InstitutionalText>
+          </View>
+        }
+      />
 
       <AsignarTecnicoBottomSheet
         visible={asignarVisible}
@@ -561,6 +567,120 @@ export function PipelineSeguimientoSection({
           void refetch();
         }}
       />
+
+      <BottomSheet visible={Boolean(leadActivo)} onClose={() => setLeadActivo(null)}>
+        {leadActivo ? (
+          <>
+            <InstitutionalText role="h4" style={styles.sheetTitle}>
+              {leadActivo.cliente_nombre}
+            </InstitutionalText>
+            <InstitutionalText role="caption" color="muted" style={styles.sheetSubtitle}>
+              {(leadActivo.servicio_resumen || 'Caso comercial').slice(0, 120)}
+              {' · '}
+              {ORIGEN_PIPELINE_LABELS[leadActivo.origen] || leadActivo.origen}
+            </InstitutionalText>
+            <View style={styles.leadActions}>
+              {leadPuedeChat ? (
+                <InstitutionalButton
+                  label="Ver conversación"
+                  variant="secondary"
+                  leading={<MessageCircle size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
+                  onPress={() => {
+                    const id = leadActivo.conversation_id;
+                    setLeadActivo(null);
+                    if (id) router.push(`/chat-omnicanal?conversationId=${id}`);
+                  }}
+                />
+              ) : null}
+              {leadActivo.solicitud_id || leadActivo.cita_id || leadActivo.orden_id ? (
+                <InstitutionalButton
+                  label="Ver detalle"
+                  variant="secondary"
+                  leading={<UserRound size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
+                  onPress={() => {
+                    const item = leadActivo;
+                    setLeadActivo(null);
+                    navegarDetalleDirecto(item);
+                  }}
+                />
+              ) : null}
+              {leadPuedeAsignar ? (
+                <InstitutionalButton
+                  label="Asignar técnico"
+                  variant="secondary"
+                  onPress={() => abrirAsignarDesdeLead(leadActivo)}
+                />
+              ) : null}
+              {leadPuedeAceptar ? (
+                <InstitutionalButton
+                  label="Marcar aceptada"
+                  loading={accionLoading}
+                  onPress={() => void marcarAceptadaLead()}
+                />
+              ) : null}
+              {leadPuedeCerrar ? (
+                <InstitutionalButton
+                  label="Cerrar caso"
+                  variant="destructiveOutline"
+                  loading={accionLoading}
+                  leading={<XCircle size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />}
+                  onPress={cerrarLeadCotizacion}
+                />
+              ) : null}
+              {leadActivo.tipo_entidad === 'cotizacion_canal' && leadActivo.origen === 'directo' ? (
+                <InstitutionalButton
+                  label="Cotización por link"
+                  variant="tertiary"
+                  leading={<Link2 size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
+                  onPress={() => {
+                    showAlert(
+                      'Link libre',
+                      'Esta cotización se compartió por enlace público. El seguimiento es por estado (visto, aceptada o rechazada).',
+                    );
+                  }}
+                />
+              ) : null}
+            </View>
+          </>
+        ) : null}
+      </BottomSheet>
+
+      <BottomSheet
+        visible={origenSheetVisible}
+        onClose={() => setOrigenSheetVisible(false)}
+      >
+        <InstitutionalText role="h4" style={styles.sheetTitle}>
+          Origen
+        </InstitutionalText>
+        <InstitutionalText role="caption" color="muted" style={styles.sheetSubtitle}>
+          Filtra solicitudes y cotizaciones por canal
+        </InstitutionalText>
+        <View style={styles.sheetList}>
+          {ORIGENES.map((o) => {
+            const active = origen === o.key;
+            return (
+              <TouchableOpacity
+                key={o.key}
+                style={[styles.sheetRow, active && styles.sheetRowActive]}
+                onPress={() => {
+                  setOrigen(o.key);
+                  setOrigenSheetVisible(false);
+                }}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <InstitutionalText role="body" color={active ? 'ink' : 'body'}>
+                  {o.label}
+                </InstitutionalText>
+                {active ? (
+                  <Check size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </BottomSheet>
     </View>
   );
 }
@@ -581,138 +701,187 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingTop: 4,
   },
-  alertBanner: {
+  noticeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: SPACING.fixed.sm,
-    backgroundColor: COLORS.background.warning,
-    borderRadius: BORDERS.radius.md,
-    paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.sm,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xs,
-  },
-  vistasRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xs,
-    paddingRight: SPACING.fixed.xs,
-  },
-  vistaChip: {
-    paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.xs,
-    borderRadius: BORDERS.radius.full,
-    backgroundColor: COLORS.tab.unselectedBg,
-  },
-  vistaChipActive: {
-    backgroundColor: I.primary,
-  },
-  vistaChipLabelActive: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-  },
-  filterBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.tab.unselectedBg,
-  },
-  filterBtnActive: {
-    backgroundColor: I.primary,
-  },
-  origenesRow: {
-    flexDirection: 'row',
-    gap: SPACING.fixed.xs,
-    paddingVertical: SPACING.fixed.xxs,
-  },
-  origenChip: {
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: SPACING.fixed.xxs,
-    borderRadius: BORDERS.radius.full,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
-  },
-  origenChipActive: {
-    backgroundColor: I.primary,
-    borderColor: I.primary,
-  },
-  origenActivoHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  listSurface: {
     backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: I.hairline,
-    overflow: 'hidden',
-  },
-  listSurfaceFill: { flex: 1 },
-  listFill: { flex: 1 },
-  listContentPad: { paddingBottom: SPACING.fixed['2xl'] },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.sm,
     paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.md,
-    backgroundColor: COLORS.background.paper,
+    paddingVertical: SPACING.fixed.sm + 2,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: I.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rowBody: {
+  noticeCopy: {
     flex: 1,
     gap: 2,
     minWidth: 0,
   },
-  rowTop: {
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: SPACING.fixed.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+  },
+  vistasTrack: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    paddingRight: SPACING.fixed.xs,
+    minHeight: 44,
+  },
+  vistaTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.xs,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+    marginBottom: -StyleSheet.hairlineWidth,
+  },
+  vistaTabActive: {
+    borderBottomColor: I.ink,
+  },
+  vistaLabel: {
+    fontFamily: FF.sansMedium,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.muted,
+  },
+  vistaLabelActive: {
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  vistaCount: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.mutedSoft,
+  },
+  vistaCountActive: {
+    fontFamily: FF.sansMedium,
+    color: I.muted,
+  },
+  origenTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 4,
+    maxWidth: 118,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xs + 2,
+    borderRadius: BORDERS.radius.sm,
+    backgroundColor: I.surfaceSoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+    marginBottom: SPACING.fixed.xs,
+  },
+  origenTriggerText: {
+    flexShrink: 1,
+    fontFamily: FF.sansMedium,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.ink,
+  },
+  sheetTitle: {
+    marginBottom: 4,
+  },
+  sheetSubtitle: {
+    marginBottom: SPACING.fixed.md,
+  },
+  sheetList: {
+    gap: SPACING.fixed.xxs,
+    paddingBottom: SPACING.fixed.sm,
+  },
+  sheetRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.md,
+  },
+  sheetRowActive: {
+    backgroundColor: I.surfaceSoft,
+  },
+  leadActions: {
+    gap: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.sm,
+  },
+  listFill: { flex: 1 },
+  listContentPad: {
+    paddingBottom: SPACING.fixed['2xl'],
     gap: SPACING.fixed.sm,
   },
-  cliente: { flex: 1 },
-  snippet: {
-    fontSize: T.caption.fontSize,
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
-  rowMeta: {
+  leadCard: {
+    backgroundColor: COLORS.background.paper,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+    padding: SPACING.fixed.md,
+    gap: SPACING.fixed.sm,
+    ...SHADOWS.editorial,
+  },
+  cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: SPACING.fixed.sm,
-    marginTop: 2,
+    gap: SPACING.fixed.xs,
   },
-  origenPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  warnText: {
-    color: COLORS.warning.dark,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-  },
-  monto: {
-    marginLeft: 'auto',
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+  cardTopSpacer: { flex: 1, minWidth: 8 },
+  cardPrice: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.ink,
   },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: I.hairline,
-    marginLeft: SPACING.fixed.md + 40 + SPACING.fixed.sm,
+  cardTitle: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: T.h4.fontSize,
+    color: I.ink,
+    lineHeight: Math.round(T.h4.fontSize * 1.3),
+  },
+  cardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+  },
+  avatarSoft: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: I.surfaceStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+  },
+  avatarSoftText: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.ink,
+  },
+  cardMetaTextCol: { flex: 1, minWidth: 0, gap: 2 },
+  cardClient: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.ink,
+  },
+  cardVehicle: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.muted,
+  },
+  cardTime: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.muted,
   },
   emptyWrap: {
     paddingVertical: SPACING.fixed['2xl'],
@@ -722,18 +891,6 @@ const styles = StyleSheet.create({
   },
   emptySub: { textAlign: 'center' },
   loadingWrap: { paddingVertical: SPACING.fixed.lg, alignItems: 'center' },
-  rowActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xxs,
-    flexShrink: 0,
-  },
-  asignarBtn: {
-    paddingHorizontal: SPACING.fixed.xs,
-    paddingVertical: SPACING.fixed.xxs,
-    borderRadius: BORDERS.radius.sm,
-    backgroundColor: I.surfaceStrong,
-  },
 });
 
 export default PipelineSeguimientoSection;
