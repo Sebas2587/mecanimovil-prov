@@ -253,7 +253,8 @@ export const COLORS = {
 
   icon: {
     default: ICON_DEFAULT,
-    active: ORANGE,
+    /** Activo UI = brand Tinder (magenta), no naranja suelto. */
+    active: MAGENTA,
     muted: TAB_MUTED,
   },
 
@@ -261,8 +262,9 @@ export const COLORS = {
     unselected: TAB_MUTED,
     unselectedBg: TONAL,
     selectedBg: '#FFFFFF',
-    selectedText: ORANGE,
-    selectedBorder: ORANGE,
+    /** Tab bar Airbnb paper + acento Tinder (10% brand). */
+    selectedText: MAGENTA,
+    selectedBorder: MAGENTA,
     selectedOnFill: '#FFFFFF',
   },
 

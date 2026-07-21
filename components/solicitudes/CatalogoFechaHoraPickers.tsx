@@ -443,8 +443,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timeChipInRange: {
-    backgroundColor: withOpacity(I.primary, 0.18),
-    borderColor: withOpacity(I.primary, 0.35),
+    backgroundColor: I.surfaceSoft,
+    borderColor: I.hairline,
   },
   rangoHint: {
     fontSize: TYPOGRAPHY.fontSize.sm,
@@ -452,9 +452,10 @@ const styles = StyleSheet.create({
     color: I.body,
     marginBottom: SPACING.fixed.xxs,
   },
+  /** Selección Airbnb Calendar: disco ink, no magenta de selección. */
   chipSelected: {
-    backgroundColor: I.primary,
-    borderColor: I.primary,
+    backgroundColor: I.ink,
+    borderColor: I.ink,
   },
   dayWeek: {
     fontSize: TYPOGRAPHY.fontSize.xs,
@@ -483,7 +484,7 @@ const styles = StyleSheet.create({
     color: I.onPrimary,
   },
   chipTextInRange: {
-    color: I.primaryActive,
+    color: I.ink,
     fontFamily: FF.sansSemiBold,
   },
   chipTextMutedOn: {

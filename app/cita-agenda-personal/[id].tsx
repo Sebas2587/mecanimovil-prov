@@ -1194,7 +1194,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                           || checklistCompletado) ? (
                         <InstitutionalButton
                           label="Ver resumen del trabajo"
-                          variant="secondary"
+                          variant="primary"
                           onPress={() => setShowChecklistResumen(true)}
                         />
                       ) : null}
@@ -1215,7 +1215,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                                 ? 'Copiar enlace'
                                 : 'Copiar / compartir enlace'
                             }
-                            variant="primary"
+                            variant="secondary"
                             onPress={() => void copiarEnlaceInformeCita(cita.informe_publico_url!)}
                           />
                         </View>

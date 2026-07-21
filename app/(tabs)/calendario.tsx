@@ -35,6 +35,7 @@ import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { institutionalCardStyles } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
@@ -43,6 +44,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { OrigenOrdenBadge } from '@/components/ordenes/OrigenOrdenBadge';
 import type { OrigenOrden } from '@/utils/ordenProveedorUnificada';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { ChevronRight } from 'lucide-react-native';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -80,6 +82,7 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
 }) {
   const esSeleccionado = esMismaFecha(diaCalendario.fecha, fechaSeleccionada);
   const esPasadaVisible = diaCalendario.esPasada && !diaCalendario.esOtroMes;
+  const tieneCitas = diaCalendario.tieneOrdenes && !diaCalendario.esOtroMes;
   const handlePress = useCallback(() => {
     onSelect(diaCalendario.fecha);
   }, [onSelect, diaCalendario.fecha]);
@@ -89,43 +92,38 @@ const CalendarDayCell = React.memo(function CalendarDayCell({
       style={[
         styles.calendarDay,
         diaCalendario.esOtroMes && styles.calendarDayOtherMonth,
-        esPasadaVisible
-          && !esSeleccionado
-          && !diaCalendario.tieneOrdenes
-          && styles.calendarDayPast,
+        esPasadaVisible && !esSeleccionado && !tieneCitas && styles.calendarDayPast,
+        tieneCitas && !esSeleccionado && styles.calendarDayWithOrders,
+        tieneCitas && !esSeleccionado && esPasadaVisible && styles.calendarDayPastWithOrders,
         diaCalendario.esHoy && !esSeleccionado && styles.calendarDayToday,
         esSeleccionado && styles.calendarDaySelected,
-        diaCalendario.tieneOrdenes
-          && !esSeleccionado
-          && !diaCalendario.esOtroMes
-          && styles.calendarDayWithOrders,
-        diaCalendario.tieneOrdenes
-          && !esSeleccionado
-          && !diaCalendario.esOtroMes
-          && esPasadaVisible
-          && styles.calendarDayPastWithOrders,
       ]}
       onPress={handlePress}
       activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityState={{ selected: esSeleccionado }}
-      accessibilityLabel={`${diaCalendario.dia}${diaCalendario.tieneOrdenes ? ', con citas' : ''}`}
+      accessibilityLabel={`${diaCalendario.dia}${tieneCitas ? ', con citas' : ''}`}
     >
       <Text
         style={[
           styles.calendarDayText,
           diaCalendario.esOtroMes && styles.calendarDayTextOtherMonth,
-          esPasadaVisible && !esSeleccionado && !diaCalendario.tieneOrdenes && styles.calendarDayTextPast,
+          esPasadaVisible && !esSeleccionado && !tieneCitas && styles.calendarDayTextPast,
+          tieneCitas && !esSeleccionado && styles.calendarDayTextWithOrders,
           diaCalendario.esHoy && !esSeleccionado && styles.calendarDayTextToday,
           esSeleccionado && styles.calendarDayTextSelected,
-          diaCalendario.tieneOrdenes
-            && !esSeleccionado
-            && !diaCalendario.esOtroMes
-            && styles.calendarDayTextWithOrders,
         ]}
       >
         {diaCalendario.dia}
       </Text>
+      {tieneCitas ? (
+        <View
+          style={[
+            styles.calendarDayBar,
+            esSeleccionado && styles.calendarDayBarOnSelected,
+          ]}
+        />
+      ) : null}
     </TouchableOpacity>
   );
 });
@@ -145,61 +143,55 @@ const AgendaEventCard = React.memo(function AgendaEventCard({
   const precio = evento.precio_referencia
     ? formatearMontoCLP(evento.precio_referencia)
     : '';
+  const hora = evento.hora_servicio ? formatearHoraStr(evento.hora_servicio) : null;
+  const vehiculo = [evento.vehiculo_marca, evento.vehiculo_modelo]
+    .filter(Boolean)
+    .join(' ');
+  const modalidadLabel = evento.tipo_servicio === 'domicilio' ? 'A domicilio' : 'En taller';
 
   return (
     <TouchableOpacity
       style={styles.orderListCard}
       onPress={handlePress}
-      activeOpacity={0.8}
+      activeOpacity={0.88}
+      accessibilityRole="button"
+      accessibilityLabel={`${nombreServicio}, ${evento.cliente_nombre || 'cliente'}`}
     >
-      <View style={styles.orderListCardContent}>
-        <View style={styles.cardTitleRow}>
-          <Text style={styles.orderListCardTitle} numberOfLines={2}>
-            {nombreServicio}
-          </Text>
-          <OrigenOrdenBadge origen={evento.origen as OrigenOrden} />
-        </View>
-
-        <Text style={styles.orderListCardDate}>
-          {formatearFechaStr(evento.fecha_servicio)}
-          {evento.hora_servicio && ` • ${formatearHoraStr(evento.hora_servicio)}`}
-        </Text>
-
-        <View style={styles.orderListCardUserSection}>
-          <View style={styles.orderListCardUserPhotoPlaceholder}>
-            <InstitutionalIcon name="person" size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-          </View>
-          <View style={styles.orderListCardUserInfo}>
-            <Text style={styles.orderListCardUserName} numberOfLines={1}>
-              {evento.cliente_nombre || 'Cliente'}
-            </Text>
-            <Text style={styles.orderListCardVehicle} numberOfLines={1}>
-              {evento.vehiculo_marca} {evento.vehiculo_modelo}
-              {evento.vehiculo_anio ? ` (${evento.vehiculo_anio})` : ''}
-            </Text>
-          </View>
-        </View>
+      <View style={styles.cardTop}>
+        {hora ? <Text style={styles.cardTime}>{hora}</Text> : null}
+        <View style={styles.cardTopSpacer} />
+        {precio ? <Text style={styles.cardPrice}>{precio}</Text> : null}
       </View>
 
-      <View style={styles.orderListCardRight}>
-        <Text style={styles.orderListCardServiceType}>
-          {evento.tipo_servicio === 'domicilio' ? 'A domicilio' : 'En taller'}
-        </Text>
-        {precio ? <Text style={styles.orderListCardPrice}>{precio}</Text> : null}
+      <Text style={styles.cardTitle} numberOfLines={2}>
+        {nombreServicio}
+      </Text>
+
+      <View style={styles.cardTags}>
+        <OrigenOrdenBadge origen={evento.origen as OrigenOrden} />
+        <InstitutionalTag label={modalidadLabel} variant="neutral" size="sm" />
+      </View>
+
+      <View style={styles.cardGuestRow}>
+        <View style={styles.cardGuestAvatar}>
+          <InstitutionalIcon name="person" size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+        </View>
+        <View style={styles.cardGuestCopy}>
+          <Text style={styles.cardGuestName} numberOfLines={1}>
+            {evento.cliente_nombre || 'Cliente'}
+          </Text>
+          {vehiculo ? (
+            <Text style={styles.cardGuestMeta} numberOfLines={1}>
+              {vehiculo}
+              {evento.vehiculo_anio ? ` · ${evento.vehiculo_anio}` : ''}
+            </Text>
+          ) : null}
+        </View>
+        <ChevronRight size={18} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
     </TouchableOpacity>
   );
 });
-
-function formatearFechaStr(fecha: string) {
-  const parsed = parseFechaLocal(fecha);
-  if (!parsed) return fecha;
-  return parsed.toLocaleDateString('es-CL', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-}
 
 function formatearHoraStr(hora: string) {
   return hora.substring(0, 5);
@@ -693,7 +685,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    borderRadius: BORDERS.radius.md,
+    /** Celdas circulares estilo Airbnb Calendar */
+    borderRadius: BORDERS.radius.pill,
     padding: 2,
   },
   calendarDayPast: {
@@ -705,20 +698,21 @@ const styles = StyleSheet.create({
   calendarDayOtherMonth: {
     opacity: 0.32,
   },
+  /** Hoy: anillo ink (el relleno de “con citas” se conserva si aplica). */
   calendarDayToday: {
-    backgroundColor: COLORS.selection.background,
-    borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.selection.border,
+    borderWidth: 1.5,
+    borderColor: I.ink,
   },
+  /** Seleccionado: disco ink + texto blanco (Airbnb). */
   calendarDaySelected: {
-    backgroundColor: COLORS.selection.backgroundStrong,
-    borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.selection.border,
+    backgroundColor: I.ink,
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
+  /** Con citas: relleno tonal + barra inferior (Airbnb busy day). */
   calendarDayWithOrders: {
-    backgroundColor: withOpacity(I.semanticUp, 0.1),
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.semanticUp, 0.35),
+    backgroundColor: I.surfaceSoft,
+    borderWidth: 0,
   },
   calendarDayText: {
     fontSize: TYPOGRAPHY.fontSize.base,
@@ -732,130 +726,112 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   calendarDayTextToday: {
-    color: COLORS.selection.text,
+    color: I.ink,
     fontFamily: FF.sansBold,
   },
   calendarDayTextSelected: {
-    color: COLORS.selection.text,
+    color: I.onPrimary,
     fontFamily: FF.sansBold,
   },
   calendarDayTextWithOrders: {
-    color: I.semanticUp,
-    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    fontFamily: FF.sansBold,
+  },
+  calendarDayBar: {
+    position: 'absolute',
+    bottom: 6,
+    width: 14,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: I.ink,
+  },
+  calendarDayBarOnSelected: {
+    backgroundColor: I.onPrimary,
   },
   ordenesSection: {
     paddingHorizontal: hx,
     paddingTop: SPACING.fixed.lg,
     paddingBottom: SPACING.fixed.md,
+    gap: SPACING.fixed.sm,
   },
   ordenesSectionTitle: {
     fontSize: TYPOGRAPHY.fontSize.xl,
     fontFamily: FF.sansSemiBold,
     color: I.ink,
-    marginBottom: SPACING.fixed.md,
+    marginBottom: SPACING.fixed.xs,
     textTransform: 'capitalize',
   },
+  /** Card reserva Airbnb Hosts: paper, stack vertical, hora + precio al tope. */
   orderListCard: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.card.xl,
+    backgroundColor: COLORS.background.paper,
+    borderRadius: BORDERS.radius.lg,
     padding: SPACING.fixed.md,
-    marginBottom: SPACING.fixed.md,
-    ...SHADOWS.editorial,
+    marginBottom: SPACING.fixed.sm,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: SPACING.fixed.md,
-  },
-  orderListCardContent: {
-    flex: 1,
     gap: SPACING.fixed.sm,
-    minWidth: 0,
+    ...SHADOWS.editorial,
   },
-  cardTitleRow: {
+  cardTop: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.fixed.xs,
+    alignItems: 'baseline',
+    gap: SPACING.fixed.sm,
   },
-  origenBadge: {
-    paddingHorizontal: SPACING.fixed.xs + 2,
-    paddingVertical: 2,
-    borderRadius: BORDERS.radius.sm,
-    flexShrink: 0,
-  },
-  origenBadgeText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansSemiBold,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  orderListCardTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg + 2,
+  cardTopSpacer: { flex: 1 },
+  cardTime: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansSemiBold,
     color: I.ink,
-    marginBottom: 2,
-    lineHeight: Math.round((TYPOGRAPHY.fontSize.lg + 2) * 1.3),
+    letterSpacing: 0.2,
   },
-  orderListCardDate: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansRegular,
-    color: I.muted,
-    marginBottom: SPACING.fixed.sm,
+  cardPrice: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.monoMedium,
+    color: I.ink,
   },
-  orderListCardUserSection: {
+  cardTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.lg * 1.3),
+  },
+  cardTags: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.fixed.sm,
-    marginTop: SPACING.fixed.xxs,
-  },
-  orderListCardUserPhoto: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: I.hairline,
-    flexShrink: 0,
-  },
-  orderListCardUserPhotoPlaceholder: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: I.primary,
-    justifyContent: 'center',
+    flexWrap: 'wrap',
     alignItems: 'center',
+    gap: SPACING.fixed.xs,
+  },
+  cardGuestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+  },
+  cardGuestAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: I.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
   },
-  orderListCardUserInfo: {
+  cardGuestCopy: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
-  orderListCardUserName: {
+  cardGuestName: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansMedium,
     color: I.ink,
   },
-  orderListCardVehicle: {
+  cardGuestMeta: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansRegular,
     color: I.muted,
-  },
-  orderListCardRight: {
-    alignItems: 'flex-end',
-    justifyContent: 'flex-end',
-    gap: SPACING.fixed.xxs + 2,
-    minWidth: 100,
-    flexShrink: 0,
-  },
-  orderListCardServiceType: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansMedium,
-    color: I.muted,
-    textAlign: 'right',
-  },
-  orderListCardPrice: {
-    fontSize: TYPOGRAPHY.fontSize.lg + 2,
-    fontFamily: FF.monoMedium,
-    color: I.ink,
-    textAlign: 'right',
   },
   emptyState: {
     alignItems: 'center',

@@ -87,7 +87,8 @@ export default function TabLayout() {
   }, []);
 
   const tabH = Platform.OS === 'ios' ? 84 : 64;
-  const activeTint = C.icon.active;
+  /** Seleccionado = magenta Tinder; inactivo = muted Airbnb Hosts. */
+  const activeTint = C.tab.selectedText;
   const inactiveTint = C.tab.unselected;
 
   return (
@@ -118,6 +119,9 @@ export default function TabLayout() {
           fontSize: 11,
           fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
           marginTop: 2,
+        },
+        tabBarActiveLabelStyle: {
+          fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
         },
         tabBarIconStyle: {
           marginBottom: 0,
