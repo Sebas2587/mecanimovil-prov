@@ -15,6 +15,16 @@ import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
 
 const C = COLORS;
 
+/**
+ * Orden estratégico (usabilidad taller):
+ * 1. Hoy — hub del día
+ * 2. Agenda — cuándo trabajar
+ * 3. Servicios — activas / completadas / rechazadas (incl. citas personales)
+ * 4. Mensajes — comunicación
+ * 5. Menú — configuración y resto
+ *
+ * Bandeja comercial: no va en tabs (ya hay card en Hoy). Ruta oculta.
+ */
 export default function TabLayout() {
   const { isAuthenticated, isLoading, esMecanicoEquipo } = useAuth();
   const { radarOportunidadesActivo, radarPreferenciaCargada } = useRadarOportunidades();
@@ -127,14 +137,23 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Inbox comercial: acceso principal (no un link escondido en Hoy). */}
       <Tabs.Screen
-        name="bandeja"
+        name="calendario"
         options={{
-          title: 'Bandeja',
+          title: 'Agenda',
           href: esMecanicoEquipo ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <Inbox size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
+            <Calendar size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="ordenes"
+        options={{
+          title: 'Servicios',
+          tabBarIcon: ({ color, focused }) => (
+            <ClipboardList size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
           ),
         }}
       />
@@ -160,34 +179,23 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="calendario"
-        options={{
-          title: 'Agenda',
-          href: esMecanicoEquipo ? null : undefined,
-          tabBarIcon: ({ color, focused }) => (
-            <Calendar size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
-          ),
-        }}
-      />
-
-      {/* Órdenes en curso: sigue disponible desde Hoy y Menú (evita 6 tabs). */}
-      <Tabs.Screen
-        name="ordenes"
-        options={{
-          title: 'Servicios',
-          href: null,
-          tabBarIcon: ({ color, focused }) => (
-            <ClipboardList size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
         name="perfil"
         options={{
           title: 'Menú',
           tabBarIcon: ({ color, focused }) => (
             <Menu size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
+          ),
+        }}
+      />
+
+      {/* Bandeja: card en Hoy; no satura la barra inferior. */}
+      <Tabs.Screen
+        name="bandeja"
+        options={{
+          title: 'Bandeja',
+          href: null,
+          tabBarIcon: ({ color, focused }) => (
+            <Inbox size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
           ),
         }}
       />

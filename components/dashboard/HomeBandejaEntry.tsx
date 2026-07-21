@@ -1,8 +1,8 @@
-import React, { memo, useCallback, useEffect, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { ChevronRight, Inbox } from 'lucide-react-native';
-import pipelineComercialService from '@/services/pipelineComercialService';
+import { usePipelineComercialQuery } from '@/hooks/usePipelineComercialQuery';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
@@ -14,53 +14,26 @@ const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
 
 const ESTADOS_ATENCION = new Set(['nuevo', 'cotizacion_enviada', 'en_negociacion']);
-const TIPOS_AGENDABLES = new Set([
-  'oferta',
-  'cita_personal',
-  'orden_directa',
-  'solicitud_publica',
-]);
 
 export type HomeBandejaEntryProps = {
   enabled?: boolean;
   refreshKey?: number;
 };
 
-/**
- * Acceso primario a la Bandeja desde Hoy: card grande, no un link de 11px.
- * El tab inferior "Bandeja" es el acceso permanente; esta card refuerza el hábito.
- */
 function HomeBandejaEntryInner({ enabled = true, refreshKey = 0 }: HomeBandejaEntryProps) {
-  const [loading, setLoading] = useState(true);
-  const [pendientes, setPendientes] = useState(0);
+  const { data, isPending, refetch } = usePipelineComercialQuery(
+    { limite: 100, fetchAllEstados: true },
+    { enabled },
+  );
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!enabled) {
-      setPendientes(0);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    (async () => {
-      try {
-        const data = await pipelineComercialService.listar({ limite: 40 });
-        const n = data.results.filter(
-          (row) =>
-            ESTADOS_ATENCION.has(row.estado_normalizado)
-            && TIPOS_AGENDABLES.has(row.tipo_entidad),
-        ).length;
-        if (!cancelled) setPendientes(n);
-      } catch {
-        if (!cancelled) setPendientes(0);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, refreshKey]);
+  React.useEffect(() => {
+    if (refreshKey > 0) void refetch();
+  }, [refreshKey, refetch]);
+
+  const pendientes = useMemo(() => {
+    if (!data?.results) return 0;
+    return data.results.filter((row) => ESTADOS_ATENCION.has(row.estado_normalizado)).length;
+  }, [data?.results]);
 
   const abrir = useCallback(() => {
     router.push('/(tabs)/bandeja');
@@ -82,7 +55,7 @@ function HomeBandejaEntryInner({ enabled = true, refreshKey = 0 }: HomeBandejaEn
       <View style={styles.textCol}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>Bandeja</Text>
-          {loading ? (
+          {isPending ? (
             <ActivityIndicator size="small" color={I.primary} />
           ) : pendientes > 0 ? (
             <View style={styles.badge}>

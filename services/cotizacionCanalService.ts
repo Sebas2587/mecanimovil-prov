@@ -11,7 +11,14 @@ export interface RepuestoCotizacion {
 
 export interface CotizacionCanal {
   id: number;
-  conversation: number;
+  conversation: number | null;
+  es_libre?: boolean;
+  cliente_nombre?: string;
+  cliente_telefono?: string;
+  token?: string | null;
+  url_publica?: string | null;
+  share_url?: string | null;
+  visto_en?: string | null;
   estado: 'borrador' | 'enviada' | 'aceptada' | 'rechazada' | 'expirada' | 'cancelada';
   modalidad: 'taller' | 'domicilio';
   vehiculo_marca: string;
@@ -50,7 +57,9 @@ export interface CotizacionPlantilla {
 }
 
 export interface GenerarCotizacionIaPayload {
-  conversation_id: number;
+  conversation_id?: number | null;
+  cliente_nombre?: string;
+  cliente_telefono?: string;
   servicio_nombre?: string;
   descripcion_problema?: string;
   modalidad?: 'taller' | 'domicilio';
@@ -77,9 +86,17 @@ class CotizacionCanalService {
     return response.data as CotizacionCanal;
   }
 
-  async enviar(id: number): Promise<{ cotizacion: CotizacionCanal; message_id: number }> {
+  async enviar(id: number): Promise<{
+    cotizacion: CotizacionCanal;
+    message_id: number | null;
+    share_url?: string | null;
+  }> {
     const response = await api.post(`/ordenes/cotizaciones-canal/${id}/enviar/`);
-    return response.data as { cotizacion: CotizacionCanal; message_id: number };
+    return response.data as {
+      cotizacion: CotizacionCanal;
+      message_id: number | null;
+      share_url?: string | null;
+    };
   }
 
   async cancelar(id: number): Promise<CotizacionCanal> {

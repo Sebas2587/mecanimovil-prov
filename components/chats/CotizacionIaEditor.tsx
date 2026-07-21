@@ -65,6 +65,7 @@ interface CotizacionIaEditorProps {
   onEnviar?: () => void;
   onGuardarPlantilla?: () => void;
   onMarcarAceptada?: () => void;
+  enviarLabel?: string;
   enviando?: boolean;
   guardandoPlantilla?: boolean;
   readonly?: boolean;
@@ -76,6 +77,7 @@ export function CotizacionIaEditor({
   onEnviar,
   onGuardarPlantilla,
   onMarcarAceptada,
+  enviarLabel = 'Enviar cotización al cliente',
   enviando = false,
   guardandoPlantilla = false,
   readonly = false,
@@ -284,7 +286,7 @@ export function CotizacionIaEditor({
           {enviando ? (
             <ActivityIndicator color={I.onPrimary} />
           ) : (
-            <Text style={styles.primaryBtnText}>Enviar cotización al cliente</Text>
+            <Text style={styles.primaryBtnText}>{enviarLabel}</Text>
           )}
         </TouchableOpacity>
       ) : null}

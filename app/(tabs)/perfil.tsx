@@ -30,7 +30,6 @@ import {
   Bookmark,
   Users,
   Clock,
-  ClipboardList,
   type LucideIcon,
 } from 'lucide-react-native';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
@@ -333,14 +332,8 @@ export default function PerfilScreen() {
   const gestionRows: SettingRow[] = useMemo(() => {
     if (esMecanicoEquipo) return [];
     const rows: SettingRow[] = [];
-    if (!esSupervisor || puede('servicios')) {
-      rows.push({
-        Icon: ClipboardList,
-        title: 'Servicios activos',
-        subtitle: 'Órdenes, ofertas y citas en curso',
-        onPress: () => router.push('/(tabs)/ordenes'),
-      });
-    }
+    // Servicios vive en el tab inferior (Activas / Completadas / Rechazadas).
+    // Bandeja comercial: card en Hoy — no duplicar aquí.
     if (!esSupervisor || puede('mecanicos')) {
       rows.push({
         Icon: Users,

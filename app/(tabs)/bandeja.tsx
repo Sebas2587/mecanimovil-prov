@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, RefreshControl, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
@@ -15,8 +15,6 @@ const I = COLORS.institutional;
  */
 export default function BandejaTabScreen() {
   const params = useLocalSearchParams<{ filtro?: string | string[]; origen?: string | string[] }>();
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const filtroParam = Array.isArray(params.filtro) ? params.filtro[0] : params.filtro;
   const origenParam = Array.isArray(params.origen) ? params.origen[0] : params.origen;
@@ -32,20 +30,12 @@ export default function BandejaTabScreen() {
       'messenger',
       'canal',
       'manual',
+      'directo',
     ];
     return valid.includes(origenParam as OrigenPipeline)
       ? (origenParam as OrigenPipeline)
       : undefined;
   }, [origenParam]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      setRefreshKey((k) => k + 1);
-    } finally {
-      setRefreshing(false);
-    }
-  }, []);
 
   return (
     <TabScreenWrapper>
@@ -58,14 +48,6 @@ export default function BandejaTabScreen() {
             hideTitle
             filtroEsperando24h={filtroEsperando24h}
             filtroOrigen={filtroOrigen}
-            refreshKey={refreshKey}
-            listRefreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={I.primary}
-              />
-            }
           />
         </View>
       </View>

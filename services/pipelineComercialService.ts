@@ -16,7 +16,8 @@ export type OrigenPipeline =
   | 'instagram'
   | 'messenger'
   | 'canal'
-  | 'manual';
+  | 'manual'
+  | 'directo';
 
 export interface PipelineComercialItem {
   tipo_entidad: 'oferta' | 'cotizacion_canal' | 'cita_personal' | 'orden_directa' | 'solicitud_publica';
@@ -42,6 +43,8 @@ export interface PipelineComercialItem {
   miembro_taller_id: number | null;
   miembro_taller_nombre: string | null;
   template_generado_por_ia?: boolean;
+  visto_sin_respuesta?: boolean;
+  demorado_48h?: boolean;
 }
 
 export interface PipelineComercialResponse {
@@ -101,4 +104,5 @@ export const ORIGEN_PIPELINE_LABELS: Record<string, string> = {
   messenger: 'Messenger',
   canal: 'Canal',
   manual: 'Personal',
+  directo: 'Link libre',
 };

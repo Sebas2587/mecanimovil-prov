@@ -45,6 +45,7 @@ import type { CanalSlug } from '@/services/omnichannelService';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
+import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
 import { SolicitudesDisponiblesContent } from '@/components/solicitudes/SolicitudesDisponiblesContent';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
 import { useSolicitudesDisponiblesQuery } from '@/hooks/useSolicitudesDisponiblesQuery';
@@ -106,6 +107,7 @@ export default function ChatsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<MensajesTab>('chats');
   const [agendarContacto, setAgendarContacto] = useState<AgendarContactoState>(null);
+  const [cotizacionLibreVisible, setCotizacionLibreVisible] = useState(false);
   const [chatHighlighted, setChatHighlighted] = useState<string | null>(null);
   const [deletingOfertaId, setDeletingOfertaId] = useState<string | null>(null);
 
@@ -440,6 +442,29 @@ export default function ChatsScreen() {
     </View>
   );
 
+  const renderCotizarIaHeader = useCallback(
+    () => (
+      <TouchableOpacity
+        style={styles.cotizacionLibreCard}
+        activeOpacity={0.9}
+        onPress={() => setCotizacionLibreVisible(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Cotización libre sin chat"
+      >
+        <View style={styles.cotizacionLibreIconWrap}>
+          <Sparkles size={22} color={COLORS.text.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+        </View>
+        <View style={styles.cotizacionLibreTextWrap}>
+          <Text style={styles.cotizacionLibreTitle}>Cotización libre (sin chat)</Text>
+          <Text style={styles.cotizacionLibreSubtitle}>
+            Genera un link público para WhatsApp u otro canal
+          </Text>
+        </View>
+      </TouchableOpacity>
+    ),
+    [],
+  );
+
   return (
     <TabScreenWrapper>
       <View style={styles.screen}>
@@ -485,6 +510,7 @@ export default function ChatsScreen() {
             data={chatsVisibles}
             renderItem={renderChatItem}
             keyExtractor={(item) => String(item.conversation_id || item.oferta_id || item.kind)}
+            ListHeaderComponent={cotizarIaMode ? renderCotizarIaHeader : undefined}
             contentContainerStyle={[
               styles.listContainer,
               chatsVisibles.length === 0 && styles.listContainerEmpty,
@@ -496,6 +522,14 @@ export default function ChatsScreen() {
             showsVerticalScrollIndicator={false}
           />
         )}
+
+        <CotizacionLibreModal
+          visible={cotizacionLibreVisible}
+          onClose={() => setCotizacionLibreVisible(false)}
+          onEnviada={() => {
+            void refetch();
+          }}
+        />
 
         <AgendarDesdeCanalModal
           visible={Boolean(agendarContacto)}
@@ -541,6 +575,36 @@ const styles = StyleSheet.create({
   listContainerEmpty: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  cotizacionLibreCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: COLORS.brand.magenta,
+    ...SHADOWS.editorial,
+  },
+  cotizacionLibreIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cotizacionLibreTextWrap: { flex: 1 },
+  cotizacionLibreTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color: COLORS.text.onPrimary,
+    marginBottom: 2,
+  },
+  cotizacionLibreSubtitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: 'rgba(255,255,255,0.92)',
   },
   canalPendienteBanner: {
     marginHorizontal: SPACING.container.horizontal,

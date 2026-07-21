@@ -6,17 +6,19 @@ import {
   ActivityIndicator,
   FlatList,
   ScrollView,
+  RefreshControl,
   type RefreshControlProps,
 } from 'react-native';
 import { router } from 'expo-router';
 import { ChevronRight, Filter, MessageCircle } from 'lucide-react-native';
-import pipelineComercialService, {
+import {
   type PipelineComercialItem,
   type EstadoPipelineNormalizado,
   type OrigenPipeline,
   ESTADO_PIPELINE_LABELS,
   ORIGEN_PIPELINE_LABELS,
 } from '@/services/pipelineComercialService';
+import { usePipelineComercialQuery } from '@/hooks/usePipelineComercialQuery';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { AsignarTecnicoBottomSheet, type AsignarTecnicoTarget } from '@/components/equipo/AsignarTecnicoBottomSheet';
@@ -63,6 +65,7 @@ const ORIGENES: Array<{ key: OrigenPipeline | 'todos'; label: string }> = [
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'instagram', label: 'Instagram' },
   { key: 'messenger', label: 'Messenger' },
+  { key: 'directo', label: 'Link libre' },
   { key: 'manual', label: 'Personal' },
 ];
 
@@ -100,6 +103,10 @@ function navegarItem(item: PipelineComercialItem) {
   }
   if (item.conversation_id) {
     router.push(`/chat-omnicanal?conversationId=${item.conversation_id}`);
+    return;
+  }
+  if (item.cotizacion_id && item.origen === 'directo') {
+    return;
   }
 }
 
@@ -176,6 +183,12 @@ const InboxRow = React.memo(function InboxRow({
             <InstitutionalText role="small" style={styles.warnText}>
               +24h
             </InstitutionalText>
+          ) : item.demorado_48h ? (
+            <InstitutionalText role="small" style={styles.warnText}>
+              +48h
+            </InstitutionalText>
+          ) : item.visto_sin_respuesta ? (
+            <InstitutionalTag label="Visto" variant="warning" size="sm" />
           ) : (
             <InstitutionalTag
               label={ESTADO_OPERATIVO_LABELS[estadoOperativo]}
@@ -215,11 +228,15 @@ interface Props {
   limite?: number;
   filtroEsperando24h?: boolean;
   filtroOrigen?: OrigenPipeline;
+  /** @deprecated Usar invalidación TanStack Query; se mantiene por compatibilidad. */
   refreshKey?: number;
-  /** Oculta el título interno (la pantalla ya tiene Header). */
   hideTitle?: boolean;
   listRefreshControl?: ReactElement<RefreshControlProps>;
 }
+
+const ListSeparator = React.memo(function ListSeparator() {
+  return <View style={styles.separator} />;
+});
 
 export function PipelineSeguimientoSection({
   compact = false,
@@ -230,12 +247,7 @@ export function PipelineSeguimientoSection({
   hideTitle = false,
   listRefreshControl,
 }: Props) {
-  const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<PipelineComercialItem[]>([]);
-  const [esperando24h, setEsperando24h] = useState(0);
-  const [vista, setVista] = useState<EstadoPipelineNormalizado | 'abiertos'>(
-    compact ? 'abiertos' : 'abiertos',
-  );
+  const [vista, setVista] = useState<EstadoPipelineNormalizado | 'abiertos'>('abiertos');
   const [origen, setOrigen] = useState<OrigenPipeline | 'todos'>(filtroOrigen ?? 'todos');
   const [mostrarOrigenes, setMostrarOrigenes] = useState(false);
   const [asignarTarget, setAsignarTarget] = useState<AsignarTecnicoTarget | null>(null);
@@ -249,37 +261,51 @@ export function PipelineSeguimientoSection({
     if (filtroEsperando24h) setVista('cotizacion_enviada');
   }, [filtroEsperando24h]);
 
-  const cargar = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await pipelineComercialService.listar({
-        estado_normalizado:
-          filtroEsperando24h
-            ? 'cotizacion_enviada'
-            : vista === 'abiertos'
-              ? undefined
-              : vista,
-        origen: origen === 'todos' ? undefined : origen,
-        esperando_24h: filtroEsperando24h || undefined,
-        limite,
-      });
-      const results =
-        !filtroEsperando24h && vista === 'abiertos'
-          ? data.results.filter((row) => ESTADOS_ABIERTOS.includes(row.estado_normalizado))
-          : data.results;
-      setItems(results);
-      setEsperando24h(data.esperando_respuesta_24h_count);
-    } catch {
-      setItems([]);
-      setEsperando24h(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [vista, origen, limite, filtroEsperando24h]);
+  const queryParams = useMemo(
+    () => ({
+      limite,
+      origen: origen === 'todos' ? undefined : origen,
+      esperando_24h: filtroEsperando24h || undefined,
+      estado_normalizado: filtroEsperando24h ? ('cotizacion_enviada' as EstadoPipelineNormalizado) : undefined,
+      fetchAllEstados: !filtroEsperando24h,
+    }),
+    [limite, origen, filtroEsperando24h],
+  );
+
+  const { data, isPending, isFetching, refetch } = usePipelineComercialQuery(queryParams);
 
   useEffect(() => {
-    cargar();
-  }, [cargar, refreshKey]);
+    if (refreshKey > 0) {
+      void refetch();
+    }
+  }, [refreshKey, refetch]);
+
+  const rawResults = data?.results ?? [];
+
+  const items = useMemo(() => {
+    if (filtroEsperando24h) return rawResults;
+    if (vista === 'abiertos') {
+      return rawResults.filter((row) => ESTADOS_ABIERTOS.includes(row.estado_normalizado));
+    }
+    return rawResults.filter((row) => row.estado_normalizado === vista);
+  }, [rawResults, vista, filtroEsperando24h]);
+
+  const vistaBadgeCounts = useMemo(() => {
+    const counts: Record<string, number> = { abiertos: 0 };
+    for (const v of VISTAS_BANDEJA) {
+      if (v.key !== 'abiertos') counts[v.key] = 0;
+    }
+    for (const row of rawResults) {
+      if (ESTADOS_ABIERTOS.includes(row.estado_normalizado)) counts.abiertos += 1;
+      if (row.estado_normalizado in counts) {
+        counts[row.estado_normalizado] += 1;
+      }
+    }
+    return counts;
+  }, [rawResults]);
+
+  const esperando24h = data?.esperando_respuesta_24h_count ?? 0;
+  const loading = isPending && rawResults.length === 0;
 
   const handlePress = useCallback((item: PipelineComercialItem) => {
     navegarItem(item);
@@ -326,6 +352,19 @@ export function PipelineSeguimientoSection({
     if (origen === 'todos') return null;
     return ORIGEN_PIPELINE_LABELS[origen] || origen;
   }, [origen]);
+
+  const refreshControl = useMemo(() => {
+    if (compact) return undefined;
+    if (listRefreshControl) return listRefreshControl;
+    return (
+      <RefreshControl
+        refreshing={isFetching && !isPending}
+        onRefresh={() => void refetch()}
+        tintColor={I.primary}
+        colors={[I.primary]}
+      />
+    );
+  }, [compact, listRefreshControl, isFetching, isPending, refetch]);
 
   if (loading && items.length === 0) {
     return (
@@ -406,6 +445,7 @@ export function PipelineSeguimientoSection({
           >
             {VISTAS_BANDEJA.map((v) => {
               const active = vista === v.key;
+              const badge = vistaBadgeCounts[v.key] ?? 0;
               return (
                 <TouchableOpacity
                   key={v.key}
@@ -419,6 +459,7 @@ export function PipelineSeguimientoSection({
                     style={active ? styles.vistaChipLabelActive : undefined}
                   >
                     {v.label}
+                    {badge > 0 ? ` · ${badge}` : ''}
                   </InstitutionalText>
                 </TouchableOpacity>
               );
@@ -495,8 +536,8 @@ export function PipelineSeguimientoSection({
           scrollEnabled={!compact}
           nestedScrollEnabled={compact}
           style={!compact ? styles.listFill : undefined}
-          refreshControl={!compact ? listRefreshControl : undefined}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          refreshControl={refreshControl}
+          ItemSeparatorComponent={ListSeparator}
           contentContainerStyle={!compact ? styles.listContentPad : undefined}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
@@ -517,7 +558,7 @@ export function PipelineSeguimientoSection({
         }}
         target={asignarTarget}
         onAsignado={() => {
-          void cargar();
+          void refetch();
         }}
       />
     </View>
