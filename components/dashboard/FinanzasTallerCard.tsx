@@ -84,11 +84,24 @@ export function FinanzasTallerCard({
     const m = ganancias?.ganancias_mecanimovil ?? 0;
     const p = ganancias?.ganancias_agenda_personal ?? 0;
     const total = ganancias?.ganancias_total ?? m + p;
+    const nMkt = ganancias?.ordenes_mecanimovil ?? 0;
+    const nPropias = ganancias?.ordenes_agenda_personal ?? 0;
     const calendario = progresoCalendarioMes();
     const delta = formatearDeltaMesAnterior(ganancias?.delta_pct_mes);
     const ambosConIngreso = m > 0 && p > 0;
+    const tieneActividadSinIngreso = total === 0 && (nMkt > 0 || nPropias > 0);
 
-    return { mecanimovil: m, propias: p, total, calendario, delta, ambosConIngreso };
+    return {
+      mecanimovil: m,
+      propias: p,
+      total,
+      nMkt,
+      nPropias,
+      calendario,
+      delta,
+      ambosConIngreso,
+      tieneActividadSinIngreso,
+    };
   }, [ganancias]);
 
   const creditos = saldoCreditos?.saldo_creditos ?? 0;
@@ -97,6 +110,12 @@ export function FinanzasTallerCard({
   const contextLine = loadingGanancias
     ? 'Cargando resumen…'
     : `Día ${resumen.calendario.diaActual}/${resumen.calendario.diasEnMes} · ${resumen.delta.label}`;
+
+  const footerMetaLine = loadingGanancias
+    ? '—'
+    : resumen.tieneActividadSinIngreso
+      ? `App ${formatCompactMonto(resumen.mecanimovil)} (${resumen.nMkt}) · Propias ${formatCompactMonto(resumen.propias)} (${resumen.nPropias})`
+      : `App ${formatCompactMonto(resumen.mecanimovil)} · Propias ${formatCompactMonto(resumen.propias)}`;
 
   const body = (
     <View style={[styles.inner, inset && styles.innerInset, fill && styles.innerFill]}>
@@ -184,9 +203,7 @@ export function FinanzasTallerCard({
       <View style={styles.footerRow}>
         <View style={styles.footerMetaBlock}>
           <Text style={styles.footerMeta} numberOfLines={2}>
-            {loadingGanancias
-              ? '—'
-              : `App ${formatCompactMonto(resumen.mecanimovil)} · Propias ${formatCompactMonto(resumen.propias)}`}
+            {footerMetaLine}
           </Text>
           {isLoadingCreditos && !saldoCreditos ? (
             <ActivityIndicator size="small" color={I.muted} />

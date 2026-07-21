@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { institutionalTextStyle } from '@/app/design-system/styles/institutionalTypography';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import type { MecanicoKpis } from '@/services/equipoTallerService';
 
 const I = COLORS.institutional;
@@ -56,13 +57,57 @@ function DeltaRow({ label, delta, invertGood = false, last }: RowProps) {
   );
 }
 
+type FacturacionRowProps = {
+  comparativo: MecanicoKpis['comparativo'];
+};
+
+function FacturacionRow({ comparativo }: FacturacionRowProps) {
+  const monto = comparativo.mes_actual?.facturacion ?? 0;
+  const delta = comparativo.delta_facturacion_pct;
+
+  let deltaNode: React.ReactNode;
+  if (delta == null) {
+    deltaNode = (
+      <View style={styles.deltaWrap}>
+        <Minus size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+        <Text style={styles.deltaNeutral}>—</Text>
+      </View>
+    );
+  } else {
+    const isUp = delta > 0;
+    const isNeutral = delta === 0;
+    const color = isNeutral ? I.muted : isUp ? I.semanticUp : I.semanticDown;
+    const Icon = isNeutral ? Minus : isUp ? TrendingUp : TrendingDown;
+    const prefix = isUp ? '+' : '';
+    deltaNode = (
+      <View style={styles.deltaWrap}>
+        <Icon size={14} color={color} strokeWidth={ICON_STROKE_WIDTH} />
+        <Text style={[styles.delta, { color }]}>
+          {prefix}
+          {delta.toFixed(1)}%
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.row}>
+      <Text style={styles.label}>Facturación</Text>
+      <View style={styles.facturacionRight}>
+        <Text style={styles.facturacionAmount}>{formatearMontoCLP(monto)}</Text>
+        {deltaNode}
+      </View>
+    </View>
+  );
+}
+
 /** Filas planas dentro de HostPaperSection (sin card propia). */
 export function ComparativoMensual({ comparativo }: Props) {
   return (
     <View>
       <DeltaRow label="Completados" delta={comparativo.delta_completados_pct} />
       <DeltaRow label="Tiempo prom." delta={comparativo.delta_tiempo_pct} invertGood />
-      <DeltaRow label="Facturación" delta={comparativo.delta_facturacion_pct} last />
+      <FacturacionRow comparativo={comparativo} />
     </View>
   );
 }
@@ -97,5 +142,15 @@ const styles = StyleSheet.create({
     lineHeight: lh(TYPOGRAPHY.fontSize.sm, TS.numberDisplay.lineHeight),
     fontFamily: FF.monoMedium,
     color: I.muted,
+  },
+  facturacionRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  facturacionAmount: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TS.numberDisplay.lineHeight),
+    fontFamily: FF.monoMedium,
+    color: I.ink,
   },
 });
