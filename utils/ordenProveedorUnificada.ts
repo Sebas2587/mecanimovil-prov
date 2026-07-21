@@ -7,6 +7,7 @@ import {
   OFERTA_LABELS,
   resolveTextoEstadoActividad,
 } from '@/utils/estadoActividadProveedor';
+import { parseReferenciaDate } from '@/utils/fechaLocal';
 import {
   openCitaPersonalDetalle,
   openOfertaDetalle,
@@ -65,9 +66,7 @@ export function origenOrdenPresentation(origen: OrigenOrden) {
 
 function timestampServicio(fecha: string | null | undefined, hora: string | null | undefined): number {
   if (!fecha) return Number.MAX_SAFE_INTEGER;
-  const horaNorm = hora ? String(hora).substring(0, 8) : '00:00:00';
-  const iso = `${String(fecha).split('T')[0]}T${horaNorm}`;
-  const ts = new Date(iso).getTime();
+  const ts = parseReferenciaDate(String(fecha).split('T')[0], hora).getTime();
   return Number.isNaN(ts) ? Number.MAX_SAFE_INTEGER : ts;
 }
 
@@ -91,10 +90,17 @@ function timestampItem(item: OrdenActivaItem): number {
   return timestampMarketplaceItem(item);
 }
 
-/** Combina marketplace + citas personales; orden cronológico (próximo servicio primero). */
+export type OrdenCronologico = 'asc' | 'desc';
+
+/**
+ * Combina marketplace + citas personales.
+ * - `asc` (default): próximo servicio primero (Activas).
+ * - `desc`: más reciente primero (Completadas / Rechazadas).
+ */
 export function mergeOrdenesPorGrupo(
   marketplace: ActividadMarketplaceItem[],
   citas: CitaAgendaPersonal[],
+  orden: OrdenCronologico = 'asc',
 ): OrdenActivaItem[] {
   const items: OrdenActivaItem[] = [
     ...marketplace.map((m) => ({ origen: 'mecanimovil' as const, ...m })),
@@ -106,7 +112,10 @@ export function mergeOrdenesPorGrupo(
     })),
   ];
 
-  items.sort((a, b) => timestampItem(a) - timestampItem(b));
+  items.sort((a, b) => {
+    const diff = timestampItem(a) - timestampItem(b);
+    return orden === 'desc' ? -diff : diff;
+  });
   return items;
 }
 

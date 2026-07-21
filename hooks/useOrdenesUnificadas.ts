@@ -385,12 +385,12 @@ export function useOrdenesUnificadas(enabled: boolean): UseOrdenesUnificadasResu
   );
 
   const completadas = useMemo(
-    () => mergeOrdenesPorGrupo(marketplaceCompletadas, citasCompletadasTab),
+    () => mergeOrdenesPorGrupo(marketplaceCompletadas, citasCompletadasTab, 'desc'),
     [marketplaceCompletadas, citasCompletadasTab],
   );
 
   const rechazadas = useMemo(
-    () => mergeOrdenesPorGrupo(marketplaceRechazadas, citasRechazadasTab),
+    () => mergeOrdenesPorGrupo(marketplaceRechazadas, citasRechazadasTab, 'desc'),
     [marketplaceRechazadas, citasRechazadasTab],
   );
 

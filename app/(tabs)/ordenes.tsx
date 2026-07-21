@@ -46,6 +46,7 @@ import {
   mapCitaEstadoOperativo,
   mapOrdenEstadoToOperativo,
 } from '@/utils/estadoOperativo';
+import { parseFechaLocal } from '@/utils/fechaLocal';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -111,7 +112,11 @@ export default function OrdenesScreen() {
 
   const tieneDatos = itemsTab.length > 0;
 
-  const formatearFecha = (fecha: string) => new Date(fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
+  const formatearFecha = (fecha: string) => {
+    // Date-only (`YYYY-MM-DD`) con `new Date()` se interpreta UTC y en Chile resta 1 día.
+    const parsed = parseFechaLocal(fecha) ?? new Date(fecha);
+    return parsed.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
 
   const formatearPrecio = (precio: string | number) => formatearMontoCLP(precio);
 

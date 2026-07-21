@@ -17,6 +17,7 @@ import {
   type OrdenActivaItem,
 } from '@/utils/ordenProveedorUnificada';
 import { nombreServicioCita } from '@/services/agendaProveedorService';
+import { parseReferenciaDate } from '@/utils/fechaLocal';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
@@ -169,14 +170,27 @@ function HomeServiciosRecientesSectionInner({ enabled }: HomeServiciosRecientesS
   const queryClient = useQueryClient();
   const { activas, loading, counts } = useOrdenesUnificadas(enabled);
 
-  /** Solo activas (nunca completadas/rechazadas). Orden: acción taller → ejecución → espera cliente. */
+  /** Solo activas. Prioridad de acción, y dentro de cada grupo el servicio más próximo primero. */
   const preview = useMemo(() => {
+    const tsItem = (item: OrdenActivaItem): number => {
+      if (item.origen === 'personal') {
+        return parseReferenciaDate(item.cita.fecha_servicio, item.cita.hora_servicio).getTime();
+      }
+      const fecha =
+        item.orden?.fecha_servicio
+        || item.oferta?.fecha_disponible
+        || item.orden?.fecha_hora_solicitud?.split('T')[0]
+        || item.oferta?.fecha_envio?.split('T')[0]
+        || null;
+      const hora = item.orden?.hora_servicio || item.oferta?.hora_disponible || null;
+      return parseReferenciaDate(fecha ?? undefined, hora).getTime();
+    };
     return [...activas]
       .sort((a, b) => {
         const pa = prioridadHoy(a.estadoEfectivo, a.origen);
         const pb = prioridadHoy(b.estadoEfectivo, b.origen);
         if (pa !== pb) return pa - pb;
-        return 0;
+        return tsItem(a) - tsItem(b);
       })
       .slice(0, PREVIEW_LIMIT);
   }, [activas]);
