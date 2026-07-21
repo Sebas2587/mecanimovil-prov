@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
@@ -16,13 +17,16 @@ import {
   Link2,
   MessageCircle,
   Sparkles,
+  Trash2,
+  X,
 } from 'lucide-react-native';
 import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
+import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
 import {
   useCotizacionesCanalTallerQuery,
   useInvalidateCotizacionesCanalTaller,
 } from '@/hooks/useCotizacionesCanalTallerQuery';
-import type { CotizacionCanal } from '@/services/cotizacionCanalService';
+import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
@@ -30,7 +34,7 @@ import { InstitutionalButton } from '@/app/design-system/components/Institutiona
 import { COLORS, SPACING, BORDERS, TYPOGRAPHY, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
-import { showAlert } from '@/utils/platformAlert';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -132,19 +136,29 @@ type Props = {
 };
 
 /**
- * Pantalla Cotizar con IA: historial de cotizaciones + entrada a cotización libre.
- * No lista chats; el vínculo al canal es opcional dentro del detalle.
+ * Contenido de Cotizar con IA (`/cotizar-ia`): historial + nueva cotización.
+ * Independiente de Mensajes; el chat del cliente es opcional en el detalle.
  */
 export function CotizacionesIaList({ enabled = true }: Props) {
   const { data = [], isPending, isFetching, refetch } = useCotizacionesCanalTallerQuery(enabled);
   const invalidate = useInvalidateCotizacionesCanalTaller();
   const [libreVisible, setLibreVisible] = useState(false);
   const [activa, setActiva] = useState<CotizacionCanal | null>(null);
+  const [eliminando, setEliminando] = useState(false);
+
+  /** Listado ya trae serializer completo; no hace falta otro GET al abrir. */
+  const abrirDetalle = useCallback((item: CotizacionCanal) => {
+    setActiva(item);
+  }, []);
+
+  const cerrarDetalle = useCallback(() => {
+    setActiva(null);
+  }, []);
 
   const items = useMemo(
     () =>
       [...data]
-        .filter((c) => c.estado !== 'borrador')
+        .filter((c) => c.estado !== 'borrador' && c.estado !== 'cancelada')
         .sort((a, b) => {
           const ta = new Date(a.enviada_en || a.creado_en || 0).getTime();
           const tb = new Date(b.enviada_en || b.creado_en || 0).getTime();
@@ -166,6 +180,36 @@ export function CotizacionesIaList({ enabled = true }: Props) {
     }
   }, []);
 
+  const eliminarCotizacion = useCallback(() => {
+    if (!activa?.id) return;
+    if (activa.estado === 'aceptada') {
+      showAlert('No se puede eliminar', 'Esta cotización ya fue aceptada por el cliente.');
+      return;
+    }
+    const id = activa.id;
+    showConfirm(
+      'Eliminar cotización',
+      'Se cancelará y dejará de aparecer en esta lista. El cliente no podrá aceptarla.',
+      {
+        confirmText: 'Eliminar',
+        onConfirm: async () => {
+          setEliminando(true);
+          try {
+            await cotizacionCanalService.cancelar(id);
+            cerrarDetalle();
+            await invalidate();
+            await refetch();
+            showAlert('Cotización eliminada', 'Quedó cancelada y fuera del listado.');
+          } catch {
+            showAlert('Error', 'No se pudo eliminar la cotización.');
+          } finally {
+            setEliminando(false);
+          }
+        },
+      },
+    );
+  }, [activa, invalidate, refetch, cerrarDetalle]);
+
   const header = useMemo(
     () => (
       <View style={styles.headerBlock}>
@@ -180,9 +224,9 @@ export function CotizacionesIaList({ enabled = true }: Props) {
             <Sparkles size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
           <View style={styles.crearText}>
-            <Text style={styles.crearTitle}>Nueva cotización libre</Text>
+            <Text style={styles.crearTitle}>Nueva cotización</Text>
             <Text style={styles.crearSub}>
-              Genera un link público para compartir por cualquier canal
+              Elige un cliente de Mensajes o crea una cotización con link público
             </Text>
           </View>
           <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
@@ -198,10 +242,14 @@ export function CotizacionesIaList({ enabled = true }: Props) {
 
   const renderItem = useCallback(
     ({ item }: { item: CotizacionCanal }) => (
-      <CotizacionCard item={item} onPress={setActiva} />
+      <CotizacionCard item={item} onPress={abrirDetalle} />
     ),
-    [],
+    [abrirDetalle],
   );
+
+  const vehiculoActiva = activa
+    ? [activa.vehiculo_marca, activa.vehiculo_modelo].filter(Boolean).join(' ')
+    : '';
 
   if (isPending && items.length === 0) {
     return (
@@ -247,16 +295,39 @@ export function CotizacionesIaList({ enabled = true }: Props) {
         }}
       />
 
-      <BottomSheet visible={Boolean(activa)} onClose={() => setActiva(null)}>
+      <BottomSheet visible={Boolean(activa)} onClose={cerrarDetalle} style={styles.detalleSheet}>
         {activa ? (
-          <>
-            <InstitutionalText role="h4" style={styles.sheetTitle}>
-              {clienteLabel(activa)}
-            </InstitutionalText>
-            <InstitutionalText role="caption" color="muted" style={styles.sheetSub}>
-              {activa.servicio_nombre || 'Cotización'} · {canalLabel(activa)} · {activa.estado}
-            </InstitutionalText>
-            <Text style={styles.sheetPrice}>{formatearMontoCLP(activa.total_clp)}</Text>
+          <ScrollView
+            style={styles.detalleScroll}
+            contentContainerStyle={styles.detalleScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.detalleHeader}>
+              <View style={styles.detalleHeaderText}>
+                <InstitutionalText role="h4">{clienteLabel(activa)}</InstitutionalText>
+                <InstitutionalText role="caption" color="muted">
+                  {canalLabel(activa)}
+                  {vehiculoActiva ? ` · ${vehiculoActiva}` : ''}
+                  {activa.vehiculo_patente ? ` · ${activa.vehiculo_patente}` : ''}
+                </InstitutionalText>
+              </View>
+              <TouchableOpacity
+                onPress={cerrarDetalle}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar"
+                hitSlop={8}
+              >
+                <X size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+              </TouchableOpacity>
+            </View>
+
+            <CotizacionIaEditor
+              cotizacion={activa}
+              readonly
+              onChange={() => undefined}
+            />
+
             <View style={styles.sheetActions}>
               {activa.conversation ? (
                 <InstitutionalButton
@@ -267,7 +338,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
                   }
                   onPress={() => {
                     const id = activa.conversation;
-                    setActiva(null);
+                    cerrarDetalle();
                     if (id) router.push(`/chat-omnicanal?conversationId=${id}`);
                   }}
                 />
@@ -275,15 +346,28 @@ export function CotizacionesIaList({ enabled = true }: Props) {
               {(activa.share_url || activa.url_publica) ? (
                 <InstitutionalButton
                   label="Compartir link"
-                  leading={<Link2 size={18} color={COLORS.text.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
+                  leading={
+                    <Link2 size={18} color={COLORS.text.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                  }
                   onPress={() => {
                     const url = activa.share_url || activa.url_publica;
                     if (url) void compartirLink(url);
                   }}
                 />
               ) : null}
+              {activa.estado !== 'aceptada' ? (
+                <InstitutionalButton
+                  label="Eliminar cotización"
+                  variant="destructiveOutline"
+                  loading={eliminando}
+                  leading={
+                    <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                  }
+                  onPress={eliminarCotizacion}
+                />
+              ) : null}
             </View>
-          </>
+          </ScrollView>
         ) : null}
       </BottomSheet>
     </View>
@@ -402,14 +486,23 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   emptySub: { textAlign: 'center', paddingHorizontal: SPACING.lg },
-  sheetTitle: { marginBottom: 4 },
-  sheetSub: { marginBottom: SPACING.sm },
-  sheetPrice: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    color: I.primary,
-    marginBottom: SPACING.md,
+  detalleSheet: {
+    maxHeight: '94%',
   },
+  detalleScroll: {
+    maxHeight: '100%',
+  },
+  detalleScrollContent: {
+    gap: SPACING.md,
+    paddingBottom: SPACING.md,
+  },
+  detalleHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+  },
+  detalleHeaderText: { flex: 1, minWidth: 0, gap: 2 },
   sheetActions: { gap: SPACING.sm, paddingBottom: SPACING.sm },
 });
 

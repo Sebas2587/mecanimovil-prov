@@ -1,14 +1,26 @@
 import React, { useCallback, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
 } from 'react-native';
 import { AlertTriangle, Fuel, Plus, Trash2 } from 'lucide-react-native';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
+import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import {
+  hostIconPlateStyle,
+  institutionalCardStyles,
+} from '@/app/design-system/styles/institutionalSemantic';
+import {
+  institutionalInputPlaceholder,
+  institutionalInputStyles,
+} from '@/app/design-system/styles/institutionalInputs';
+import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import {
   formatearMontoCLP,
   redondearCLP,
@@ -20,11 +32,23 @@ import {
 import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 
 const I = COLORS.institutional;
-const FF = TYPOGRAPHY.fontFamily;
+const T = TYPOGRAPHY.styles;
 
 function subtotalRepuesto(rep: RepuestoCotizacion): number {
   return redondearCLP(redondearCLP(rep.cantidad || 1) * redondearCLP(rep.precio_unitario_clp));
 }
+
+const ESTADO_VARIANT: Record<
+  CotizacionCanal['estado'],
+  'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
+> = {
+  borrador: 'neutral',
+  enviada: 'info',
+  aceptada: 'success',
+  rechazada: 'error',
+  expirada: 'warning',
+  cancelada: 'error',
+};
 
 interface ClpMoneyInputProps {
   value: number;
@@ -44,20 +68,114 @@ function ClpMoneyInput({
   const display = value > 0 ? formatMontoInputLocalized(value) : '';
 
   return (
-    <View style={[styles.moneyInputRow, compact && styles.moneyInputRowCompact]}>
-      <Text style={styles.moneyPrefix}>$</Text>
+    <View
+      style={[
+        institutionalInputStyles.inputRow,
+        compact && styles.moneyRowCompact,
+      ]}
+    >
+      <InstitutionalText role="body" color="muted" style={institutionalInputStyles.inputRowPrefix}>
+        $
+      </InstitutionalText>
       <TextInput
-        style={[styles.moneyInput, compact && styles.moneyInputCompact]}
+        style={[
+          institutionalInputStyles.inputRowField,
+          institutionalInputStyles.inputMono,
+          compact && institutionalInputStyles.inputCompact,
+        ]}
         keyboardType="numeric"
         editable={editable}
         placeholder={placeholder}
-        placeholderTextColor={I.mutedSoft}
+        placeholderTextColor={institutionalInputPlaceholder}
         value={display}
         onChangeText={(t) => onChangeValue(redondearCLP(parseMontoDecimal(t)))}
       />
     </View>
   );
 }
+
+const RepuestoRow = React.memo(function RepuestoRow({
+  rep,
+  index,
+  editable,
+  onUpdate,
+  onDelete,
+}: {
+  rep: RepuestoCotizacion;
+  index: number;
+  editable: boolean;
+  onUpdate: (index: number, patch: Partial<RepuestoCotizacion>) => void;
+  onDelete: (index: number) => void;
+}) {
+  const subtotal = subtotalRepuesto(rep);
+
+  return (
+    <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding, styles.repuestoCard]}>
+      <View style={styles.repuestoTopRow}>
+        <View style={styles.nombreField}>
+          <InstitutionalField
+            label="Nombre"
+            value={rep.nombre}
+            onChangeText={(t) => onUpdate(index, { nombre: t })}
+            placeholder="Nombre del repuesto"
+            editable={editable}
+          />
+        </View>
+        {editable ? (
+          <TouchableOpacity
+            style={styles.deleteBtn}
+            onPress={() => onDelete(index)}
+            accessibilityRole="button"
+            accessibilityLabel="Eliminar repuesto"
+            hitSlop={8}
+          >
+            <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      <View style={styles.repuestoGrid}>
+        <View style={styles.gridColCant}>
+          <InstitutionalField
+            label="Cant."
+            compact
+            mono
+            value={String(redondearCLP(rep.cantidad || 1))}
+            onChangeText={(t) =>
+              onUpdate(index, {
+                cantidad: Math.max(1, parseInt(t.replace(/\D/g, ''), 10) || 1),
+              })
+            }
+            keyboardType="numeric"
+            editable={editable}
+            inputStyle={styles.cantidadAlign}
+          />
+        </View>
+
+        <View style={styles.gridColPrecio}>
+          <InstitutionalText role="label" color="muted" style={styles.colLabel}>
+            Precio unit.
+          </InstitutionalText>
+          <ClpMoneyInput
+            compact
+            value={redondearCLP(rep.precio_unitario_clp)}
+            editable={editable}
+            onChangeValue={(next) => onUpdate(index, { precio_unitario_clp: next })}
+          />
+        </View>
+
+        <View style={styles.gridColSubtotal}>
+          <InstitutionalText role="label" color="muted" style={[styles.colLabel, styles.colLabelRight]}>
+            Subtotal
+          </InstitutionalText>
+          <InstitutionalText role="numberDisplay" color="ink" style={styles.subtotalValue} numberOfLines={1}>
+            {formatearMontoCLP(subtotal)}
+          </InstitutionalText>
+        </View>
+      </View>
+    </View>
+  );
+});
 
 interface CotizacionIaEditorProps {
   cotizacion: CotizacionCanal;
@@ -129,28 +247,63 @@ export function CotizacionIaEditor({
   return (
     <View style={styles.root}>
       <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>Cotización IA</Text>
-        <View style={styles.estadoBadge}>
-          <Text style={styles.estadoBadgeText}>{cotizacion.estado}</Text>
+        <View style={styles.headerText}>
+          <InstitutionalText role="h4">Cotización</InstitutionalText>
+          {cotizacion.servicio_nombre ? (
+            <InstitutionalText role="caption" color="muted" numberOfLines={2}>
+              {cotizacion.servicio_nombre}
+            </InstitutionalText>
+          ) : null}
         </View>
+        <InstitutionalTag
+          label={cotizacion.estado}
+          variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
+          size="sm"
+        />
       </View>
 
-      {cotizacion.tipo_motor_label ? (
-        <View style={styles.motorChip}>
-          <Fuel size={14} color={I.primary} strokeWidth={2} />
-          <Text style={styles.motorChipText}>Motor: {cotizacion.tipo_motor_label}</Text>
+      {cotizacion.tipo_motor_label || cotizacion.aviso_motor ? (
+        <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding, styles.motorCard]}>
+          <View style={styles.motorHeader}>
+            <View style={hostIconPlateStyle}>
+              <Fuel size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            </View>
+            <View style={styles.motorCopy}>
+              <InstitutionalText role="label" color="muted">
+                MOTOR
+              </InstitutionalText>
+              {cotizacion.tipo_motor_label ? (
+                <InstitutionalText role="h4" numberOfLines={2}>
+                  {cotizacion.tipo_motor_label}
+                </InstitutionalText>
+              ) : (
+                <InstitutionalText role="h5" color="muted">
+                  Sin tipo de motor
+                </InstitutionalText>
+              )}
+            </View>
+            {cotizacion.tipo_motor ? (
+              <InstitutionalTag
+                label={cotizacion.tipo_motor}
+                variant="primary"
+                size="sm"
+                uppercase
+              />
+            ) : null}
+          </View>
+          {cotizacion.aviso_motor ? (
+            <View style={styles.warningBox}>
+              <AlertTriangle size={16} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
+              <InstitutionalText role="caption" color="body" style={styles.warningText}>
+                {cotizacion.aviso_motor}
+              </InstitutionalText>
+            </View>
+          ) : null}
         </View>
       ) : null}
 
-      {cotizacion.aviso_motor ? (
-        <View style={styles.warningBox}>
-          <AlertTriangle size={16} color={I.accentYellow} strokeWidth={2} />
-          <Text style={styles.warningText}>{cotizacion.aviso_motor}</Text>
-        </View>
-      ) : null}
-
-      <View style={styles.section}>
-        <Text style={styles.fieldLabel}>Mano de obra</Text>
+      <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding, styles.sectionCard]}>
+        <InstitutionalSectionHeader title="Mano de obra" />
         <ClpMoneyInput
           value={manoObra}
           editable={editable}
@@ -159,152 +312,112 @@ export function CotizacionIaEditor({
       </View>
 
       <View style={styles.section}>
-        <View style={styles.repuestosHeader}>
-          <Text style={styles.fieldLabel}>Repuestos</Text>
-          {editable ? (
-            <TouchableOpacity style={styles.addBtn} onPress={agregarRepuesto}>
-              <Plus size={16} color={I.primary} />
-              <Text style={styles.addBtnText}>Agregar</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+        <InstitutionalSectionHeader
+          title="Repuestos"
+          count={repuestos.length > 0 ? repuestos.length : undefined}
+          actionLabel={editable ? 'Agregar' : undefined}
+          onActionPress={editable ? agregarRepuesto : undefined}
+        />
 
         {repuestos.length === 0 ? (
-          <Text style={styles.emptyRepuestos}>Sin repuestos listados</Text>
+          <TouchableOpacity
+            style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding, styles.emptyRepuestos]}
+            onPress={editable ? agregarRepuesto : undefined}
+            disabled={!editable}
+            activeOpacity={editable ? 0.88 : 1}
+            accessibilityRole={editable ? 'button' : undefined}
+          >
+            <InstitutionalText role="caption" color="muted">
+              Sin repuestos listados
+            </InstitutionalText>
+            {editable ? (
+              <View style={styles.emptyAdd}>
+                <Plus size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalText role="captionBold" color="primary">
+                  Agregar repuesto
+                </InstitutionalText>
+              </View>
+            ) : null}
+          </TouchableOpacity>
         ) : (
-          <>
-            <View style={styles.gridHeaderRow}>
-              <View style={styles.gridColCant}>
-                <Text style={styles.colLabel}>Cant.</Text>
-              </View>
-              <View style={styles.gridColPrecio}>
-                <Text style={styles.colLabel}>Precio unit.</Text>
-              </View>
-              <View style={styles.gridColSubtotal}>
-                <Text style={[styles.colLabel, styles.colLabelRight]}>Subtotal</Text>
-              </View>
-            </View>
-
-            {repuestos.map((rep, idx) => {
-              const subtotal = subtotalRepuesto(rep);
-              return (
-                <View key={rep.id ?? `rep-${idx}`} style={styles.repuestoCard}>
-                  <View style={styles.repuestoTopRow}>
-                    <TextInput
-                      style={styles.nombreInput}
-                      editable={editable}
-                      placeholder="Nombre del repuesto"
-                      placeholderTextColor={I.mutedSoft}
-                      value={rep.nombre}
-                      onChangeText={(t) => actualizarRepuesto(idx, { nombre: t })}
-                    />
-                    {editable ? (
-                      <TouchableOpacity
-                        style={styles.deleteBtn}
-                        onPress={() => eliminarRepuesto(idx)}
-                        accessibilityLabel="Eliminar repuesto"
-                      >
-                        <Trash2 size={18} color={COLORS.error.dark} />
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-
-                  <View style={styles.repuestoGrid}>
-                    <View style={styles.gridColCant}>
-                      {editable ? (
-                        <TextInput
-                          style={styles.cantidadInput}
-                          keyboardType="numeric"
-                          value={String(redondearCLP(rep.cantidad || 1))}
-                          onChangeText={(t) =>
-                            actualizarRepuesto(idx, {
-                              cantidad: Math.max(1, parseInt(t.replace(/\D/g, ''), 10) || 1),
-                            })
-                          }
-                        />
-                      ) : (
-                        <Text style={styles.colValue}>{redondearCLP(rep.cantidad || 1)}</Text>
-                      )}
-                    </View>
-
-                    <View style={styles.gridColPrecio}>
-                      <ClpMoneyInput
-                        compact
-                        value={redondearCLP(rep.precio_unitario_clp)}
-                        editable={editable}
-                        onChangeValue={(next) =>
-                          actualizarRepuesto(idx, { precio_unitario_clp: next })
-                        }
-                      />
-                    </View>
-
-                    <View style={styles.gridColSubtotal}>
-                      <Text style={styles.subtotalValue} numberOfLines={1}>
-                        {formatearMontoCLP(subtotal)}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
-          </>
+          <View style={styles.repuestosList}>
+            {repuestos.map((rep, idx) => (
+              <RepuestoRow
+                key={rep.id ?? `rep-${idx}`}
+                rep={rep}
+                index={idx}
+                editable={editable}
+                onUpdate={actualizarRepuesto}
+                onDelete={eliminarRepuesto}
+              />
+            ))}
+          </View>
         )}
       </View>
 
-      <View style={styles.summaryBox}>
+      <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding, styles.summaryBox]}>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Repuestos</Text>
-          <Text style={styles.summaryAmount}>{formatearMontoCLP(totalRepuestos)}</Text>
+          <InstitutionalText role="caption" color="muted">
+            Repuestos
+          </InstitutionalText>
+          <InstitutionalText role="captionBold" color="ink">
+            {formatearMontoCLP(totalRepuestos)}
+          </InstitutionalText>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Mano de obra</Text>
-          <Text style={styles.summaryAmount}>{formatearMontoCLP(manoObra)}</Text>
+          <InstitutionalText role="caption" color="muted">
+            Mano de obra
+          </InstitutionalText>
+          <InstitutionalText role="captionBold" color="ink">
+            {formatearMontoCLP(manoObra)}
+          </InstitutionalText>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryRow}>
-          <Text style={styles.totalLabel}>Total estimado</Text>
-          <Text style={styles.totalValue}>{formatearMontoCLP(totalCalculado)}</Text>
+          <InstitutionalText role="h5" color="ink">
+            Total estimado
+          </InstitutionalText>
+          <InstitutionalText role="numberDisplay" color="ink" style={styles.totalValue}>
+            {formatearMontoCLP(totalCalculado)}
+          </InstitutionalText>
         </View>
       </View>
 
       {cotizacion.advertencias?.length ? (
         <View style={styles.advertenciasBox}>
           {cotizacion.advertencias.map((adv, i) => (
-            <Text key={`adv-${i}`} style={styles.advertenciaText}>
+            <InstitutionalText key={`adv-${i}`} role="small" color="muted">
               • {adv}
-            </Text>
+            </InstitutionalText>
           ))}
         </View>
       ) : null}
 
       {editable && onEnviar ? (
-        <TouchableOpacity
-          style={[styles.primaryBtn, enviando && styles.btnDisabled]}
+        <InstitutionalButton
+          label={enviarLabel}
           onPress={onEnviar}
+          loading={enviando}
           disabled={enviando}
-        >
-          {enviando ? (
-            <ActivityIndicator color={I.onPrimary} />
-          ) : (
-            <Text style={styles.primaryBtnText}>{enviarLabel}</Text>
-          )}
-        </TouchableOpacity>
+        />
       ) : null}
 
       {editable && onGuardarPlantilla ? (
-        <TouchableOpacity
-          style={[styles.secondaryBtn, guardandoPlantilla && styles.btnDisabled]}
+        <InstitutionalButton
+          label="Guardar como plantilla"
+          variant="secondary"
           onPress={onGuardarPlantilla}
+          loading={guardandoPlantilla}
           disabled={guardandoPlantilla}
-        >
-          <Text style={styles.secondaryBtnText}>Guardar como plantilla</Text>
-        </TouchableOpacity>
+        />
       ) : null}
 
       {cotizacion.estado === 'enviada' && onMarcarAceptada ? (
-        <TouchableOpacity style={styles.secondaryBtn} onPress={onMarcarAceptada}>
-          <Text style={styles.secondaryBtnText}>Cliente aceptó (manual)</Text>
-        </TouchableOpacity>
+        <InstitutionalButton
+          label="Cliente aceptó (manual)"
+          variant="secondary"
+          onPress={onMarcarAceptada}
+        />
       ) : null}
     </View>
   );
@@ -312,263 +425,118 @@ export function CotizacionIaEditor({
 
 const styles = StyleSheet.create({
   root: {
-    gap: SPACING.md,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.md,
+    gap: SPACING.fixed.lg,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.sm,
   },
-  sectionTitle: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: I.ink,
-  },
-  estadoBadge: {
-    backgroundColor: I.surfaceSoft,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.full,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
-  estadoBadgeText: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: I.body,
-    textTransform: 'capitalize',
-  },
-  motorChip: {
+  headerText: { flex: 1, minWidth: 0, gap: 2 },
+  motorCard: { gap: SPACING.fixed.sm },
+  motorHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
-    alignSelf: 'flex-start',
-    backgroundColor: I.surfaceSoft,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.full,
+    gap: SPACING.fixed.sm,
   },
-  motorChipText: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: I.ink,
-  },
+  motorCopy: { flex: 1, minWidth: 0, gap: 2 },
   warningBox: {
     flexDirection: 'row',
-    gap: SPACING.sm,
-    backgroundColor: COLORS.background.warning,
+    gap: SPACING.fixed.sm,
+    backgroundColor: withOpacity(I.accentYellow, 0.1),
     borderRadius: BORDERS.radius.md,
-    padding: SPACING.sm,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.accentYellow,
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.md,
   },
-  warningText: {
-    flex: 1,
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.body,
-    lineHeight: 20,
-  },
-  section: { marginBottom: SPACING.xs },
-  fieldLabel: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
-    marginBottom: SPACING.xs,
-  },
-  moneyInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    paddingHorizontal: SPACING.sm,
+  warningText: { flex: 1 },
+  section: { gap: SPACING.fixed.sm },
+  sectionCard: { gap: SPACING.fixed.sm },
+  moneyRowCompact: {
     minHeight: 44,
+    paddingVertical: 0,
   },
-  moneyInputRowCompact: {
-    minHeight: 40,
-    paddingHorizontal: SPACING.xs + 2,
-  },
-  moneyPrefix: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.muted,
-    marginRight: SPACING.xs,
-  },
-  moneyInput: {
-    flex: 1,
-    minWidth: 0,
-    paddingVertical: SPACING.sm,
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
-  },
-  moneyInputCompact: {
-    paddingVertical: 8,
-  },
-  repuestosHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  addBtnText: { fontFamily: FF.sansSemiBold, fontSize: TYPOGRAPHY.fontSize.sm, color: I.primary },
   emptyRepuestos: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.muted,
-    fontStyle: 'italic',
+    gap: SPACING.fixed.sm,
+    alignItems: 'flex-start',
+  },
+  emptyAdd: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+  },
+  repuestosList: {
+    gap: SPACING.fixed.sm,
   },
   repuestoCard: {
-    marginBottom: SPACING.sm,
-    padding: SPACING.sm,
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
+    gap: SPACING.fixed.sm,
   },
   repuestoTopRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.xs,
   },
-  nombreInput: {
-    flex: 1,
-    minWidth: 0,
-    marginRight: SPACING.xs,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
-  },
-  gridHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: SPACING.xs,
-  },
+  nombreField: { flex: 1, minWidth: 0 },
   repuestoGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     width: '100%',
+    gap: SPACING.fixed.sm,
   },
   gridColCant: {
-    width: 64,
-    marginRight: SPACING.sm,
+    width: 72,
     flexShrink: 0,
   },
   gridColPrecio: {
     flex: 1,
     minWidth: 0,
-    marginRight: SPACING.sm,
+    gap: SPACING.fixed.xxs,
   },
   gridColSubtotal: {
-    width: 100,
+    width: 104,
     flexShrink: 0,
     alignItems: 'flex-end',
-    justifyContent: 'center',
+    gap: SPACING.fixed.xxs,
   },
   colLabel: {
-    fontFamily: FF.sansMedium,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: I.muted,
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
   },
   colLabelRight: {
     textAlign: 'right',
     width: '100%',
   },
-  cantidadInput: {
-    width: '100%',
-    minHeight: 40,
+  cantidadAlign: {
     textAlign: 'center',
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    paddingHorizontal: SPACING.xs,
-    paddingVertical: 8,
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
-  },
-  colValue: {
-    minHeight: 40,
-    textAlign: 'center',
-    lineHeight: 40,
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
   },
   subtotalValue: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.primary,
+    minHeight: 44,
     textAlign: 'right',
+    textAlignVertical: 'center',
+    lineHeight: 44,
   },
   deleteBtn: {
-    padding: SPACING.xs,
+    padding: SPACING.fixed.xs,
     flexShrink: 0,
+    marginTop: SPACING.fixed.lg,
   },
   summaryBox: {
-    gap: SPACING.xs,
-    padding: SPACING.sm,
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
+    gap: SPACING.fixed.sm,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  summaryLabel: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.body,
-  },
-  summaryAmount: {
-    fontFamily: FF.sansMedium,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
+    gap: SPACING.fixed.sm,
   },
   summaryDivider: {
-    height: 1,
+    height: StyleSheet.hairlineWidth,
     backgroundColor: I.hairline,
-    marginVertical: SPACING.xs,
   },
-  totalLabel: { fontFamily: FF.sansSemiBold, fontSize: TYPOGRAPHY.fontSize.sm, color: I.ink },
-  totalValue: { fontFamily: FF.sansSemiBold, fontSize: TYPOGRAPHY.fontSize.lg, color: I.primary },
+  totalValue: {
+    fontSize: T.h3.fontSize,
+  },
   advertenciasBox: { gap: 4 },
-  advertenciaText: { fontFamily: FF.sansRegular, fontSize: TYPOGRAPHY.fontSize.xs, color: I.muted },
-  primaryBtn: {
-    backgroundColor: I.primary,
-    borderRadius: BORDERS.radius.md,
-    paddingVertical: SPACING.sm + 2,
-    alignItems: 'center',
-  },
-  primaryBtnText: { fontFamily: FF.sansSemiBold, fontSize: TYPOGRAPHY.fontSize.sm, color: I.onPrimary },
-  secondaryBtn: {
-    borderRadius: BORDERS.radius.md,
-    paddingVertical: SPACING.sm,
-    alignItems: 'center',
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.primary,
-  },
-  secondaryBtnText: { fontFamily: FF.sansSemiBold, fontSize: TYPOGRAPHY.fontSize.sm, color: I.primary },
-  btnDisabled: { opacity: 0.6 },
 });
+
+export default CotizacionIaEditor;

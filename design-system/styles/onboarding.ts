@@ -5,6 +5,10 @@
 import { Platform, StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '../tokens';
 import { INSTITUTIONAL_SELECTION } from './institutionalSelection';
+import {
+  institutionalInputPlaceholder,
+  institutionalInputStyles,
+} from './institutionalInputs';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -143,23 +147,9 @@ export const ONBOARDING = {
     backgroundColor: I.primary,
     borderColor: I.primary,
   } satisfies ViewStyle,
-  label: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
-    marginBottom: SPACING.fixed.xs,
-  } satisfies TextStyle,
-  input: {
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    borderRadius: BORDERS.radius.lg,
-    paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.md,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontFamily: FF.sansRegular,
-    color: I.ink,
-    backgroundColor: I.canvas,
-  } satisfies TextStyle,
+  /** Alias → inputs canónicos del design system. */
+  label: institutionalInputStyles.label,
+  input: institutionalInputStyles.input,
   loadingCenter: {
     flex: 1,
     justifyContent: 'center',
@@ -174,8 +164,8 @@ export const ONBOARDING = {
   } satisfies TextStyle,
 } as const;
 
-/** Color para placeholder de inputs en onboarding. */
-export const onboardingInputPlaceholder = I.mutedSoft;
+/** Color para placeholder de inputs en onboarding (= canónico). */
+export const onboardingInputPlaceholder = institutionalInputPlaceholder;
 
 export const onboardingStyles = StyleSheet.create({
   ...ONBOARDING,

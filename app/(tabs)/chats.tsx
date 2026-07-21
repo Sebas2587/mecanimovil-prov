@@ -9,7 +9,7 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
   MessageCircle, Check, CheckCheck, Sparkles,
 } from 'lucide-react-native';
@@ -45,7 +45,6 @@ import type { CanalSlug } from '@/services/omnichannelService';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
-import { CotizacionesIaList } from '@/components/chats/CotizacionesIaList';
 import { SolicitudesDisponiblesContent } from '@/components/solicitudes/SolicitudesDisponiblesContent';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
 import { useSolicitudesDisponiblesQuery } from '@/hooks/useSolicitudesDisponiblesQuery';
@@ -70,20 +69,13 @@ export default function ChatsScreen() {
   const { totalMensajesNoLeidos, actualizarTotal, decrementarNoLeidos } = useChats();
   const { isAuthenticated, usuario, estadoProveedor } = useAuth();
   const { radarOportunidadesActivo, radarPreferenciaCargada } = useRadarOportunidades();
-  const params = useLocalSearchParams<{ intent?: string | string[] }>();
-  const intentParam = Array.isArray(params.intent) ? params.intent[0] : params.intent;
-  /** Desde Hoy → Cotizar con IA: solo canales, sin marketplace ni chats de app. */
-  const cotizarIaMode = intentParam === 'cotizar-ia';
   const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
   const solicitudesQueryEnabled =
     cuentaAprobada
     && radarPreferenciaCargada
-    && radarOportunidadesActivo
-    && !cotizarIaMode;
+    && radarOportunidadesActivo;
   const { data: solicitudesDisponibles = [] } = useSolicitudesDisponiblesQuery(solicitudesQueryEnabled);
-  const { data: cotizacionesCanalPendientes = 0 } = useCotizacionesCanalPendientesQuery(
-    cuentaAprobada && !cotizarIaMode,
-  );
+  const { data: cotizacionesCanalPendientes = 0 } = useCotizacionesCanalPendientesQuery(cuentaAprobada);
   const queryClient = useQueryClient();
   const invalidateChatInbox = useInvalidateChatInbox();
   const {
@@ -101,10 +93,6 @@ export default function ChatsScreen() {
 
   const chatsVisibles = chats;
   const loading = isPending && chatsVisibles.length === 0;
-
-  useEffect(() => {
-    if (cotizarIaMode) setActiveTab('chats');
-  }, [cotizarIaMode]);
 
   const totalNoLeidos = useMemo(
     () => chats.reduce((sum, chat) => sum + (chat.mensajes_no_leidos || 0), 0),
@@ -408,17 +396,6 @@ export default function ChatsScreen() {
       </Text>
     </View>
   );
-
-  if (cotizarIaMode) {
-    return (
-      <TabScreenWrapper>
-        <View style={styles.screen}>
-          <Header title="Cotizar con IA" />
-          <CotizacionesIaList enabled={cuentaAprobada} />
-        </View>
-      </TabScreenWrapper>
-    );
-  }
 
   return (
     <TabScreenWrapper>

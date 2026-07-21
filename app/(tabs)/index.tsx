@@ -537,7 +537,7 @@ export default function HomeScreen() {
           <View style={themedStyles.sectionWrap}>
             <HomeTodayActions
               onAgendar={() => setAgendarRapidoVisible(true)}
-              onCotizarIa={() => router.push('/(tabs)/chats?intent=cotizar-ia')}
+              onCotizarIa={() => router.push('/cotizar-ia')}
               showCotizarIa={puede('servicios')}
             />
           </View>

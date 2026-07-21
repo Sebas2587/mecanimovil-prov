@@ -45,3 +45,7 @@ export {
   hostIconPlateColor,
   type InstitutionalStatusTone,
 } from '../styles/institutionalSemantic';
+export {
+  institutionalInputStyles,
+  institutionalInputPlaceholder,
+} from '../styles/institutionalInputs';

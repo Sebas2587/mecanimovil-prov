@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
   View,
   Text,
@@ -29,7 +29,8 @@ import {
   ORIGEN_PIPELINE_LABELS,
 } from '@/services/pipelineComercialService';
 import { usePipelineComercialQuery } from '@/hooks/usePipelineComercialQuery';
-import cotizacionCanalService from '@/services/cotizacionCanalService';
+import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
+import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
@@ -220,7 +221,44 @@ export function PipelineSeguimientoSection({
   const [asignarTarget, setAsignarTarget] = useState<AsignarTecnicoTarget | null>(null);
   const [asignarVisible, setAsignarVisible] = useState(false);
   const [leadActivo, setLeadActivo] = useState<PipelineComercialItem | null>(null);
+  const [cotizacionDetalle, setCotizacionDetalle] = useState<CotizacionCanal | null>(null);
+  const [cotizacionDetalleLoading, setCotizacionDetalleLoading] = useState(false);
+  const cotizacionCacheRef = useRef<Map<number, CotizacionCanal>>(new Map());
   const [accionLoading, setAccionLoading] = useState(false);
+
+  useEffect(() => {
+    const cotizacionId = leadActivo?.cotizacion_id;
+    if (!cotizacionId) {
+      setCotizacionDetalle(null);
+      setCotizacionDetalleLoading(false);
+      return;
+    }
+    const cached = cotizacionCacheRef.current.get(cotizacionId);
+    if (cached) {
+      setCotizacionDetalle(cached);
+      setCotizacionDetalleLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setCotizacionDetalle(null);
+    setCotizacionDetalleLoading(true);
+    void cotizacionCanalService
+      .obtener(cotizacionId)
+      .then((full) => {
+        if (cancelled) return;
+        cotizacionCacheRef.current.set(cotizacionId, full);
+        setCotizacionDetalle(full);
+      })
+      .catch(() => {
+        if (!cancelled) setCotizacionDetalle(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCotizacionDetalleLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [leadActivo?.cotizacion_id]);
 
   useEffect(() => {
     if (filtroOrigen) setOrigen(filtroOrigen);
@@ -568,9 +606,18 @@ export function PipelineSeguimientoSection({
         }}
       />
 
-      <BottomSheet visible={Boolean(leadActivo)} onClose={() => setLeadActivo(null)}>
+      <BottomSheet
+        visible={Boolean(leadActivo)}
+        onClose={() => setLeadActivo(null)}
+        style={styles.leadSheet}
+      >
         {leadActivo ? (
-          <>
+          <ScrollView
+            style={styles.leadScroll}
+            contentContainerStyle={styles.leadScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             <InstitutionalText role="h4" style={styles.sheetTitle}>
               {leadActivo.cliente_nombre}
             </InstitutionalText>
@@ -578,7 +625,30 @@ export function PipelineSeguimientoSection({
               {(leadActivo.servicio_resumen || 'Caso comercial').slice(0, 120)}
               {' · '}
               {ORIGEN_PIPELINE_LABELS[leadActivo.origen] || leadActivo.origen}
+              {leadActivo.vehiculo_resumen ? ` · ${leadActivo.vehiculo_resumen}` : ''}
             </InstitutionalText>
+
+            {leadActivo.cotizacion_id ? (
+              cotizacionDetalleLoading && !cotizacionDetalle ? (
+                <View style={styles.cotizacionLoading}>
+                  <ActivityIndicator color={I.ink} />
+                  <InstitutionalText role="caption" color="muted">
+                    Cargando cotización…
+                  </InstitutionalText>
+                </View>
+              ) : cotizacionDetalle ? (
+                <CotizacionIaEditor
+                  cotizacion={cotizacionDetalle}
+                  readonly
+                  onChange={() => undefined}
+                />
+              ) : (
+                <InstitutionalText role="caption" color="muted">
+                  No se pudo cargar el resumen de la cotización.
+                </InstitutionalText>
+              )
+            ) : null}
+
             <View style={styles.leadActions}>
               {leadPuedeChat ? (
                 <InstitutionalButton
@@ -627,21 +697,19 @@ export function PipelineSeguimientoSection({
                   onPress={cerrarLeadCotizacion}
                 />
               ) : null}
-              {leadActivo.tipo_entidad === 'cotizacion_canal' && leadActivo.origen === 'directo' ? (
+              {(cotizacionDetalle?.share_url || cotizacionDetalle?.url_publica) ? (
                 <InstitutionalButton
-                  label="Cotización por link"
+                  label="Ver link público"
                   variant="tertiary"
                   leading={<Link2 size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
                   onPress={() => {
-                    showAlert(
-                      'Link libre',
-                      'Esta cotización se compartió por enlace público. El seguimiento es por estado (visto, aceptada o rechazada).',
-                    );
+                    const url = cotizacionDetalle?.share_url || cotizacionDetalle?.url_publica;
+                    if (url) showAlert('Link de cotización', url);
                   }}
                 />
               ) : null}
             </View>
-          </>
+          </ScrollView>
         ) : null}
       </BottomSheet>
 
@@ -803,6 +871,22 @@ const styles = StyleSheet.create({
   },
   sheetRowActive: {
     backgroundColor: I.surfaceSoft,
+  },
+  leadSheet: {
+    maxHeight: '94%',
+  },
+  leadScroll: {
+    maxHeight: '100%',
+  },
+  leadScrollContent: {
+    gap: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.sm,
+  },
+  cotizacionLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.lg,
   },
   leadActions: {
     gap: SPACING.fixed.sm,

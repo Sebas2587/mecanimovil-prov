@@ -228,6 +228,15 @@ export default function RootLayout() {
                   />
                   <Stack.Screen name="configuracion-canales" options={{ headerShown: false }} />
                   <Stack.Screen name="cotizaciones-plantillas" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="cotizar-ia"
+                    options={{
+                      headerShown: false,
+                      presentation: 'transparentModal',
+                      animation: 'none',
+                      contentStyle: { backgroundColor: 'transparent' },
+                    }}
+                  />
                   <Stack.Screen name="chat-omnicanal" options={{ headerShown: false }} />
                   <Stack.Screen name="chat-oferta/[ofertaId]" options={{ headerShown: false }} />
                   <Stack.Screen name="+not-found" />

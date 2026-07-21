@@ -1,20 +1,19 @@
 import React from 'react';
 import {
   View,
-  Text,
   TextInput,
-  StyleSheet,
   type TextInputProps,
   type TextStyle,
 } from 'react-native';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
-import { onboardingInputPlaceholder, onboardingStyles } from '@/app/design-system/styles/onboarding';
-
-const I = COLORS.institutional;
-const FF = TYPOGRAPHY.fontFamily;
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import {
+  institutionalInputPlaceholder,
+  institutionalInputStyles,
+} from '@/app/design-system/styles/institutionalInputs';
 
 type Props = {
-  label: string;
+  /** Si se omite, solo se renderiza el input (p. ej. dentro de una card). */
+  label?: string;
   hint?: string;
   value: string;
   onChangeText: (text: string) => void;
@@ -25,6 +24,8 @@ type Props = {
   maxLength?: number;
   editable?: boolean;
   error?: string | null;
+  compact?: boolean;
+  mono?: boolean;
   inputStyle?: TextStyle | TextStyle[];
   onFocus?: TextInputProps['onFocus'];
   onBlur?: TextInputProps['onBlur'];
@@ -46,28 +47,38 @@ export function InstitutionalField({
   maxLength,
   editable = true,
   error,
+  compact = false,
+  mono = false,
   inputStyle,
   onFocus,
   onBlur,
   textInputProps,
 }: Props) {
-  const borderStyle = error ? styles.inputBorderErr : null;
-
   return (
-    <View style={styles.wrap}>
-      <Text style={onboardingStyles.label}>{label}</Text>
-      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+    <View style={institutionalInputStyles.field}>
+      {label ? (
+        <InstitutionalText role="label" color="ink" style={institutionalInputStyles.label}>
+          {label}
+        </InstitutionalText>
+      ) : null}
+      {hint ? (
+        <InstitutionalText role="caption" color="muted" style={institutionalInputStyles.hint}>
+          {hint}
+        </InstitutionalText>
+      ) : null}
       <TextInput
         style={[
-          onboardingStyles.input,
-          multiline && styles.inputMultiline,
-          borderStyle,
+          institutionalInputStyles.input,
+          compact && institutionalInputStyles.inputCompact,
+          mono && institutionalInputStyles.inputMono,
+          multiline && institutionalInputStyles.inputMultiline,
+          error ? institutionalInputStyles.inputError : null,
           ...(Array.isArray(inputStyle) ? inputStyle : inputStyle ? [inputStyle] : []),
         ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={onboardingInputPlaceholder}
+        placeholderTextColor={institutionalInputPlaceholder}
         multiline={multiline}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize ?? 'sentences'}
@@ -77,34 +88,13 @@ export function InstitutionalField({
         onBlur={onBlur}
         {...textInputProps}
       />
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? (
+        <InstitutionalText role="caption" color="semanticDown" style={institutionalInputStyles.errorText}>
+          {error}
+        </InstitutionalText>
+      ) : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    gap: SPACING.fixed.xxs,
-  },
-  hint: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansRegular,
-    color: I.muted,
-    marginBottom: SPACING.fixed.xxs,
-  },
-  inputMultiline: {
-    minHeight: 88,
-    textAlignVertical: 'top',
-    paddingTop: SPACING.fixed.sm + 2,
-  },
-  inputBorderErr: {
-    borderColor: I.semanticDown,
-    borderWidth: BORDERS.width.medium,
-  } as TextStyle,
-  errorText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansMedium,
-    color: I.semanticDown,
-    marginTop: SPACING.fixed.xxs,
-  },
-});
+export default InstitutionalField;
