@@ -239,6 +239,9 @@ export default function RootLayout() {
                   />
                   <Stack.Screen name="chat-omnicanal" options={{ headerShown: false }} />
                   <Stack.Screen name="chat-oferta/[ofertaId]" options={{ headerShown: false }} />
+                  <Stack.Screen name="politica-privacidad" options={{ headerShown: false }} />
+                  <Stack.Screen name="terminos" options={{ headerShown: false }} />
+                  <Stack.Screen name="privacidad-datos" options={{ headerShown: false }} />
                   <Stack.Screen name="+not-found" />
                   </Stack>
                   <StatusBar style="auto" />

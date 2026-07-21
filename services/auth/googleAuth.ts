@@ -31,6 +31,7 @@ export type GoogleLoginProveedorResult =
 export async function googleLoginProveedor(
   idToken: string,
   flow: 'login' | 'register' = 'login',
+  aceptaTerminos = true,
 ): Promise<GoogleLoginProveedorResult> {
   const serverConfig = ServerConfig.getInstance();
   await serverConfig.initialize();
@@ -43,7 +44,7 @@ export async function googleLoginProveedor(
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
-    body: JSON.stringify({ id_token: idToken, flow }),
+    body: JSON.stringify({ id_token: idToken, flow, acepta_terminos: aceptaTerminos }),
   });
 
   const data = await response.json().catch(() => ({}));

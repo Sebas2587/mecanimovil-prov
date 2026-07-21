@@ -692,11 +692,19 @@ export default function PerfilScreen() {
                 ) : null}
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.privacyRow} onPress={handleContactarSoporte} activeOpacity={0.88}>
+              <TouchableOpacity
+                style={styles.privacyRow}
+                onPress={() => router.push('/privacidad-datos')}
+                activeOpacity={0.88}
+              >
                 <FileText size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={[styles.privacyText, { color: I.muted }]}>
-                  {esMecanicoEquipo ? 'Contacto soporte' : 'Privacidad y política · contacto'}
+                  Privacidad, datos y términos
                 </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.privacyRow} onPress={handleContactarSoporte} activeOpacity={0.88}>
+                <Headphones size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={[styles.privacyText, { color: I.muted }]}>Contactar soporte</Text>
               </TouchableOpacity>
             </View>
           </View>
