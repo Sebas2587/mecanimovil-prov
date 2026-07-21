@@ -17,9 +17,9 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import { Card } from '@/app/design-system/components';
 import {
   institutionalStatusColors,
-  institutionalCardStyles,
   type InstitutionalStatusTone,
 } from '@/app/design-system/styles/institutionalSemantic';
 
@@ -137,15 +137,15 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
           const icono = getIconoAlerta(alerta.tipo);
 
           return (
-            <TouchableOpacity
+            <Card
               key={alerta.id}
+              elevated
+              padding="host"
               style={[
                 styles.alertaItem,
-                institutionalCardStyles.surface,
                 alerta.leida && styles.alertaLeida,
               ]}
               onPress={() => handleAlertaPress(alerta)}
-              activeOpacity={0.7}
             >
               <View style={[styles.alertaIconContainer, { backgroundColor: status.bg }]}>
                 <InstitutionalIcon
@@ -207,7 +207,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ variant = 'floating', 
               >
                 <InstitutionalIcon name="trash-outline" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
-            </TouchableOpacity>
+            </Card>
           );
         })
       )}
@@ -388,7 +388,6 @@ const styles = StyleSheet.create({
     backgroundColor: I.canvas,
     borderTopLeftRadius: BORDERS.radius.xl,
     borderBottomLeftRadius: BORDERS.radius.xl,
-    ...SHADOWS.editorial,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -421,13 +420,10 @@ const styles = StyleSheet.create({
   },
   alertaItem: {
     flexDirection: 'row',
-    borderRadius: BORDERS.radius.lg,
-    padding: SPACING.md,
     marginBottom: SPACING.sm,
   },
   alertaLeida: {
     opacity: 0.6,
-    backgroundColor: I.surfaceSoft,
   },
   alertaIconContainer: {
     width: 48,

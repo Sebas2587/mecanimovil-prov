@@ -6,14 +6,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import { BellRing, ChevronRight, Inbox } from 'lucide-react-native';
+import { ChevronRight, Inbox } from 'lucide-react-native';
 import pipelineComercialService, {
   type PipelineComercialItem,
   type EstadoPipelineNormalizado,
   ESTADO_PIPELINE_LABELS,
   ORIGEN_PIPELINE_LABELS,
 } from '@/services/pipelineComercialService';
-import { Card } from '@/design-system/components/Card';
+import { Card, HostSectionKicker } from '@/app/design-system/components';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
@@ -230,19 +230,13 @@ function HomeAtencionSectionInner({
     <View style={styles.section}>
       <View style={styles.headerRow}>
         <View style={styles.titleBlock}>
-          <View style={styles.titleRow}>
-            <BellRing size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-            <InstitutionalText role="h5" style={styles.title}>
-              Requieren tu atención
-            </InstitutionalText>
-            {totalPendientes > 0 ? (
-              <View style={styles.countBadge}>
-                <InstitutionalText role="small" color="onPrimary">
-                  {totalPendientes > 99 ? '99+' : String(totalPendientes)}
-                </InstitutionalText>
-              </View>
-            ) : null}
-          </View>
+          <HostSectionKicker
+            label={
+              totalPendientes > 0
+                ? `Requieren tu atención · ${totalPendientes > 99 ? '99+' : totalPendientes}`
+                : 'Requieren tu atención'
+            }
+          />
           <InstitutionalText role="caption" color="muted">
             Solicitudes y cotizaciones que esperan tu respuesta
           </InstitutionalText>
@@ -300,15 +294,17 @@ function HomeAtencionSectionInner({
       ) : null}
 
       {items.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Inbox size={20} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
-          <View style={styles.emptyTextCol}>
-            <InstitutionalText role="bodyBold">Todo al día</InstitutionalText>
-            <InstitutionalText role="caption" color="muted">
-              No hay solicitudes ni cotizaciones pendientes. Abre Bandeja para el historial completo.
-            </InstitutionalText>
+        <Card elevated padding="host" style={styles.emptyCard}>
+          <View style={styles.emptyRow}>
+            <Inbox size={20} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
+            <View style={styles.emptyTextCol}>
+              <InstitutionalText role="bodyBold">Todo al día</InstitutionalText>
+              <InstitutionalText role="caption" color="muted">
+                No hay solicitudes ni cotizaciones pendientes. Abre Bandeja para el historial completo.
+              </InstitutionalText>
+            </View>
           </View>
-        </View>
+        </Card>
       ) : (
         <View style={styles.list}>
           {items.map((item) => (
@@ -335,27 +331,11 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.sm,
   },
   titleBlock: { flex: 1, gap: SPACING.fixed.xxs },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xs,
-    flexWrap: 'wrap',
-  },
-  title: { flexShrink: 1 },
-  countBadge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    paddingHorizontal: SPACING.fixed.xs,
-    backgroundColor: I.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   headerLink: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    paddingTop: 2,
+    paddingTop: SPACING.fixed.md,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -401,15 +381,11 @@ const styles = StyleSheet.create({
     marginTop: SPACING.fixed.xs,
   },
   flex1: { flex: 1 },
-  emptyCard: {
+  emptyCard: {},
+  emptyRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: SPACING.fixed.sm,
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
   },
   emptyTextCol: { flex: 1, gap: SPACING.fixed.xxs },
   loadingWrap: { paddingVertical: SPACING.fixed.lg, alignItems: 'center' },

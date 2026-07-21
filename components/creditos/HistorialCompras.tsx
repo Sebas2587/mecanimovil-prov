@@ -9,7 +9,8 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { Card, hostScreenStyles } from '@/app/design-system/components';
 import creditosService, { CompraCreditos } from '@/services/creditosService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -230,13 +231,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
       const estadoInk = getEstadoInk(item.estado);
 
       return (
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: I.canvas, borderColor: I.hairline },
-            SHADOWS.editorial,
-          ]}
-        >
+        <Card elevated padding="host" style={styles.card}>
           <View style={styles.cardTop}>
             <View style={[styles.iconPlate, { backgroundColor: I.surfaceStrong }]}>
               <InstitutionalIcon
@@ -345,7 +340,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
               )}
             </View>
           ) : null}
-        </View>
+        </Card>
       );
   };
 
@@ -386,8 +381,7 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
 const styles = StyleSheet.create({
   list: { flex: 1 },
   listContent: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
+    ...hostScreenStyles.scrollInner,
     paddingBottom: SPACING['2xl'],
   },
   sectionHeaderBlock: {
@@ -402,7 +396,7 @@ const styles = StyleSheet.create({
   sectionPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
   },
   sectionPillText: {
     fontSize: 10,
@@ -420,9 +414,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   card: {
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    padding: SPACING.md,
     marginBottom: SPACING.md,
   },
   cardTop: {
@@ -433,7 +424,7 @@ const styles = StyleSheet.create({
   iconPlate: {
     width: 40,
     height: 40,
-    borderRadius: BORDERS.radius.full,
+    borderRadius: BORDERS.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -451,7 +442,7 @@ const styles = StyleSheet.create({
   estadoPill: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
     maxWidth: '42%',
   },
   estadoPillText: {
@@ -491,7 +482,7 @@ const styles = StyleSheet.create({
   metodoPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
     borderWidth: BORDERS.width.thin,
     maxWidth: '56%',
   },
@@ -543,7 +534,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 12,
     paddingHorizontal: SPACING.md,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
     minHeight: 44,
   },
   btnPrimaryText: {
@@ -557,7 +548,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 12,
     paddingHorizontal: SPACING.md,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
     borderWidth: BORDERS.width.thin,
     minHeight: 44,
   },
@@ -572,7 +563,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 12,
     paddingHorizontal: SPACING.md,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
     borderWidth: BORDERS.width.thin,
     backgroundColor: 'transparent',
     minHeight: 44,
@@ -591,7 +582,7 @@ const styles = StyleSheet.create({
   emptyIconPlate: {
     width: 64,
     height: 64,
-    borderRadius: BORDERS.radius.full,
+    borderRadius: BORDERS.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.md,
@@ -599,7 +590,7 @@ const styles = StyleSheet.create({
   emptyPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
     marginBottom: SPACING.sm,
   },
   emptyPillText: {

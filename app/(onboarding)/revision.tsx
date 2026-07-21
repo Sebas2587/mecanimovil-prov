@@ -10,8 +10,8 @@ import {
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import { Card } from '@/app/design-system/components';
 import { COLORS } from '@/app/design-system/tokens';
-import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 
 const I = COLORS.institutional;
 
@@ -41,7 +41,7 @@ export default function RevisionScreen() {
         </Text>
       </View>
 
-      <View style={onboardingStyles.panel}>
+      <Card elevated padding="host">
         <InfoRow icon="time" color={I.primary} title="Tiempo de revisión">
           Nuestro equipo revisará tu solicitud en 24–48 horas hábiles.
         </InfoRow>
@@ -54,16 +54,16 @@ export default function RevisionScreen() {
         <InfoRow icon="shield-checkmark" color={I.semanticUp} title="Activación de cuenta" last>
           Una vez aprobado, podrás acceder y recibir solicitudes de servicio.
         </InfoRow>
-      </View>
+      </Card>
 
-      <View style={[onboardingStyles.panel, styles.stepsPanel]}>
+      <Card elevated padding="host" style={styles.stepsPanel}>
         <InstitutionalSectionHeader title="Próximos pasos" />
         <Step n={1}>Mantén tu correo activo para recibir notificaciones.</Step>
         <Step n={2}>
           Prepara tu {tipo === 'taller' ? 'taller' : 'equipo'} para atender clientes.
         </Step>
         <Step n={3}>Cuando estés aprobado, ingresa a la app y comienza a trabajar.</Step>
-      </View>
+      </Card>
 
       <OnboardingNotice>
         ¿Tienes preguntas? Escríbenos a{' '}

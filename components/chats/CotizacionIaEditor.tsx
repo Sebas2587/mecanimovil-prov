@@ -12,10 +12,8 @@ import { InstitutionalText } from '@/app/design-system/components/InstitutionalT
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
-import {
-  hostIconPlateStyle,
-  institutionalCardStyles,
-} from '@/app/design-system/styles/institutionalSemantic';
+import { Card } from '@/app/design-system/components';
+import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
 import {
   institutionalInputPlaceholder,
   institutionalInputStyles,
@@ -110,7 +108,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
   const subtotal = subtotalRepuesto(rep);
 
   return (
-    <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding, styles.repuestoCard]}>
+    <Card elevated padding="host" style={styles.repuestoCard}>
       <View style={styles.repuestoTopRow}>
         <View style={styles.nombreField}>
           <InstitutionalField
@@ -173,7 +171,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
           </InstitutionalText>
         </View>
       </View>
-    </View>
+    </Card>
   );
 });
 
@@ -263,7 +261,7 @@ export function CotizacionIaEditor({
       </View>
 
       {cotizacion.tipo_motor_label || cotizacion.aviso_motor ? (
-        <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding, styles.motorCard]}>
+        <Card elevated padding="host" style={styles.motorCard}>
           <View style={styles.motorHeader}>
             <View style={hostIconPlateStyle}>
               <Fuel size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
@@ -299,17 +297,17 @@ export function CotizacionIaEditor({
               </InstitutionalText>
             </View>
           ) : null}
-        </View>
+        </Card>
       ) : null}
 
-      <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding, styles.sectionCard]}>
+      <Card elevated padding="host" style={styles.sectionCard}>
         <InstitutionalSectionHeader title="Mano de obra" />
         <ClpMoneyInput
           value={manoObra}
           editable={editable}
           onChangeValue={(next) => onChange({ ...cotizacion, mano_obra_clp: next })}
         />
-      </View>
+      </Card>
 
       <View style={styles.section}>
         <InstitutionalSectionHeader
@@ -320,12 +318,11 @@ export function CotizacionIaEditor({
         />
 
         {repuestos.length === 0 ? (
-          <TouchableOpacity
-            style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding, styles.emptyRepuestos]}
+          <Card
+            elevated
+            padding="host"
+            style={styles.emptyRepuestos}
             onPress={editable ? agregarRepuesto : undefined}
-            disabled={!editable}
-            activeOpacity={editable ? 0.88 : 1}
-            accessibilityRole={editable ? 'button' : undefined}
           >
             <InstitutionalText role="caption" color="muted">
               Sin repuestos listados
@@ -338,7 +335,7 @@ export function CotizacionIaEditor({
                 </InstitutionalText>
               </View>
             ) : null}
-          </TouchableOpacity>
+          </Card>
         ) : (
           <View style={styles.repuestosList}>
             {repuestos.map((rep, idx) => (
@@ -355,7 +352,7 @@ export function CotizacionIaEditor({
         )}
       </View>
 
-      <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding, styles.summaryBox]}>
+      <Card elevated padding="host" style={styles.summaryBox}>
         <View style={styles.summaryRow}>
           <InstitutionalText role="caption" color="muted">
             Repuestos
@@ -381,7 +378,7 @@ export function CotizacionIaEditor({
             {formatearMontoCLP(totalCalculado)}
           </InstitutionalText>
         </View>
-      </View>
+      </Card>
 
       {cotizacion.advertencias?.length ? (
         <View style={styles.advertenciasBox}>

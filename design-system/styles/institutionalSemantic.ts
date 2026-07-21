@@ -96,15 +96,20 @@ export const hostIconPlateColor = I.ink;
 const lh = (fontSize: number, mult: number) => Math.round(fontSize * mult);
 
 export const institutionalCardStyles = StyleSheet.create({
+  /** Paper Host: mismo contrato que `Card` / `HostPaperSection`. */
   surface: {
+    alignSelf: 'stretch',
+    width: '100%',
     backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     ...SHADOWS.editorial,
   } satisfies ViewStyle,
+  /** Padding Host asimétrico (preferir `Card` padding="host"). */
   surfacePadding: {
-    padding: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.sm,
   } satisfies ViewStyle,
   title: {
     fontSize: TS.h4.fontSize,

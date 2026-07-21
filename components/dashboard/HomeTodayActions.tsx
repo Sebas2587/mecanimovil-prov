@@ -1,7 +1,8 @@
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CalendarPlus, Sparkles } from 'lucide-react-native';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { Card, HostSectionKicker } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
   hostIconPlateColor,
@@ -18,7 +19,7 @@ export type HomeTodayActionsProps = {
 };
 
 /**
- * Acciones primarias del día — cards Airbnb / Klarna (superficie blanca, CTA clara).
+ * Acciones primarias del día — Host paper cards + kicker.
  */
 function HomeTodayActionsInner({
   onAgendar,
@@ -27,17 +28,14 @@ function HomeTodayActionsInner({
 }: HomeTodayActionsProps) {
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Crear</Text>
-        <Text style={styles.sectionSub}>Agendamientos y cotizaciones del día</Text>
-      </View>
+      <HostSectionKicker label="Crear" />
+      <Text style={styles.sectionSub}>Agendamientos y cotizaciones del día</Text>
       <View style={styles.row}>
-        <TouchableOpacity
+        <Card
+          elevated
+          padding="host"
           style={styles.card}
           onPress={onAgendar}
-          activeOpacity={0.88}
-          accessibilityRole="button"
-          accessibilityLabel="Nueva solicitud del taller"
         >
           <View style={[hostIconPlateStyle, styles.iconPlateLg]}>
             <CalendarPlus size={22} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
@@ -46,15 +44,14 @@ function HomeTodayActionsInner({
           <Text style={styles.sub} numberOfLines={2}>
             Cliente propio del taller, no marketplace
           </Text>
-        </TouchableOpacity>
+        </Card>
 
         {showCotizarIa ? (
-          <TouchableOpacity
+          <Card
+            elevated
+            padding="host"
             style={styles.card}
             onPress={onCotizarIa}
-            activeOpacity={0.88}
-            accessibilityRole="button"
-            accessibilityLabel="Cotizar con IA"
           >
             <View style={[hostIconPlateStyle, styles.iconPlateLg]}>
               <Sparkles size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -63,7 +60,7 @@ function HomeTodayActionsInner({
             <Text style={styles.sub} numberOfLines={2}>
               Por WhatsApp u otro canal
             </Text>
-          </TouchableOpacity>
+          </Card>
         ) : null}
       </View>
     </View>
@@ -76,20 +73,12 @@ const styles = StyleSheet.create({
   section: {
     gap: SPACING.sm,
   },
-  sectionHeader: {
-    gap: 2,
-  },
-  sectionTitle: {
-    fontSize: T.h4.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: '600',
-    color: I.ink,
-  },
   sectionSub: {
     fontSize: T.caption.fontSize,
     lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     color: I.muted,
+    marginTop: -SPACING.xs,
   },
   row: {
     flexDirection: 'row',
@@ -97,14 +86,8 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: COLORS.background.paper,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    padding: SPACING.md,
     gap: SPACING.xs,
     minHeight: 132,
-    ...SHADOWS.editorial,
   },
   iconPlateLg: {
     width: 44,

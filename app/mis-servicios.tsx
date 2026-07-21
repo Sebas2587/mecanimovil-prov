@@ -13,14 +13,18 @@ import {
 import { Stack, router } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
   agruparOfertasPorCatalogo,
   type ServicioCatalogoGrupo,
 } from '@/utils/agruparOfertasPorCatalogo';
-import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { navigateBack } from '@/utils/navigateBack';
 import { TarifasMarcaListaDestacada } from '@/components/servicios/TarifasMarcaCatalogo';
 import { etiquetaCantidadTarifas } from '@/utils/tarifasPorMarca';
@@ -34,7 +38,6 @@ import {
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
-const hx = SPACING.container.horizontal;
 
 function categoriasDelGrupo(grupo: ServicioCatalogoGrupo<ServicioOfertaRow>) {
   const map = new Map<number, string>();
@@ -149,9 +152,12 @@ const MisServiciosScreen = () => {
       />
 
       <ScrollView
-        style={styles.scrollContainer}
+        style={hostScreenStyles.scroll}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + SPACING.fixed.lg }}
+        contentContainerStyle={[
+          hostScreenStyles.scrollInner,
+          { paddingBottom: insets.bottom + SPACING.fixed.lg },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -160,122 +166,119 @@ const MisServiciosScreen = () => {
           />
         }
       >
-        <View style={[styles.content, { paddingHorizontal: hx }]}>
-          <View style={styles.searchRow}>
-            <View style={styles.searchField}>
-              <InstitutionalIcon name="search" size={20} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Buscar por nombre, marca o tipo…"
-                placeholderTextColor={I.mutedSoft}
-                value={searchText}
-                onChangeText={setSearchText}
-              />
-              {searchText.length > 0 ? (
-                <TouchableOpacity onPress={() => setSearchText('')} hitSlop={12}>
-                  <InstitutionalIcon name="close-circle" size={22} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-                </TouchableOpacity>
-              ) : null}
+        <View style={styles.searchRow}>
+          <View style={styles.searchField}>
+            <InstitutionalIcon name="search" size={20} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar por nombre, marca o tipo…"
+              placeholderTextColor={I.mutedSoft}
+              value={searchText}
+              onChangeText={setSearchText}
+            />
+            {searchText.length > 0 ? (
+              <TouchableOpacity onPress={() => setSearchText('')} hitSlop={12}>
+                <InstitutionalIcon name="close-circle" size={22} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => router.push('/crear-servicio')}
+            activeOpacity={0.88}
+            accessibilityLabel="Agregar servicio"
+          >
+            <InstitutionalIcon name="add" size={20} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={styles.addButtonText}>Agregar</Text>
+          </TouchableOpacity>
+        </View>
+
+        <HostSectionKicker
+          label={`Servicios (${totalLabel})${totalOfertas !== totalLabel ? ` · ${totalOfertas} ofertas` : ''}`}
+        />
+
+        {servicios.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconWrap}>
+              <InstitutionalIcon name="construct-outline" size={48} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
             </View>
+            <Text style={styles.emptyTitle}>No tienes servicios publicados</Text>
+            <Text style={styles.emptySubtitle}>
+              Crea tu primer servicio para empezar a recibir solicitudes de clientes.
+            </Text>
             <TouchableOpacity
-              style={styles.addButton}
+              style={styles.primaryCta}
               onPress={() => router.push('/crear-servicio')}
               activeOpacity={0.88}
-              accessibilityLabel="Agregar servicio"
             >
-              <InstitutionalIcon name="add" size={20} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.addButtonText}>Agregar</Text>
+              <InstitutionalIcon name="add-circle-outline" size={22} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.primaryCtaText}>Crear mi primer servicio</Text>
             </TouchableOpacity>
           </View>
-
-          <InstitutionalSectionHeader
-            title={`Servicios (${totalLabel})${totalOfertas !== totalLabel ? ` · ${totalOfertas} ofertas` : ''}`}
-            level="h4"
-            style={styles.sectionHeader}
-          />
-
-          {servicios.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconWrap}>
-                <InstitutionalIcon name="construct-outline" size={48} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-              </View>
-              <Text style={styles.emptyTitle}>No tienes servicios publicados</Text>
-              <Text style={styles.emptySubtitle}>
-                Crea tu primer servicio para empezar a recibir solicitudes de clientes.
-              </Text>
-              <TouchableOpacity
-                style={styles.primaryCta}
-                onPress={() => router.push('/crear-servicio')}
-                activeOpacity={0.88}
-              >
-                <InstitutionalIcon name="add-circle-outline" size={22} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.primaryCtaText}>Crear mi primer servicio</Text>
-              </TouchableOpacity>
-            </View>
-          ) : serviciosFiltrados.length > 0 ? (
-            gruposOrdenados.map((grupo) => (
-              <TouchableOpacity
-                key={grupo.key}
-                style={styles.listCard}
-                onPress={() => verDetalleServicio(grupo)}
-                activeOpacity={0.88}
-              >
-                <View style={styles.listCardBody}>
-                  <View style={styles.listCardTopRow}>
-                    <View style={styles.listCardTitleRow}>
-                      <Text style={[styles.listCardTitle, styles.listCardTitleFlex]} numberOfLines={2}>
-                        {grupo.representante.servicio_info.nombre}
-                      </Text>
-                      <EstadoDisponibilidadPill grupo={grupo} />
-                    </View>
-                    <View style={styles.listCardTagsRow}>
-                      <CategoriasServicioChips
-                        categorias={categoriasDelGrupo(grupo)}
+        ) : serviciosFiltrados.length > 0 ? (
+          gruposOrdenados.map((grupo) => (
+            <Card
+              key={grupo.key}
+              elevated
+              padding="host"
+              onPress={() => verDetalleServicio(grupo)}
+              style={styles.listCard}
+            >
+              <View style={styles.listCardBody}>
+                <View style={styles.listCardTopRow}>
+                  <View style={styles.listCardTitleRow}>
+                    <Text style={[styles.listCardTitle, styles.listCardTitleFlex]} numberOfLines={2}>
+                      {grupo.representante.servicio_info.nombre}
+                    </Text>
+                    <EstadoDisponibilidadPill grupo={grupo} />
+                  </View>
+                  <View style={styles.listCardTagsRow}>
+                    <CategoriasServicioChips
+                      categorias={categoriasDelGrupo(grupo)}
+                      embed
+                    />
+                    {grupo.motoresDistintos.length > 1 ? (
+                      <MotoresAplicablesChips
+                        motores={grupo.motoresDistintos}
+                        variant="card"
                         embed
                       />
-                      {grupo.motoresDistintos.length > 1 ? (
-                        <MotoresAplicablesChips
-                          motores={grupo.motoresDistintos}
-                          variant="card"
-                          embed
-                        />
-                      ) : (
-                        <MotoresAplicablesChips
-                          motores={extractMotoresServicio(grupo.representante.servicio_info)}
-                          tipoMotorOferta={
-                            grupo.motoresDistintos[0] ?? grupo.representante.tipo_motor
-                          }
-                          variant="card"
-                          embed
-                        />
-                      )}
-                    </View>
-                    <Text style={styles.listCardTarifasHint}>
-                      {etiquetaCantidadTarifas(grupo.tarifasPorMarca)}
-                    </Text>
-                    <EstadoDisponibilidadHint grupo={grupo} />
-                    <TarifasMarcaListaDestacada
-                      tarifas={grupo.tarifasPorMarca}
-                      ofertas={grupo.ofertas}
-                    />
+                    ) : (
+                      <MotoresAplicablesChips
+                        motores={extractMotoresServicio(grupo.representante.servicio_info)}
+                        tipoMotorOferta={
+                          grupo.motoresDistintos[0] ?? grupo.representante.tipo_motor
+                        }
+                        variant="card"
+                        embed
+                      />
+                    )}
                   </View>
-                  <Text style={styles.listCardMeta}>
-                    Actualizado {formatearFecha(grupo.fechaReciente)}
+                  <Text style={styles.listCardTarifasHint}>
+                    {etiquetaCantidadTarifas(grupo.tarifasPorMarca)}
                   </Text>
+                  <EstadoDisponibilidadHint grupo={grupo} />
+                  <TarifasMarcaListaDestacada
+                    tarifas={grupo.tarifasPorMarca}
+                    ofertas={grupo.ofertas}
+                  />
                 </View>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={styles.noResults}>
-              <InstitutionalIcon name="search-outline" size={44} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.noResultsTitle}>Sin resultados</Text>
-              <Text style={styles.noResultsSub}>Prueba otros términos de búsqueda.</Text>
-              <TouchableOpacity style={styles.secondaryCta} onPress={() => setSearchText('')} activeOpacity={0.88}>
-                <Text style={styles.secondaryCtaText}>Limpiar búsqueda</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+                <Text style={styles.listCardMeta}>
+                  Actualizado {formatearFecha(grupo.fechaReciente)}
+                </Text>
+              </View>
+            </Card>
+          ))
+        ) : (
+          <View style={styles.noResults}>
+            <InstitutionalIcon name="search-outline" size={44} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={styles.noResultsTitle}>Sin resultados</Text>
+            <Text style={styles.noResultsSub}>Prueba otros términos de búsqueda.</Text>
+            <TouchableOpacity style={styles.secondaryCta} onPress={() => setSearchText('')} activeOpacity={0.88}>
+              <Text style={styles.secondaryCtaText}>Limpiar búsqueda</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -285,9 +288,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: I.surfaceSoft,
-  },
-  scrollContainer: {
-    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -300,9 +300,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansRegular,
     color: I.muted,
-  },
-  content: {
-    paddingTop: SPACING.fixed.md,
   },
   searchRow: {
     flexDirection: 'row',
@@ -321,7 +318,6 @@ const styles = StyleSheet.create({
     borderColor: I.hairline,
     paddingHorizontal: SPACING.fixed.md,
     paddingVertical: SPACING.fixed.sm,
-    ...SHADOWS.editorial,
   },
   searchInput: {
     flex: 1,
@@ -349,20 +345,9 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
     color: I.ink,
   },
-  sectionHeader: {
-    marginBottom: SPACING.fixed.sm,
-  },
   listCard: {
     width: '100%',
-    flexDirection: 'column',
-    backgroundColor: I.canvas,
-    paddingVertical: SPACING.fixed.md,
-    paddingHorizontal: SPACING.fixed.md,
     marginBottom: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    ...SHADOWS.editorial,
   },
   listCardBody: {
     width: '100%',
@@ -580,13 +565,13 @@ const styles = StyleSheet.create({
   },
 });
 
-function contarDisponibilidadGrupo(grupo: ServicioCatalogoGrupo<ServicioOferta>) {
+function contarDisponibilidadGrupo(grupo: ServicioCatalogoGrupo<ServicioOfertaRow>) {
   const total = grupo.ofertas.length;
   const activas = grupo.ofertas.filter((o) => o.disponible !== false).length;
   return { total, activas, pausadas: total - activas };
 }
 
-function EstadoDisponibilidadPill({ grupo }: { grupo: ServicioCatalogoGrupo<ServicioOferta> }) {
+function EstadoDisponibilidadPill({ grupo }: { grupo: ServicioCatalogoGrupo<ServicioOfertaRow> }) {
   const { total, activas, pausadas } = contarDisponibilidadGrupo(grupo);
   const todas = activas === total;
   const ninguna = activas === 0;
@@ -613,7 +598,7 @@ function EstadoDisponibilidadPill({ grupo }: { grupo: ServicioCatalogoGrupo<Serv
   );
 }
 
-function EstadoDisponibilidadHint({ grupo }: { grupo: ServicioCatalogoGrupo<ServicioOferta> }) {
+function EstadoDisponibilidadHint({ grupo }: { grupo: ServicioCatalogoGrupo<ServicioOfertaRow> }) {
   const { total, activas, pausadas } = contarDisponibilidadGrupo(grupo);
   if (total <= 1) return null;
   if (activas === total || pausadas === total) return null;

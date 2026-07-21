@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { ChevronDown, Search, UserRound, X } from 'lucide-react-native';
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
+import { Card } from '@/app/design-system/components';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { ChilePhoneField } from '@/components/forms/ChilePhoneField';
@@ -190,7 +191,7 @@ export function ClienteCanalPickerSection({
       {clienteModo === 'mensajes' ? (
         <>
           {contactoSeleccionado ? (
-            <View style={styles.selectedContact}>
+            <Card elevated padding="host" style={styles.selectedContact}>
               <View style={styles.selectedContactMain}>
                 <View style={hostIconPlateStyle}>
                   <UserRound size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
@@ -212,14 +213,13 @@ export function ClienteCanalPickerSection({
                   Cambiar
                 </InstitutionalText>
               </TouchableOpacity>
-            </View>
+            </Card>
           ) : (
-            <TouchableOpacity
+            <Card
+              elevated
+              padding="host"
               style={styles.pickerTrigger}
               onPress={abrirPicker}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Elegir cliente de mensajes"
             >
               <View style={styles.pickerTriggerLeft}>
                 <View style={hostIconPlateStyle}>
@@ -237,7 +237,7 @@ export function ClienteCanalPickerSection({
                 </View>
               </View>
               <ChevronDown size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-            </TouchableOpacity>
+            </Card>
           )}
           {!inboxLoading && contactos.length === 0 ? (
             <InstitutionalText role="caption" color="muted">
@@ -387,12 +387,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: SPACING.fixed.sm,
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
-    ...SHADOWS.editorial,
   },
   pickerTriggerLeft: {
     flex: 1,
@@ -469,12 +463,6 @@ const styles = StyleSheet.create({
   contactoText: { flex: 1, minWidth: 0, gap: 2 },
   selectedContact: {
     gap: SPACING.fixed.sm,
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
-    ...SHADOWS.editorial,
   },
   selectedContactMain: {
     flexDirection: 'row',

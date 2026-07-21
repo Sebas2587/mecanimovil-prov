@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -35,8 +34,8 @@ import {
 import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
 import websocketService, { type NuevoMensajeChatEvent } from '@/app/services/websocketService';
-import { BLANK_GLASS } from '@/app/design-system/blankGlass';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { hostScreenStyles } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
   isChatAttachmentImage,
@@ -358,11 +357,6 @@ export default function ChatOmnicanalScreen() {
 
   return (
     <View style={styles.screenRoot}>
-      <LinearGradient
-        style={StyleSheet.absoluteFill}
-        colors={BLANK_GLASS.gradient}
-        locations={BLANK_GLASS.gradientLocations}
-      />
       <SafeAreaView style={styles.safeArea} edges={['bottom']}>
         <Stack.Screen options={{ headerShown: false }} />
 
@@ -404,7 +398,11 @@ export default function ChatOmnicanalScreen() {
               ref={flatListRef}
               data={mensajes}
               keyExtractor={(item) => String(item.id)}
-              contentContainerStyle={[styles.listContent, { paddingBottom: 88 }]}
+              contentContainerStyle={[
+                hostScreenStyles.scrollInner,
+                styles.listContent,
+                { paddingBottom: 88 },
+              ]}
               onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
               onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
               renderItem={({ item }) => {
@@ -556,7 +554,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   chatArea: { flex: 1 },
-  listContent: { padding: SPACING.md, flexGrow: 1 },
+  listContent: { paddingVertical: SPACING.md, flexGrow: 1 },
   modalBg: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.88)',

@@ -8,7 +8,8 @@
  *   4. Historial    – compras y consumos (sub-tabs Compras / Consumos con el mismo estilo)
  *
  * Reglas de negocio:
- *  - Sin Mercado Pago conectado → pantalla de bloqueo (pagos y postulación)
+ *  - KPIs (Rendimiento) y finanzas/saldo se pueden VER sin Mercado Pago
+ *  - Conectar MP es obligatorio para comprar créditos, suscribirse y recibir pagos / postular
  *  - Suscripción mensual → créditos recurrentes + elegibilidad de insignia KPI en app usuarios
  *  - Créditos sueltos (Tienda) → postular según saldo sin necesidad de plan activo
  */
@@ -23,15 +24,19 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Wallet, CreditCard, Store, History, Receipt, ScrollText, TrendingUp } from 'lucide-react-native';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import {COLORS, SPACING, TYPOGRAPHY, withOpacity, BORDERS, SHADOWS} from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, withOpacity, BORDERS } from '@/app/design-system/tokens';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
-import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
+import { Card, hostScreenStyles, HOST_GUTTER } from '@/app/design-system/components';
+import {
+  hostIconPlateColor,
+  hostIconPlateStyle,
+  institutionalStatusColors,
+} from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -63,10 +68,12 @@ import { SaldoBenefitGrid } from '@/components/creditos/SaldoBenefitGrid';
 import MercadoPagoWebViewModal from '@/components/creditos/MercadoPagoWebViewModal';
 import Header from '@/components/Header';
 import { FALLBACK_PRECIO_CREDITO_BRUTO_CLP } from '@/constants/mercadoPagoPricing';
-import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { RendimientoKpisContent } from '@/components/rendimiento';
 
 const I_TAB = COLORS.institutional;
+const PAPER = COLORS.background.paper;
+const CANVAS = COLORS.background.default;
+const HX = HOST_GUTTER;
 
 // ─────────────────────────────────────────────────────────────
 // Tipos
@@ -192,22 +199,16 @@ const PlanesMensualesGlassIntro = React.memo(
     }
 
     return (
-      <View
-        style={[
-          styles.planIntroOuter,
-          { borderColor: I.hairline, backgroundColor: I.canvas },
-          SHADOWS.editorial,
-        ]}
-      >
+      <Card elevated padding={0} style={styles.planIntroOuter}>
         <View style={styles.planIntroInner}>{inner}</View>
-      </View>
+      </Card>
     );
   }
 );
 PlanesMensualesGlassIntro.displayName = 'PlanesMensualesGlassIntro';
 
 // ─────────────────────────────────────────────────────────────
-// PlanCard — glass + tabla de precios + % por crédito destacado
+// PlanCard — paper Host + tabla de precios + % por crédito
 // ─────────────────────────────────────────────────────────────
 interface PlanCardProps {
   plan: PlanSuscripcion;
@@ -222,14 +223,14 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
     const I = COLORS.institutional;
     const hairlineW = StyleSheet.hairlineWidth;
     const featured = plan.destacado;
-    const ink = featured ? I.onDark : I.ink;
-    const body = featured ? I.onDarkSoft : I.body;
-    const muted = featured ? I.onDarkSoft : I.muted;
-    const line = featured ? 'rgba(255,255,255,0.14)' : I.hairline;
-    const panelBg = featured ? I.surfaceDarkElevated : I.surfaceSoft;
-    const pctBg = featured ? 'rgba(255,255,255,0.06)' : withOpacitySafe(I.primary, 0.08);
-    const pctBorder = featured ? 'rgba(255,255,255,0.12)' : withOpacitySafe(I.primary, 0.22);
-    const neutralPanel = featured ? 'rgba(255,255,255,0.06)' : I.surfaceStrong;
+    const ink = I.ink;
+    const body = I.body;
+    const muted = I.muted;
+    const line = I.hairline;
+    const panelBg = I.surfaceSoft;
+    const pctBg = COLORS.selection.background;
+    const pctBorder = COLORS.selection.border;
+    const neutralPanel = I.surfaceSoft;
 
     const esPlanActual =
       suscripcionActual?.plan?.id === plan.id &&
@@ -254,26 +255,33 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
 
     const ctaDisabled = cargando || esPlanActual || (estaEnCualquierPlan && !esPlanActual);
     const ctaPrimaryBg = I.primary;
-    const ctaSecondaryBg = featured ? I.surfaceDarkElevated : I.surfaceStrong;
-    const ctaSecondaryText = featured ? I.onDark : I.ink;
+    const ctaSecondaryBg = I.surfaceSoft;
+    const ctaSecondaryText = I.ink;
 
     return (
-      <View
+      <Card
+        elevated
+        padding="host"
         style={[
           styles.planTierOuter,
           {
-            backgroundColor: featured ? I.surfaceDark : I.canvas,
-            borderColor: line,
+            borderColor: featured ? I.primary : line,
           },
-          SHADOWS.editorial,
         ]}
       >
         <View style={styles.planTierInner}>
           {featured || esPlanActual ? (
             <View style={styles.planTierHeaderRow}>
               {featured ? (
-                <View style={[styles.planTierKicker, { backgroundColor: I.surfaceDarkElevated }]}>
-                  <Text style={[styles.planTierKickerText, { color: I.onDarkSoft }]}>DESTACADO</Text>
+                <View
+                  style={[
+                    styles.planTierKicker,
+                    { backgroundColor: COLORS.selection.background, borderColor: COLORS.selection.border },
+                  ]}
+                >
+                  <Text style={[styles.planTierKickerText, { color: COLORS.selection.text }]}>
+                    DESTACADO
+                  </Text>
                 </View>
               ) : (
                 <View style={{ flex: 1 }} />
@@ -282,7 +290,7 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
                 <View
                   style={[
                     styles.planTierBadgeTuPlan,
-                    { backgroundColor: featured ? I.surfaceDarkElevated : I.surfaceStrong },
+                    { backgroundColor: I.surfaceSoft, borderColor: I.hairline },
                   ]}
                 >
                   <Text style={[styles.planTierBadgeTuPlanText, { color: I.semanticUp }]}>TU PLAN</Text>
@@ -297,7 +305,7 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
             <View style={[styles.planTableRow, { borderBottomColor: line, borderBottomWidth: hairlineW }]}>
               <Text style={[styles.planTableLabel, { color: muted }]}>Cuota mensual</Text>
               <View style={styles.planTableValueRight}>
-                <Text style={[styles.planTablePriceMain, { color: I.primary, fontFamily: TYPOGRAPHY.fontFamily.monoMedium }]}>
+                <Text style={[styles.planTablePriceMain, { color: ink, fontFamily: TYPOGRAPHY.fontFamily.monoMedium }]}>
                   {formatCLP(Math.round(plan.precio))}
                 </Text>
                 <Text style={[styles.planTablePriceSub, { color: body }]}>/ mes</Text>
@@ -325,7 +333,7 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
           {pctAhorroUnDec != null && pctAhorroUnDec > 0 ? (
             <View style={[styles.planPctHero, { borderColor: pctBorder, backgroundColor: pctBg }]}>
               <View style={styles.planPctHeroLeft}>
-                <Text style={[styles.planPctHeroNumber, { color: I.primary }]}>
+                <Text style={[styles.planPctHeroNumber, { color: COLORS.selection.text }]}>
                   ~
                   {pctAhorroUnDec.toLocaleString('es-CL', {
                     minimumFractionDigits: 1,
@@ -357,6 +365,8 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
               styles.planTierCta,
               {
                 backgroundColor: esPlanActual || (estaEnCualquierPlan && !esPlanActual) ? ctaSecondaryBg : ctaPrimaryBg,
+                borderWidth: esPlanActual || (estaEnCualquierPlan && !esPlanActual) ? BORDERS.width.thin : 0,
+                borderColor: I.hairline,
                 opacity: ctaDisabled && !esPlanActual ? 0.55 : 1,
               },
             ]}
@@ -388,7 +398,7 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
             )}
           </TouchableOpacity>
         </View>
-      </View>
+      </Card>
     );
   }
 );
@@ -414,13 +424,7 @@ function SuscripcionDisclosureSection({
 }: SuscripcionDisclosureSectionProps) {
   const I = COLORS.institutional;
   return (
-    <View
-      style={[
-        styles.suscripcionDisclosureCard,
-        { backgroundColor: I.canvas, borderColor: I.hairline },
-        SHADOWS.editorial,
-      ]}
-    >
+    <Card elevated padding={0} style={styles.suscripcionDisclosureCard}>
       <TouchableOpacity
         style={styles.suscripcionDisclosureHeader}
         onPress={onToggle}
@@ -450,23 +454,13 @@ function SuscripcionDisclosureSection({
       {expanded ? (
         <View style={[styles.suscripcionDisclosureBody, { borderTopColor: I.hairline }]}>{children}</View>
       ) : null}
-    </View>
+    </Card>
   );
 }
 
-/** Mismo fondo degradado que el home en `(tabs)/index.tsx`. */
+/** Fondo Host: canvas sólido (sin glass). */
 function CreditosScreenBackground({ children }: { children: React.ReactNode }) {
-  return (
-    <LinearGradient
-      style={styles.gradientFill}
-      colors={[...BLANK_GLASS.gradient]}
-      locations={[...BLANK_GLASS.gradientLocations]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-    >
-      {children}
-    </LinearGradient>
-  );
+  return <View style={[styles.screenFill, { backgroundColor: CANVAS }]}>{children}</View>;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -477,13 +471,13 @@ export default function CreditosScreen() {
   const colors = theme?.colors ?? COLORS ?? {};
   const insets = useSafeAreaInsets();
 
-  /** Texto y CTAs alineados con blank glass de `(tabs)/index.tsx` */
-  const textPrimary = BLANK_GLASS.text;
-  const textSecondary = BLANK_GLASS.textMuted;
-  const primaryColor = BLANK_GLASS.primary;
-  const backgroundDefault = 'transparent';
-  const backgroundPaper = BLANK_GLASS.white;
-  const borderMain = BLANK_GLASS.borderLight;
+  /** Tokens Host / Tinder */
+  const textPrimary = I_TAB.ink;
+  const textSecondary = I_TAB.body;
+  const primaryColor = I_TAB.primary;
+  const backgroundDefault = CANVAS;
+  const backgroundPaper = PAPER;
+  const borderMain = I_TAB.hairline;
 
   const warningStatus = institutionalStatusColors('warning');
 
@@ -574,19 +568,36 @@ export default function CreditosScreen() {
     [planes]
   );
 
+  const requireMercadoPago = useCallback(
+    (accion: string): boolean => {
+      if (mpConectado) return true;
+      Alert.alert(
+        'Mercado Pago requerido',
+        `Para ${accion} necesitas conectar tu cuenta de Mercado Pago.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Conectar',
+            onPress: () => router.push('/configuracion-mercadopago'),
+          },
+        ],
+      );
+      return false;
+    },
+    [mpConectado],
+  );
+
   // ── Carga de datos ────────────────────────────────────────
   const cargarDatos = useCallback(async (isRefreshing = false) => {
     try {
       if (!isRefreshing) setLoading(true);
 
-      // 1. Verificar estado MP
+      // 1. Estado MP (no bloquea lectura de KPIs / finanzas)
       const mpResult = await mercadoPagoProveedorService.obtenerEstadoCuenta();
       const conectada = mpResult.success && mpResult.data?.estado === 'conectada';
       setMpConectado(conectada);
 
-      if (!conectada) return;
-
-      // 2. Cargar todos los datos en paralelo
+      // 2. Datos de lectura siempre disponibles
       const [
         saldoResult,
         estadisticasResult,
@@ -594,7 +605,6 @@ export default function CreditosScreen() {
         consumosResult,
         suscripcionResult,
         planesResult,
-        estadisticasMPResult,
         cobrosResult,
         kpisResumenResult,
       ] = await Promise.all([
@@ -604,7 +614,6 @@ export default function CreditosScreen() {
         creditosService.obtenerHistorialConsumos(50),
         suscripcionesService.obtenerMiSuscripcion(),
         suscripcionesService.obtenerPlanes(),
-        mercadoPagoProveedorService.obtenerEstadisticasPagos(),
         suscripcionesService.obtenerHistorialCobros(),
         kpisProveedorService.obtenerResumen(30),
       ]);
@@ -615,9 +624,6 @@ export default function CreditosScreen() {
       if (consumosResult.success && consumosResult.data) setConsumos(consumosResult.data);
       if (suscripcionResult.success) setSuscripcion(suscripcionResult.suscripcion);
       if (planesResult.success) setPlanes(planesResult.planes);
-      if (estadisticasMPResult && estadisticasMPResult.success && estadisticasMPResult.data) {
-        setEstadisticasMP(estadisticasMPResult.data);
-      }
       if (cobrosResult?.success) {
         setCobrosMP(cobrosResult.cobros);
       }
@@ -630,7 +636,15 @@ export default function CreditosScreen() {
         setKpiSugerenciaInsignia({ mostrar: false, mensaje: null });
       }
 
-      // 3. (Eliminado: Paquetes ya no se utilizan)
+      // 3. Estadísticas de pagos MP solo si hay cuenta conectada
+      if (conectada) {
+        const estadisticasMPResult = await mercadoPagoProveedorService.obtenerEstadisticasPagos();
+        if (estadisticasMPResult?.success && estadisticasMPResult.data) {
+          setEstadisticasMP(estadisticasMPResult.data);
+        }
+      } else {
+        setEstadisticasMP(null);
+      }
     } catch (err: any) {
       console.error('[CreditosScreen] Error cargando datos:', err);
     } finally {
@@ -648,6 +662,7 @@ export default function CreditosScreen() {
 
   // ── Handlers suscripción ──────────────────────────────────
   const handleSuscribirse = useCallback(async (plan: PlanSuscripcion) => {
+    if (!requireMercadoPago('suscribirte a un plan')) return;
     setCargandoSuscripcion(true);
     try {
       const resultado = await suscripcionesService.suscribirse(plan.id);
@@ -666,7 +681,7 @@ export default function CreditosScreen() {
     } finally {
       setCargandoSuscripcion(false);
     }
-  }, []);
+  }, [requireMercadoPago]);
 
   const handleCancelarSuscripcion = useCallback(() => {
     Alert.alert(
@@ -759,9 +774,13 @@ export default function CreditosScreen() {
     handleSincronizarSuscripcion();
   }, [handleSincronizarSuscripcion]);
 
-  const handleComprarPaquete = useCallback((paquete: PaqueteCreditos) => {
-    router.push({ pathname: '/creditos/comprar', params: { paqueteId: paquete.id.toString() } });
-  }, []);
+  const handleComprarPaquete = useCallback(
+    (paquete: PaqueteCreditos) => {
+      if (!requireMercadoPago('comprar créditos')) return;
+      router.push({ pathname: '/creditos/comprar', params: { paqueteId: paquete.id.toString() } });
+    },
+    [requireMercadoPago],
+  );
 
   // ── Loading inicial ───────────────────────────────────────
   if (loading || mpConectado === null) {
@@ -778,50 +797,39 @@ export default function CreditosScreen() {
     );
   }
 
-  // ── Pantalla de bloqueo: MP no conectado ─────────────────
-  if (!mpConectado) {
-    return (
-      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-        <CreditosScreenBackground>
-          <Header title="Suscripción & Créditos" showBack onBackPress={() => router.back()} />
-          <View style={styles.centerContainer}>
-            <View
-              style={[
-                styles.bloqueoCard,
-                { backgroundColor: BLANK_GLASS.white, borderColor: BLANK_GLASS.cardBorder },
-              ]}
-            >
-              <InstitutionalIcon name="lock-outline" size={56} color={BLANK_GLASS.primary}  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={[styles.bloqueoTitulo, { color: textPrimary }]}>
-                Cuenta MP requerida
-              </Text>
-              <Text style={[styles.bloqueoDescripcion, { color: textSecondary }]}>
-                Para acceder a suscripciones y créditos necesitas conectar tu cuenta de Mercado Pago.
-                {'\n\n'}
-                Sin ella tampoco puedes recibir pagos de clientes ni postular a nuevas solicitudes.
-              </Text>
-              <InstitutionalButton
-                label="Conectar Mercado Pago"
-                variant="primary"
-                size="compact"
-                onPress={() => router.push('/configuracion-mercadopago')}
-                leading={
-                  <InstitutionalIcon name="link" size={20} color={I_TAB.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                }
-                style={styles.botonBloqueo}
-              />
-            </View>
-          </View>
-        </CreditosScreenBackground>
-      </SafeAreaView>
-    );
-  }
+  const mpBanner =
+    mpConectado === false ? (
+      <View
+        style={[
+          styles.mpBanner,
+          { backgroundColor: COLORS.selection.background, borderColor: COLORS.selection.border },
+        ]}
+      >
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text style={[styles.mpBannerTitle, { color: COLORS.selection.text }]}>
+            Mercado Pago no conectado
+          </Text>
+          <Text style={[styles.mpBannerBody, { color: textSecondary }]}>
+            Puedes ver rendimiento y finanzas. Conecta MP para comprar créditos, suscribirte,
+            recibir pagos y postular.
+          </Text>
+        </View>
+        <InstitutionalButton
+          label="Conectar"
+          variant="primary"
+          size="compact"
+          onPress={() => router.push('/configuracion-mercadopago')}
+        />
+      </View>
+    ) : null;
 
   // ── Contenido por tab ─────────────────────────────────────
+  const scrollInnerStyle = [hostScreenStyles.scrollInner, { paddingBottom: scrollBottomPad }];
+
   const renderTabSaldo = () => (
     <ScrollView
-      style={styles.scrollContent}
-      contentContainerStyle={{ paddingBottom: scrollBottomPad }}
+      style={hostScreenStyles.scroll}
+      contentContainerStyle={scrollInnerStyle}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
     >
       {saldo && (
@@ -848,16 +856,16 @@ export default function CreditosScreen() {
         />
       )}
 
-      <View style={{ paddingHorizontal: SPACING.fixed.md, marginTop: SPACING.fixed.md }}>
-        <FinanzasLiquidacionSection />
-      </View>
+      <FinanzasLiquidacionSection />
 
       {/* Gráfica interactiva */}
       <InteractiveStatsChart consumos={consumos} precioCreditoReferenciaClp={precioTopUpClp} />
 
       {/* Saldo en cero o bajo (sin plan) → Tienda / compra a medida */}
       {mostrarBannerComprarCreditos && (
-        <TouchableOpacity
+        <Card
+          elevated
+          padding={0}
           style={[
             styles.saldoBanner,
             {
@@ -866,13 +874,12 @@ export default function CreditosScreen() {
             },
           ]}
           onPress={() => setActiveTab('tienda')}
-          activeOpacity={0.85}
         >
-          <View style={[styles.saldoBannerIconPlate, { backgroundColor: I_TAB.surfaceStrong }]}>
+          <View style={styles.saldoBannerIconPlate}>
             <InstitutionalIcon
               name="lightning-bolt"
-              size={22}
-              color={I_TAB.accentYellow}
+              size={20}
+              color={hostIconPlateColor}
               strokeWidth={ICON_STROKE_WIDTH}
             />
           </View>
@@ -892,26 +899,21 @@ export default function CreditosScreen() {
             color={I_TAB.muted}
             strokeWidth={ICON_STROKE_WIDTH}
           />
-        </TouchableOpacity>
+        </Card>
       )}
 
       {kpiSugerenciaInsignia.mostrar && kpiSugerenciaInsignia.mensaje ? (
-        <TouchableOpacity
-          style={[
-            styles.saldoBanner,
-            {
-              backgroundColor: I_TAB.surfaceSoft,
-              borderColor: withOpacitySafe(I_TAB.primary, 0.22),
-            },
-          ]}
+        <Card
+          elevated
+          padding={0}
+          style={styles.saldoBanner}
           onPress={() => setActiveTab('suscripcion')}
-          activeOpacity={0.85}
         >
-          <View style={[styles.saldoBannerIconPlate, { backgroundColor: I_TAB.surfaceStrong }]}>
+          <View style={styles.saldoBannerIconPlate}>
             <InstitutionalIcon
               name="star-circle-outline"
-              size={22}
-              color={I_TAB.primary}
+              size={20}
+              color={hostIconPlateColor}
               strokeWidth={ICON_STROKE_WIDTH}
             />
           </View>
@@ -923,11 +925,11 @@ export default function CreditosScreen() {
           </View>
           <InstitutionalIcon
             name="chevron-right"
-            size={22}
-            color={I_TAB.primary}
+            size={20}
+            color={I_TAB.muted}
             strokeWidth={ICON_STROKE_WIDTH}
           />
-        </TouchableOpacity>
+        </Card>
       ) : null}
 
       {/* Guía educativa al final: ya viste números y gráfico */}
@@ -937,8 +939,8 @@ export default function CreditosScreen() {
 
   const renderTabSuscripcion = () => (
     <ScrollView
-      style={styles.scrollContent}
-      contentContainerStyle={{ paddingBottom: scrollBottomPad }}
+      style={hostScreenStyles.scroll}
+      contentContainerStyle={scrollInnerStyle}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
     >
       {/* Sincronizar — button-secondary-light (Coinbase / institucional) */}
@@ -960,13 +962,7 @@ export default function CreditosScreen() {
 
       {/* Suscripción actual — product-ui-card-light */}
       {suscripcion && ['activa', 'pendiente', 'pausada'].includes(suscripcion.estado) && (
-        <View
-          style={[
-            styles.suscripcionActualCardInst,
-            { backgroundColor: I_TAB.canvas, borderColor: I_TAB.hairline },
-            SHADOWS.editorial,
-          ]}
-        >
+        <Card elevated padding={0} style={styles.suscripcionActualCardInst}>
           <View style={styles.suscripcionActualTopRow}>
             <View style={[styles.suscripcionIconPlate, { backgroundColor: I_TAB.surfaceStrong }]}>
               <InstitutionalIcon
@@ -1040,7 +1036,7 @@ export default function CreditosScreen() {
               Cancelar suscripción
             </Text>
           </TouchableOpacity>
-        </View>
+        </Card>
       )}
 
       {/* Protagonistas: planes primero; guía y cobros van colapsados debajo */}
@@ -1240,8 +1236,8 @@ export default function CreditosScreen() {
 
     return (
       <ScrollView
-        style={styles.scrollContent}
-        contentContainerStyle={{ paddingBottom: scrollBottomPad }}
+        style={hostScreenStyles.scroll}
+        contentContainerStyle={scrollInnerStyle}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
       >
         {/* Banner si saldo = 0 */}
@@ -1278,8 +1274,8 @@ export default function CreditosScreen() {
             style={[
               styles.bannerAlerta,
               {
-                backgroundColor: BLANK_GLASS.primarySoft,
-                borderColor: BLANK_GLASS.primaryBorder,
+                backgroundColor: COLORS.selection.background,
+                borderColor: COLORS.selection.border,
                 marginBottom: 12,
               },
             ]}
@@ -1296,7 +1292,7 @@ export default function CreditosScreen() {
         )}
 
         {restringirCompra ? (
-          <View style={[styles.planCard, { backgroundColor: backgroundPaper, alignItems: 'center', paddingVertical: SPACING['2xl'] }]}>
+          <Card elevated padding="host" style={[styles.planCard, { alignItems: 'center', paddingVertical: SPACING['2xl'] }]}>
             <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: withOpacitySafe(I_TAB.semanticUp, 0.12), alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.md }}>
               <InstitutionalIcon name="shield-check" size={32} color={I_TAB.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
@@ -1306,9 +1302,9 @@ export default function CreditosScreen() {
             <Text style={[styles.planDescripcion, { color: textSecondary, textAlign: 'center' }]}>
               Ya posees una suscripción activa y {creditosDisponibles} créditos disponibles. Podrás comprar más créditos de recarga cuando te queden 5 o menos créditos.
             </Text>
-          </View>
+          </Card>
         ) : (
-          <View style={[styles.planCard, { backgroundColor: backgroundPaper }]}>
+          <Card elevated padding="host" style={styles.planCard}>
             <Text style={[styles.planNombre, { color: textPrimary, textAlign: 'center', marginBottom: SPACING.md }]}>
               Comprar Créditos
             </Text>
@@ -1345,21 +1341,33 @@ export default function CreditosScreen() {
             </View>
 
             <View style={styles.quickSelectContainer}>
-              {[5, 10, 20, 50].map(val => (
-                <TouchableOpacity
-                  key={val}
-                  style={[
-                    styles.quickSelectButton,
-                    cantidadComprar === val ? { backgroundColor: primaryColor, borderColor: primaryColor } : { backgroundColor: backgroundDefault, borderColor: borderMain }
-                  ]}
-                  onPress={() => setCantidadComprar(val)}
-                >
-                  <Text style={[
-                    styles.quickSelectText,
-                    cantidadComprar === val ? { color: I_TAB.onPrimary } : { color: textPrimary }
-                  ]}>+{val}</Text>
-                </TouchableOpacity>
-              ))}
+              {[5, 10, 20, 50].map((val) => {
+                const active = cantidadComprar === val;
+                return (
+                  <TouchableOpacity
+                    key={val}
+                    style={[
+                      styles.quickSelectButton,
+                      active
+                        ? {
+                            backgroundColor: COLORS.selection.background,
+                            borderColor: I_TAB.primary,
+                          }
+                        : { backgroundColor: PAPER, borderColor: borderMain },
+                    ]}
+                    onPress={() => setCantidadComprar(val)}
+                  >
+                    <Text
+                      style={[
+                        styles.quickSelectText,
+                        active ? { color: COLORS.selection.text } : { color: textPrimary },
+                      ]}
+                    >
+                      +{val}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <View style={[styles.separador, { backgroundColor: borderMain }]} />
@@ -1373,10 +1381,13 @@ export default function CreditosScreen() {
               label="Continuar"
               variant="primary"
               size="compact"
-              onPress={() => router.push(`/creditos/comprar?cantidadCreditos=${cantidadComprar}`)}
+              onPress={() => {
+                if (!requireMercadoPago('comprar créditos')) return;
+                router.push(`/creditos/comprar?cantidadCreditos=${cantidadComprar}`);
+              }}
               style={styles.botonSuscribirse}
             />
-          </View>
+          </Card>
         )}
       </ScrollView>
     );
@@ -1384,7 +1395,7 @@ export default function CreditosScreen() {
 
   const renderTabHistorial = () => (
     <View style={styles.historialContainer}>
-      <View style={[styles.glassTabsOuter, { paddingHorizontal: GLASS_INSET }]}>
+      <View style={[styles.tabsOuter, { paddingHorizontal: HX }]}>
         <InstitutionalScreenTabs
           activeKey={historialSubTab}
           onChange={setHistorialSubTab}
@@ -1452,7 +1463,7 @@ export default function CreditosScreen() {
       <CreditosScreenBackground>
       <Header title="Suscripción & Créditos" showBack onBackPress={() => router.back()} />
 
-      <View style={[styles.glassTabsOuter, { paddingHorizontal: GLASS_INSET }]}>
+      <View style={[styles.tabsOuter, { paddingHorizontal: HX }]}>
         <InstitutionalScreenTabs
           activeKey={activeTab}
           onChange={setActiveTab}
@@ -1470,6 +1481,8 @@ export default function CreditosScreen() {
           })}
         />
       </View>
+
+      {mpBanner}
 
       {/* Contenido */}
       {activeTab === 'saldo' && renderTabSaldo()}
@@ -1507,12 +1520,33 @@ export default function CreditosScreen() {
 // Estilos
 // ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'transparent' },
-  gradientFill: { flex: 1 },
+  container: { flex: 1, backgroundColor: CANVAS },
+  screenFill: { flex: 1 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
   loadingText: { marginTop: SPACING.sm, fontSize: TYPOGRAPHY.fontSize.md },
 
-  // ─── Bloqueo MP ───────────────────────────────────────────
+  mpBanner: {
+    marginHorizontal: SPACING.container.horizontal,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
+    padding: SPACING.md,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  mpBannerTitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+  },
+  mpBannerBody: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    lineHeight: 16,
+  },
+
+  // ─── Bloqueo MP (legacy styles retained) ───────────────────
   bloqueoCard: {
     borderRadius: 20,
     borderWidth: 1,
@@ -1531,32 +1565,22 @@ const styles = StyleSheet.create({
   },
 
   /** Contenedor horizontal para `InstitutionalScreenTabs` */
-  glassTabsOuter: {
+  tabsOuter: {
     paddingTop: SPACING.sm,
-    paddingBottom: 4,
+    paddingBottom: SPACING.xs,
   },
 
-  // ─── Scroll ───────────────────────────────────────────────
-  scrollContent: { flex: 1, paddingHorizontal: 20, paddingTop: 4 },
-
-  // ─── Banners (tab Saldo — pill geometry, xl cards) ──────────
+  // ─── Banners (tab Saldo — Host paper via Card) ──────────
   saldoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: BORDERS.width.thin,
-    borderRadius: BORDERS.radius.xl,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.sm,
     marginBottom: SPACING.md,
     gap: SPACING.sm,
-    ...SHADOWS.editorial,
   },
   saldoBannerIconPlate: {
-    width: 44,
-    height: 44,
-    borderRadius: BORDERS.radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+    ...hostIconPlateStyle,
   },
   saldoBannerTextCol: { flex: 1, minWidth: 0 },
   saldoBannerTitle: {
@@ -1628,8 +1652,6 @@ const styles = StyleSheet.create({
     color: COLORS.institutional.ink,
   },
   suscripcionActualCardInst: {
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
     padding: SPACING.md,
     marginBottom: SPACING.md,
   },
@@ -1768,8 +1790,6 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
   planIntroOuter: {
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
     marginBottom: SPACING.md,
     overflow: 'hidden',
   },
@@ -1824,7 +1844,8 @@ const styles = StyleSheet.create({
   planTierKicker: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
+    borderWidth: BORDERS.width.thin,
   },
   planTierKickerText: {
     fontSize: 10,
@@ -1834,8 +1855,9 @@ const styles = StyleSheet.create({
   },
   planTierBadgeTuPlan: {
     paddingHorizontal: 10,
+    borderWidth: BORDERS.width.thin,
     paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
   },
   planTierBadgeTuPlanText: {
     fontSize: 10,
@@ -1899,8 +1921,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   suscripcionDisclosureCard: {
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
     marginTop: SPACING.md,
     marginBottom: SPACING.xs,
     overflow: 'hidden',
@@ -2023,12 +2043,7 @@ const styles = StyleSheet.create({
   },
   // ─── PlanCard (tienda / fallback sólido) ─────────────────
   planCard: {
-    borderRadius: BORDERS.radius.xl,
-    borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.institutional.hairlineSoft,
-    padding: SPACING.lg,
     marginBottom: SPACING.md,
-    ...SHADOWS.editorial,
     overflow: 'hidden',
   },
   badgeDestacado: {
@@ -2056,7 +2071,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   botonSuscribirseBleed: {
-    marginHorizontal: -GLASS_INSET,
+    marginHorizontal: -HX,
   },
   botonSuscribirseTexto: { fontSize: TYPOGRAPHY.fontSize.md, fontWeight: '700' },
 
@@ -2247,12 +2262,13 @@ const styles = StyleSheet.create({
   quickSelectButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 20,
-    borderWidth: 1,
+    borderRadius: BORDERS.radius.sm,
+    borderWidth: BORDERS.width.thin,
   },
   quickSelectText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: '600',
   },
 
   // ─── Cobros MP ─────────────────────────────────────────────
@@ -2261,7 +2277,6 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.width.thin,
     padding: SPACING.md,
     marginBottom: SPACING.md,
-    ...SHADOWS.editorial,
   },
   cobrosHeader: {
     flexDirection: 'row',

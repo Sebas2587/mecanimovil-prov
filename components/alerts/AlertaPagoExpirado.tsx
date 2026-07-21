@@ -11,7 +11,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SPACING, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
+import { Card, HOST_GUTTER } from '@/app/design-system/components';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
@@ -109,14 +110,10 @@ export default function AlertaPagoExpirado({
         },
       ]}
     >
-      <View
-        style={[
-          styles.snackbar,
-          {
-            backgroundColor,
-          },
-          SHADOWS.editorial,
-        ]}
+      <Card
+        elevated
+        padding="host"
+        style={[styles.snackbar, { backgroundColor, borderColor: backgroundColor }]}
       >
         <InstitutionalIcon
           name={iconName}
@@ -142,7 +139,7 @@ export default function AlertaPagoExpirado({
         >
           <InstitutionalIcon name="close" size={20} color={textColor} strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
-      </View>
+      </Card>
     </Animated.View>
   );
 }
@@ -150,17 +147,15 @@ export default function AlertaPagoExpirado({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: SPACING.md,
-    right: SPACING.md,
+    left: HOST_GUTTER,
+    right: HOST_GUTTER,
     zIndex: 9999,
   },
   snackbar: {
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 56,
-    borderRadius: 12,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md - 2,
+    borderRadius: BORDERS.radius.lg,
   },
   icon: {
     marginRight: SPACING.sm,

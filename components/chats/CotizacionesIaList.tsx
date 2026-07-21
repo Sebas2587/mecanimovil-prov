@@ -31,7 +31,12 @@ import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTa
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
-import { COLORS, SPACING, BORDERS, TYPOGRAPHY, SHADOWS } from '@/app/design-system/tokens';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
+import { COLORS, SPACING, BORDERS, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
@@ -90,12 +95,11 @@ const CotizacionCard = React.memo(function CotizacionCard({
   const vehiculo = [item.vehiculo_marca, item.vehiculo_modelo].filter(Boolean).join(' ');
 
   return (
-    <TouchableOpacity
+    <Card
+      elevated
+      padding="host"
       style={styles.card}
       onPress={handlePress}
-      activeOpacity={0.88}
-      accessibilityRole="button"
-      accessibilityLabel={`Cotización para ${clienteLabel(item)}`}
     >
       <View style={styles.cardTop}>
         <InstitutionalTag
@@ -127,7 +131,7 @@ const CotizacionCard = React.memo(function CotizacionCard({
         <Text style={styles.date}>{fechaLabel(item.enviada_en || item.creado_en)}</Text>
         <ChevronRight size={18} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
-    </TouchableOpacity>
+    </Card>
   );
 });
 
@@ -213,12 +217,11 @@ export function CotizacionesIaList({ enabled = true }: Props) {
   const header = useMemo(
     () => (
       <View style={styles.headerBlock}>
-        <TouchableOpacity
+        <Card
+          elevated
+          padding="host"
           style={styles.crearCard}
-          activeOpacity={0.9}
           onPress={() => setLibreVisible(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Nueva cotización libre"
         >
           <View style={styles.crearIcon}>
             <Sparkles size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -230,11 +233,9 @@ export function CotizacionesIaList({ enabled = true }: Props) {
             </Text>
           </View>
           <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-        </TouchableOpacity>
+        </Card>
 
-        <InstitutionalText role="label" color="muted" style={styles.sectionKicker}>
-          COTIZACIONES ENVIADAS
-        </InstitutionalText>
+        <HostSectionKicker label="Cotizaciones enviadas" />
       </View>
     ),
     [],
@@ -389,8 +390,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   list: {
-    paddingHorizontal: SPACING.container.horizontal,
-    paddingTop: SPACING.sm,
+    ...hostScreenStyles.scrollInner,
     paddingBottom: SPACING.xl,
     gap: SPACING.sm,
   },
@@ -399,12 +399,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    backgroundColor: COLORS.background.paper,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    padding: SPACING.md,
-    ...SHADOWS.editorial,
   },
   crearIcon: {
     width: 44,
@@ -427,18 +421,8 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.muted,
   },
-  sectionKicker: {
-    letterSpacing: 0.8,
-    marginTop: SPACING.xs,
-  },
   card: {
-    backgroundColor: COLORS.background.paper,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    padding: SPACING.md,
     gap: SPACING.sm,
-    ...SHADOWS.editorial,
   },
   cardTop: {
     flexDirection: 'row',

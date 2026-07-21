@@ -11,6 +11,7 @@ import {
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { hostScreenStyles } from '@/app/design-system/components';
 import solicitudesService, { type SolicitudPublica, type OfertaProveedorData, type DetalleServicioOferta } from '@/services/solicitudesService';
 import { FormularioOferta } from '@/components/solicitudes/FormularioOferta';
 import creditosService, { type VerificacionCreditosOferta } from '@/services/creditosService';
@@ -308,7 +309,7 @@ export default function CrearOfertaScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeRoot} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={[hostScreenStyles.scroll, styles.safeRoot]} edges={['left', 'right', 'bottom']}>
         <Stack.Screen options={screenOptions} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={I.primary} />
@@ -320,7 +321,7 @@ export default function CrearOfertaScreen() {
 
   if (!solicitud) {
     return (
-      <SafeAreaView style={styles.safeRoot} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={[hostScreenStyles.scroll, styles.safeRoot]} edges={['left', 'right', 'bottom']}>
         <Stack.Screen options={screenOptions} />
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>Solicitud no encontrada</Text>
@@ -330,7 +331,7 @@ export default function CrearOfertaScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeRoot} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={[hostScreenStyles.scroll, styles.safeRoot]} edges={['left', 'right', 'bottom']}>
       <Stack.Screen options={screenOptions} />
       <KeyboardAvoidingView
         style={styles.keyboardView}
@@ -355,7 +356,7 @@ export default function CrearOfertaScreen() {
 const styles = StyleSheet.create({
   safeRoot: {
     flex: 1,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: COLORS.background.default,
   },
   keyboardView: {
     flex: 1,

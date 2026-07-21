@@ -14,15 +14,21 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { Stack, router, useFocusEffect } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { MapPin, Navigation, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { useAuth } from '@/context/AuthContext';
 import { mecanicoAPI, tallerAPI, type EstadoProveedor } from '@/services/api';
-import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
+import {
+  Card,
+  HostPaperSection,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { searchChileAddresses, type ChileAddressHit } from '@/utils/chileNominatimSearch';
 import { reverseGeocodeProveedor } from '@/utils/providerReverseGeocode';
+import { useLocationConsentGate } from '@/hooks/useLocationConsentGate';
+import LocationConsentModal from '@/components/legal/LocationConsentModal';
 
 type SearchUi = 'idle' | 'loading' | 'results' | 'empty' | 'error';
 
@@ -122,6 +128,13 @@ export default function ActualizarUbicacionScreen() {
   const insets = useSafeAreaInsets();
   const { estadoProveedor, refrescarEstadoProveedor } = useAuth();
   const I = COLORS.institutional;
+  const {
+    modalVisible: locationConsentVisible,
+    loading: locationConsentLoading,
+    ensureLocationConsent,
+    accept: acceptLocationConsent,
+    decline: declineLocationConsent,
+  } = useLocationConsentGate();
 
   const hydrateFromEstado = useCallback((estado: EstadoProveedor | null) => {
     const tipo = estado?.tipo_proveedor;
@@ -224,6 +237,11 @@ export default function ActualizarUbicacionScreen() {
   const usarGps = async () => {
     try {
       setGpsLoading(true);
+      const consented = await ensureLocationConsent();
+      if (!consented) {
+        Alert.alert('Ubicación', 'Necesitamos tu consentimiento para usar el GPS.');
+        return;
+      }
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permisos', 'Activa la ubicación para usar el GPS.');
@@ -304,152 +322,143 @@ export default function ActualizarUbicacionScreen() {
     estadoProveedor?.tipo_proveedor === 'taller' ? 'Ubicación del taller' : 'Ubicación base';
 
   return (
-    <View style={styles.root}>
-      <LinearGradient
-        colors={BLANK_GLASS.gradient}
-        locations={BLANK_GLASS.gradientLocations}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
+    <View style={[styles.root, { backgroundColor: I.canvas }]}>
+      <LocationConsentModal
+        visible={locationConsentVisible}
+        loading={locationConsentLoading}
+        onAccept={() => void acceptLocationConsent()}
+        onDecline={declineLocationConsent}
       />
-      <SafeAreaView style={[styles.safe, { backgroundColor: 'transparent' }]} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: I.canvas }]} edges={['left', 'right', 'bottom']}>
         <Stack.Screen options={{ headerShown: false }} />
         <Header title={screenTitle} showBack onBackPress={() => router.back()} />
 
         <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={{
-            paddingHorizontal: GLASS_INSET,
-            paddingBottom: insets.bottom + 28,
-            paddingTop: 8,
-          }}
+          style={hostScreenStyles.scroll}
+          contentContainerStyle={[
+            hostScreenStyles.scrollInner,
+            { paddingBottom: insets.bottom + 28 },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={[styles.card, SHADOWS.editorial, { marginTop: 12, backgroundColor: I.canvas, borderColor: I.hairline }]}>
-            <View style={styles.cardInner}>
-              <View style={[styles.sectionPill, { backgroundColor: I.surfaceStrong }]}>
-                <Text style={[styles.sectionPillText, { color: I.muted }]}>Dirección guardada</Text>
-              </View>
-              <View style={[styles.savedBox, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
-                <Text style={[styles.savedText, { color: I.ink }]}>
-                  {savedAddress
-                    ? savedAddress
-                    : 'Sin texto de dirección aún. Tras guardar con GPS o búsqueda, aquí verás la misma línea que usa la app de usuarios.'}
+          <HostSectionKicker label="Dirección guardada" />
+          <HostPaperSection>
+            <View style={[styles.savedBox, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
+              <Text style={[styles.savedText, { color: I.ink }]}>
+                {savedAddress
+                  ? savedAddress
+                  : 'Sin texto de dirección aún. Tras guardar con GPS o búsqueda, aquí verás la misma línea que usa la app de usuarios.'}
+              </Text>
+              {savedCoords ? (
+                <Text style={[styles.savedCoords, { color: I.muted }]}>
+                  Punto guardado · {savedCoords.lat.toFixed(5)}, {savedCoords.lng.toFixed(5)}
                 </Text>
-                {savedCoords ? (
-                  <Text style={[styles.savedCoords, { color: I.muted }]}>
-                    Punto guardado · {savedCoords.lat.toFixed(5)}, {savedCoords.lng.toFixed(5)}
+              ) : null}
+            </View>
+          </HostPaperSection>
+
+          <HostSectionKicker label="Ubicación actual" />
+          <Card elevated padding="host">
+            <TouchableOpacity
+              style={[styles.heroGpsRow, gpsLoading && styles.btnDisabled]}
+              onPress={usarGps}
+              disabled={gpsLoading}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.iconPlate, { backgroundColor: I.surfaceStrong }]}>
+                {gpsLoading ? (
+                  <ActivityIndicator color={I.primary} />
+                ) : (
+                  <Navigation size={22} color={I.ink} />
+                )}
+              </View>
+              <View style={styles.heroGpsTextWrap}>
+                <Text style={[styles.rowTitle, { color: I.ink }]}>
+                  {gpsLoading ? 'Obteniendo ubicación…' : 'Usar mi ubicación actual'}
+                </Text>
+              </View>
+              <ChevronRight size={20} color={I.muted} />
+            </TouchableOpacity>
+          </Card>
+
+          <HostSectionKicker label="Buscar dirección" />
+          <HostPaperSection>
+            {(selectedLine || selectedCoords) && (
+              <View style={[styles.pendingBlock, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
+                <View style={styles.pendingHeader}>
+                  <Text style={[styles.pendingTitle, { color: I.muted }]}>Cambio pendiente de guardar</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedLine(null);
+                      setSelectedCoords(null);
+                      setUbicacionDetectada(false);
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={[styles.pendingClear, { color: I.primary }]}>Limpiar</Text>
+                  </TouchableOpacity>
+                </View>
+                {selectedLine ? (
+                  <Text style={[styles.pendingLine, { color: I.ink }]}>{selectedLine}</Text>
+                ) : null}
+                {selectedCoords ? (
+                  <Text style={[styles.pendingCoords, { color: I.body }]}>
+                    GPS · {selectedCoords.lat.toFixed(5)}, {selectedCoords.lng.toFixed(5)}
                   </Text>
                 ) : null}
               </View>
-            </View>
-          </View>
+            )}
 
-          {/* Paso 1 (como app usuarios): ubicación por GPS primero */}
-          <View style={[styles.card, SHADOWS.editorial, { marginTop: 12, backgroundColor: I.canvas, borderColor: I.hairline }]}>
-            <View style={styles.cardInner}>
-              <TouchableOpacity
-                style={[styles.heroGpsRow, gpsLoading && styles.btnDisabled]}
-                onPress={usarGps}
-                disabled={gpsLoading}
-                activeOpacity={0.85}
-              >
-                <View style={[styles.iconPlate, { backgroundColor: I.surfaceStrong }]}>
-                  {gpsLoading ? (
-                    <ActivityIndicator color={I.primary} />
-                  ) : (
-                    <Navigation size={22} color={I.ink} />
-                  )}
-                </View>
-                <View style={styles.heroGpsTextWrap}>
-                  <Text style={[styles.rowTitle, { color: I.ink }]}>
-                    {gpsLoading ? 'Obteniendo ubicación…' : 'Usar mi ubicación actual'}
-                  </Text>
-                </View>
-                <ChevronRight size={20} color={I.muted} />
-              </TouchableOpacity>
-            </View>
-          </View>
+            <Text style={[styles.label, { color: I.ink }]}>Buscar otra dirección en Chile</Text>
+            {ubicacionDetectada ? (
+              <View style={[styles.detectedBanner, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
+                <CheckCircle2 size={18} color={I.semanticUp} />
+                <Text style={[styles.detectedBannerText, { color: I.body }]}>
+                  Ubicación nueva lista — pulsa Guardar abajo para registrarla (mismo formato que en la app de
+                  usuarios).
+                </Text>
+              </View>
+            ) : null}
+            <TextInput
+              style={[styles.input, { borderColor: I.hairline, color: I.ink, backgroundColor: I.surfaceSoft }]}
+              placeholder="Ej: Los Leones 1200, Providencia"
+              placeholderTextColor={I.muted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCorrect={false}
+              autoCapitalize="words"
+            />
+            <Text style={[styles.hint, { color: I.muted }]}>{hintSearch}</Text>
 
-          <View style={[styles.card, SHADOWS.editorial, { marginTop: 12, backgroundColor: I.canvas, borderColor: I.hairline }]}>
-            <View style={styles.cardInner}>
-              {(selectedLine || selectedCoords) && (
-                <View style={[styles.pendingBlock, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
-                  <View style={styles.pendingHeader}>
-                    <Text style={[styles.pendingTitle, { color: I.muted }]}>Cambio pendiente de guardar</Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setSelectedLine(null);
-                        setSelectedCoords(null);
-                        setUbicacionDetectada(false);
-                      }}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Text style={[styles.pendingClear, { color: I.primary }]}>Limpiar</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {selectedLine ? (
-                    <Text style={[styles.pendingLine, { color: I.ink }]}>{selectedLine}</Text>
-                  ) : null}
-                  {selectedCoords ? (
-                    <Text style={[styles.pendingCoords, { color: I.body }]}>
-                      GPS · {selectedCoords.lat.toFixed(5)}, {selectedCoords.lng.toFixed(5)}
+            {suggestions.length > 0 && (
+              <View style={[styles.suggestionsBox, { borderColor: I.hairline, backgroundColor: I.canvas }]}>
+                {suggestions.map((item, idx) => (
+                  <TouchableOpacity
+                    key={`${item.lat}-${item.lon}-${idx}`}
+                    style={styles.suggestionRow}
+                    onPress={() => onPickSuggestion(item)}
+                    activeOpacity={0.7}
+                  >
+                    <MapPin size={16} color={I.primary} />
+                    <Text style={[styles.suggestionText, { color: I.ink }]} numberOfLines={3}>
+                      {item.display_name}
                     </Text>
-                  ) : null}
-                </View>
-              )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
-              <Text style={[styles.label, { color: I.ink }]}>Buscar otra dirección en Chile</Text>
-              {ubicacionDetectada ? (
-                <View style={[styles.detectedBanner, { backgroundColor: I.surfaceSoft, borderColor: I.hairline }]}>
-                  <CheckCircle2 size={18} color={I.semanticUp} />
-                  <Text style={[styles.detectedBannerText, { color: I.body }]}>
-                    Ubicación nueva lista — pulsa Guardar abajo para registrarla (mismo formato que en la app de
-                    usuarios).
-                  </Text>
-                </View>
-              ) : null}
-              <TextInput
-                style={[styles.input, { borderColor: I.hairline, color: I.ink, backgroundColor: I.surfaceSoft }]}
-                placeholder="Ej: Los Leones 1200, Providencia"
-                placeholderTextColor={I.muted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoCorrect={false}
-                autoCapitalize="words"
-              />
-              <Text style={[styles.hint, { color: I.muted }]}>{hintSearch}</Text>
-
-              {suggestions.length > 0 && (
-                <View style={[styles.suggestionsBox, { borderColor: I.hairline, backgroundColor: I.canvas }]}>
-                  {suggestions.map((item, idx) => (
-                    <TouchableOpacity
-                      key={`${item.lat}-${item.lon}-${idx}`}
-                      style={styles.suggestionRow}
-                      onPress={() => onPickSuggestion(item)}
-                      activeOpacity={0.7}
-                    >
-                      <MapPin size={16} color={I.primary} />
-                      <Text style={[styles.suggestionText, { color: I.ink }]} numberOfLines={3}>
-                        {item.display_name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-
-              {!selectedCoords && searchQuery.trim().length >= MIN_QUERY && (
-                <View style={styles.warnRow}>
-                  <AlertCircle size={16} color={I.accentYellow} />
-                  <Text style={[styles.warnText, { color: I.body }]}>
-                    Elige un resultado de la lista o usa GPS. Si solo escribes texto, al guardar el servidor intentará
-                    ubicarlo en el mapa.
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
+            {!selectedCoords && searchQuery.trim().length >= MIN_QUERY && (
+              <View style={styles.warnRow}>
+                <AlertCircle size={16} color={I.accentYellow} />
+                <Text style={[styles.warnText, { color: I.body }]}>
+                  Elige un resultado de la lista o usa GPS. Si solo escribes texto, al guardar el servidor intentará
+                  ubicarlo en el mapa.
+                </Text>
+              </View>
+            )}
+          </HostPaperSection>
 
           <TouchableOpacity
             style={[
@@ -485,29 +494,6 @@ const radiusLg = BORDERS?.radius?.lg ?? 16;
 const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
-  scroll: { flex: 1 },
-  card: {
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    overflow: 'hidden',
-  },
-  cardInner: {
-    padding: SPACING.md ?? 16,
-  },
-  sectionPill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
-    marginBottom: SPACING.sm ?? 8,
-  },
-  sectionPillText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
-    textTransform: 'uppercase',
-  },
   heroGpsRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -18,7 +18,11 @@ import {
   targetTierNameForScore,
 } from '@/hooks/useProveedorKpisResumen';
 import { useRendimientoEquipoDetalladoQuery } from '@/hooks/useRendimientoEquipoDetalladoQuery';
-import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import {
+  HostPaperSection,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 
 const DIAS_OPCIONES = [7, 30, 90] as const;
 
@@ -53,17 +57,11 @@ function formatEstrellas(v: number | null | undefined): string {
 }
 
 function DsCard({ children }: { children: React.ReactNode }) {
-  return (
-    <View style={styles.cardOuter}>
-      <View style={styles.cardInner}>{children}</View>
-    </View>
-  );
+  return <HostPaperSection style={styles.cardOuter}>{children}</HostPaperSection>;
 }
 
 function SectionTitle({ children }: { children: string }) {
-  return (
-    <InstitutionalSectionHeader title={children} level="h4" />
-  );
+  return <HostSectionKicker label={children} />;
 }
 
 type MetricItem = { label: string; value: string };
@@ -228,7 +226,7 @@ export function RendimientoKpisContent() {
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
       >
-        <View style={[styles.centered, { paddingHorizontal: SPACING.fixed.lg }]}>
+        <View style={[styles.centered, hostScreenStyles.gutterX]}>
           <Text style={styles.emptyTitle}>Rendimiento no disponible</Text>
           <Text style={styles.emptySub}>Tu cuenta debe estar aprobada para ver KPIs.</Text>
         </View>
@@ -245,8 +243,8 @@ export function RendimientoKpisContent() {
       end={{ x: 0.5, y: 1 }}
     >
       <ScrollView
-        style={styles.scrollTransparent}
-        contentContainerStyle={[styles.scrollInner, { paddingBottom: bottomPad }]}
+        style={[hostScreenStyles.scroll, styles.scrollTransparent]}
+        contentContainerStyle={[hostScreenStyles.scrollInner, styles.scrollInner, { paddingBottom: bottomPad }]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
@@ -492,34 +490,24 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.fixed.sm,
   },
   sectionWrap: {
-    paddingHorizontal: SPACING.fixed.lg,
     marginBottom: SPACING.fixed.lg,
   },
   cardOuter: {
-    borderRadius: BORDERS.radius.xl,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: I.hairline,
-    backgroundColor: I.canvas,
-    ...SHADOWS.editorial,
-  },
-  cardInner: {
-    padding: SPACING.fixed.lg,
-    backgroundColor: I.canvas,
   },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.fixed.sm },
   chip: {
     paddingHorizontal: SPACING.fixed.sm,
     paddingVertical: SPACING.fixed.xs,
-    borderRadius: BORDERS.radius.pill,
-    borderWidth: 1,
+    borderRadius: BORDERS.radius.sm,
+    borderWidth: BORDERS.width.thin,
   },
   chipActive: {
-    backgroundColor: I.canvas,
-    borderColor: COLORS.primary[200],
+    backgroundColor: COLORS.selection.background,
+    borderColor: I.primary,
   },
   chipIdle: {
-    backgroundColor: I.canvas,
+    backgroundColor: COLORS.background.paper,
     borderColor: I.hairline,
   },
   chipText: {
@@ -527,7 +515,7 @@ const styles = StyleSheet.create({
     lineHeight: lh(small.fontSize, small.lineHeight),
     fontFamily: FF.sansSemiBold,
   },
-  chipTextActive: { color: COLORS.primary[500] },
+  chipTextActive: { color: COLORS.selection.text },
   chipTextIdle: { color: I.body },
   loaderWrap: { paddingVertical: SPACING.fixed.xl, alignItems: 'center' },
   centered: {
@@ -619,10 +607,10 @@ const styles = StyleSheet.create({
   },
   insigneCta: {
     alignSelf: 'flex-start',
-    backgroundColor: COLORS.primary[500],
+    backgroundColor: I.primary,
     paddingHorizontal: SPACING.fixed.md,
     paddingVertical: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
   },
   insigneCtaText: {
     color: I.onPrimary,
@@ -648,18 +636,18 @@ const styles = StyleSheet.create({
   scoreBadgePlan: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: I.canvas,
+    backgroundColor: I.surfaceSoft,
     paddingHorizontal: SPACING.fixed.sm,
     paddingVertical: SPACING.fixed.xxs,
-    borderRadius: BORDERS.radius.pill,
-    borderWidth: 1,
+    borderRadius: BORDERS.radius.sm,
+    borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
   },
   scoreBadgePlanText: {
     fontSize: caption.fontSize,
     lineHeight: lh(caption.fontSize, caption.lineHeight),
-    fontFamily: FF.sansSemiBold,
-    color: COLORS.primary[500],
+    fontFamily: FF.monoMedium,
+    color: I.ink,
   },
   scoreDesc: {
     fontSize: caption.fontSize,
@@ -669,13 +657,14 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.sm,
   },
   scoreBarTrack: {
-    height: 6,
-    borderRadius: 3,
+    height: 4,
+    borderRadius: BORDERS.radius.pill,
     overflow: 'hidden',
+    backgroundColor: I.surfaceSoft,
   },
   scoreBarFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: BORDERS.radius.pill,
   },
   metricGridRow: {
     flexDirection: 'row',

@@ -7,6 +7,7 @@ import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { LineChart } from 'react-native-gifted-charts';
 import { Info } from 'lucide-react-native';
 import { SPACING, TYPOGRAPHY, BORDERS, SHADOWS, COLORS } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH, ICON_SIZE } from '@/app/design-system/iconography';
 
 const I = COLORS.institutional;
@@ -107,12 +108,11 @@ export const InteractiveStatsChart: React.FC<InteractiveStatsChartProps> = ({
   );
 
   const chartInnerWidth = useMemo(() => {
-    const scrollPad = 40;
-    const cardPad = SPACING.md * 2;
-    const wellPad = SPACING.sm * 2;
+    const gutter = SPACING.container.horizontal * 2;
+    const cardPad = SPACING.fixed.md * 2;
     const yAxis = 44;
     const safety = 8;
-    return Math.max(200, windowWidth - scrollPad - cardPad - wellPad - yAxis - safety);
+    return Math.max(200, windowWidth - gutter - cardPad - yAxis - safety);
   }, [windowWidth]);
 
   const spacing = useMemo(() => {
@@ -126,7 +126,7 @@ export const InteractiveStatsChart: React.FC<InteractiveStatsChartProps> = ({
   }, [chartInnerWidth, currentYear, currentMonth]);
 
   return (
-    <View style={styles.card}>
+    <Card elevated padding="host" style={styles.card}>
       <View style={styles.headerBlock}>
         <Text style={styles.headline}>Actividad del mes</Text>
         <Text style={styles.subhead} numberOfLines={1}>
@@ -134,16 +134,16 @@ export const InteractiveStatsChart: React.FC<InteractiveStatsChartProps> = ({
         </Text>
       </View>
 
-      <View style={styles.summaryGrid}>
-        <View style={[styles.summaryCell, { backgroundColor: I.surfaceSoft }]}>
+      <View style={[styles.summaryGrid, { borderColor: I.hairline }]}>
+        <View style={[styles.summaryCell, styles.summaryCellDivider, { borderRightColor: I.hairline }]}>
           <Text style={styles.summaryLabel}>Créditos usados</Text>
           <Text style={[styles.summaryValue, { color: I.semanticUp }]}>
             {Math.round(series.sumConsumos).toLocaleString('es-CL')} cr.
           </Text>
         </View>
-        <View style={[styles.summaryCell, { backgroundColor: I.surfaceSoft }]}>
+        <View style={[styles.summaryCell, styles.summaryCellLast]}>
           <Text style={styles.summaryLabel}>Ingreso asociado</Text>
-          <Text style={[styles.summaryValue, { color: I.primary }]} numberOfLines={1}>
+          <Text style={[styles.summaryValue, { color: I.ink }]} numberOfLines={1}>
             {formatCLP(series.ingresoAsociadoMes)}
           </Text>
           <Text style={styles.summaryHint} numberOfLines={2}>
@@ -214,19 +214,13 @@ export const InteractiveStatsChart: React.FC<InteractiveStatsChartProps> = ({
           acreditado en Mercado Pago: ese total está en la card de saldo.
         </Text>
       </View>
-    </View>
+    </Card>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.xl,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.md,
     marginBottom: SPACING.md,
-    ...SHADOWS.editorial,
   },
   headerBlock: {
     marginBottom: SPACING.sm,
@@ -246,23 +240,29 @@ const styles = StyleSheet.create({
   },
   summaryGrid: {
     flexDirection: 'row',
-    gap: SPACING.sm,
     marginBottom: SPACING.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   summaryCell: {
     flex: 1,
     minWidth: 0,
-    borderRadius: BORDERS.radius.md,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.sm,
+    paddingVertical: 14,
+  },
+  summaryCellDivider: {
+    borderRightWidth: StyleSheet.hairlineWidth,
+    paddingRight: SPACING.fixed.md,
+  },
+  summaryCellLast: {
+    paddingLeft: SPACING.fixed.md,
   },
   summaryLabel: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    fontSize: TYPOGRAPHY.styles.h6.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    fontWeight: '500',
     color: I.muted,
     textTransform: 'uppercase',
-    letterSpacing: 0.45,
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
     marginBottom: 6,
   },
   summaryValue: {
@@ -300,15 +300,12 @@ const styles = StyleSheet.create({
   },
   chartWell: {
     width: '100%',
-    borderRadius: BORDERS.radius.lg,
-    backgroundColor: I.surfaceSoft,
     overflow: 'hidden',
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.fixed.xs,
   },
   chartWrap: {
-    alignItems: 'center',
-    alignSelf: 'center',
+    alignItems: 'flex-start',
+    alignSelf: 'stretch',
     minHeight: 192,
     width: '100%',
     overflow: 'hidden',
@@ -318,9 +315,7 @@ const styles = StyleSheet.create({
     width: '100%',
     justifyContent: 'center',
     paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.sm,
-    backgroundColor: I.surfaceStrong,
-    borderRadius: BORDERS.radius.md,
+    paddingHorizontal: SPACING.fixed.xs,
   },
   emptyTitle: {
     ...TYPOGRAPHY.styles.h4,

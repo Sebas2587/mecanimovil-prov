@@ -2,7 +2,8 @@ import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { ClipboardList, Landmark, ShoppingBag } from 'lucide-react-native';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { HostSectionKicker, Card, hostScreenStyles } from '@/app/design-system/components';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH, ICON_SIZE } from '@/app/design-system/iconography';
 
 const I = COLORS.institutional;
@@ -31,26 +32,27 @@ const ITEMS = [
  */
 export const SaldoBenefitGrid = memo(function SaldoBenefitGrid() {
   return (
-    <View style={styles.wrap}>
-      <View style={styles.kickerPill}>
-        <Text style={styles.kickerText}>CÓMO FUNCIONA</Text>
-      </View>
+    <View style={[hostScreenStyles.stretch, styles.wrap]}>
+      <HostSectionKicker label="Cómo funciona" />
       <InstitutionalSectionHeader title="Tu saldo en la app" />
       <Text style={styles.sectionLead}>
         Tres ideas clave para usar créditos y cobros sin fricción.
       </Text>
 
-      <View style={styles.listCard}>
+      <Card elevated padding={0} style={styles.listCard}>
         {ITEMS.map(({ Icon, title, body }, index) => (
           <View
             key={title}
             style={[
               styles.row,
-              index < ITEMS.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: I.hairline },
+              index < ITEMS.length - 1 && {
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: I.hairline,
+              },
             ]}
           >
             <View style={styles.iconPlate}>
-              <Icon size={ICON_SIZE.md} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Icon size={ICON_SIZE.md} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <View style={styles.rowText}>
               <Text style={styles.rowTitle}>{title}</Text>
@@ -58,29 +60,16 @@ export const SaldoBenefitGrid = memo(function SaldoBenefitGrid() {
             </View>
           </View>
         ))}
-      </View>
+      </Card>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
   wrap: {
+    alignSelf: 'stretch',
+    width: '100%',
     marginBottom: SPACING.lg,
-  },
-  kickerPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: I.surfaceStrong,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
-    marginBottom: SPACING.xs,
-  },
-  kickerText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    color: I.ink,
-    letterSpacing: 0.6,
   },
   sectionLead: {
     ...TYPOGRAPHY.styles.caption,
@@ -90,25 +79,22 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   listCard: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.xl,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
     overflow: 'hidden',
-    ...SHADOWS.editorial,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: SPACING.md,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.md,
+    gap: SPACING.fixed.md,
+    paddingVertical: 14,
+    paddingHorizontal: SPACING.fixed.md,
   },
   iconPlate: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDERS.radius.full,
-    backgroundColor: I.surfaceStrong,
+    width: 36,
+    height: 36,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.surfaceSoft,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,

@@ -3,10 +3,12 @@ import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Image } from 'rea
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { institutionalTextStyle } from '@/app/design-system/styles/institutionalTypography';
 import type { MecanicoKpis } from '@/services/equipoTallerService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
+const PAPER = COLORS.background.paper;
 
 type Props = {
   mecanicos: MecanicoKpis[];
@@ -34,21 +36,28 @@ export function MecanicoPickerHorizontal({ mecanicos, selectedId, onSelect }: Pr
         return (
           <TouchableOpacity
             key={m.mecanico_id ?? 'taller'}
-            style={[styles.card, active && styles.cardActive, !m.activo && styles.cardOff]}
+            style={[styles.chip, active && styles.chipActive, !m.activo && styles.chipOff]}
             onPress={() => onSelect(m.mecanico_id)}
             activeOpacity={0.88}
           >
             {m.foto_url ? (
               <Image source={{ uri: m.foto_url }} style={styles.avatar} />
             ) : (
-              <View style={styles.avatarPh}>
-                <InstitutionalIcon name="person" size={20} color={active ? I.onPrimary : I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <View style={[styles.avatarPh, active && styles.avatarPhActive]}>
+                <InstitutionalIcon
+                  name="person"
+                  size={18}
+                  color={active ? I.primary : I.muted}
+                  strokeWidth={ICON_STROKE_WIDTH}
+                />
               </View>
             )}
             <Text style={[styles.nombre, active && styles.nombreActive]} numberOfLines={1}>
               {m.nombre.split(' ')[0]}
             </Text>
-            {!m.activo ? <Text style={[styles.off, active && styles.offActive]}>off</Text> : null}
+            {!m.activo ? (
+              <Text style={[styles.off, active && styles.offActive]}>off</Text>
+            ) : null}
           </TouchableOpacity>
         );
       })}
@@ -62,46 +71,51 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.sm,
     paddingVertical: SPACING.fixed.xs,
   },
-  card: {
+  chip: {
     width: 72,
     alignItems: 'center',
     paddingVertical: SPACING.fixed.sm,
     paddingHorizontal: SPACING.fixed.xxs,
-    borderRadius: BORDERS.radius.lg,
-    backgroundColor: I.surfaceStrong,
+    borderRadius: BORDERS.radius.sm,
+    backgroundColor: PAPER,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
   },
-  cardActive: {
-    backgroundColor: I.primary,
+  chipActive: {
+    backgroundColor: COLORS.selection.background,
     borderColor: I.primary,
   },
-  cardOff: {
+  chipOff: {
     opacity: 0.65,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginBottom: 4,
+    width: 40,
+    height: 40,
+    borderRadius: BORDERS.radius.md,
+    marginBottom: 6,
   },
   avatarPh: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: I.canvas,
+    width: 40,
+    height: 40,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.surfaceSoft,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+  },
+  avatarPhActive: {
+    backgroundColor: PAPER,
+    borderColor: COLORS.selection.border,
   },
   nombre: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
+    ...institutionalTextStyle('caption', I.ink),
     fontFamily: FF.sansSemiBold,
-    color: I.ink,
     textAlign: 'center',
   },
   nombreActive: {
-    color: I.onPrimary,
+    color: COLORS.selection.text,
   },
   off: {
     fontSize: 9,
@@ -110,15 +124,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   offActive: {
-    color: I.onPrimary,
+    color: COLORS.selection.text,
   },
   empty: {
     padding: SPACING.fixed.lg,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    ...institutionalTextStyle('body', I.muted),
     fontFamily: FF.sansMedium,
-    color: I.muted,
   },
 });

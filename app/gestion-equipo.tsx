@@ -17,9 +17,13 @@ import * as ImagePicker from 'expo-image-picker';
 import { Stack, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
-import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { navigateBack } from '@/utils/navigateBack';
 import equipoTallerService, {
@@ -42,15 +46,15 @@ const I = {
   white: INST.onPrimary,
   text: INST.ink,
   muted: INST.muted,
-  background: INST.surfaceSoft,
+  background: INST.canvas,
   danger: INST.semanticDown,
+  paper: COLORS.background.paper,
 };
 const FF = {
   regular: TYPOGRAPHY.fontFamily.regular,
   semibold: TYPOGRAPHY.fontFamily.sansSemiBold,
   bold: TYPOGRAPHY.fontFamily.bold,
 };
-const hx = SPACING.container.horizontal;
 
 const MODALIDADES: { value: ModalidadTecnico; label: string }[] = [
   { value: 'en_taller', label: 'En taller' },
@@ -313,7 +317,7 @@ export default function GestionEquipoScreen() {
   };
 
   const renderMecanico = (m: MiembroTaller) => (
-    <View key={m.id} style={[styles.card, !m.activo && styles.cardInactiva]}>
+    <Card key={m.id} elevated padding="host" style={[styles.memberCard, !m.activo && styles.cardInactiva]}>
       <View style={styles.cardHeader}>
         <View style={styles.cardHeaderLeft}>
           {m.foto_url ? (
@@ -361,7 +365,7 @@ export default function GestionEquipoScreen() {
           <Text style={[styles.actionBtnText, { color: I.danger }]}>Eliminar</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </Card>
   );
 
   return (
@@ -369,7 +373,7 @@ export default function GestionEquipoScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <Header title="Gestión de Equipo" showBack onBackPress={() => navigateBack('/(tabs)')} />
 
-      <View style={styles.tabsWrap}>
+      <View style={[hostScreenStyles.gutterX, styles.tabsWrap]}>
         <InstitutionalScreenTabs<TabEquipo>
           tabs={[
             { key: 'equipo', label: 'Equipo' },
@@ -388,15 +392,16 @@ export default function GestionEquipoScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          style={hostScreenStyles.scroll}
+          contentContainerStyle={[hostScreenStyles.scrollInner, { paddingBottom: SPACING['2xl'] }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {/* Supervisor: solo el mandante designa, edita credenciales y permisos */}
           {!esSupervisor && (
             <>
-              <InstitutionalSectionHeader title="Supervisor" />
+              <HostSectionKicker label="Supervisor" />
               {supervisor ? (
-                <View style={styles.card}>
+                <Card elevated padding="host" style={styles.memberCard}>
                   <View style={styles.cardHeader}>
                     <View style={styles.cardHeaderLeft}>
                       <InstitutionalIcon name="shield-checkmark" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -425,7 +430,7 @@ export default function GestionEquipoScreen() {
                       </View>
                     ))}
                   </View>
-                </View>
+                </Card>
               ) : (
                 <TouchableOpacity style={styles.addInline} onPress={abrirCrearSupervisor}>
                   <InstitutionalIcon name="add-circle" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -437,7 +442,7 @@ export default function GestionEquipoScreen() {
 
           {/* Mecánicos */}
           <View style={styles.sectionHeaderRow}>
-            <InstitutionalSectionHeader title={`Mecánicos (${mecanicos.length})`} />
+            <HostSectionKicker label={`Mecánicos (${mecanicos.length})`} style={styles.sectionKickerFlush} />
             {(!esSupervisor || puede('mecanicos')) && (
               <TouchableOpacity style={styles.addBtn} onPress={abrirCrearMecanico}>
                 <InstitutionalIcon name="add" size={18} color={I.white} strokeWidth={ICON_STROKE_WIDTH} />
@@ -677,11 +682,9 @@ export default function GestionEquipoScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: I.background },
+  safe: { flex: 1, backgroundColor: COLORS.background.default },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scroll: { paddingHorizontal: hx, paddingBottom: SPACING['2xl'] },
   tabsWrap: {
-    paddingHorizontal: hx,
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.xs,
   },
@@ -689,8 +692,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  sectionKickerFlush: {
+    flex: 1,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xs,
   },
   addBtn: {
     flexDirection: 'row',
@@ -699,6 +706,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
     borderRadius: BORDERS.radius.md,
+    marginTop: SPACING.md,
   },
   addBtnText: { color: I.white, fontFamily: FF.semibold, marginLeft: 4 },
   addInline: {
@@ -711,12 +719,8 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   addInlineText: { color: I.primary, fontFamily: FF.semibold, marginLeft: SPACING.sm },
-  card: {
-    backgroundColor: I.white,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.md,
+  memberCard: {
     marginBottom: SPACING.sm,
-    ...SHADOWS.sm,
   },
   cardInactiva: { opacity: 0.6 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

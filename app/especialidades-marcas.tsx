@@ -22,7 +22,12 @@ import {
   type MarcaVehiculo,
   type ModeloVehiculo,
 } from '@/services/api';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import Header from '@/components/Header';
 import Snackbar from '@/components/Snackbar';
 import { INSTITUTIONAL_SELECTION } from '@/app/design-system/styles/institutionalSelection';
@@ -392,13 +397,16 @@ export default function EspecialidadesMarcasScreen() {
       />
 
       <ScrollView
-        style={styles.scrollContainer}
+        style={hostScreenStyles.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />}
-        contentContainerStyle={{ paddingBottom: insets.bottom + (isMultimarca ? 24 : 88) }}
+        contentContainerStyle={[
+          hostScreenStyles.scrollInner,
+          { paddingBottom: insets.bottom + (isMultimarca ? 24 : 88) },
+        ]}
       >
-        <View style={[styles.content, { paddingHorizontal: hx }]}>
-          <View style={styles.infoNotice}>
+          <HostSectionKicker label="Especialidades" />
+          <Card elevated padding="host" style={styles.infoNotice}>
             <View style={styles.infoCardContent}>
               <InstitutionalIcon name="information-circle" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.infoText}>
@@ -409,10 +417,10 @@ export default function EspecialidadesMarcasScreen() {
                     : 'Esta es tu configuración actual de marcas. Toca «Configurar marcas» abajo para modificar.'}
               </Text>
             </View>
-          </View>
+          </Card>
 
           {isMultimarca ? (
-            <View style={styles.multimarcaProfileBadge}>
+            <Card elevated padding="host" style={styles.multimarcaProfileBadge}>
               <InstitutionalIcon name="globe-outline" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               <View style={styles.multimarcaProfileBadgeText}>
                 <Text style={styles.multimarcaProfileTitle}>Proveedor multimarca</Text>
@@ -420,14 +428,11 @@ export default function EspecialidadesMarcasScreen() {
                   Atiendes cualquier marca. Configura precios por marca o un precio base en Mis servicios al publicar cada servicio.
                 </Text>
               </View>
-            </View>
+            </Card>
           ) : (
-            <View style={styles.mainPanel}>
-              <View style={styles.panelHeader}>
-                <InstitutionalIcon name="directions-car" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.panelHeaderTitle}>Marcas que atiendes</Text>
-              </View>
-              <View style={styles.panelDivider} />
+            <>
+              <HostSectionKicker label="Marcas que atiendes" />
+              <Card elevated padding={0} style={styles.mainPanel}>
               <View style={styles.panelBody}>
                 {modoEdicion && (
                   <View style={styles.toolBlock}>
@@ -491,9 +496,9 @@ export default function EspecialidadesMarcasScreen() {
                   </View>
                 </View>
               </View>
-            </View>
+              </Card>
+            </>
           )}
-        </View>
       </ScrollView>
 
       {!isMultimarca ? (
@@ -574,41 +579,11 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.fixed.sm,
   },
   infoNotice: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    paddingVertical: SPACING.fixed.sm,
-    paddingHorizontal: SPACING.fixed.sm,
     marginBottom: SPACING.fixed.sm,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    ...SHADOWS.editorial,
   },
   mainPanel: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.card.xl,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    ...SHADOWS.editorial,
     overflow: 'hidden',
     marginBottom: SPACING.fixed.sm,
-  },
-  panelHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xs,
-    marginHorizontal: SPACING.fixed.sm,
-    marginTop: SPACING.fixed.sm,
-    marginBottom: SPACING.fixed.xs,
-  },
-  panelHeaderTitle: {
-    fontSize: TS.body.fontSize,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
-  },
-  panelDivider: {
-    height: BORDERS.width.thin,
-    backgroundColor: I.hairline,
-    marginHorizontal: SPACING.fixed.sm,
   },
   panelBody: {
     paddingHorizontal: PANEL_BODY_H_PAD,
@@ -765,10 +740,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: SPACING.fixed.sm,
     marginBottom: SPACING.fixed.md,
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.lg,
     backgroundColor: COLORS.primary[50],
-    borderWidth: BORDERS.width.thin,
     borderColor: COLORS.primary[200],
   },
   multimarcaProfileBadgeText: {
@@ -793,10 +765,9 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: I.canvas,
     paddingTop: SPACING.fixed.md,
-    paddingHorizontal: hx,
+    paddingHorizontal: SPACING.container.horizontal,
     borderTopWidth: BORDERS.width.thin,
     borderTopColor: I.hairline,
-    ...SHADOWS.editorial,
   },
   primaryCta: {
     flexDirection: 'row',

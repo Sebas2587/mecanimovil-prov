@@ -23,11 +23,15 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import Header from '@/components/Header';
 import { parseMontoDecimal, formatMontoForInput } from '@/utils/parseMontoDecimal';
 import { calcularDesglosePrecios } from '@/utils/calcularDesglosePrecios';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
-import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import { INSTITUTIONAL_SELECTION } from '@/app/design-system/styles/institutionalSelection';
 import { parseOfertasGrupoParam } from '@/utils/agruparOfertasServicio';
 import { parseMisMarcasResponse } from '@/utils/parseMisMarcasResponse';
@@ -2028,8 +2032,9 @@ const CrearServicioScreen = () => {
     };
 
     return (
-      <View style={styles.sectionContainer}>
-        <InstitutionalSectionHeader title="Tipo de servicio" />
+      <>
+        <HostSectionKicker label="Tipo de servicio" />
+        <Card elevated padding="host" style={styles.sectionContainer}>
         {isEditMode && (
           <Text style={styles.subtitle}>
             Editando servicio - puedes cambiar cualquier opción
@@ -2076,7 +2081,9 @@ const CrearServicioScreen = () => {
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+              </Card>
+      </>
+
     );
   };
 
@@ -2295,30 +2302,34 @@ const CrearServicioScreen = () => {
 
     if (loadingMarcas) {
       return (
-        <View style={styles.sectionContainer}>
+        <Card elevated padding="host" style={styles.sectionContainer}>
           <ActivityIndicator size="large" color={I.primary} style={styles.loader} />
           <Text style={styles.loadingText}>Cargando marcas de vehículos…</Text>
-        </View>
+        </Card>
       );
     }
 
     if (marcas.length === 0) {
       return (
-        <View style={styles.sectionContainer}>
-          <InstitutionalSectionHeader title="¿Para qué vehículos?" />
+        <>
+          <HostSectionKicker label="¿Para qué vehículos?" />
+          <Card elevated padding="host" style={styles.sectionContainer}>
           <View style={styles.noDataContainer}>
             <InstitutionalIcon name="information-circle-outline" size={24} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.noDataText}>
               Configura las marcas que atiendes en Marcas antes de publicar servicios.
             </Text>
           </View>
-        </View>
+                  </Card>
+        </>
+
       );
     }
 
     return (
-      <View style={styles.sectionContainer}>
-        <InstitutionalSectionHeader title="¿Para qué vehículos?" />
+      <>
+        <HostSectionKicker label="¿Para qué vehículos?" />
+        <Card elevated padding="host" style={styles.sectionContainer}>
         <Text style={styles.subtitle}>
           {isEditMode && !tieneSeleccionMarca && servicioSeleccionado
             ? 'Identificando la marca de esta oferta…'
@@ -2654,7 +2665,9 @@ const CrearServicioScreen = () => {
             </Text>
           </View>
         )}
-      </View>
+              </Card>
+      </>
+
     );
   };
 
@@ -2720,8 +2733,9 @@ const CrearServicioScreen = () => {
     };
 
     return (
-      <View style={styles.sectionContainer}>
-        <InstitutionalSectionHeader title="Servicio ofrecido" />
+      <>
+        <HostSectionKicker label="Servicio ofrecido" />
+        <Card elevated padding="host" style={styles.sectionContainer}>
         {isEditMode && servicioEditReadonly ? (
           <>
             <Text style={styles.subtitle}>
@@ -2826,7 +2840,9 @@ const CrearServicioScreen = () => {
             )}
           </>
         )}
-      </View>
+              </Card>
+      </>
+
     );
   };
 
@@ -3040,20 +3056,24 @@ const CrearServicioScreen = () => {
 
     if (!mostrarSelector) {
       return (
-        <View style={styles.sectionContainer}>
-          <InstitutionalSectionHeader title="Motores aplicables" />
+        <>
+          <HostSectionKicker label="Motores aplicables" />
+          <Card elevated padding="host" style={styles.sectionContainer}>
           <Text style={styles.subtitle}>
             Definido en el catálogo Mecanimovil. Tu precio aplica a estos vehículos.
           </Text>
           <MotoresAplicablesChips motores={motoresCatalogoSeleccionado} variant="card" />
           <MotoresAplicablesHint motores={motoresCatalogoSeleccionado} />
-        </View>
+                  </Card>
+        </>
+
       );
     }
 
     return (
-      <View style={styles.sectionContainer}>
-        <InstitutionalSectionHeader title="Precio por tipo de motor" />
+      <>
+        <HostSectionKicker label="Precio por tipo de motor" />
+        <Card elevated padding="host" style={styles.sectionContainer}>
         <Text style={styles.subtitle}>
           Este servicio aplica a varios motores. Indica si este precio es para todos o solo uno.
         </Text>
@@ -3099,7 +3119,9 @@ const CrearServicioScreen = () => {
               : 'Para otro motor con precio distinto, publica otra configuración desde Mis servicios.'}
           </Text>
         ) : null}
-      </View>
+              </Card>
+      </>
+
     );
   };
 
@@ -3108,8 +3130,9 @@ const CrearServicioScreen = () => {
     if (tipoServicio !== 'con_repuestos' || !servicioSeleccionado) return null;
 
     return (
-      <View style={styles.sectionContainer}>
-        <InstitutionalSectionHeader title="Repuestos a incluir" />
+      <>
+        <HostSectionKicker label="Repuestos a incluir" />
+        <Card elevated padding="host" style={styles.sectionContainer}>
         {loadingRepuestos ? (
           <ActivityIndicator style={styles.loader} />
         ) : repuestos.length > 0 ? (
@@ -3201,14 +3224,17 @@ const CrearServicioScreen = () => {
             </View>
           </View>
         )}
-      </View>
+              </Card>
+      </>
+
     );
   };
 
   // Componente de selección de fotos
   const FotoSelector = () => (
-    <View style={styles.sectionContainer}>
-      <InstitutionalSectionHeader title="Fotos del servicio (opcional)" />
+    <>
+      <HostSectionKicker label="Fotos del servicio (opcional)" />
+      <Card elevated padding="host" style={styles.sectionContainer}>
       <Text style={styles.fotoSubtitle}>
         Agrega hasta 5 fotos que muestren tu trabajo o materiales
       </Text>
@@ -3242,7 +3268,9 @@ const CrearServicioScreen = () => {
           </Text>
         </TouchableOpacity>
       )}
-    </View>
+          </Card>
+    </>
+
   );
 
   // Componente de desglose de precios
@@ -3250,7 +3278,9 @@ const CrearServicioScreen = () => {
     if (!showCalculos || !calculos) return null;
 
     return (
-      <View style={styles.calculosContainer}>
+      <>
+      <HostSectionKicker label="Cálculo de precios" />
+      <Card elevated padding="host" style={styles.calculosContainer}>
         <Text style={styles.calculosTitle}>Desglose de precios</Text>
 
         <View style={styles.calculoRow}>
@@ -3292,7 +3322,8 @@ const CrearServicioScreen = () => {
             ${calculos.precio_final_cliente.toLocaleString('es-CL')}
           </Text>
         </View>
-      </View>
+      </Card>
+      </>
     );
   };
 
@@ -3320,11 +3351,14 @@ const CrearServicioScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          style={styles.scrollContainer}
+          style={hostScreenStyles.scroll}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="always"
           keyboardDismissMode="none"
-          contentContainerStyle={{ paddingBottom: insets.bottom + SPACING.fixed['2xl'] }}
+          contentContainerStyle={[
+            hostScreenStyles.scrollInner,
+            { paddingBottom: insets.bottom + SPACING.fixed['2xl'] },
+          ]}
         >
           <TipoServicioSelector />
 
@@ -3340,8 +3374,9 @@ const CrearServicioScreen = () => {
           <FotoSelector />
 
           {/* Descripción */}
-          <View style={styles.sectionContainer}>
-            <InstitutionalSectionHeader title="Descripción del servicio" />
+          <>
+            <HostSectionKicker label="Descripción del servicio" />
+            <Card elevated padding="host" style={styles.sectionContainer}>
             <TextInput
               style={styles.textArea}
               placeholder="Describe tu servicio, metodología, garantías, etc."
@@ -3352,10 +3387,13 @@ const CrearServicioScreen = () => {
               onChangeText={setDescripcion}
               textAlignVertical="top"
             />
-          </View>
+                      </Card>
+          </>
 
-          <View style={styles.sectionContainer}>
-            <InstitutionalSectionHeader title="Tiempo estimado del servicio" />
+
+          <>
+            <HostSectionKicker label="Tiempo estimado del servicio" />
+            <Card elevated padding="host" style={styles.sectionContainer}>
             <Text style={styles.sectionHint}>
               Define el rango en minutos. Los clientes verán horarios disponibles según esta duración.
             </Text>
@@ -3383,11 +3421,14 @@ const CrearServicioScreen = () => {
                 />
               </View>
             </View>
-          </View>
+                      </Card>
+          </>
+
 
           {/* Costos */}
-          <View style={styles.sectionContainer}>
-            <InstitutionalSectionHeader title="Costos (sin IVA)" />
+          <>
+            <HostSectionKicker label="Costos (sin IVA)" />
+            <Card elevated padding="host" style={styles.sectionContainer}>
 
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Costo mano de obra *</Text>
@@ -3418,7 +3459,9 @@ const CrearServicioScreen = () => {
                 </Text>
               </View>
             )}
-          </View>
+                      </Card>
+          </>
+
 
           <DesglosePrecios />
 
@@ -3534,14 +3577,7 @@ const styles = StyleSheet.create({
   },
 
   sectionContainer: {
-    backgroundColor: I.canvas,
-    marginHorizontal: hx,
     marginVertical: SPACING.fixed.sm,
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    ...SHADOWS.editorial,
   },
   sectionHint: {
     fontSize: TYPOGRAPHY.fontSize.sm,
@@ -3713,7 +3749,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.fixed.md,
     paddingVertical: SPACING.fixed.sm,
     minHeight: 48,
-    ...SHADOWS.editorial,
   },
   marcaSearchInput: {
     flex: 1,
@@ -4332,14 +4367,7 @@ const styles = StyleSheet.create({
   },
 
   calculosContainer: {
-    backgroundColor: I.canvas,
-    marginHorizontal: hx,
     marginVertical: SPACING.fixed.sm,
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    ...SHADOWS.editorial,
   },
   calculosTitle: {
     fontSize: TS.h4.fontSize,
@@ -4405,7 +4433,6 @@ const styles = StyleSheet.create({
   },
 
   publishContainer: {
-    paddingHorizontal: hx,
     paddingTop: SPACING.fixed.md,
     paddingBottom: SPACING.fixed.xl,
   },
@@ -4521,7 +4548,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    ...SHADOWS.editorial,
   },
   agregarFotoBtn: {
     borderWidth: BORDERS.width.thin,

@@ -19,6 +19,7 @@ import { Buffer } from 'buffer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, withOpacity } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 
@@ -711,7 +712,7 @@ export default function FinalizarOnboardingScreen() {
           backPath={getBackPath()}
         />
 
-        <View style={styles.resumenContainer}>
+        <Card elevated padding="host" style={styles.resumenContainer}>
           <Text style={styles.resumenTitle}>Resumen de tu perfil</Text>
           
           <View style={styles.datoContainer}>
@@ -784,7 +785,7 @@ export default function FinalizarOnboardingScreen() {
               </Text>
             </View>
           )}
-        </View>
+        </Card>
 
       <OnboardingNotice>
         Al finalizar crearemos tu perfil, subiremos tus documentos y nuestro equipo revisará tu información. Te avisaremos por correo cuando tu cuenta esté verificada.
@@ -821,7 +822,6 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   resumenContainer: {
-    ...onboardingStyles.panel,
     marginBottom: 20,
   },
   resumenTitle: {

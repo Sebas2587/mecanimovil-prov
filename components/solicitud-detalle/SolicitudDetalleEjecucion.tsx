@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { COLORS, withOpacity, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { HostPaperSection, HostSectionKicker } from '@/app/design-system/components';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { TipoPagoClienteChip } from '@/components/solicitudes/TipoPagoClienteChip';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -161,31 +162,33 @@ export function SolicitudDetalleEjecucion({
       ) : null}
 
       {mostrarDireccionMaps && direccionServicio ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionHeaderTitle}>Dirección de servicio</Text>
-          <View style={styles.addressCard}>
-            <View style={styles.addressHeader}>
-              <InstitutionalIcon name="location-on" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-              <View style={styles.addressContent}>
-                <Text style={styles.addressText}>{direccionServicio}</Text>
-                {detallesUbicacion ? (
-                  <Text style={styles.addressDetailsText}>{detallesUbicacion}</Text>
-                ) : null}
+        <>
+          <HostSectionKicker label="Dirección de servicio" />
+          <HostPaperSection style={styles.sectionGap}>
+            <View style={styles.addressCard}>
+              <View style={styles.addressHeader}>
+                <InstitutionalIcon name="location-on" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <View style={styles.addressContent}>
+                  <Text style={styles.addressText}>{direccionServicio}</Text>
+                  {detallesUbicacion ? (
+                    <Text style={styles.addressDetailsText}>{detallesUbicacion}</Text>
+                  ) : null}
+                </View>
               </View>
+              <TouchableOpacity
+                style={styles.mapsButton}
+                onPress={() => openInGoogleMaps(direccionServicio)}
+              >
+                <InstitutionalIcon name="map" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.mapsButtonText}>Abrir en Google Maps</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.mapsButton}
-              onPress={() => openInGoogleMaps(direccionServicio)}
-            >
-              <InstitutionalIcon name="map" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.mapsButtonText}>Abrir en Google Maps</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+          </HostPaperSection>
+        </>
       ) : null}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionHeaderTitle}>Precio total</Text>
+      <HostSectionKicker label="Precio total" />
+      <HostPaperSection style={styles.sectionGap}>
         <View style={styles.precioCard}>
           {tieneMontosProveedor ? (
             <>
@@ -267,65 +270,69 @@ export function SolicitudDetalleEjecucion({
             ) : null}
           </View>
         ) : null}
-      </View>
+      </HostPaperSection>
 
       {miOferta.estado === 'pendiente_creditos' ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionHeaderTitle}>Comunicación</Text>
-          <View style={styles.serviceActionsContainer}>
-            <TouchableOpacity
-              style={styles.chatButton}
-              onPress={() => router.push(`/chat-oferta/${miOferta.id}`)}
-              activeOpacity={0.85}
-            >
-              <InstitutionalIcon name="chat" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.chatButtonText}>Abrir Chat con Cliente</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <>
+          <HostSectionKicker label="Comunicación" />
+          <HostPaperSection style={styles.sectionGap}>
+            <View style={styles.serviceActionsContainer}>
+              <TouchableOpacity
+                style={styles.chatButton}
+                onPress={() => router.push(`/chat-oferta/${miOferta.id}`)}
+                activeOpacity={0.85}
+              >
+                <InstitutionalIcon name="chat" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.chatButtonText}>Abrir Chat con Cliente</Text>
+              </TouchableOpacity>
+            </View>
+          </HostPaperSection>
+        </>
       ) : null}
 
       {enEjecucionAbierto ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionHeaderTitle}>Servicio en ejecución</Text>
-          <View style={styles.serviceActionsContainer}>
-            <TouchableOpacity
-              style={styles.chatButton}
-              onPress={() => router.push(`/chat-oferta/${miOferta.id}`)}
-            >
-              <InstitutionalIcon name="chat" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.chatButtonText}>Abrir Chat con Cliente</Text>
-            </TouchableOpacity>
+        <>
+          <HostSectionKicker label="Servicio en ejecución" />
+          <HostPaperSection style={styles.sectionGap}>
+            <View style={styles.serviceActionsContainer}>
+              <TouchableOpacity
+                style={styles.chatButton}
+                onPress={() => router.push(`/chat-oferta/${miOferta.id}`)}
+              >
+                <InstitutionalIcon name="chat" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.chatButtonText}>Abrir Chat con Cliente</Text>
+              </TouchableOpacity>
 
-            {loadingChecklist ? (
-              <View style={styles.checklistStatusCard}>
-                <ActivityIndicator size="small" color={I.primary} />
-                <Text style={styles.checklistStatusText}>Cargando checklist…</Text>
-              </View>
-            ) : checklistInstance ? (
-              checklistInstance.estado === 'COMPLETADO' ? (
-                <EstadoBanner
-                  type="success"
-                  title="Checklist completado"
-                  message="El servicio tiene un checklist finalizado."
-                  icon="check-circle"
-                  action={{ text: 'Ver resumen', onPress: onOpenCompletedChecklist }}
-                />
-              ) : bannerChecklistAccion ? (
-                <EstadoBanner
-                  type={bannerChecklistAccion.type}
-                  title={bannerChecklistAccion.title}
-                  message={bannerChecklistAccion.message}
-                  icon={bannerChecklistAccion.icon}
-                  action={{
-                    text: checklistInstance.estado === 'PENDIENTE' ? 'Iniciar checklist' : 'Continuar checklist',
-                    onPress: onOpenChecklist,
-                  }}
-                />
-              ) : null
-            ) : null}
-          </View>
-        </View>
+              {loadingChecklist ? (
+                <View style={styles.checklistStatusCard}>
+                  <ActivityIndicator size="small" color={I.primary} />
+                  <Text style={styles.checklistStatusText}>Cargando checklist…</Text>
+                </View>
+              ) : checklistInstance ? (
+                checklistInstance.estado === 'COMPLETADO' ? (
+                  <EstadoBanner
+                    type="success"
+                    title="Checklist completado"
+                    message="El servicio tiene un checklist finalizado."
+                    icon="check-circle"
+                    action={{ text: 'Ver resumen', onPress: onOpenCompletedChecklist }}
+                  />
+                ) : bannerChecklistAccion ? (
+                  <EstadoBanner
+                    type={bannerChecklistAccion.type}
+                    title={bannerChecklistAccion.title}
+                    message={bannerChecklistAccion.message}
+                    icon={bannerChecklistAccion.icon}
+                    action={{
+                      text: checklistInstance.estado === 'PENDIENTE' ? 'Iniciar checklist' : 'Continuar checklist',
+                      onPress: onOpenChecklist,
+                    }}
+                  />
+                ) : null
+              ) : null}
+            </View>
+          </HostPaperSection>
+        </>
       ) : null}
     </>
   );
@@ -377,20 +384,8 @@ const styles = StyleSheet.create({
     color: I.ink,
     marginBottom: SPACING.fixed.sm,
   },
-  section: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.md,
+  sectionGap: {
     marginBottom: SPACING.fixed.md,
-    ...SHADOWS.editorial,
-  },
-  sectionHeaderTitle: {
-    fontSize: TS.h4.fontSize,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
-    marginBottom: SPACING.fixed.sm,
   },
   addressCard: {
     backgroundColor: I.surfaceSoft,

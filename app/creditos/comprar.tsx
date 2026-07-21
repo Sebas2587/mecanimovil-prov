@@ -12,8 +12,9 @@ import {
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/app/design-system/theme/useTheme';
-import {COLORS, SPACING, TYPOGRAPHY, SHADOWS} from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { Card, hostScreenStyles } from '@/app/design-system/components';
 import creditosService, {
   type PaqueteCreditos,
   type CompraCreditos,
@@ -54,8 +55,8 @@ export default function ComprarCreditosScreen() {
   const textPrimary = colors?.text?.primary || I.ink;
   const textSecondary = colors?.text?.secondary || I.body;
   const primaryColor = colors?.primary?.['500'] || I.primary;
-  const backgroundDefault = colors?.background?.default || I.surfaceSoft;
-  const backgroundPaper = colors?.background?.paper || I.canvas;
+  const backgroundDefault = colors?.background?.default || COLORS.background.default;
+  const backgroundPaper = colors?.background?.paper || COLORS.background.paper;
   const borderMain = colors?.border?.main || I.hairline;
   const successColor = colors?.success?.main || I.semanticUp;
   const warningColor = colors?.warning?.main || I.accentYellow;
@@ -355,8 +356,8 @@ export default function ComprarCreditosScreen() {
         showBack={true}
         onBackPress={handleGoBack}
       />
-      <ScrollView style={styles.content}>
-        <View style={[styles.paqueteCard, { backgroundColor: backgroundPaper }]}>
+      <ScrollView style={hostScreenStyles.scroll} contentContainerStyle={hostScreenStyles.scrollInner}>
+        <Card elevated padding="host" style={styles.paqueteCard}>
           <Text style={[styles.paqueteNombre, { color: textPrimary }]}>
             Recarga a medida
           </Text>
@@ -378,7 +379,7 @@ export default function ComprarCreditosScreen() {
               {precioPorCreditoFormateado} por crédito
             </Text>
           </View>
-        </View>
+        </Card>
 
 
         <InstitutionalButton
@@ -446,10 +447,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   paqueteCard: {
-    padding: SPACING.lg,
-    borderRadius: 12,
     marginBottom: SPACING.md,
-    ...SHADOWS.editorial,
   },
   paqueteNombre: {
     fontSize: TYPOGRAPHY.fontSize['2xl'],
@@ -461,7 +459,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.xs,
     padding: SPACING.sm,
-    borderRadius: 8,
+    borderRadius: BORDERS.radius.sm,
     marginBottom: SPACING.md,
   },
   bonificacionText: {
@@ -499,10 +497,7 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.regular as any,
   },
   metodoPagoContainer: {
-    padding: SPACING.md,
-    borderRadius: 12,
     marginBottom: SPACING.md,
-    ...SHADOWS.editorial,
   },
   metodoPagoTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
@@ -514,8 +509,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: SPACING.sm,
     padding: SPACING.md,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: BORDERS.radius.sm,
+    borderWidth: BORDERS.width.thin,
     marginBottom: SPACING.sm,
   },
   metodoPagoInfo: {
@@ -538,12 +533,16 @@ const styles = StyleSheet.create({
   recomendadoBadge: {
     paddingHorizontal: SPACING.xs,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: BORDERS.radius.sm,
+    backgroundColor: COLORS.selection.background,
+    borderWidth: BORDERS.width.thin,
+    borderColor: COLORS.selection.border,
   },
   recomendadoText: {
-    color: I.onPrimary,
+    color: COLORS.selection.text,
     fontSize: 10,
-    fontWeight: TYPOGRAPHY.fontWeight.bold as any,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as any,
   },
   comprarButton: {
     marginTop: SPACING.md,

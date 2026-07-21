@@ -1,8 +1,8 @@
 // CRÍTICO: Deshabilitar LogBox/RedBox/YellowBox COMPLETAMENTE
 // Esta configuración debe ejecutarse lo antes posible para evitar que errores aparezcan visualmente
 import { useEffect } from 'react';
-import { ActivityIndicator, LogBox as RNLogBox, View } from 'react-native';
-import { COLORS } from '@/app/design-system/tokens';
+import { ActivityIndicator, LogBox as RNLogBox, Text, TextInput, View } from 'react-native';
+import { COLORS, TYPOGRAPHY } from '@/app/design-system/tokens';
 
 // CRÍTICO: Deshabilitar LogBox COMPLETAMENTE después de importar React Native
 // Esto debe ejecutarse INMEDIATAMENTE después de importar para que funcione correctamente
@@ -93,7 +93,6 @@ import {
   Poppins_500Medium,
   Poppins_600SemiBold,
 } from '@expo-google-fonts/poppins';
-import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -130,21 +129,33 @@ const queryClient = new QueryClient({
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [fontsLoaded, fontError] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     Poppins_400Regular,
     Poppins_500Medium,
     Poppins_600SemiBold,
-    JetBrainsMono_500Medium,
   });
 
   useEffect(() => {
     if (fontError && __DEV__) {
-      console.warn(
-        '[RootLayout] No se pudo cargar SpaceMono; se usa la tipografía del sistema.',
-        fontError.message
-      );
+      console.warn('[RootLayout] No se pudo cargar Poppins.', fontError.message);
     }
   }, [fontError]);
+
+  // Fallback Host: Text/TextInput sin fontFamily explícita → Poppins.
+  useEffect(() => {
+    if (!fontsLoaded && !fontError) return;
+    const base = { fontFamily: TYPOGRAPHY.fontFamily.sansRegular };
+    const textDefaults = (Text as typeof Text & { defaultProps?: { style?: unknown } }).defaultProps ?? {};
+    (Text as typeof Text & { defaultProps?: { style?: unknown } }).defaultProps = {
+      ...textDefaults,
+      style: [base, textDefaults.style],
+    };
+    const inputDefaults =
+      (TextInput as typeof TextInput & { defaultProps?: { style?: unknown } }).defaultProps ?? {};
+    (TextInput as typeof TextInput & { defaultProps?: { style?: unknown } }).defaultProps = {
+      ...inputDefaults,
+      style: [base, inputDefaults.style],
+    };
+  }, [fontsLoaded, fontError]);
 
   // Si loadAsync falla, `loaded` nunca pasa a true — sin este branch la app queda en pantalla en blanco.
   if (!fontsLoaded && !fontError) {

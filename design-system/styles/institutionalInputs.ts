@@ -45,7 +45,7 @@ export const institutionalInputStyles = StyleSheet.create({
     fontSize: T.caption.fontSize,
     lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
   } satisfies TextStyle,
-  /** Montos / cantidades (JetBrains Mono). */
+  /** Montos / cantidades (Poppins Medium — Host). */
   inputMono: {
     fontFamily: FF.monoMedium,
     fontVariant: ['tabular-nums'],

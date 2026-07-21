@@ -9,13 +9,16 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Stack, router, useFocusEffect } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, ChevronRight, Trash2 } from 'lucide-react-native';
 import { GuiaReparacionContenido } from '@/components/orden-detalle/GuiaReparacionContenido';
 import { useAuth } from '@/context/AuthContext';
 import Header from '@/components/Header';
-import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import {
@@ -140,30 +143,30 @@ export default function GuiasReparacionScreen() {
 
   if (!esMecanicoEquipo) {
     return (
-      <LinearGradient style={styles.flex} colors={BLANK_GLASS.gradient} locations={BLANK_GLASS.gradientLocations}>
+      <View style={styles.root}>
         <Stack.Screen options={{ headerShown: false }} />
         <Header title="Guías de reparación" showBack onBackPress={() => router.back()} />
         <View style={styles.centered}>
           <Text style={styles.emptyText}>Esta sección solo está disponible para mecánicos del equipo.</Text>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
   return (
-    <LinearGradient style={styles.flex} colors={BLANK_GLASS.gradient} locations={BLANK_GLASS.gradientLocations}>
+    <View style={styles.root}>
       <Stack.Screen options={{ headerShown: false }} />
       <Header title={tituloHeader} showBack onBackPress={volver} />
 
       <ScrollView
-        style={styles.flex}
-        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: GLASS_INSET }]}
+        style={hostScreenStyles.scroll}
+        contentContainerStyle={[hostScreenStyles.scrollInner, styles.scrollInner]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={I.primary} />}
       >
         {loading ? (
           <ActivityIndicator color={I.primary} style={{ marginTop: SPACING.xl }} />
         ) : guiaDetalle ? (
-          <View style={styles.card}>
+          <Card elevated padding="host" style={styles.detalleCard}>
             <View style={styles.guiaMetaRow}>
               <Text style={styles.guiaMeta}>
                 {[guiaDetalle.vehiculo_marca, guiaDetalle.vehiculo_modelo, guiaDetalle.vehiculo_anio]
@@ -178,33 +181,37 @@ export default function GuiasReparacionScreen() {
               <Text style={styles.patenteText}>Patente {guiaDetalle.vehiculo_patente}</Text>
             ) : null}
             <GuiaReparacionContenido contenido={guiaDetalle.contenido} />
-          </View>
+          </Card>
         ) : marcaSel && modeloSel ? (
           loadingGuias ? (
             <ActivityIndicator color={I.primary} style={{ marginTop: SPACING.xl }} />
           ) : guias.length === 0 ? (
             <Text style={styles.emptyText}>No hay guías guardadas para este modelo.</Text>
           ) : (
-            guias.map((guia) => (
-              <TouchableOpacity
-                key={guia.id}
-                style={styles.listRow}
-                onPress={() => setGuiaDetalle(guia)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.rowIconPlate}>
-                  <Sparkles size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                </View>
-                <View style={styles.rowText}>
-                  <Text style={styles.rowTitle} numberOfLines={2}>{guia.titulo}</Text>
-                  <Text style={styles.rowSubtitle}>
-                    {guia.vehiculo_patente ? `Patente ${guia.vehiculo_patente} · ` : ''}
-                    {new Date(guia.creado_en).toLocaleDateString('es-CL')}
-                  </Text>
-                </View>
-                <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-              </TouchableOpacity>
-            ))
+            <>
+              <HostSectionKicker label="Guías guardadas" />
+              {guias.map((guia) => (
+                <Card
+                  key={guia.id}
+                  elevated
+                  padding="host"
+                  onPress={() => setGuiaDetalle(guia)}
+                  style={styles.listRow}
+                >
+                  <View style={styles.rowIconPlate}>
+                    <Sparkles size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                  </View>
+                  <View style={styles.rowText}>
+                    <Text style={styles.rowTitle} numberOfLines={2}>{guia.titulo}</Text>
+                    <Text style={styles.rowSubtitle}>
+                      {guia.vehiculo_patente ? `Patente ${guia.vehiculo_patente} · ` : ''}
+                      {new Date(guia.creado_en).toLocaleDateString('es-CL')}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                </Card>
+              ))}
+            </>
           )
         ) : errorCarga ? (
           <View style={styles.emptyWrap}>
@@ -223,13 +230,14 @@ export default function GuiasReparacionScreen() {
         ) : (
           grupos.map((grupo) => (
             <View key={grupo.marca} style={styles.marcaSection}>
-              <Text style={styles.marcaTitle}>{grupo.marca}</Text>
+              <HostSectionKicker label={grupo.marca} />
               {grupo.modelos.map((m) => (
-                <TouchableOpacity
+                <Card
                   key={`${grupo.marca}-${m.modelo}`}
-                  style={styles.listRow}
+                  elevated
+                  padding="host"
                   onPress={() => void abrirModelo(grupo.marca, m.modelo)}
-                  activeOpacity={0.85}
+                  style={styles.listRow}
                 >
                   <View style={styles.rowText}>
                     <Text style={styles.rowTitle}>{m.modelo}</Text>
@@ -238,21 +246,20 @@ export default function GuiasReparacionScreen() {
                     </Text>
                   </View>
                   <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                </TouchableOpacity>
+                </Card>
               ))}
             </View>
           ))
         )}
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  scrollContent: {
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.xxl,
+  root: { flex: 1, backgroundColor: I.surfaceSoft },
+  scrollInner: {
+    paddingBottom: SPACING['2xl'],
     gap: SPACING.sm,
   },
   centered: {
@@ -261,34 +268,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: SPACING.xl,
   },
-  backLink: {
-    minWidth: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   marcaSection: {
     gap: SPACING.xs,
     marginBottom: SPACING.md,
-  },
-  marcaTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.muted,
-    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
-    textTransform: 'uppercase',
-    marginBottom: SPACING.xs,
   },
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    padding: SPACING.md,
-    ...SHADOWS.editorial,
   },
   rowIconPlate: {
     width: 32,
@@ -309,14 +296,8 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.muted,
   },
-  card: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    padding: SPACING.lg,
+  detalleCard: {
     gap: SPACING.md,
-    ...SHADOWS.editorial,
   },
   guiaMetaRow: {
     flexDirection: 'row',
@@ -338,7 +319,7 @@ const styles = StyleSheet.create({
   emptyWrap: {
     alignItems: 'center',
     gap: SPACING.sm,
-    paddingVertical: SPACING.xxl,
+    paddingVertical: SPACING['2xl'],
     paddingHorizontal: SPACING.lg,
   },
   emptyTitle: {

@@ -33,7 +33,11 @@ import {
 } from '@/utils/fechaLocal';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
-import { institutionalCardStyles } from '@/app/design-system/styles/institutionalSemantic';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
@@ -150,12 +154,11 @@ const AgendaEventCard = React.memo(function AgendaEventCard({
   const modalidadLabel = evento.tipo_servicio === 'domicilio' ? 'A domicilio' : 'En taller';
 
   return (
-    <TouchableOpacity
+    <Card
+      elevated
+      padding="host"
       style={styles.orderListCard}
       onPress={handlePress}
-      activeOpacity={0.88}
-      accessibilityRole="button"
-      accessibilityLabel={`${nombreServicio}, ${evento.cliente_nombre || 'cliente'}`}
     >
       <View style={styles.cardTop}>
         {hora ? <Text style={styles.cardTime}>{hora}</Text> : null}
@@ -189,7 +192,7 @@ const AgendaEventCard = React.memo(function AgendaEventCard({
         </View>
         <ChevronRight size={18} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
-    </TouchableOpacity>
+    </Card>
   );
 });
 
@@ -425,6 +428,7 @@ export default function CalendarioScreen() {
 
   return (
     <TabScreenWrapper>
+      <View style={styles.container}>
       <Header
         title="Agenda"
         backgroundColor={COLORS.background.default}
@@ -432,8 +436,11 @@ export default function CalendarioScreen() {
       />
 
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: insets.bottom + SPACING.fixed.md }}
+        style={hostScreenStyles.scroll}
+        contentContainerStyle={[
+          hostScreenStyles.scrollInner,
+          { paddingBottom: insets.bottom + SPACING.fixed.md },
+        ]}
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={I.primary} />
         }
@@ -447,7 +454,7 @@ export default function CalendarioScreen() {
           <>
             {!esMecanicoEquipo && mecanicos.length > 0 ? (
               <View style={styles.mecanicoFilterWrap}>
-                <Text style={styles.mecanicoFilterLabel}>Filtrar por mecánico</Text>
+                <HostSectionKicker label="Filtrar por mecánico" />
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mecanicoFilterRow}>
                   <TouchableOpacity
                     style={[styles.mecanicoChip, miembroFiltroManual === null && styles.mecanicoChipActive]}
@@ -475,7 +482,7 @@ export default function CalendarioScreen() {
               </View>
             ) : null}
 
-            <View style={styles.calendarCard}>
+            <Card elevated padding="host" style={styles.calendarCard}>
               <View style={styles.monthNavRow}>
                 <TouchableOpacity
                   style={styles.monthButton}
@@ -529,7 +536,7 @@ export default function CalendarioScreen() {
                   ))}
                 </View>
               </View>
-            </View>
+            </Card>
 
             <View style={styles.ordenesSection}>
               <Text style={styles.ordenesSectionTitle}>{formatearFechaCompleta(fechaSeleccionada)}</Text>
@@ -593,6 +600,7 @@ export default function CalendarioScreen() {
         initialFecha={formatDateApi(fechaSeleccionada)}
         subtitle={`Cita para ${formatearFechaCompleta(fechaSeleccionada)}`}
       />
+      </View>
     </TabScreenWrapper>
   );
 }
@@ -603,9 +611,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background.default,
-  },
-  scrollView: {
-    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -620,10 +625,7 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   calendarCard: {
-    ...institutionalCardStyles.surface,
-    marginHorizontal: hx,
     marginTop: SPACING.fixed.md,
-    padding: SPACING.fixed.md,
     gap: SPACING.fixed.md,
   },
   monthNavRow: {
@@ -749,7 +751,6 @@ const styles = StyleSheet.create({
     backgroundColor: I.onPrimary,
   },
   ordenesSection: {
-    paddingHorizontal: hx,
     paddingTop: SPACING.fixed.lg,
     paddingBottom: SPACING.fixed.md,
     gap: SPACING.fixed.sm,
@@ -761,16 +762,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.xs,
     textTransform: 'capitalize',
   },
-  /** Card reserva Airbnb Hosts: paper, stack vertical, hora + precio al tope. */
   orderListCard: {
-    backgroundColor: COLORS.background.paper,
-    borderRadius: BORDERS.radius.lg,
-    padding: SPACING.fixed.md,
     marginBottom: SPACING.fixed.sm,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
     gap: SPACING.fixed.sm,
-    ...SHADOWS.editorial,
   },
   cardTop: {
     flexDirection: 'row',
@@ -872,14 +866,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.sm,
   },
   mecanicoFilterWrap: {
-    marginHorizontal: hx,
     marginBottom: SPACING.fixed.sm,
-  },
-  mecanicoFilterLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansMedium,
-    color: I.muted,
-    marginBottom: SPACING.fixed.xs,
   },
   mecanicoFilterRow: {
     flexDirection: 'row',

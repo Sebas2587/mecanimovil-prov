@@ -4,6 +4,11 @@ import { Wallet, ChevronRight } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH, ICON_SIZE } from '@/app/design-system/iconography';
+import {
+  hostIconPlateColor,
+  hostIconPlateStyle,
+} from '@/app/design-system/styles/institutionalSemantic';
+import { Card } from '@/app/design-system/components';
 
 const I = COLORS.institutional;
 
@@ -115,7 +120,7 @@ export const SaldoCreditos = memo(function SaldoCreditos({
 
       <View style={styles.heroRow}>
         <View style={styles.iconPlate}>
-          <Wallet size={ICON_SIZE.md} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+          <Wallet size={ICON_SIZE.md} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
         </View>
 
         <View style={styles.heroMain}>
@@ -152,47 +157,43 @@ export const SaldoCreditos = memo(function SaldoCreditos({
 
       {mesStats ? (
         <View style={[styles.resumenWrap, { borderTopColor: I.hairline }]}>
-          <View style={styles.sectionPill}>
-            <Text style={styles.sectionPillText}>RESUMEN DEL MES</Text>
-          </View>
-          <View style={[styles.resumenInner, { backgroundColor: I.surfaceSoft }]}>
-            <View style={styles.resumenGrid}>
-              <View
-                style={[
-                  styles.resumenRow,
-                  styles.resumenRowDivider,
-                  { borderBottomColor: I.hairline },
-                ]}
-              >
-                <View style={styles.statColLeft}>
-                  <Text style={styles.statLabel}>CONSUMIDOS</Text>
-                  <Text style={[styles.statValue, { color: I.ink }]}>{mesStats.consumidos}</Text>
-                </View>
-                <View style={[styles.statColRight, { borderLeftColor: I.hairline }]}>
-                  <Text style={styles.statLabel}>COMPRADOS</Text>
-                  <Text style={[styles.statValue, { color: I.semanticUp }]}>
-                    {mesStats.comprados}
-                  </Text>
-                </View>
+          <Text style={styles.sectionKicker}>Resumen del mes</Text>
+          <View style={styles.resumenGrid}>
+            <View
+              style={[
+                styles.resumenRow,
+                styles.resumenRowDivider,
+                { borderBottomColor: I.hairline },
+              ]}
+            >
+              <View style={styles.statColLeft}>
+                <Text style={styles.statLabel}>Consumidos</Text>
+                <Text style={[styles.statValue, { color: I.ink }]}>{mesStats.consumidos}</Text>
               </View>
-              <View style={styles.resumenRow}>
-                <View style={styles.statColLeft}>
-                  <Text style={styles.statLabel}>EXPIRADOS</Text>
-                  <Text
-                    style={[
-                      styles.statValue,
-                      { color: mesStats.expirados > 0 ? I.semanticDown : I.muted },
-                    ]}
-                  >
-                    {mesStats.expirados}
-                  </Text>
-                </View>
-                <View style={[styles.statColRight, { borderLeftColor: I.hairline }]}>
-                  <Text style={styles.statLabel}>INGRESOS MP</Text>
-                  <Text style={[styles.statValueClp, { color: I.primary }]} numberOfLines={1}>
-                    {formatCLP(mesStats.ingresosMPClp)}
-                  </Text>
-                </View>
+              <View style={[styles.statColRight, { borderLeftColor: I.hairline }]}>
+                <Text style={styles.statLabel}>Comprados</Text>
+                <Text style={[styles.statValue, { color: I.semanticUp }]}>
+                  {mesStats.comprados}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.resumenRow}>
+              <View style={styles.statColLeft}>
+                <Text style={styles.statLabel}>Expirados</Text>
+                <Text
+                  style={[
+                    styles.statValue,
+                    { color: mesStats.expirados > 0 ? I.semanticDown : I.muted },
+                  ]}
+                >
+                  {mesStats.expirados}
+                </Text>
+              </View>
+              <View style={[styles.statColRight, { borderLeftColor: I.hairline }]}>
+                <Text style={styles.statLabel}>Ingresos MP</Text>
+                <Text style={[styles.statValueClp, { color: I.primary }]} numberOfLines={1}>
+                  {formatCLP(mesStats.ingresosMPClp)}
+                </Text>
               </View>
             </View>
           </View>
@@ -201,38 +202,24 @@ export const SaldoCreditos = memo(function SaldoCreditos({
     </>
   );
 
-  const cardStyle = [
-    styles.card,
-    {
-      backgroundColor: I.canvas,
-      borderColor: I.hairline,
-    },
-  ];
-
   if (disabled) {
-    return <View style={cardStyle}>{content}</View>;
+    return (
+      <Card elevated padding="host" style={styles.card}>
+        {content}
+      </Card>
+    );
   }
 
   return (
-    <TouchableOpacity
-      style={cardStyle}
-      onPress={handlePress}
-      activeOpacity={0.88}
-      accessibilityRole="button"
-    >
+    <Card elevated padding="host" onPress={handlePress} style={styles.card}>
       {content}
-    </TouchableOpacity>
+    </Card>
   );
 });
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: BORDERS.radius.xl,
-    borderWidth: BORDERS.width.thin,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.md,
     marginBottom: SPACING.md,
-    ...SHADOWS.editorial,
   },
   topBar: {
     flexDirection: 'row',
@@ -254,10 +241,12 @@ const styles = StyleSheet.create({
   },
   sectionPill: {
     alignSelf: 'flex-start',
-    backgroundColor: I.surfaceStrong,
+    backgroundColor: I.surfaceSoft,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
   },
   sectionPillText: {
     fontSize: 10,
@@ -265,6 +254,16 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     color: I.muted,
     letterSpacing: 0.65,
+  },
+  sectionKicker: {
+    fontSize: TYPOGRAPHY.styles.h6.fontSize,
+    lineHeight: Math.round(TYPOGRAPHY.styles.h6.fontSize * TYPOGRAPHY.styles.h6.lineHeight),
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    fontWeight: '500',
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
+    color: I.muted,
+    marginBottom: SPACING.fixed.xxs,
   },
   proximaRecargaDate: {
     flex: 1,
@@ -281,7 +280,10 @@ const styles = StyleSheet.create({
   statusBadge: {
     paddingHorizontal: SPACING.sm,
     paddingVertical: 6,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: I.surfaceSoft,
     flexShrink: 0,
   },
   statusBadgeText: {
@@ -296,12 +298,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   iconPlate: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDERS.radius.full,
-    backgroundColor: I.surfaceStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
+    ...hostIconPlateStyle,
     marginTop: 2,
   },
   heroMain: {
@@ -315,9 +312,9 @@ const styles = StyleSheet.create({
   },
   saldoNumber: {
     fontSize: 30,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: '400',
-    letterSpacing: -0.6,
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: '500',
+    letterSpacing: TYPOGRAPHY.letterSpacing.tight,
     lineHeight: 34,
   },
   saldoUnit: {
@@ -351,12 +348,6 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
     paddingTop: SPACING.md,
     borderTopWidth: StyleSheet.hairlineWidth,
-    gap: SPACING.sm,
-  },
-  resumenInner: {
-    borderRadius: BORDERS.radius.lg,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
   },
   resumenGrid: {
     width: '100%',
@@ -364,7 +355,7 @@ const styles = StyleSheet.create({
   resumenRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    paddingVertical: SPACING.sm,
+    paddingVertical: 14,
   },
   resumenRowDivider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -372,22 +363,23 @@ const styles = StyleSheet.create({
   statColLeft: {
     flex: 1,
     minWidth: 0,
-    paddingRight: SPACING.md,
+    paddingRight: SPACING.fixed.md,
     justifyContent: 'center',
   },
   statColRight: {
     flex: 1,
     minWidth: 0,
     borderLeftWidth: StyleSheet.hairlineWidth,
-    paddingLeft: SPACING.md,
+    paddingLeft: SPACING.fixed.md,
     justifyContent: 'center',
   },
   statLabel: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    fontSize: TYPOGRAPHY.styles.h6.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    fontWeight: '500',
     color: I.muted,
-    letterSpacing: 0.55,
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
     marginBottom: 4,
   },
   statValue: {

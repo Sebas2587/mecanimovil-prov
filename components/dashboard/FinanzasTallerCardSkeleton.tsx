@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { COLORS, SPACING, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { SkeletonPulse } from '@/components/ui/Skeleton/SkeletonPulse';
 
 const I = COLORS.institutional;
@@ -8,35 +9,49 @@ const SKELETON_BASE = I.hairlineSoft;
 const SKELETON_MUTED = I.surfaceStrong;
 const CARD_MIN_HEIGHT = 168;
 
-export function FinanzasTallerCardSkeleton({ fill = false }: { fill?: boolean }) {
-  return (
-    <View style={[styles.card, fill && styles.cardFill]}>
-      <View style={[styles.inner, fill && styles.innerFill]}>
-        <SkeletonPulse>
-          <View style={[styles.titleBar, { backgroundColor: SKELETON_BASE }]} />
-        </SkeletonPulse>
-        <SkeletonPulse>
-          <View style={[styles.amountBar, { backgroundColor: SKELETON_MUTED }]} />
-        </SkeletonPulse>
-        <SkeletonPulse>
-          <View style={[styles.contextBar, { backgroundColor: SKELETON_BASE }]} />
-        </SkeletonPulse>
-        <SkeletonPulse>
-          <View style={[styles.footerBar, { backgroundColor: SKELETON_BASE }]} />
-        </SkeletonPulse>
-      </View>
+export function FinanzasTallerCardSkeleton({
+  fill = false,
+  inset = false,
+  style,
+}: {
+  fill?: boolean;
+  inset?: boolean;
+  style?: object;
+}) {
+  const body = (
+    <View style={[styles.inner, inset && styles.innerInset, fill && styles.innerFill]}>
+      <SkeletonPulse>
+        <View style={[styles.titleBar, { backgroundColor: SKELETON_BASE }]} />
+      </SkeletonPulse>
+      <SkeletonPulse>
+        <View style={[styles.amountBar, { backgroundColor: SKELETON_MUTED }]} />
+      </SkeletonPulse>
+      <SkeletonPulse>
+        <View style={[styles.contextBar, { backgroundColor: SKELETON_BASE }]} />
+      </SkeletonPulse>
+      <SkeletonPulse>
+        <View style={[styles.footerBar, { backgroundColor: SKELETON_BASE }]} />
+      </SkeletonPulse>
     </View>
+  );
+
+  if (inset) {
+    return <View style={[styles.cardInset, fill && styles.cardFill, style]}>{body}</View>;
+  }
+
+  return (
+    <Card elevated padding={0} style={[styles.card, fill && styles.cardFill, style]}>
+      {body}
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
     minHeight: CARD_MIN_HEIGHT,
-    ...SHADOWS.editorial,
+  },
+  cardInset: {
+    minHeight: 0,
   },
   cardFill: {
     flex: 1,
@@ -46,6 +61,11 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     gap: SPACING.sm,
     minHeight: CARD_MIN_HEIGHT,
+  },
+  innerInset: {
+    paddingHorizontal: 0,
+    paddingVertical: SPACING.sm,
+    minHeight: 0,
   },
   innerFill: {
     flex: 1,

@@ -12,7 +12,6 @@ import {
   Modal,
   Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
@@ -26,12 +25,17 @@ import {
 import ServerConfig from '@/services/serverConfig';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Header from '@/components/Header';
-import {COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS} from '@/app/design-system/tokens';
+import {COLORS, SPACING, TYPOGRAPHY, BORDERS} from '@/app/design-system/tokens';
 import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
-import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
-import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import {
+  Card,
+  HostPaperSection,
+  HostSectionKicker,
+  hostScreenStyles,
+  HOST_GUTTER,
+} from '@/app/design-system/components';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import PhoneInput, { validateFullPhone } from '@/components/ui/PhoneInput';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -569,15 +573,8 @@ export default function ConfiguracionPerfilScreen() {
   };
 
   const screenShell = (children: React.ReactNode) => (
-    <View style={styles.screenRoot}>
-      <LinearGradient
-        colors={BLANK_GLASS.gradient}
-        locations={BLANK_GLASS.gradientLocations}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['left', 'right', 'bottom']}>
+    <View style={[styles.screenRoot, { backgroundColor: I.canvas }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: I.canvas }]} edges={['left', 'right', 'bottom']}>
         {children}
       </SafeAreaView>
     </View>
@@ -596,9 +593,12 @@ export default function ConfiguracionPerfilScreen() {
     <>
       <Header title="Gestionar perfil" showBack onBackPress={handleBack} />
       <ScrollView
-        style={styles.scrollContainer}
+        style={hostScreenStyles.scroll}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        contentContainerStyle={[
+          hostScreenStyles.scrollInner,
+          { paddingBottom: insets.bottom + 100 },
+        ]}
       >
 
         {/* Foto de perfil */}
@@ -656,7 +656,8 @@ export default function ConfiguracionPerfilScreen() {
         {/* Contenido según tab activa */}
         {tabActiva === 'datos' && (
           <View style={styles.contentContainer}>
-            <View style={styles.formContainer}>
+            <HostSectionKicker label="Datos personales" />
+            <HostPaperSection>
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Nombre Completo</Text>
                 <TextInput
@@ -760,18 +761,16 @@ export default function ConfiguracionPerfilScreen() {
                   </Text>
                 </View>
               )}
-            </View>
+            </HostPaperSection>
           </View>
         )}
 
         {tabActiva === 'documentos' && (
           <View style={styles.documentsTabRoot}>
-            <View style={styles.documentsTabTitleWrap}>
-              <Text style={styles.documentsTabTitle}>Documentos de verificación</Text>
-            </View>
+            <HostSectionKicker label="Documentos de verificación" />
 
             {/* Estadísticas de documentos */}
-            <View style={styles.documentsStats}>
+            <Card elevated padding="host" style={styles.documentsStats}>
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>{getDocumentosObligatorios().length}</Text>
                 <Text style={styles.statLabel}>Obligatorios</Text>
@@ -789,18 +788,12 @@ export default function ConfiguracionPerfilScreen() {
                 <Text style={styles.statLabel}>Disponibles</Text>
                 <InstitutionalIcon name="add-circle" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
               </View>
-            </View>
+            </Card>
 
             {/* Documentos Obligatorios - Sección rediseñada */}
             <View style={styles.documentsSection}>
               <View style={styles.sectionHeader}>
-                <InstitutionalSectionHeader
-                  title="Documentos Obligatorios"
-                  leading={
-                    <InstitutionalIcon name="security" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                  }
-                  style={styles.sectionHeaderTitle}
-                />
+                <HostSectionKicker label="Documentos obligatorios" style={styles.sectionHeaderTitle} />
                 <View style={styles.sectionHeaderRight}>
                   <View style={styles.sectionBadge}>
                     <Text style={styles.sectionBadgeText}>Requeridos</Text>
@@ -903,14 +896,11 @@ export default function ConfiguracionPerfilScreen() {
             {/* Documentos Opcionales - Sección rediseñada */}
             <View style={styles.documentsSection}>
               <View style={styles.sectionHeader}>
-                <InstitutionalSectionHeader
-                  title={
+                <HostSectionKicker
+                  label={
                     estadoProveedor?.tipo_proveedor === 'taller'
-                      ? 'Documentos del Establecimiento'
-                      : 'Documentos del Vehículo'
-                  }
-                  leading={
-                    <InstitutionalIcon name="star" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                      ? 'Documentos del establecimiento'
+                      : 'Documentos del vehículo'
                   }
                   style={styles.sectionHeaderTitle}
                 />
@@ -1056,10 +1046,7 @@ export default function ConfiguracionPerfilScreen() {
             }).length > 0 && (
                 <View style={styles.documentsSection}>
                   <View style={styles.sectionHeader}>
-                    <View style={styles.sectionHeaderLeft}>
-                      <InstitutionalIcon name="add-circle" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                      <InstitutionalSectionHeader title="Documentos Disponibles" />
-                    </View>
+                    <HostSectionKicker label="Documentos disponibles" style={styles.sectionHeaderTitle} />
                     <View style={styles.sectionHeaderRight}>
                       <View style={styles.sectionBadge}>
                         <Text style={styles.sectionBadgeText}>Disponibles</Text>
@@ -1156,21 +1143,6 @@ const createStyles = () => {
   const spacingSm = SPACING?.sm || 8;
   const spacingMd = SPACING?.md || 16;
   const spacingLg = SPACING?.lg || 24;
-  const containerHorizontal = GLASS_INSET;
-  const fontSizeBase = TYPOGRAPHY?.fontSize?.base || 14;
-  const fontSizeMd = TYPOGRAPHY?.fontSize?.md || 16;
-  const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
-  const fontSizeXl = TYPOGRAPHY?.fontSize?.xl || 20;
-  const fontWeightMedium = TYPOGRAPHY?.fontWeight?.medium || '500';
-  const fontWeightSemibold = TYPOGRAPHY?.fontWeight?.semibold || '600';
-  const fontWeightBold = TYPOGRAPHY?.fontWeight?.bold || '700';
-  const radiusMd = BORDERS?.radius?.md || 8;
-  const radiusLg = BORDERS?.radius?.lg || 12;
-  const radiusXl = BORDERS?.radius?.xl || 16;
-  const radius2xl = BORDERS?.radius?.['2xl'] || 20;
-  const shadowSm = SHADOWS.sm;
-  const shadowMd = SHADOWS.editorial;
-
   return StyleSheet.create({
     screenRoot: {
       flex: 1,
@@ -1178,24 +1150,11 @@ const createStyles = () => {
     container: {
       flex: 1,
     },
-    scrollContainer: {
-      flex: 1,
-    },
     tabsOuterInstitutional: {
-      marginHorizontal: containerHorizontal,
       marginTop: spacingLg,
     },
     contentContainer: {
-      marginTop: spacingLg,
-      paddingHorizontal: containerHorizontal,
-    },
-    formContainer: {
-      borderRadius: BORDERS.radius.lg,
-      padding: spacingLg,
-      borderWidth: BORDERS.width.thin,
-      borderColor: Ig.hairline,
-      backgroundColor: Ig.canvas,
-      ...SHADOWS.editorial,
+      marginTop: spacingSm,
     },
     formGroup: {
       marginBottom: spacingLg,
@@ -1261,10 +1220,10 @@ const createStyles = () => {
       marginTop: spacingMd,
       paddingVertical: 12,
       paddingHorizontal: spacingMd,
-      borderRadius: BORDERS.radius.pill,
+      borderRadius: BORDERS.radius.md,
       borderWidth: BORDERS.width.thin,
       borderColor: Ig.hairline,
-      backgroundColor: Ig.surfaceStrong,
+      backgroundColor: COLORS.background.paper,
       minHeight: 44,
     },
     linkUbicacionText: {
@@ -1279,16 +1238,15 @@ const createStyles = () => {
       bottom: 0,
       left: 0,
       right: 0,
-      paddingHorizontal: containerHorizontal,
+      paddingHorizontal: HOST_GUTTER,
       paddingTop: spacingMd,
       backgroundColor: Ig.canvas,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: Ig.hairline,
-      ...SHADOWS.editorial,
     } as any,
     saveButton: {
       flexDirection: 'row',
-      borderRadius: BORDERS.radius.pill,
+      borderRadius: BORDERS.radius.md,
       paddingVertical: 12,
       paddingHorizontal: spacingLg,
       minHeight: 44,
@@ -1307,7 +1265,6 @@ const createStyles = () => {
     fotoPerfilContainer: {
       alignItems: 'center',
       marginVertical: spacingLg,
-      paddingHorizontal: containerHorizontal,
     },
     fotoPerfilTouchable: {
       position: 'relative',
@@ -1349,30 +1306,11 @@ const createStyles = () => {
       width: '100%',
       overflow: 'hidden',
     },
-    documentsTabTitleWrap: {
-      paddingHorizontal: containerHorizontal,
-      marginTop: spacingMd,
-      marginBottom: spacingMd,
-    },
-    documentsTabTitle: {
-      fontSize: TYPOGRAPHY.fontSize.lg,
-      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-      color: Ig.ink,
-    },
     documentsStats: {
       flexDirection: 'row',
       justifyContent: 'space-around',
       alignItems: 'stretch',
-      marginHorizontal: containerHorizontal,
       marginBottom: spacingMd,
-      borderRadius: BORDERS.radius.lg,
-      paddingVertical: spacingMd,
-      paddingHorizontal: spacingSm,
-      borderWidth: BORDERS.width.thin,
-      borderColor: Ig.hairline,
-      backgroundColor: Ig.canvas,
-      ...SHADOWS.editorial,
     },
     statItem: {
       alignItems: 'center',
@@ -1404,23 +1342,18 @@ const createStyles = () => {
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: spacingSm + 2,
-      paddingHorizontal: containerHorizontal,
       maxWidth: '100%',
     },
     sectionHeaderTitle: {
       flex: 1,
+      marginTop: SPACING.fixed.md,
       marginBottom: 0,
-      minWidth: 0,
-    },
-    sectionHeaderLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
       minWidth: 0,
     },
     sectionHeaderRight: {
       flexDirection: 'row',
       alignItems: 'center',
+      marginTop: SPACING.fixed.md,
     },
     sectionBadge: {
       paddingHorizontal: 10,
@@ -1441,15 +1374,13 @@ const createStyles = () => {
       color: Ig.muted,
       lineHeight: TYPOGRAPHY.fontSize.sm * 1.45,
       marginBottom: spacingMd - 2,
-      paddingHorizontal: containerHorizontal,
     },
     documentsGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       justifyContent: 'space-between',
-      paddingHorizontal: containerHorizontal,
+      alignItems: 'stretch',
       rowGap: spacingMd,
-      columnGap: spacingSm,
       maxWidth: '100%',
     },
     documentCard: {
@@ -1459,9 +1390,8 @@ const createStyles = () => {
       marginBottom: 0,
       borderWidth: BORDERS.width.thin,
       borderColor: Ig.hairline,
-      backgroundColor: Ig.canvas,
+      backgroundColor: COLORS.background.paper,
       overflow: 'hidden',
-      ...SHADOWS.editorial,
     },
     documentCardHeader: {
       flexDirection: 'row',
@@ -1474,10 +1404,12 @@ const createStyles = () => {
     documentIconContainer: {
       width: 40,
       height: 40,
-      borderRadius: BORDERS.radius.full,
+      borderRadius: BORDERS.radius.md,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: Ig.surfaceStrong,
+      backgroundColor: Ig.surfaceSoft,
+      borderWidth: BORDERS.width.thin,
+      borderColor: Ig.hairline,
     },
     documentCardStatus: {
       flexDirection: 'row',
@@ -1488,8 +1420,10 @@ const createStyles = () => {
       alignItems: 'center',
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: BORDERS.radius.pill,
-      backgroundColor: Ig.surfaceStrong,
+      borderRadius: BORDERS.radius.sm,
+      backgroundColor: Ig.surfaceSoft,
+      borderWidth: BORDERS.width.thin,
+      borderColor: Ig.hairline,
       gap: 4,
     },
     statusBadgeText: {
@@ -1550,7 +1484,6 @@ const createStyles = () => {
     emptyStateContainer: {
       alignItems: 'center',
       paddingVertical: spacingLg,
-      paddingHorizontal: containerHorizontal,
     },
     emptyStateTitle: {
       fontSize: TYPOGRAPHY.fontSize.lg,
@@ -1609,20 +1542,20 @@ const createStyles = () => {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 12,
+      paddingVertical: 10,
       paddingHorizontal: spacingMd,
-      borderRadius: BORDERS.radius.pill,
+      borderRadius: BORDERS.radius.sm,
       borderWidth: BORDERS.width.thin,
       borderColor: Ig.hairline,
-      backgroundColor: Ig.surfaceSoft,
+      backgroundColor: COLORS.background.paper,
       gap: spacingSm,
-      minHeight: 44,
+      minHeight: 40,
     },
     uploadPromptText: {
       fontSize: TYPOGRAPHY.fontSize.sm,
       fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
       fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-      color: Ig.muted,
+      color: Ig.primary,
     },
     // Nuevos estilos para documentos
     documentInfo: {
@@ -1635,18 +1568,21 @@ const createStyles = () => {
       flex: 1,
     },
     missingDocumentCard: {
+      width: '47.5%',
+      maxWidth: '47.5%',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: spacingLg,
+      padding: spacingMd,
       borderRadius: BORDERS.radius.lg,
       borderWidth: BORDERS.width.thin,
       borderColor: Ig.hairline,
       borderStyle: 'dashed',
-      marginBottom: spacingMd,
-      backgroundColor: Ig.surfaceSoft,
+      marginBottom: 0,
+      backgroundColor: COLORS.background.paper,
+      minHeight: 180,
     },
     missingDocumentTitle: {
-      fontSize: TYPOGRAPHY.fontSize.md,
+      fontSize: TYPOGRAPHY.fontSize.sm,
       fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
       fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
       color: Ig.ink,
@@ -1654,12 +1590,13 @@ const createStyles = () => {
       textAlign: 'center',
     },
     missingDocumentSubtitle: {
-      fontSize: TYPOGRAPHY.fontSize.sm,
+      fontSize: TYPOGRAPHY.fontSize.xs,
       fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
       color: Ig.muted,
       marginTop: spacingXs,
       textAlign: 'center',
-      marginBottom: spacingMd,
+      marginBottom: spacingSm,
+      lineHeight: TYPOGRAPHY.fontSize.xs * 1.45,
     },
     uploadHint: {
       fontSize: TYPOGRAPHY.fontSize.sm,

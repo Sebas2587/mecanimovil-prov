@@ -27,7 +27,12 @@ import {
 } from 'lucide-react-native';
 import { useAlerts, type Alerta, type TipoAlerta } from '@/context/AlertsContext';
 import Header from '@/components/Header';
-import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, TYPOGRAPHY, SPACING, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -99,10 +104,11 @@ const AlertCard = ({
   const priority = getPriorityStyle(alerta.prioridad);
 
   return (
-    <TouchableOpacity
-      style={[styles.card, alerta.leida && styles.cardRead]}
-      activeOpacity={0.7}
+    <Card
+      elevated
+      padding="host"
       onPress={onPress}
+      style={[styles.cardGap, alerta.leida && styles.cardRead]}
     >
       <View style={styles.cardRow}>
         <View style={[styles.iconCircle, { backgroundColor: iconBg }]}>
@@ -158,7 +164,7 @@ const AlertCard = ({
           <X size={16} color={I.muted} />
         </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </Card>
   );
 };
 
@@ -236,25 +242,27 @@ export default function NotificacionesScreen() {
         }
       />
 
-      <Animated.View style={[styles.summaryRow, { opacity: fadeAnim }]}>
-        <View style={styles.summaryPill}>
-          <Bell size={14} color={I.primary} />
-          <Text style={styles.summaryText}>
-            {alertasNoLeidas > 0
-              ? `${alertasNoLeidas} alerta${alertasNoLeidas > 1 ? 's' : ''} sin leer`
-              : 'Sin alertas pendientes'}
-          </Text>
-        </View>
-      </Animated.View>
-
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        style={hostScreenStyles.scroll}
+        contentContainerStyle={[hostScreenStyles.scrollInner, styles.scrollInner]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />
         }
       >
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <HostSectionKicker label="Resumen" />
+          <View style={styles.summaryPill}>
+            <Bell size={14} color={I.primary} />
+            <Text style={styles.summaryText}>
+              {alertasNoLeidas > 0
+                ? `${alertasNoLeidas} alerta${alertasNoLeidas > 1 ? 's' : ''} sin leer`
+                : 'Sin alertas pendientes'}
+            </Text>
+          </View>
+        </Animated.View>
+
+        <HostSectionKicker label="Alertas" />
         {alertasOrdenadas.length === 0 ? (
           <View style={styles.emptyWrap}>
             <View style={styles.emptyCircle}>
@@ -294,11 +302,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  summaryRow: {
-    paddingHorizontal: SPACING.container.horizontal,
-    paddingTop: SPACING.fixed.sm,
-    paddingBottom: SPACING.fixed.xxs,
-  },
   summaryPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -310,26 +313,18 @@ const styles = StyleSheet.create({
     gap: 6,
     borderWidth: BORDERS.width.thin,
     borderColor: COLORS.primary[100],
+    marginBottom: SPACING.fixed.xs,
   },
   summaryText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansSemiBold,
     color: I.primary,
   },
-  scroll: { flex: 1 },
-  scrollContent: {
-    paddingHorizontal: SPACING.container.horizontal,
-    paddingTop: SPACING.fixed.xs,
+  scrollInner: {
     paddingBottom: SPACING.fixed['2xl'],
   },
-  card: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.card.xl,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.md,
+  cardGap: {
     marginBottom: SPACING.fixed.sm,
-    ...SHADOWS.editorial,
   },
   cardRead: {
     opacity: 0.62,

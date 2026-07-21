@@ -1,13 +1,10 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import {
   COLORS,
   SPACING,
-  TYPOGRAPHY,
-  BORDERS,
-  SHADOWS,
-  withOpacity,
 } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
@@ -17,7 +14,6 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { institutionalTagStyles } from '@/app/design-system/styles/institutionalTags';
 
 const I = COLORS.institutional;
-const TS = TYPOGRAPHY.styles;
 const successTag = institutionalTagStyles('success', 'md', false);
 
 interface PaqueteCardProps {
@@ -44,13 +40,14 @@ export const PaqueteCard: React.FC<PaqueteCardProps> = ({
   }).format(paquete.precio_por_credito);
 
   return (
-    <TouchableOpacity
+    <Card
+      elevated
+      padding="host"
+      onPress={onPress}
       style={[
         styles.container,
         destacado && styles.containerDestacado,
       ]}
-      onPress={onPress}
-      activeOpacity={0.88}
     >
       {destacado ? (
         <InstitutionalTag
@@ -108,25 +105,17 @@ export const PaqueteCard: React.FC<PaqueteCardProps> = ({
         onPress={onPress}
         style={styles.buyButton}
       />
-    </TouchableOpacity>
+    </Card>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.lg,
     marginBottom: SPACING.fixed.md,
     position: 'relative',
-    backgroundColor: COLORS.background.paper,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    ...SHADOWS.sm,
   },
   containerDestacado: {
-    borderWidth: BORDERS.width.medium,
     borderColor: I.primary,
-    backgroundColor: withOpacity(I.primary, 0.03),
   },
   badge: {
     position: 'absolute',

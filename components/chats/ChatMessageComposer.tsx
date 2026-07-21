@@ -8,7 +8,8 @@ import {
   Platform,
 } from 'react-native';
 import { Paperclip, Send } from 'lucide-react-native';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { HOST_GUTTER } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const I = COLORS.institutional;
@@ -123,9 +124,8 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
     backgroundColor: I.canvas,
-    paddingHorizontal: SPACING.md,
+    paddingHorizontal: HOST_GUTTER,
     paddingTop: SPACING.sm + 2,
-    ...SHADOWS.editorial,
   },
   inputBarAttached: {
     borderTopWidth: 0,

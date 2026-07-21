@@ -30,7 +30,12 @@ import Header from '@/components/Header';
 import { useChats } from '@/context/ChatsContext';
 import { attachmentPreviewLabel, getMessageAttachmentUri } from '@/utils/chatAttachmentMedia';
 import { useAuth } from '@/context/AuthContext';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import {
+  Card,
+  HOST_GUTTER,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
 import { ChannelBadge } from '@/components/chats/ChannelBadge';
@@ -270,68 +275,74 @@ export default function ChatsScreen() {
     };
 
     const cardBody = (
-      <View style={[styles.chatCard, isHighlighted && styles.chatCardHighlighted]}>
-        <ChannelAvatar
-          channel={isOmnichannel ? channel : 'app'}
-          photoUrl={!isOmnichannel ? otra_persona?.foto : null}
-        />
+      <Card
+        elevated
+        padding="host"
+        style={[styles.chatCard, isHighlighted && styles.chatCardHighlighted]}
+      >
+        <View style={styles.chatCardInner}>
+          <ChannelAvatar
+            channel={isOmnichannel ? channel : 'app'}
+            photoUrl={!isOmnichannel ? otra_persona?.foto : null}
+          />
 
-        <View style={styles.chatContent}>
-          <View style={styles.chatTopRow}>
-            <Text style={[styles.chatName, hasUnread && styles.chatNameUnread]} numberOfLines={1}>
-              {otra_persona?.nombre || 'Cliente'}
-            </Text>
-            <Text style={[styles.chatDate, hasUnread && styles.chatDateUnread]}>
-              {ultimo_mensaje?.fecha_envio ? formatearFecha(ultimo_mensaje.fecha_envio) : ''}
-            </Text>
-          </View>
-
-          {isOmnichannel && channel ? (
-            <View style={styles.channelRow}>
-              <ChannelBadge channel={channel} compact />
+          <View style={styles.chatContent}>
+            <View style={styles.chatTopRow}>
+              <Text style={[styles.chatName, hasUnread && styles.chatNameUnread]} numberOfLines={1}>
+                {otra_persona?.nombre || 'Cliente'}
+              </Text>
+              <Text style={[styles.chatDate, hasUnread && styles.chatDateUnread]}>
+                {ultimo_mensaje?.fecha_envio ? formatearFecha(ultimo_mensaje.fecha_envio) : ''}
+              </Text>
             </View>
-          ) : null}
 
-          {channelDisconnectedReason ? (
-            <Text style={styles.channelWarning} numberOfLines={1}>
-              {channelDisconnectedReason}
-            </Text>
-          ) : null}
-
-          {!!vehiculoPill ? (
-            <InstitutionalTag label={vehiculoPill} variant="neutral" size="sm" />
-          ) : null}
-
-          <View style={styles.chatMessageRow}>
-            {ultimo_mensaje?.es_propio && (
-              <>
-                {ultimo_mensaje.leido ? (
-                  <CheckCheck size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} style={{ marginRight: 4 }} />
-                ) : (
-                  <Check size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} style={{ marginRight: 4 }} />
-                )}
-              </>
-            )}
-            <Text
-              style={[styles.chatMessage, hasUnread && !ultimo_mensaje?.es_propio && styles.chatMessageUnread]}
-              numberOfLines={1}
-            >
-              {ultimo_mensaje?.es_propio ? 'Tú: ' : ''}
-              {ultimo_mensaje?.mensaje ||
-                (getMessageAttachmentUri(ultimo_mensaje)
-                  ? attachmentPreviewLabel(ultimo_mensaje)
-                  : 'Sin mensajes')}
-            </Text>
-            {hasUnread && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadBadgeText}>
-                  {mensajes_no_leidos > 99 ? '99+' : mensajes_no_leidos}
-                </Text>
+            {isOmnichannel && channel ? (
+              <View style={styles.channelRow}>
+                <ChannelBadge channel={channel} compact />
               </View>
-            )}
+            ) : null}
+
+            {channelDisconnectedReason ? (
+              <Text style={styles.channelWarning} numberOfLines={1}>
+                {channelDisconnectedReason}
+              </Text>
+            ) : null}
+
+            {!!vehiculoPill ? (
+              <InstitutionalTag label={vehiculoPill} variant="neutral" size="sm" />
+            ) : null}
+
+            <View style={styles.chatMessageRow}>
+              {ultimo_mensaje?.es_propio && (
+                <>
+                  {ultimo_mensaje.leido ? (
+                    <CheckCheck size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} style={{ marginRight: 4 }} />
+                  ) : (
+                    <Check size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} style={{ marginRight: 4 }} />
+                  )}
+                </>
+              )}
+              <Text
+                style={[styles.chatMessage, hasUnread && !ultimo_mensaje?.es_propio && styles.chatMessageUnread]}
+                numberOfLines={1}
+              >
+                {ultimo_mensaje?.es_propio ? 'Tú: ' : ''}
+                {ultimo_mensaje?.mensaje ||
+                  (getMessageAttachmentUri(ultimo_mensaje)
+                    ? attachmentPreviewLabel(ultimo_mensaje)
+                    : 'Sin mensajes')}
+              </Text>
+              {hasUnread && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadBadgeText}>
+                    {mensajes_no_leidos > 99 ? '99+' : mensajes_no_leidos}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
-      </View>
+      </Card>
     );
 
     if (isOmnichannel && chatHref) {
@@ -361,15 +372,17 @@ export default function ChatsScreen() {
 
     if (chatHref && !isOmnichannel) {
       return (
-        <ChatSwipeableRow
-          rowKey={String(oferta_id)}
-          disabled={isDeleting}
-          onDelete={() => deleteChat(oferta_id, mensajes_no_leidos || 0)}
-        >
-          <ChatInboxLinkRow href={chatHref} onPress={markReadIfNeeded} highlighted={isHighlighted}>
-            {cardBody}
-          </ChatInboxLinkRow>
-        </ChatSwipeableRow>
+        <View style={styles.listItemFallback}>
+          <ChatSwipeableRow
+            rowKey={String(oferta_id)}
+            disabled={isDeleting}
+            onDelete={() => deleteChat(oferta_id, mensajes_no_leidos || 0)}
+          >
+            <ChatInboxLinkRow href={chatHref} onPress={markReadIfNeeded} highlighted={isHighlighted}>
+              {cardBody}
+            </ChatInboxLinkRow>
+          </ChatSwipeableRow>
+        </View>
       );
     }
 
@@ -405,7 +418,7 @@ export default function ChatsScreen() {
           badge={totalMensajesNoLeidos > 0 ? totalMensajesNoLeidos : undefined}
         />
 
-        <View style={styles.tabsWrap}>
+        <View style={[styles.tabsWrap, hostScreenStyles.gutterX]}>
           <InstitutionalScreenTabs
             tabs={mensajesTabs}
             activeKey={activeTab}
@@ -440,7 +453,9 @@ export default function ChatsScreen() {
             data={chatsVisibles}
             renderItem={renderChatItem}
             keyExtractor={(item) => String(item.conversation_id || item.oferta_id || item.kind)}
+            style={hostScreenStyles.scroll}
             contentContainerStyle={[
+              hostScreenStyles.scrollInner,
               styles.listContainer,
               chatsVisibles.length === 0 && styles.listContainerEmpty,
             ]}
@@ -489,7 +504,6 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flexGrow: 1,
-    paddingHorizontal: SPACING.container.horizontal,
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.lg,
   },
@@ -498,7 +512,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   canalPendienteBanner: {
-    marginHorizontal: SPACING.container.horizontal,
+    marginHorizontal: HOST_GUTTER,
     marginBottom: SPACING.xs,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
@@ -511,7 +525,6 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
   tabsWrap: {
-    paddingHorizontal: SPACING.container.horizontal,
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.xs,
   },
@@ -529,7 +542,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: BORDERS.radius.md,
-    backgroundColor: I.canvas,
+    backgroundColor: COLORS.background.paper,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     alignItems: 'center',
@@ -537,16 +550,10 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
 
-  chatCard: {
+  chatCard: {},
+  chatCardInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.xl,
-    paddingVertical: SPACING.sm + 2,
-    paddingHorizontal: SPACING.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    ...SHADOWS.editorial,
     gap: SPACING.sm + 4,
   },
   chatCardHighlighted: {

@@ -32,6 +32,7 @@ import {
   withOpacity,
 } from '@/app/design-system/tokens';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { HOST_GUTTER } from '@/app/design-system/components';
 import { Radar } from 'lucide-react-native';
 
 const I = COLORS.institutional;
@@ -97,7 +98,7 @@ export function SolicitudesDisponiblesContent({
     [queryClient],
   );
 
-  const containerHorizontal = SPACING.container.horizontal;
+  const containerHorizontal = HOST_GUTTER;
   const spacingMd = SPACING.fixed.md;
   const paddingBottom = contentPaddingBottom ?? insets.bottom + spacingMd;
 

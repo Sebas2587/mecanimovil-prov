@@ -1,6 +1,8 @@
 /**
- * Estilos temáticos Home (proveedores) — DESIGN_PROVEEDORES_INSTITUCIONAL.md
- * Superficies planas + hairline + SHADOWS.editorial; sin glass/blur decorativo.
+ * Estilos temáticos Home (proveedores) — Host surfaces.
+ * Gutter horizontal lo aporta el padre con `hostScreenStyles.scrollInner`
+ * (L.horizontalPadding = HOST_GUTTER solo para header fuera del ScrollView).
+ * Superficies paper + hairline + SHADOWS.editorial; sin glass/blur decorativo.
  */
 import { StyleSheet } from 'react-native';
 import { SHADOWS } from '@/app/design-system/tokens/shadows';
@@ -30,7 +32,7 @@ export type HomeScreenPalette = {
   warningEmphasis: string;
 };
 
-/** Una sola familia sans (Inter) para títulos, subtítulos y párrafos; mono solo en tabular. */
+/** Una sola familia Host (Poppins). `mono` es alias de medium (legado). */
 export type HomeScreenFonts = {
   sansRegular: string;
   sansMedium: string;
@@ -157,8 +159,8 @@ export function createHomeScreenStyles(
       borderWidth: 2,
       borderColor: c.canvas,
     },
+    /** Sin paddingHorizontal: el ScrollView ya usa hostScreenStyles.scrollInner. */
     sectionWrap: {
-      paddingHorizontal: L.horizontalPadding,
       marginBottom: L.sectionMarginBottom,
     },
     dashboardDualRow: {
@@ -191,12 +193,15 @@ export function createHomeScreenStyles(
       color: c.ink,
     },
     radarAvailabilityCard: {
+      alignSelf: 'stretch',
+      width: '100%',
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: SPACING.fixed.sm,
-      padding: SPACING.fixed.md,
+      paddingHorizontal: SPACING.fixed.md,
+      paddingVertical: SPACING.fixed.sm,
       borderRadius: L.radiusCard,
-      backgroundColor: c.canvas,
+      backgroundColor: c.paper,
       borderWidth: 1,
       borderColor: c.hairline,
       ...SHADOWS.editorial,
@@ -254,12 +259,12 @@ export function createHomeScreenStyles(
       overflow: 'hidden',
       borderWidth: 1,
       borderColor: c.hairline,
-      backgroundColor: c.canvas,
+      backgroundColor: c.paper,
       ...SHADOWS.editorial,
     },
     cardInner: {
       padding: padCard,
-      backgroundColor: c.canvas,
+      backgroundColor: c.paper,
     },
     finHeader: {
       flexDirection: 'row',

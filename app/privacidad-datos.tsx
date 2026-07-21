@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Linking,
   ScrollView,
+  Share,
   StyleSheet,
   Switch,
   Text,
@@ -11,7 +12,16 @@ import {
   View,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { FileText, Shield, Trash2 } from 'lucide-react-native';
+import { ChevronRight, FileText, Headphones, Shield, Share2, Trash2 } from 'lucide-react-native';
+import { AppHeader } from '@/app/design-system/components/AppHeader';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import {
   deleteAccount,
@@ -21,12 +31,21 @@ import {
   updateNotificationPreferences,
 } from '@/services/privacyService';
 import { useAuth } from '@/context/AuthContext';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
+
+const I = COLORS.institutional;
+const SUPPORT_WA =
+  'https://wa.me/56995945258?text=' +
+  encodeURIComponent(
+    'Hola, soy proveedor de MecaniMóvil y quiero solicitar la baja de mi cuenta / taller (Ley 21.719).',
+  );
 
 export default function PrivacidadDatosScreen() {
   const { logout } = useAuth();
   const [loading, setLoading] = useState(true);
   const [blockMessage, setBlockMessage] = useState<string | null>(null);
   const [password, setPassword] = useState('');
+  const [exporting, setExporting] = useState(false);
   const [prefs, setPrefs] = useState({
     push_operativo: true,
     push_marketing: false,
@@ -61,170 +80,266 @@ export default function PrivacidadDatosScreen() {
   }, []);
 
   const handleExport = useCallback(async () => {
+    setExporting(true);
     try {
       const data = await exportMyData();
       const json = JSON.stringify(data, null, 2);
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(json);
-        Alert.alert('Export listo', 'Tus datos quedaron en el portapapeles (JSON).');
-      } else {
-        Alert.alert('Export listo', 'Datos preparados. Revisa la consola de desarrollo.');
-        console.log('[privacy-export-prov]', data);
+      try {
+        await Share.share({
+          title: 'Mis datos MecaniMóvil',
+          message: json,
+        });
+      } catch {
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(json);
+          showAlert('Export listo', 'Tus datos quedaron en el portapapeles (JSON).');
+        } else {
+          showAlert('Export listo', 'Datos preparados. Revisa la consola de desarrollo.');
+          console.log('[privacy-export-prov]', data);
+        }
       }
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.error || 'No se pudo exportar.');
+      showAlert('Error', e?.response?.data?.error || 'No se pudo exportar.');
+    } finally {
+      setExporting(false);
     }
   }, []);
 
-  const togglePref = useCallback(async (key: keyof typeof prefs, value: boolean) => {
-    const next = { ...prefs, [key]: value };
-    setPrefs(next);
-    try {
-      await updateNotificationPreferences({ [key]: value });
-    } catch {
-      setPrefs(prefs);
-      Alert.alert('Error', 'No se pudieron guardar las preferencias.');
-    }
-  }, [prefs]);
+  const togglePref = useCallback(
+    async (key: keyof typeof prefs, value: boolean) => {
+      const prev = prefs;
+      const next = { ...prefs, [key]: value };
+      setPrefs(next);
+      try {
+        await updateNotificationPreferences({ [key]: value });
+      } catch {
+        setPrefs(prev);
+        showAlert('Error', 'No se pudieron guardar las preferencias.');
+      }
+    },
+    [prefs],
+  );
+
+  const handleSolicitarBaja = useCallback(() => {
+    Linking.openURL(SUPPORT_WA).catch(() => {
+      showAlert('Error', 'No se pudo abrir WhatsApp.');
+    });
+  }, []);
 
   const handleDelete = useCallback(() => {
     if (blockMessage) {
-      Alert.alert('Baja asistida', blockMessage);
+      showConfirm(
+        'Baja asistida',
+        `${blockMessage}\n\n¿Quieres contactar a soporte para gestionar la baja del taller?`,
+        {
+          confirmText: 'Contactar soporte',
+          onConfirm: handleSolicitarBaja,
+        },
+      );
       return;
     }
     if (!password.trim()) {
-      Alert.alert('Contraseña requerida', 'Ingresa tu contraseña actual.');
+      showAlert('Contraseña requerida', 'Ingresa tu contraseña actual.');
       return;
     }
-    Alert.alert(
+    showConfirm(
       'Eliminar cuenta',
-      'Esta acción anonimiza tus datos personales. ¿Continuar?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteAccount(password.trim());
-              await logout();
-              Alert.alert('Cuenta eliminada', 'Tus datos personales fueron anonimizados.');
-              router.replace('/(auth)/login');
-            } catch (e: any) {
-              Alert.alert('Error', e?.response?.data?.error || 'No se pudo eliminar la cuenta.');
-            }
-          },
+      'Anonimizaremos tus datos personales. Historiales fiscales y órdenes se conservan sin PII.',
+      {
+        confirmText: 'Eliminar',
+        onConfirm: async () => {
+          try {
+            await deleteAccount(password.trim());
+            await logout();
+            showAlert('Cuenta eliminada', 'Tus datos personales fueron anonimizados.');
+            router.replace('/(auth)/login');
+          } catch (e: any) {
+            showAlert('Error', e?.response?.data?.error || 'No se pudo eliminar la cuenta.');
+          }
         },
-      ],
+      },
     );
-  }, [blockMessage, password, logout]);
+  }, [blockMessage, password, logout, handleSolicitarBaja]);
 
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={COLORS.primary[500]} />
+        <ActivityIndicator color={I.primary} />
       </View>
     );
   }
 
   return (
-    <>
-      <Stack.Screen options={{ title: 'Privacidad y datos', headerShown: true }} />
-      <ScrollView contentContainerStyle={styles.container}>
-        <TouchableOpacity style={styles.linkRow} onPress={() => router.push('/politica-privacidad')}>
-          <Shield size={18} color={COLORS.text.secondary} />
-          <Text style={styles.linkText}>Política de privacidad</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.linkRow} onPress={() => router.push('/terminos')}>
-          <FileText size={18} color={COLORS.text.secondary} />
-          <Text style={styles.linkText}>Términos de uso</Text>
-        </TouchableOpacity>
+    <View style={styles.screen}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <AppHeader title="Privacidad y datos" showBack onBackPress={() => router.back()} />
 
-        <TouchableOpacity style={styles.actionBtn} onPress={handleExport}>
-          <Text style={styles.actionBtnText}>Exportar mis datos (JSON)</Text>
-        </TouchableOpacity>
+      <ScrollView
+        style={hostScreenStyles.scroll}
+        contentContainerStyle={[hostScreenStyles.scrollInner, { paddingBottom: SPACING['2xl'] }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <HostSectionKicker label="Documentos" />
+        <Card elevated padding={0}>
+          <TouchableOpacity style={styles.row} onPress={() => router.push('/politica-privacidad')} activeOpacity={0.88}>
+            <View style={styles.iconPlate}>
+              <Shield size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            </View>
+            <InstitutionalText role="body" style={styles.rowTitle}>
+              Política de privacidad
+            </InstitutionalText>
+            <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+          </TouchableOpacity>
+          <View style={styles.rowDivider} />
+          <TouchableOpacity style={styles.row} onPress={() => router.push('/terminos')} activeOpacity={0.88}>
+            <View style={styles.iconPlate}>
+              <FileText size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            </View>
+            <InstitutionalText role="body" style={styles.rowTitle}>
+              Términos de uso
+            </InstitutionalText>
+            <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+          </TouchableOpacity>
+        </Card>
 
-        <Text style={styles.sectionTitle}>Preferencias de comunicación</Text>
-        {(
-          [
-            ['push_operativo', 'Notificaciones operativas (push)'],
-            ['push_marketing', 'Ofertas y novedades (push)'],
-            ['email_marketing', 'Correos comerciales'],
-          ] as const
-        ).map(([key, label]) => (
-          <View key={key} style={styles.prefRow}>
-            <Text style={styles.prefLabel}>{label}</Text>
-            <Switch value={prefs[key]} onValueChange={(v) => togglePref(key, v)} />
-          </View>
-        ))}
+        <HostSectionKicker label="Portabilidad" />
+        <Card elevated padding="host" style={styles.paddedCard}>
+          <InstitutionalText role="caption" color="body" style={styles.helper}>
+            Descarga o comparte un JSON con tu perfil, preferencias y registros asociados (ARCOP).
+          </InstitutionalText>
+          <InstitutionalButton
+            label="Exportar mis datos"
+            variant="primary"
+            onPress={() => void handleExport()}
+            loading={exporting}
+            leading={<Share2 size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
+        </Card>
 
-        <Text style={styles.sectionTitle}>Eliminar cuenta</Text>
-        {blockMessage ? <Text style={styles.block}>{blockMessage}</Text> : null}
-        <TextInput
-          style={styles.input}
-          secureTextEntry
-          placeholder="Contraseña actual"
-          value={password}
-          onChangeText={setPassword}
-        />
-        <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-          <Trash2 size={16} color="#fff" />
-          <Text style={styles.deleteBtnText}>Eliminar mi cuenta</Text>
-        </TouchableOpacity>
+        <HostSectionKicker label="Comunicaciones" />
+        <Card elevated padding={0}>
+          {(
+            [
+              ['push_operativo', 'Notificaciones operativas'],
+              ['push_marketing', 'Ofertas y novedades (push)'],
+              ['email_marketing', 'Correos comerciales'],
+            ] as const
+          ).map(([key, label], index, arr) => (
+            <View key={key}>
+              <View style={styles.prefRow}>
+                <Text style={styles.prefLabel}>{label}</Text>
+                <Switch
+                  value={prefs[key]}
+                  onValueChange={(v) => void togglePref(key, v)}
+                  trackColor={{ false: I.hairline, true: I.primaryDisabled }}
+                  thumbColor={prefs[key] ? I.primary : I.surfaceStrong}
+                />
+              </View>
+              {index < arr.length - 1 ? <View style={styles.rowDivider} /> : null}
+            </View>
+          ))}
+        </Card>
+
+        <HostSectionKicker label="Baja de cuenta" />
+        <Card elevated padding="host" style={styles.paddedCard}>
+          {blockMessage ? (
+            <>
+              <InstitutionalText role="caption" color="body" style={styles.helper}>
+                {blockMessage}
+              </InstitutionalText>
+              <InstitutionalText role="caption" color="muted" style={styles.helper}>
+                Talleres con Mercado Pago, liquidaciones o documentación fiscal requieren baja
+                asistida. Conservamos datos contables el plazo legal (hasta 5 años) sin PII de
+                contacto.
+              </InstitutionalText>
+              <InstitutionalButton
+                label="Solicitar baja por WhatsApp"
+                variant="outlineAccent"
+                onPress={handleSolicitarBaja}
+                leading={<Headphones size={16} color={COLORS.brand.orange} strokeWidth={ICON_STROKE_WIDTH} />}
+              />
+            </>
+          ) : (
+            <>
+              <InstitutionalText role="caption" color="body" style={styles.helper}>
+                Anonimiza tus datos personales. Confirma con tu contraseña actual.
+              </InstitutionalText>
+              <TextInput
+                style={styles.input}
+                secureTextEntry
+                placeholder="Contraseña actual"
+                placeholderTextColor={I.muted}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <InstitutionalButton
+                label="Eliminar mi cuenta"
+                variant="destructiveOutline"
+                onPress={handleDelete}
+                leading={<Trash2 size={16} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />}
+              />
+            </>
+          )}
+        </Card>
       </ScrollView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: SPACING.container.horizontal, paddingBottom: SPACING.xl },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.sm,
-  },
-  linkText: { fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.text.primary },
-  actionBtn: {
-    marginVertical: SPACING.md,
-    padding: SPACING.md,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: COLORS.primary[500],
-    alignItems: 'center',
-  },
-  actionBtnText: { color: '#fff', fontFamily: TYPOGRAPHY.fontFamily.sansMedium },
-  sectionTitle: {
-    marginTop: SPACING.md,
-    marginBottom: SPACING.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
-    color: COLORS.text.secondary,
-    textTransform: 'uppercase',
-    fontSize: TYPOGRAPHY.fontSize.xs,
-  },
-  prefRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SPACING.xs,
-  },
-  prefLabel: { color: COLORS.text.primary, textTransform: 'capitalize' },
-  block: { color: COLORS.warning?.main, marginBottom: SPACING.sm, fontSize: TYPOGRAPHY.fontSize.sm },
-  input: {
-    borderWidth: 1,
-    borderColor: COLORS.border?.default,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  deleteBtn: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
+  screen: { flex: 1, backgroundColor: COLORS.background.default },
+  centered: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.error?.main || '#DC2626',
-    padding: SPACING.md,
-    borderRadius: BORDERS.radius.md,
+    backgroundColor: COLORS.background.default,
   },
-  deleteBtnText: { color: '#fff', fontFamily: TYPOGRAPHY.fontFamily.sansMedium },
+  paddedCard: {
+    gap: SPACING.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    minHeight: 56,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  rowDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: I.hairline,
+  },
+  iconPlate: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: I.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowTitle: { flex: 1 },
+  helper: { marginBottom: SPACING.xs },
+  prefRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    gap: SPACING.sm,
+  },
+  prefLabel: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.ink,
+  },
+  input: {
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.ink,
+    backgroundColor: I.surfaceSoft,
+  },
 });

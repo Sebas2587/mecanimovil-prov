@@ -13,6 +13,7 @@ import {
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Card } from '@/app/design-system/components';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -158,11 +159,12 @@ export function ProponerFechaCatalogoModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Pressable style={styles.dismissHit} onPress={onClose} accessibilityLabel="Cerrar" />
-        <View
+        <Card
+          elevated
+          padding={0}
           style={[
             styles.sheet,
             { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) },
-            SHADOWS.editorial,
           ]}
         >
           <View style={styles.sheetHeader}>
@@ -271,7 +273,7 @@ export function ProponerFechaCatalogoModal({
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </Card>
       </View>
     </Modal>
   );
@@ -293,12 +295,11 @@ const styles = StyleSheet.create({
   sheet: {
     width: '100%',
     maxHeight: '92%',
-    backgroundColor: I.canvas,
     borderTopLeftRadius: BORDERS.radius.xl,
     borderTopRightRadius: BORDERS.radius.xl,
-    borderWidth: BORDERS.width.thin,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     borderBottomWidth: 0,
-    borderColor: I.hairline,
     overflow: 'hidden',
     flexDirection: 'column',
   },
@@ -386,7 +387,6 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     color: I.ink,
     minHeight: 44,
-    ...SHADOWS.editorial,
   },
   footer: {
     flexDirection: 'row',

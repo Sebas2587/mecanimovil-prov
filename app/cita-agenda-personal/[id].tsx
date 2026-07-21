@@ -29,6 +29,12 @@ import {
   noShadow,
 } from '@/app/design-system/tokens';
 import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+  HOST_GUTTER,
+} from '@/app/design-system/components';
+import {
   agendaProveedorService,
   nombreServicioCita,
   type CitaAgendaPersonal,
@@ -75,7 +81,6 @@ import {
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const TS = TYPOGRAPHY.styles;
-const hx = SPACING.container.horizontal;
 const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
 const shadowFooter = platformShadow({
@@ -801,10 +806,11 @@ export default function CitaAgendaPersonalDetalleScreen() {
       <KeyboardAvoidingView style={styles.screenRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           ref={scrollRef}
-          style={styles.scrollView}
+          style={hostScreenStyles.scroll}
           contentContainerStyle={[
+            hostScreenStyles.scrollInner,
             styles.scrollContent,
-            { paddingHorizontal: hx, paddingBottom: footerReserve },
+            { paddingBottom: footerReserve },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -918,8 +924,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
             </>
           ) : (
             <>
-              <View style={styles.section}>
-                <Text style={styles.sectionHeaderTitle}>Cliente y vehículo</Text>
+              <HostSectionKicker label="Cliente y vehículo" />
+                <Card elevated padding="host" style={styles.section}>
                 <View style={styles.clientInfoContainer}>
                   <View style={styles.clientAvatarWrap}>
                     <View style={styles.clientAvatarPlaceholder}>
@@ -994,10 +1000,11 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     </View>
                   </View>
                 </View>
-              </View>
+              </Card>
 
-              <View style={styles.section}>
-                <Text style={styles.sectionHeaderTitle}>Servicios solicitados</Text>
+              <>
+              <HostSectionKicker label="Servicios solicitados" />
+                <Card elevated padding="host" style={styles.section}>
                 <View style={styles.serviciosListaDetalle}>
                   <View style={styles.servicioDetalleCard}>
                     <Text style={styles.servicioDetalleNombre} numberOfLines={3}>
@@ -1023,10 +1030,13 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     <AsistenteDiagnosticoCard origen="cita" entityId={cita.id} habilitado />
                   </View>
                 ) : null}
-              </View>
+              </Card>
+              </>
 
               {horarioPorConfirmar ? (
-                <View style={styles.section}>
+                <>
+<HostSectionKicker label="Horario" />
+                <Card elevated padding="host" style={styles.section}>
                   <View style={styles.horarioPendienteBanner}>
                     <InstitutionalTag label="Por confirmar" variant="warning" size="sm" />
                     <Text style={styles.horarioPendienteTitle}>Horario pendiente</Text>
@@ -1035,12 +1045,14 @@ export default function CitaAgendaPersonalDetalleScreen() {
                       (o automático) y luego el día y hora en su calendario.
                     </Text>
                   </View>
-                </View>
+                </Card>
+                </>
               ) : null}
 
-              <View style={styles.section}>
+              <HostSectionKicker label="Técnico asignado" />
+              <Card elevated padding="host" style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionHeaderTitle}>Técnico asignado</Text>
+                  <View style={styles.sectionHeaderTitleInline} />
                   {esActiva && permitirEditarCita ? (
                     <InstitutionalButton
                       label={cita.miembro_taller ? 'Reasignar' : 'Asignar'}
@@ -1068,14 +1080,14 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     ) : null}
                   </View>
                 </View>
-              </View>
+              </Card>
 
               {cita.tiene_checklist ? (
-                <View style={styles.section}>
+                <>
+                  <HostSectionKicker label="Checklist operativo" />
+                  <Card elevated padding="host" style={styles.section}>
                   <View style={styles.sectionHeaderRow}>
-                    <Text style={[styles.sectionHeaderTitle, styles.sectionHeaderTitleInline]}>
-                      Checklist operativo
-                    </Text>
+                    <View style={styles.sectionHeaderTitleInline} />
                     <InstitutionalTag
                       label={
                         checklistPendienteSupervisor
@@ -1222,13 +1234,12 @@ export default function CitaAgendaPersonalDetalleScreen() {
                       ) : null}
                     </View>
                   </View>
-                </View>
+                </Card>
+                </>
               ) : null}
 
-              <View style={styles.section}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionHeaderTitle}>Fecha y hora</Text>
-                </View>
+              <HostSectionKicker label="Fecha y hora" />
+              <Card elevated padding="host" style={styles.section}>
                 {horarioPorConfirmar ? (
                   <Text style={styles.horarioPendienteBody}>
                     Aún no hay día ni hora confirmados. Usa «Confirmar horario» al pie: primero eliges
@@ -1255,10 +1266,10 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     </View>
                   </>
                 )}
-              </View>
+              </Card>
 
-              <View style={styles.section}>
-                <Text style={styles.sectionHeaderTitle}>Ubicación del servicio</Text>
+              <HostSectionKicker label="Ubicación del servicio" />
+              <Card elevated padding="host" style={styles.section}>
                 <View style={styles.addressCard}>
                   <View style={styles.addressHeader}>
                     <InstitutionalIcon name="location-on" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -1270,7 +1281,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     </View>
                   </View>
                 </View>
-              </View>
+              </Card>
             </>
           )}
 
@@ -1303,7 +1314,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
             permitirEliminar={permitirEliminarCita}
             permitirCancelar={puedeCancelarCita}
             permitirCerrarManual={
-              citaAgendada && !checklistEnCurso && !checklistCompletado
+              citaAgendada && !cita.tiene_checklist
             }
             permitirConfirmarHorario={horarioPorConfirmar && permitirEditarCita}
             onEditar={() => {
@@ -1398,10 +1409,12 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
 function EditSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionHeaderTitle}>{title}</Text>
-      <View style={styles.editFields}>{children}</View>
-    </View>
+    <>
+      <HostSectionKicker label={title} />
+      <Card elevated padding="host" style={styles.section}>
+        <View style={styles.editFields}>{children}</View>
+      </Card>
+    </>
   );
 }
 
@@ -1631,13 +1644,7 @@ const styles = StyleSheet.create({
   },
 
   section: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.md,
     marginBottom: SPACING.fixed.md,
-    ...SHADOWS.editorial,
   },
   sectionHeaderTitle: {
     fontSize: TS.h4.fontSize,
@@ -2037,7 +2044,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: I.canvas,
-    paddingHorizontal: hx,
+    paddingHorizontal: HOST_GUTTER,
     paddingTop: SPACING.fixed.sm,
     borderTopWidth: BORDERS.width.thin,
     borderTopColor: I.hairline,

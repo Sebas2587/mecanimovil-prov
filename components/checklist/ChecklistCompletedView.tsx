@@ -20,19 +20,19 @@ import {
   ChecklistRecomendacionesResponse,
 } from '@/services/checklistService';
 import { signatureStoredToImageUri } from '@/utils/signatureImageUri';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/design-system/components/InstitutionalText';
 import { InstitutionalSectionHeader } from '@/design-system/components/InstitutionalSectionHeader';
 import { InstitutionalTag } from '@/design-system/components/InstitutionalTag';
-import { institutionalCardStyles } from '@/design-system/styles/institutionalSemantic';
+import { HostPaperSection, HOST_GUTTER, hostScreenStyles } from '@/app/design-system/components';
 import { showAlert } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
 const FF = TYPOGRAPHY.fontFamily;
-const INSET = SPACING.fixed.md;
+const INSET = HOST_GUTTER;
 const lh = (size: number, mult: number) => Math.round(size * mult);
 
 const REC_COLORS: Record<string, string> = {
@@ -359,7 +359,7 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
               contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + SPACING.lg }]}
               showsVerticalScrollIndicator={false}
             >
-              <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
+              <HostPaperSection>
                 <InstitutionalText role="h6" color="muted" style={styles.kicker}>
                   Servicio
                 </InstitutionalText>
@@ -404,10 +404,10 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
                     </InstitutionalText>
                   </View>
                 ) : null}
-              </View>
+              </HostPaperSection>
 
               {instance.informe_publico?.url ? (
-                <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
+                <HostPaperSection>
                   <InstitutionalText role="h6" color="muted" style={styles.kicker}>
                     Cliente
                   </InstitutionalText>
@@ -430,11 +430,11 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
                     <InstitutionalIcon name="link" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                     <Text style={styles.informeShareBtnText}>Copiar / compartir enlace</Text>
                   </TouchableOpacity>
-                </View>
+                </HostPaperSection>
               ) : null}
 
               {(instance.firma_tecnico || instance.firma_cliente || instance.firma_supervisor) && (
-                <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
+                <HostPaperSection>
                   <InstitutionalText role="h6" color="muted" style={styles.kicker}>
                     Conformidad
                   </InstitutionalText>
@@ -488,10 +488,10 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
                       </View>
                     ) : null}
                   </View>
-                </View>
+                </HostPaperSection>
               )}
 
-              <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
+              <HostPaperSection>
                 <InstitutionalText role="h6" color="muted" style={styles.kicker}>
                   Inspección
                 </InstitutionalText>
@@ -520,18 +520,18 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
                 ) : (
                   <Text style={styles.emptyItems}>No hay respuestas registradas</Text>
                 )}
-              </View>
+              </HostPaperSection>
 
               {/* Sección de Recomendaciones ML */}
               {loadingRec ? (
-                <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
+                <HostPaperSection>
                   <ActivityIndicator color={I.primary} style={{ marginVertical: SPACING.md }} />
                   <InstitutionalText role="caption" color="muted" style={{ textAlign: 'center' }}>
                     Analizando checklist con IA…
                   </InstitutionalText>
-                </View>
+                </HostPaperSection>
               ) : recomendaciones.length > 0 ? (
-                <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
+                <HostPaperSection>
                   <InstitutionalText role="h6" color="muted" style={styles.kicker}>
                     Sugerencias
                   </InstitutionalText>
@@ -576,7 +576,7 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
                       </Text>
                     </View>
                   ))}
-                </View>
+                </HostPaperSection>
               ) : null}
             </ScrollView>
           ) : (
@@ -613,7 +613,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: I.hairline,
     backgroundColor: I.canvas,
-    ...SHADOWS.editorial,
   },
   headerIconBtn: {
     width: 40,
@@ -634,7 +633,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollInner: {
-    paddingHorizontal: INSET,
+    ...hostScreenStyles.scrollInner,
     paddingTop: SPACING.md,
     gap: SPACING.md,
   },
@@ -642,7 +641,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: INSET,
+    ...hostScreenStyles.gutterX,
   },
   errorTitle: {
     marginTop: SPACING.sm,

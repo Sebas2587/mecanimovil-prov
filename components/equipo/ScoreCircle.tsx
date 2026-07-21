@@ -81,7 +81,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansMedium,
     color: I.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: TYPOGRAPHY.letterSpacing.normal,
   },
 });

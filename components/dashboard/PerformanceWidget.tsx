@@ -13,9 +13,9 @@ import {
   COLORS,
   SPACING,
   TYPOGRAPHY,
-  SHADOWS,
   BORDERS,
 } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
   hostIconPlateColor,
@@ -49,6 +49,8 @@ export type PerformanceWidgetProps = {
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
   fill?: boolean;
+  /** Sin borde/sombra propios — vive dentro de una card contenedora (Menú). */
+  inset?: boolean;
 };
 
 function clampPercent(value: number): number {
@@ -73,6 +75,7 @@ export function PerformanceWidget({
   onPress,
   style,
   fill = false,
+  inset = false,
 }: PerformanceWidgetProps) {
   const hasValue = progress != null && !Number.isNaN(progress);
   const pct = useMemo(
@@ -82,97 +85,107 @@ export function PerformanceWidget({
   const tip = useMemo(() => (hasValue ? motivationalLabel(pct) : '…'), [hasValue, pct]);
   const tierPalette = COLORS.kpi[tierKeyForName(targetTierName)];
 
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={
-        hasValue
-          ? `Tu rendimiento, ${pct} por ciento, nivel ${targetTierName}`
-          : `Tu rendimiento, ${isLoading ? 'cargando' : 'sin datos'}`
-      }
-      style={({ pressed }) => [
-        styles.card,
-        fill && styles.cardFill,
-        pressed && styles.pressed,
-        style,
-      ]}
-    >
-      <View style={[styles.inner, fill && styles.innerFill]}>
-        <View style={styles.headerRow}>
-          <View style={styles.titleLeft}>
-            <View style={hostIconPlateStyle}>
-              <Activity size={20} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
-            </View>
-            <Text style={styles.title}>Tu rendimiento</Text>
+  const body = (
+    <View style={[styles.inner, inset && styles.innerInset, fill && styles.innerFill]}>
+      <View style={styles.headerRow}>
+        <View style={styles.titleLeft}>
+          <View style={hostIconPlateStyle}>
+            <Activity size={20} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
-          <View style={styles.chevronCircle}>
-            <ChevronRight size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-          </View>
+          <Text style={styles.title}>Tu rendimiento</Text>
         </View>
-
-        <View style={styles.tierRow}>
-          <View
-            style={[
-              styles.tierBadge,
-              {
-                backgroundColor: tierPalette.background,
-                borderColor: tierPalette.border,
-              },
-            ]}
-          >
-            <Text style={[styles.tierBadgeText, { color: tierPalette.text }]} numberOfLines={1}>
-              {targetTierName}
-            </Text>
-          </View>
-          {hasValue ? (
-            <Text style={styles.tipText} numberOfLines={1}>
-              {tip}
-            </Text>
-          ) : null}
-        </View>
-
-        {periodSubtitle ? (
-          <Text style={styles.periodLine} numberOfLines={fill ? 3 : 2}>
-            {periodSubtitle}
-          </Text>
-        ) : null}
-
-        <View style={styles.kpiBlock}>
-          {hasValue ? (
-            <Text style={styles.percent}>{pct}%</Text>
-          ) : isLoading ? (
-            <ActivityIndicator color={I.primary} size="small" />
-          ) : (
-            <Text style={styles.percentPlaceholder}>—</Text>
-          )}
-
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${hasValue ? pct : 0}%`,
-                  backgroundColor: hasValue ? I.primary : I.surfaceSoft,
-                },
-              ]}
-            />
-          </View>
+        <View style={styles.chevronCircle}>
+          <ChevronRight size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
         </View>
       </View>
-    </Pressable>
+
+      <View style={styles.tierRow}>
+        <View
+          style={[
+            styles.tierBadge,
+            {
+              backgroundColor: tierPalette.background,
+              borderColor: tierPalette.border,
+            },
+          ]}
+        >
+          <Text style={[styles.tierBadgeText, { color: tierPalette.text }]} numberOfLines={1}>
+            {targetTierName}
+          </Text>
+        </View>
+        {hasValue ? (
+          <Text style={styles.tipText} numberOfLines={1}>
+            {tip}
+          </Text>
+        ) : null}
+      </View>
+
+      {periodSubtitle ? (
+        <Text style={styles.periodLine} numberOfLines={fill ? 3 : 2}>
+          {periodSubtitle}
+        </Text>
+      ) : null}
+
+      <View style={styles.kpiBlock}>
+        {hasValue ? (
+          <Text style={styles.percent}>{pct}%</Text>
+        ) : isLoading ? (
+          <ActivityIndicator color={I.primary} size="small" />
+        ) : (
+          <Text style={styles.percentPlaceholder}>—</Text>
+        )}
+
+        <View style={styles.progressTrack}>
+          <View
+            style={[
+              styles.progressFill,
+              {
+                width: `${hasValue ? pct : 0}%`,
+                backgroundColor: hasValue ? I.primary : I.surfaceSoft,
+              },
+            ]}
+          />
+        </View>
+      </View>
+    </View>
+  );
+
+  if (inset) {
+    return (
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={
+          hasValue
+            ? `Tu rendimiento, ${pct} por ciento, nivel ${targetTierName}`
+            : `Tu rendimiento, ${isLoading ? 'cargando' : 'sin datos'}`
+        }
+        style={({ pressed }) => [styles.cardInset, fill && styles.cardFill, pressed && styles.pressed, style]}
+      >
+        {body}
+      </Pressable>
+    );
+  }
+
+  return (
+    <Card
+      elevated
+      padding={0}
+      onPress={onPress}
+      style={[styles.card, fill && styles.cardFill, style]}
+    >
+      {body}
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
     overflow: 'hidden',
     minHeight: CARD_MIN_HEIGHT,
-    ...SHADOWS.editorial,
+  },
+  cardInset: {
+    minHeight: 0,
   },
   cardFill: {
     flex: 1,
@@ -186,6 +199,11 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     gap: SPACING.sm,
     minHeight: CARD_MIN_HEIGHT,
+  },
+  innerInset: {
+    paddingHorizontal: 0,
+    paddingVertical: SPACING.sm,
+    minHeight: 0,
   },
   innerFill: {
     flex: 1,

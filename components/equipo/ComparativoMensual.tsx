@@ -1,11 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { institutionalTextStyle } from '@/app/design-system/styles/institutionalTypography';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { MecanicoKpis } from '@/services/equipoTallerService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
+const lh = (fontSize: number, mult: number) => Math.round(fontSize * mult);
 
 type Props = {
   comparativo: MecanicoKpis['comparativo'];
@@ -14,17 +18,17 @@ type Props = {
 type RowProps = {
   label: string;
   delta: number | null | undefined;
-  /** Si true, un delta negativo es bueno (ej. tiempo) */
   invertGood?: boolean;
+  last?: boolean;
 };
 
-function DeltaRow({ label, delta, invertGood = false }: RowProps) {
+function DeltaRow({ label, delta, invertGood = false, last }: RowProps) {
   if (delta == null) {
     return (
-      <View style={styles.row}>
+      <View style={[styles.row, !last && styles.rowBorder]}>
         <Text style={styles.label}>{label}</Text>
         <View style={styles.deltaWrap}>
-          <Minus size={14} color={I.muted} />
+          <Minus size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.deltaNeutral}>—</Text>
         </View>
       </View>
@@ -34,16 +38,15 @@ function DeltaRow({ label, delta, invertGood = false }: RowProps) {
   const isUp = delta > 0;
   const isNeutral = delta === 0;
   const isGood = invertGood ? !isUp : isUp;
-
   const color = isNeutral ? I.muted : isGood ? I.semanticUp : I.semanticDown;
   const Icon = isNeutral ? Minus : isUp ? TrendingUp : TrendingDown;
   const prefix = isUp ? '+' : '';
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, !last && styles.rowBorder]}>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.deltaWrap}>
-        <Icon size={14} color={color} />
+        <Icon size={14} color={color} strokeWidth={ICON_STROKE_WIDTH} />
         <Text style={[styles.delta, { color }]}>
           {prefix}
           {delta.toFixed(1)}%
@@ -53,37 +56,31 @@ function DeltaRow({ label, delta, invertGood = false }: RowProps) {
   );
 }
 
+/** Filas planas dentro de HostPaperSection (sin card propia). */
 export function ComparativoMensual({ comparativo }: Props) {
   return (
-    <View style={styles.card}>
+    <View>
       <DeltaRow label="Completados" delta={comparativo.delta_completados_pct} />
-      <View style={styles.sep} />
       <DeltaRow label="Tiempo prom." delta={comparativo.delta_tiempo_pct} invertGood />
-      <View style={styles.sep} />
-      <DeltaRow label="Facturación" delta={comparativo.delta_facturacion_pct} />
+      <DeltaRow label="Facturación" delta={comparativo.delta_facturacion_pct} last />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: 4,
-  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 14,
+  },
+  rowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
   },
   label: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    ...institutionalTextStyle('body', I.ink),
     fontFamily: FF.sansMedium,
-    color: I.ink,
   },
   deltaWrap: {
     flexDirection: 'row',
@@ -92,15 +89,13 @@ const styles = StyleSheet.create({
   },
   delta: {
     fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TS.numberDisplay.lineHeight),
     fontFamily: FF.monoMedium,
   },
   deltaNeutral: {
     fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TS.numberDisplay.lineHeight),
     fontFamily: FF.monoMedium,
     color: I.muted,
-  },
-  sep: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: I.hairline,
   },
 });

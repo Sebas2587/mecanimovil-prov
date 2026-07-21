@@ -1,13 +1,16 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { router } from 'expo-router';
-import { COLORS, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { institutionalTextStyle } from '@/app/design-system/styles/institutionalTypography';
+import { COLORS } from '@/app/design-system/tokens';
 
 type Props = {
   textStyle?: object;
   linkStyle?: object;
   variant?: 'footer' | 'register';
 };
+
+const I = COLORS.institutional;
 
 export default function LegalFooterLinks({
   textStyle,
@@ -17,15 +20,17 @@ export default function LegalFooterLinks({
   const goTerms = () => router.push('/terminos');
   const goPrivacy = () => router.push('/politica-privacidad');
 
+  const linkBase = institutionalTextStyle('navLink', I.primary);
+
   if (variant === 'register') {
     return (
       <Text style={textStyle}>
         Acepto los{' '}
-        <Text style={linkStyle} onPress={goTerms}>
+        <Text style={[linkBase, linkStyle]} onPress={goTerms}>
           términos de uso
         </Text>{' '}
         y la{' '}
-        <Text style={linkStyle} onPress={goPrivacy}>
+        <Text style={[linkBase, linkStyle]} onPress={goPrivacy}>
           política de privacidad
         </Text>
         .
@@ -36,11 +41,11 @@ export default function LegalFooterLinks({
   return (
     <Text style={[styles.footer, textStyle]}>
       Al continuar, aceptas los{' '}
-      <Text style={[styles.link, linkStyle]} onPress={goTerms}>
+      <Text style={[linkBase, linkStyle]} onPress={goTerms}>
         Términos de uso
       </Text>{' '}
       y la{' '}
-      <Text style={[styles.link, linkStyle]} onPress={goPrivacy}>
+      <Text style={[linkBase, linkStyle]} onPress={goPrivacy}>
         Política de privacidad
       </Text>{' '}
       de MecaniMóvil Proveedores (Ley 21.719).
@@ -49,15 +54,5 @@ export default function LegalFooterLinks({
 }
 
 const styles = StyleSheet.create({
-  footer: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.institutional.muted,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  link: {
-    color: COLORS.institutional.primary,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    textDecorationLine: 'underline',
-  },
+  footer: institutionalTextStyle('small', I.muted),
 });

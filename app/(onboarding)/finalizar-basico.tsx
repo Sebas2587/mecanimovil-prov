@@ -19,6 +19,7 @@ import {
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import { appendOnboardingParams, finalizarBasicoStep } from '@/utils/onboardingNavigation';
@@ -494,7 +495,7 @@ export default function FinalizarBasicoScreen() {
         />
 
         <View style={styles.resumenContainer}>
-          <View style={styles.seccionResumen}>
+          <Card elevated padding="host" style={styles.seccionResumen}>
             <View style={styles.seccionHeader}>
               <InstitutionalIcon 
                 name={datosCompletos.tipo === 'taller' ? 'business' : 'person'} 
@@ -548,9 +549,9 @@ export default function FinalizarBasicoScreen() {
                 </View>
               </>
             )}
-          </View>
+          </Card>
 
-          <View style={styles.seccionResumen}>
+          <Card elevated padding="host" style={styles.seccionResumen}>
             <View style={styles.seccionHeader}>
               <InstitutionalIcon name="construct" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.seccionTitulo}>Servicios del catálogo</Text>
@@ -574,9 +575,9 @@ export default function FinalizarBasicoScreen() {
                 </Text>
               </>
             )}
-          </View>
+          </Card>
 
-          <View style={styles.seccionResumen}>
+          <Card elevated padding="host" style={styles.seccionResumen}>
             <View style={styles.seccionHeader}>
               <InstitutionalIcon name="car" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.seccionTitulo}>Cobertura de Marcas</Text>
@@ -591,9 +592,9 @@ export default function FinalizarBasicoScreen() {
                 {Array.isArray(datosCompletos.marcas) ? datosCompletos.marcas.length : 0} marcas seleccionadas
               </Text>
             )}
-          </View>
+          </Card>
 
-          <View style={styles.seccionResumen}>
+          <Card elevated padding="host" style={styles.seccionResumen}>
             <View style={styles.seccionHeader}>
               <InstitutionalIcon name="build" size={24} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.seccionTitulo}>Especialidades</Text>
@@ -620,7 +621,7 @@ export default function FinalizarBasicoScreen() {
                     : '0 — selecciona servicios en el paso anterior'}
               </Text>
             )}
-          </View>
+          </Card>
         </View>
 
       <OnboardingNotice>
@@ -642,7 +643,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   seccionResumen: {
-    ...onboardingStyles.panel,
     marginBottom: 15,
   },
   seccionHeader: {

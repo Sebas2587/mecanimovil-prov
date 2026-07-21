@@ -108,6 +108,8 @@ export interface GananciasTallerResumen {
 }
 
 export type GananciasSerieGranularidad = 'dia' | 'semana' | 'mes';
+/** ingresos = CLP; ordenes = cierres completados (app + agenda personal). */
+export type GananciasSerieMetrica = 'ingresos' | 'ordenes';
 
 export interface GananciasSeriePunto {
   clave: string;
@@ -119,6 +121,7 @@ export interface GananciasSeriePunto {
 
 export interface GananciasTallerSerie {
   granularidad: GananciasSerieGranularidad;
+  metrica?: GananciasSerieMetrica;
   desde: string;
   hasta: string;
   mecanico_id: number | null;
@@ -203,11 +206,18 @@ class KpisProveedorService {
   async obtenerGananciasSerie(
     granularidad: GananciasSerieGranularidad,
     mecanicoId?: number | null,
+    options?: { metrica?: GananciasSerieMetrica; dias?: number | null },
   ): Promise<KpisServiceResponse<GananciasTallerSerie>> {
     try {
       const params = new URLSearchParams({ granularidad });
       if (mecanicoId != null) {
         params.set('mecanico_id', String(mecanicoId));
+      }
+      if (options?.metrica) {
+        params.set('metrica', options.metrica);
+      }
+      if (options?.dias != null) {
+        params.set('dias', String(Math.min(365, Math.max(1, Math.round(options.dias)))));
       }
       const response = await api.get(
         `/ordenes/proveedor-ordenes/ganancias-serie/?${params.toString()}`,

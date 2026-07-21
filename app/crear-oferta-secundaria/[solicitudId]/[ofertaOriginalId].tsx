@@ -13,6 +13,7 @@ import {
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
+import { HostPaperSection, hostScreenStyles } from '@/app/design-system/components';
 import solicitudesService, { 
   type SolicitudPublica, 
   type OfertaProveedorData, 
@@ -301,8 +302,8 @@ export default function CrearOfertaSecundariaScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          style={[hostScreenStyles.scroll, styles.scrollView]}
+          contentContainerStyle={[hostScreenStyles.scrollInner, styles.scrollContent]}
           keyboardShouldPersistTaps="handled"
         >
           {/* Información de la oferta original */}
@@ -320,7 +321,7 @@ export default function CrearOfertaSecundariaScreen() {
           </View>
 
           {/* Campo obligatorio: Motivo del Servicio Adicional */}
-          <View style={styles.motivoSection}>
+          <HostPaperSection style={styles.motivoSection}>
             <Text style={styles.motivoLabel}>
               Motivo del Servicio Adicional <Text style={styles.required}>*</Text>
             </Text>
@@ -340,7 +341,7 @@ export default function CrearOfertaSecundariaScreen() {
             <Text style={styles.characterCount}>
               {motivoServicioAdicional.length} caracteres
             </Text>
-          </View>
+          </HostPaperSection>
 
           {/* Formulario de oferta */}
           <FormularioOferta
@@ -376,7 +377,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
     paddingBottom: 100,
   },
   loadingContainer: {
@@ -423,12 +423,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   motivoSection: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    padding: SPACING.fixed.md,
     marginBottom: SPACING.fixed.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
   },
   motivoLabel: {
     fontSize: 16,

@@ -134,6 +134,8 @@ export interface MecanicoKpis {
   servicios_completados_totales: number;
   /** Órdenes completadas con checklist cerrado por el proveedor. */
   servicios_completados_con_checklist: number;
+  /** Completadas donde aplicaba checklist operativo (denominador del score). */
+  servicios_elegibles_checklist?: number;
   /** Alias de servicios_completados_totales (compatibilidad). */
   servicios_completados: number;
   servicios_rechazados: number;
@@ -151,6 +153,8 @@ export interface MecanicoKpis {
   comparativo: {
     mes_actual: MecanicoKpisComparativoMes;
     mes_anterior: MecanicoKpisComparativoMes;
+    ventana_mes_actual?: { desde: string; hasta: string };
+    ventana_mes_anterior?: { desde: string; hasta: string };
     delta_completados_pct: number | null;
     delta_tiempo_pct: number | null;
     delta_facturacion_pct: number | null;

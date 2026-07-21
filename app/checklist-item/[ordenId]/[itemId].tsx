@@ -17,6 +17,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH, ICON_SIZE } from '@/app/design-system/iconography';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { HostPaperSection, hostScreenStyles } from '@/app/design-system/components';
 import { checklistQueryKeys } from '@/hooks/checklistQueryKeys';
 import { checklistService } from '@/services/checklistService';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
@@ -252,8 +253,9 @@ export default function ChecklistItemDetailScreen() {
         </View>
 
         <ScrollView
-          style={styles.content}
+          style={[hostScreenStyles.scroll, styles.content]}
           contentContainerStyle={[
+            hostScreenStyles.scrollInner,
             styles.contentContainer,
             { paddingBottom: Math.max(insets.bottom, 24) + 32 },
           ]}
@@ -265,7 +267,7 @@ export default function ChecklistItemDetailScreen() {
             <Text style={styles.heroSupport}>{item.descripcion_ayuda}</Text>
           ) : null}
 
-          <View style={styles.answerBlock}>
+          <HostPaperSection style={styles.answerBlock}>
             <ChecklistItemRenderer
               item={item}
               response={localResponse}
@@ -281,7 +283,7 @@ export default function ChecklistItemDetailScreen() {
               kmActual={kmActual}
               hideHeader
             />
-          </View>
+          </HostPaperSection>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -323,7 +325,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: SPACING.fixed.lg,
     paddingTop: SPACING.fixed.md,
   },
   heroTitle: {
@@ -341,13 +342,7 @@ const styles = StyleSheet.create({
     lineHeight: Math.round(TYPOGRAPHY.fontSize.base * 1.45),
     marginBottom: SPACING.fixed.lg,
   },
-  answerBlock: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.xl,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.lg,
-  },
+  answerBlock: {},
   loadingWrap: {
     flex: 1,
     alignItems: 'center',

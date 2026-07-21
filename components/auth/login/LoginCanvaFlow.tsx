@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { ChevronLeft, ChevronRight, Mail, UserMinus } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import type { ConnectedGoogleAccount } from '@/hooks/auth/useGoogleSignInFlow';
 import LegalAcceptanceRow from '@/components/legal/LegalAcceptanceRow';
 
@@ -76,7 +77,7 @@ export function LoginCanvaFlow({
           </Text>
         </View>
 
-        <View style={styles.card}>
+        <Card elevated padding="host" style={styles.card}>
           {connectedAccounts.map((acc) => {
             const initials = (acc.name || acc.email || '?')
               .split(/\s+/)
@@ -133,7 +134,7 @@ export function LoginCanvaFlow({
           >
             <Text style={styles.btnPrimaryText}>Usar otra cuenta</Text>
           </TouchableOpacity>
-        </View>
+        </Card>
 
         <LegalAcceptanceRow
           checked={acceptTerms}
@@ -172,7 +173,7 @@ export function LoginCanvaFlow({
           </Text>
         </View>
 
-        <View style={styles.card}>
+        <Card elevated padding="host" style={styles.card}>
           <Text style={styles.cardLabel}>Método de acceso</Text>
 
           <TouchableOpacity
@@ -212,7 +213,7 @@ export function LoginCanvaFlow({
             </View>
             <ChevronRight size={18} color={COLORS.institutional.muted} />
           </TouchableOpacity>
-        </View>
+        </Card>
 
         <LegalAcceptanceRow
           checked={acceptTerms}
@@ -242,7 +243,7 @@ export function LoginCanvaFlow({
         </Text>
       </View>
 
-      <View style={styles.card}>
+      <Card elevated padding="host" style={styles.card}>
         {loginError ? (
           <View style={styles.loginErrorBanner}>
             <Text style={styles.loginErrorText}>{loginError}</Text>
@@ -290,7 +291,7 @@ export function LoginCanvaFlow({
             <Text style={styles.btnPrimaryText}>Iniciar sesión</Text>
           )}
         </TouchableOpacity>
-      </View>
+      </Card>
 
       <LegalAcceptanceRow
         checked={acceptTerms}
@@ -330,11 +331,6 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   card: {
-    backgroundColor: COLORS.institutional.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: 1,
-    borderColor: COLORS.institutional.hairlineSoft,
-    padding: SPACING.lg,
     marginBottom: SPACING.lg,
   },
   cardLabel: {

@@ -22,6 +22,7 @@ import { obtenerEstadoCuenta } from '@/services/mercadoPagoProveedorService';
 import serviceAreasApi from '@/services/serviceAreasApi';
 import type { VerificacionCreditosOferta } from '@/services/creditosService';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import { Card, HostPaperSection, hostScreenStyles, HOST_GUTTER } from '@/app/design-system/components';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -1392,6 +1393,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
       <ScrollView
         style={styles.container}
         contentContainerStyle={[
+          hostScreenStyles.scrollInner,
           styles.scrollContent,
           { paddingBottom: 100 + bottomInset },
         ]}
@@ -1501,14 +1503,15 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                           {serviciosDisponibles.map((servicio) => {
                             const yaAgregado = serviciosOferta.some(s => s.servicio.id === servicio.id);
                             return (
-                              <TouchableOpacity
+                              <Card
                                 key={servicio.id}
+                                elevated
+                                padding="host"
                                 style={[
                                   styles.servicioCardSelector,
                                   yaAgregado && styles.servicioCardSelectorDisabled
                                 ]}
-                                onPress={() => !yaAgregado && agregarServicioDesdeLista(servicio)}
-                                disabled={yaAgregado}
+                                onPress={yaAgregado ? undefined : () => agregarServicioDesdeLista(servicio)}
                               >
                                 <View style={styles.servicioCardSelectorContent}>
                                   {yaAgregado ? (
@@ -1538,7 +1541,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                                     </Text>
                                   )}
                                 </View>
-                              </TouchableOpacity>
+                              </Card>
                             );
                           })}
                         </View>
@@ -1577,7 +1580,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
           ) : (
             serviciosOferta.map((item, index) => {
               return (
-                <View
+                <HostPaperSection
                   key={`${item.servicio.id}-${index}`}
                   style={styles.servicioCard}
                 >
@@ -2067,7 +2070,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                       </View>
                     </View>
                   )}
-                </View>
+                </HostPaperSection>
               );
             })
           )}
@@ -2249,7 +2252,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
 
         {/* Resumen con desglose */}
         {serviciosOferta.length > 0 && precioTotal > 0 && (
-          <View style={styles.resumenCard}>
+          <HostPaperSection style={styles.resumenCard}>
             <Text style={styles.resumenTitle}>
               Resumen de tu Oferta
             </Text>
@@ -2336,7 +2339,7 @@ export const FormularioOferta: React.FC<FormularioOfertaProps> = ({
                 </Text>
               </View>
             </View>
-          </View>
+          </HostPaperSection>
         )}
 
       </ScrollView>
@@ -2401,7 +2404,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: hx,
+    // gutter via hostScreenStyles.scrollInner
     paddingTop: SPACING.fixed.sm,
     paddingBottom: SPACING.fixed['2xl'],
   },
@@ -2508,7 +2511,6 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: I.canvas,
     borderColor: I.hairline,
-    ...SHADOWS.editorial,
   },
   precioTotalDestacadoSymbol: {
     fontSize: TS.numberDisplay.fontSize,
@@ -2549,13 +2551,7 @@ const styles = StyleSheet.create({
   },
 
   servicioCard: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    padding: SPACING.fixed.md,
     marginBottom: SPACING.fixed.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    ...SHADOWS.editorial,
   },
   servicioHeader: {
     flexDirection: 'row',
@@ -2760,13 +2756,7 @@ const styles = StyleSheet.create({
   },
 
   resumenCard: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    padding: SPACING.fixed.md,
     marginBottom: SPACING.fixed.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    ...SHADOWS.editorial,
   },
   resumenTitle: {
     fontSize: TS.h4.fontSize,
@@ -3047,20 +3037,12 @@ const styles = StyleSheet.create({
   },
   servicioCardSelector: {
     width: '48%',
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.sm,
     minHeight: 120,
     justifyContent: 'center',
     alignItems: 'center',
-    ...SHADOWS.editorial,
   },
   servicioCardSelectorDisabled: {
     opacity: 0.6,
-    backgroundColor: I.surfaceStrong,
-    borderColor: I.hairline,
   },
   servicioCardSelectorContent: {
     width: '100%',

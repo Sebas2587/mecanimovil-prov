@@ -24,6 +24,7 @@ import {
 import { LoginCanvaFlow, type LoginStep } from '@/components/auth/login/LoginCanvaFlow';
 import { navigateAfterLogin } from '@/utils/auth/navigateAfterLogin';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
+import { hostScreenStyles } from '@/app/design-system/components';
 
 const LOGO = require('@/assets/images/Group 27logo_negro_mecanimovil.png');
 
@@ -166,8 +167,9 @@ export default function LoginScreen() {
 
   const scrollContent = (
     <ScrollView
+      style={hostScreenStyles.scroll}
       contentContainerStyle={[
-        styles.scroll,
+        hostScreenStyles.scrollInner,
         { paddingTop: insets.top + SPACING.xl, paddingBottom: insets.bottom + SPACING.xl },
       ]}
       keyboardShouldPersistTaps="handled"
@@ -254,10 +256,6 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
-  },
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: SPACING.lg,
   },
   logoWrap: {
     alignItems: 'center',

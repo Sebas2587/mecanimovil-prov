@@ -36,7 +36,7 @@ Guía: [UI/UX Palettes — 60-30-10 Rule](https://paletacolorpro.com/en/ui-ux-pa
 | captionBold | 13 | 600 | Meta enfatizada |
 | small | 11 | 400 | Microcopy |
 | button | 15 | 600 | CTAs (letterSpacing 0) |
-| numberDisplay | mono 500 | — | Montos / % |
+| numberDisplay | 18 / 500 Poppins | — | Montos / % (misma familia Host, no mono) |
 
 ## Forma
 
@@ -49,6 +49,8 @@ Guía: [UI/UX Palettes — 60-30-10 Rule](https://paletacolorpro.com/en/ui-ux-pa
 
 ## Primitivos canónicos
 
+Importar desde `@/app/design-system/components` (no reinventar paper/kickers en features).
+
 | Componente | Rol |
 |------------|-----|
 | `InstitutionalButton` | `primary` (gradiente 10%) · `outline`/`secondary` (paper) · `tertiary` (link header) |
@@ -56,7 +58,11 @@ Guía: [UI/UX Palettes — 60-30-10 Rule](https://paletacolorpro.com/en/ui-ux-pa
 | `InstitutionalText` | Roles tipográficos Poppins |
 | `InstitutionalSectionHeader` | Títulos de bloque |
 | `hostIconPlateStyle` | Plato 36 tonal + ink (no magenta) |
-| `Card` / `institutionalCardStyles.surface` | Paper + hairline + editorial |
+| `Card` | Paper Host (`padding="host"`, `elevated` default): stretch + hairline + editorial |
+| `HostPaperSection` | Una sola paper por bloque (wrapper de `Card`) |
+| `HostSectionKicker` | Kicker h6 muted MAYÚSCULAS en canvas |
+| `HostMetricRow` / `HostProgressRow` | Filas Insights (label · valor / barra 4px) |
+| `hostScreenStyles` / `HOST_GUTTER` | Scroll: gutter solo en `contentContainerStyle`; hijos stretch |
 
 ## Tabs (5)
 

@@ -13,3 +13,6 @@ Glass gradients SHALL NOT be used. Canvas `#F9F9F9`, cards on paper with hairlin
 
 ### Requirement: Primitivos base
 The app SHALL provide Card, AppHeader, BottomSheet, and restyled Institutional* components consuming tokens only.
+
+### Requirement: Host surfaces canónicas
+The design system SHALL export `HostPaperSection`, `HostSectionKicker`, `HostMetricRow`, `HostProgressRow`, and `hostScreenStyles` from `@/app/design-system/components`. Feature screens SHALL reuse these instead of inventing nested paper wells or double horizontal padding. `Card` SHALL default to Host padding and editorial shadow; brand fills SHALL NOT be used on card surfaces.

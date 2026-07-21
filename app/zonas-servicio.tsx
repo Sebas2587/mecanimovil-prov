@@ -12,10 +12,14 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 import { Stack, router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import serviceAreasApi, { ServiceArea, ServiceAreaStats } from '@/services/serviceAreasApi';
-import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import {
+  Card,
+  HostPaperSection,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
@@ -180,7 +184,7 @@ export default function ZonasServicioScreen() {
 
   // Renderizar zona de servicio
   const renderServiceArea = (area: ServiceArea) => (
-    <View key={area.id} style={styles.zoneCard}>
+    <Card key={area.id} elevated padding="host" style={styles.zoneCard}>
       <View style={styles.zoneHeader}>
         <View style={styles.zoneInfo}>
           <Text style={styles.zoneName}>
@@ -254,19 +258,12 @@ export default function ZonasServicioScreen() {
           <Text style={styles.buttonTertiaryDangerLabel}>Eliminar</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </Card>
   );
 
   if (loading) {
     return (
       <View style={styles.screenRoot}>
-        <LinearGradient
-          colors={BLANK_GLASS.gradient}
-          locations={BLANK_GLASS.gradientLocations}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
         <Header
           title="Zonas de Servicio"
           showBack
@@ -293,13 +290,6 @@ export default function ZonasServicioScreen() {
 
   return (
     <View style={styles.screenRoot}>
-      <LinearGradient
-        colors={BLANK_GLASS.gradient}
-        locations={BLANK_GLASS.gradientLocations}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <Stack.Screen
         options={{
@@ -328,34 +318,32 @@ export default function ZonasServicioScreen() {
       />
 
       <ScrollView
-        style={styles.scrollView}
+        style={hostScreenStyles.scroll}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        contentContainerStyle={[
+          hostScreenStyles.scrollInner,
+          { paddingBottom: insets.bottom + 20 },
+        ]}
       >
-        <View style={styles.content}>
-          {/* Información contextual - UI Card */}
-          <View style={styles.uiCard}>
-            <View style={styles.infoCardContent}>
-              <View style={styles.iconPlate}>
-                <InstitutionalIcon name="information-circle" size={18} color={textPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              </View>
-              <Text style={styles.infoText}>
-                Define las comunas donde ofreces servicios a domicilio. Los clientes podrán encontrarte cuando soliciten servicios en estas zonas.
-              </Text>
+        <HostSectionKicker label="Cobertura" />
+        <Card elevated padding="host">
+          <View style={styles.infoCardContent}>
+            <View style={styles.iconPlate}>
+              <InstitutionalIcon name="information-circle" size={18} color={textPrimary} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
+            <Text style={styles.infoText}>
+              Define las comunas donde ofreces servicios a domicilio. Los clientes podrán encontrarte cuando soliciten servicios en estas zonas.
+            </Text>
           </View>
+        </Card>
 
-          {/* Estadísticas rápidas - UI Card */}
-          {stats && (
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryPillRow}>
-                <View style={[styles.sectionPill, { backgroundColor: I.surfaceStrong }]}>
-                  <Text style={[styles.sectionPillText, { color: I.muted }]}>Resumen</Text>
-                </View>
-              </View>
+        {stats && (
+          <>
+            <HostSectionKicker label="Resumen" />
+            <HostPaperSection>
               <View style={styles.quickStats}>
                 <View style={styles.statItem}>
                   <Text style={[styles.summaryStatNumber, { color: textPrimary }]}>{stats.active_zones}</Text>
@@ -366,24 +354,24 @@ export default function ZonasServicioScreen() {
                   <Text style={styles.statLabel}>Comunas cubiertas</Text>
                 </View>
               </View>
-            </View>
-          )}
+            </HostPaperSection>
+          </>
+        )}
 
-          {/* Lista de zonas */}
-          {serviceAreas.length > 0 ? (
-            <View style={styles.zonesContainer}>
-              {serviceAreas.map(renderServiceArea)}
-            </View>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <InstitutionalIcon name="location-outline" size={56} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.emptyTitle}>No tienes zonas de servicio</Text>
-              <Text style={styles.emptySubtitle}>
-                Crea tu primera zona para empezar a recibir solicitudes de servicio
-              </Text>
-            </View>
-          )}
-        </View>
+        <HostSectionKicker label="Tus zonas" />
+        {serviceAreas.length > 0 ? (
+          <View style={styles.zonesContainer}>
+            {serviceAreas.map(renderServiceArea)}
+          </View>
+        ) : (
+          <View style={styles.emptyContainer}>
+            <InstitutionalIcon name="location-outline" size={56} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={styles.emptyTitle}>No tienes zonas de servicio</Text>
+            <Text style={styles.emptySubtitle}>
+              Crea tu primera zona para empezar a recibir solicitudes de servicio
+            </Text>
+          </View>
+        )}
       </ScrollView>
       </SafeAreaView>
     </View>
@@ -410,17 +398,10 @@ const createStyles = () => {
   const fontSizeLg = TYPOGRAPHY?.fontSize?.lg || 18;
 
   return StyleSheet.create({
-    screenRoot: { flex: 1 },
+    screenRoot: { flex: 1, backgroundColor: I.surfaceSoft },
     container: {
       flex: 1,
-      backgroundColor: 'transparent',
-    },
-    scrollView: {
-      flex: 1,
-    },
-    content: {
-      paddingVertical: spacingMd,
-      paddingHorizontal: GLASS_INSET,
+      backgroundColor: I.surfaceSoft,
     },
     loadingContainer: {
       flex: 1,
@@ -454,15 +435,6 @@ const createStyles = () => {
       fontWeight: TYPOGRAPHY.styles.button.fontWeight as '600',
       lineHeight: Math.round(TYPOGRAPHY.styles.button.fontSize * TYPOGRAPHY.styles.button.lineHeight),
     },
-    uiCard: {
-      backgroundColor: bgPaper,
-      borderRadius: BORDERS.radius.lg,
-      padding: spacingMd,
-      marginBottom: spacingMd,
-      borderWidth: BORDERS.width.thin,
-      borderColor: borderLight,
-      ...SHADOWS.editorial,
-    },
     infoCardContent: {
       flexDirection: 'row',
       alignItems: 'flex-start',
@@ -482,22 +454,6 @@ const createStyles = () => {
       fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
       color: textSecondary,
       lineHeight: TYPOGRAPHY.fontSize.sm * 1.45,
-    },
-    summaryPillRow: {
-      marginBottom: spacingXs,
-    },
-    sectionPill: {
-      alignSelf: 'flex-start',
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: BORDERS.radius.pill,
-    },
-    sectionPillText: {
-      fontSize: 10,
-      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-      letterSpacing: TYPOGRAPHY.letterSpacing.wider,
-      textTransform: 'uppercase',
     },
     quickStats: {
       flexDirection: 'row',
@@ -522,13 +478,7 @@ const createStyles = () => {
       gap: spacingSm,
     },
     zoneCard: {
-      backgroundColor: bgPaper,
-      borderRadius: BORDERS.radius.lg,
-      padding: spacingMd,
       marginBottom: spacingMd,
-      borderWidth: BORDERS.width.thin,
-      borderColor: borderLight,
-      ...SHADOWS.editorial,
       gap: spacingSm,
     },
     zoneHeader: {
@@ -640,17 +590,6 @@ const createStyles = () => {
       fontWeight: TYPOGRAPHY.styles.button.fontWeight as '600',
       lineHeight: Math.round(TYPOGRAPHY.styles.button.fontSize * TYPOGRAPHY.styles.button.lineHeight),
       color: I.semanticDown,
-    },
-    /** Resumen compacto (misma densidad que cards en ordenes / documentos) */
-    summaryCard: {
-      backgroundColor: bgPaper,
-      borderRadius: BORDERS.radius.lg,
-      paddingVertical: spacingSm,
-      paddingHorizontal: spacingMd,
-      marginBottom: spacingMd,
-      borderWidth: BORDERS.width.thin,
-      borderColor: borderLight,
-      ...SHADOWS.editorial,
     },
     emptyContainer: {
       paddingVertical: spacingLg * 2,

@@ -23,7 +23,8 @@ import {
 import { Buffer } from 'buffer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import {COLORS, platformShadow} from '@/app/design-system/tokens';
+import { COLORS } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
 
@@ -607,7 +608,7 @@ export default function SubirDocumentosScreen() {
     ).length;
 
     return (
-      <View style={styles.progresoContainer}>
+      <Card elevated padding="host" style={styles.progresoContainer}>
         <Text style={styles.progresoTitulo}>Progreso de Documentación</Text>
         
         <View style={styles.progresoItem}>
@@ -628,7 +629,7 @@ export default function SubirDocumentosScreen() {
             ]} 
           />
         </View>
-      </View>
+      </Card>
     );
   };
 
@@ -741,7 +742,7 @@ export default function SubirDocumentosScreen() {
 
         {renderProgreso()}
 
-        <View style={styles.seccionContainer}>
+        <Card elevated padding="host" style={styles.seccionContainer}>
           <View style={styles.seccionHeader}>
             <InstitutionalIcon name="alert-circle" size={24} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.seccionTitulo}>Documentos Obligatorios</Text>
@@ -750,9 +751,9 @@ export default function SubirDocumentosScreen() {
             Estos documentos son requeridos para verificar tu identidad y activar tu cuenta.
           </Text>
           {getDocumentosObligatorios().map(renderDocumento)}
-        </View>
+        </Card>
 
-        <View style={styles.seccionContainer}>
+        <Card elevated padding="host" style={styles.seccionContainer}>
           <View style={styles.seccionHeader}>
             <InstitutionalIcon name="information-circle" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.seccionTitulo}>Documentos Opcionales</Text>
@@ -761,7 +762,7 @@ export default function SubirDocumentosScreen() {
             Estos documentos ayudan a generar más confianza con los clientes.
           </Text>
           {getDocumentosOpcionales().map(renderDocumento)}
-        </View>
+        </Card>
 
         {isFinalizando && progreso && (
           <View style={styles.progresoSubida}>
@@ -778,17 +779,7 @@ export default function SubirDocumentosScreen() {
 
 const styles = StyleSheet.create({
   progresoContainer: {
-    backgroundColor: I.canvas,
-    padding: 20,
-    borderRadius: 12,
     marginBottom: 20,
-    ...platformShadow({
-      shadowColor: I.ink,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 2,
-    }),
   },
   progresoTitulo: {
     fontSize: 18,
@@ -823,17 +814,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   seccionContainer: {
-    backgroundColor: I.canvas,
-    padding: 20,
-    borderRadius: 12,
     marginBottom: 20,
-    ...platformShadow({
-      shadowColor: I.ink,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 2,
-    }),
   },
   seccionHeader: {
     flexDirection: 'row',

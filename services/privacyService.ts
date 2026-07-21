@@ -41,3 +41,16 @@ export const registerLegalConsent = async () => {
   });
   return data;
 };
+
+export const getLocationConsentStatus = async () => {
+  const { data } = await api.get('/usuarios/consentimiento/ubicacion/estado/');
+  return data as { tiene_consentimiento_ubicacion: boolean; version_documento: string };
+};
+
+export const registerLocationConsent = async () => {
+  const { data } = await api.post('/usuarios/consentimiento/ubicacion/registrar/', {
+    acepta_ubicacion: true,
+    canal: 'app_prov',
+  });
+  return data;
+};

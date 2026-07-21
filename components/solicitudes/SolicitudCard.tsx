@@ -5,7 +5,7 @@ import {
   INSTITUTIONAL_SEMANTIC,
   institutionalCardStyles,
 } from '@/app/design-system/styles/institutionalSemantic';
-import { Card } from '@/design-system/components/Card';
+import { Card } from '@/app/design-system/components';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import type { InstitutionalTagVariant } from '@/app/design-system/styles/institutionalTags';

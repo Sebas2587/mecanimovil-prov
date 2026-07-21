@@ -22,6 +22,7 @@ import TabScreenWrapper from '@/components/TabScreenWrapper';
 import websocketService, { type NuevaSolicitudEvent } from '@/app/services/websocketService';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { HOST_GUTTER, hostScreenStyles } from '@/app/design-system/components';
 import { HomeInlineAlert } from '@/components/dashboard/HomeInlineAlert';
 import { HomeTodayActions } from '@/components/dashboard/HomeTodayActions';
 import { HomeServiciosRecientesSection } from '@/components/dashboard/HomeServiciosRecientesSection';
@@ -350,13 +351,10 @@ export default function HomeScreen() {
       mono: ff.monoMedium ?? 'System',
     };
     const br = safeBorders?.radius ?? BORDERS.radius;
-    const hPad =
-      typeof safeSpacing?.container?.horizontal === 'number'
-        ? safeSpacing.container.horizontal
-        : 20;
     const spFixed = safeSpacing?.fixed ?? SPACING.fixed;
     return createHomeScreenStyles(palette, fonts, {
-      horizontalPadding: hPad,
+      /** Header (fuera del ScrollView); el scroll usa hostScreenStyles.scrollInner. */
+      horizontalPadding: HOST_GUTTER,
       sectionMarginBottom: typeof spFixed?.lg === 'number' ? spFixed.lg : SPACING.fixed.lg,
       radiusCard: typeof br?.xl === 'number' ? br.xl : 24,
       radiusMd: typeof br?.md === 'number' ? br.md : 12,
@@ -481,13 +479,16 @@ export default function HomeScreen() {
         </SafeAreaView>
 
         <ScrollView
-          style={{ flex: 1 }}
+          style={hostScreenStyles.scroll}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          contentContainerStyle={{
-            paddingTop: SPACING.fixed.xl,
-            paddingBottom: insets.bottom + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl),
-          }}
+          contentContainerStyle={[
+            hostScreenStyles.scrollInner,
+            {
+              paddingTop: SPACING.fixed.xl,
+              paddingBottom: insets.bottom + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl),
+            },
+          ]}
         >
           {(necesitaConfigurarHorarios === true
             || (!esSupervisor && saludSuscripcion && saludSuscripcion.estado_salud !== 'ok')) ? (

@@ -8,11 +8,9 @@ import {
 import { ServicioConfiguradoParaOferta } from '@/services/serviciosApi';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { COLORS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
-import {
-  institutionalStatusColors,
-  institutionalCardStyles,
-} from '@/app/design-system/styles/institutionalSemantic';
+import { COLORS } from '@/app/design-system/tokens';
+import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
+import { Card } from '@/app/design-system/components';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 
 const I = COLORS.institutional;
@@ -80,7 +78,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
   }
 
   return (
-    <View style={styles.card}>
+    <Card elevated padding={0} style={styles.card}>
       <View style={styles.cardHeader}>
         <InstitutionalIcon name="auto-fix-high" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
         <View style={styles.cardHeaderText}>
@@ -139,7 +137,7 @@ export const ServicioConfiguradoSelector: React.FC<ServicioConfiguradoSelectorPr
           onPress={onCrearManual}
         />
       </View>
-    </View>
+    </Card>
   );
 };
 
@@ -176,12 +174,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   card: {
-    ...institutionalCardStyles.surface,
     padding: 20,
     marginBottom: 24,
     borderWidth: 2,
     borderColor: I.primary,
-    ...SHADOWS.editorial,
   },
   cardHeader: {
     flexDirection: 'row',

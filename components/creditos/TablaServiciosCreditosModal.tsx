@@ -15,8 +15,9 @@ import {
   useWindowDimensions,
   Dimensions,
 } from 'react-native';
+import { Card } from '@/app/design-system/components';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
-import { SPACING, TYPOGRAPHY, COLORS, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
+import { SPACING, TYPOGRAPHY, COLORS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import creditosService, { type ServicioCreditoTablaRow } from '@/services/creditosService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -111,16 +112,15 @@ export const TablaServiciosCreditosModal: React.FC<TablaServiciosCreditosModalPr
       <View style={[styles.backdrop, { backgroundColor: withOpacity(I.ink, 0.48) }]}>
         <Pressable style={styles.dismissHit} onPress={onClose} accessibilityLabel="Cerrar" />
         <View style={[styles.sheetWrap, { maxHeight: maxH }]}>
-          <View
+          <Card
+            elevated
+            padding={0}
             style={[
               styles.card,
               {
-                borderColor: I.hairline,
-                backgroundColor: I.canvas,
                 maxHeight: maxH,
                 minHeight: 280,
               },
-              SHADOWS.editorial,
             ]}
           >
             <View style={styles.inner}>
@@ -192,7 +192,7 @@ export const TablaServiciosCreditosModal: React.FC<TablaServiciosCreditosModalPr
                 </ScrollView>
               )}
             </View>
-          </View>
+          </Card>
         </View>
       </View>
     </Modal>
@@ -219,9 +219,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     borderRadius: BORDERS.radius.xl,
-    borderWidth: BORDERS.width.thin,
     overflow: 'hidden',
-    elevation: 4,
   },
   inner: {
     paddingHorizontal: SPACING.lg,

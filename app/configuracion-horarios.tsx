@@ -25,7 +25,13 @@ import {
 } from '@/utils/horariosProveedor';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
-import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import {
+  Card,
+  HostPaperSection,
+  HostSectionKicker,
+  hostScreenStyles,
+  HOST_GUTTER,
+} from '@/app/design-system/components';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import equipoTallerService from '@/services/equipoTallerService';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
@@ -35,7 +41,7 @@ import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const TS = TYPOGRAPHY.styles;
-const hx = SPACING.container.horizontal;
+const hx = HOST_GUTTER;
 const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
 /** Bottom sheets de hora / número (misma piel que el resto de la app) */
@@ -103,7 +109,7 @@ const pickerModalStyles = StyleSheet.create({
     borderColor: I.hairline,
   },
   optionRowSelected: {
-    backgroundColor: I.primary,
+    backgroundColor: COLORS.selection.background,
     borderColor: I.primary,
   },
   optionText: {
@@ -114,7 +120,7 @@ const pickerModalStyles = StyleSheet.create({
   },
   optionTextSelected: {
     fontFamily: FF.monoMedium,
-    color: I.onPrimary,
+    color: COLORS.selection.text,
   },
   /** Valor mostrado en el campo (hora / minutos) — tabular mono (DESIGN_PROVEEDORES_INSTITUCIONAL) */
   fieldTriggerValue: {
@@ -136,7 +142,6 @@ const pickerModalStyles = StyleSheet.create({
     padding: SPACING.fixed.sm + 2,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    ...SHADOWS.editorial,
   },
 });
 
@@ -268,7 +273,7 @@ const TimePicker = ({
                       {opcion}
                     </Text>
                     {estaSeleccionada ? (
-                      <InstitutionalIcon name="checkmark-circle" size={18} color={I.onPrimary} />
+                      <InstitutionalIcon name="checkmark-circle" size={18} color={I.primary} />
                     ) : null}
                   </TouchableOpacity>
                 );
@@ -358,7 +363,7 @@ const NumberPicker = ({
                       {option} {unit}
                     </Text>
                     {estaSeleccionada ? (
-                      <InstitutionalIcon name="checkmark-circle" size={18} color={I.onPrimary} />
+                      <InstitutionalIcon name="checkmark-circle" size={18} color={I.primary} />
                     ) : null}
                   </TouchableOpacity>
                 );
@@ -746,7 +751,7 @@ export default function ConfiguracionHorariosScreen() {
         <View style={styles.modernDiaHeader}>
           <View style={styles.modernDiaInfo}>
             <View style={[styles.modernDiaIconContainer, diaActivo ? styles.modernDiaIconOn : styles.modernDiaIconOff]}>
-              <InstitutionalIcon name="event" size={16} color={diaActivo ? I.onPrimary : I.body} />
+              <InstitutionalIcon name="event" size={16} color={diaActivo ? I.primary : I.body} />
             </View>
             <View style={styles.modernDiaTexto}>
               <Text style={[styles.modernDiaNombre, diaActivo && styles.modernDiaNombreActive]}>{dia.corto}</Text>
@@ -845,7 +850,7 @@ export default function ConfiguracionHorariosScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.modernModalSection}>
+          <HostPaperSection style={styles.modernModalSection}>
             <Text style={styles.modernModalSectionTitle}>Horarios de atención</Text>
             <View style={styles.modernModalRow}>
               <View style={styles.modernModalCol}>
@@ -869,9 +874,9 @@ export default function ConfiguracionHorariosScreen() {
                 />
               </View>
             </View>
-          </View>
+          </HostPaperSection>
 
-          <View style={styles.modernModalSection}>
+          <HostPaperSection style={styles.modernModalSection}>
             <Text style={styles.modernModalSectionTitle}>Configuración de citas</Text>
             <View style={styles.modernModalRow}>
               <View style={styles.modernModalCol}>
@@ -895,9 +900,9 @@ export default function ConfiguracionHorariosScreen() {
                 />
               </View>
             </View>
-          </View>
+          </HostPaperSection>
 
-          <View style={styles.modernModalSection}>
+          <HostPaperSection style={styles.modernModalSection}>
             <Text style={styles.modernModalSectionTitle}>Vista previa</Text>
             <View style={styles.modernPreviewContainer}>
               <View style={styles.modernPreviewRow}>
@@ -919,7 +924,7 @@ export default function ConfiguracionHorariosScreen() {
                 </View>
               ) : null}
             </View>
-          </View>
+          </HostPaperSection>
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -956,70 +961,72 @@ export default function ConfiguracionHorariosScreen() {
       />
 
       <ScrollView
-        style={styles.scrollContainer}
+        style={hostScreenStyles.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />}
-        contentContainerStyle={{ paddingBottom: insets.bottom + (hasChanges ? 100 : 20) }}
+        contentContainerStyle={[
+          hostScreenStyles.scrollInner,
+          { paddingBottom: insets.bottom + (hasChanges ? 100 : 20) },
+        ]}
       >
-        <View style={[styles.content, { paddingHorizontal: hx }]}>
           {mecanicos.length > 0 && (
-            <View style={styles.uiCard}>
-              <InstitutionalSectionHeader title="Agenda de" level="h4" />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mecanicoSelectorRow}>
-                <TouchableOpacity
-                  style={[styles.mecanicoChip, miembroSeleccionado === null && styles.mecanicoChipActive]}
-                  onPress={() => setMiembroSeleccionado(null)}
-                  activeOpacity={0.85}
-                >
-                  <InstitutionalIcon
-                    name="business"
-                    size={16}
-                    color={miembroSeleccionado === null ? I.onPrimary : I.body}
-                  />
-                  <Text style={[styles.mecanicoChipText, miembroSeleccionado === null && styles.mecanicoChipTextActive]}>
-                    Taller (general)
-                  </Text>
-                  {estadoAgenda?.tiene_horario_general ? (
-                    <View style={[styles.mecanicoChipDot, miembroSeleccionado === null && styles.mecanicoChipDotOn]} />
-                  ) : null}
-                </TouchableOpacity>
-                {mecanicos.map((m) => {
-                  const activo = miembroSeleccionado === m.id;
-                  const tieneAgendaPropia = estadoAgenda?.mecanicos_con_horario_ids.includes(m.id) ?? false;
-                  return (
-                    <TouchableOpacity
-                      key={m.id}
-                      style={[styles.mecanicoChip, activo && styles.mecanicoChipActive]}
-                      onPress={() => setMiembroSeleccionado(m.id)}
-                      activeOpacity={0.85}
-                    >
-                      <InstitutionalIcon name="person" size={16} color={activo ? I.onPrimary : I.body} />
-                      <Text style={[styles.mecanicoChipText, activo && styles.mecanicoChipTextActive]}>{m.nombre}</Text>
-                      {tieneAgendaPropia ? (
-                        <View style={[styles.mecanicoChipDot, activo && styles.mecanicoChipDotOn]} />
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-              <Text style={styles.mecanicoSelectorHint}>
-                {miembroSeleccionado === null
-                  ? 'Horario base del taller. Los mecánicos sin agenda propia lo heredan al agendar.'
-                  : estadoAgenda?.mecanicos_con_horario_ids.includes(miembroSeleccionado)
-                    ? 'Agenda individual de este mecánico (tiene prioridad sobre el horario general).'
-                    : estadoAgenda?.tiene_horario_general
-                      ? 'Este mecánico aún no tiene agenda propia; heredará el horario general del taller.'
-                      : 'Configura la agenda de este mecánico o define primero el horario general del taller.'}
-              </Text>
-              {estadoAgenda && !estadoAgenda.agenda_configurada ? (
-                <Text style={styles.mecanicoSelectorWarning}>
-                  Aún no hay horario general ni de ningún mecánico. Los clientes no podrán agendar hasta que guardes al menos una agenda activa.
+            <>
+              <HostSectionKicker label="Agenda de" />
+              <HostPaperSection>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mecanicoSelectorRow}>
+                  <TouchableOpacity
+                    style={[styles.mecanicoChip, miembroSeleccionado === null && styles.mecanicoChipActive]}
+                    onPress={() => setMiembroSeleccionado(null)}
+                    activeOpacity={0.85}
+                  >
+                    <InstitutionalIcon
+                      name="business"
+                      size={16}
+                      color={miembroSeleccionado === null ? I.primary : I.body}
+                    />
+                    <Text style={[styles.mecanicoChipText, miembroSeleccionado === null && styles.mecanicoChipTextActive]}>
+                      Taller (general)
+                    </Text>
+                    {estadoAgenda?.tiene_horario_general ? (
+                      <View style={styles.mecanicoChipDot} />
+                    ) : null}
+                  </TouchableOpacity>
+                  {mecanicos.map((m) => {
+                    const activo = miembroSeleccionado === m.id;
+                    const tieneAgendaPropia = estadoAgenda?.mecanicos_con_horario_ids.includes(m.id) ?? false;
+                    return (
+                      <TouchableOpacity
+                        key={m.id}
+                        style={[styles.mecanicoChip, activo && styles.mecanicoChipActive]}
+                        onPress={() => setMiembroSeleccionado(m.id)}
+                        activeOpacity={0.85}
+                      >
+                        <InstitutionalIcon name="person" size={16} color={activo ? I.primary : I.body} />
+                        <Text style={[styles.mecanicoChipText, activo && styles.mecanicoChipTextActive]}>{m.nombre}</Text>
+                        {tieneAgendaPropia ? <View style={styles.mecanicoChipDot} /> : null}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+                <Text style={styles.mecanicoSelectorHint}>
+                  {miembroSeleccionado === null
+                    ? 'Horario base del taller. Los mecánicos sin agenda propia lo heredan al agendar.'
+                    : estadoAgenda?.mecanicos_con_horario_ids.includes(miembroSeleccionado)
+                      ? 'Agenda individual de este mecánico (tiene prioridad sobre el horario general).'
+                      : estadoAgenda?.tiene_horario_general
+                        ? 'Este mecánico aún no tiene agenda propia; heredará el horario general del taller.'
+                        : 'Configura la agenda de este mecánico o define primero el horario general del taller.'}
                 </Text>
-              ) : null}
-            </View>
+                {estadoAgenda && !estadoAgenda.agenda_configurada ? (
+                  <Text style={styles.mecanicoSelectorWarning}>
+                    Aún no hay horario general ni de ningún mecánico. Los clientes no podrán agendar hasta que guardes al menos una agenda activa.
+                  </Text>
+                ) : null}
+              </HostPaperSection>
+            </>
           )}
 
-          <View style={[styles.uiCard, sinHorariosEnServidor && styles.uiCardHighlight]}>
+          <Card elevated padding="host" style={sinHorariosEnServidor ? styles.uiCardHighlight : undefined}>
             <View style={styles.infoCardContent}>
               <InstitutionalIcon
                 name={sinHorariosEnServidor ? 'alert-circle' : 'information-circle'}
@@ -1036,10 +1043,10 @@ export default function ConfiguracionHorariosScreen() {
                     : 'Agenda individual del mecánico. Tiene prioridad sobre el horario general del taller.'}
               </Text>
             </View>
-          </View>
+          </Card>
 
-          <View style={styles.uiCard}>
-            <InstitutionalSectionHeader title="Configuraciones rápidas" level="h4" />
+          <HostSectionKicker label="Configuraciones rápidas" />
+          <HostPaperSection>
             <View style={styles.modernPresetsGrid}>
               <TouchableOpacity
                 style={styles.modernPresetCard}
@@ -1074,15 +1081,15 @@ export default function ConfiguracionHorariosScreen() {
                 <Text style={styles.modernPresetTimePrimary}>8:00–17:00</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </HostPaperSection>
 
-          <View style={styles.uiCard}>
-            <InstitutionalSectionHeader title="Configuración por día" level="h4" />
+          <HostSectionKicker label="Configuración por día" />
+          <HostPaperSection>
             <View style={styles.modernDiasGrid}>{horarios.map(renderDiaConfig)}</View>
-          </View>
+          </HostPaperSection>
 
-          <View style={styles.uiCard}>
-            <InstitutionalSectionHeader title="Resumen" level="h4" />
+          <HostSectionKicker label="Resumen" />
+          <HostPaperSection>
             <View style={styles.modernResumenContent}>
               <View style={styles.modernResumenItem}>
                 <InstitutionalIcon name="checkmark-circle" size={18} color={I.semanticUp} />
@@ -1098,8 +1105,7 @@ export default function ConfiguracionHorariosScreen() {
                 </Text>
               </View>
             </View>
-          </View>
-        </View>
+          </HostPaperSection>
       </ScrollView>
 
       {hasChanges || sinHorariosEnServidor ? (
@@ -1130,12 +1136,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: I.surfaceSoft,
   },
-  scrollContainer: {
-    flex: 1,
-  },
-  content: {
-    paddingVertical: SPACING.fixed.md,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1148,18 +1148,10 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     color: I.muted,
   },
-  uiCard: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.xl,
-    padding: SPACING.fixed.md,
-    marginBottom: SPACING.fixed.md,
-    ...SHADOWS.editorial,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
   uiCardHighlight: {
     borderColor: withOpacity(I.accentYellow, 0.55),
     backgroundColor: withOpacity(I.accentYellow, 0.08),
+    marginBottom: SPACING.fixed.sm,
   },
   infoCardContent: {
     flexDirection: 'row',
@@ -1184,13 +1176,13 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xs,
     paddingVertical: SPACING.fixed.xs + 2,
     paddingHorizontal: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.surfaceStrong,
+    borderRadius: BORDERS.radius.sm,
+    backgroundColor: COLORS.background.paper,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
   },
   mecanicoChipActive: {
-    backgroundColor: I.primary,
+    backgroundColor: COLORS.selection.background,
     borderColor: I.primary,
   },
   mecanicoChipText: {
@@ -1199,7 +1191,7 @@ const styles = StyleSheet.create({
     color: I.body,
   },
   mecanicoChipTextActive: {
-    color: I.onPrimary,
+    color: COLORS.selection.text,
   },
   mecanicoChipDot: {
     width: 7,
@@ -1208,7 +1200,7 @@ const styles = StyleSheet.create({
     backgroundColor: I.semanticUp,
   },
   mecanicoChipDotOn: {
-    backgroundColor: I.onPrimary,
+    backgroundColor: I.semanticUp,
   },
   mecanicoSelectorHint: {
     marginTop: SPACING.fixed.sm,
@@ -1230,10 +1222,9 @@ const styles = StyleSheet.create({
   },
   modernPresetCard: {
     flex: 1,
-    backgroundColor: I.canvas,
+    backgroundColor: I.surfaceSoft,
     borderRadius: BORDERS.radius.lg,
     padding: SPACING.fixed.md,
-    ...SHADOWS.editorial,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     alignItems: 'center',
@@ -1274,18 +1265,17 @@ const styles = StyleSheet.create({
   },
   modernDiaCard: {
     width: '48%',
-    backgroundColor: I.canvas,
+    backgroundColor: I.surfaceSoft,
     borderRadius: BORDERS.radius.lg,
     padding: SPACING.fixed.md,
     marginBottom: SPACING.fixed.md,
-    ...SHADOWS.editorial,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     minHeight: 120,
   },
   modernDiaCardActive: {
-    backgroundColor: withOpacity(I.primary, 0.06),
-    borderColor: withOpacity(I.primary, 0.22),
+    backgroundColor: COLORS.background.paper,
+    borderColor: I.primary,
   },
   modernDiaHeader: {
     flexDirection: 'row',
@@ -1307,10 +1297,12 @@ const styles = StyleSheet.create({
     marginRight: SPACING.fixed.sm,
   },
   modernDiaIconOn: {
-    backgroundColor: I.primary,
+    backgroundColor: COLORS.selection.background,
+    borderWidth: BORDERS.width.thin,
+    borderColor: COLORS.selection.border,
   },
   modernDiaIconOff: {
-    backgroundColor: I.surfaceStrong,
+    backgroundColor: I.surfaceSoft,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
   },
@@ -1425,7 +1417,6 @@ const styles = StyleSheet.create({
     borderTopColor: I.hairline,
     paddingHorizontal: hx,
     paddingTop: SPACING.fixed.md,
-    ...SHADOWS.editorial,
   },
   modernSaveButton: {
     flexDirection: 'row',
@@ -1461,7 +1452,6 @@ const styles = StyleSheet.create({
     backgroundColor: I.canvas,
     borderBottomWidth: BORDERS.width.thin,
     borderBottomColor: I.hairline,
-    ...SHADOWS.editorial,
     gap: SPACING.fixed.xs,
   },
   modernModalHeaderSlot: {
@@ -1532,13 +1522,7 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.fixed.md,
   },
   modernModalSection: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    padding: SPACING.fixed.md,
     marginBottom: SPACING.fixed.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    ...SHADOWS.editorial,
   },
   modernModalSectionTitle: {
     fontSize: TS.h4.fontSize,

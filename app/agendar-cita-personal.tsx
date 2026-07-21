@@ -28,7 +28,11 @@ import {
 } from '@/components/solicitudes/CatalogoFechaHoraPickers';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import {
+  HostPaperSection,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { agendaProveedorService, type CitaAgendaPersonalCreatePayload } from '@/services/agendaProveedorService';
 import { consultarPatente } from '@/services/vehiculoService';
@@ -53,7 +57,6 @@ import { showAlert } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
-const hx = SPACING.container.horizontal;
 
 type ModoServicio = 'catalogo' | 'manual';
 
@@ -588,11 +591,11 @@ export default function AgendarCitaPersonalScreen() {
       >
         <ScrollView
           ref={scrollRef}
-          style={styles.scroll}
-          contentContainerStyle={{
-            paddingHorizontal: hx,
-            paddingBottom: insets.bottom + SPACING.fixed.xl,
-          }}
+          style={hostScreenStyles.scroll}
+          contentContainerStyle={[
+            hostScreenStyles.scrollInner,
+            { paddingBottom: insets.bottom + SPACING.fixed.xl },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -914,8 +917,8 @@ export default function AgendarCitaPersonalScreen() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={styles.section}>
-      <InstitutionalSectionHeader title={title} />
-      <View style={styles.sectionCard}>{children}</View>
+      <HostSectionKicker label={title} />
+      <HostPaperSection style={styles.sectionCard}>{children}</HostPaperSection>
     </View>
   );
 }
@@ -959,12 +962,6 @@ const styles = StyleSheet.create({
     marginTop: SPACING.fixed.md,
   },
   sectionCard: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.card.xl,
-    padding: SPACING.fixed.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    ...SHADOWS.editorial,
     gap: SPACING.fixed.md,
   },
   rowFields: {

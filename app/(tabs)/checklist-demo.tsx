@@ -11,8 +11,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChecklistContainer } from '@/components/checklist';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { COLORS, platformShadow } from '@/app/design-system/tokens';
+import { COLORS, SPACING } from '@/app/design-system/tokens';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import { Card, hostScreenStyles, HOST_GUTTER } from '@/app/design-system/components';
 
 const I = COLORS.institutional;
 
@@ -118,7 +119,7 @@ export default function ChecklistDemoScreen() {
       </View>
 
       {/* Información del sistema */}
-      <View style={styles.infoContainer}>
+      <Card elevated padding="host" style={styles.infoContainer}>
         <View style={styles.infoHeader}>
           <InstitutionalIcon name="info" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.infoTitle}>Acerca del Sistema</Text>
@@ -127,14 +128,14 @@ export default function ChecklistDemoScreen() {
           El sistema de checklist de pre-servicio es obligatorio para todas las órdenes.
           Incluye captura de fotos, firmas digitales y ubicación GPS.
         </Text>
-      </View>
+      </Card>
 
       {/* Lista de órdenes */}
-      <ScrollView style={styles.ordenesList}>
+      <ScrollView style={hostScreenStyles.scroll} contentContainerStyle={hostScreenStyles.scrollInner}>
         <InstitutionalSectionHeader title="Órdenes Disponibles" level="h4" style={styles.sectionHeader} />
 
         {ordenesEjemplo.map((orden) => (
-          <View key={orden.id} style={styles.ordenCard}>
+          <Card key={orden.id} elevated padding="host" style={styles.ordenCard}>
             <View style={styles.ordenHeader}>
               <Text style={styles.ordenId}>Orden #{orden.id}</Text>
               <View style={[
@@ -188,12 +189,12 @@ export default function ChecklistDemoScreen() {
                 <Text style={styles.completadoText}>Checklist Completado</Text>
               </View>
             )}
-          </View>
+          </Card>
         ))}
       </ScrollView>
 
       {/* Información adicional */}
-      <View style={styles.footerInfo}>
+      <Card elevated padding="host" style={styles.footerInfo}>
         <Text style={styles.footerTitle}>Características del Sistema:</Text>
         <View style={styles.featureList}>
           <View style={styles.featureItem}>
@@ -213,7 +214,7 @@ export default function ChecklistDemoScreen() {
             <Text style={styles.featureText}>Ubicación GPS</Text>
           </View>
         </View>
-      </View>
+      </Card>
     </SafeAreaView>
   );
 }
@@ -243,10 +244,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   infoContainer: {
-    backgroundColor: I.canvas,
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
+    marginHorizontal: HOST_GUTTER,
+    marginBottom: SPACING.md,
     borderLeftWidth: 4,
     borderLeftColor: I.primary,
   },
@@ -266,25 +265,11 @@ const styles = StyleSheet.create({
     color: I.muted,
     lineHeight: 20,
   },
-  ordenesList: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
   sectionHeader: {
     marginBottom: 12,
   },
   ordenCard: {
-    backgroundColor: I.canvas,
-    borderRadius: 12,
-    padding: 16,
     marginBottom: 12,
-    ...platformShadow({
-      shadowColor: COLORS.base.inkBlack,
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
-      elevation: 2,
-    }),
   },
   ordenHeader: {
     flexDirection: 'row',
@@ -363,10 +348,8 @@ const styles = StyleSheet.create({
     color: I.semanticUp,
   },
   footerInfo: {
-    backgroundColor: I.canvas,
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
+    marginHorizontal: HOST_GUTTER,
+    marginBottom: SPACING.md,
   },
   footerTitle: {
     fontSize: 14,

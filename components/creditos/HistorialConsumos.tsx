@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, ListRenderItem } from 'react-native';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { Card, hostScreenStyles } from '@/app/design-system/components';
 import { ConsumoCredito } from '@/services/creditosService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -38,13 +39,7 @@ export const HistorialConsumos: React.FC<HistorialConsumosProps> = ({
 
   const renderItem: ListRenderItem<ConsumoCredito> = useCallback(
     ({ item }) => (
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: I.canvas, borderColor: I.hairline },
-          SHADOWS.editorial,
-        ]}
-      >
+      <Card elevated padding="host" style={styles.card}>
         <View style={styles.cardTop}>
           <View style={[styles.iconPlate, { backgroundColor: I.surfaceStrong }]}>
             <InstitutionalIcon name="receipt" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
@@ -82,7 +77,7 @@ export const HistorialConsumos: React.FC<HistorialConsumosProps> = ({
             </View>
           ) : null}
         </View>
-      </View>
+      </Card>
     ),
     []
   );
@@ -141,8 +136,7 @@ export const HistorialConsumos: React.FC<HistorialConsumosProps> = ({
 const styles = StyleSheet.create({
   list: { flex: 1 },
   listContent: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
+    ...hostScreenStyles.scrollInner,
     paddingBottom: SPACING['2xl'],
   },
   listHeader: {
@@ -157,7 +151,7 @@ const styles = StyleSheet.create({
   sectionPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
   },
   sectionPillText: {
     fontSize: 10,
@@ -176,9 +170,6 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
   },
   card: {
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    padding: SPACING.md,
     marginBottom: SPACING.md,
   },
   cardTop: {
@@ -189,7 +180,7 @@ const styles = StyleSheet.create({
   iconPlate: {
     width: 40,
     height: 40,
-    borderRadius: BORDERS.radius.full,
+    borderRadius: BORDERS.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -207,7 +198,7 @@ const styles = StyleSheet.create({
   credPill: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
     minWidth: 44,
     alignItems: 'center',
   },
@@ -254,7 +245,7 @@ const styles = StyleSheet.create({
   emptyIconPlate: {
     width: 64,
     height: 64,
-    borderRadius: BORDERS.radius.full,
+    borderRadius: BORDERS.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.md,
@@ -262,7 +253,7 @@ const styles = StyleSheet.create({
   emptyPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
     marginBottom: SPACING.sm,
   },
   emptyPillText: {

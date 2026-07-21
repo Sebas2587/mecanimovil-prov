@@ -18,6 +18,8 @@ import { institutionalStatusColors } from '@/app/design-system/styles/institutio
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import { MecanicoAsignadoCard, type MecanicoAsignadoInfo } from '@/components/equipo/MecanicoAsignadoCard';
+import { useLocationConsentGate } from '@/hooks/useLocationConsentGate';
+import LocationConsentModal from '@/components/legal/LocationConsentModal';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -84,7 +86,14 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
   const [obtainingLocation, setObtainingLocation] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [hasDrawnSignature, setHasDrawnSignature] = useState(false);
-  
+  const {
+    modalVisible: locationConsentVisible,
+    loading: locationConsentLoading,
+    ensureLocationConsent,
+    accept: acceptLocationConsent,
+    decline: declineLocationConsent,
+  } = useLocationConsentGate();
+
   const signatureRef = useRef<SignaturePadRef>(null);
 
   // Al abrir el modal, resetear estado y paso según modo
@@ -252,6 +261,15 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
 
       // Intento corto de GPS actual (sin alert si falla).
       try {
+        const consented = await ensureLocationConsent();
+        if (!consented) {
+          if (preferida) {
+            completarConUbicacion(finalSignatures, preferida);
+            return;
+          }
+          completarConUbicacion(finalSignatures, { lat: 0, lng: 0 });
+          return;
+        }
         const enabled = await Location.hasServicesEnabledAsync();
         if (enabled) {
           const { status } = await Location.requestForegroundPermissionsAsync();
@@ -381,6 +399,13 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
   const stepInfo = getStepInfo();
 
   return (
+    <>
+    <LocationConsentModal
+      visible={locationConsentVisible}
+      loading={locationConsentLoading}
+      onAccept={() => void acceptLocationConsent()}
+      onDecline={declineLocationConsent}
+    />
     <Modal
       visible={visible}
       animationType="slide"
@@ -516,6 +541,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
         </View>
       </View>
     </Modal>
+    </>
   );
 };
 

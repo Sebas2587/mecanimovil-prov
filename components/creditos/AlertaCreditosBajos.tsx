@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { COLORS, SPACING, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { SPACING, BORDERS } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { Card } from '@/app/design-system/components';
 import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 
 const warningStatus = institutionalStatusColors('warning');
@@ -18,7 +19,9 @@ export const AlertaCreditosBajos: React.FC<AlertaCreditosBajosProps> = ({ saldo 
   }
 
   return (
-    <View
+    <Card
+      elevated
+      padding={0}
       style={[
         styles.container,
         {
@@ -42,7 +45,7 @@ export const AlertaCreditosBajos: React.FC<AlertaCreditosBajosProps> = ({ saldo 
           </InstitutionalText>
         </View>
       </View>
-    </View>
+    </Card>
   );
 };
 
@@ -51,8 +54,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    ...SHADOWS.editorial,
   },
   content: {
     flexDirection: 'row',

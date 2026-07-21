@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
   Image,
@@ -27,9 +26,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
 import websocketService from '@/app/services/websocketService';
 import Header from '@/components/Header';
-import { COLORS, withOpacity, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '@/app/design-system/tokens';
+import { COLORS, withOpacity, TYPOGRAPHY, BORDERS, SPACING } from '@/app/design-system/tokens';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
-import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { TipoPagoClienteChip } from '@/components/solicitudes/TipoPagoClienteChip';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
@@ -51,7 +54,6 @@ import { parseFechaLocal } from '@/utils/fechaLocal';
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const TS = TYPOGRAPHY.styles;
-const hx = SPACING.container.horizontal;
 const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
 type TabType = 'activas' | 'completadas' | 'rechazadas';
@@ -143,59 +145,58 @@ export default function OrdenesScreen() {
           : '';
 
         return (
-          <TouchableOpacity
+          <Card
             key={item.key}
-            style={styles.listCardOuter}
+            elevated
+            padding="host"
+            style={styles.listCard}
             onPress={() => navigateToOrdenActiva(router, queryClient, item)}
-            activeOpacity={0.88}
           >
-            <View style={styles.listCardInner}>
-              <View style={styles.cardTop}>
-                <InstitutionalTag label={textoEstado} variant={estadoVariant} size="sm" />
-                {cita.template_generado_por_ia ? (
-                  <InstitutionalTag label="Checklist IA" variant="info" size="sm" />
-                ) : null}
-                <OrigenOrdenBadge origen="personal" />
-                <View style={{ flex: 1 }} />
-                {precioFormateado ? <Text style={styles.cardPrice}>{precioFormateado}</Text> : null}
-              </View>
+            <View style={styles.cardTop}>
+              <InstitutionalTag label={textoEstado} variant={estadoVariant} size="sm" />
+              {cita.template_generado_por_ia ? (
+                <InstitutionalTag label="Checklist IA" variant="info" size="sm" />
+              ) : null}
+              <OrigenOrdenBadge origen="personal" />
+              <View style={{ flex: 1 }} />
+              {precioFormateado ? <Text style={styles.cardPrice}>{precioFormateado}</Text> : null}
+            </View>
 
-              <Text style={styles.cardTitle} numberOfLines={2}>{nombreServicio}</Text>
+            <Text style={styles.cardTitle} numberOfLines={2}>{nombreServicio}</Text>
 
-              <View style={styles.cardMeta}>
-                <Clock size={13} color={I.muted} />
-                <Text style={styles.cardMetaText}>
-                  {formatearFecha(cita.fecha_servicio)}
-                  {cita.hora_servicio && ` · ${cita.hora_servicio.substring(0, 5)}`}
-                </Text>
-                <InstitutionalTag
-                  label={cita.tipo_servicio === 'domicilio' ? 'Domicilio' : 'Taller'}
-                  variant="neutral"
-                  size="sm"
-                />
-              </View>
+            <View style={styles.cardMeta}>
+              <Clock size={13} color={I.muted} />
+              <Text style={styles.cardMetaText}>
+                {formatearFecha(cita.fecha_servicio)}
+                {cita.hora_servicio && ` · ${cita.hora_servicio.substring(0, 5)}`}
+              </Text>
+              <InstitutionalTag
+                label={cita.tipo_servicio === 'domicilio' ? 'Domicilio' : 'Taller'}
+                variant="neutral"
+                size="sm"
+              />
+            </View>
 
-              <View style={styles.cardDivider} />
+            <View style={styles.cardDivider} />
 
-              <View style={styles.cardBottom}>
-                <View style={styles.cardUser}>
-                  <View style={styles.avatarPlaceholder}>
-                    <User size={14} color={I.onPrimary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.userName} numberOfLines={1}>{cita.detalle.cliente_nombre}</Text>
-                    <View style={styles.vehicleRow}>
-                      <Car size={12} color={I.muted} />
-                      <Text style={styles.vehicleText} numberOfLines={1}>
-                        {cita.detalle.vehiculo_marca} {cita.detalle.vehiculo_modelo}
-                        {cita.detalle.vehiculo_anio ? ` (${cita.detalle.vehiculo_anio})` : ''}
-                      </Text>
-                    </View>
+            <View style={styles.cardBottom}>
+              <View style={styles.cardUser}>
+                <View style={styles.avatarPlaceholder}>
+                  <User size={14} color={I.onPrimary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.userName} numberOfLines={1}>{cita.detalle.cliente_nombre}</Text>
+                  <View style={styles.vehicleRow}>
+                    <Car size={12} color={I.muted} />
+                    <Text style={styles.vehicleText} numberOfLines={1}>
+                      {cita.detalle.vehiculo_marca} {cita.detalle.vehiculo_modelo}
+                      {cita.detalle.vehiculo_anio ? ` (${cita.detalle.vehiculo_anio})` : ''}
+                    </Text>
                   </View>
                 </View>
               </View>
             </View>
-          </TouchableOpacity>
+          </Card>
         );
       }
 
@@ -240,98 +241,97 @@ export default function OrdenesScreen() {
         || oferta?.incluye_repuestos === true;
 
       return (
-        <TouchableOpacity
+        <Card
           key={item.key}
-          style={styles.listCardOuter}
+          elevated
+          padding="host"
+          style={styles.listCard}
           onPress={() => navigateToOrdenActiva(router, queryClient, item)}
-          activeOpacity={0.88}
         >
-          <View style={styles.listCardInner}>
-            <View style={styles.cardTop}>
-              <InstitutionalTag label={textoEstado} variant={estadoVariant} size="sm" />
-              <OrigenOrdenBadge origen="mecanimovil" />
-              {oferta?.es_oferta_secundaria ? (
-                <InstitutionalTag label="Adicional" variant="primary" size="sm" />
-              ) : null}
-              {urgencia ? (
-                <View style={styles.urgentBadge}>
-                  <AlertTriangle size={10} color={I.onPrimary} />
-                </View>
-              ) : null}
-              {orden && !esClienteCompletoFlag ? (
-                <View style={styles.protectedBadge}>
-                  <Shield size={10} color={I.accentYellow} />
-                </View>
-              ) : null}
-              <View style={{ flex: 1 }} />
-              <Text style={styles.cardPrice}>{precioFormateado}</Text>
-            </View>
-
-            <Text style={styles.cardTitle} numberOfLines={2}>
-              {nombreServicio}
-            </Text>
-
-            <View style={styles.cardMeta}>
-              <Clock size={13} color={I.muted} />
-              <Text style={styles.cardMetaText}>
-                {fechaTexto}
-                {horaRaw ? ` · ${String(horaRaw).substring(0, 5)}` : ''}
-              </Text>
-              {(orden?.tipo_servicio || oferta) ? (
-                <InstitutionalTag
-                  label={
-                    orden?.tipo_servicio === 'domicilio'
-                      ? 'Domicilio'
-                      : orden?.tipo_servicio
-                        ? 'Taller'
-                        : 'Mecanimovil'
-                  }
-                  variant="neutral"
-                  size="sm"
-                />
-              ) : null}
-            </View>
-
-            {oferta && tabActivo === 'activas' ? (
-              <View style={styles.tipoPagoRow}>
-                <TipoPagoClienteChip oferta={oferta} compact />
+          <View style={styles.cardTop}>
+            <InstitutionalTag label={textoEstado} variant={estadoVariant} size="sm" />
+            <OrigenOrdenBadge origen="mecanimovil" />
+            {oferta?.es_oferta_secundaria ? (
+              <InstitutionalTag label="Adicional" variant="primary" size="sm" />
+            ) : null}
+            {urgencia ? (
+              <View style={styles.urgentBadge}>
+                <AlertTriangle size={10} color={I.onPrimary} />
               </View>
             ) : null}
-
-            <View style={styles.cardDivider} />
-
-            <View style={styles.cardBottom}>
-              <View style={styles.cardUser}>
-                {clienteFoto ? (
-                  <Image source={{ uri: clienteFoto }} style={styles.avatar} />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <User size={14} color={I.onPrimary} />
-                  </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.userName} numberOfLines={1}>
-                    {nombreCliente}
-                  </Text>
-                  {vehiculo ? (
-                    <View style={styles.vehicleRow}>
-                      <Car size={12} color={I.muted} />
-                      <Text style={styles.vehicleText} numberOfLines={1}>
-                        {vehiculo.marca} {vehiculo.modelo}
-                        {'año' in vehiculo && vehiculo.año ? ` (${vehiculo.año})` : ''}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
+            {orden && !esClienteCompletoFlag ? (
+              <View style={styles.protectedBadge}>
+                <Shield size={10} color={I.accentYellow} />
               </View>
-              <View style={styles.cardBadges}>
-                {tieneRepuestos ? (
-                  <InstitutionalTag label="Repuestos" variant="success" size="sm" />
+            ) : null}
+            <View style={{ flex: 1 }} />
+            <Text style={styles.cardPrice}>{precioFormateado}</Text>
+          </View>
+
+          <Text style={styles.cardTitle} numberOfLines={2}>
+            {nombreServicio}
+          </Text>
+
+          <View style={styles.cardMeta}>
+            <Clock size={13} color={I.muted} />
+            <Text style={styles.cardMetaText}>
+              {fechaTexto}
+              {horaRaw ? ` · ${String(horaRaw).substring(0, 5)}` : ''}
+            </Text>
+            {(orden?.tipo_servicio || oferta) ? (
+              <InstitutionalTag
+                label={
+                  orden?.tipo_servicio === 'domicilio'
+                    ? 'Domicilio'
+                    : orden?.tipo_servicio
+                      ? 'Taller'
+                      : 'Mecanimovil'
+                }
+                variant="neutral"
+                size="sm"
+              />
+            ) : null}
+          </View>
+
+          {oferta && tabActivo === 'activas' ? (
+            <View style={styles.tipoPagoRow}>
+              <TipoPagoClienteChip oferta={oferta} compact />
+            </View>
+          ) : null}
+
+          <View style={styles.cardDivider} />
+
+          <View style={styles.cardBottom}>
+            <View style={styles.cardUser}>
+              {clienteFoto ? (
+                <Image source={{ uri: clienteFoto }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <User size={14} color={I.onPrimary} />
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.userName} numberOfLines={1}>
+                  {nombreCliente}
+                </Text>
+                {vehiculo ? (
+                  <View style={styles.vehicleRow}>
+                    <Car size={12} color={I.muted} />
+                    <Text style={styles.vehicleText} numberOfLines={1}>
+                      {vehiculo.marca} {vehiculo.modelo}
+                      {'año' in vehiculo && vehiculo.año ? ` (${vehiculo.año})` : ''}
+                    </Text>
+                  </View>
                 ) : null}
               </View>
             </View>
+            <View style={styles.cardBadges}>
+              {tieneRepuestos ? (
+                <InstitutionalTag label="Repuestos" variant="success" size="sm" />
+              ) : null}
+            </View>
           </View>
-        </TouchableOpacity>
+        </Card>
       );
     },
     [queryClient, tabActivo],
@@ -339,12 +339,10 @@ export default function OrdenesScreen() {
 
   const sectionMeta =
     tabActivo === 'activas'
-      ? { title: 'Próximos servicios', icon: Briefcase, count: counts.activas }
+      ? { title: 'Próximos servicios', count: counts.activas }
       : tabActivo === 'completadas'
-        ? { title: 'Completadas', icon: CheckCircle, count: counts.completadas }
-        : { title: 'Rechazadas y canceladas', icon: XCircle, count: counts.rechazadas };
-
-  const SectionIcon = sectionMeta.icon;
+        ? { title: 'Completadas', count: counts.completadas }
+        : { title: 'Rechazadas y canceladas', count: counts.rechazadas };
 
   if (!isVerified) {
     return (
@@ -366,9 +364,9 @@ export default function OrdenesScreen() {
   return (
     <TabScreenWrapper>
       <View style={styles.screenRoot}>
-        <Header title="Servicios" backgroundColor={I.canvas} titleColor={I.ink} />
+        <Header title="Servicios" backgroundColor={COLORS.background.default} titleColor={I.ink} />
 
-        <View style={[styles.tabsOuter, { paddingHorizontal: hx }]}>
+        <View style={[styles.tabsOuter, hostScreenStyles.gutterX]}>
           <InstitutionalScreenTabs
             activeKey={tabActivo}
             onChange={setTabActivo}
@@ -395,10 +393,9 @@ export default function OrdenesScreen() {
           />
         </View>
 
-        {/* Content */}
         <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={[styles.scrollContent, { paddingHorizontal: hx }]}
+          style={hostScreenStyles.scroll}
+          contentContainerStyle={[hostScreenStyles.scrollInner, styles.scrollContent]}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />}
         >
@@ -442,10 +439,12 @@ export default function OrdenesScreen() {
               )}
 
               <View style={styles.section}>
-                <InstitutionalSectionHeader
-                  title={sectionMeta.title}
-                  count={sectionMeta.count}
-                  leading={<SectionIcon size={18} color={I.ink} />}
+                <HostSectionKicker
+                  label={
+                    sectionMeta.count > 0
+                      ? `${sectionMeta.title} · ${sectionMeta.count}`
+                      : sectionMeta.title
+                  }
                 />
                 {itemsTab.map(renderOrdenUnificadaCard)}
               </View>
@@ -486,10 +485,7 @@ export default function OrdenesScreen() {
 const styles = StyleSheet.create({
   screenRoot: {
     flex: 1,
-    backgroundColor: I.surfaceSoft,
-  },
-  scroll: {
-    flex: 1,
+    backgroundColor: COLORS.background.default,
   },
   scrollContent: {
     paddingTop: SPACING.fixed.sm,
@@ -517,31 +513,9 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: SPACING.fixed.lg,
   },
-  sectionCount: {
-    fontSize: TS.caption.fontSize,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
-    color: I.muted,
-    backgroundColor: I.surfaceStrong,
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: 2,
-    borderRadius: BORDERS.radius.md,
-    overflow: 'hidden',
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
 
-  listCardOuter: {
+  listCard: {
     marginBottom: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.lg,
-    overflow: 'hidden',
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    backgroundColor: I.canvas,
-    ...SHADOWS.editorial,
-  },
-  listCardInner: {
-    padding: SPACING.fixed.md,
   },
   cardTop: {
     flexDirection: 'row',

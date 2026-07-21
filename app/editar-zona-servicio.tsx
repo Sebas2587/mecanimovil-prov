@@ -13,11 +13,14 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
-import { LinearGradient } from 'expo-linear-gradient';
 import serviceAreasApi, { Commune, Region, ServiceArea } from '@/services/serviceAreasApi';
-import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+  HOST_GUTTER,
+} from '@/app/design-system/components';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -289,7 +292,6 @@ export default function EditarZonaServicioScreen() {
   const error500 = I.semanticDown;
   const warning500 = I.accentYellow;
 
-  const containerHorizontal = GLASS_INSET;
   const spacingXs = SPACING.xs;
   const spacingSm = SPACING.sm;
   const spacingMd = SPACING.md;
@@ -372,13 +374,6 @@ export default function EditarZonaServicioScreen() {
 
   return (
     <View style={styles.screenRoot}>
-      <LinearGradient
-        colors={BLANK_GLASS.gradient}
-        locations={BLANK_GLASS.gradientLocations}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <Stack.Screen
         options={{
           title: 'Editar Zona de Servicio',
@@ -403,120 +398,119 @@ export default function EditarZonaServicioScreen() {
       />
 
       <ScrollView 
-        style={styles.scrollView} 
+        style={hostScreenStyles.scroll} 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        contentContainerStyle={[
+          hostScreenStyles.scrollInner,
+          { paddingBottom: insets.bottom + 20 },
+        ]}
       >
-        <View style={styles.content}>
-          {/* Información actual - UI Card */}
-          <View style={[styles.uiCard, { backgroundColor: I.surfaceStrong, borderColor: borderLight }]}>
-            <View style={styles.infoHeader}>
-              <InstitutionalIcon name="information-circle" size={20} color={warning500}  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={[styles.infoTitle, { color: textPrimary }]}>Editando zona existente</Text>
-            </View>
-            <Text style={[styles.infoText, { color: textPrimary }]}>
-              Modifica el nombre y las comunas de tu zona de servicio. Los cambios se aplicarán 
-              inmediatamente para futuras solicitudes.
-            </Text>
-            <View style={styles.statusContainer}>
-              <Text style={[styles.statusLabel, { color: textPrimary }]}>Estado actual:</Text>
-              <View style={[
-                styles.statusBadge,
-                { 
-                  backgroundColor: I.surfaceStrong,
-                  borderColor: serviceArea.is_active ? success500 : borderLight,
-                  borderWidth: 1
-                }
-              ]}>
-                <Text style={[styles.statusText, { color: serviceArea.is_active ? success500 : textTertiary }]}>
-                  {serviceArea.is_active ? 'Activa' : 'Inactiva'}
-                </Text>
-              </View>
-            </View>
+        <HostSectionKicker label="Editando zona" />
+        <Card elevated padding="host" style={[styles.cardGap, { backgroundColor: I.surfaceStrong }]}>
+          <View style={styles.infoHeader}>
+            <InstitutionalIcon name="information-circle" size={20} color={warning500}  strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={[styles.infoTitle, { color: textPrimary }]}>Editando zona existente</Text>
           </View>
-
-          {/* Nombre de la zona - UI Card */}
-          <View style={styles.uiCard}>
-            <InstitutionalSectionHeader title="Nombre de la Zona" />
-            <TextInput
-              style={[styles.textInput, { backgroundColor: bgPaper, borderColor: borderLight, color: textPrimary }]}
-              placeholder="Ej: Mi Zona Santiago Centro"
-              placeholderTextColor={textTertiary}
-              value={zoneName}
-              onChangeText={setZoneName}
-              maxLength={100}
-            />
-            <Text style={[styles.helperText, { color: textTertiary }]}>
-              {zoneName.trim() 
-                ? 'Nombre personalizado para tu zona'
-                : `Se generará automáticamente: "${generateZoneName(selectedCommunes)}"`
+          <Text style={[styles.infoText, { color: textPrimary }]}>
+            Modifica el nombre y las comunas de tu zona de servicio. Los cambios se aplicarán 
+            inmediatamente para futuras solicitudes.
+          </Text>
+          <View style={styles.statusContainer}>
+            <Text style={[styles.statusLabel, { color: textPrimary }]}>Estado actual:</Text>
+            <View style={[
+              styles.statusBadge,
+              { 
+                backgroundColor: I.surfaceStrong,
+                borderColor: serviceArea.is_active ? success500 : borderLight,
+                borderWidth: 1
               }
-            </Text>
-          </View>
-
-          {/* Comunas seleccionadas - UI Card */}
-          <View style={styles.uiCard}>
-            <View style={styles.sectionHeader}>
-              <InstitutionalSectionHeader
-                title={`Comunas Seleccionadas (${selectedCommunes.length})`}
-                style={styles.sectionHeaderTitle}
-              />
-              <TouchableOpacity
-                style={[
-                  styles.addCommuneButton,
-                  { backgroundColor: COLORS.primary[50] },
-                  loadingCommunes && availableCommunes.length === 0 && styles.addCommuneButtonDisabled,
-                ]}
-                onPress={() => setShowCommuneSelector(true)}
-                activeOpacity={0.7}
-                disabled={loadingCommunes && availableCommunes.length === 0}
-              >
-                <InstitutionalIcon name="add" size={16} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[styles.addCommuneText, { color: primary500 }]}>Agregar</Text>
-              </TouchableOpacity>
+            ]}>
+              <Text style={[styles.statusText, { color: serviceArea.is_active ? success500 : textTertiary }]}>
+                {serviceArea.is_active ? 'Activa' : 'Inactiva'}
+              </Text>
             </View>
-
-            {communeListSyncing ? (
-              <View style={[styles.communesSyncingRow, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-                <ActivityIndicator size="small" color={primary500} />
-                <Text style={[styles.communesSyncingText, { color: textSecondary }]}>
-                  Cargando comunas de la zona…
-                </Text>
-              </View>
-            ) : selectedCommunes.length > 0 ? (
-              <View style={styles.selectedCommunesContainer}>
-                {selectedCommunes.map(renderSelectedCommune)}
-              </View>
-            ) : (
-              <View style={[styles.emptyCommunesContainer, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-                <InstitutionalIcon name="location-outline" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[styles.emptyCommunesText, { color: textPrimary }]}>
-                  No hay comunas seleccionadas
-                </Text>
-                <Text style={[styles.emptyCommunesSubtext, { color: textTertiary }]}>
-                  Toca "Agregar" para seleccionar las comunas donde ofreces servicios
-                </Text>
-              </View>
-            )}
           </View>
+        </Card>
 
-          {/* Resumen de cambios - UI Card */}
-          {selectedCommunes.length > 0 && (
-            <View style={[styles.summaryCard, { backgroundColor: I.surfaceStrong, borderColor: borderLight }]}>
-              <Text style={[styles.summaryTitle, { color: textPrimary }]}>Resumen de Cambios</Text>
+        <HostSectionKicker label="Nombre de la zona" />
+        <Card elevated padding="host" style={styles.cardGap}>
+          <TextInput
+            style={[styles.textInput, { backgroundColor: bgPaper, borderColor: borderLight, color: textPrimary }]}
+            placeholder="Ej: Mi Zona Santiago Centro"
+            placeholderTextColor={textTertiary}
+            value={zoneName}
+            onChangeText={setZoneName}
+            maxLength={100}
+          />
+          <Text style={[styles.helperText, { color: textTertiary }]}>
+            {zoneName.trim() 
+              ? 'Nombre personalizado para tu zona'
+              : `Se generará automáticamente: "${generateZoneName(selectedCommunes)}"`
+            }
+          </Text>
+        </Card>
+
+        <View style={styles.sectionHeader}>
+          <HostSectionKicker
+            label={`Comunas seleccionadas (${selectedCommunes.length})`}
+            style={styles.sectionHeaderTitle}
+          />
+          <TouchableOpacity
+            style={[
+              styles.addCommuneButton,
+              { backgroundColor: COLORS.primary[50] },
+              loadingCommunes && availableCommunes.length === 0 && styles.addCommuneButtonDisabled,
+            ]}
+            onPress={() => setShowCommuneSelector(true)}
+            activeOpacity={0.7}
+            disabled={loadingCommunes && availableCommunes.length === 0}
+          >
+            <InstitutionalIcon name="add" size={16} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={[styles.addCommuneText, { color: primary500 }]}>Agregar</Text>
+          </TouchableOpacity>
+        </View>
+        <Card elevated padding="host" style={styles.cardGap}>
+          {communeListSyncing ? (
+            <View style={[styles.communesSyncingRow, { backgroundColor: bgPaper, borderColor: borderLight }]}>
+              <ActivityIndicator size="small" color={primary500} />
+              <Text style={[styles.communesSyncingText, { color: textSecondary }]}>
+                Cargando comunas de la zona…
+              </Text>
+            </View>
+          ) : selectedCommunes.length > 0 ? (
+            <View style={styles.selectedCommunesContainer}>
+              {selectedCommunes.map(renderSelectedCommune)}
+            </View>
+          ) : (
+            <View style={[styles.emptyCommunesContainer, { backgroundColor: bgPaper, borderColor: borderLight }]}>
+              <InstitutionalIcon name="location-outline" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={[styles.emptyCommunesText, { color: textPrimary }]}>
+                No hay comunas seleccionadas
+              </Text>
+              <Text style={[styles.emptyCommunesSubtext, { color: textTertiary }]}>
+                Toca "Agregar" para seleccionar las comunas donde ofreces servicios
+              </Text>
+            </View>
+          )}
+        </Card>
+
+        {selectedCommunes.length > 0 && (
+          <>
+            <HostSectionKicker label="Resumen de cambios" />
+            <Card elevated padding="host" style={[styles.cardGap, { backgroundColor: I.surfaceStrong }]}>
               <Text style={[styles.summaryText, { color: textPrimary }]}>
                 Nueva cobertura: {selectedCommunes.length} comuna{selectedCommunes.length !== 1 ? 's' : ''}
               </Text>
               <Text style={[styles.summarySubtext, { color: textTertiary }]}>
                 Los cambios se aplicarán inmediatamente después de guardar
               </Text>
-            </View>
-          )}
-        </View>
+            </Card>
+          </>
+        )}
       </ScrollView>
 
       {/* Botón guardar */}
-      <View style={[styles.bottomContainer, { backgroundColor: bgPaper, borderTopColor: borderLight }]}>
+      <View style={[styles.bottomContainer, { backgroundColor: bgPaper, borderTopColor: borderLight, paddingHorizontal: HOST_GUTTER }]}>
         <TouchableOpacity
           style={[
             styles.saveButton, 
@@ -657,7 +651,7 @@ const createStyles = () => {
   const spacingSm = SPACING.sm;
   const spacingMd = SPACING.md;
   const spacingLg = SPACING.lg;
-  const containerHorizontal = GLASS_INSET;
+  const containerHorizontal = HOST_GUTTER;
   const cardPadding = spacingMd;
   const cardGap = spacingMd;
   const radiusXl = BORDERS.radius.xl;
@@ -678,12 +672,8 @@ const createStyles = () => {
       flex: 1,
       backgroundColor: bgDefault,
     },
-    scrollView: {
-      flex: 1,
-    },
-    content: {
-      paddingVertical: spacingMd,
-      paddingHorizontal: containerHorizontal,
+    cardGap: {
+      marginBottom: cardGap,
     },
     loadingContainer: {
       flex: 1,
@@ -719,15 +709,6 @@ const createStyles = () => {
     deleteButtonHeader: {
       padding: spacingXs,
       borderRadius: radiusXl / 2,
-    },
-    uiCard: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: cardPadding,
-      marginBottom: cardGap,
-      ...SHADOWS.editorial,
-      borderWidth: 1,
-      borderColor: borderLight,
     },
     infoHeader: {
       flexDirection: 'row',
@@ -767,11 +748,9 @@ const createStyles = () => {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: spacingMd,
     },
     sectionHeaderTitle: {
       flex: 1,
-      marginBottom: 0,
       minWidth: 0,
     },
     addCommuneButton: {
@@ -808,7 +787,6 @@ const createStyles = () => {
       padding: spacingMd,
       fontSize: fontSizeBase,
       borderWidth: 1,
-      marginTop: spacingSm,
     },
     helperText: {
       fontSize: fontSizeSm,
@@ -818,7 +796,6 @@ const createStyles = () => {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: spacingSm,
-      marginTop: spacingSm,
     },
     selectedCommuneTag: {
       flexDirection: 'row',
@@ -839,7 +816,6 @@ const createStyles = () => {
       borderRadius: radiusXl,
       borderWidth: 2,
       borderStyle: 'dashed',
-      marginTop: spacingSm,
     },
     emptyCommunesText: {
       fontSize: fontSizeMd,
@@ -852,17 +828,6 @@ const createStyles = () => {
       textAlign: 'center',
       lineHeight: fontSizeBase + 6,
     },
-    summaryCard: {
-      borderRadius: radiusXl,
-      padding: cardPadding,
-      borderWidth: 1,
-      ...SHADOWS.editorial,
-    },
-    summaryTitle: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightBold,
-      marginBottom: spacingSm,
-    },
     summaryText: {
       fontSize: fontSizeBase,
       fontWeight: fontWeightSemibold,
@@ -872,10 +837,9 @@ const createStyles = () => {
       fontSize: fontSizeSm,
     },
     bottomContainer: {
-      padding: containerHorizontal,
+      paddingVertical: spacingMd,
       paddingBottom: spacingLg + 14,
       borderTopWidth: 1,
-      ...SHADOWS.editorial,
     },
     saveButton: {
       flexDirection: 'row',
@@ -903,7 +867,6 @@ const createStyles = () => {
       paddingHorizontal: containerHorizontal,
       paddingVertical: spacingMd,
       borderBottomWidth: 1,
-      ...SHADOWS.editorial,
     },
     modalTitle: {
       fontSize: fontSizeLg,
@@ -912,7 +875,6 @@ const createStyles = () => {
     filtersContainer: {
       padding: containerHorizontal,
       borderBottomWidth: 1,
-      ...SHADOWS.editorial,
     },
     searchContainer: {
       flexDirection: 'row',

@@ -14,9 +14,9 @@ import {
   SPACING,
   TYPOGRAPHY,
   BORDERS,
-  SHADOWS,
   withOpacity,
 } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { PrimaryGradientFill } from '@/app/design-system/components/PrimaryGradientFill';
 import {
@@ -49,6 +49,8 @@ export type FinanzasTallerCardProps = {
   onPressPlan?: () => void;
   style?: StyleProp<ViewStyle>;
   fill?: boolean;
+  /** Sin borde/sombra propios — vive dentro de una card contenedora (Menú). */
+  inset?: boolean;
 };
 
 function formatCompactMonto(value: number): string {
@@ -74,6 +76,7 @@ export function FinanzasTallerCard({
   onPressPlan,
   style,
   fill = false,
+  inset = false,
 }: FinanzasTallerCardProps) {
   const loadingGanancias = isLoadingGanancias && !ganancias;
 
@@ -95,144 +98,154 @@ export function FinanzasTallerCard({
     ? 'Cargando resumen…'
     : `Día ${resumen.calendario.diaActual}/${resumen.calendario.diasEnMes} · ${resumen.delta.label}`;
 
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel="Finanzas del mes, ver detalle"
-      style={({ pressed }) => [
-        styles.card,
-        fill && styles.cardFill,
-        pressed && styles.pressed,
-        style,
-      ]}
-    >
-      <View style={[styles.inner, fill && styles.innerFill]}>
-        <View style={styles.headerRow}>
-          <View style={styles.titleLeft}>
-            <View style={hostIconPlateStyle}>
-              <Wallet size={20} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
-            </View>
-            <Text style={styles.title}>Finanzas del mes</Text>
+  const body = (
+    <View style={[styles.inner, inset && styles.innerInset, fill && styles.innerFill]}>
+      <View style={styles.headerRow}>
+        <View style={styles.titleLeft}>
+          <View style={hostIconPlateStyle}>
+            <Wallet size={20} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
-          <View style={styles.headerActions}>
-            {planActivo && onPressPlan ? (
-              <Pressable
-                onPress={onPressPlan}
-                style={({ pressed: planPressed }) => [
-                  styles.planBadge,
-                  suscripcion?.plan?.destacado && styles.planBadgeDestacado,
-                  planPressed && styles.pressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={`Plan ${suscripcion?.plan?.nombre ?? 'activo'}`}
-              >
-                <ShieldCheck
-                  size={12}
-                  color={suscripcion?.plan?.destacado ? warningEmphasis : I.primary}
-                />
-              </Pressable>
-            ) : null}
-            <View style={styles.chevronCircle}>
-              <ChevronRight size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-            </View>
-          </View>
+          <Text style={styles.title}>Finanzas del mes</Text>
         </View>
-
-        <Text style={styles.monthLine} numberOfLines={1}>
-          Total {resumen.calendario.nombreMes}
-        </Text>
-
-        <View style={styles.kpiRow}>
-          {loadingGanancias ? (
-            <ActivityIndicator size="small" color={I.primary} />
-          ) : (
-            <Text style={styles.totalAmount}>{formatearMontoCLP(resumen.total)}</Text>
-          )}
-        </View>
-
-        <Text
-          style={[
-            styles.contextLine,
-            !loadingGanancias && resumen.delta.tone === 'up' && styles.contextUp,
-            !loadingGanancias && resumen.delta.tone === 'down' && styles.contextDown,
-          ]}
-          numberOfLines={2}
-        >
-          {contextLine}
-        </Text>
-
-        {!loadingGanancias && resumen.ambosConIngreso ? (
-          <View style={styles.splitTrack}>
-            <View
-              style={[
-                styles.splitFillPrimary,
-                {
-                  flex: Math.max(
-                    1,
-                    resumen.total > 0 ? resumen.mecanimovil / resumen.total : 0,
-                  ),
-                },
-              ]}
-            />
-            <View
-              style={[
-                styles.splitFillSecondary,
-                {
-                  flex: Math.max(
-                    1,
-                    resumen.total > 0 ? resumen.propias / resumen.total : 0,
-                  ),
-                },
-              ]}
-            />
-          </View>
-        ) : null}
-
-        <View style={styles.footerRow}>
-          <View style={styles.footerMetaBlock}>
-            <Text style={styles.footerMeta} numberOfLines={2}>
-              {loadingGanancias
-                ? '—'
-                : `App ${formatCompactMonto(resumen.mecanimovil)} · Propias ${formatCompactMonto(resumen.propias)}`}
-            </Text>
-            {isLoadingCreditos && !saldoCreditos ? (
-              <ActivityIndicator size="small" color={I.muted} />
-            ) : (
-              <Text style={styles.creditsText} numberOfLines={1}>
-                {creditos.toLocaleString('es-CL')} pts
-              </Text>
-            )}
-          </View>
-          {!esSupervisor ? (
+        <View style={styles.headerActions}>
+          {planActivo && onPressPlan ? (
             <Pressable
-              onPress={onRecargarCreditos}
-              style={({ pressed: recargaPressed }) => [
-                styles.recargaBtn,
-                recargaPressed && styles.pressed,
+              onPress={onPressPlan}
+              style={({ pressed: planPressed }) => [
+                styles.planBadge,
+                suscripcion?.plan?.destacado && styles.planBadgeDestacado,
+                planPressed && styles.pressed,
               ]}
               accessibilityRole="button"
-              accessibilityLabel="Recargar créditos"
+              accessibilityLabel={`Plan ${suscripcion?.plan?.nombre ?? 'activo'}`}
             >
-              <PrimaryGradientFill style={StyleSheet.absoluteFillObject} />
-              <Text style={styles.recargaBtnText}>Recargar</Text>
+              <ShieldCheck
+                size={12}
+                color={suscripcion?.plan?.destacado ? warningEmphasis : I.primary}
+              />
             </Pressable>
           ) : null}
+          <View style={styles.chevronCircle}>
+            <ChevronRight size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+          </View>
         </View>
       </View>
-    </Pressable>
+
+      <Text style={styles.monthLine} numberOfLines={1}>
+        Total {resumen.calendario.nombreMes}
+      </Text>
+
+      <View style={styles.kpiRow}>
+        {loadingGanancias ? (
+          <ActivityIndicator size="small" color={I.primary} />
+        ) : (
+          <Text style={styles.totalAmount}>{formatearMontoCLP(resumen.total)}</Text>
+        )}
+      </View>
+
+      <Text
+        style={[
+          styles.contextLine,
+          !loadingGanancias && resumen.delta.tone === 'up' && styles.contextUp,
+          !loadingGanancias && resumen.delta.tone === 'down' && styles.contextDown,
+        ]}
+        numberOfLines={2}
+      >
+        {contextLine}
+      </Text>
+
+      {!loadingGanancias && resumen.ambosConIngreso ? (
+        <View style={styles.splitTrack}>
+          <View
+            style={[
+              styles.splitFillPrimary,
+              {
+                flex: Math.max(
+                  1,
+                  resumen.total > 0 ? resumen.mecanimovil / resumen.total : 0,
+                ),
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.splitFillSecondary,
+              {
+                flex: Math.max(
+                  1,
+                  resumen.total > 0 ? resumen.propias / resumen.total : 0,
+                ),
+              },
+            ]}
+          />
+        </View>
+      ) : null}
+
+      <View style={styles.footerRow}>
+        <View style={styles.footerMetaBlock}>
+          <Text style={styles.footerMeta} numberOfLines={2}>
+            {loadingGanancias
+              ? '—'
+              : `App ${formatCompactMonto(resumen.mecanimovil)} · Propias ${formatCompactMonto(resumen.propias)}`}
+          </Text>
+          {isLoadingCreditos && !saldoCreditos ? (
+            <ActivityIndicator size="small" color={I.muted} />
+          ) : (
+            <Text style={styles.creditsText} numberOfLines={1}>
+              {creditos.toLocaleString('es-CL')} pts
+            </Text>
+          )}
+        </View>
+        {!esSupervisor ? (
+          <Pressable
+            onPress={onRecargarCreditos}
+            style={({ pressed: recargaPressed }) => [
+              styles.recargaBtn,
+              recargaPressed && styles.pressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Recargar créditos"
+          >
+            <PrimaryGradientFill style={StyleSheet.absoluteFillObject} />
+            <Text style={styles.recargaBtnText}>Recargar</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+
+  if (inset) {
+    return (
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel="Finanzas del mes, ver detalle"
+        style={({ pressed }) => [styles.cardInset, fill && styles.cardFill, pressed && styles.pressed, style]}
+      >
+        {body}
+      </Pressable>
+    );
+  }
+
+  return (
+    <Card
+      elevated
+      padding={0}
+      onPress={onPress}
+      style={[styles.card, fill && styles.cardFill, style]}
+    >
+      {body}
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
     overflow: 'hidden',
     minHeight: CARD_MIN_HEIGHT,
-    ...SHADOWS.editorial,
+  },
+  cardInset: {
+    minHeight: 0,
   },
   cardFill: {
     flex: 1,
@@ -246,6 +259,11 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     gap: SPACING.sm,
     minHeight: CARD_MIN_HEIGHT,
+  },
+  innerInset: {
+    paddingHorizontal: 0,
+    paddingVertical: SPACING.sm,
+    minHeight: 0,
   },
   innerFill: {
     flex: 1,

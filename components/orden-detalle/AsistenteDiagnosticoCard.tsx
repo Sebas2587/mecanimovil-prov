@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Sparkles, Bookmark } from 'lucide-react-native';
 import { showAlert } from '@/utils/platformAlert';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import {
@@ -19,6 +19,7 @@ import {
 import { guiasReparacionService } from '@/services/guiasReparacionService';
 import { GuiaReparacionContenido } from '@/components/orden-detalle/GuiaReparacionContenido';
 import { useAuth } from '@/context/AuthContext';
+import { Card } from '@/app/design-system/components';
 
 const I = COLORS.institutional;
 
@@ -117,7 +118,7 @@ export function AsistenteDiagnosticoCard({ origen, entityId, habilitado = true }
       : 'Toca para generar o ver la guía';
 
   return (
-    <View style={styles.card}>
+    <Card elevated padding="host" style={styles.card}>
       <TouchableOpacity
         style={styles.header}
         onPress={() => setExpanded((prev) => !prev)}
@@ -199,19 +200,14 @@ export function AsistenteDiagnosticoCard({ origen, entityId, habilitado = true }
           )}
         </View>
       ) : null}
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    padding: SPACING.lg,
     gap: SPACING.md,
-    ...SHADOWS.editorial,
+    marginBottom: SPACING.md,
   },
   header: {
     flexDirection: 'row',

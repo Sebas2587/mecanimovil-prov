@@ -11,7 +11,12 @@ import {
 import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ChevronRight, FileText, Trash2 } from 'lucide-react-native';
 import Header from '@/components/Header';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import cotizacionCanalService, { type CotizacionPlantilla } from '@/services/cotizacionCanalService';
@@ -91,7 +96,8 @@ export default function CotizacionesPlantillasScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.list}
+          style={hostScreenStyles.scroll}
+          contentContainerStyle={[hostScreenStyles.scrollInner, styles.listInner]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -103,15 +109,18 @@ export default function CotizacionesPlantillasScreen() {
           }
         >
           {filtrandoPorVehiculo ? (
-            <View style={styles.vehiculoBox}>
-              <Text style={styles.vehiculoBoxTitle}>Vehículo seleccionado</Text>
-              <Text style={styles.vehiculoBoxValue}>{etiquetaVehiculoActual(filtroVehiculo)}</Text>
-              <Text style={styles.vehiculoBoxHint}>
-                Solo se muestran plantillas guardadas para este vehículo.
-              </Text>
-            </View>
+            <>
+              <HostSectionKicker label="Vehículo seleccionado" />
+              <Card elevated padding="host" style={styles.cardGap}>
+                <Text style={styles.vehiculoBoxValue}>{etiquetaVehiculoActual(filtroVehiculo)}</Text>
+                <Text style={styles.vehiculoBoxHint}>
+                  Solo se muestran plantillas guardadas para este vehículo.
+                </Text>
+              </Card>
+            </>
           ) : null}
 
+          <HostSectionKicker label="Plantillas" />
           {plantillas.length === 0 ? (
             <Text style={styles.empty}>
               {filtrandoPorVehiculo
@@ -126,13 +135,12 @@ export default function CotizacionesPlantillasScreen() {
                   .filter(Boolean)
                   .join(' · ');
               return (
-                <TouchableOpacity
+                <Card
                   key={p.id}
-                  style={styles.card}
+                  elevated
+                  padding="host"
                   onPress={() => setDetallePlantilla(p)}
-                  activeOpacity={0.88}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Ver plantilla ${p.titulo}`}
+                  style={styles.cardGap}
                 >
                   <View style={styles.cardHeader}>
                     <FileText size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -159,7 +167,7 @@ export default function CotizacionesPlantillasScreen() {
                     </Text>
                     <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                   </View>
-                </TouchableOpacity>
+                </Card>
               );
             })
           )}
@@ -178,26 +186,12 @@ export default function CotizacionesPlantillasScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background.default },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  list: {
-    paddingHorizontal: SPACING.container.horizontal,
-    paddingTop: SPACING.md,
+  listInner: {
     paddingBottom: SPACING.xl,
     gap: SPACING.sm,
   },
-  vehiculoBox: {
-    backgroundColor: COLORS.background.paper,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.md,
+  cardGap: {
     gap: SPACING.xs,
-    marginBottom: SPACING.xs,
-    ...SHADOWS.editorial,
-  },
-  vehiculoBoxTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
   },
   vehiculoBoxValue: {
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
@@ -216,15 +210,6 @@ const styles = StyleSheet.create({
     color: I.muted,
     textAlign: 'center',
     marginTop: SPACING.xl,
-  },
-  card: {
-    backgroundColor: COLORS.background.paper,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.md,
-    gap: SPACING.xs,
-    ...SHADOWS.editorial,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   cardTitle: {

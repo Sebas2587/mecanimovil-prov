@@ -5,6 +5,7 @@ import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
 import PipelineSeguimientoSection from '@/components/pipeline/PipelineSeguimientoSection';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
+import { hostScreenStyles } from '@/app/design-system/components';
 import type { OrigenPipeline } from '@/services/pipelineComercialService';
 
 const I = COLORS.institutional;
@@ -40,8 +41,8 @@ export default function BandejaTabScreen() {
   return (
     <TabScreenWrapper>
       <View style={styles.screen}>
-        <Header title="Bandeja" />
-        <View style={styles.body}>
+        <Header title="Bandeja" backgroundColor={I.canvas} titleColor={I.ink} />
+        <View style={[styles.body, hostScreenStyles.scroll]}>
           <PipelineSeguimientoSection
             compact={false}
             limite={100}
@@ -56,10 +57,9 @@ export default function BandejaTabScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: I.surfaceSoft },
+  screen: { flex: 1, backgroundColor: I.canvas },
   body: {
     flex: 1,
-    paddingHorizontal: SPACING.container.horizontal,
     paddingTop: SPACING.fixed.sm,
   },
 });

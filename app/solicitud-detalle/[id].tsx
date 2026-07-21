@@ -57,6 +57,11 @@ import { useAuth } from '@/context/AuthContext';
 import { useAlerts } from '@/context/AlertsContext';
 import { puedeUsarAsistenteIaEnOrden } from '@/utils/asistenteIaPermisos';
 import { ModalCreditosInsuficientes } from '@/components/creditos';
+import {
+  HostPaperSection,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import type { VerificacionCreditosOferta } from '@/services/creditosService';
 import creditosService from '@/services/creditosService';
 
@@ -859,10 +864,11 @@ export default function SolicitudDetalleScreen() {
 
       <View style={styles.screenRoot}>
         <ScrollView
-          style={styles.scrollView}
+          style={[hostScreenStyles.scroll, styles.scrollView]}
           contentContainerStyle={[
+            hostScreenStyles.scrollInner,
             styles.scrollContent,
-            { paddingHorizontal: hx, paddingBottom: footerReserve },
+            { paddingBottom: footerReserve },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -914,8 +920,8 @@ export default function SolicitudDetalleScreen() {
             ) : null}
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionHeaderTitle}>Cliente y vehículo</Text>
+          <HostSectionKicker label="Cliente y vehículo" />
+          <HostPaperSection style={styles.section}>
             <View style={styles.clientInfoContainer}>
               <View style={styles.clientAvatarWrap}>
                 {solicitud.cliente_info?.foto_perfil ? (
@@ -989,10 +995,10 @@ export default function SolicitudDetalleScreen() {
                 </View>
               </View>
             </View>
-          </View>
+          </HostPaperSection>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionHeaderTitle}>Servicios solicitados</Text>
+          <HostSectionKicker label="Servicios solicitados" />
+          <HostPaperSection style={styles.section}>
             {solicitud.servicios_solicitados_detail && solicitud.servicios_solicitados_detail.length > 0 ? (
               <View style={styles.serviciosListaDetalle}>
                 {solicitud.servicios_solicitados_detail.map((servicio, index) => {
@@ -1038,21 +1044,6 @@ export default function SolicitudDetalleScreen() {
               <Text style={styles.descriptionText}>{solicitud.descripcion_problema}</Text>
             </View>
 
-            {miOferta?.solicitud_servicio_id
-            && puedeUsarAsistenteIaEnOrden({
-              esMecanicoEquipo,
-              esProveedorDomicilio,
-              esMandanteTaller,
-              esSupervisor,
-              miembroId,
-              mecanicoAsignadoId: miOferta.miembro_taller_asignado,
-              puedeServicios: puedeServiciosIa,
-            }) ? (
-              <View style={styles.section}>
-                <AsistenteDiagnosticoCard origen="orden" entityId={miOferta.solicitud_servicio_id} habilitado />
-              </View>
-            ) : null}
-
             {Array.isArray(solicitud.fotos_necesidad) && solicitud.fotos_necesidad.length > 0 ? (
               <View style={styles.fotosClienteSection}>
                 <View style={styles.descripcionBlockHeader}>
@@ -1082,39 +1073,54 @@ export default function SolicitudDetalleScreen() {
                 </ScrollView>
               </View>
             ) : null}
-          </View>
+          </HostPaperSection>
 
-          {tecnicoSolicitud ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionHeaderTitle}>Técnico preferido</Text>
-              <View style={styles.tecnicoCard}>
-                {tecnicoSolicitud.foto_url ? (
-                  <Image source={{ uri: tecnicoSolicitud.foto_url }} style={styles.tecnicoAvatar} />
-                ) : (
-                  <View style={styles.tecnicoAvatarPlaceholder}>
-                    <InstitutionalIcon name="person" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  </View>
-                )}
-                <View style={styles.tecnicoInfo}>
-                  <Text style={styles.tecnicoNombre}>{tecnicoSolicitud.nombre}</Text>
-                  {tecnicoSolicitud.modalidad_display ? (
-                    <Text style={styles.tecnicoSub}>{tecnicoSolicitud.modalidad_display}</Text>
-                  ) : null}
-                  {tecnicoSolicitud.especialidades?.length ? (
-                    <Text style={styles.tecnicoSub} numberOfLines={2}>
-                      {tecnicoSolicitud.especialidades.map((e) => e.nombre).join(' · ')}
-                    </Text>
-                  ) : null}
-                  {miOferta?.es_cambio_tecnico ? (
-                    <Text style={styles.tecnicoCambio}>Cambio de técnico propuesto al cliente</Text>
-                  ) : null}
-                </View>
-              </View>
-            </View>
+          {miOferta?.solicitud_servicio_id
+          && puedeUsarAsistenteIaEnOrden({
+            esMecanicoEquipo,
+            esProveedorDomicilio,
+            esMandanteTaller,
+            esSupervisor,
+            miembroId,
+            mecanicoAsignadoId: miOferta.miembro_taller_asignado,
+            puedeServicios: puedeServiciosIa,
+          }) ? (
+            <AsistenteDiagnosticoCard origen="orden" entityId={miOferta.solicitud_servicio_id} habilitado />
           ) : null}
 
-          <View style={styles.section}>
-            <Text style={styles.sectionHeaderTitle}>Fecha y hora preferida</Text>
+          {tecnicoSolicitud ? (
+            <>
+              <HostSectionKicker label="Técnico preferido" />
+              <HostPaperSection style={styles.section}>
+                <View style={styles.tecnicoCard}>
+                  {tecnicoSolicitud.foto_url ? (
+                    <Image source={{ uri: tecnicoSolicitud.foto_url }} style={styles.tecnicoAvatar} />
+                  ) : (
+                    <View style={styles.tecnicoAvatarPlaceholder}>
+                      <InstitutionalIcon name="person" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                    </View>
+                  )}
+                  <View style={styles.tecnicoInfo}>
+                    <Text style={styles.tecnicoNombre}>{tecnicoSolicitud.nombre}</Text>
+                    {tecnicoSolicitud.modalidad_display ? (
+                      <Text style={styles.tecnicoSub}>{tecnicoSolicitud.modalidad_display}</Text>
+                    ) : null}
+                    {tecnicoSolicitud.especialidades?.length ? (
+                      <Text style={styles.tecnicoSub} numberOfLines={2}>
+                        {tecnicoSolicitud.especialidades.map((e) => e.nombre).join(' · ')}
+                      </Text>
+                    ) : null}
+                    {miOferta?.es_cambio_tecnico ? (
+                      <Text style={styles.tecnicoCambio}>Cambio de técnico propuesto al cliente</Text>
+                    ) : null}
+                  </View>
+                </View>
+              </HostPaperSection>
+            </>
+          ) : null}
+
+          <HostSectionKicker label="Fecha y hora preferida" />
+          <HostPaperSection style={styles.section}>
             {fechaHoraPantalla.propuestaPendiente ? (
               <View style={styles.fechaPropuestaBanner}>
                 <InstitutionalIcon name="schedule" size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -1148,27 +1154,29 @@ export default function SolicitudDetalleScreen() {
                 <Text style={styles.fechaProponerLinkText}>Proponer otra fecha al cliente</Text>
               </TouchableOpacity>
             ) : null}
-          </View>
+          </HostPaperSection>
 
           {!mostrarDireccionMaps ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionHeaderTitle}>Ubicación del servicio</Text>
-            <View style={styles.addressCard}>
-              <View style={styles.addressHeader}>
-                <InstitutionalIcon name="location-on" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                <View style={styles.addressContent}>
-                  <Text style={styles.addressText}>{solicitud.direccion_servicio_texto}</Text>
-                  {solicitud.detalles_ubicacion ? (
-                    <Text style={styles.addressDetailsText}>{solicitud.detalles_ubicacion}</Text>
-                  ) : null}
+            <>
+              <HostSectionKicker label="Ubicación del servicio" />
+              <HostPaperSection style={styles.section}>
+                <View style={styles.addressCard}>
+                  <View style={styles.addressHeader}>
+                    <InstitutionalIcon name="location-on" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <View style={styles.addressContent}>
+                      <Text style={styles.addressText}>{solicitud.direccion_servicio_texto}</Text>
+                      {solicitud.detalles_ubicacion ? (
+                        <Text style={styles.addressDetailsText}>{solicitud.detalles_ubicacion}</Text>
+                      ) : null}
+                    </View>
+                  </View>
                 </View>
-              </View>
-            </View>
-          </View>
+              </HostPaperSection>
+            </>
           ) : null}
 
           {miOferta && !mostrarEjecucionUi ? (
-            <View style={styles.section}>
+            <HostPaperSection style={styles.section}>
               <View style={styles.ofertaHighlightCard}>
                 <View style={styles.ofertaStatusHeader}>
                   <InstitutionalIcon name="local-offer" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -1220,13 +1228,13 @@ export default function SolicitudDetalleScreen() {
                   </TouchableOpacity>
                 ) : null}
               </View>
-            </View>
+            </HostPaperSection>
           ) : null}
 
           {miOferta &&
           (miOferta.estado === 'aceptada' || miOferta.estado === 'pagada') &&
           solicitudEstado === 'pagada' ? (
-            <View style={styles.section}>
+            <HostPaperSection style={styles.section}>
               <View style={styles.serviciosAdicionalesHeader}>
                 <InstitutionalIcon name="add-circle-outline" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.sectionHeaderTitleInline}>Servicios adicionales</Text>
@@ -1290,7 +1298,7 @@ export default function SolicitudDetalleScreen() {
                 <InstitutionalIcon name="add-circle" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.agregarServicioButtonText}>Agregar servicio adicional</Text>
               </TouchableOpacity>
-            </View>
+            </HostPaperSection>
           ) : null}
 
           {mostrarEjecucionUi && miOferta ? (
@@ -1471,13 +1479,7 @@ const styles = StyleSheet.create({
   },
 
   section: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.md,
     marginBottom: SPACING.fixed.md,
-    ...SHADOWS.editorial,
   },
   sectionHeaderTitle: {
     fontSize: TS.h4.fontSize,

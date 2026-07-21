@@ -5,8 +5,7 @@ import Header from '@/components/Header';
 import { CotizacionesIaList } from '@/components/chats/CotizacionesIaList';
 import { useAuth } from '@/context/AuthContext';
 import { COLORS } from '@/app/design-system/tokens';
-
-const I = COLORS.institutional;
+import { hostScreenStyles } from '@/app/design-system/components';
 
 /**
  * Cotizar con IA — Modal RN a pantalla completa (slide desde abajo).
@@ -52,7 +51,7 @@ export default function CotizarIaScreen() {
         presentationStyle="fullScreen"
         onRequestClose={handleClose}
       >
-        <View style={styles.screen}>
+        <View style={[hostScreenStyles.scroll, styles.screen]}>
           <Header title="Cotizar con IA" showBack onBackPress={handleClose} />
           <CotizacionesIaList enabled={cuentaAprobada} />
         </View>
@@ -68,6 +67,6 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: COLORS.background.default,
   },
 });

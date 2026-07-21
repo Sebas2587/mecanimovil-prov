@@ -20,13 +20,15 @@ import { ChecklistCompletedView } from '@/components/checklist/ChecklistComplete
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
-import {
-  institutionalStatusColors,
-  institutionalCardStyles,
-} from '@/app/design-system/styles/institutionalSemantic';
+import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { AsistenteDiagnosticoCard } from '@/components/orden-detalle/AsistenteDiagnosticoCard';
+import {
+  HostPaperSection,
+  hostScreenStyles,
+  HOST_GUTTER,
+} from '@/app/design-system/components';
 import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBottomSheet';
 import equipoTallerService, { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 
@@ -568,9 +570,9 @@ export default function OrdenDetalleScreen() {
         </View>
       </SafeAreaView>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={hostScreenStyles.scroll} contentContainerStyle={[hostScreenStyles.scrollInner, styles.scrollInner]} showsVerticalScrollIndicator={false}>
         {/* Información del cliente */}
-        <View style={styles.section}>
+        <HostPaperSection style={styles.section}>
           <InstitutionalSectionHeader
             title="Información del Cliente"
             level="h4"
@@ -594,10 +596,10 @@ export default function OrdenDetalleScreen() {
               <Text style={styles.infoText}>{orden.cliente_detail.email}</Text>
             </View>
           )}
-        </View>
+        </HostPaperSection>
 
         {/* Información del vehículo */}
-        <View style={styles.section}>
+        <HostPaperSection style={styles.section}>
           <InstitutionalSectionHeader
             title="Vehículo del Cliente"
             level="h4"
@@ -639,10 +641,10 @@ export default function OrdenDetalleScreen() {
               </View>
             )}
           </View>
-        </View>
+        </HostPaperSection>
 
         {/* Ubicación del servicio */}
-        <View style={styles.section}>
+        <HostPaperSection style={styles.section}>
           <InstitutionalSectionHeader
             title={orden.tipo_servicio === 'domicilio' ? 'Servicio a Domicilio' : 'Servicio en Taller'}
             level="h4"
@@ -667,10 +669,10 @@ export default function OrdenDetalleScreen() {
               </Text>
             </View>
           )}
-        </View>
+        </HostPaperSection>
 
         {/* Servicios solicitados */}
-        <View style={styles.section}>
+        <HostPaperSection style={styles.section}>
           <InstitutionalSectionHeader
             title="Servicios Solicitados"
             level="h4"
@@ -692,10 +694,10 @@ export default function OrdenDetalleScreen() {
               <Text style={styles.servicioPrecio}>${linea.precio_final}</Text>
             </View>
           ))}
-        </View>
+        </HostPaperSection>
 
         {/* Fecha y hora del servicio */}
-        <View style={styles.section}>
+        <HostPaperSection style={styles.section}>
           <InstitutionalSectionHeader
             title="Programación del Servicio"
             level="h4"
@@ -722,9 +724,9 @@ export default function OrdenDetalleScreen() {
               </View>
             </View>
           </View>
-        </View>
+        </HostPaperSection>
 
-        <View style={styles.section}>
+        <HostPaperSection style={styles.section}>
           <InstitutionalSectionHeader
             title="Técnico asignado"
             level="h4"
@@ -742,10 +744,10 @@ export default function OrdenDetalleScreen() {
           {mecanicoDetalle?.especialidades ? (
             <Text style={styles.detailValue}>{mecanicoDetalle.especialidades}</Text>
           ) : null}
-        </View>
+        </HostPaperSection>
 
         {/* Información de pago */}
-        <View style={styles.section}>
+        <HostPaperSection style={styles.section}>
           <InstitutionalSectionHeader
             title="Información de Pago"
             level="h4"
@@ -758,17 +760,17 @@ export default function OrdenDetalleScreen() {
               <Text style={styles.infoText}>Método: {orden.metodo_pago}</Text>
             </View>
           )}
-        </View>
+        </HostPaperSection>
 
         {/* Total */}
-        <View style={styles.totalSection}>
+        <HostPaperSection style={styles.totalSection}>
           <Text style={styles.totalLabel}>Total a cobrar:</Text>
           <Text style={styles.totalAmount}>${orden.total}</Text>
-        </View>
+        </HostPaperSection>
 
         {/* Notas */}
         {orden.notas_cliente && (
-          <View style={styles.section}>
+          <HostPaperSection style={styles.section}>
             <InstitutionalSectionHeader
             title="Notas del Cliente"
             level="h4"
@@ -776,18 +778,16 @@ export default function OrdenDetalleScreen() {
             leading={<InstitutionalIcon name="note" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
           />
             <Text style={styles.notasText}>{orden.notas_cliente}</Text>
-          </View>
+          </HostPaperSection>
         )}
 
         {puedeUsarAsistenteIa ? (
-          <View style={styles.section}>
-            <AsistenteDiagnosticoCard origen="orden" entityId={orden.id} habilitado />
-          </View>
+          <AsistenteDiagnosticoCard origen="orden" entityId={orden.id} habilitado />
         ) : null}
 
         {/* Notas del proveedor */}
         {orden.notas_proveedor && (
-          <View style={styles.section}>
+          <HostPaperSection style={styles.section}>
             <InstitutionalSectionHeader
             title="Notas del Proveedor"
             level="h4"
@@ -795,12 +795,12 @@ export default function OrdenDetalleScreen() {
             leading={<InstitutionalIcon name="note" size={24} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
           />
             <Text style={styles.notasText}>{orden.notas_proveedor}</Text>
-          </View>
+          </HostPaperSection>
         )}
 
         {/* Motivo de rechazo */}
         {orden.motivo_rechazo && (
-          <View style={styles.section}>
+          <HostPaperSection style={styles.section}>
             <InstitutionalSectionHeader
               title="Motivo de Rechazo"
               level="h4"
@@ -808,7 +808,7 @@ export default function OrdenDetalleScreen() {
               leading={<InstitutionalIcon name="error" size={24} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />}
             />
             <Text style={styles.motivoRechazo}>{orden.motivo_rechazo}</Text>
-          </View>
+          </HostPaperSection>
         )}
       </ScrollView>
 
@@ -937,7 +937,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: HOST_GUTTER,
     paddingVertical: 16,
     backgroundColor: I.canvas,
     borderBottomWidth: 1,
@@ -969,13 +969,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  content: {
-    flex: 1,
-    padding: 20,
+  scrollInner: {
+    paddingBottom: 20,
   },
   section: {
-    ...institutionalCardStyles.surface,
-    ...institutionalCardStyles.surfacePadding,
     marginBottom: 16,
   },
   sectionHeader: {
@@ -1126,8 +1123,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   totalSection: {
-    ...institutionalCardStyles.surface,
-    ...institutionalCardStyles.surfacePadding,
     marginBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -9,19 +9,27 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { institutionalTextStyle } from '@/app/design-system/styles/institutionalTypography';
 import { useRendimientoEquipoDetalladoQuery } from '@/hooks/useRendimientoEquipoDetalladoQuery';
 import { MecanicoPickerHorizontal } from '@/components/equipo/MecanicoPickerHorizontal';
 import { ScoreCircle } from '@/components/equipo/ScoreCircle';
-import { KpiProgressRow } from '@/components/equipo/KpiProgressRow';
 import { ComparativoMensual } from '@/components/equipo/ComparativoMensual';
 import { FacturacionComparisonChart } from '@/components/equipo/FacturacionComparisonChart';
-import { TwoColumnMetricGrid } from '@/components/ui/TwoColumnMetricGrid';
 import { UsoGeminiRendimientoCard } from '@/components/equipo/UsoGeminiRendimientoCard';
+import {
+  HostMetricRow,
+  HostPaperSection,
+  HostProgressRow,
+  HostSectionKicker,
+} from '@/app/design-system/components';
 import type { MecanicoKpis } from '@/services/equipoTallerService';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const DIAS_OPCIONES = [7, 30, 90] as const;
+const PAPER = COLORS.background.paper;
+const TS = TYPOGRAPHY.styles;
+const lh = (fontSize: number, mult: number) => Math.round(fontSize * mult);
 
 function fmtPct(v: number | null | undefined): string {
   if (v == null) return '—';
@@ -34,19 +42,6 @@ function fmtMin(v: number | null | undefined): string {
   const h = Math.floor(v / 60);
   const m = Math.round(v % 60);
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
-type MetricTileProps = { label: string; value: string };
-
-function MetricTile({ label, value }: MetricTileProps) {
-  return (
-    <View style={styles.metricTile}>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel} numberOfLines={2}>
-        {label}
-      </Text>
-    </View>
-  );
 }
 
 function completadosTotales(m: MecanicoKpis): number {
@@ -99,6 +94,26 @@ export function RendimientoEquipoTab() {
     [kpis, selectedId],
   );
 
+  const kpiRows = useMemo(() => {
+    if (!selected) return [];
+    const rows: { label: string; score: number | null | undefined }[] = [
+      { label: 'Productividad', score: selected.score_productividad },
+      { label: 'Tiempo ejecución', score: selected.score_tiempo_ejecucion },
+      { label: 'Checklist', score: selected.score_checklist },
+      { label: 'Inicio checklist', score: selected.score_puntualidad_inicio },
+    ];
+    if (selected.score_confiabilidad != null) {
+      rows.push({ label: 'Confiabilidad', score: selected.score_confiabilidad });
+    }
+    if (selected.score_aceptacion != null) {
+      rows.push({ label: 'Aceptación 24h', score: selected.score_aceptacion });
+    }
+    if (selected.score_calificacion_cliente != null) {
+      rows.push({ label: 'Calificación cliente', score: selected.score_calificacion_cliente });
+    }
+    return rows;
+  }, [selected]);
+
   if (loading && kpis.length === 0) {
     return (
       <View style={styles.center}>
@@ -109,145 +124,167 @@ export function RendimientoEquipoTab() {
 
   return (
     <View style={styles.root}>
-    <ScrollView
-      style={styles.flex}
-      contentContainerStyle={styles.scroll}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.periodRow}>
-        {DIAS_OPCIONES.map((d) => (
-          <TouchableOpacity
-            key={d}
-            style={[styles.periodChip, diasVentana === d && styles.periodChipActive]}
-            onPress={() => setDiasVentana(d)}
-          >
-            <Text style={[styles.periodChipText, diasVentana === d && styles.periodChipTextActive]}>
-              {d}d
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <MecanicoPickerHorizontal
-        mecanicos={kpis}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-      />
-
-      {error ? (
-        <Text style={styles.error}>{error || 'No se pudieron cargar las métricas.'}</Text>
-      ) : null}
-
-      {!selected ? (
-        <View style={styles.emptyWrap}>
-          <Text style={styles.emptyText}>No hay datos de rendimiento disponibles</Text>
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.periodRow}>
+          {DIAS_OPCIONES.map((d) => {
+            const active = diasVentana === d;
+            return (
+              <TouchableOpacity
+                key={d}
+                style={[styles.periodChip, active && styles.periodChipActive]}
+                onPress={() => setDiasVentana(d)}
+              >
+                <Text style={[styles.periodChipText, active && styles.periodChipTextActive]}>
+                  {d}d
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
-      ) : (
-        <View style={styles.detail}>
-          <UsoGeminiRendimientoCard
-            uso={selected.uso_ia_gemini}
-            titular={
-              selected.mecanico_id == null
-                ? 'Uso del taller (sin mecánicos registrados)'
-                : selected.uso_ia_gemini?.usa_ia
-                  ? `${selected.nombre} está usando el asistente IA`
-                  : `${selected.nombre} no ha usado el asistente IA en este periodo`
-            }
-          />
 
-          {selected.solo_uso_ia ? (
-            <Text style={styles.mecanicoLegend}>
-              Agrega mecánicos al equipo para ver scores de productividad y checklist.
-            </Text>
-          ) : (
-            <>
-          <Text style={styles.mecanicoHeader}>
-            Métricas de {selected.nombre} en órdenes donde fue asignado.
-          </Text>
-          <Text style={styles.mecanicoLegend}>
-            El score combina productividad Mecanimovil y checklist. Los rechazos impactan confiabilidad.
-            La agenda personal solo suma a facturación, no al score de calidad.
-          </Text>
-          <View style={styles.scoreRow}>
-            <ScoreCircle score={selected.score_rendimiento_global} label="Rendimiento" />
-            <View style={styles.scoreSide}>
-              <MetricTile label="Completadas" value={String(completadosTotales(selected))} />
-              <MetricTile label="Rechazadas" value={String(rechazados(selected))} />
-              <MetricTile label="A tiempo" value={fmtPct(selected.pct_dentro_tiempo)} />
-            </View>
+        <MecanicoPickerHorizontal
+          mecanicos={kpis}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+        />
+
+        {error ? (
+          <Text style={styles.error}>{error || 'No se pudieron cargar las métricas.'}</Text>
+        ) : null}
+
+        {!selected ? (
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyText}>No hay datos de rendimiento disponibles</Text>
           </View>
-
-          <FacturacionComparisonChart mecanicoId={selected.mecanico_id!} />
-
-          <View style={styles.card}>
-            <Text style={styles.sectionLabel}>Detalle de órdenes</Text>
-            <TwoColumnMetricGrid
-              rows={[
-                [
-                  { label: 'Con checklist', value: String(completadosConChecklist(selected)) },
-                  {
-                    label: 'Sin checklist',
-                    value: String(
-                      Math.max(0, completadosTotales(selected) - completadosConChecklist(selected)),
-                    ),
-                  },
-                ],
-                [
-                  { label: 'Demoradas', value: String(demoradas(selected)) },
-                  { label: 'Dentro de tiempo', value: String(dentroTiempoCount(selected)) },
-                ],
-              ]}
+        ) : (
+          <View style={styles.detail}>
+            <HostSectionKicker label="Asistente IA" />
+            <UsoGeminiRendimientoCard
+              uso={selected.uso_ia_gemini}
+              titular={
+                selected.mecanico_id == null
+                  ? 'Uso del taller (sin mecánicos registrados)'
+                  : selected.uso_ia_gemini?.usa_ia
+                    ? `${selected.nombre} está usando el asistente IA`
+                    : `${selected.nombre} no ha usado el asistente IA en este periodo`
+              }
             />
-          </View>
 
-          <View style={styles.channelRow}>
-            <MetricTile label="Mecanimovil" value={String(selected.ordenes_mecanimovil)} />
-            <View style={styles.channelSep} />
-            <MetricTile label="Agenda personal" value={String(selected.ordenes_personales)} />
-          </View>
+            {selected.solo_uso_ia ? (
+              <Text style={styles.legend}>
+                Agrega mecánicos al equipo para ver scores de productividad y checklist.
+              </Text>
+            ) : (
+              <>
+                <HostSectionKicker label="Rendimiento" />
+                <Text style={styles.legend}>
+                  Flujo completo de {selected.nombre}: órdenes Mecanimovil + citas personales
+                  cerradas (checklist, tiempos y productividad).
+                </Text>
+                <HostPaperSection>
+                  <View style={styles.scoreHero}>
+                    <ScoreCircle score={selected.score_rendimiento_global} label="Score" />
+                    <View style={styles.scoreCopy}>
+                      <Text style={styles.scoreName} numberOfLines={2}>
+                        {selected.nombre}
+                      </Text>
+                      <Text style={styles.scoreHint}>Periodo {diasVentana} días</Text>
+                    </View>
+                  </View>
+                  <HostMetricRow
+                    label="Completadas"
+                    value={String(completadosTotales(selected))}
+                  />
+                  <HostMetricRow label="Rechazadas" value={String(rechazados(selected))} />
+                  <HostMetricRow
+                    label="A tiempo"
+                    value={fmtPct(selected.pct_dentro_tiempo)}
+                    last
+                  />
+                </HostPaperSection>
 
-          <View style={styles.card}>
-            <Text style={styles.sectionLabel}>KPIs</Text>
-            <KpiProgressRow label="Productividad" score={selected.score_productividad} />
-            <KpiProgressRow label="Tiempo ejecución" score={selected.score_tiempo_ejecucion} />
-            <KpiProgressRow label="Checklist" score={selected.score_checklist} />
-            <KpiProgressRow label="Inicio checklist" score={selected.score_puntualidad_inicio} />
-            {selected.score_confiabilidad != null ? (
-              <KpiProgressRow label="Confiabilidad" score={selected.score_confiabilidad} />
-            ) : null}
-            {selected.score_aceptacion != null ? (
-              <KpiProgressRow label="Aceptación 24h" score={selected.score_aceptacion} />
-            ) : null}
-            {selected.score_calificacion_cliente != null ? (
-              <KpiProgressRow label="Calificación cliente" score={selected.score_calificacion_cliente} />
-            ) : null}
-          </View>
+                <HostSectionKicker label="Órdenes completadas" />
+                <FacturacionComparisonChart
+                  mecanicoId={selected.mecanico_id}
+                  dias={diasVentana}
+                  metrica="ordenes"
+                />
 
-          <View style={styles.card}>
-            <Text style={styles.sectionLabel}>vs mes anterior</Text>
-            <ComparativoMensual comparativo={selected.comparativo} />
-          </View>
+                <HostSectionKicker label="Actividad" />
+                <HostPaperSection>
+                  <HostMetricRow
+                    label="Con checklist"
+                    value={String(completadosConChecklist(selected))}
+                  />
+                  <HostMetricRow
+                    label="Sin checklist"
+                    value={String(
+                      Math.max(0, completadosTotales(selected) - completadosConChecklist(selected)),
+                    )}
+                  />
+                  <HostMetricRow label="Demoradas" value={String(demoradas(selected))} />
+                  <HostMetricRow
+                    label="Dentro de tiempo"
+                    value={String(dentroTiempoCount(selected))}
+                  />
+                  <HostMetricRow
+                    label="Mecanimovil"
+                    value={String(selected.ordenes_mecanimovil)}
+                  />
+                  <HostMetricRow
+                    label="Agenda personal"
+                    value={String(selected.ordenes_personales)}
+                    last
+                  />
+                </HostPaperSection>
 
-          <View style={styles.footerMeta}>
-            <Text style={styles.footerText}>
-              Tiempo prom. {fmtMin(selected.tiempo_promedio_minutos)} · Fact. periodo{' '}
-              {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(
-                selected.facturacion_periodo,
-              )}
-            </Text>
+                <HostSectionKicker label="KPIs" />
+                <HostPaperSection>
+                  {kpiRows.map((row, idx) => (
+                    <HostProgressRow
+                      key={row.label}
+                      label={row.label}
+                      score={row.score}
+                      last={idx === kpiRows.length - 1}
+                    />
+                  ))}
+                </HostPaperSection>
+
+                <HostSectionKicker label="Vs periodo anterior (proporcional)" />
+                <Text style={styles.legend}>
+                  Compara los primeros días del mes en curso con los mismos días del mes
+                  anterior (variación relativa, no % de cumplimiento).
+                </Text>
+                <HostPaperSection>
+                  <ComparativoMensual comparativo={selected.comparativo} />
+                </HostPaperSection>
+
+                <Text style={styles.footerText}>
+                  Tiempo prom. {fmtMin(selected.tiempo_promedio_minutos)} · Fact. periodo{' '}
+                  {new Intl.NumberFormat('es-CL', {
+                    style: 'currency',
+                    currency: 'CLP',
+                    maximumFractionDigits: 0,
+                  }).format(selected.facturacion_periodo)}
+                </Text>
+              </>
+            )}
           </View>
-            </>
-          )}
-        </View>
-      )}
-    </ScrollView>
+        )}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: COLORS.background.default },
   flex: { flex: 1 },
   scroll: {
     paddingBottom: SPACING.fixed.xl,
@@ -257,6 +294,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 48,
+    backgroundColor: COLORS.background.default,
   },
   periodRow: {
     flexDirection: 'row',
@@ -268,13 +306,13 @@ const styles = StyleSheet.create({
   periodChip: {
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.surfaceStrong,
+    borderRadius: BORDERS.radius.sm,
+    backgroundColor: PAPER,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
   },
   periodChipActive: {
-    backgroundColor: I.primary,
+    backgroundColor: COLORS.selection.background,
     borderColor: I.primary,
   },
   periodChipText: {
@@ -283,107 +321,57 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   periodChipTextActive: {
-    color: I.onPrimary,
+    color: COLORS.selection.text,
   },
   detail: {
     paddingHorizontal: SPACING.container.horizontal,
-    gap: SPACING.fixed.md,
-    marginTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.md,
   },
-  mecanicoHeader: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
+  legend: {
+    ...institutionalTextStyle('caption', I.muted),
+    marginBottom: SPACING.fixed.sm,
   },
-  mecanicoLegend: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansRegular,
-    color: I.muted,
-    lineHeight: 18,
-  },
-  scoreRow: {
+  scoreHero: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.fixed.lg,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+    marginBottom: 2,
   },
-  scoreSide: {
+  scoreCopy: {
     flex: 1,
-    flexDirection: 'row',
-    gap: SPACING.fixed.sm,
+    minWidth: 0,
+    gap: 4,
   },
-  metricTile: {
-    flex: 1,
-    alignItems: 'center',
+  scoreName: {
+    ...institutionalTextStyle('h4', I.ink),
   },
-  metricValue: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontFamily: FF.monoMedium,
-    color: I.ink,
-  },
-  metricLabel: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansMedium,
-    color: I.muted,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  channelRow: {
-    flexDirection: 'row',
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    paddingVertical: SPACING.fixed.md,
-    paddingHorizontal: SPACING.fixed.sm,
-  },
-  channelSep: {
-    width: StyleSheet.hairlineWidth,
-    backgroundColor: I.hairline,
-    marginVertical: 4,
-  },
-  card: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.md,
-  },
-  sectionLabel: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansSemiBold,
-    color: I.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: SPACING.fixed.xs,
-  },
-  footerMeta: {
-    paddingVertical: SPACING.fixed.sm,
+  scoreHint: {
+    ...institutionalTextStyle('caption', I.muted),
   },
   footerText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansMedium,
-    color: I.muted,
+    ...institutionalTextStyle('small', I.muted),
     textAlign: 'center',
+    marginTop: SPACING.fixed.lg,
+    marginBottom: SPACING.fixed.md,
   },
   emptyWrap: {
     padding: SPACING.fixed.xl,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    ...institutionalTextStyle('body', I.muted),
     fontFamily: FF.sansMedium,
-    color: I.muted,
   },
   error: {
     textAlign: 'center',
     color: I.semanticDown,
     fontFamily: FF.sansMedium,
     fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TS.body.lineHeight),
     paddingHorizontal: SPACING.container.horizontal,
     marginTop: SPACING.fixed.sm,
   },

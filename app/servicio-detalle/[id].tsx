@@ -19,10 +19,14 @@ import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { COLORS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, SPACING, withOpacity } from '@/app/design-system/tokens';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import {
   institutionalStatusColors,
-  institutionalCardStyles,
 } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
@@ -494,12 +498,13 @@ export default function ServicioDetalleScreen() {
       </SafeAreaView>
 
       <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={styles.content} 
+        style={hostScreenStyles.scroll} 
+        contentContainerStyle={[hostScreenStyles.scrollInner, styles.content]} 
         showsVerticalScrollIndicator={false}
       >
-        {/* PRIMERA SECCIÓN: Información del cliente con foto real - Card destacada */}
-        <View style={styles.clientCard}>
+        <>
+        <HostSectionKicker label="Cliente" />
+        <Card elevated padding="host" style={styles.clientCard}>
           <View style={styles.clientSection}>
             {(orden.cliente_detail as any)?.foto_perfil ? (
               <Image 
@@ -580,11 +585,14 @@ export default function ServicioDetalleScreen() {
               )}
             </View>
           </View>
-        </View>
+        </Card>
+        </>
 
         {/* SEGUNDA SECCIÓN: Información del vehículo - Card destacada */}
         {orden.vehiculo_detail && (
-          <View style={styles.vehicleCard}>
+          <>
+<HostSectionKicker label="Vehículo" />
+          <Card elevated padding="host" style={styles.vehicleCard}>
             <Text style={styles.vehicleLabel}>Vehículo</Text>
             <View style={styles.infoCardRow}>
               <InstitutionalIcon name="directions-car" size={24} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
@@ -598,7 +606,8 @@ export default function ServicioDetalleScreen() {
                 </Text>
               </View>
             </View>
-          </View>
+          </Card>
+          </>
         )}
 
         {/* TERCERA SECCIÓN: Detalle del servicio y repuestos (sin total) */}
@@ -674,7 +683,7 @@ export default function ServicioDetalleScreen() {
 
         {/* Fecha y hora */}
         {orden.fecha_servicio && orden.hora_servicio && (
-          <View style={styles.infoCard}>
+          <Card elevated padding="host" style={styles.infoCard}>
             <View style={styles.infoCardRow}>
               <InstitutionalIcon name="calendar-today" size={20} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
               <View style={styles.infoCardContent}>
@@ -693,12 +702,12 @@ export default function ServicioDetalleScreen() {
                 </Text>
               </View>
             </View>
-          </View>
+          </Card>
         )}
 
         {/* Ubicación del servicio - SOLO mostrar si la orden está aceptada */}
         {orden.tipo_servicio === 'domicilio' && (
-          <View style={styles.infoCard}>
+          <Card elevated padding="host" style={styles.infoCard}>
             {orden.estado !== 'pendiente_aceptacion_proveedor' && orden.ubicacion_servicio ? (
               // Orden aceptada - mostrar dirección completa
               <TouchableOpacity 
@@ -730,12 +739,12 @@ export default function ServicioDetalleScreen() {
                 <InstitutionalIcon name="lock" size={16} color={I.body}  strokeWidth={ICON_STROKE_WIDTH} />
               </View>
             )}
-          </View>
+          </Card>
         )}
 
         {/* Notas */}
         {orden.notas_cliente && (
-          <View style={styles.infoCard}>
+          <Card elevated padding="host" style={styles.infoCard}>
             <View style={styles.infoCardRow}>
               <InstitutionalIcon name="note" size={20} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
               <View style={styles.infoCardContent}>
@@ -743,11 +752,12 @@ export default function ServicioDetalleScreen() {
                 <Text style={styles.notasText}>{orden.notas_cliente}</Text>
               </View>
             </View>
-          </View>
+          </Card>
         )}
 
         {/* Total al final - Card destacada con desglose completo */}
-        <View style={styles.totalCard}>
+        <HostSectionKicker label="Resumen de precios" />
+        <Card elevated padding="host" style={styles.totalCard}>
           <Text style={styles.totalCardTitle}>Resumen de Precios</Text>
           
           {/* Calcular desglose desde lineas_detail */}
@@ -839,7 +849,7 @@ export default function ServicioDetalleScreen() {
               </View>
             );
           })()}
-        </View>
+        </Card>
       </ScrollView>
 
       {/* Botones de acción */}
@@ -949,9 +959,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingTop: 0,
-    paddingHorizontal: 20,
     paddingBottom: 20,
-    backgroundColor: I.canvas,
   },
   // Primera sección: Detalle del servicio y repuestos
   serviceDetailSection: {
@@ -1012,10 +1020,7 @@ const styles = StyleSheet.create({
   },
   // Card destacada del vehículo
   vehicleCard: {
-    ...institutionalCardStyles.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    marginBottom: SPACING.md,
   },
   totalPriceSection: {
     flexDirection: 'row',
@@ -1034,11 +1039,8 @@ const styles = StyleSheet.create({
   },
   // Card destacada del total
   totalCard: {
-    ...institutionalCardStyles.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 8,
-    marginBottom: 24,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.lg,
   },
   totalCardTitle: {
     fontSize: 18,
@@ -1101,10 +1103,7 @@ const styles = StyleSheet.create({
   },
   // Card destacada del cliente
   clientCard: {
-    ...institutionalCardStyles.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    marginBottom: SPACING.md,
   },
   clientSection: {
     flexDirection: 'row',
@@ -1171,12 +1170,7 @@ const styles = StyleSheet.create({
   },
   // Cards de información minimalistas
   infoCard: {
-    backgroundColor: I.canvas,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: I.hairline,
+    marginBottom: SPACING.md,
   },
   infoCardRow: {
     flexDirection: 'row',

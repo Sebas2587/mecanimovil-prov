@@ -1,9 +1,10 @@
-import React, { memo, useCallback, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { memo, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { ChevronRight, Inbox } from 'lucide-react-native';
 import { usePipelineComercialQuery } from '@/hooks/usePipelineComercialQuery';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
   hostIconPlateColor,
@@ -42,35 +43,36 @@ function HomeBandejaEntryInner({ enabled = true, refreshKey = 0 }: HomeBandejaEn
   if (!enabled) return null;
 
   return (
-    <TouchableOpacity
-      style={styles.card}
+    <Card
+      elevated
+      padding="host"
       onPress={abrir}
-      activeOpacity={0.88}
-      accessibilityRole="button"
-      accessibilityLabel="Abrir bandeja del taller"
+      style={styles.card}
     >
-      <View style={[hostIconPlateStyle, styles.iconPlate]}>
-        <Inbox size={22} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
-      </View>
-      <View style={styles.textCol}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>Bandeja</Text>
-          {isPending ? (
-            <ActivityIndicator size="small" color={I.primary} />
-          ) : pendientes > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{pendientes > 99 ? '99+' : pendientes}</Text>
-            </View>
-          ) : null}
+      <View style={styles.row}>
+        <View style={[hostIconPlateStyle, styles.iconPlate]}>
+          <Inbox size={22} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
         </View>
-        <Text style={styles.sub} numberOfLines={2}>
-          {pendientes > 0
-            ? `${pendientes} solicitud${pendientes === 1 ? '' : 'es'} o cotización${pendientes === 1 ? '' : 'es'} por atender`
-            : 'Solicitudes, cotizaciones y seguimiento del taller'}
-        </Text>
+        <View style={styles.textCol}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Bandeja</Text>
+            {isPending ? (
+              <ActivityIndicator size="small" color={I.primary} />
+            ) : pendientes > 0 ? (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{pendientes > 99 ? '99+' : pendientes}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.sub} numberOfLines={2}>
+            {pendientes > 0
+              ? `${pendientes} solicitud${pendientes === 1 ? '' : 'es'} o cotización${pendientes === 1 ? '' : 'es'} por atender`
+              : 'Solicitudes, cotizaciones y seguimiento del taller'}
+          </Text>
+        </View>
+        <ChevronRight size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
-      <ChevronRight size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-    </TouchableOpacity>
+    </Card>
   );
 }
 
@@ -78,16 +80,12 @@ export const HomeBandejaEntry = memo(HomeBandejaEntryInner);
 
 const styles = StyleSheet.create({
   card: {
+    minHeight: 88,
+  },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    backgroundColor: COLORS.background.paper,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    padding: SPACING.md,
-    minHeight: 88,
-    ...SHADOWS.editorial,
   },
   iconPlate: {
     width: 44,

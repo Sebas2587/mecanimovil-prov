@@ -1,6 +1,9 @@
 /**
  * Tipografía — App Proveedores (Airbnb Hosts + Poppins)
- * Carga en app/_layout.tsx (@expo-google-fonts/poppins).
+ * Una sola familia en toda la UI. Carga en app/_layout.tsx.
+ *
+ * `monoMedium` es alias de Poppins Medium (legado Coinbase/JetBrains):
+ * montos y % usan la misma fuente Host, no monoespaciada.
  */
 
 export const TYPOGRAPHY = {
@@ -9,7 +12,8 @@ export const TYPOGRAPHY = {
     sansMedium: 'Poppins_500Medium',
     sansSemiBold: 'Poppins_600SemiBold',
     sansBold: 'Poppins_600SemiBold',
-    monoMedium: 'JetBrainsMono_500Medium',
+    /** @deprecated Alias Host — apunta a Poppins_500Medium (no JetBrains). */
+    monoMedium: 'Poppins_500Medium',
     regular: 'Poppins_400Regular',
     medium: 'Poppins_500Medium',
     bold: 'Poppins_600SemiBold',

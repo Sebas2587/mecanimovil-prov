@@ -11,7 +11,13 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import Header from '@/components/Header';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+  HOST_GUTTER,
+} from '@/app/design-system/components';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { parseOfertasGrupoParam, ofertaToGrupoItem } from '@/utils/agruparOfertasServicio';
@@ -22,7 +28,6 @@ import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert'
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
-const hx = SPACING.container.horizontal;
 
 interface ServicioOferta {
   id: number;
@@ -474,17 +479,18 @@ export default function ServicioResumenScreen() {
       />
 
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{
-          paddingHorizontal: hx,
-          paddingTop: SPACING.fixed.md,
-          paddingBottom: insets.bottom + 120,
-        }}
+        style={hostScreenStyles.scroll}
+        contentContainerStyle={[
+          hostScreenStyles.scrollInner,
+          { paddingBottom: insets.bottom + 120 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.heroSub}>Servicio #{servicio.id}</Text>
 
-        <View style={styles.card}>
+        <>
+        <HostSectionKicker label="Estado" />
+        <Card elevated padding="host" style={styles.card}>
           <View style={styles.statusRow}>
             <View
               style={[
@@ -524,10 +530,12 @@ export default function ServicioResumenScreen() {
               Cada marca/modelo tiene su precio. Usa «Editar» en la tarjeta correspondiente; la pausa es por tarifa.
             </Text>
           ) : null}
-        </View>
+        </Card>
+        </>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Información del servicio</Text>
+        <>
+        <HostSectionKicker label="Información del servicio" />
+        <Card elevated padding="host" style={styles.card}>
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
@@ -616,13 +624,14 @@ export default function ServicioResumenScreen() {
               )}
             </View>
           </View>
-        </View>
+        </Card>
+        </>
 
         {variasTarifas ? (
           <>
-            <Text style={styles.sectionHeading}>
-              {ofertasParaDesglose.length} configuraciones por marca/modelo
-            </Text>
+            <HostSectionKicker
+              label={`${ofertasParaDesglose.length} configuraciones por marca/modelo`}
+            />
             {ofertasParaDesglose.map((oferta) => (
               <TarifaMarcaResumenCard
                 key={oferta.id}
@@ -638,10 +647,12 @@ export default function ServicioResumenScreen() {
             ))}
           </>
         ) : (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Desglose de precios</Text>
+          <>
+<HostSectionKicker label="Desglose de precios" />
+          <Card elevated padding="host" style={styles.card}>
             <DesglosePrecioOferta oferta={servicio} />
-          </View>
+          </Card>
+          </>
         )}
       </ScrollView>
 
@@ -773,18 +784,6 @@ const styles = StyleSheet.create({
     color: I.onPrimary,
   },
   card: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.md,
-    marginBottom: SPACING.fixed.md,
-    ...SHADOWS.editorial,
-  },
-  cardTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
     marginBottom: SPACING.fixed.md,
   },
   statusRow: {
@@ -1001,7 +1000,7 @@ const styles = StyleSheet.create({
   },
   actionsBar: {
     flexDirection: 'row',
-    paddingHorizontal: hx,
+    paddingHorizontal: HOST_GUTTER,
     paddingTop: SPACING.fixed.md,
     gap: SPACING.fixed.sm,
   },

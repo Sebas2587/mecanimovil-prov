@@ -13,10 +13,9 @@ import {
   TYPOGRAPHY,
   platformShadow,
 } from '@/app/design-system/tokens';
-import { Card } from '@/design-system/components/Card';
+import { Card } from '@/app/design-system/components';
 import {
   institutionalStatusColors,
-  institutionalCardStyles,
   type InstitutionalStatusTone,
 } from '@/app/design-system/styles/institutionalSemantic';
 import { 

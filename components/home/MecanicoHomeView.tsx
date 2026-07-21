@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   RefreshControl,
-  TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
@@ -15,7 +14,12 @@ import { ASIGNACIONES_MECANICO_QUERY_KEY } from '@/utils/invalidateAsignacionesM
 import { useAsignacionesMecanicoRealtime } from '@/hooks/useAsignacionesMecanicoRealtime';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import { OrdenCard } from '@/components/ordenes/OrdenCard';
 import { OrigenOrdenBadge } from '@/components/ordenes/OrigenOrdenBadge';
 import {
@@ -108,7 +112,7 @@ function CitaPersonalCard({ cita, onPress }: CitaPersonalCardProps) {
     : '';
 
   return (
-    <TouchableOpacity style={styles.citaCard} onPress={onPress} activeOpacity={0.88}>
+    <Card elevated padding="host" style={styles.citaCard} onPress={onPress}>
       <View style={styles.citaCardTop}>
         <View style={styles.citaEstadoBadge}>
           <View style={styles.citaEstadoDot} />
@@ -153,7 +157,7 @@ function CitaPersonalCard({ cita, onPress }: CitaPersonalCardProps) {
           </View>
         </View>
       </View>
-    </TouchableOpacity>
+    </Card>
   );
 }
 
@@ -204,8 +208,8 @@ export function MecanicoHomeView() {
 
   return (
     <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.content}
+      style={hostScreenStyles.scroll}
+      contentContainerStyle={[hostScreenStyles.scrollInner, styles.content]}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />
       }
@@ -218,34 +222,37 @@ export function MecanicoHomeView() {
         </Text>
       </View>
 
-      <TouchableOpacity
+      <Card
+        elevated
+        padding="host"
         style={styles.calendarCard}
         onPress={() => router.push('/(tabs)/calendario' as never)}
-        activeOpacity={0.85}
       >
-        <View style={styles.calendarIconWrap}>
-          <Calendar size={22} color={I.primary} strokeWidth={2} />
+        <View style={styles.calendarCardRow}>
+          <View style={styles.calendarIconWrap}>
+            <Calendar size={22} color={I.primary} strokeWidth={2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.calendarTitle}>Mi calendario</Text>
+            <Text style={styles.calendarSubtitle}>Ver citas y servicios asignados</Text>
+          </View>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.calendarTitle}>Mi calendario</Text>
-          <Text style={styles.calendarSubtitle}>Ver citas y servicios asignados</Text>
-        </View>
-      </TouchableOpacity>
+      </Card>
 
-      <Text style={styles.sectionTitle}>Mis órdenes asignadas</Text>
+      <HostSectionKicker label="Mis órdenes asignadas" />
 
       {isLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={I.primary} />
         </View>
       ) : asignaciones.length === 0 ? (
-        <View style={styles.emptyCard}>
+        <Card elevated padding="host" style={styles.emptyCard}>
           <Wrench size={28} color={I.muted} strokeWidth={1.8} />
           <Text style={styles.emptyTitle}>Sin servicios asignados</Text>
           <Text style={styles.emptyText}>
             Cuando el taller te asigne un servicio o una cita personal, aparecerá aquí.
           </Text>
-        </View>
+        </Card>
       ) : (
         asignaciones.map((item) => {
           if (item.kind === 'cita') {
@@ -274,11 +281,7 @@ export function MecanicoHomeView() {
 }
 
 const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-  },
   content: {
-    padding: SPACING.lg,
     paddingBottom: SPACING['3xl'],
     gap: SPACING.md,
   },
@@ -296,16 +299,11 @@ const styles = StyleSheet.create({
     color: I.body,
     lineHeight: 20,
   },
-  calendarCard: {
+  calendarCard: {},
+  calendarCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.md,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    padding: SPACING.lg,
-    ...SHADOWS.editorial,
   },
   calendarIconWrap: {
     width: 44,
@@ -326,12 +324,6 @@ const styles = StyleSheet.create({
     color: I.muted,
     marginTop: 2,
   },
-  sectionTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: I.ink,
-    marginTop: SPACING.sm,
-  },
   centered: {
     paddingVertical: SPACING['2xl'],
     alignItems: 'center',
@@ -339,11 +331,6 @@ const styles = StyleSheet.create({
   emptyCard: {
     alignItems: 'center',
     gap: SPACING.sm,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    padding: SPACING.xl,
   },
   emptyTitle: {
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
@@ -356,14 +343,7 @@ const styles = StyleSheet.create({
     color: I.muted,
     textAlign: 'center',
   },
-  citaCard: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    padding: SPACING.lg,
-    ...SHADOWS.editorial,
-  },
+  citaCard: {},
   citaCardTop: {
     flexDirection: 'row',
     alignItems: 'center',

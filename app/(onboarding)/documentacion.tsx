@@ -20,7 +20,8 @@ import {
 import { Buffer } from 'buffer';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import {COLORS, platformShadow} from '@/app/design-system/tokens';
+import { COLORS } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 
@@ -269,7 +270,7 @@ export default function DocumentacionScreen() {
     const icono = getIconoParaTipo(tipoDoc.key);
 
     return (
-      <View key={tipoDoc.key} style={styles.documentoItem}>
+      <Card key={tipoDoc.key} elevated padding="host" style={styles.documentoItem}>
         <View style={styles.documentoHeader}>
           <InstitutionalIcon name={icono} size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
           <View style={styles.documentoInfo}>
@@ -311,7 +312,7 @@ export default function DocumentacionScreen() {
             <Text style={styles.textoSubirSecundario}>Toca para elegir imagen</Text>
           </TouchableOpacity>
         )}
-      </View>
+      </Card>
     );
   };
 
@@ -356,22 +357,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   documentoItem: {
-    backgroundColor: I.canvas,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: I.hairline,
     overflow: 'hidden',
-    ...platformShadow({
-      shadowColor: I.ink,
-      shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
-      elevation: 2,
-    }),
   },
   documentoHeader: {
     flexDirection: 'row',

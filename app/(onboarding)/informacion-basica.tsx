@@ -19,6 +19,7 @@ import {
   OnboardingNotice,
 } from '@/components/onboarding';
 import { COLORS } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { onboardingInputPlaceholder, onboardingStyles } from '@/app/design-system/styles/onboarding';
 
 const I = COLORS.institutional;
@@ -641,22 +642,19 @@ export default function InformacionBasicaScreen() {
         icon="business-outline"
       />
 
-      <View style={styles.form}>
+      <Card elevated padding="host">
         <OnboardingNotice>
           {soloDomicilio
             ? 'Los campos con * son obligatorios. La dirección es opcional porque atiendes solo a domicilio.'
             : 'Los campos con * son obligatorios. RUT y teléfono se validan en tiempo real antes de continuar.'}
         </OnboardingNotice>
         {renderTallerForm()}
-      </View>
+      </Card>
     </OnboardingScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  form: {
-    ...onboardingStyles.panel,
-  },
   inputGroup: {
     marginBottom: 16,
   },

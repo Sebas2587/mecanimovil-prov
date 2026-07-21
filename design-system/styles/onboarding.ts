@@ -18,9 +18,10 @@ const hx = SPACING.container.horizontal;
 export const ONBOARDING_CONTENT_MAX_WIDTH = 560;
 
 export const ONBOARDING = {
+  /** Canvas Host `#F9F9F9` — no surfaceSoft. */
   screen: {
     flex: 1,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: I.canvas,
   } satisfies ViewStyle,
   contentWrapper: {
     flex: 1,
@@ -31,21 +32,28 @@ export const ONBOARDING = {
   scrollView: {
     flex: 1,
   } satisfies ViewStyle,
+  /** Mismo gutter que `hostScreenStyles.scrollInner`. */
   scrollContent: {
     paddingHorizontal: hx,
-    paddingTop: SPACING.fixed.md,
+    paddingTop: SPACING.xs,
     paddingBottom: SPACING.fixed.lg,
+    alignItems: 'stretch',
+    width: '100%',
   } satisfies ViewStyle,
+  /** Paper Host (= `Card` padding host). */
   panel: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.xl,
+    alignSelf: 'stretch',
+    width: '100%',
+    backgroundColor: COLORS.background.paper,
+    borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    padding: SPACING.fixed.lg,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.sm,
     ...SHADOWS.editorial,
   } satisfies ViewStyle,
   footer: {
-    backgroundColor: I.canvas,
+    backgroundColor: COLORS.background.paper,
     borderTopWidth: BORDERS.width.thin,
     borderTopColor: I.hairline,
     paddingHorizontal: hx,
@@ -92,7 +100,7 @@ export const ONBOARDING = {
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: I.canvas,
+    backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
@@ -128,9 +136,9 @@ export const ONBOARDING = {
     marginTop: SPACING.fixed.xs,
   } satisfies TextStyle,
   multimarcaToggle: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.xl,
-    borderWidth: BORDERS.width.medium,
+    backgroundColor: COLORS.background.paper,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     marginBottom: SPACING.fixed.md,
     overflow: 'hidden',
@@ -209,14 +217,18 @@ export const onboardingStyles = StyleSheet.create({
     ...INSTITUTIONAL_SELECTION.listRowSelected,
     marginBottom: SPACING.fixed.sm,
   },
-  /** Contenedor de grupo (p. ej. catálogo por marca) — mismo inset que panel sin sombra extra */
+  /** Grupo Host paper (catálogo por marca) — mismo contrato que `Card`. */
   groupCard: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.xl,
-    borderWidth: BORDERS.width.medium,
+    alignSelf: 'stretch',
+    width: '100%',
+    backgroundColor: COLORS.background.paper,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    padding: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.sm,
     marginBottom: SPACING.fixed.md,
     overflow: 'hidden',
+    ...SHADOWS.editorial,
   },
 });

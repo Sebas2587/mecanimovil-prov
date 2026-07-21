@@ -3,13 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform }
 import { ArrowLeft, Sparkles } from 'lucide-react-native';
 import { ChannelBadge } from '@/components/chats/ChannelBadge';
 import { ChannelAvatar } from '@/components/chats/ChannelAvatar';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { HOST_GUTTER } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { ChannelSlug } from '@/utils/channelVisuals';
 import { withWebLineHeight } from '@/utils/webTypography';
 
 const I = COLORS.institutional;
-const GLASS_INSET = SPACING.md;
 const TITLE = withWebLineHeight(TYPOGRAPHY.styles.h4);
 const ACTION_LABEL = withWebLineHeight(TYPOGRAPHY.styles.captionBold);
 
@@ -102,14 +102,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: GLASS_INSET,
+    paddingHorizontal: HOST_GUTTER,
     paddingBottom: SPACING.md,
     minHeight: Platform.OS === 'web' ? 64 : 56,
     backgroundColor: I.canvas,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: I.hairline,
     gap: SPACING.sm,
-    ...SHADOWS.editorial,
   },
   sideBtn: {
     width: 40,
@@ -162,7 +161,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    marginHorizontal: SPACING.container.horizontal,
+    marginHorizontal: HOST_GUTTER,
     marginTop: SPACING.sm,
     marginBottom: SPACING.xs,
     paddingVertical: SPACING.sm + 2,

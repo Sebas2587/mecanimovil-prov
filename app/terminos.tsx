@@ -1,6 +1,8 @@
 import LegalDocumentView from '@/components/legal/LegalDocumentView';
-import { TERMS_META, TERMS_SECTIONS } from '@/content/legal/termsOfUseContent';
+import { TERMS_FOOTER, TERMS_META, TERMS_SECTIONS } from '@/content/legal/termsOfUseContent';
 
 export default function TerminosScreen() {
-  return <LegalDocumentView meta={TERMS_META} sections={TERMS_SECTIONS} />;
+  return (
+    <LegalDocumentView meta={TERMS_META} sections={TERMS_SECTIONS} footer={TERMS_FOOTER} />
+  );
 }

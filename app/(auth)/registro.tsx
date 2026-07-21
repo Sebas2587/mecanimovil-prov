@@ -17,6 +17,7 @@ import {
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import LegalAcceptanceRow from '@/components/legal/LegalAcceptanceRow';
 
@@ -270,7 +271,7 @@ export default function RegistroScreen() {
         <Text style={styles.subtitle}>Únete a Mecanimovil Proveedores</Text>
       </View>
 
-      <View style={onboardingStyles.panel}>
+      <Card elevated padding="host">
             {/* Banner de error */}
             {errorMessage && (
               <View style={styles.errorBanner}>
@@ -394,7 +395,7 @@ export default function RegistroScreen() {
         <TouchableOpacity style={styles.loginButton} onPress={goToLogin} disabled={isLoading}>
           <Text style={styles.loginButtonText}>Iniciar sesión</Text>
         </TouchableOpacity>
-      </View>
+      </Card>
     </OnboardingScreenLayout>
   );
 }

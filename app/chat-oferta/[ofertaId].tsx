@@ -15,7 +15,6 @@ import {
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft, User, Send, X, MessageCircle,
 } from 'lucide-react-native';
@@ -30,8 +29,8 @@ import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
 import websocketService, { type NuevoMensajeChatEvent } from '@/app/services/websocketService';
 import * as ImagePicker from 'expo-image-picker';
-import { BLANK_GLASS, GLASS_INSET } from '@/app/design-system/blankGlass';
-import { COLORS, TYPOGRAPHY, SHADOWS, BORDERS, SPACING, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, TYPOGRAPHY, BORDERS, SPACING, withOpacity } from '@/app/design-system/tokens';
+import { HOST_GUTTER, hostScreenStyles } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
@@ -500,13 +499,6 @@ export default function ChatOfertaScreen() {
   if (loading) {
     return (
       <View style={styles.screenRoot}>
-        <LinearGradient
-          colors={BLANK_GLASS.gradient}
-          locations={BLANK_GLASS.gradientLocations}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
         <SafeAreaView style={styles.safeArea} edges={['top']}>
           <Stack.Screen options={{ headerShown: false }} />
           <View style={styles.header}>
@@ -527,13 +519,6 @@ export default function ChatOfertaScreen() {
 
   return (
     <View style={styles.screenRoot}>
-      <LinearGradient
-        colors={BLANK_GLASS.gradient}
-        locations={BLANK_GLASS.gradientLocations}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
 
@@ -572,7 +557,11 @@ export default function ChatOfertaScreen() {
             data={mensajes}
             renderItem={renderMensaje}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={[styles.messagesList, { paddingBottom: 80 }]}
+            contentContainerStyle={[
+              hostScreenStyles.scrollInner,
+              styles.messagesList,
+              { paddingBottom: 80 },
+            ]}
             showsVerticalScrollIndicator={false}
             maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
           />
@@ -671,12 +660,11 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: GLASS_INSET,
+    paddingHorizontal: HOST_GUTTER,
     paddingVertical: SPACING.sm + 4,
     backgroundColor: I.canvas,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: I.hairline,
-    ...SHADOWS.editorial,
   },
   backBtn: {
     padding: 4,
@@ -753,7 +741,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   messagesList: {
-    paddingHorizontal: GLASS_INSET,
     paddingTop: SPACING.sm + 4,
     flexGrow: 1,
   },
@@ -813,12 +800,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    paddingHorizontal: GLASS_INSET,
+    paddingHorizontal: HOST_GUTTER,
     paddingTop: SPACING.sm + 2,
     backgroundColor: I.canvas,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
-    ...SHADOWS.editorial,
   },
   inputRow: {
     flexDirection: 'row',
@@ -887,7 +873,7 @@ const styles = StyleSheet.create({
   modalClose: {
     position: 'absolute',
     top: 56,
-    right: GLASS_INSET,
+    right: HOST_GUTTER,
     zIndex: 1,
     padding: SPACING.sm,
   },

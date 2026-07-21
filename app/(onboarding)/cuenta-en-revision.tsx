@@ -12,7 +12,8 @@ import { useAuth } from '@/context/AuthContext';
 import { OnboardingScreenLayout } from '@/components/onboarding';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import {COLORS, platformShadow} from '@/app/design-system/tokens';
+import { COLORS } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
@@ -168,7 +169,7 @@ export default function CuentaEnRevisionScreen() {
     const icono = obtenerEstadoIcono(estado);
     
     return (
-      <View style={[styles.estadoCard, { borderLeftColor: color }]}>
+      <Card elevated padding="host" style={[styles.estadoCard, { borderLeftColor: color }]}>
         <View style={styles.estadoHeader}>
           <InstitutionalIcon name={icono as any} size={32} color={color}  strokeWidth={ICON_STROKE_WIDTH} />
           <View style={styles.estadoInfo}>
@@ -188,7 +189,7 @@ export default function CuentaEnRevisionScreen() {
         <Text style={styles.estadoDetalle}>
           {obtenerMensajeSecundario(estado)}
         </Text>
-      </View>
+      </Card>
     );
   };
 
@@ -197,7 +198,7 @@ export default function CuentaEnRevisionScreen() {
     const nombre = estadoProveedor?.nombre || 'Tu negocio';
     
     return (
-      <View style={styles.infoCard}>
+      <Card elevated padding="host" style={styles.infoCard}>
         <View style={styles.infoHeader}>
           <InstitutionalIcon 
             name={tipoProveedor === 'taller' ? 'business-outline' : 'person-outline'} 
@@ -225,7 +226,7 @@ export default function CuentaEnRevisionScreen() {
             {estadoProveedor?.onboarding_completado ? 'Completado' : 'Pendiente'}
           </Text>
         </View>
-      </View>
+      </Card>
     );
   };
 
@@ -237,7 +238,7 @@ export default function CuentaEnRevisionScreen() {
     const docColor = documentosEnProceso ? I.semanticUp : institutionalStatusColors('warning').icon;
 
     return (
-      <View style={styles.documentosCard}>
+      <Card elevated padding="host" style={styles.documentosCard}>
         <View style={styles.documentosHeader}>
           <InstitutionalIcon 
             name="document-text-outline" 
@@ -273,7 +274,7 @@ export default function CuentaEnRevisionScreen() {
             style={{ alignSelf: 'stretch' }}
           />
         )}
-      </View>
+      </Card>
     );
   };
 
@@ -336,14 +337,14 @@ export default function CuentaEnRevisionScreen() {
         {renderDocumentosStatus()}
         {renderAcciones()}
 
-        <View style={styles.ayudaContainer}>
+        <Card elevated padding="host" style={styles.ayudaContainer}>
           <InstitutionalIcon name="help-circle-outline" size={24} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.ayudaTitulo}>¿Necesitas ayuda?</Text>
           <Text style={styles.ayudaTexto}>
             Si tienes preguntas sobre el proceso de verificación o necesitas actualizar tu información, 
             contáctanos a través de nuestro soporte técnico.
           </Text>
-        </View>
+        </Card>
     </OnboardingScreenLayout>
   );
 }
@@ -365,18 +366,8 @@ const styles = StyleSheet.create({
     color: I.body,
   },
   estadoCard: {
-    backgroundColor: I.canvas,
-    borderRadius: 12,
-    padding: 20,
     marginBottom: 20,
     borderLeftWidth: 4,
-    ...platformShadow({
-      shadowColor: I.ink,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 2,
-    }),
   },
   estadoHeader: {
     flexDirection: 'row',
@@ -408,17 +399,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   infoCard: {
-    backgroundColor: I.canvas,
-    borderRadius: 12,
-    padding: 20,
     marginBottom: 20,
-    ...platformShadow({
-      shadowColor: I.ink,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 2,
-    }),
   },
   infoHeader: {
     flexDirection: 'row',
@@ -447,17 +428,7 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
   documentosCard: {
-    backgroundColor: I.canvas,
-    borderRadius: 12,
-    padding: 20,
     marginBottom: 20,
-    ...platformShadow({
-      shadowColor: I.ink,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 2,
-    }),
   },
   documentosHeader: {
     flexDirection: 'row',
@@ -504,17 +475,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   ayudaContainer: {
-    backgroundColor: I.canvas,
-    padding: 20,
-    borderRadius: 12,
     alignItems: 'center',
-    ...platformShadow({
-      shadowColor: I.ink,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 2,
-    }),
   },
   ayudaTitulo: {
     fontSize: 16,

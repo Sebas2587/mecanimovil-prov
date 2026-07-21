@@ -13,6 +13,7 @@ import { subscribeWebPush, type WebPushStatus } from '@/services/push/webPushSer
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { showAlert } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const warningInk = institutionalStatusColors('warning').ink;
@@ -50,8 +51,31 @@ export function WebPushSettingsRow({ showTopBorder = false }: Props) {
     if (denied || activating) return;
     setActivating(true);
     try {
-      await subscribeWebPush();
+      const ok = await subscribeWebPush();
       await refresh();
+      if (ok) {
+        showAlert(
+          'Alertas activadas',
+          'Este navegador recibirá notificaciones de solicitudes, mensajes y checklists.',
+        );
+        return;
+      }
+      const permission =
+        typeof Notification !== 'undefined' ? Notification.permission : 'default';
+      if (permission === 'denied') {
+        showAlert(
+          'Permiso bloqueado',
+          'El navegador bloqueó las notificaciones. Ábrelas en el candado / Ajustes del sitio y vuelve a intentar.',
+        );
+        return;
+      }
+      showAlert(
+        'No se pudo activar',
+        'Revisa que el sitio use HTTPS, que el Service Worker esté disponible y que VAPID esté configurado en el backend. Si el problema continúa, prueba en Chrome o recarga la página.',
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error inesperado al activar alertas.';
+      showAlert('Error', message);
     } finally {
       setActivating(false);
     }

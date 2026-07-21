@@ -10,6 +10,7 @@ import {
 import { LineChart } from 'react-native-gifted-charts';
 import { TrendingUp } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { useGananciasSerieQuery } from '@/hooks/useGananciasSerieQuery';
 import type { GananciasSerieGranularidad, GananciasSeriePunto } from '@/services/kpisProveedorService';
 
@@ -28,23 +29,30 @@ const INITIAL_SPACING = 8;
 const END_SPACING = 16;
 const SCROLL_SPACING = 12;
 const LINE_COLOR_APP = I.primary;
-/** Segunda serie — contraste frente a la línea azul (referencia Figma) */
-const LINE_COLOR_PERSONAL = COLORS.brand.magenta;
+/** Segunda serie — naranja Tinder vs magenta brand */
+const LINE_COLOR_PERSONAL = COLORS.brand.orange;
 const CHART_RULES_COLOR = 'rgba(228,228,228,0.2)';
 const LINE_THICKNESS = 2.5;
 
 type Props = {
   mecanicoId?: number | null;
   enabled?: boolean;
+  /** Alinea la ventana con el selector 7d/30d/90d de rendimiento. */
+  dias?: number | null;
+  /** Por defecto órdenes completadas (flujo taller). */
+  metrica?: 'ingresos' | 'ordenes';
 };
 
-const fmt = (v: number) =>
+const fmtMoney = (v: number) =>
   new Intl.NumberFormat('es-CL', {
     style: 'currency',
     currency: 'CLP',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(v);
+
+const fmtOrders = (v: number) =>
+  new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 }).format(v);
 
 function formatClave(clave: string, granularidad: GananciasSerieGranularidad): string {
   const d = new Date(`${clave}T12:00:00`);
@@ -69,12 +77,21 @@ function buildSeriesPoints(
   }));
 }
 
-export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }: Props) {
+export function FacturacionComparisonChart({
+  mecanicoId = null,
+  enabled = true,
+  dias = null,
+  metrica = 'ordenes',
+}: Props) {
   const [granularidad, setGranularidad] = useState<GananciasSerieGranularidad>('dia');
   const [chartViewportWidth, setChartViewportWidth] = useState(0);
+  const isOrdenes = metrica === 'ordenes';
+  const fmtValue = isOrdenes ? fmtOrders : fmtMoney;
   const { data, loading, error } = useGananciasSerieQuery(granularidad, {
     mecanicoId,
     enabled,
+    metrica,
+    dias,
   });
 
   const onChartLayout = useCallback((event: LayoutChangeEvent) => {
@@ -137,50 +154,62 @@ export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }
       return (
         <View style={styles.pointerLabel}>
           <Text style={styles.pointerLabelTitle}>{title}</Text>
-          <Text style={[styles.pointerValue, { color: LINE_COLOR_APP }]}>App {fmt(mkt)}</Text>
-          <Text style={[styles.pointerValue, { color: LINE_COLOR_PERSONAL }]}>
-            Propias {fmt(personal)}
+          <Text style={[styles.pointerValue, { color: LINE_COLOR_APP }]}>
+            App {fmtValue(mkt)}
+            {isOrdenes ? ' ord.' : ''}
           </Text>
-          <Text style={styles.pointerTotal}>Total {fmt(mkt + personal)}</Text>
+          <Text style={[styles.pointerValue, { color: LINE_COLOR_PERSONAL }]}>
+            Propias {fmtValue(personal)}
+            {isOrdenes ? ' ord.' : ''}
+          </Text>
+          <Text style={styles.pointerTotal}>
+            Total {fmtValue(mkt + personal)}
+            {isOrdenes ? ' ord.' : ''}
+          </Text>
         </View>
       );
     },
-    [chartMetrics.puntos, granularidad],
+    [chartMetrics.puntos, granularidad, fmtValue, isOrdenes],
   );
 
-  const totalPeriodo = data?.totales_periodo.ganancias_total ?? 0;
+  const totalOrdenes =
+    (data?.totales_periodo.ordenes_mecanimovil ?? 0) +
+    (data?.totales_periodo.ordenes_agenda_personal ?? 0);
+  const totalPeriodo = isOrdenes
+    ? totalOrdenes
+    : (data?.totales_periodo.ganancias_total ?? 0);
+  const showEmptyState = chartMetrics.empty && totalPeriodo === 0;
 
   return (
-    <View style={styles.wrap}>
+    <Card elevated padding="host">
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Facturación</Text>
-        {!chartMetrics.empty && data?.pico_mayor ? (
+        <View style={styles.chipsRow}>
+          {GRANULARIDADES.map((g) => {
+            const active = granularidad === g.id;
+            return (
+              <TouchableOpacity
+                key={g.id}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => onSelectGranularidad(g.id)}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`Ver por ${g.label}`}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{g.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {!showEmptyState && data?.pico_mayor ? (
           <View style={[styles.deltaPill, { backgroundColor: `${I.semanticUp}18` }]}>
             <TrendingUp size={14} color={I.semanticUp} strokeWidth={2.25} />
             <Text style={[styles.deltaText, { color: I.semanticUp }]}>
-              Pico {fmt(data.pico_mayor.total)}
+              Pico {fmtValue(data.pico_mayor.total)}
+              {isOrdenes ? ' ord.' : ''}
             </Text>
           </View>
         ) : null}
-      </View>
-
-      <View style={styles.chipsRow}>
-        {GRANULARIDADES.map((g) => {
-          const active = granularidad === g.id;
-          return (
-            <TouchableOpacity
-              key={g.id}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => onSelectGranularidad(g.id)}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={`Ver por ${g.label}`}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{g.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
       </View>
 
       {loading && !data ? (
@@ -195,10 +224,14 @@ export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }
 
       {data ? (
         <>
-          <Text style={styles.heroAmount}>{fmt(totalPeriodo)}</Text>
+          <Text style={styles.heroAmount}>
+            {fmtValue(totalPeriodo)}
+            {isOrdenes ? ' órdenes' : ''}
+          </Text>
           <Text style={styles.heroSub}>
-            Total del periodo · App {fmt(data.totales_periodo.ganancias_mecanimovil)} · Propias{' '}
-            {fmt(data.totales_periodo.ganancias_agenda_personal)}
+            {isOrdenes
+              ? `Completadas · App ${fmtOrders(data.totales_periodo.ordenes_mecanimovil)} · Propias ${fmtOrders(data.totales_periodo.ordenes_agenda_personal)} · Ingresos ${fmtMoney(data.totales_periodo.ganancias_total)}`
+              : `Total del periodo · App ${fmtMoney(data.totales_periodo.ganancias_mecanimovil)} · Propias ${fmtMoney(data.totales_periodo.ganancias_agenda_personal)}`}
           </Text>
 
           <View style={styles.legendRow}>
@@ -213,9 +246,11 @@ export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }
           </View>
 
           <View style={styles.chartWell} onLayout={onChartLayout}>
-            {chartMetrics.empty ? (
+            {showEmptyState ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>Sin ingresos en este periodo</Text>
+                <Text style={styles.emptyTitle}>
+                  {isOrdenes ? 'Sin órdenes completadas' : 'Sin ingresos en este periodo'}
+                </Text>
                 <Text style={styles.emptyBody}>
                   Cuando completes órdenes de la app o cierres citas personales, verás la
                   comparativa aquí.
@@ -284,30 +319,42 @@ export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }
           </View>
 
           {data.pico_mayor || data.pico_menor ? (
-            <View style={styles.extremosRow}>
+            <View style={styles.extremosList}>
               {data.pico_mayor ? (
-                <View style={[styles.extremoCell, styles.extremoUp]}>
-                  <Text style={styles.extremoLabel}>Mayor ingreso</Text>
-                  <Text style={styles.extremoValue}>{fmt(data.pico_mayor.total)}</Text>
-                  <Text style={styles.extremoMeta}>
-                    {formatClave(data.pico_mayor.clave, granularidad)}
-                  </Text>
-                  <Text style={styles.extremoBreakdown}>
-                    App {fmt(data.pico_mayor.mecanimovil)} · Propias{' '}
-                    {fmt(data.pico_mayor.agenda_personal)}
+                <View style={[styles.extremoRow, !!data.pico_menor && styles.extremoRowBorder]}>
+                  <View style={styles.extremoLabelCol}>
+                    <Text style={styles.extremoLabel}>
+                      {isOrdenes ? 'Más actividad' : 'Mayor ingreso'}
+                    </Text>
+                    <Text style={styles.extremoMeta}>
+                      {formatClave(data.pico_mayor.clave, granularidad)}
+                      {' · '}
+                      App {fmtValue(data.pico_mayor.mecanimovil)} · Propias{' '}
+                      {fmtValue(data.pico_mayor.agenda_personal)}
+                    </Text>
+                  </View>
+                  <Text style={styles.extremoValue}>
+                    {fmtValue(data.pico_mayor.total)}
+                    {isOrdenes ? ' ord.' : ''}
                   </Text>
                 </View>
               ) : null}
               {data.pico_menor ? (
-                <View style={[styles.extremoCell, styles.extremoDown]}>
-                  <Text style={styles.extremoLabel}>Menor ingreso</Text>
-                  <Text style={styles.extremoValue}>{fmt(data.pico_menor.total)}</Text>
-                  <Text style={styles.extremoMeta}>
-                    {formatClave(data.pico_menor.clave, granularidad)}
-                  </Text>
-                  <Text style={styles.extremoBreakdown}>
-                    App {fmt(data.pico_menor.mecanimovil)} · Propias{' '}
-                    {fmt(data.pico_menor.agenda_personal)}
+                <View style={styles.extremoRow}>
+                  <View style={styles.extremoLabelCol}>
+                    <Text style={styles.extremoLabel}>
+                      {isOrdenes ? 'Menos actividad' : 'Menor ingreso'}
+                    </Text>
+                    <Text style={styles.extremoMeta}>
+                      {formatClave(data.pico_menor.clave, granularidad)}
+                      {' · '}
+                      App {fmtValue(data.pico_menor.mecanimovil)} · Propias{' '}
+                      {fmtValue(data.pico_menor.agenda_personal)}
+                    </Text>
+                  </View>
+                  <Text style={styles.extremoValue}>
+                    {fmtValue(data.pico_menor.total)}
+                    {isOrdenes ? ' ord.' : ''}
                   </Text>
                 </View>
               ) : null}
@@ -315,31 +362,18 @@ export function FacturacionComparisonChart({ mecanicoId = null, enabled = true }
           ) : null}
         </>
       ) : null}
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.md,
-  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: SPACING.fixed.sm,
     marginBottom: SPACING.fixed.sm,
-  },
-  title: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansSemiBold,
-    color: I.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    flexWrap: 'wrap',
   },
   deltaPill: {
     flexDirection: 'row',
@@ -347,7 +381,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: SPACING.fixed.sm,
     paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
   },
   deltaText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
@@ -356,18 +390,18 @@ const styles = StyleSheet.create({
   chipsRow: {
     flexDirection: 'row',
     gap: SPACING.fixed.xs,
-    marginBottom: SPACING.fixed.sm,
+    flexShrink: 1,
   },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.surfaceStrong,
+    borderRadius: BORDERS.radius.sm,
+    backgroundColor: I.surfaceSoft,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
   },
   chipActive: {
-    backgroundColor: I.primary,
+    backgroundColor: COLORS.selection.background,
     borderColor: I.primary,
   },
   chipText: {
@@ -376,7 +410,7 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   chipTextActive: {
-    color: I.onPrimary,
+    color: COLORS.selection.text,
   },
   loaderWrap: {
     minHeight: 120,
@@ -390,18 +424,18 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.sm,
   },
   heroAmount: {
-    fontSize: TYPOGRAPHY.fontSize['2xl'],
+    fontSize: TYPOGRAPHY.fontSize['3xl'],
     fontFamily: FF.monoMedium,
     color: I.ink,
-    letterSpacing: -0.5,
+    letterSpacing: TYPOGRAPHY.letterSpacing.tight,
   },
   heroSub: {
-    marginTop: 2,
+    marginTop: 4,
     marginBottom: SPACING.fixed.sm,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.regular,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
     color: I.muted,
-    lineHeight: 16,
+    lineHeight: 18,
   },
   legendRow: {
     flexDirection: 'row',
@@ -425,12 +459,10 @@ const styles = StyleSheet.create({
     color: I.body,
   },
   chartWell: {
-    borderRadius: 20,
-    backgroundColor: I.canvas,
+    backgroundColor: 'transparent',
     overflow: 'visible',
-    paddingTop: SPACING.fixed.lg,
-    paddingBottom: SPACING.fixed.md,
-    paddingHorizontal: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.sm,
     width: '100%',
   },
   chartScrollWrap: {
@@ -496,50 +528,43 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
     color: I.onPrimary,
   },
-  extremosRow: {
-    flexDirection: 'row',
-    gap: SPACING.fixed.sm,
+  extremosList: {
     marginTop: SPACING.fixed.sm,
-    paddingTop: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.xs,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
   },
-  extremoCell: {
+  extremoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.md,
+    paddingVertical: 14,
+  },
+  extremoRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+  },
+  extremoLabelCol: {
     flex: 1,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.fixed.sm,
     minWidth: 0,
-  },
-  extremoUp: {
-    backgroundColor: `${I.primary}12`,
-  },
-  extremoDown: {
-    backgroundColor: `${LINE_COLOR_PERSONAL}18`,
+    gap: 2,
   },
   extremoLabel: {
-    fontSize: 10,
-    fontFamily: FF.sansSemiBold,
-    color: I.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  extremoValue: {
-    marginTop: 2,
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.monoMedium,
+    fontFamily: FF.sansMedium,
     color: I.ink,
   },
-  extremoMeta: {
-    marginTop: 2,
-    fontSize: 10,
-    fontFamily: FF.regular,
-    color: I.body,
-    textTransform: 'capitalize',
-  },
-  extremoBreakdown: {
-    marginTop: 4,
-    fontSize: 10,
+  extremoValue: {
+    fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.monoMedium,
+    color: I.ink,
+    textAlign: 'right',
+  },
+  extremoMeta: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansRegular,
     color: I.muted,
+    lineHeight: 16,
   },
 });

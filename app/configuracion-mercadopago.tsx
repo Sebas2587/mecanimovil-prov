@@ -16,8 +16,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import mercadoPagoProveedorService, {
   type CuentaMercadoPagoProveedor,
   type EstadisticasPagosMP,
@@ -63,7 +68,8 @@ export default function ConfiguracionMercadoPagoScreen() {
   const neutralGray100 = I.surfaceSoft;
 
   // Color de Mercado Pago (marca externa — aproximado con tokens)
-  const mpBlue = COLORS.base.freshSky;
+  /** Marca Mercado Pago (externa) — no es brand Tinder. */
+  const mpBlue = '#009EE3';
   const mpBlueLight = COLORS.info.light;
 
   // Cargar datos
@@ -388,7 +394,9 @@ export default function ConfiguracionMercadoPagoScreen() {
     const estadoStyles = getEstadoStyles(cuenta.estado);
 
     return (
-      <View style={[styles.card, { backgroundColor: bgPaper, borderColor: borderLight }, SHADOWS.editorial]}>
+      <>
+      <HostSectionKicker label="Estado de la cuenta" />
+      <Card elevated padding={0}>
         <View style={styles.estadoHeader}>
           <View style={[styles.estadoIconPlate, { backgroundColor: I.surfaceStrong }]}>
             <InstitutionalIcon
@@ -514,7 +522,8 @@ export default function ConfiguracionMercadoPagoScreen() {
             </TouchableOpacity>
           ) : null}
         </View>
-      </View>
+      </Card>
+      </>
     );
   };
 
@@ -531,34 +540,26 @@ export default function ConfiguracionMercadoPagoScreen() {
       console.log('⚠️ Estadísticas no disponibles, mostrando valores por defecto');
       // Mostrar card con valores en 0 para indicar que no hay datos
       return (
-        <View style={[styles.card, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-          <View style={styles.cardHeader}>
-            <InstitutionalIcon name="bar-chart" size={24} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[styles.cardTitle, { color: textPrimary }]}>
-              Estadísticas de Pagos
-            </Text>
-          </View>
-          <View style={styles.emptyHistorial}>
-            <InstitutionalIcon name="info" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[styles.emptyHistorialTexto, { color: textSecondary }]}>
-              Cargando estadísticas...
-            </Text>
-          </View>
-        </View>
+        <>
+          <HostSectionKicker label="Estadísticas de pagos" />
+          <Card elevated padding={0}>
+            <View style={styles.emptyHistorial}>
+              <InstitutionalIcon name="info" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={[styles.emptyHistorialTexto, { color: textSecondary }]}>
+                Cargando estadísticas...
+              </Text>
+            </View>
+          </Card>
+        </>
       );
     }
 
     console.log('📊 Renderizando estadísticas:', estadisticas);
 
     return (
-      <View style={[styles.card, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-        <View style={styles.cardHeader}>
-          <InstitutionalIcon name="bar-chart" size={24} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={[styles.cardTitle, { color: textPrimary }]}>
-            Estadísticas de Pagos
-          </Text>
-        </View>
-
+      <>
+      <HostSectionKicker label="Estadísticas de pagos" />
+      <Card elevated padding={0}>
         <View style={styles.statsGrid}>
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: success500 }]}>
@@ -609,7 +610,8 @@ export default function ConfiguracionMercadoPagoScreen() {
             </Text>
           </View>
         )}
-      </View>
+      </Card>
+      </>
     );
   };
 
@@ -681,20 +683,16 @@ export default function ConfiguracionMercadoPagoScreen() {
     console.log('📋 Renderizando historial. Total pagos:', historialPagos.length);
 
     return (
-      <View style={[styles.card, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-        <View style={styles.cardHeader}>
-          <InstitutionalIcon name="receipt-long" size={24} color={mpBlue}  strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={[styles.cardTitle, { color: textPrimary }]}>
-            Pagos Recibidos
-          </Text>
-          {historialPagos.length > 0 && (
-            <View style={[styles.countBadge, { backgroundColor: mpBlueLight }]}>
-              <Text style={[styles.countBadgeText, { color: mpBlue }]}>
-                {historialPagos.length}
-              </Text>
-            </View>
-          )}
-        </View>
+      <>
+      <HostSectionKicker label="Pagos recibidos" />
+      <Card elevated padding={0}>
+        {historialPagos.length > 0 ? (
+          <View style={[styles.countBadgeRow, { backgroundColor: mpBlueLight }]}>
+            <Text style={[styles.countBadgeText, { color: mpBlue }]}>
+              {historialPagos.length} pagos
+            </Text>
+          </View>
+        ) : null}
 
         {historialPagos.length === 0 ? (
           <View style={styles.emptyHistorial}>
@@ -738,20 +736,16 @@ export default function ConfiguracionMercadoPagoScreen() {
             )}
           </View>
         )}
-      </View>
+      </Card>
+      </>
     );
   };
 
   // Renderizar información sobre Mercado Pago
   const renderInfoMercadoPago = () => (
-    <View style={[styles.card, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-      <View style={styles.cardHeader}>
-        <InstitutionalIcon name="info-outline" size={24} color={mpBlue}  strokeWidth={ICON_STROKE_WIDTH} />
-        <Text style={[styles.cardTitle, { color: textPrimary }]}>
-          ¿Por qué conectar Mercado Pago?
-        </Text>
-      </View>
-
+    <>
+    <HostSectionKicker label="¿Por qué conectar Mercado Pago?" />
+    <Card elevated padding={0}>
       <View style={styles.beneficiosList}>
         <View style={styles.beneficioItem}>
           <View style={[styles.beneficioIcon, { backgroundColor: successLight }]}>
@@ -795,7 +789,8 @@ export default function ConfiguracionMercadoPagoScreen() {
           </View>
         </View>
       </View>
-    </View>
+    </Card>
+    </>
   );
 
   // Función segura para volver atrás
@@ -838,8 +833,11 @@ export default function ConfiguracionMercadoPagoScreen() {
       />
 
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        style={hostScreenStyles.scroll}
+        contentContainerStyle={[
+          hostScreenStyles.scrollInner,
+          { paddingBottom: SPACING?.xl || 32, gap: SPACING?.sm || 8 },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -851,7 +849,7 @@ export default function ConfiguracionMercadoPagoScreen() {
         showsVerticalScrollIndicator={false}
       >
         {error && (
-          <View style={[styles.errorCard, { backgroundColor: I.surfaceSoft, borderColor: borderLight }]}>
+          <Card elevated padding="host" style={styles.errorCard}>
             <View style={[styles.errorIconPlate, { backgroundColor: I.surfaceStrong }]}>
               <InstitutionalIcon name="error-outline" size={18} color={error500} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
@@ -859,15 +857,13 @@ export default function ConfiguracionMercadoPagoScreen() {
             <TouchableOpacity onPress={() => cargarDatos()}>
               <Text style={[styles.errorRetry, { color: primary500 }]}>Reintentar</Text>
             </TouchableOpacity>
-          </View>
+          </Card>
         )}
 
         {renderEstadoCuenta()}
         {renderEstadisticas()}
         {renderHistorialPagos()}
         {renderInfoMercadoPago()}
-
-        <View style={styles.bottomSpacing} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -895,15 +891,6 @@ const getEstadoDisplayText = (estado: EstadoCuentaMP): string => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: SPACING?.md || 16,
-    paddingBottom: SPACING?.xl || 32,
-    gap: SPACING?.md || 16,
   },
   loadingContainer: {
     flex: 1,
@@ -1108,9 +1095,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING?.sm || 8,
-    padding: SPACING?.md || 16,
-    borderRadius: BORDERS?.radius?.lg || 12,
-    borderWidth: 1,
+  },
+  countBadgeRow: {
+    paddingHorizontal: SPACING?.md || 16,
+    paddingVertical: SPACING?.sm || 8,
+    alignItems: 'flex-start',
   },
   errorIconPlate: {
     width: 36,
@@ -1134,13 +1123,6 @@ const styles = StyleSheet.create({
     height: SPACING?.xl || 32,
   },
   // Estilos para el historial de pagos (estilo lista clásica)
-  countBadge: {
-    paddingHorizontal: SPACING?.sm || 8,
-    paddingVertical: SPACING?.xs || 4,
-    borderRadius: BORDERS?.radius?.full || 9999,
-    minWidth: 28,
-    alignItems: 'center',
-  },
   countBadgeText: {
     fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
     fontFamily: TYPOGRAPHY.fontFamily.monoMedium,

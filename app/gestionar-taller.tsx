@@ -13,30 +13,29 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { perfilAPI } from '@/services/api';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Header from '@/components/Header';
-import { useTheme } from '@/app/design-system/theme/useTheme';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { COLORS, SPACING, withOpacity, SHADOWS, noShadow, platformShadow } from '@/app/design-system/tokens';
-import {
-  institutionalStatusColors,
-  institutionalCardStyles,
-} from '@/app/design-system/styles/institutionalSemantic';
+import { COLORS, SPACING } from '@/app/design-system/tokens';
+import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
-import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import {
+  Card,
+  HostPaperSection,
+  HostSectionKicker,
+  hostScreenStyles,
+  HOST_GUTTER,
+} from '@/app/design-system/components';
 
 const I = COLORS.institutional;
 const successStatus = institutionalStatusColors('success');
 const errorStatus = institutionalStatusColors('error');
 const warningStatus = institutionalStatusColors('warning');
-const primaryStatus = institutionalStatusColors('primary');
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -71,20 +70,13 @@ interface DireccionResultado {
 
 export default function GestionarTallerScreen() {
   const { estadoProveedor, refrescarEstadoProveedor } = useAuth();
-  const theme = useTheme();
   const insets = useSafeAreaInsets();
-  /** Mismo look que `app/(tabs)/index.tsx`: siempre claro (glass + gradiente), sin seguir system dark mode. */
   const primary500 = I.primary;
-  const gradientColors = [I.surfaceStrong, I.surfaceSoft, I.canvas] as const;
-  const gradientLocations = [0, 0.35, 1] as const;
-  const headerBg = I.surfaceStrong;
-  const blurTint = 'light' as const;
-  const blurIntensity = 60;
   const textPrimary = I.ink;
   const textMuted = I.body;
   const textSubtle = I.mutedSoft;
-  const inputBg = withOpacity(I.canvas, 0.82);
-  const inputBorder = withOpacity(I.ink, 0.08);
+  const inputBg = I.surfaceSoft;
+  const inputBorder = I.hairline;
   const validBg = successStatus.bg;
   const invalidBg = errorStatus.bg;
   const linkColor = I.primary;
@@ -815,15 +807,8 @@ export default function GestionarTallerScreen() {
 
   if (loading) {
     return (
-      <View style={styles.root}>
-        <LinearGradient
-          colors={[...gradientColors]}
-          locations={[...gradientLocations]}
-          style={StyleSheet.absoluteFillObject}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-        />
-        <SafeAreaView style={styles.safeTransparent} edges={['left', 'right', 'bottom']}>
+      <View style={[styles.root, { backgroundColor: I.canvas }]}>
+        <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
           <View style={styles.loadingContainer}>
             <LoadingSpinner />
             <Text style={[styles.loadingText, { color: textMuted }]}>Cargando datos del taller...</Text>
@@ -834,37 +819,25 @@ export default function GestionarTallerScreen() {
   }
 
   return (
-    <View style={styles.root}>
-      <LinearGradient
-        colors={[...gradientColors]}
-        locations={[...gradientLocations]}
-        style={StyleSheet.absoluteFillObject}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-      />
-      <SafeAreaView style={styles.safeTransparent} edges={['left', 'right', 'bottom']}>
+    <View style={[styles.root, { backgroundColor: I.canvas }]}>
+      <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
         <Header
           title="Gestionar Taller"
           showBack={true}
           onBackPress={() => router.back()}
-          backgroundColor={headerBg}
-          style={{ borderBottomWidth: 0, ...noShadow }}
         />
 
         <ScrollView
-          style={styles.scrollView}
+          style={hostScreenStyles.scroll}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingBottom: insets.bottom + 96,
-            paddingHorizontal: 20,
-            paddingTop: 8,
-          }}
+          contentContainerStyle={[
+            hostScreenStyles.scrollInner,
+            { paddingBottom: insets.bottom + 96 },
+          ]}
         >
           {/* Modalidad de atención */}
-          <View style={styles.glassOuter}>
-            <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
-            <View style={styles.glassInner}>
-              <InstitutionalSectionHeader title="Modalidad de atención" level="h4" style={styles.sectionHeaderWrap} />
+          <HostSectionKicker label="Modalidad de atención" />
+          <HostPaperSection>
               <Text style={[styles.sectionSubtitle, { color: textMuted }]}>
                 Elige cómo atiendes a tus clientes. Puedes cambiarlo cuando quieras.
               </Text>
@@ -902,16 +875,13 @@ export default function GestionarTallerScreen() {
                   </TouchableOpacity>
                 );
               })}
-            </View>
-          </View>
+          </HostPaperSection>
 
           {/* Accesos rápidos del taller */}
-          <View style={styles.glassOuter}>
-            <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
-            <View style={styles.glassInner}>
-              <InstitutionalSectionHeader title="Administración del taller" level="h4" style={styles.sectionHeaderWrap} />
+          <HostSectionKicker label="Administración del taller" />
+          <Card elevated padding={0}>
               <TouchableOpacity
-                style={[styles.quickLinkRow, { borderColor: inputBorder }]}
+                style={[styles.quickLinkRow, { borderColor: 'transparent' }]}
                 onPress={() => router.push('/gestion-equipo')}
                 activeOpacity={0.85}
               >
@@ -924,15 +894,11 @@ export default function GestionarTallerScreen() {
                 </View>
                 <InstitutionalIcon name="chevron-forward" size={20} color={textMuted} strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
-            </View>
-          </View>
+          </Card>
 
           {/* Información del Taller */}
-          <View style={styles.glassOuter}>
-            <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
-            <View style={styles.glassInner}>
-                <InstitutionalSectionHeader title="Información del Taller" level="h4" style={styles.sectionHeaderWrap} />
-
+          <HostSectionKicker label="Información del taller" />
+          <HostPaperSection>
                 <View style={styles.inputGroup}>
                   <Text style={[styles.inputLabel, { color: textPrimary }]}>Nombre del Taller *</Text>
                   <TextInput
@@ -972,14 +938,11 @@ export default function GestionarTallerScreen() {
                     textAlignVertical="top"
                   />
                 </View>
-            </View>
-          </View>
+          </HostPaperSection>
 
           {/* Dirección del Taller */}
-          <View style={styles.glassOuter}>
-            <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
-            <View style={styles.glassInner}>
-                <InstitutionalSectionHeader title="Ubicación del Taller" level="h4" style={styles.sectionHeaderWrap} />
+          <HostSectionKicker label="Ubicación del taller" />
+          <HostPaperSection>
                 <Text style={[styles.sectionSubtitle, { color: textMuted }]}>
                   {soloDomicilio
                     ? 'Como atiendes solo a domicilio, la dirección es opcional. Sirve como punto de referencia de tu zona.'
@@ -1103,44 +1066,11 @@ export default function GestionarTallerScreen() {
                     </View>
                   )}
                 </View>
-            </View>
-          </View>
-
-            {/* Campo de dirección manual para casos especiales */}
-            {/*<View style={styles.manualAddressContainer}>
-              <Text style={styles.manualAddressLabel}>¿No encuentras tu dirección?</Text>
-              <Text style={styles.manualAddressSubtitle}>
-                Si tu dirección no aparece en la búsqueda, puedes ingresarla manualmente para validación:
-              </Text>
-              <View style={styles.manualAddressInputContainer}>
-                <TextInput
-                  style={[styles.textInput, styles.manualAddressInput]}
-                  value={direccionManual}
-                  onChangeText={setDireccionManual}
-                  placeholder="Ingresa la dirección completa manualmente"
-                  placeholderTextColor=I.mutedSoft
-                  multiline
-                  numberOfLines={2}
-                />
-                <TouchableOpacity 
-                  style={styles.validateButton} 
-                  onPress={validarDireccionManual}
-                  disabled={!direccionManual.trim() || searching}
-                >
-                  {searching ? (
-                    <ActivityIndicator size="small" color={I.onPrimary} />
-                  ) : (
-                    <Text style={styles.validateButtonText}>Validar</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>*/}
+          </HostPaperSection>
 
         {/* Fotos del Taller */}
-        <View style={styles.glassOuter}>
-          <BlurView intensity={blurIntensity} tint={blurTint} style={StyleSheet.absoluteFillObject} />
-          <View style={styles.glassInner}>
-              <InstitutionalSectionHeader title="Fotos del Taller" level="h4" style={styles.sectionHeaderWrap} />
+        <HostSectionKicker label="Fotos del taller" />
+        <HostPaperSection>
               <Text style={[styles.sectionSubtitle, { color: textMuted }]}>
                 Agrega fotos de tu taller para que los clientes puedan conocer mejor tus instalaciones
               </Text>
@@ -1168,10 +1098,7 @@ export default function GestionarTallerScreen() {
                   ))}
                 </View>
               )}
-          </View>
-        </View>
-
-        {/* Espacio al final */}
+        </HostPaperSection>
       </ScrollView>
 
         <View
@@ -1179,8 +1106,8 @@ export default function GestionarTallerScreen() {
             styles.footerBar,
             {
               paddingBottom: Math.max(insets.bottom, 12),
-              backgroundColor: withOpacity(I.surfaceStrong, 0.97),
-              borderTopColor: withOpacity(I.ink, 0.08),
+              backgroundColor: I.canvas,
+              borderTopColor: I.hairline,
             },
           ]}
         >
@@ -1253,9 +1180,8 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  safeTransparent: {
+  safe: {
     flex: 1,
-    backgroundColor: 'transparent',
   },
   loadingContainer: {
     flex: 1,
@@ -1268,7 +1194,7 @@ const styles = StyleSheet.create({
   },
   footerBar: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 20,
+    paddingHorizontal: HOST_GUTTER,
     paddingTop: 12,
   },
   footerSaveButton: {
@@ -1294,30 +1220,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  scrollView: {
-    flex: 1,
-  },
-  glassOuter: {
-    position: 'relative',
-    marginBottom: 14,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.62)',
-    ...platformShadow({
-      shadowColor: I.ink,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.07,
-      shadowRadius: 10,
-      elevation: 4,
-    }),
-  },
-  glassInner: {
-    padding: 18,
-  },
-  sectionHeaderWrap: {
-    marginBottom: 14,
-  },
   sectionSubtitle: {
     fontSize: 14,
     marginBottom: 14,
@@ -1330,9 +1232,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderRadius: 12,
+    paddingHorizontal: SPACING.fixed.md,
+    borderWidth: 0,
     gap: 12,
   },
   quickLinkTextWrap: {

@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { Card } from '@/app/design-system/components';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { TarifaPorMarca } from '@/utils/tarifasPorMarca';
@@ -222,7 +223,7 @@ export function TarifaMarcaResumenCard({
     oferta.tipo_servicio === 'con_repuestos' ? 'Con repuestos' : 'Sin repuestos';
 
   return (
-    <View style={styles.resumenCard}>
+    <Card elevated padding="host" style={styles.resumenCard}>
       <View style={styles.resumenCardHeader}>
         <MarcaTarifaHeader tarifa={tarifa} oferta={oferta} size="lg" />
         <View style={styles.resumenHeaderBadges}>
@@ -303,7 +304,7 @@ export function TarifaMarcaResumenCard({
           ) : null}
         </View>
       ) : null}
-    </View>
+    </Card>
   );
 }
 
@@ -327,7 +328,6 @@ const styles = StyleSheet.create({
     borderColor: I.hairline,
     paddingVertical: SPACING.fixed.sm + 2,
     paddingHorizontal: SPACING.fixed.md,
-    ...SHADOWS.editorial,
   },
   celdaTarifaUna: {
     paddingVertical: SPACING.fixed.md,
@@ -503,13 +503,7 @@ const styles = StyleSheet.create({
     color: I.semanticUp,
   },
   resumenCard: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.md,
     marginBottom: SPACING.fixed.md,
-    ...SHADOWS.editorial,
   },
   resumenCardHeader: {
     flexDirection: 'row',

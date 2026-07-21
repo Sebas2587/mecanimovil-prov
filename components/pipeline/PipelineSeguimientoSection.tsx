@@ -35,6 +35,12 @@ import { BottomSheet } from '@/app/design-system/components/BottomSheet';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import {
+  Card,
+  HostSectionKicker,
+  HOST_GUTTER,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import { AsignarTecnicoBottomSheet, type AsignarTecnicoTarget } from '@/components/equipo/AsignarTecnicoBottomSheet';
 import { ConfirmarHorarioCitaSheet } from '@/components/agenda/ConfirmarHorarioCitaSheet';
 import {
@@ -42,7 +48,7 @@ import {
   ESTADO_OPERATIVO_VARIANT,
   mapPipelineEstadoToOperativo,
 } from '@/utils/estadoOperativo';
-import { COLORS, SPACING, BORDERS, TYPOGRAPHY, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, BORDERS, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
@@ -148,12 +154,11 @@ const LeadCard = React.memo(function LeadCard({
   const vehiculo = item.vehiculo_resumen?.trim();
 
   return (
-    <TouchableOpacity
+    <Card
+      elevated
+      padding="host"
       style={styles.leadCard}
       onPress={handlePress}
-      activeOpacity={0.88}
-      accessibilityRole="button"
-      accessibilityLabel={`Gestionar ${item.cliente_nombre}`}
     >
       <View style={styles.cardTop}>
         {item.esperando_respuesta_24h ? (
@@ -198,7 +203,7 @@ const LeadCard = React.memo(function LeadCard({
         {tiempo ? <Text style={styles.cardTime}>{tiempo}</Text> : null}
         <ChevronRight size={18} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
-    </TouchableOpacity>
+    </Card>
   );
 });
 
@@ -486,8 +491,8 @@ export function PipelineSeguimientoSection({
     <View style={styles.headerBlock}>
       {!hideTitle ? (
         <View style={styles.sectionHeader}>
-          <View>
-            <InstitutionalText role="h5">Bandeja</InstitutionalText>
+          <View style={styles.titleBlock}>
+            <HostSectionKicker label="Bandeja" />
             <InstitutionalText role="caption" color="muted">
               Solicitudes y cotizaciones del taller
             </InstitutionalText>
@@ -508,41 +513,44 @@ export function PipelineSeguimientoSection({
       ) : null}
 
       {filtroEsperando24h ? (
-        <View style={styles.noticeRow}>
-          <View style={styles.noticeCopy}>
-            <InstitutionalText role="captionBold" color="ink">
-              Sin respuesta +24h
-            </InstitutionalText>
-            <InstitutionalText role="caption" color="muted">
-              Cotizaciones esperando al cliente
-            </InstitutionalText>
+        <Card elevated padding="host" style={styles.noticeCard}>
+          <View style={styles.noticeRow}>
+            <View style={styles.noticeCopy}>
+              <InstitutionalText role="captionBold" color="ink">
+                Sin respuesta +24h
+              </InstitutionalText>
+              <InstitutionalText role="caption" color="muted">
+                Cotizaciones esperando al cliente
+              </InstitutionalText>
+            </View>
+            <TouchableOpacity onPress={() => router.replace('/(tabs)/bandeja')} hitSlop={8}>
+              <InstitutionalText role="captionBold" color="primary">
+                Ver todas
+              </InstitutionalText>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={() => router.replace('/(tabs)/bandeja')} hitSlop={8}>
-            <InstitutionalText role="captionBold" color="primary">
-              Ver todas
-            </InstitutionalText>
-          </TouchableOpacity>
-        </View>
+        </Card>
       ) : null}
 
       {!compact && !filtroEsperando24h && esperando24h > 0 ? (
-        <TouchableOpacity
-          style={styles.noticeRow}
+        <Card
+          elevated
+          padding="host"
+          style={styles.noticeCard}
           onPress={() => router.push('/(tabs)/bandeja?filtro=esperando_24h')}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel={`${esperando24h} cotizaciones sin respuesta hace más de 24 horas`}
         >
-          <View style={styles.noticeCopy}>
-            <InstitutionalText role="captionBold" color="ink">
-              {esperando24h} sin respuesta +24h
-            </InstitutionalText>
-            <InstitutionalText role="caption" color="muted">
-              Revisar cotizaciones pendientes
-            </InstitutionalText>
+          <View style={styles.noticeRow}>
+            <View style={styles.noticeCopy}>
+              <InstitutionalText role="captionBold" color="ink">
+                {esperando24h} sin respuesta +24h
+              </InstitutionalText>
+              <InstitutionalText role="caption" color="muted">
+                Revisar cotizaciones pendientes
+              </InstitutionalText>
+            </View>
+            <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
-          <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-        </TouchableOpacity>
+        </Card>
       ) : null}
 
       {!filtroEsperando24h ? (
@@ -603,17 +611,20 @@ export function PipelineSeguimientoSection({
 
   return (
     <View style={[styles.section, !compact && styles.sectionFill]}>
-      {listHeader}
+      <View style={!compact ? hostScreenStyles.gutterX : undefined}>
+        {listHeader}
+      </View>
       <FlatList
         data={items}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         scrollEnabled={!compact}
         nestedScrollEnabled={compact}
-        style={!compact ? styles.listFill : undefined}
+        style={!compact ? hostScreenStyles.scroll : undefined}
         refreshControl={refreshControl}
         contentContainerStyle={[
           styles.listContentPad,
+          !compact && { paddingHorizontal: HOST_GUTTER },
           items.length === 0 && styles.listContentEmpty,
         ]}
         ListEmptyComponent={
@@ -831,23 +842,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: SPACING.fixed.sm,
   },
+  titleBlock: { flex: 1, minWidth: 0 },
   headerLink: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    paddingTop: 4,
+    paddingTop: SPACING.fixed.md,
   },
+  noticeCard: {},
   noticeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: SPACING.fixed.sm,
-    backgroundColor: COLORS.background.paper,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.sm + 2,
   },
   noticeCopy: {
     flex: 1,
@@ -960,7 +967,6 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.sm,
     paddingBottom: SPACING.fixed.sm,
   },
-  listFill: { flex: 1 },
   listContentPad: {
     paddingBottom: SPACING.fixed['2xl'],
     gap: SPACING.fixed.sm,
@@ -970,13 +976,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   leadCard: {
-    backgroundColor: COLORS.background.paper,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.md,
     gap: SPACING.fixed.sm,
-    ...SHADOWS.editorial,
   },
   cardTop: {
     flexDirection: 'row',

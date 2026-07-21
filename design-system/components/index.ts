@@ -12,10 +12,19 @@ export {
   type InstitutionalSectionHeaderProps,
 } from './InstitutionalSectionHeader';
 
-export { Card, type CardProps } from './Card';
+export { Card, BaseCard, type CardProps, type CardPadding } from './Card';
+export {
+  HostSectionKicker,
+  HostPaperSection,
+  HostMetricRow,
+  HostProgressRow,
+  type HostMetricRowProps,
+  type HostProgressRowProps,
+} from './HostSurfaces';
 export { AppHeader, type AppHeaderProps } from './AppHeader';
 export { BottomSheet, type BottomSheetProps } from './BottomSheet';
 export { PrimaryGradientFill } from './PrimaryGradientFill';
+export { HOST_GUTTER, hostScreenStyles } from '../styles/hostLayout';
 
 export { INSTITUTIONAL_SELECTION, institutionalSelectionStyles } from '../styles/institutionalSelection';
 export {

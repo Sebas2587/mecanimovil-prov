@@ -14,23 +14,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useFocusEffect } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   MessageCircle,
   Link2,
   Unlink,
 } from 'lucide-react-native';
 import { ChannelBrandIcon } from '@/components/chats/ChannelBrandIcon';
-import { COLORS, SPACING, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import {
+  Card,
+  HostPaperSection,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import Header from '@/components/Header';
 import omnichannelService, {
   type CanalSlug,
   type ConexionCanal,
 } from '@/services/omnichannelService';
 import { useMetaChannelConnect } from '@/hooks/useMetaChannelConnect';
-import { BLANK_GLASS } from '@/app/design-system/blankGlass';
 
 const I = COLORS.institutional;
 
@@ -206,74 +210,69 @@ export default function ConfiguracionCanalesScreen() {
     const puedeConectar = !conectada && featureEnabled;
 
     return (
-      <View key={cfg.slug} style={styles.card}>
-        <View style={styles.cardHeader}>
-          <ChannelBrandIcon channel={cfg.slug} size={40} />
-          <View style={styles.cardTitleBlock}>
-            <InstitutionalText role="h4" color="ink" style={styles.cardTitle}>
-              {cfg.title}
-            </InstitutionalText>
-            <InstitutionalText role="caption" color="muted" style={styles.cardStatus}>
-              {conn?.status_display || 'Sin configurar'}
-              {conn?.display_identifier ? ` · ${conn.display_identifier}` : ''}
-            </InstitutionalText>
+      <View key={cfg.slug}>
+        <HostSectionKicker label={cfg.title} />
+        <HostPaperSection style={styles.canalCard}>
+          <View style={styles.cardHeader}>
+            <ChannelBrandIcon channel={cfg.slug} size={40} />
+            <View style={styles.cardTitleBlock}>
+              <InstitutionalText role="caption" color="muted" style={styles.cardStatus}>
+                {conn?.status_display || 'Sin configurar'}
+                {conn?.display_identifier ? ` · ${conn.display_identifier}` : ''}
+              </InstitutionalText>
+            </View>
+            {conectada && conn ? (
+              <Switch
+                value={conn.enabled}
+                onValueChange={(v) => handleToggle(conn, v)}
+                trackColor={{ false: I.hairline, true: I.primary }}
+              />
+            ) : null}
           </View>
-          {conectada && conn ? (
-            <Switch
-              value={conn.enabled}
-              onValueChange={(v) => handleToggle(conn, v)}
-              trackColor={{ false: I.hairline, true: I.primary }}
-            />
-          ) : null}
-        </View>
-        <InstitutionalText role="caption" color="muted" style={styles.hint}>
-          {cfg.hint}
-        </InstitutionalText>
-        {conn?.mensaje_estado ? (
-          <InstitutionalText role="caption" color="body" style={styles.msgEstado}>
-            {mensajeEstadoParaUsuario(conn.mensaje_estado)}
+          <InstitutionalText role="caption" color="muted" style={styles.hint}>
+            {cfg.hint}
           </InstitutionalText>
-        ) : null}
-        <View style={styles.actions}>
-          {puedeConectar ? (
-            <TouchableOpacity
-              style={styles.btnPrimary}
-              onPress={() => handleConectar(cfg.slug)}
-              disabled={isConnecting}
-            >
-              {isConnecting ? (
-                <ActivityIndicator color={I.onPrimary} />
-              ) : (
-                <>
-                  <Link2 size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                  <InstitutionalText role="button" color="onPrimary">
-                    {conn?.status === 'pendiente' || conn?.status === 'error' ? 'Reintentar' : 'Conectar'}
-                  </InstitutionalText>
-                </>
-              )}
-            </TouchableOpacity>
+          {conn?.mensaje_estado ? (
+            <InstitutionalText role="caption" color="body" style={styles.msgEstado}>
+              {mensajeEstadoParaUsuario(conn.mensaje_estado)}
+            </InstitutionalText>
           ) : null}
-          {conn && (conectada || conn.status === 'pendiente' || conn.status === 'error') ? (
-            <TouchableOpacity
-              style={styles.btnSecondary}
-              onPress={() => conn && handleDesconectar(conn)}
-            >
-              <Unlink size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-              <InstitutionalText role="button" color="primary">Desconectar</InstitutionalText>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+          <View style={styles.actions}>
+            {puedeConectar ? (
+              <TouchableOpacity
+                style={styles.btnPrimary}
+                onPress={() => handleConectar(cfg.slug)}
+                disabled={isConnecting}
+              >
+                {isConnecting ? (
+                  <ActivityIndicator color={I.onPrimary} />
+                ) : (
+                  <>
+                    <Link2 size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <InstitutionalText role="button" color="onPrimary">
+                      {conn?.status === 'pendiente' || conn?.status === 'error' ? 'Reintentar' : 'Conectar'}
+                    </InstitutionalText>
+                  </>
+                )}
+              </TouchableOpacity>
+            ) : null}
+            {conn && (conectada || conn.status === 'pendiente' || conn.status === 'error') ? (
+              <TouchableOpacity
+                style={styles.btnSecondary}
+                onPress={() => conn && handleDesconectar(conn)}
+              >
+                <Unlink size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalText role="button" color="primary">Desconectar</InstitutionalText>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </HostPaperSection>
       </View>
     );
   };
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <LinearGradient
-        style={StyleSheet.absoluteFill}
-        colors={BLANK_GLASS.gradient}
-        locations={BLANK_GLASS.gradientLocations}
-      />
       <Stack.Screen options={{ headerShown: false }} />
       <Header title="Canales de mensajería" showBack onBackPress={() => router.back()} />
 
@@ -283,18 +282,19 @@ export default function ConfiguracionCanalesScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          style={hostScreenStyles.scroll}
+          contentContainerStyle={[hostScreenStyles.scrollInner, { paddingBottom: SPACING['2xl'] }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); cargar(true); }} />
           }
         >
           {!featureEnabled ? (
-            <View style={styles.banner}>
+            <Card elevated padding="host" style={styles.banner}>
               <MessageCircle size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               <InstitutionalText role="caption" color="body" style={styles.bannerText}>
                 La mensajería omnicanal aún no está activa en el servidor. Contacta a soporte Mecanimovil.
               </InstitutionalText>
-            </View>
+            </Card>
           ) : null}
 
           <InstitutionalText role="body" color="body" style={styles.intro}>
@@ -312,28 +312,16 @@ export default function ConfiguracionCanalesScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: I.canvas },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scroll: { padding: SPACING.lg, paddingBottom: SPACING.xxxl },
-  intro: { marginBottom: SPACING.lg },
+  intro: { marginBottom: SPACING.sm, marginTop: SPACING.xs },
   banner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: SPACING.sm,
-    backgroundColor: I.surfaceSoft,
-    padding: SPACING.md,
-    borderRadius: BORDERS.radius.lg,
-    marginBottom: SPACING.lg,
-    borderWidth: 1,
-    borderColor: I.hairline,
+    marginBottom: SPACING.sm,
   },
   bannerText: { flex: 1 },
-  card: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
-    borderWidth: 1,
-    borderColor: I.hairline,
-    ...SHADOWS.sm,
+  canalCard: {
+    marginBottom: SPACING.xs,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -342,7 +330,6 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   cardTitleBlock: { flex: 1, minWidth: 0, gap: SPACING.xs },
-  cardTitle: {},
   cardStatus: {},
   hint: { marginBottom: SPACING.sm },
   msgEstado: { marginBottom: SPACING.sm },

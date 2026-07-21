@@ -18,10 +18,14 @@ import { useTheme } from '@/app/design-system/theme/useTheme';
 import {COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS} from '@/app/design-system/tokens';
 import {
   institutionalStatusColors,
-  institutionalCardStyles,
 } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
-import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
+import {
+  Card,
+  HostSectionKicker,
+  hostScreenStyles,
+  HOST_GUTTER,
+} from '@/app/design-system/components';
 import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -283,93 +287,92 @@ export default function CrearZonaServicioScreen() {
       />
 
       <ScrollView 
-        style={styles.scrollView} 
+        style={hostScreenStyles.scroll} 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        contentContainerStyle={[
+          hostScreenStyles.scrollInner,
+          { paddingBottom: insets.bottom + 20 },
+        ]}
       >
-        <View style={[styles.content, { paddingHorizontal: containerHorizontal }]}>
-          {/* Información - UI Card */}
-          <View style={[styles.uiCard, { backgroundColor: infoObj?.light || infoStatus.bg, borderColor: info500 }]}>
-            <View style={styles.infoHeader}>
-              <InstitutionalIcon name="information-circle" size={20} color={info500}  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={[styles.infoTitle, { color: info500 }]}>¿Qué son las zonas de servicio?</Text>
+        <HostSectionKicker label="Información" />
+        <Card elevated padding="host" style={[styles.cardGap, { backgroundColor: infoObj?.light || infoStatus.bg, borderColor: info500 }]}>
+          <View style={styles.infoHeader}>
+            <InstitutionalIcon name="information-circle" size={20} color={info500}  strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={[styles.infoTitle, { color: info500 }]}>¿Qué son las zonas de servicio?</Text>
+          </View>
+          <Text style={[styles.infoText, { color: textPrimary }]}>
+            Las zonas de servicio definen las comunas donde ofreces servicios a domicilio. 
+            Solo recibirás solicitudes de clientes en estas comunas.
+          </Text>
+        </Card>
+
+        <HostSectionKicker label="Nombre de la zona" />
+        <Card elevated padding="host" style={styles.cardGap}>
+          <TextInput
+            style={[styles.textInput, { backgroundColor: bgPaper, borderColor: borderLight, color: textPrimary }]}
+            placeholder="Ej: Mi Zona Santiago Centro"
+            placeholderTextColor={textTertiary}
+            value={zoneName}
+            onChangeText={setZoneName}
+            maxLength={100}
+          />
+          <Text style={[styles.helperText, { color: textTertiary }]}>
+            {zoneName.trim() 
+              ? 'Nombre personalizado para tu zona'
+              : `Se generará automáticamente: "${generateZoneName(selectedCommunes)}"`
+            }
+          </Text>
+        </Card>
+
+        <View style={styles.sectionHeader}>
+          <HostSectionKicker
+            label={`Comunas seleccionadas (${selectedCommunes.length})`}
+            style={styles.sectionHeaderTitle}
+          />
+          <TouchableOpacity
+            style={[styles.addCommuneButton, { backgroundColor: primaryObj?.['50'] || primaryStatus.bg }]}
+            onPress={() => setShowCommuneSelector(true)}
+            activeOpacity={0.7}
+          >
+            <InstitutionalIcon name="add" size={16} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
+            <Text style={[styles.addCommuneText, { color: primary500 }]}>Agregar</Text>
+          </TouchableOpacity>
+        </View>
+        <Card elevated padding="host" style={styles.cardGap}>
+          {selectedCommunes.length > 0 ? (
+            <View style={styles.selectedCommunesContainer}>
+              {selectedCommunes.map(renderSelectedCommune)}
             </View>
-            <Text style={[styles.infoText, { color: textPrimary }]}>
-              Las zonas de servicio definen las comunas donde ofreces servicios a domicilio. 
-              Solo recibirás solicitudes de clientes en estas comunas.
-            </Text>
-          </View>
-
-          {/* Nombre de la zona (opcional) - UI Card */}
-          <View style={styles.uiCard}>
-            <InstitutionalSectionHeader title="Nombre de la Zona" level="h4" />
-            <TextInput
-              style={[styles.textInput, { backgroundColor: bgPaper, borderColor: borderLight, color: textPrimary }]}
-              placeholder="Ej: Mi Zona Santiago Centro"
-              placeholderTextColor={textTertiary}
-              value={zoneName}
-              onChangeText={setZoneName}
-              maxLength={100}
-            />
-            <Text style={[styles.helperText, { color: textTertiary }]}>
-              {zoneName.trim() 
-                ? 'Nombre personalizado para tu zona'
-                : `Se generará automáticamente: "${generateZoneName(selectedCommunes)}"`
-              }
-            </Text>
-          </View>
-
-          {/* Comunas seleccionadas - UI Card */}
-          <View style={styles.uiCard}>
-            <View style={styles.sectionHeader}>
-              <InstitutionalSectionHeader
-                title={`Comunas Seleccionadas (${selectedCommunes.length})`}
-                style={styles.sectionHeaderTitle}
-              />
-              <TouchableOpacity
-                style={[styles.addCommuneButton, { backgroundColor: primaryObj?.['50'] || primaryStatus.bg }]}
-                onPress={() => setShowCommuneSelector(true)}
-                activeOpacity={0.7}
-              >
-                <InstitutionalIcon name="add" size={16} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[styles.addCommuneText, { color: primary500 }]}>Agregar</Text>
-              </TouchableOpacity>
+          ) : (
+            <View style={[styles.emptyCommunesContainer, { backgroundColor: bgPaper, borderColor: borderLight }]}>
+              <InstitutionalIcon name="location-outline" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={[styles.emptyCommunesText, { color: textPrimary }]}>
+                No has seleccionado comunas
+              </Text>
+              <Text style={[styles.emptyCommunesSubtext, { color: textTertiary }]}>
+                Toca "Agregar" para seleccionar las comunas donde ofreces servicios
+              </Text>
             </View>
+          )}
+        </Card>
 
-            {selectedCommunes.length > 0 ? (
-              <View style={styles.selectedCommunesContainer}>
-                {selectedCommunes.map(renderSelectedCommune)}
-              </View>
-            ) : (
-              <View style={[styles.emptyCommunesContainer, { backgroundColor: bgPaper, borderColor: borderLight }]}>
-                <InstitutionalIcon name="location-outline" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[styles.emptyCommunesText, { color: textPrimary }]}>
-                  No has seleccionado comunas
-                </Text>
-                <Text style={[styles.emptyCommunesSubtext, { color: textTertiary }]}>
-                  Toca "Agregar" para seleccionar las comunas donde ofreces servicios
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Resumen - UI Card */}
-          {selectedCommunes.length > 0 && (
-            <View style={[styles.summaryCard, { backgroundColor: successObj?.light || successStatus.bg, borderColor: success500 }]}>
-              <Text style={[styles.summaryTitle, { color: textPrimary }]}>Resumen</Text>
+        {selectedCommunes.length > 0 && (
+          <>
+            <HostSectionKicker label="Resumen" />
+            <Card elevated padding="host" style={[styles.cardGap, { backgroundColor: successObj?.light || successStatus.bg, borderColor: success500 }]}>
               <Text style={[styles.summaryText, { color: textPrimary }]}>
                 Cobertura: {selectedCommunes.length} comuna{selectedCommunes.length !== 1 ? 's' : ''}
               </Text>
               <Text style={[styles.summarySubtext, { color: textTertiary }]}>
                 Recibirás solicitudes de servicios a domicilio en estas comunas
               </Text>
-            </View>
-          )}
-        </View>
+            </Card>
+          </>
+        )}
       </ScrollView>
 
       {/* Botón guardar */}
-      <View style={[styles.bottomContainer, { backgroundColor: bgPaper, borderTopColor: borderLight }]}>
+      <View style={[styles.bottomContainer, { backgroundColor: bgPaper, borderTopColor: borderLight, paddingHorizontal: HOST_GUTTER }]}>
         <InstitutionalButton
           label={loading ? 'Guardando...' : 'Crear Zona de Servicio'}
           variant="primary"
@@ -514,27 +517,14 @@ const createStyles = () => {
   const fontWeightSemibold = TYPOGRAPHY?.fontWeight?.semibold || '600';
   const fontWeightBold = TYPOGRAPHY?.fontWeight?.bold || '700';
   const shadowSm = SHADOWS.sm;
-  const shadowMd = SHADOWS.editorial;
 
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: bgDefault,
     },
-    scrollView: {
-      flex: 1,
-    },
-    content: {
-      paddingVertical: spacingMd,
-    },
-    uiCard: {
-      backgroundColor: bgPaper,
-      borderRadius: radiusXl,
-      padding: cardPadding,
+    cardGap: {
       marginBottom: cardGap,
-      ...shadowSm,
-      borderWidth: 1,
-      borderColor: borderLight,
     },
     infoHeader: {
       flexDirection: 'row',
@@ -554,11 +544,9 @@ const createStyles = () => {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: spacingMd,
     },
     sectionHeaderTitle: {
       flex: 1,
-      marginBottom: 0,
       minWidth: 0,
     },
     addCommuneButton: {
@@ -578,7 +566,6 @@ const createStyles = () => {
       padding: spacingMd,
       fontSize: fontSizeBase,
       borderWidth: 1,
-      marginTop: spacingSm,
     },
     helperText: {
       fontSize: fontSizeSm,
@@ -588,7 +575,6 @@ const createStyles = () => {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: spacingSm,
-      marginTop: spacingSm,
     },
     selectedCommuneTag: {
       flexDirection: 'row',
@@ -609,7 +595,6 @@ const createStyles = () => {
       borderRadius: radiusXl,
       borderWidth: 2,
       borderStyle: 'dashed',
-      marginTop: spacingSm,
     },
     emptyCommunesText: {
       fontSize: fontSizeMd,
@@ -622,17 +607,6 @@ const createStyles = () => {
       textAlign: 'center',
       lineHeight: fontSizeBase + 6,
     },
-    summaryCard: {
-      borderRadius: radiusXl,
-      padding: cardPadding,
-      borderWidth: 1,
-      ...shadowSm,
-    },
-    summaryTitle: {
-      fontSize: fontSizeMd,
-      fontWeight: fontWeightBold,
-      marginBottom: spacingSm,
-    },
     summaryText: {
       fontSize: fontSizeBase,
       fontWeight: fontWeightSemibold,
@@ -642,7 +616,7 @@ const createStyles = () => {
       fontSize: fontSizeSm,
     },
     bottomContainer: {
-      padding: containerHorizontal,
+      paddingVertical: spacingMd,
       paddingBottom: spacingLg + 14,
       borderTopWidth: 1,
       ...shadowSm,

@@ -38,14 +38,14 @@ export const PRIVACY_SECTIONS = [
       'El tratamiento se funda en ejecución de contrato, consentimiento, cumplimiento legal e interés legítimo en seguridad y prevención de fraude. Geolocalización, notificaciones push y comunicaciones comerciales requerirán consentimiento específico cuando la ley lo exija.\n\nEl registro de aceptación de términos y privacidad se conserva acreditadamente conforme a la Ley N° 21.719.',
   },
   {
-    title: '7. Comunicación a terceros',
+    title: '7. Comunicación a terceros y transferencias',
     content:
-      'Podemos comunicar datos a: Mercado Pago; Google (autenticación); proveedores de hosting, mensajería y mapas; Meta/WhatsApp en el canal oficial de soporte; autoridades cuando exista mandato legal; asesores en disputas.\n\nLos encargados deben tratar datos solo para fines encomendados. Si algún proveedor almacena datos fuera de Chile, adoptamos salvaguardas exigidas por la normativa vigente.',
+      'Inventario de encargados / destinatarios relevantes para la app de proveedores:\n\n• Mercado Pago (Argentina / infraestructura regional): cobros, liquidaciones y conciliación. Finalidad: ejecución del contrato de pago.\n• Google (EE.UU. / global): autenticación Sign-In y, si aplica, mapas. Finalidad: acceso a la cuenta y geocodificación.\n• Render / hosting cloud (EE.UU. u otras regiones del proveedor): APIs, base de datos y archivos. Finalidad: operación de la Plataforma.\n• Expo / servicios de push (infraestructura del proveedor): entrega de notificaciones. Finalidad: alertas operativas.\n• Meta / WhatsApp: canal de soporte (+56 9 9594 5258). Finalidad: atención al proveedor.\n• Autoridades y asesores: cuando exista mandato legal o disputas.\n\nCuando un proveedor almacena datos fuera de Chile, adoptamos salvaguardas exigidas por la Ley N° 21.719 (cláusulas contractuales, minimización y controles de acceso). El detalle operativo se mantiene en la documentación interna de Mecanimovil.',
   },
   {
     title: '8. Conservación',
     content:
-      'Conservamos datos mientras la cuenta esté activa. Tras baja, podemos conservarlos hasta 5 años para cumplimiento legal, defensa de reclamos, prevención de fraude y obligaciones contables. Cumplida la finalidad, eliminamos, anonimizamos o bloqueamos según corresponda.',
+      'Conservamos datos mientras la cuenta esté activa. Tras baja, podemos conservarlos hasta 5 años para cumplimiento legal (incluidas obligaciones tributarias/fiscales del taller), defensa de reclamos, prevención de fraude y obligaciones contables. Coordenadas GPS de servicio y ciertos datos técnicos pueden anonimizarse antes si dejan de ser necesarios. Cumplida la finalidad, eliminamos, anonimizamos o bloqueamos según corresponda.',
   },
   {
     title: '9. Derechos ARCOP y portabilidad',
