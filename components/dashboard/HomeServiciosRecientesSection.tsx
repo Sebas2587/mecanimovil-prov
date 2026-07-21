@@ -17,12 +17,15 @@ import {
   type OrdenActivaItem,
 } from '@/utils/ordenProveedorUnificada';
 import { nombreServicioCita } from '@/services/agendaProveedorService';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
+import { institutionalCardStyles } from '@/app/design-system/styles/institutionalSemantic';
 import { OrigenOrdenBadge } from '@/components/ordenes/OrigenOrdenBadge';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
+const FF = TYPOGRAPHY.fontFamily;
 const PREVIEW_LIMIT = 5;
 
 /**
@@ -60,7 +63,7 @@ function prioridadHoy(estado: string, origen: OrdenActivaItem['origen']): number
   return 3;
 }
 
-function tituloOrden(item: OrdenActivaItem): string {
+function tituloCliente(item: OrdenActivaItem): string {
   if (item.origen === 'personal') {
     return item.cita.detalle?.cliente_nombre?.trim() || 'Cita personal';
   }
@@ -79,18 +82,60 @@ function tituloOrden(item: OrdenActivaItem): string {
   return item.oferta?.solicitud_detail?.cliente_nombre?.trim() || 'Cliente';
 }
 
-function subtituloOrden(item: OrdenActivaItem): string {
+function servicioSnippet(item: OrdenActivaItem): string {
   if (item.origen === 'personal') {
-    const servicio = nombreServicioCita(item.cita);
-    const estado = estadoUnificadoLabel(item.estadoEfectivo, 'personal');
-    return servicio ? `${servicio} · ${estado}` : estado;
+    return nombreServicioCita(item.cita) || 'Cita personal';
   }
+  const servicios = item.oferta?.solicitud_detail?.servicios_solicitados;
+  const servicio =
+    servicios?.[0]?.nombre
+    || item.oferta?.descripcion_oferta?.trim()
+    || item.oferta?.solicitud_detail?.descripcion_problema?.trim()
+    || '';
+  if (servicio) return servicio;
   const vehiculo = item.oferta?.solicitud_detail?.vehiculo;
   const vehLabel = vehiculo
     ? [vehiculo.marca, vehiculo.modelo].filter(Boolean).join(' ')
     : '';
-  const estado = estadoUnificadoLabel(item.estadoEfectivo, 'mecanimovil', item.orden);
-  return vehLabel ? `${vehLabel} · ${estado}` : estado;
+  return vehLabel || 'Servicio';
+}
+
+function estadoLabel(item: OrdenActivaItem): string {
+  if (item.origen === 'personal') {
+    return estadoUnificadoLabel(item.estadoEfectivo, 'personal');
+  }
+  return estadoUnificadoLabel(item.estadoEfectivo, 'mecanimovil', item.orden);
+}
+
+function estadoTagVariant(
+  item: OrdenActivaItem,
+): 'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info' {
+  const e = item.estadoEfectivo;
+  if (['completada', 'cerrada', 'completado'].includes(e)) return 'success';
+  if (['cancelada', 'rechazada', 'rechazado'].includes(e)) return 'error';
+  if (
+    [
+      'en_ejecucion',
+      'en_proceso',
+      'checklist_en_progreso',
+      'servicio_iniciado',
+    ].includes(e)
+  ) {
+    return 'info';
+  }
+  if (
+    [
+      'pendiente_aceptacion_proveedor',
+      'pendiente_confirmacion',
+      'pendiente_pago',
+      'enviada',
+      'vista',
+    ].includes(e)
+  ) {
+    return 'warning';
+  }
+  if (e === 'activa' || item.origen === 'personal') return 'primary';
+  return 'neutral';
 }
 
 function fotoCliente(item: OrdenActivaItem): string | null {
@@ -100,13 +145,18 @@ function fotoCliente(item: OrdenActivaItem): string | null {
   return item.oferta?.solicitud_detail?.cliente_foto || null;
 }
 
-function Avatar({ name, uri }: { name: string; uri: string | null }) {
+function inicialCliente(nombre: string): string {
+  const t = nombre.trim();
+  return t ? t.charAt(0).toUpperCase() : '?';
+}
+
+function AvatarSoft({ name, uri }: { name: string; uri: string | null }) {
   if (uri) {
-    return <Image source={{ uri }} style={styles.avatar} />;
+    return <Image source={{ uri }} style={styles.avatar} accessibilityIgnoresInvertColors />;
   }
   return (
-    <View style={styles.avatarPlaceholder}>
-      <Text style={styles.avatarInitial}>{name.charAt(0).toUpperCase()}</Text>
+    <View style={styles.avatarSoft}>
+      <Text style={styles.avatarSoftText}>{inicialCliente(name)}</Text>
     </View>
   );
 }
@@ -179,7 +229,7 @@ function HomeServiciosRecientesSectionInner({ enabled }: HomeServiciosRecientesS
           <ActivityIndicator size="small" color={I.primary} />
         </View>
       ) : preview.length === 0 ? (
-        <View style={styles.emptyCard}>
+        <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding, styles.emptyCard]}>
           <ClipboardList size={20} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
           <View style={styles.emptyTextCol}>
             <Text style={styles.emptyTitle}>Sin trabajo activo</Text>
@@ -191,29 +241,41 @@ function HomeServiciosRecientesSectionInner({ enabled }: HomeServiciosRecientesS
       ) : (
         <View style={styles.list}>
           {preview.map((item) => {
-            const nombre = tituloOrden(item);
+            const cliente = tituloCliente(item);
+            const snippet = servicioSnippet(item);
+            const estado = estadoLabel(item);
             return (
               <TouchableOpacity
                 key={item.key}
-                style={styles.card}
+                style={[institutionalCardStyles.surface, styles.card]}
                 onPress={() => handlePress(item)}
                 activeOpacity={0.88}
                 accessibilityRole="button"
-                accessibilityLabel={`Abrir servicio de ${nombre}`}
+                accessibilityLabel={`Abrir servicio de ${cliente}`}
               >
-                <Avatar name={nombre} uri={fotoCliente(item)} />
-                <View style={styles.cardText}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>
-                    {nombre}
-                  </Text>
-                  <Text style={styles.cardSub} numberOfLines={1}>
-                    {subtituloOrden(item)}
-                  </Text>
-                  <View style={styles.badgeSlot}>
-                    <OrigenOrdenBadge origen={item.origen} />
-                  </View>
+                <View style={styles.cardTop}>
+                  <InstitutionalTag
+                    label={estado}
+                    variant={estadoTagVariant(item)}
+                    size="sm"
+                  />
+                  <OrigenOrdenBadge origen={item.origen} />
+                  <View style={styles.cardTopSpacer} />
                 </View>
-                <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+
+                <Text style={styles.cardTitle} numberOfLines={2}>
+                  {snippet}
+                </Text>
+
+                <View style={styles.cardMeta}>
+                  <AvatarSoft name={cliente} uri={fotoCliente(item)} />
+                  <View style={styles.cardMetaTextCol}>
+                    <Text style={styles.cardClient} numberOfLines={1}>
+                      {cliente}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -249,7 +311,7 @@ const styles = StyleSheet.create({
   },
   headerLinkText: {
     fontSize: T.captionBold.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontFamily: FF.sansSemiBold,
     fontWeight: '600',
     color: I.primary,
   },
@@ -261,7 +323,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: T.h3.fontSize,
     lineHeight: Math.round(T.h3.fontSize * T.h3.lineHeight),
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontFamily: FF.sansSemiBold,
     fontWeight: '600',
     color: I.ink,
   },
@@ -276,72 +338,70 @@ const styles = StyleSheet.create({
   },
   countBadgeText: {
     fontSize: 11,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontFamily: FF.sansSemiBold,
     fontWeight: '600',
     color: I.onPrimary,
   },
   subtitle: {
     fontSize: T.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontFamily: FF.sansRegular,
     color: I.muted,
   },
   list: {
     gap: SPACING.sm,
   },
   card: {
+    padding: SPACING.fixed.md,
+    gap: SPACING.fixed.sm,
+  },
+  cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm + 2,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    paddingVertical: SPACING.sm + 4,
-    paddingHorizontal: SPACING.md,
-    ...SHADOWS.editorial,
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.xs,
+  },
+  cardTopSpacer: { flex: 1, minWidth: 8 },
+  cardTitle: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: T.h4.fontSize,
+    color: I.ink,
+    lineHeight: Math.round(T.h4.fontSize * 1.3),
+  },
+  cardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: I.hairline,
   },
-  avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  avatarSoft: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: I.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
   },
-  avatarInitial: {
-    fontSize: T.h4.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: '600',
+  avatarSoftText: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.ink,
   },
-  cardText: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  cardTitle: {
-    fontSize: T.h5.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: '600',
+  cardMetaTextCol: { flex: 1, minWidth: 0, gap: 2 },
+  cardClient: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.ink,
-  },
-  cardSub: {
-    fontSize: T.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    color: I.muted,
-  },
-  badgeSlot: {
-    marginTop: 4,
-    alignSelf: 'flex-start',
   },
   centered: {
     paddingVertical: SPACING.lg,
@@ -351,12 +411,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: SPACING.sm,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    padding: SPACING.md,
-    ...SHADOWS.editorial,
   },
   emptyTextCol: {
     flex: 1,
@@ -365,14 +419,14 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: T.h5.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontFamily: FF.sansSemiBold,
     fontWeight: '600',
     color: I.ink,
   },
   emptySub: {
     fontSize: T.small.fontSize,
     lineHeight: Math.round(T.small.fontSize * T.small.lineHeight),
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontFamily: FF.sansRegular,
     color: I.muted,
   },
 });

@@ -22,7 +22,8 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   target: AsignarTecnicoTarget | null;
-  onAsignado?: () => void;
+  /** miembroTallerId asignado; null = automático / sin técnico fijo. */
+  onAsignado?: (miembroTallerId: number | null) => void;
 };
 
 export function AsignarTecnicoBottomSheet({ visible, onClose, target, onAsignado }: Props) {
@@ -65,7 +66,7 @@ export function AsignarTecnicoBottomSheet({ visible, onClose, target, onAsignado
         });
       }
 
-      onAsignado?.();
+      onAsignado?.(miembroId);
       onClose();
     } catch (error: unknown) {
       const msg =

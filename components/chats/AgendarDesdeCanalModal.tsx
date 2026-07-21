@@ -14,8 +14,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Sparkles, X } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
-import { ChilePhoneField, getChilePhoneError } from '@/components/forms/ChilePhoneField';
+import { getChilePhoneError } from '@/components/forms/ChilePhoneField';
 import ChileAddressField from '@/components/forms/ChileAddressField';
+import {
+  ClienteCanalPickerSection,
+  type ClienteModo,
+  type ContactoCanal,
+} from '@/components/chats/ClienteCanalPickerSection';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
 import {
   CatalogoFechaHoraPickers,
@@ -203,6 +208,8 @@ export function AgendarDesdeCanalModal({
   const puedeCotizacionIa = !esSupervisor || puede('servicios');
   const esMecanico = estadoProveedor?.tipo_proveedor === 'mecanico';
 
+  const [clienteModo, setClienteModo] = useState<ClienteModo>('mensajes');
+  const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoCanal | null>(null);
   const [clienteNombre, setClienteNombre] = useState('');
   const [clienteTelefono, setClienteTelefono] = useState('');
   const [vehiculoMarca, setVehiculoMarca] = useState('');
@@ -286,8 +293,28 @@ export function AgendarDesdeCanalModal({
 
   useEffect(() => {
     if (!visible) return;
-    setClienteNombre(nombreContactoAgendable(contactName));
-    setClienteTelefono(suggestTelefono(channel, contactPhone));
+    const nombre = nombreContactoAgendable(contactName);
+    const telefono = suggestTelefono(channel, contactPhone);
+    setClienteNombre(nombre);
+    setClienteTelefono(telefono);
+    if (conversationId) {
+      const id = parseInt(conversationId, 10);
+      if (!Number.isNaN(id)) {
+        setClienteModo('mensajes');
+        setContactoSeleccionado({
+          conversationId: id,
+          nombre: nombre || 'Cliente',
+          telefono: telefono || null,
+          canal: (channel || 'whatsapp') as ChannelSlug,
+        });
+      } else {
+        setClienteModo('mensajes');
+        setContactoSeleccionado(null);
+      }
+    } else {
+      setClienteModo('mensajes');
+      setContactoSeleccionado(null);
+    }
     setVehiculoMarca('');
     setVehiculoModelo('');
     setVehiculoPatente('');
@@ -320,7 +347,28 @@ export function AgendarDesdeCanalModal({
     setGuardandoPlantilla(false);
     setErrorIa(null);
     setPlantillaDetalle(null);
-  }, [visible, contactName, contactPhone, channel, initialFecha, esMecanico]);
+  }, [visible, contactName, contactPhone, channel, conversationId, initialFecha, esMecanico]);
+
+  const conversationIdEfectivo = useMemo(() => {
+    if (clienteModo === 'mensajes' && contactoSeleccionado) {
+      return String(contactoSeleccionado.conversationId);
+    }
+    return conversationId;
+  }, [clienteModo, contactoSeleccionado, conversationId]);
+
+  const nombreClienteEfectivo = useMemo(() => {
+    if (clienteModo === 'mensajes' && contactoSeleccionado) {
+      return contactoSeleccionado.nombre;
+    }
+    return clienteNombre.trim();
+  }, [clienteModo, contactoSeleccionado, clienteNombre]);
+
+  const telefonoClienteEfectivo = useMemo(() => {
+    if (clienteModo === 'mensajes' && contactoSeleccionado) {
+      return contactoSeleccionado.telefono || '';
+    }
+    return clienteTelefono;
+  }, [clienteModo, contactoSeleccionado, clienteTelefono]);
 
   useEffect(() => {
     if (!visible || !cotizacionAceptadaId) return;
@@ -357,7 +405,7 @@ export function AgendarDesdeCanalModal({
     vehiculoFiltroPlantillas.marca.length > 0 && vehiculoFiltroPlantillas.modelo.length > 0;
 
   useEffect(() => {
-    if (!visible || !conversationId) return;
+    if (!visible || !conversationIdEfectivo) return;
     if (!vehiculoListoParaPlantillas) {
       setPlantillas([]);
       setCargandoPlantillas(false);
@@ -379,7 +427,7 @@ export function AgendarDesdeCanalModal({
     return () => {
       mounted = false;
     };
-  }, [visible, conversationId, vehiculoMarca, vehiculoModelo, vehiculoCilindraje, vehiculoListoParaPlantillas]);
+  }, [visible, conversationIdEfectivo, vehiculoMarca, vehiculoModelo, vehiculoCilindraje, vehiculoListoParaPlantillas]);
 
   useEffect(() => {
     if (!visible) return;
@@ -707,9 +755,14 @@ export function AgendarDesdeCanalModal({
     if (!puedeAgendar) {
       return 'No tienes permiso para agendar citas.';
     }
-    if (!clienteNombre.trim()) return 'Ingresa el nombre del cliente.';
-    const telError = getChilePhoneError(extraerNueveDigitosDesdeGuardado(clienteTelefono), false);
-    if (telError) return telError;
+    if (clienteModo === 'mensajes' && !contactoSeleccionado) {
+      return 'Elige un cliente de tus mensajes o cambia a “Cliente nuevo”.';
+    }
+    if (!nombreClienteEfectivo) return 'Ingresa el nombre del cliente.';
+    if (clienteModo === 'manual') {
+      const telError = getChilePhoneError(extraerNueveDigitosDesdeGuardado(clienteTelefono), false);
+      if (telError) return telError;
+    }
     if (!vehiculoMarca.trim()) return 'Ingresa la marca del vehículo.';
     if (!vehiculoModelo.trim()) return 'Ingresa el modelo del vehículo.';
     if (vehiculoAnio.trim()) {
@@ -736,7 +789,9 @@ export function AgendarDesdeCanalModal({
     return null;
   }, [
     puedeAgendar,
-    clienteNombre,
+    clienteModo,
+    contactoSeleccionado,
+    nombreClienteEfectivo,
     clienteTelefono,
     vehiculoMarca,
     vehiculoModelo,
@@ -752,8 +807,10 @@ export function AgendarDesdeCanalModal({
 
   const construirPayload = useCallback((): CitaAgendaPersonalCreatePayload => {
     const detalle: CitaAgendaPersonalCreatePayload['detalle'] = {
-      cliente_nombre: clienteNombre.trim(),
-      cliente_telefono: normalizarTelefonoChileParaGuardar(clienteTelefono),
+      cliente_nombre: nombreClienteEfectivo,
+      cliente_telefono: telefonoClienteEfectivo
+        ? normalizarTelefonoChileParaGuardar(telefonoClienteEfectivo)
+        : '',
       vehiculo_marca: vehiculoMarca.trim(),
       vehiculo_modelo: vehiculoModelo.trim(),
     };
@@ -790,12 +847,14 @@ export function AgendarDesdeCanalModal({
       tipo_servicio: tipoServicio,
       miembro_taller: miembroSeleccionado,
       // Trazabilidad: si la cita nace de un chat, queda enlazada a esa conversación.
-      conversation_id: conversationId ? parseInt(conversationId, 10) : undefined,
+      conversation_id: conversationIdEfectivo
+        ? parseInt(conversationIdEfectivo, 10)
+        : undefined,
       detalle,
     };
   }, [
-    clienteNombre,
-    clienteTelefono,
+    nombreClienteEfectivo,
+    telefonoClienteEfectivo,
     vehiculoMarca,
     vehiculoModelo,
     vehiculoPatente,
@@ -813,7 +872,7 @@ export function AgendarDesdeCanalModal({
     direccionValidada,
     fechaHora,
     miembroSeleccionado,
-    conversationId,
+    conversationIdEfectivo,
   ]);
 
   const vehiculoPayload = useMemo(
@@ -829,7 +888,7 @@ export function AgendarDesdeCanalModal({
   );
 
   const handleGenerarCotizacionIa = useCallback(async () => {
-    if (!conversationId) return;
+    if (!conversationIdEfectivo) return;
     if (!vehiculoMarca.trim() || !vehiculoModelo.trim()) {
       setErrorIa('Completa los datos del vehículo (patente o marca y modelo) antes de generar la cotización.');
       return;
@@ -842,7 +901,7 @@ export function AgendarDesdeCanalModal({
     setGenerandoIa(true);
     try {
       const res = await cotizacionCanalService.generarIa({
-        conversation_id: parseInt(conversationId, 10),
+        conversation_id: parseInt(conversationIdEfectivo, 10),
         servicio_nombre: servicioManual.trim(),
         descripcion_problema: descripcion.trim(),
         modalidad: tipoServicio === 'domicilio' ? 'domicilio' : 'taller',
@@ -858,16 +917,16 @@ export function AgendarDesdeCanalModal({
     } finally {
       setGenerandoIa(false);
     }
-  }, [conversationId, vehiculoMarca, vehiculoModelo, servicioManual, descripcion, tipoServicio, vehiculoPayload]);
+  }, [conversationIdEfectivo, vehiculoMarca, vehiculoModelo, servicioManual, descripcion, tipoServicio, vehiculoPayload]);
 
   const handleAplicarPlantilla = useCallback(
     async (plantillaId: number) => {
-      if (!conversationId) return;
+      if (!conversationIdEfectivo) return;
       setGenerandoIa(true);
       setErrorIa(null);
       try {
         const res = await cotizacionCanalService.generarIa({
-          conversation_id: parseInt(conversationId, 10),
+          conversation_id: parseInt(conversationIdEfectivo, 10),
           servicio_nombre: servicioManual.trim(),
           descripcion_problema: descripcion.trim(),
           modalidad: tipoServicio === 'domicilio' ? 'domicilio' : 'taller',
@@ -889,7 +948,7 @@ export function AgendarDesdeCanalModal({
         setGenerandoIa(false);
       }
     },
-    [conversationId, servicioManual, descripcion, tipoServicio, vehiculoPayload],
+    [conversationIdEfectivo, servicioManual, descripcion, tipoServicio, vehiculoPayload],
   );
 
   const persistirCotizacion = useCallback(async (next: CotizacionCanal) => {
@@ -1094,24 +1153,23 @@ export function AgendarDesdeCanalModal({
           >
             <InstitutionalSectionHeader title="Cliente" />
             <View style={styles.section}>
-              <InstitutionalField
-                label="Nombre *"
-                value={clienteNombre}
-                onChangeText={setClienteNombre}
-                placeholder="Nombre del cliente"
-              />
-              <ChilePhoneField
-                label="Teléfono"
-                hint={
-                  channel === 'whatsapp'
-                    ? 'Pre-rellenado desde WhatsApp. Puedes editarlo si es necesario.'
-                    : channel
-                      ? 'Opcional. Ingresa 9 dígitos comenzando en 9.'
-                      : 'Opcional. Ingresa 9 dígitos comenzando en 9.'
-                }
-                value={clienteTelefono}
-                onChangeValue={setClienteTelefono}
-                required={false}
+              <ClienteCanalPickerSection
+                enabled={visible}
+                clienteModo={clienteModo}
+                onClienteModoChange={setClienteModo}
+                contactoSeleccionado={contactoSeleccionado}
+                onSeleccionarContacto={(c) => {
+                  setContactoSeleccionado(c);
+                  setClienteNombre(c.nombre);
+                  setClienteTelefono(c.telefono || '');
+                }}
+                onLimpiarContacto={() => setContactoSeleccionado(null)}
+                clienteNombre={clienteNombre}
+                onClienteNombreChange={setClienteNombre}
+                clienteTelefono={clienteTelefono}
+                onClienteTelefonoChange={setClienteTelefono}
+                telefonoHint="Opcional. Ingresa 9 dígitos comenzando en 9."
+                manualFooterHint="Agenda sin chat vinculado; el cliente queda solo en tu agenda personal."
               />
             </View>
 
@@ -1271,7 +1329,7 @@ export function AgendarDesdeCanalModal({
                 textInputProps={{ scrollEnabled: true }}
               />
 
-              {modoServicio === 'manual' && conversationId && !esMecanico && puedeCotizacionIa ? (
+              {modoServicio === 'manual' && conversationIdEfectivo && !esMecanico && puedeCotizacionIa ? (
                 <View style={styles.cotizacionIaBlock}>
                   {vehiculoListoParaPlantillas ? (
                     <View style={styles.plantillasVehiculoBox}>

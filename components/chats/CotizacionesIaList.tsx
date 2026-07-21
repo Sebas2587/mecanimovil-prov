@@ -99,8 +99,8 @@ const CotizacionCard = React.memo(function CotizacionCard({
     >
       <View style={styles.cardTop}>
         <InstitutionalTag
-          label={item.estado}
-          variant={ESTADO_VARIANT[item.estado] || 'neutral'}
+          label={item.estado === 'aceptada' ? 'Aceptada · por agendar' : item.estado}
+          variant={item.estado === 'aceptada' ? 'warning' : (ESTADO_VARIANT[item.estado] || 'neutral')}
           size="sm"
         />
         <InstitutionalTag label={canalLabel(item)} variant="neutral" size="sm" />
@@ -329,6 +329,16 @@ export function CotizacionesIaList({ enabled = true }: Props) {
             />
 
             <View style={styles.sheetActions}>
+              {activa.estado === 'aceptada' && activa.cita_personal_id ? (
+                <InstitutionalButton
+                  label="Confirmar horario y agendar"
+                  onPress={() => {
+                    const citaId = activa.cita_personal_id;
+                    cerrarDetalle();
+                    if (citaId) router.push(`/cita-agenda-personal/${citaId}`);
+                  }}
+                />
+              ) : null}
               {activa.conversation ? (
                 <InstitutionalButton
                   label="Abrir chat del cliente"

@@ -45,6 +45,7 @@ export interface PipelineComercialItem {
   template_generado_por_ia?: boolean;
   visto_sin_respuesta?: boolean;
   demorado_48h?: boolean;
+  horario_por_confirmar?: boolean;
 }
 
 export interface PipelineComercialResponse {

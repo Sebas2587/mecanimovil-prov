@@ -25,6 +25,8 @@ export interface CotizacionCanal {
   cliente_telefono?: string;
   cliente_display?: string;
   canal?: CanalCotizacion;
+  /** Cita creada al aceptar (libre); puede tener horario_por_confirmar. */
+  cita_personal_id?: number | null;
   token?: string | null;
   url_publica?: string | null;
   share_url?: string | null;

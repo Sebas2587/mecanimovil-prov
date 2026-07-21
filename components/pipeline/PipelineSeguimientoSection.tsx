@@ -603,6 +603,13 @@ export function PipelineSeguimientoSection({
         target={asignarTarget}
         onAsignado={() => {
           void refetch();
+          const citaId = asignarTarget?.tipo === 'cita_personal' ? asignarTarget.citaId : null;
+          if (citaId && leadActivo?.horario_por_confirmar) {
+            setLeadActivo(null);
+            setAsignarVisible(false);
+            setAsignarTarget(null);
+            router.push(`/cita-agenda-personal/${citaId}`);
+          }
         }}
       />
 
@@ -662,6 +669,16 @@ export function PipelineSeguimientoSection({
                   }}
                 />
               ) : null}
+              {leadActivo.cita_id && leadActivo.horario_por_confirmar ? (
+                <InstitutionalButton
+                  label="Confirmar horario y agendar"
+                  onPress={() => {
+                    const id = leadActivo.cita_id;
+                    setLeadActivo(null);
+                    if (id) router.push(`/cita-agenda-personal/${id}`);
+                  }}
+                />
+              ) : null}
               {leadActivo.solicitud_id || leadActivo.cita_id || leadActivo.orden_id ? (
                 <InstitutionalButton
                   label="Ver detalle"
@@ -676,7 +693,7 @@ export function PipelineSeguimientoSection({
               ) : null}
               {leadPuedeAsignar ? (
                 <InstitutionalButton
-                  label="Asignar técnico"
+                  label={leadActivo.horario_por_confirmar ? 'Asignar y agendar' : 'Asignar técnico'}
                   variant="secondary"
                   onPress={() => abrirAsignarDesdeLead(leadActivo)}
                 />

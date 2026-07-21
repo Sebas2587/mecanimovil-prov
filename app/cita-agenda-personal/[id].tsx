@@ -61,6 +61,7 @@ import { ChecklistContainer } from '@/components/checklist/ChecklistContainer';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { ChecklistSignatureModal } from '@/components/checklist/ChecklistSignatureModal';
 import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBottomSheet';
+import { ConfirmarHorarioCitaSheet } from '@/components/agenda/ConfirmarHorarioCitaSheet';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import { InstitutionalTag } from '@/design-system/components/InstitutionalTag';
 import { checklistService } from '@/services/checklistService';
@@ -166,6 +167,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const [showSupervisorFirmaModal, setShowSupervisorFirmaModal] = useState(false);
   const [firmandoSupervisor, setFirmandoSupervisor] = useState(false);
   const [asignarVisible, setAsignarVisible] = useState(false);
+  const [confirmarHorarioVisible, setConfirmarHorarioVisible] = useState(false);
+  const [miembroParaHorario, setMiembroParaHorario] = useState<number | null | undefined>(undefined);
   const [iniciandoChecklist, setIniciandoChecklist] = useState(false);
 
   const mostrarFeedback = useCallback((feedback: FeedbackAccion) => {
@@ -282,6 +285,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
   const esActiva = cita?.estado === 'activa';
   const esCancelada = cita?.estado === 'cancelada';
+  const horarioPorConfirmar = Boolean(cita?.horario_por_confirmar);
+  const citaAgendada = esActiva && !horarioPorConfirmar;
 
   const checklistEstado = cita?.checklist_estado ?? null;
   const checklistIniciado = !!checklistEstado && checklistEstado !== 'PENDIENTE';
@@ -657,6 +662,14 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
   const handleIniciarServicioChecklist = useCallback(async () => {
     if (Number.isNaN(citaId)) return;
+    if (horarioPorConfirmar) {
+      showAlert(
+        'Horario pendiente',
+        'Confirma día, hora y técnico antes de iniciar el servicio.',
+      );
+      setConfirmarHorarioVisible(true);
+      return;
+    }
     setIniciandoChecklist(true);
     try {
       const res = await agendaProveedorService.iniciarServicio(citaId);
@@ -681,7 +694,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     } finally {
       setIniciandoChecklist(false);
     }
-  }, [citaId, queryClient, recargarCita]);
+  }, [citaId, queryClient, recargarCita, horarioPorConfirmar]);
 
   if (showInitialLoader) {
     return (
@@ -989,6 +1002,26 @@ export default function CitaAgendaPersonalDetalleScreen() {
                 ) : null}
               </View>
 
+              {horarioPorConfirmar ? (
+                <View style={styles.section}>
+                  <View style={styles.horarioPendienteBanner}>
+                    <InstitutionalTag label="Por confirmar" variant="warning" size="sm" />
+                    <Text style={styles.horarioPendienteTitle}>Horario pendiente</Text>
+                    <Text style={styles.horarioPendienteBody}>
+                      El cliente aceptó la cotización. Asigna un técnico (o deja automático) y elige
+                      día y hora en el calendario para agendar la cita.
+                    </Text>
+                    {permitirEditarCita ? (
+                      <InstitutionalButton
+                        label="Asignar y agendar"
+                        variant="primary"
+                        onPress={() => setAsignarVisible(true)}
+                      />
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
                   <Text style={styles.sectionHeaderTitle}>Técnico asignado</Text>
@@ -1103,12 +1136,22 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     )}
 
                     <View style={styles.checklistActions}>
-                      {puedeOperarChecklist && !cita.checklist_id ? (
+                      {puedeOperarChecklist && !cita.checklist_id && citaAgendada ? (
                         <InstitutionalButton
                           label={iniciandoChecklist ? 'Preparando checklist…' : 'Iniciar servicio'}
                           variant="primary"
                           loading={iniciandoChecklist}
                           onPress={() => void handleIniciarServicioChecklist()}
+                        />
+                      ) : null}
+                      {puedeOperarChecklist && !cita.checklist_id && horarioPorConfirmar ? (
+                        <InstitutionalButton
+                          label="Confirmar horario primero"
+                          variant="secondary"
+                          onPress={() => {
+                            setMiembroParaHorario(cita.miembro_taller);
+                            setConfirmarHorarioVisible(true);
+                          }}
                         />
                       ) : null}
 
@@ -1172,24 +1215,46 @@ export default function CitaAgendaPersonalDetalleScreen() {
               ) : null}
 
               <View style={styles.section}>
-                <Text style={styles.sectionHeaderTitle}>Fecha y hora</Text>
-                <View style={styles.dateTimeRow}>
-                  <InstitutionalIcon name="calendar-today" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  <View style={styles.dateTimeTextos}>
-                    <Text style={styles.dateTimeLabel}>Fecha</Text>
-                    <Text style={styles.dateTimeValue}>{formatearFecha(cita.fecha_servicio)}</Text>
-                  </View>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionHeaderTitle}>Fecha y hora</Text>
+                  {horarioPorConfirmar && permitirEditarCita ? (
+                    <InstitutionalButton
+                      label="Elegir"
+                      variant="tertiary"
+                      size="compact"
+                      onPress={() => {
+                        setMiembroParaHorario(cita.miembro_taller);
+                        setConfirmarHorarioVisible(true);
+                      }}
+                    />
+                  ) : null}
                 </View>
-                <View style={styles.dateTimeDivider} />
-                <View style={styles.dateTimeRow}>
-                  <InstitutionalIcon name="access-time" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  <View style={styles.dateTimeTextos}>
-                    <Text style={styles.dateTimeLabel}>Horario</Text>
-                    <Text style={styles.dateTimeValue}>
-                      {formatearRangoHora(cita.hora_servicio, cita.duracion_minutos)}
-                    </Text>
-                  </View>
-                </View>
+                {horarioPorConfirmar ? (
+                  <Text style={styles.horarioPendienteBody}>
+                    Aún no hay día ni hora confirmados. Usa el calendario del técnico o del taller
+                    para agendar.
+                  </Text>
+                ) : (
+                  <>
+                    <View style={styles.dateTimeRow}>
+                      <InstitutionalIcon name="calendar-today" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                      <View style={styles.dateTimeTextos}>
+                        <Text style={styles.dateTimeLabel}>Fecha</Text>
+                        <Text style={styles.dateTimeValue}>{formatearFecha(cita.fecha_servicio)}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.dateTimeDivider} />
+                    <View style={styles.dateTimeRow}>
+                      <InstitutionalIcon name="access-time" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                      <View style={styles.dateTimeTextos}>
+                        <Text style={styles.dateTimeLabel}>Horario</Text>
+                        <Text style={styles.dateTimeValue}>
+                          {formatearRangoHora(cita.hora_servicio, cita.duracion_minutos)}
+                        </Text>
+                      </View>
+                    </View>
+                  </>
+                )}
               </View>
 
               <View style={styles.section}>
@@ -1237,12 +1302,23 @@ export default function CitaAgendaPersonalDetalleScreen() {
             permitirEditar={permitirEditarCita && !checklistEnCurso}
             permitirEliminar={permitirEliminarCita}
             permitirCancelar={puedeCancelarCita}
-            permitirCerrarManual={esActiva && !checklistEnCurso && !checklistCompletado}
+            permitirCerrarManual={
+              citaAgendada && !checklistEnCurso && !checklistCompletado
+            }
+            permitirConfirmarHorario={horarioPorConfirmar && permitirEditarCita}
             onEditar={() => {
               setFeedbackAccion(null);
               setEditando(true);
             }}
             onCompletar={handleCerrar}
+            onConfirmarHorario={() => {
+              setMiembroParaHorario(cita.miembro_taller);
+              if (cita.miembro_taller) {
+                setConfirmarHorarioVisible(true);
+              } else {
+                setAsignarVisible(true);
+              }
+            }}
             onCancelar={handleCancelar}
             onGuardar={handleGuardarEdicion}
             onDescartar={() => {
@@ -1267,9 +1343,29 @@ export default function CitaAgendaPersonalDetalleScreen() {
               }
             : null
         }
-        onAsignado={() => {
+        onAsignado={(miembroId) => {
           void recargarCita();
           void invalidateProveedorMarketplaceQueries(queryClient);
+          if (horarioPorConfirmar) {
+            setMiembroParaHorario(miembroId);
+            setConfirmarHorarioVisible(true);
+          }
+        }}
+      />
+
+      <ConfirmarHorarioCitaSheet
+        visible={confirmarHorarioVisible}
+        onClose={() => setConfirmarHorarioVisible(false)}
+        cita={cita}
+        miembroTallerId={miembroParaHorario}
+        onConfirmado={() => {
+          void recargarCita();
+          void invalidateProveedorMarketplaceQueries(queryClient);
+          mostrarFeedback({
+            tipo: 'success',
+            titulo: 'Cita agendada',
+            mensaje: 'Día y hora confirmados. Ya puedes iniciar el servicio.',
+          });
         }}
       />
 
@@ -1325,8 +1421,10 @@ type CitaPersonalFooterProps = {
   permitirEliminar: boolean;
   permitirCancelar: boolean;
   permitirCerrarManual: boolean;
+  permitirConfirmarHorario?: boolean;
   onEditar: () => void;
   onCompletar: () => void;
+  onConfirmarHorario?: () => void;
   onCancelar: () => void;
   onGuardar: () => void;
   onDescartar: () => void;
@@ -1343,8 +1441,10 @@ function CitaPersonalFooter({
   permitirEliminar,
   permitirCancelar,
   permitirCerrarManual,
+  permitirConfirmarHorario = false,
   onEditar,
   onCompletar,
+  onConfirmarHorario,
   onCancelar,
   onGuardar,
   onDescartar,
@@ -1355,7 +1455,21 @@ function CitaPersonalFooter({
       {esActiva && !editando ? (
         permitirEditar ? (
           <>
-            {(permitirEditar || permitirCerrarManual) ? (
+            {permitirConfirmarHorario ? (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.footerBtnPrimary,
+                  (pressed || procesando) && styles.footerBtnPressed,
+                  procesando && styles.footerBtnDisabled,
+                ]}
+                onPress={onConfirmarHorario}
+                disabled={procesando}
+              >
+                <InstitutionalIcon name="calendar-today" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Confirmar horario</Text>
+              </Pressable>
+            ) : null}
+            {(permitirEditar || permitirCerrarManual) && !permitirConfirmarHorario ? (
               <View style={styles.footerRow}>
                 {permitirEditar ? (
                   <Pressable
@@ -1819,6 +1933,25 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
 
+  horarioPendienteBanner: {
+    gap: SPACING.fixed.sm,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.canvas,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+  },
+  horarioPendienteTitle: {
+    fontSize: TS.h4.fontSize,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  horarioPendienteBody: {
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.caption.fontSize, 1.45),
+    color: I.body,
+  },
   tecnicoCard: {
     flexDirection: 'row',
     alignItems: 'center',

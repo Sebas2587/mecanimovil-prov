@@ -31,6 +31,8 @@ export interface CitaAgendaPersonal {
   duracion_minutos?: number;
   tipo_servicio: TipoServicioAgenda;
   estado: EstadoCitaPersonal;
+  /** True si viene de cotización aceptada sin día/hora reales. */
+  horario_por_confirmar?: boolean;
   cerrada_en?: string | null;
   cancelada_en?: string | null;
   fecha_creacion: string;
