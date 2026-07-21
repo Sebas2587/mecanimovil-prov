@@ -33,6 +33,8 @@ export interface CotizacionCanal {
   visto_en?: string | null;
   estado: 'borrador' | 'enviada' | 'aceptada' | 'rechazada' | 'expirada' | 'cancelada';
   modalidad: 'taller' | 'domicilio';
+  /** Dirección del cliente cuando modalidad es domicilio. */
+  direccion_servicio?: string;
   vehiculo_marca: string;
   vehiculo_modelo: string;
   vehiculo_anio?: number | null;
@@ -77,6 +79,7 @@ export interface GenerarCotizacionIaPayload {
   servicio_nombre?: string;
   descripcion_problema?: string;
   modalidad?: 'taller' | 'domicilio';
+  direccion_servicio?: string;
   vehiculo?: Record<string, unknown>;
   plantilla_id?: number;
 }

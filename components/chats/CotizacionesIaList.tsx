@@ -331,7 +331,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
             <View style={styles.sheetActions}>
               {activa.estado === 'aceptada' && activa.cita_personal_id ? (
                 <InstitutionalButton
-                  label="Confirmar horario y agendar"
+                  label="Confirmar horario"
                   onPress={() => {
                     const citaId = activa.cita_personal_id;
                     cerrarDetalle();

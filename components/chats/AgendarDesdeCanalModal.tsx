@@ -71,6 +71,7 @@ import cotizacionCanalService, {
   type CotizacionPlantilla,
 } from '@/services/cotizacionCanalService';
 import { etiquetaVehiculoActual } from '@/utils/plantillasCotizacionVehiculo';
+import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 import { obtenerMisOfertas } from '@/services/solicitudesService';
 import { fetchChatInboxQuery } from '@/hooks/useChatInboxQuery';
 import { buscarSolicitudActivaPorTelefono } from '@/utils/buscarSolicitudActivaPorTelefono';
@@ -89,8 +90,8 @@ const TIPO_SERVICIO_TABS = [
 ];
 
 const MODO_SERVICIO_TABS = [
-  { key: 'catalogo' as const, label: 'Catálogo' },
-  { key: 'manual' as const, label: 'Manual' },
+  { key: 'catalogo' as const, label: 'Mi catálogo' },
+  { key: 'manual' as const, label: 'Escribir nombre' },
 ];
 
 type ModoServicio = 'catalogo' | 'manual';
@@ -740,7 +741,9 @@ export function AgendarDesdeCanalModal({
       setVehiculoAnio(data.year ? String(data.year) : '');
       setVehiculoColor(data.color?.trim() || '');
       setVehiculoVin(data.vin?.trim() || '');
-      setVehiculoCilindraje(data.cilindraje?.trim() || '');
+      setVehiculoCilindraje(
+        cilindrajeEfectivo(data.cilindraje, data.marca_nombre, data.modelo_nombre),
+      );
       setVehiculoDesdePatente(true);
       setPatenteHint('Datos del vehículo cargados desde la patente.');
     } catch {
@@ -1250,75 +1253,99 @@ export function AgendarDesdeCanalModal({
             <InstitutionalSectionHeader title="Servicio" />
             <View style={styles.section}>
               {!esMecanico ? (
+                <View style={styles.choiceBlock}>
+                  <Text style={styles.choiceLabel}>1. Lugar del servicio</Text>
+                  <Text style={styles.choiceHint}>¿Dónde atiendes al cliente?</Text>
+                  <InstitutionalScreenTabs
+                    tabs={TIPO_SERVICIO_TABS}
+                    activeKey={tipoServicio}
+                    onChange={setTipoServicio}
+                  />
+                  {tipoServicio === 'domicilio' ? (
+                    <ChileAddressField
+                      label="Dirección del cliente *"
+                      hint="Busca una dirección real en Chile y elige un resultado."
+                      value={direccion}
+                      validated={direccionValidada}
+                      onChangeText={setDireccion}
+                      onValidatedChange={setDireccionValidada}
+                      placeholder="Ej: Av. Providencia 1200, Providencia"
+                    />
+                  ) : null}
+                </View>
+              ) : tipoServicio === 'domicilio' ? (
+                <View style={styles.choiceBlock}>
+                  <Text style={styles.choiceLabel}>Dirección del cliente</Text>
+                  <ChileAddressField
+                    label="Dirección *"
+                    hint="Busca una dirección real en Chile y elige un resultado."
+                    value={direccion}
+                    validated={direccionValidada}
+                    onChangeText={setDireccion}
+                    onValidatedChange={setDireccionValidada}
+                    placeholder="Ej: Av. Providencia 1200, Providencia"
+                  />
+                </View>
+              ) : null}
+
+              <View style={[styles.choiceBlock, styles.choiceBlockSeparated]}>
+                <Text style={styles.choiceLabel}>
+                  {esMecanico ? '1. Servicio a agendar' : '2. Servicio a agendar'}
+                </Text>
+                <Text style={styles.choiceHint}>
+                  Elige uno de tu catálogo o escribe el nombre si no está en la lista.
+                </Text>
                 <InstitutionalScreenTabs
-                  tabs={TIPO_SERVICIO_TABS}
-                  activeKey={tipoServicio}
-                  onChange={setTipoServicio}
+                  tabs={MODO_SERVICIO_TABS}
+                  activeKey={modoServicio}
+                  onChange={setModoServicio}
                 />
-              ) : null}
 
-              {tipoServicio === 'domicilio' ? (
-                <ChileAddressField
-                  label="Dirección *"
-                  hint="Busca una dirección real en Chile y elige un resultado."
-                  value={direccion}
-                  validated={direccionValidada}
-                  onChangeText={setDireccion}
-                  onValidatedChange={setDireccionValidada}
-                  placeholder="Ej: Av. Providencia 1200, Providencia"
-                />
-              ) : null}
-
-              <InstitutionalScreenTabs
-                tabs={MODO_SERVICIO_TABS}
-                activeKey={modoServicio}
-                onChange={setModoServicio}
-              />
-
-              {modoServicio === 'catalogo' ? (
-                loadingServicios ? (
-                  <ActivityIndicator color={I.primary} style={styles.loader} />
-                ) : serviciosCatalogoGrupos.length === 0 ? (
-                  <Text style={styles.helperText}>
-                    No tienes servicios disponibles en catálogo. Usa modo manual o créalos en Mis servicios.
-                  </Text>
+                {modoServicio === 'catalogo' ? (
+                  loadingServicios ? (
+                    <ActivityIndicator color={I.primary} style={styles.loader} />
+                  ) : serviciosCatalogoGrupos.length === 0 ? (
+                    <Text style={styles.helperText}>
+                      No tienes servicios en catálogo. Cambia a «Escribir nombre» o créalos en Mis servicios.
+                    </Text>
+                  ) : (
+                    <View style={styles.catalogoList}>
+                      {catalogoOpcionesAgenda.map((opcion) => {
+                        const selected = catalogoOpcionKey === opcion.key;
+                        return (
+                          <TouchableOpacity
+                            key={opcion.key}
+                            style={[styles.catalogoItem, selected && styles.catalogoItemSelected]}
+                            onPress={() =>
+                              setCatalogoOpcionKey((prev) => (prev === opcion.key ? null : opcion.key))
+                            }
+                            activeOpacity={0.85}
+                          >
+                            <Text style={[styles.catalogoItemTitle, selected && styles.catalogoItemTitleOn]}>
+                              {opcion.label}
+                            </Text>
+                            {selected ? (
+                              <InstitutionalIcon
+                                name="check-circle"
+                                size={18}
+                                color={COLORS.selection.text}
+                                strokeWidth={ICON_STROKE_WIDTH}
+                              />
+                            ) : null}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )
                 ) : (
-                  <View style={styles.catalogoList}>
-                    {catalogoOpcionesAgenda.map((opcion) => {
-                      const selected = catalogoOpcionKey === opcion.key;
-                      return (
-                        <TouchableOpacity
-                          key={opcion.key}
-                          style={[styles.catalogoItem, selected && styles.catalogoItemSelected]}
-                          onPress={() =>
-                            setCatalogoOpcionKey((prev) => (prev === opcion.key ? null : opcion.key))
-                          }
-                          activeOpacity={0.85}
-                        >
-                          <Text style={[styles.catalogoItemTitle, selected && styles.catalogoItemTitleOn]}>
-                            {opcion.label}
-                          </Text>
-                          {selected ? (
-                            <InstitutionalIcon
-                              name="check-circle"
-                              size={18}
-                              color={COLORS.selection.text}
-                              strokeWidth={ICON_STROKE_WIDTH}
-                            />
-                          ) : null}
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )
-              ) : (
-                <InstitutionalField
-                  label="Servicio *"
-                  value={servicioManual}
-                  onChangeText={setServicioManual}
-                  placeholder="Ej. Cambio de aceite"
-                />
-              )}
+                  <InstitutionalField
+                    label="Nombre del servicio *"
+                    value={servicioManual}
+                    onChangeText={setServicioManual}
+                    placeholder="Ej. Cambio de aceite"
+                  />
+                )}
+              </View>
 
               <InstitutionalField
                 label="Descripción"
@@ -1806,6 +1833,27 @@ const styles = StyleSheet.create({
   },
   loader: {
     paddingVertical: SPACING.md,
+  },
+  choiceBlock: {
+    gap: SPACING.fixed.sm,
+  },
+  choiceBlockSeparated: {
+    marginTop: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+  },
+  choiceLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  choiceHint: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
+    marginTop: -SPACING.fixed.xxs,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.xs * 1.4),
   },
   helperText: {
     fontSize: TYPOGRAPHY.fontSize.sm,

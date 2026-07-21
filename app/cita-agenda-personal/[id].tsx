@@ -64,6 +64,7 @@ import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBot
 import { ConfirmarHorarioCitaSheet } from '@/components/agenda/ConfirmarHorarioCitaSheet';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import { InstitutionalTag } from '@/design-system/components/InstitutionalTag';
+import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 import { checklistService } from '@/services/checklistService';
 import {
   ESTADO_OPERATIVO_LABELS,
@@ -660,14 +661,21 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
   const formatearHora = (hora: string) => hora.substring(0, 5);
 
+  /** Un solo entry-point para agendar: abre el calendario (técnico opcional vía sección Técnico). */
+  const abrirConfirmarHorario = useCallback(() => {
+    if (!cita) return;
+    setMiembroParaHorario(cita.miembro_taller);
+    setConfirmarHorarioVisible(true);
+  }, [cita]);
+
   const handleIniciarServicioChecklist = useCallback(async () => {
     if (Number.isNaN(citaId)) return;
     if (horarioPorConfirmar) {
       showAlert(
         'Horario pendiente',
-        'Confirma día, hora y técnico antes de iniciar el servicio.',
+        'Confirma día y hora antes de iniciar el servicio. Puedes asignar un técnico en la sección Técnico.',
       );
-      setConfirmarHorarioVisible(true);
+      abrirConfirmarHorario();
       return;
     }
     setIniciandoChecklist(true);
@@ -694,7 +702,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     } finally {
       setIniciandoChecklist(false);
     }
-  }, [citaId, queryClient, recargarCita, horarioPorConfirmar]);
+  }, [abrirConfirmarHorario, citaId, queryClient, recargarCita, horarioPorConfirmar]);
 
   if (showInitialLoader) {
     return (
@@ -967,7 +975,9 @@ export default function CitaAgendaPersonalDetalleScreen() {
                         <InstitutionalIcon name="tune" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                         <Text style={styles.vehiculoGridItemLabel}>Cilindraje</Text>
                       </View>
-                      <Text style={styles.vehiculoGridItemValue}>{det.vehiculo_cilindraje || 'N/A'}</Text>
+                      <Text style={styles.vehiculoGridItemValue}>
+                        {cilindrajeEfectivo(det.vehiculo_cilindraje, det.vehiculo_marca, det.vehiculo_modelo) || 'N/A'}
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -1008,16 +1018,9 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     <InstitutionalTag label="Por confirmar" variant="warning" size="sm" />
                     <Text style={styles.horarioPendienteTitle}>Horario pendiente</Text>
                     <Text style={styles.horarioPendienteBody}>
-                      El cliente aceptó la cotización. Asigna un técnico (o deja automático) y elige
-                      día y hora en el calendario para agendar la cita.
+                      El cliente aceptó la cotización. Usa «Confirmar horario» para elegir día y hora.
+                      El técnico se asigna (o deja automático) en la sección Técnico.
                     </Text>
-                    {permitirEditarCita ? (
-                      <InstitutionalButton
-                        label="Asignar y agendar"
-                        variant="primary"
-                        onPress={() => setAsignarVisible(true)}
-                      />
-                    ) : null}
                   </View>
                 </View>
               ) : null}
@@ -1145,14 +1148,9 @@ export default function CitaAgendaPersonalDetalleScreen() {
                         />
                       ) : null}
                       {puedeOperarChecklist && !cita.checklist_id && horarioPorConfirmar ? (
-                        <InstitutionalButton
-                          label="Confirmar horario primero"
-                          variant="secondary"
-                          onPress={() => {
-                            setMiembroParaHorario(cita.miembro_taller);
-                            setConfirmarHorarioVisible(true);
-                          }}
-                        />
+                        <Text style={styles.horarioPendienteBody}>
+                          Confirma el horario abajo antes de iniciar el servicio.
+                        </Text>
                       ) : null}
 
                       {puedeOperarChecklist
@@ -1217,22 +1215,11 @@ export default function CitaAgendaPersonalDetalleScreen() {
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
                   <Text style={styles.sectionHeaderTitle}>Fecha y hora</Text>
-                  {horarioPorConfirmar && permitirEditarCita ? (
-                    <InstitutionalButton
-                      label="Elegir"
-                      variant="tertiary"
-                      size="compact"
-                      onPress={() => {
-                        setMiembroParaHorario(cita.miembro_taller);
-                        setConfirmarHorarioVisible(true);
-                      }}
-                    />
-                  ) : null}
                 </View>
                 {horarioPorConfirmar ? (
                   <Text style={styles.horarioPendienteBody}>
-                    Aún no hay día ni hora confirmados. Usa el calendario del técnico o del taller
-                    para agendar.
+                    Aún no hay día ni hora confirmados. Usa «Confirmar horario» al pie para abrir el
+                    calendario del técnico o del taller.
                   </Text>
                 ) : (
                   <>
@@ -1311,14 +1298,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
               setEditando(true);
             }}
             onCompletar={handleCerrar}
-            onConfirmarHorario={() => {
-              setMiembroParaHorario(cita.miembro_taller);
-              if (cita.miembro_taller) {
-                setConfirmarHorarioVisible(true);
-              } else {
-                setAsignarVisible(true);
-              }
-            }}
+            onConfirmarHorario={abrirConfirmarHorario}
             onCancelar={handleCancelar}
             onGuardar={handleGuardarEdicion}
             onDescartar={() => {
@@ -1450,104 +1430,90 @@ function CitaPersonalFooter({
   onDescartar,
   onEliminar,
 }: CitaPersonalFooterProps) {
+  /** Footer solo con InstitutionalButton — primary = gradiente Tinder, no magenta sólido. */
   return (
     <View style={[styles.footer, { paddingBottom: bottomPad }]}>
       {esActiva && !editando ? (
         permitirEditar ? (
           <>
             {permitirConfirmarHorario ? (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.footerBtnPrimary,
-                  (pressed || procesando) && styles.footerBtnPressed,
-                  procesando && styles.footerBtnDisabled,
-                ]}
-                onPress={onConfirmarHorario}
+              <InstitutionalButton
+                label="Confirmar horario"
+                variant="primary"
+                onPress={onConfirmarHorario ?? (() => undefined)}
                 disabled={procesando}
-              >
-                <InstitutionalIcon name="calendar-today" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Confirmar horario</Text>
-              </Pressable>
+                leading={
+                  <InstitutionalIcon name="calendar-today" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                }
+                style={styles.footerBtnGrow}
+              />
             ) : null}
             {(permitirEditar || permitirCerrarManual) && !permitirConfirmarHorario ? (
               <View style={styles.footerRow}>
                 {permitirEditar ? (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.footerBtnOutline,
-                      (pressed || procesando) && styles.footerBtnPressed,
-                      procesando && styles.footerBtnDisabled,
-                    ]}
+                  <InstitutionalButton
+                    label="Editar"
+                    variant="outline"
                     onPress={onEditar}
                     disabled={procesando}
-                  >
-                    <InstitutionalIcon name="create" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.footerBtnOutlineNeutralText} numberOfLines={1}>Editar</Text>
-                  </Pressable>
+                    leading={
+                      <InstitutionalIcon name="create" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                    }
+                    style={styles.footerBtnGrow}
+                  />
                 ) : null}
                 {permitirCerrarManual ? (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.footerBtnSuccess,
-                      (pressed || procesando) && styles.footerBtnPressed,
-                      procesando && styles.footerBtnDisabled,
-                    ]}
+                  <InstitutionalButton
+                    label="Completar"
+                    variant="success"
                     onPress={onCompletar}
                     disabled={procesando}
-                  >
-                    <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Completar</Text>
-                  </Pressable>
+                    leading={
+                      <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                    }
+                    style={styles.footerBtnGrow}
+                  />
                 ) : null}
               </View>
             ) : null}
             {permitirCancelar ? (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.footerBtnCancel,
-                  (pressed || procesando) && styles.footerBtnPressed,
-                  procesando && styles.footerBtnDisabled,
-                ]}
+              <InstitutionalButton
+                label="Cancelar cita"
+                variant="destructiveOutline"
                 onPress={onCancelar}
                 disabled={procesando}
-              >
-                <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Cancelar cita</Text>
-              </Pressable>
+                leading={
+                  <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                }
+              />
             ) : null}
           </>
         ) : (
           (permitirCancelar || permitirCerrarManual) ? (
             <View style={styles.footerRow}>
               {permitirCancelar ? (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.footerBtnCancel,
-                    styles.footerBtnNarrow,
-                    (pressed || procesando) && styles.footerBtnPressed,
-                    procesando && styles.footerBtnDisabled,
-                  ]}
+                <InstitutionalButton
+                  label="Cancelar cita"
+                  variant="destructiveOutline"
                   onPress={onCancelar}
                   disabled={procesando}
-                >
-                  <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Cancelar cita</Text>
-                </Pressable>
+                  leading={
+                    <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                  }
+                  style={styles.footerBtnGrow}
+                />
               ) : null}
               {permitirCerrarManual ? (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.footerBtnSuccess,
-                    styles.footerBtnWide,
-                    (pressed || procesando) && styles.footerBtnPressed,
-                    procesando && styles.footerBtnDisabled,
-                  ]}
+                <InstitutionalButton
+                  label="Completar"
+                  variant="success"
                   onPress={onCompletar}
                   disabled={procesando}
-                >
-                  <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Completar</Text>
-                </Pressable>
+                  leading={
+                    <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                  }
+                  style={[styles.footerBtnGrow, styles.footerBtnWide]}
+                />
               ) : null}
             </View>
           ) : null
@@ -1556,52 +1522,42 @@ function CitaPersonalFooter({
 
       {esActiva && editando && permitirEditar ? (
         <View style={styles.footerRow}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.footerBtnOutline,
-              (pressed || procesando) && styles.footerBtnPressed,
-              procesando && styles.footerBtnDisabled,
-            ]}
+          <InstitutionalButton
+            label="Descartar"
+            variant="outline"
             onPress={onDescartar}
             disabled={procesando}
-          >
-            <InstitutionalIcon name="close" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.footerBtnOutlineNeutralText} numberOfLines={1}>Descartar</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.footerBtnPrimary,
-              (pressed || procesando) && styles.footerBtnPressed,
-              procesando && styles.footerBtnDisabled,
-            ]}
+            leading={
+              <InstitutionalIcon name="close" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            }
+            style={styles.footerBtnGrow}
+          />
+          <InstitutionalButton
+            label="Guardar cambios"
+            variant="primary"
             onPress={onGuardar}
             disabled={procesando}
-          >
-            {procesando ? (
-              <ActivityIndicator color={I.onPrimary} size="small" />
-            ) : (
-              <>
-                <InstitutionalIcon name="save" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.footerBtnPrimaryText} numberOfLines={1}>Guardar cambios</Text>
-              </>
-            )}
-          </Pressable>
+            loading={procesando}
+            leading={
+              procesando
+                ? undefined
+                : <InstitutionalIcon name="save" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+            }
+            style={styles.footerBtnGrow}
+          />
         </View>
       ) : null}
 
       {esCancelada && permitirEliminar ? (
-        <Pressable
-          style={({ pressed }) => [
-            styles.footerBtnCancel,
-            (pressed || procesando) && styles.footerBtnPressed,
-            procesando && styles.footerBtnDisabled,
-          ]}
+        <InstitutionalButton
+          label="Eliminar cita"
+          variant="destructiveOutline"
           onPress={onEliminar}
           disabled={procesando}
-        >
-          <InstitutionalIcon name="delete" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.footerBtnOutlineText} numberOfLines={1}>Eliminar cita</Text>
-        </Pressable>
+          leading={
+            <InstitutionalIcon name="delete" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+          }
+        />
       ) : null}
     </View>
   );
@@ -2078,72 +2034,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SPACING.fixed.sm,
   },
-  footerBtnOutline: {
+  footerBtnGrow: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.fixed.xs,
-    paddingVertical: SPACING.fixed.sm + 2,
-    borderRadius: BORDERS.radius.pill,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    backgroundColor: I.canvas,
-  },
-  footerBtnCancel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.fixed.xs,
-    paddingVertical: SPACING.fixed.sm + 2,
-    borderRadius: BORDERS.radius.pill,
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.semanticDown, 0.35),
-    backgroundColor: I.canvas,
-  },
-  footerBtnPrimary: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.fixed.xs,
-    paddingVertical: SPACING.fixed.sm + 2,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.primary,
-    ...SHADOWS.editorial,
-  },
-  footerBtnSuccess: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.fixed.xs,
-    paddingVertical: SPACING.fixed.sm + 2,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: I.semanticUp,
-    ...SHADOWS.editorial,
   },
   footerBtnWide: {
     flex: 1.65,
   },
-  footerBtnNarrow: {
-    flex: 1,
-  },
-  footerBtnOutlineText: {
-    fontSize: TS.button.fontSize,
-    fontFamily: FF.sansSemiBold,
-    color: I.semanticDown,
-  },
-  footerBtnOutlineNeutralText: {
-    fontSize: TS.button.fontSize,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
-  },
-  footerBtnPrimaryText: {
-    fontSize: TS.button.fontSize,
-    fontFamily: FF.sansSemiBold,
-    color: I.onPrimary,
-  },
-  footerBtnPressed: { opacity: 0.85 },
-  footerBtnDisabled: { opacity: 0.55 },
 });

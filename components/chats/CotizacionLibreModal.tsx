@@ -18,6 +18,8 @@ import { InstitutionalText } from '@/app/design-system/components/InstitutionalT
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { getChilePhoneError } from '@/components/forms/ChilePhoneField';
+import ChileAddressField from '@/components/forms/ChileAddressField';
+import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
 import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
 import {
   ClienteCanalPickerSection,
@@ -34,6 +36,7 @@ import {
   extraerNueveDigitosDesdeGuardado,
   normalizarTelefonoChileParaGuardar,
 } from '@/utils/chilePhone';
+import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 
 const MODALIDAD_TABS = [
   { key: 'taller' as const, label: 'En taller' },
@@ -81,6 +84,8 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
   const [servicioNombre, setServicioNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [modalidad, setModalidad] = useState<'taller' | 'domicilio'>('taller');
+  const [direccion, setDireccion] = useState('');
+  const [direccionValidada, setDireccionValidada] = useState<ChileFormattedAddress | null>(null);
   const [buscandoPatente, setBuscandoPatente] = useState(false);
   const [patenteHint, setPatenteHint] = useState<string | null>(null);
   const [generandoIa, setGenerandoIa] = useState(false);
@@ -98,7 +103,7 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
       modelo: vehiculoModelo.trim(),
       patente: vehiculoPatente.trim().toUpperCase(),
       anio: vehiculoAnio.trim() ? parseInt(vehiculoAnio.trim(), 10) : undefined,
-      cilindraje: vehiculoCilindraje.trim(),
+      cilindraje: cilindrajeEfectivo(vehiculoCilindraje, vehiculoMarca, vehiculoModelo),
       vin: vehiculoVin.trim().toUpperCase(),
     }),
     [vehiculoMarca, vehiculoModelo, vehiculoPatente, vehiculoAnio, vehiculoCilindraje, vehiculoVin],
@@ -119,6 +124,8 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
     setServicioNombre('');
     setDescripcion('');
     setModalidad('taller');
+    setDireccion('');
+    setDireccionValidada(null);
     setPatenteHint(null);
     setErrorIa(null);
     setCotizacion(null);
@@ -174,7 +181,13 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
       setVehiculoModelo(data.modelo_nombre?.trim() || '');
       setVehiculoAnio(data.year ? String(data.year) : '');
       setVehiculoVin(data.vin?.trim() || '');
-      setVehiculoCilindraje(data.cilindraje?.trim() || '');
+      setVehiculoCilindraje(
+        cilindrajeEfectivo(
+          data.cilindraje,
+          data.marca_nombre,
+          data.modelo_nombre,
+        ),
+      );
       setVehiculoDesdePatente(true);
       setPatenteHint('Datos del vehículo cargados desde la patente.');
     } catch {
@@ -217,6 +230,12 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
       return 'Completa los datos del vehículo (patente o marca y modelo).';
     }
     if (!servicioNombre.trim()) return 'Ingresa el nombre del servicio.';
+    if (modalidad === 'domicilio') {
+      if (!direccion.trim()) return 'Ingresa la dirección para servicio a domicilio.';
+      if (!direccionValidada) {
+        return 'Selecciona una dirección válida de la lista de sugerencias.';
+      }
+    }
     return null;
   }, [
     clienteModo,
@@ -226,6 +245,9 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
     vehiculoMarca,
     vehiculoModelo,
     servicioNombre,
+    modalidad,
+    direccion,
+    direccionValidada,
   ]);
 
   const handleGenerarIa = useCallback(async () => {
@@ -245,6 +267,10 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
         servicio_nombre: servicioNombre.trim(),
         descripcion_problema: descripcion.trim(),
         modalidad,
+        direccion_servicio:
+          modalidad === 'domicilio'
+            ? (direccionValidada?.line ?? direccion).trim()
+            : '',
         vehiculo: vehiculoPayload,
       });
       if (!res.disponible || !res.cotizacion) {
@@ -266,6 +292,8 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
     servicioNombre,
     descripcion,
     modalidad,
+    direccion,
+    direccionValidada,
     vehiculoPayload,
   ]);
 
@@ -461,40 +489,71 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
 
                 <InstitutionalSectionHeader title="Servicio" />
                 <View style={styles.section}>
-                  <InstitutionalField
-                    label="Nombre del servicio *"
-                    value={servicioNombre}
-                    onChangeText={setServicioNombre}
-                    placeholder="Ej. Cambio de aceite y filtros"
-                  />
-                  <InstitutionalField
-                    label="Detalle del problema"
-                    value={descripcion}
-                    onChangeText={setDescripcion}
-                    placeholder="Opcional"
-                    multiline
-                  />
-                  <View style={styles.underlineTabs}>
-                    {MODALIDAD_TABS.map((tab) => {
-                      const active = modalidad === tab.key;
-                      return (
-                        <TouchableOpacity
-                          key={tab.key}
-                          style={[styles.underlineTab, active && styles.underlineTabActive]}
-                          onPress={() => setModalidad(tab.key)}
-                          activeOpacity={0.75}
-                          accessibilityRole="tab"
-                          accessibilityState={{ selected: active }}
-                        >
-                          <InstitutionalText
-                            role={active ? 'captionBold' : 'caption'}
-                            color={active ? 'ink' : 'muted'}
+                  <View style={styles.choiceBlock}>
+                    <InstitutionalText role="captionBold" color="ink">
+                      1. Lugar del servicio
+                    </InstitutionalText>
+                    <InstitutionalText role="caption" color="muted">
+                      ¿Dónde se realizará el trabajo?
+                    </InstitutionalText>
+                    <View style={styles.underlineTabs}>
+                      {MODALIDAD_TABS.map((tab) => {
+                        const active = modalidad === tab.key;
+                        return (
+                          <TouchableOpacity
+                            key={tab.key}
+                            style={[styles.underlineTab, active && styles.underlineTabActive]}
+                            onPress={() => {
+                              setModalidad(tab.key);
+                              if (tab.key === 'taller') {
+                                setDireccion('');
+                                setDireccionValidada(null);
+                              }
+                            }}
+                            activeOpacity={0.75}
+                            accessibilityRole="tab"
+                            accessibilityState={{ selected: active }}
                           >
-                            {tab.label}
-                          </InstitutionalText>
-                        </TouchableOpacity>
-                      );
-                    })}
+                            <InstitutionalText
+                              role={active ? 'captionBold' : 'caption'}
+                              color={active ? 'ink' : 'muted'}
+                            >
+                              {tab.label}
+                            </InstitutionalText>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    {modalidad === 'domicilio' ? (
+                      <ChileAddressField
+                        label="Dirección del cliente *"
+                        hint="Busca una dirección real en Chile y elige un resultado."
+                        value={direccion}
+                        validated={direccionValidada}
+                        onChangeText={setDireccion}
+                        onValidatedChange={setDireccionValidada}
+                        placeholder="Ej: Av. Providencia 1200, Providencia"
+                      />
+                    ) : null}
+                  </View>
+
+                  <View style={styles.choiceBlockSeparated}>
+                    <InstitutionalText role="captionBold" color="ink">
+                      2. Qué cotizar
+                    </InstitutionalText>
+                    <InstitutionalField
+                      label="Nombre del servicio *"
+                      value={servicioNombre}
+                      onChangeText={setServicioNombre}
+                      placeholder="Ej. Cambio de aceite y filtros"
+                    />
+                    <InstitutionalField
+                      label="Detalle del problema"
+                      value={descripcion}
+                      onChangeText={setDescripcion}
+                      placeholder="Opcional"
+                      multiline
+                    />
                   </View>
                 </View>
 
@@ -615,6 +674,15 @@ const styles = StyleSheet.create({
   section: {
     gap: SPACING.md,
     marginBottom: SPACING.sm,
+  },
+  choiceBlock: {
+    gap: SPACING.sm,
+  },
+  choiceBlockSeparated: {
+    gap: SPACING.sm,
+    paddingTop: SPACING.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
   },
   fieldRow: {
     flexDirection: 'row',

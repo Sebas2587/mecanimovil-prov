@@ -671,7 +671,7 @@ export function PipelineSeguimientoSection({
               ) : null}
               {leadActivo.cita_id && leadActivo.horario_por_confirmar ? (
                 <InstitutionalButton
-                  label="Confirmar horario y agendar"
+                  label="Confirmar horario"
                   onPress={() => {
                     const id = leadActivo.cita_id;
                     setLeadActivo(null);
@@ -679,7 +679,9 @@ export function PipelineSeguimientoSection({
                   }}
                 />
               ) : null}
-              {leadActivo.solicitud_id || leadActivo.cita_id || leadActivo.orden_id ? (
+              {/* Evita «Ver detalle» si ya hay CTA que abre la misma cita. */}
+              {!(leadActivo.cita_id && leadActivo.horario_por_confirmar)
+              && (leadActivo.solicitud_id || leadActivo.cita_id || leadActivo.orden_id) ? (
                 <InstitutionalButton
                   label="Ver detalle"
                   variant="secondary"
@@ -693,7 +695,7 @@ export function PipelineSeguimientoSection({
               ) : null}
               {leadPuedeAsignar ? (
                 <InstitutionalButton
-                  label={leadActivo.horario_por_confirmar ? 'Asignar y agendar' : 'Asignar técnico'}
+                  label="Asignar técnico"
                   variant="secondary"
                   onPress={() => abrirAsignarDesdeLead(leadActivo)}
                 />
