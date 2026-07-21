@@ -55,10 +55,16 @@ interface AuthContextType {
   estadoProveedor: EstadoProveedor | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (username: string, password: string, manageLoading?: boolean) => Promise<{ estadoProveedor: EstadoProveedor | null }>;
+  login: (
+    username: string,
+    password: string,
+    manageLoading?: boolean,
+    aceptaTerminos?: boolean,
+  ) => Promise<{ estadoProveedor: EstadoProveedor | null }>;
   loginWithGoogle: (
     idToken: string,
     flow?: 'login' | 'register',
+    aceptaTerminos?: boolean,
     manageLoading?: boolean,
   ) => Promise<{
     success: boolean;
@@ -434,12 +440,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const loginWithGoogle = async (
     idToken: string,
     flow: 'login' | 'register' = 'login',
+    aceptaTerminos = false,
     manageLoading: boolean = true,
   ) => {
     try {
       if (manageLoading) setIsLoading(true);
 
-      const response = await googleLoginProveedor(idToken, flow);
+      const response = await googleLoginProveedor(idToken, flow, aceptaTerminos);
 
       if ('__clientAccount' in response && response.__clientAccount) {
         await clearAuthTokenCache().catch(() => {});
@@ -509,7 +516,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = async (username: string, password: string, manageLoading: boolean = true) => {
+  const login = async (
+    username: string,
+    password: string,
+    manageLoading: boolean = true,
+    aceptaTerminos: boolean = false,
+  ) => {
     try {
       // Logs solo en desarrollo (__DEV__), nunca en producción (APK)
       if (__DEV__) {
@@ -529,7 +541,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (__DEV__) {
         console.log('📡 Llamando a authAPI.login...');
       }
-      const response = await authAPI.login({ username, password });
+      const response = await authAPI.login({ username, password, acepta_terminos: aceptaTerminos });
       
       if (__DEV__) {
         console.log('✅ Respuesta de authAPI.login recibida');

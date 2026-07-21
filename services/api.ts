@@ -291,11 +291,13 @@ export interface RegistroUsuario {
   first_name?: string;
   last_name?: string;
   telefono?: string;
+  acepta_terminos?: boolean;
 }
 
 export interface LoginCredentials {
   username: string;
   password: string;
+  acepta_terminos?: boolean;
 }
 
 export interface PerfilTaller {

@@ -144,10 +144,16 @@ export default function PrivacidadDatosScreen() {
           <Text style={styles.actionBtnText}>Exportar mis datos (JSON)</Text>
         </TouchableOpacity>
 
-        <Text style={styles.sectionTitle}>Preferencias</Text>
-        {(['push_operativo', 'push_marketing', 'email_marketing'] as const).map((key) => (
+        <Text style={styles.sectionTitle}>Preferencias de comunicación</Text>
+        {(
+          [
+            ['push_operativo', 'Notificaciones operativas (push)'],
+            ['push_marketing', 'Ofertas y novedades (push)'],
+            ['email_marketing', 'Correos comerciales'],
+          ] as const
+        ).map(([key, label]) => (
           <View key={key} style={styles.prefRow}>
-            <Text style={styles.prefLabel}>{key.replace(/_/g, ' ')}</Text>
+            <Text style={styles.prefLabel}>{label}</Text>
             <Switch value={prefs[key]} onValueChange={(v) => togglePref(key, v)} />
           </View>
         ))}

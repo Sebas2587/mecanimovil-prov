@@ -43,6 +43,19 @@ export default function LoginScreen() {
   const [emailLoading, setEmailLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [termsError, setTermsError] = useState<string | undefined>();
+
+  const ensureAcceptTerms = useCallback(() => {
+    if (acceptTerms) {
+      setTermsError(undefined);
+      return true;
+    }
+    const msg = 'Debes aceptar los términos y la política de privacidad';
+    setTermsError(msg);
+    showAlert('Aceptación requerida', msg);
+    return false;
+  }, [acceptTerms]);
 
   const handleGoogleSuccess = useCallback(
     async (result: { success: boolean; estadoProveedor?: any }) => {
@@ -55,7 +68,7 @@ export default function LoginScreen() {
 
   const { googleLoading, signInWithAccountChooser } = useGoogleSignInFlow(
     async (idToken: string, flow?: 'login' | 'register') => {
-      const result = await loginWithGoogle(idToken, flow);
+      const result = await loginWithGoogle(idToken, flow, true);
       if (result.success) {
         await handleGoogleSuccess(result);
       }
@@ -122,11 +135,12 @@ export default function LoginScreen() {
   };
 
   const handleEmailLogin = async () => {
+    if (!ensureAcceptTerms()) return;
     if (!validateLoginForm()) return;
     setEmailLoading(true);
     setLoginError(null);
     try {
-      const { estadoProveedor: estadoActual } = await login(email.trim(), password);
+      const { estadoProveedor: estadoActual } = await login(email.trim(), password, true, true);
       navigateAfterLogin(router, estadoActual);
     } catch (error: any) {
       const message = error?.message || 'Verifica tus credenciales e intenta nuevamente.';
@@ -190,9 +204,11 @@ export default function LoginScreen() {
             if (loginError) setLoginError(null);
           }}
           onAccountTap={(accountEmail) => {
+            if (!ensureAcceptTerms()) return;
             if (!googleLoading) signInWithAccountChooser({ loginHint: accountEmail });
           }}
           onUseAnotherGoogle={() => {
+            if (!ensureAcceptTerms()) return;
             if (!googleLoading) signInWithAccountChooser();
           }}
           onGoMethods={() => setStep('methods')}
@@ -201,6 +217,12 @@ export default function LoginScreen() {
           onClearGoogleAccounts={handleClearGoogleAccounts}
           onEmailLogin={handleEmailLogin}
           onGoRegister={goRegister}
+          acceptTerms={acceptTerms}
+          onToggleAcceptTerms={() => {
+            setAcceptTerms((v) => !v);
+            if (termsError) setTermsError(undefined);
+          }}
+          termsError={termsError}
         />
       )}
     </ScrollView>

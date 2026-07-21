@@ -12,6 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '@/app/design-system/tokens/colors';
 import { platformShadow } from '@/app/design-system/tokens';
 import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
+import { useLegalConsentGate } from '@/hooks/useLegalConsentGate';
+import LegalConsentModal from '@/components/legal/LegalConsentModal';
 
 const C = COLORS;
 
@@ -27,6 +29,7 @@ const C = COLORS;
  */
 export default function TabLayout() {
   const { isAuthenticated, isLoading, esMecanicoEquipo } = useAuth();
+  const { needsConsent, clearNeedsConsent } = useLegalConsentGate(isAuthenticated);
   const { radarOportunidadesActivo, radarPreferenciaCargada } = useRadarOportunidades();
   const { totalMensajesNoLeidos } = useChats();
   const insets = useSafeAreaInsets();
@@ -92,6 +95,7 @@ export default function TabLayout() {
   const inactiveTint = C.tab.unselected;
 
   return (
+    <>
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: activeTint,
@@ -206,6 +210,10 @@ export default function TabLayout() {
 
       <Tabs.Screen name="checklist-demo" options={{ href: null }} />
     </Tabs>
+    {needsConsent ? (
+      <LegalConsentModal visible={needsConsent} onAccepted={clearNeedsConsent} />
+    ) : null}
+    </>
   );
 }
 

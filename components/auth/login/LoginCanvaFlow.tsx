@@ -12,6 +12,7 @@ import {
 import { ChevronLeft, ChevronRight, Mail, UserMinus } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import type { ConnectedGoogleAccount } from '@/hooks/auth/useGoogleSignInFlow';
+import LegalAcceptanceRow from '@/components/legal/LegalAcceptanceRow';
 
 export type LoginStep = 'accounts' | 'methods' | 'email';
 
@@ -35,6 +36,9 @@ type Props = {
   onClearGoogleAccounts: () => void;
   onEmailLogin: () => void;
   onGoRegister: (email?: string) => void;
+  acceptTerms: boolean;
+  onToggleAcceptTerms: () => void;
+  termsError?: string;
 };
 
 export function LoginCanvaFlow({
@@ -57,6 +61,9 @@ export function LoginCanvaFlow({
   onClearGoogleAccounts,
   onEmailLogin,
   onGoRegister,
+  acceptTerms,
+  onToggleAcceptTerms,
+  termsError,
 }: Props) {
   if (step === 'accounts') {
     return (
@@ -79,13 +86,13 @@ export function LoginCanvaFlow({
               .join('')
               .toUpperCase();
             return (
-              <TouchableOpacity
-                key={acc.email}
-                onPress={() => onAccountTap(acc.email)}
-                disabled={googleLoading}
-                style={[styles.accountRow, webCursor, googleLoading && styles.disabled]}
-                activeOpacity={0.7}
-              >
+            <TouchableOpacity
+              key={acc.email}
+              onPress={() => onAccountTap(acc.email)}
+              disabled={googleLoading || !acceptTerms}
+              style={[styles.accountRow, webCursor, (googleLoading || !acceptTerms) && styles.disabled]}
+              activeOpacity={0.7}
+            >
                 {acc.picture ? (
                   <Image source={{ uri: acc.picture }} style={styles.avatarImg} />
                 ) : (
@@ -128,9 +135,11 @@ export function LoginCanvaFlow({
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.footer}>
-          Al continuar, aceptas los Términos de uso de MecaniMóvil Proveedores.
-        </Text>
+        <LegalAcceptanceRow
+          checked={acceptTerms}
+          onToggle={onToggleAcceptTerms}
+          error={termsError}
+        />
 
         <TouchableOpacity
           onPress={onClearGoogleAccounts}
@@ -168,8 +177,8 @@ export function LoginCanvaFlow({
 
           <TouchableOpacity
             onPress={onUseAnotherGoogle}
-            disabled={googleLoading}
-            style={[styles.methodRow, webCursor, googleLoading && styles.disabled]}
+            disabled={googleLoading || !acceptTerms}
+            style={[styles.methodRow, webCursor, (googleLoading || !acceptTerms) && styles.disabled]}
             activeOpacity={0.75}
           >
             <View style={[styles.methodIconWrap, styles.methodIconGoogle]}>
@@ -188,7 +197,12 @@ export function LoginCanvaFlow({
 
           <View style={styles.methodDivider} />
 
-          <TouchableOpacity onPress={onGoEmail} style={[styles.methodRow, webCursor]} activeOpacity={0.75}>
+          <TouchableOpacity
+            onPress={onGoEmail}
+            disabled={!acceptTerms}
+            style={[styles.methodRow, webCursor, !acceptTerms && styles.disabled]}
+            activeOpacity={0.75}
+          >
             <View style={styles.methodIconWrap}>
               <Mail size={20} color={COLORS.institutional.ink} />
             </View>
@@ -200,9 +214,11 @@ export function LoginCanvaFlow({
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.footer}>
-          Al continuar, aceptas los Términos de uso de MecaniMóvil Proveedores.
-        </Text>
+        <LegalAcceptanceRow
+          checked={acceptTerms}
+          onToggle={onToggleAcceptTerms}
+          error={termsError}
+        />
       </>
     );
   }
@@ -264,8 +280,8 @@ export function LoginCanvaFlow({
 
         <TouchableOpacity
           onPress={onEmailLogin}
-          disabled={emailLoading}
-          style={[styles.btnPrimary, webCursor, emailLoading && styles.disabled]}
+          disabled={emailLoading || !acceptTerms}
+          style={[styles.btnPrimary, webCursor, (emailLoading || !acceptTerms) && styles.disabled]}
           activeOpacity={0.75}
         >
           {emailLoading ? (
@@ -276,9 +292,11 @@ export function LoginCanvaFlow({
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.footer}>
-        Al continuar, aceptas los Términos de uso de MecaniMóvil Proveedores.
-      </Text>
+      <LegalAcceptanceRow
+        checked={acceptTerms}
+        onToggle={onToggleAcceptTerms}
+        error={termsError}
+      />
     </>
   );
 }

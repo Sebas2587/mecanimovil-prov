@@ -9,13 +9,17 @@ type Props = {
   meta: { title: string; subtitle?: string; lastUpdated: string };
   sections: Section[];
   footer?: { title: string; content: string };
+  embedded?: boolean;
 };
 
-export default function LegalDocumentView({ meta, sections, footer }: Props) {
-  return (
+export default function LegalDocumentView({ meta, sections, footer, embedded = false }: Props) {
+  const body = (
     <>
-      <Stack.Screen options={{ title: meta.title, headerShown: true }} />
-      <ScrollView contentContainerStyle={styles.container}>
+      {!embedded ? <Stack.Screen options={{ title: meta.title, headerShown: true }} /> : null}
+      <ScrollView
+        contentContainerStyle={[styles.container, embedded && styles.embeddedContainer]}
+        nestedScrollEnabled={embedded}
+      >
         <View style={styles.intro}>
           {meta.subtitle ? <Text style={styles.subtitle}>{meta.subtitle}</Text> : null}
           <Text style={styles.updated}>Última actualización: {meta.lastUpdated}</Text>
@@ -35,6 +39,8 @@ export default function LegalDocumentView({ meta, sections, footer }: Props) {
       </ScrollView>
     </>
   );
+
+  return body;
 }
 
 const styles = StyleSheet.create({
@@ -42,6 +48,9 @@ const styles = StyleSheet.create({
     padding: SPACING.container.horizontal,
     paddingBottom: SPACING.xl,
     backgroundColor: COLORS.background.default,
+  },
+  embeddedContainer: {
+    paddingTop: SPACING.md,
   },
   intro: { marginBottom: SPACING.lg },
   subtitle: {

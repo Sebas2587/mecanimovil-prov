@@ -28,6 +28,11 @@ export const deleteAccount = async (password: string) => {
   return data;
 };
 
+export const getConsentStatus = async () => {
+  const { data } = await api.get('/usuarios/consentimiento/estado/');
+  return data;
+};
+
 export const registerLegalConsent = async () => {
   const { data } = await api.post('/usuarios/consentimiento/registrar/', {
     acepta_terminos: true,

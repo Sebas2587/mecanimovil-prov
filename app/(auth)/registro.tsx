@@ -18,6 +18,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS } from '@/app/design-system/tokens';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
+import LegalAcceptanceRow from '@/components/legal/LegalAcceptanceRow';
 
 const I = COLORS.institutional;
 
@@ -108,6 +109,8 @@ export default function RegistroScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [termsError, setTermsError] = useState<string | undefined>();
   
   const { registro, limpiarStorage } = useAuth();
   const router = useRouter();
@@ -161,6 +164,10 @@ export default function RegistroScreen() {
       return 'Las contraseñas no coinciden';
     }
 
+    if (!acceptTerms) {
+      return 'Debes aceptar los términos y la política de privacidad';
+    }
+
     return null;
   };
 
@@ -172,6 +179,7 @@ export default function RegistroScreen() {
     const validationError = validateForm();
     if (validationError) {
       setErrorMessage(validationError);
+      if (validationError.includes('términos')) setTermsError(validationError);
       return;
     }
 
@@ -201,6 +209,7 @@ export default function RegistroScreen() {
         email: formData.correo.toLowerCase().trim(),
         password: formData.contrasena,
         first_name: formData.nombre.trim(),
+        acepta_terminos: true,
       };
 
       if (__DEV__) {
@@ -368,6 +377,15 @@ export default function RegistroScreen() {
                 </TouchableOpacity>
               </View>
             </View>
+
+            <LegalAcceptanceRow
+              checked={acceptTerms}
+              onToggle={() => {
+                setAcceptTerms((v) => !v);
+                if (termsError) setTermsError(undefined);
+              }}
+              error={termsError}
+            />
 
         <View style={styles.divider}>
           <Text style={styles.dividerText}>¿Ya tienes cuenta?</Text>
