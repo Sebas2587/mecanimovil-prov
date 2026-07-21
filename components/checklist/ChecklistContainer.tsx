@@ -686,29 +686,33 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           </View>
         )}
 
-        {esperandoFirmaCliente && citaPersonalId && (informeLink || informeEnvio) && (
+        {citaPersonalId && informeLink ? (
           <View style={styles.informeLinkCard}>
-            <Text style={styles.informeLinkTitle}>Informe para el cliente</Text>
-            {informeEnvio?.enviado ? (
+            <Text style={styles.informeLinkTitle}>
+              {esperandoFirmaCliente ? 'Informe para el cliente' : 'Enlace del informe'}
+            </Text>
+            {esperandoFirmaCliente && informeEnvio?.enviado ? (
               <Text style={styles.informeLinkHint}>
                 Enviado automáticamente por {informeEnvio.via || 'canal conectado'}.
               </Text>
             ) : (
               <Text style={styles.informeLinkHint}>
-                Comparte este enlace para que el cliente revise y firme el servicio.
+                {esperandoFirmaCliente
+                  ? 'Comparte este enlace para que el cliente revise y firme el servicio.'
+                  : 'Puedes reenviar este enlace las veces que necesites. El cliente puede volver a ver el informe.'}
               </Text>
             )}
-            {informeLink ? (
-              <TouchableOpacity
-                style={styles.secondaryOutlineButton}
-                onPress={() => void copiarEnlaceInforme(informeLink)}
-              >
-                <InstitutionalIcon name="link" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.secondaryOutlineButtonText}>Copiar enlace del informe</Text>
-              </TouchableOpacity>
-            ) : null}
+            <TouchableOpacity
+              style={styles.secondaryOutlineButton}
+              onPress={() => void copiarEnlaceInforme(informeLink)}
+            >
+              <InstitutionalIcon name="link" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Text style={styles.secondaryOutlineButtonText}>
+                {esperandoFirmaCliente ? 'Copiar enlace del informe' : 'Copiar / compartir enlace'}
+              </Text>
+            </TouchableOpacity>
           </View>
-        )}
+        ) : null}
 
         {esperandoFirmaCliente && (
           <View style={styles.bannerWrap}>

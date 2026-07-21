@@ -1086,7 +1086,9 @@ export default function CitaAgendaPersonalDetalleScreen() {
                             : checklistPendienteFirmaCliente
                               ? 'Comparte el enlace para que el cliente vea lo realizado y certifique el servicio.'
                               : checklistCompletado
-                                ? 'El checklist quedó cerrado y firmado.'
+                                ? cita.informe_publico_url
+                                  ? 'El checklist quedó cerrado. Puedes reenviar el enlace para que el cliente vuelva a ver el informe.'
+                                  : 'El checklist quedó cerrado y firmado.'
                                 : puedeOperarChecklist
                                   ? 'Continúa el checklist paso a paso hasta finalizarlo.'
                                   : 'El progreso se actualiza mientras el técnico completa el servicio.'}
@@ -1143,16 +1145,22 @@ export default function CitaAgendaPersonalDetalleScreen() {
                         />
                       ) : null}
 
-                      {checklistPendienteFirmaCliente && cita.informe_publico_url ? (
+                      {cita.informe_publico_url ? (
                         <View style={styles.informeLinkInline}>
                           <Text style={styles.informeLinkHint}>
-                            Enlace para el cliente
+                            {checklistPendienteFirmaCliente
+                              ? 'Enlace para el cliente'
+                              : 'Reenviar enlace del informe'}
                           </Text>
                           <Text style={styles.informeLinkUrl} numberOfLines={2}>
                             {cita.informe_publico_url}
                           </Text>
                           <InstitutionalButton
-                            label="Copiar enlace"
+                            label={
+                              checklistPendienteFirmaCliente
+                                ? 'Copiar enlace'
+                                : 'Copiar / compartir enlace'
+                            }
                             variant="primary"
                             onPress={() => void copiarEnlaceInformeCita(cita.informe_publico_url!)}
                           />

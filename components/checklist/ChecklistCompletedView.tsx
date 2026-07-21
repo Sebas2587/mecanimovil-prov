@@ -8,6 +8,8 @@ import {
   Modal,
   Image,
   ActivityIndicator,
+  Platform,
+  Share,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -171,6 +173,19 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const copiarEnlaceInforme = async (url: string) => {
+    try {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        showAlert('Enlace copiado', 'El enlace del informe quedó en el portapapeles.');
+        return;
+      }
+      await Share.share({ message: url, url });
+    } catch {
+      showAlert('Enlace del informe', url);
+    }
   };
 
   const renderRespuesta = (response: ChecklistItemResponse) => {
@@ -390,6 +405,33 @@ export const ChecklistCompletedView: React.FC<ChecklistCompletedViewProps> = ({
                   </View>
                 ) : null}
               </View>
+
+              {instance.informe_publico?.url ? (
+                <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
+                  <InstitutionalText role="h6" color="muted" style={styles.kicker}>
+                    Cliente
+                  </InstitutionalText>
+                  <InstitutionalSectionHeader title="Enlace del informe" level="h4" />
+                  <View style={styles.sectionRule} />
+                  <InstitutionalText role="body" color="body" style={styles.informeShareHint}>
+                    {instance.estado === 'PENDIENTE_FIRMA_CLIENTE'
+                      ? 'Comparte este enlace para que el cliente revise y certifique el servicio.'
+                      : 'Puedes reenviar este enlace las veces que necesites para que el cliente vuelva a ver el informe.'}
+                  </InstitutionalText>
+                  <Text style={styles.informeShareUrl} numberOfLines={3}>
+                    {instance.informe_publico.url}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.informeShareBtn}
+                    onPress={() => void copiarEnlaceInforme(instance.informe_publico!.url)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Copiar o compartir enlace del informe"
+                  >
+                    <InstitutionalIcon name="link" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.informeShareBtnText}>Copiar / compartir enlace</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
 
               {(instance.firma_tecnico || instance.firma_cliente || instance.firma_supervisor) && (
                 <View style={[institutionalCardStyles.surface, institutionalCardStyles.surfacePadding]}>
@@ -642,6 +684,33 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     textAlign: 'right',
     maxWidth: '58%',
+  },
+  informeShareHint: {
+    marginBottom: SPACING.sm,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, 1.4),
+  },
+  informeShareUrl: {
+    ...T.caption,
+    color: I.muted,
+    marginBottom: SPACING.md,
+    lineHeight: lh(TYPOGRAPHY.fontSize.xs, 1.35),
+  },
+  informeShareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    minHeight: 48,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.primary,
+    backgroundColor: I.surfaceSoft,
+    paddingHorizontal: SPACING.md,
+  },
+  informeShareBtnText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.primary,
+    fontFamily: FF.sansSemiBold,
   },
   signaturesRow2: {
     flexDirection: 'row',
