@@ -24,9 +24,17 @@ type Props = {
   target: AsignarTecnicoTarget | null;
   /** miembroTallerId asignado; null = automático / sin técnico fijo. */
   onAsignado?: (miembroTallerId: number | null) => void;
+  /** Si true, el CTA indica que sigue el calendario (flujo confirmar horario). */
+  continuarACalendario?: boolean;
 };
 
-export function AsignarTecnicoBottomSheet({ visible, onClose, target, onAsignado }: Props) {
+export function AsignarTecnicoBottomSheet({
+  visible,
+  onClose,
+  target,
+  onAsignado,
+  continuarACalendario = false,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [miembros, setMiembros] = useState<MiembroTaller[]>([]);
@@ -83,7 +91,9 @@ export function AsignarTecnicoBottomSheet({ visible, onClose, target, onAsignado
       <View style={styles.wrap}>
         <InstitutionalText role="h4">{titulo}</InstitutionalText>
         <InstitutionalText role="caption" color="muted">
-          Elige un técnico del equipo o deja en automático para que el sistema asigne.
+          {continuarACalendario
+            ? 'Paso 1 de 2: elige técnico o automático. Después verás su calendario para agendar.'
+            : 'Elige un técnico del equipo o deja en automático para que el sistema asigne.'}
         </InstitutionalText>
 
         {loading ? (
@@ -125,7 +135,13 @@ export function AsignarTecnicoBottomSheet({ visible, onClose, target, onAsignado
         )}
 
         <InstitutionalButton
-          label={saving ? 'Guardando…' : 'Confirmar'}
+          label={
+            saving
+              ? 'Guardando…'
+              : continuarACalendario
+                ? 'Continuar al calendario'
+                : 'Confirmar'
+          }
           onPress={() => void confirmar()}
           loading={saving}
           disabled={loading || seleccionado === null}

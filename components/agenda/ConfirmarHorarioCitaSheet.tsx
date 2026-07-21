@@ -262,8 +262,8 @@ export function ConfirmarHorarioCitaSheet({
         <InstitutionalText role="h4">Confirmar horario</InstitutionalText>
         <InstitutionalText role="caption" color="muted">
           {miembroId
-            ? 'Elige día y hora según la agenda del técnico asignado.'
-            : 'Elige día y hora según la agenda del taller.'}
+            ? 'Paso 2 de 2: elige día y hora según la agenda del técnico asignado.'
+            : 'Paso 2 de 2: elige día y hora según la agenda del taller (asignación automática).'}
         </InstitutionalText>
 
         {cargandoFechas && fechasDisponibles === null ? (

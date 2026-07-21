@@ -332,10 +332,11 @@ export function CotizacionesIaList({ enabled = true }: Props) {
               {activa.estado === 'aceptada' && activa.cita_personal_id ? (
                 <InstitutionalButton
                   label="Confirmar horario"
+                  variant="primary"
                   onPress={() => {
                     const citaId = activa.cita_personal_id;
                     cerrarDetalle();
-                    if (citaId) router.push(`/cita-agenda-personal/${citaId}`);
+                    if (citaId) router.push(`/cita-agenda-personal/${citaId}?agendar=1`);
                   }}
                 />
               ) : null}
@@ -356,8 +357,9 @@ export function CotizacionesIaList({ enabled = true }: Props) {
               {(activa.share_url || activa.url_publica) ? (
                 <InstitutionalButton
                   label="Compartir link"
+                  variant="secondary"
                   leading={
-                    <Link2 size={18} color={COLORS.text.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Link2 size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                   }
                   onPress={() => {
                     const url = activa.share_url || activa.url_publica;

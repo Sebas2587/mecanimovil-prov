@@ -2,6 +2,8 @@ import type { EstadoPipelineNormalizado } from '@/services/pipelineComercialServ
 
 export type EstadoOperativoUnificado =
   | 'nuevo'
+  | 'esperando'
+  | 'por_agendar'
   | 'agendado'
   | 'en_ejecucion'
   | 'completado'
@@ -10,6 +12,8 @@ export type EstadoOperativoUnificado =
 
 export const ESTADO_OPERATIVO_LABELS: Record<EstadoOperativoUnificado, string> = {
   nuevo: 'Nuevo',
+  esperando: 'Esperando',
+  por_agendar: 'Por agendar',
   agendado: 'Agendado',
   en_ejecucion: 'En ejecución',
   completado: 'Completado',
@@ -22,6 +26,8 @@ export const ESTADO_OPERATIVO_VARIANT: Record<
   'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
 > = {
   nuevo: 'primary',
+  esperando: 'warning',
+  por_agendar: 'warning',
   agendado: 'info',
   en_ejecucion: 'warning',
   completado: 'success',
@@ -31,13 +37,16 @@ export const ESTADO_OPERATIVO_VARIANT: Record<
 
 export function mapPipelineEstadoToOperativo(
   estado: EstadoPipelineNormalizado | string,
+  opts?: { horarioPorConfirmar?: boolean },
 ): EstadoOperativoUnificado {
+  if (opts?.horarioPorConfirmar) return 'por_agendar';
   switch (estado) {
     case 'nuevo':
       return 'nuevo';
     case 'cotizacion_enviada':
+      return 'esperando';
     case 'en_negociacion':
-      return 'agendado';
+      return 'por_agendar';
     case 'aceptado_agendado':
       return 'agendado';
     case 'en_ejecucion':
@@ -47,14 +56,16 @@ export function mapPipelineEstadoToOperativo(
     case 'rechazado_perdido':
       return 'cancelado';
     default:
-      return 'agendado';
+      return 'nuevo';
   }
 }
 
 export function mapCitaEstadoOperativo(
   estadoOperativo?: string | null,
   estadoCita?: string,
+  horarioPorConfirmar?: boolean,
 ): EstadoOperativoUnificado {
+  if (horarioPorConfirmar) return 'por_agendar';
   if (estadoOperativo) {
     const known = ESTADO_OPERATIVO_LABELS[estadoOperativo as EstadoOperativoUnificado];
     if (known) return estadoOperativo as EstadoOperativoUnificado;

@@ -125,7 +125,11 @@ export default function OrdenesScreen() {
     (item: OrdenActivaItem) => {
       if (item.origen === 'personal') {
         const { cita } = item;
-        const estadoOperativo = mapCitaEstadoOperativo(cita.estado_operativo, cita.estado);
+        const estadoOperativo = mapCitaEstadoOperativo(
+          cita.estado_operativo,
+          cita.estado,
+          Boolean(cita.horario_por_confirmar),
+        );
         const textoEstado = ESTADO_OPERATIVO_LABELS[estadoOperativo];
         const estadoVariant = ESTADO_OPERATIVO_VARIANT[estadoOperativo];
         const nombreServicio = nombreServicioCita(cita);

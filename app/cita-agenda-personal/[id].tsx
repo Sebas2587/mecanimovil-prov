@@ -140,7 +140,8 @@ const stackOptions = {
 };
 
 export default function CitaAgendaPersonalDetalleScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, agendar } = useLocalSearchParams<{ id: string; agendar?: string }>();
+  const autoAgendarRef = useRef(false);
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { esMecanicoEquipo, miembroId, estadoProveedor, esSupervisor, rolTaller, puede } = useAuth();
@@ -661,19 +662,27 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
   const formatearHora = (hora: string) => hora.substring(0, 5);
 
-  /** Un solo entry-point para agendar: abre el calendario (técnico opcional vía sección Técnico). */
+  /**
+   * Flujo unificado: primero técnico (o automático), luego calendario de ese técnico.
+   * Evita dos CTAs paralelos que hacían lo mismo a medias.
+   */
   const abrirConfirmarHorario = useCallback(() => {
     if (!cita) return;
-    setMiembroParaHorario(cita.miembro_taller);
-    setConfirmarHorarioVisible(true);
+    setAsignarVisible(true);
   }, [cita]);
+
+  useEffect(() => {
+    if (agendar !== '1' || !cita || !horarioPorConfirmar || autoAgendarRef.current) return;
+    autoAgendarRef.current = true;
+    setAsignarVisible(true);
+  }, [agendar, cita, horarioPorConfirmar]);
 
   const handleIniciarServicioChecklist = useCallback(async () => {
     if (Number.isNaN(citaId)) return;
     if (horarioPorConfirmar) {
       showAlert(
         'Horario pendiente',
-        'Confirma día y hora antes de iniciar el servicio. Puedes asignar un técnico en la sección Técnico.',
+        'Confirma técnico y horario antes de iniciar el servicio.',
       );
       abrirConfirmarHorario();
       return;
@@ -734,7 +743,11 @@ export default function CitaAgendaPersonalDetalleScreen() {
     cita.mecanico_especialidades && cita.mecanico_especialidades.length > 0
       ? cita.mecanico_especialidades.join(' · ')
       : null;
-  const estadoOperativo = mapCitaEstadoOperativo(cita.estado_operativo, cita.estado);
+  const estadoOperativo = mapCitaEstadoOperativo(
+    cita.estado_operativo,
+    cita.estado,
+    Boolean(cita.horario_por_confirmar),
+  );
 
   if (showChecklist) {
     return (
@@ -1018,8 +1031,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     <InstitutionalTag label="Por confirmar" variant="warning" size="sm" />
                     <Text style={styles.horarioPendienteTitle}>Horario pendiente</Text>
                     <Text style={styles.horarioPendienteBody}>
-                      El cliente aceptó la cotización. Usa «Confirmar horario» para elegir día y hora.
-                      El técnico se asigna (o deja automático) en la sección Técnico.
+                      El cliente aceptó la cotización. Usa «Confirmar horario» para elegir técnico
+                      (o automático) y luego el día y hora en su calendario.
                     </Text>
                   </View>
                 </View>
@@ -1218,8 +1231,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
                 </View>
                 {horarioPorConfirmar ? (
                   <Text style={styles.horarioPendienteBody}>
-                    Aún no hay día ni hora confirmados. Usa «Confirmar horario» al pie para abrir el
-                    calendario del técnico o del taller.
+                    Aún no hay día ni hora confirmados. Usa «Confirmar horario» al pie: primero eliges
+                    técnico y después su calendario.
                   </Text>
                 ) : (
                   <>
@@ -1313,6 +1326,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
       <AsignarTecnicoBottomSheet
         visible={asignarVisible}
+        continuarACalendario={horarioPorConfirmar}
         onClose={() => setAsignarVisible(false)}
         target={
           cita

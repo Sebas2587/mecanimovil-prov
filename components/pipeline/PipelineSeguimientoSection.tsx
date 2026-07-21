@@ -36,6 +36,7 @@ import { InstitutionalText } from '@/app/design-system/components/InstitutionalT
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { AsignarTecnicoBottomSheet, type AsignarTecnicoTarget } from '@/components/equipo/AsignarTecnicoBottomSheet';
+import { ConfirmarHorarioCitaSheet } from '@/components/agenda/ConfirmarHorarioCitaSheet';
 import {
   ESTADO_OPERATIVO_LABELS,
   ESTADO_OPERATIVO_VARIANT,
@@ -45,6 +46,10 @@ import { COLORS, SPACING, BORDERS, TYPOGRAPHY, SHADOWS } from '@/app/design-syst
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
+import {
+  agendaProveedorService,
+  type CitaAgendaPersonal,
+} from '@/services/agendaProveedorService';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
@@ -137,7 +142,9 @@ const LeadCard = React.memo(function LeadCard({
     || ESTADO_PIPELINE_LABELS[item.estado_normalizado];
   const origenLabel = ORIGEN_PIPELINE_LABELS[item.origen] || item.origen;
   const tiempo = tiempoRelativo(item.fecha_referencia);
-  const estadoOperativo = mapPipelineEstadoToOperativo(item.estado_normalizado);
+  const estadoOperativo = mapPipelineEstadoToOperativo(item.estado_normalizado, {
+    horarioPorConfirmar: item.horario_por_confirmar,
+  });
   const vehiculo = item.vehiculo_resumen?.trim();
 
   return (
@@ -220,6 +227,11 @@ export function PipelineSeguimientoSection({
   const [origenSheetVisible, setOrigenSheetVisible] = useState(false);
   const [asignarTarget, setAsignarTarget] = useState<AsignarTecnicoTarget | null>(null);
   const [asignarVisible, setAsignarVisible] = useState(false);
+  /** Tras elegir técnico, abrir calendario de esa cita (flujo unificado). */
+  const [agendarTrasAsignar, setAgendarTrasAsignar] = useState(false);
+  const [citaParaHorario, setCitaParaHorario] = useState<CitaAgendaPersonal | null>(null);
+  const [miembroParaHorario, setMiembroParaHorario] = useState<number | null>(null);
+  const [confirmarHorarioVisible, setConfirmarHorarioVisible] = useState(false);
   const [leadActivo, setLeadActivo] = useState<PipelineComercialItem | null>(null);
   const [cotizacionDetalle, setCotizacionDetalle] = useState<CotizacionCanal | null>(null);
   const [cotizacionDetalleLoading, setCotizacionDetalleLoading] = useState(false);
@@ -326,7 +338,7 @@ export function PipelineSeguimientoSection({
     navegarDetalleDirecto(item);
   }, []);
 
-  const abrirAsignarDesdeLead = useCallback((item: PipelineComercialItem) => {
+  const abrirAsignarDesdeLead = useCallback((item: PipelineComercialItem, opts?: { luegoAgendar?: boolean }) => {
     if (item.cita_id) {
       setAsignarTarget({
         tipo: 'cita_personal',
@@ -348,8 +360,25 @@ export function PipelineSeguimientoSection({
     } else {
       return;
     }
+    setAgendarTrasAsignar(Boolean(opts?.luegoAgendar));
     setLeadActivo(null);
     setAsignarVisible(true);
+  }, []);
+
+  const abrirCalendarioCita = useCallback(async (citaId: number, miembroId: number | null) => {
+    setAccionLoading(true);
+    try {
+      const res = await agendaProveedorService.obtenerCita(citaId);
+      if (!res.success || !res.data) {
+        showAlert('Error', res.message || 'No se pudo cargar la cita para agendar.');
+        return;
+      }
+      setCitaParaHorario(res.data);
+      setMiembroParaHorario(miembroId);
+      setConfirmarHorarioVisible(true);
+    } finally {
+      setAccionLoading(false);
+    }
   }, []);
 
   const cerrarLeadCotizacion = useCallback(() => {
@@ -403,8 +432,11 @@ export function PipelineSeguimientoSection({
     leadActivo?.tipo_entidad === 'cotizacion_canal'
     && leadActivo.estado_raw === 'enviada';
   const leadPuedeChat = !!leadActivo?.conversation_id;
+  const leadHorarioPendiente = !!(leadActivo?.cita_id && leadActivo.horario_por_confirmar);
+  /** Con horario pendiente, asignar va dentro de «Confirmar horario» (técnico → calendario). */
   const leadPuedeAsignar = !!(
     leadActivo
+    && !leadHorarioPendiente
     && (leadActivo.cita_id || leadActivo.orden_id || leadActivo.oferta_id)
   );
 
@@ -596,20 +628,41 @@ export function PipelineSeguimientoSection({
 
       <AsignarTecnicoBottomSheet
         visible={asignarVisible}
+        continuarACalendario={agendarTrasAsignar}
         onClose={() => {
           setAsignarVisible(false);
           setAsignarTarget(null);
+          setAgendarTrasAsignar(false);
         }}
         target={asignarTarget}
-        onAsignado={() => {
+        onAsignado={(miembroId) => {
           void refetch();
           const citaId = asignarTarget?.tipo === 'cita_personal' ? asignarTarget.citaId : null;
-          if (citaId && leadActivo?.horario_por_confirmar) {
-            setLeadActivo(null);
-            setAsignarVisible(false);
-            setAsignarTarget(null);
-            router.push(`/cita-agenda-personal/${citaId}`);
+          const seguirAgendando = agendarTrasAsignar && citaId != null;
+          setAsignarVisible(false);
+          setAsignarTarget(null);
+          setAgendarTrasAsignar(false);
+          if (seguirAgendando && citaId != null) {
+            void abrirCalendarioCita(citaId, miembroId);
           }
+        }}
+      />
+
+      <ConfirmarHorarioCitaSheet
+        visible={confirmarHorarioVisible}
+        onClose={() => {
+          setConfirmarHorarioVisible(false);
+          setCitaParaHorario(null);
+          setMiembroParaHorario(null);
+        }}
+        cita={citaParaHorario}
+        miembroTallerId={miembroParaHorario}
+        onConfirmado={() => {
+          setConfirmarHorarioVisible(false);
+          setCitaParaHorario(null);
+          setMiembroParaHorario(null);
+          void refetch();
+          showAlert('Cita agendada', 'Día y hora confirmados. Ya puedes iniciar el servicio desde el detalle.');
         }}
       />
 
@@ -669,19 +722,15 @@ export function PipelineSeguimientoSection({
                   }}
                 />
               ) : null}
-              {leadActivo.cita_id && leadActivo.horario_por_confirmar ? (
+              {leadHorarioPendiente ? (
                 <InstitutionalButton
                   label="Confirmar horario"
-                  onPress={() => {
-                    const id = leadActivo.cita_id;
-                    setLeadActivo(null);
-                    if (id) router.push(`/cita-agenda-personal/${id}`);
-                  }}
+                  variant="primary"
+                  loading={accionLoading}
+                  onPress={() => abrirAsignarDesdeLead(leadActivo, { luegoAgendar: true })}
                 />
               ) : null}
-              {/* Evita «Ver detalle» si ya hay CTA que abre la misma cita. */}
-              {!(leadActivo.cita_id && leadActivo.horario_por_confirmar)
-              && (leadActivo.solicitud_id || leadActivo.cita_id || leadActivo.orden_id) ? (
+              {leadActivo.solicitud_id || leadActivo.cita_id || leadActivo.orden_id ? (
                 <InstitutionalButton
                   label="Ver detalle"
                   variant="secondary"
