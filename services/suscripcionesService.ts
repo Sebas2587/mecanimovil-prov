@@ -137,12 +137,23 @@ const obtenerMiSuscripcion = async (): Promise<{
 const cancelarSuscripcion = async (): Promise<{ success: boolean; mensaje?: string; error?: string }> => {
     try {
         const response = await apiClient.post('/suscripciones/mi-suscripcion/cancelar/');
-        return { success: true, mensaje: response.data?.mensaje };
+        const data = response.data ?? {};
+        if (data.cancelada === false) {
+            return {
+                success: false,
+                error: data.error || data.mensaje || 'No se pudo cancelar la suscripción.',
+            };
+        }
+        return { success: true, mensaje: data.mensaje || 'Suscripción cancelada exitosamente' };
     } catch (error: any) {
-        console.error('[suscripcionesService] Error cancelando suscripción:', error?.response?.data || error);
+        const data = error?.response?.data;
+        console.error('[suscripcionesService] Error cancelando suscripción:', data || error);
         return {
             success: false,
-            error: error?.response?.data?.error || 'No se pudo cancelar la suscripción. Intente nuevamente.',
+            error:
+                data?.error ||
+                data?.mensaje ||
+                'No se pudo cancelar la suscripción. Intente nuevamente.',
         };
     }
 };
