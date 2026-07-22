@@ -24,11 +24,18 @@ export function useAgenteIaDocumentosQuery(enabled = true) {
   });
 }
 
+function esConversationIdValido(conversationId: string | number | null | undefined): boolean {
+  if (conversationId == null) return false;
+  const raw = String(conversationId).trim();
+  return /^\d+$/.test(raw);
+}
+
 export function useAgenteSesionQuery(conversationId: string | number | null | undefined, enabled = true) {
+  const idValido = esConversationIdValido(conversationId);
   return useQuery({
     queryKey: agenteSesionQueryKey(conversationId),
     queryFn: () => agenteIaService.obtenerSesion(conversationId!),
-    enabled: enabled && Boolean(conversationId),
+    enabled: enabled && idValido,
     refetchInterval: 15000,
   });
 }
