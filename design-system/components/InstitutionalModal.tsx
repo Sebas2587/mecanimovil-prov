@@ -9,7 +9,7 @@ import {
   Pressable,
   type ModalProps,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
@@ -35,36 +35,37 @@ export function InstitutionalModal({
   animationType = 'slide',
 }: InstitutionalModalProps) {
   const handleClose = onClose ?? onRequestClose;
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, SPACING.fixed.md);
 
   return (
     <Modal visible={visible} transparent animationType={animationType} onRequestClose={onRequestClose}>
-      <Pressable style={styles.overlay} onPress={handleClose}>
+      <View style={styles.overlay}>
+        <Pressable style={styles.backdrop} onPress={handleClose} accessibilityRole="button" />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardWrap}
         >
-          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-            <SafeAreaView edges={['bottom']}>
-              <View style={styles.header}>
-                {title ? (
-                  <InstitutionalText role="h5" style={styles.title}>
-                    {title}
-                  </InstitutionalText>
-                ) : (
-                  <View style={styles.titleSpacer} />
-                )}
-                {handleClose ? (
-                  <TouchableOpacity onPress={handleClose} accessibilityLabel="Cerrar">
-                    <X size={22} color={C.text.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-              <View style={styles.body}>{children}</View>
-              {footer ? <View style={styles.footer}>{footer}</View> : null}
-            </SafeAreaView>
-          </Pressable>
+          <View style={[styles.sheet, { paddingBottom: bottomPad }]}>
+            <View style={styles.header}>
+              {title ? (
+                <InstitutionalText role="h5" style={styles.title}>
+                  {title}
+                </InstitutionalText>
+              ) : (
+                <View style={styles.titleSpacer} />
+              )}
+              {handleClose ? (
+                <TouchableOpacity onPress={handleClose} accessibilityLabel="Cerrar">
+                  <X size={22} color={C.text.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <View style={[styles.body, !footer && styles.bodySolo]}>{children}</View>
+            {footer ? <View style={styles.footer}>{footer}</View> : null}
+          </View>
         </KeyboardAvoidingView>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
@@ -72,15 +73,21 @@ export function InstitutionalModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
+    backgroundColor: C.background.overlay,
   },
-  keyboardWrap: { width: '100%' },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  keyboardWrap: {
+    width: '100%',
+  },
   sheet: {
     backgroundColor: C.background.paper,
-    borderTopLeftRadius: BORDERS.radius.xl,
-    borderTopRightRadius: BORDERS.radius.xl,
+    borderTopLeftRadius: BORDERS.radius.modal.xl,
+    borderTopRightRadius: BORDERS.radius.modal.xl,
     maxHeight: '92%',
+    width: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -96,11 +103,15 @@ const styles = StyleSheet.create({
   titleSpacer: { flex: 1 },
   body: {
     paddingHorizontal: SPACING.fixed.lg,
-    paddingVertical: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.sm,
+  },
+  bodySolo: {
+    paddingBottom: SPACING.fixed.md,
   },
   footer: {
     paddingHorizontal: SPACING.fixed.lg,
-    paddingBottom: SPACING.fixed.lg,
+    paddingTop: SPACING.fixed.xs,
     gap: SPACING.fixed.sm,
   },
 });

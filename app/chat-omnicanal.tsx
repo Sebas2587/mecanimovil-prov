@@ -29,6 +29,7 @@ import { getChannelDisconnectedReason } from '@/utils/omnichannelConnection';
 import { getWhatsAppReplyBlockReason } from '@/utils/whatsappMessagingWindow';
 import { OmnichannelChatRestrictionBanner } from '@/components/chats/OmnichannelChatRestrictionBanner';
 import { AgenteIaChatBanner } from '@/components/chats/AgenteIaChatBanner';
+import { AgenteIaChatToggleModal } from '@/components/chats/AgenteIaChatToggleModal';
 import {
   ChatMessageComposer,
 } from '@/components/chats/ChatMessageComposer';
@@ -105,6 +106,7 @@ export default function ChatOmnicanalScreen() {
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [agendarVisible, setAgendarVisible] = useState(false);
+  const [agenteIaVisible, setAgenteIaVisible] = useState(false);
   const [cotizacionAceptadaId, setCotizacionAceptadaId] = useState<number | undefined>();
   const [attachments, setAttachments] = useState<AttachmentState[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -383,6 +385,11 @@ export default function ChatOmnicanalScreen() {
           }}
         />
 
+        <AgenteIaChatToggleModal
+          visible={agenteIaVisible}
+          onClose={() => setAgenteIaVisible(false)}
+        />
+
         <View style={styles.chatArea}>
           {loading ? (
             <View style={styles.centered}>
@@ -467,6 +474,11 @@ export default function ChatOmnicanalScreen() {
                     peerName={conversationMeta.displayName}
                     showReadReceipt={isLast && item.es_proveedor}
                     onImagePress={(url) => setSelectedImage(url)}
+                    sendError={
+                      item.channel_metadata?.send_error
+                        ? String(item.channel_metadata.send_error)
+                        : null
+                    }
                   />
                 );
               }}
@@ -516,6 +528,7 @@ export default function ChatOmnicanalScreen() {
               <OmnichannelChatActionBar
                 cotizacionAceptada={Boolean(cotizacionAceptadaId)}
                 onPress={() => setAgendarVisible(true)}
+                onPressAgenteIa={() => setAgenteIaVisible(true)}
               />
             }
           />

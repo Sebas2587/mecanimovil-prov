@@ -43,6 +43,8 @@ interface ChatBubbleProps {
   showReadReceipt?: boolean;
   /** Nombre limpio del contacto (tone host, burbujas entrantes). */
   peerName?: string;
+  /** Mensaje de error si no se pudo entregar al canal del cliente (ej. sin suscripción, ventana WhatsApp cerrada). */
+  sendError?: string | null;
 }
 
 export const ChatBubble: React.FC<ChatBubbleProps> = ({
@@ -52,6 +54,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   tone = 'brand',
   showReadReceipt = false,
   peerName,
+  sendError,
 }) => {
   const [loadingImage, setLoadingImage] = useState(false);
   const [textExpanded, setTextExpanded] = useState(false);
@@ -225,7 +228,11 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
         bubbleBody
       )}
 
-      {host && esPropio && showReadReceipt ? (
+      {host && esPropio && sendError ? (
+        <Text style={styles.sendErrorText} numberOfLines={2}>
+          ⚠ No llegó al cliente: {sendError}
+        </Text>
+      ) : host && esPropio && showReadReceipt ? (
         <Text style={styles.readReceipt}>{mensaje.leido ? 'Leído' : 'Enviado'}</Text>
       ) : null}
     </View>
@@ -381,5 +388,15 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     color: I.muted,
     alignSelf: 'flex-end',
+  },
+  sendErrorText: {
+    marginTop: 4,
+    paddingHorizontal: 4,
+    maxWidth: 260,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansMedium,
+    color: COLORS.institutional.semanticDown,
+    alignSelf: 'flex-end',
+    textAlign: 'right',
   },
 });

@@ -89,6 +89,16 @@ const agenteIaService = {
     await api.post('/agente-ia/reanudar/', { conversation_id: conversationId });
   },
 
+  async reindexarConocimiento(): Promise<{
+    encolado: boolean;
+    ofertas: number;
+    solicitudes: number;
+    documentos: number;
+  }> {
+    const { data } = await api.post('/agente-ia/reindexar/');
+    return data;
+  },
+
   async borradoresPendientes(): Promise<{
     count: number;
     results: Array<{

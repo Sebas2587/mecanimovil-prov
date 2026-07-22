@@ -27,6 +27,7 @@ import {
   HostSectionKicker,
   hostScreenStyles,
   HOST_GUTTER,
+  institutionalSwitchProps,
 } from '@/app/design-system/components';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -744,9 +745,7 @@ export default function ConfiguracionHorariosScreen() {
           <Switch
             value={diaActivo}
             onValueChange={() => toggleDiaActivo(index)}
-            trackColor={{ false: '#E9E9EA', true: '#34C759' }}
-            thumbColor="#FFFFFF"
-            ios_backgroundColor="#E9E9EA"
+            {...institutionalSwitchProps}
             accessibilityLabel={`${dia.nombre} ${diaActivo ? 'activo' : 'inactivo'}`}
           />
         </View>

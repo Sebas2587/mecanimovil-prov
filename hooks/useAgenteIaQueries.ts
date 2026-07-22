@@ -50,6 +50,12 @@ export function useActualizarAgenteConfigMutation() {
   });
 }
 
+export function useReindexarAgenteConocimientoMutation() {
+  return useMutation({
+    mutationFn: () => agenteIaService.reindexarConocimiento(),
+  });
+}
+
 export function usePausarAgenteSesionMutation() {
   const qc = useQueryClient();
   return useMutation({

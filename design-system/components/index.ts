@@ -59,3 +59,4 @@ export {
   institutionalInputStyles,
   institutionalInputPlaceholder,
 } from '../styles/institutionalInputs';
+export { institutionalSwitchProps } from '../styles/institutionalSwitch';

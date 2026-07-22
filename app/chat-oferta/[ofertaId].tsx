@@ -16,7 +16,7 @@ import {
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ArrowLeft, User, Send, X, MessageCircle,
+  ArrowLeft, User, Send, X, MessageCircle, Bot,
 } from 'lucide-react-native';
 import solicitudesService, { type MensajeChat, type OfertaProveedor } from '@/services/solicitudesService';
 import {
@@ -37,6 +37,9 @@ import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats
 import { AudioRecorderBar } from '@/components/chats/AudioRecorderBar';
 import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
 import { AgenteIaChatBanner } from '@/components/chats/AgenteIaChatBanner';
+import { AgenteIaChatToggleModal } from '@/components/chats/AgenteIaChatToggleModal';
+import { InstitutionalButton } from '@/app/design-system/components';
+import { useAgenteIaConfigQuery } from '@/hooks/useAgenteIaQueries';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
@@ -121,6 +124,9 @@ export default function ChatOfertaScreen() {
   const [attachments, setAttachments] = useState<StagedAttachment[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [agenteIaVisible, setAgenteIaVisible] = useState(false);
+  const { data: agenteConfig } = useAgenteIaConfigQuery(true);
+  const agenteActivo = Boolean(agenteConfig?.habilitado);
 
   const flatListRef = useRef<FlatList>(null);
   const mensajesEnviadosRef = useRef<Set<string>>(new Set());
@@ -554,6 +560,10 @@ export default function ChatOfertaScreen() {
       </View>
 
       <AgenteIaChatBanner conversationId={conversationId} />
+      <AgenteIaChatToggleModal
+        visible={agenteIaVisible}
+        onClose={() => setAgenteIaVisible(false)}
+      />
 
       <View style={styles.chatArea}>
         {mensajes.length > 0 ? (
@@ -592,6 +602,21 @@ export default function ChatOfertaScreen() {
           <AttachmentStagingTray
             attachments={attachments}
             onRemove={(index) => setAttachments((prev) => prev.filter((_, i) => i !== index))}
+          />
+          <InstitutionalButton
+            label={agenteActivo ? 'IA activa' : 'Agente IA'}
+            variant="outline"
+            size="compact"
+            leading={
+              <Bot
+                size={16}
+                color={agenteActivo ? I.primary : I.ink}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+            }
+            onPress={() => setAgenteIaVisible(true)}
+            accessibilityLabel="Activar o configurar agente IA en este chat"
+            style={styles.agenteIaBtn}
           />
           <View style={styles.inputRow}>
             <TouchableOpacity style={styles.attachBtn} onPress={handlePickAttachment} accessibilityLabel="Adjuntar imagen">
@@ -810,6 +835,10 @@ const styles = StyleSheet.create({
     backgroundColor: I.canvas,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
+    gap: SPACING.sm,
+  },
+  agenteIaBtn: {
+    alignSelf: 'stretch',
   },
   inputRow: {
     flexDirection: 'row',

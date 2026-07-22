@@ -1,11 +1,12 @@
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Bot } from 'lucide-react-native';
 import { ChannelBadge } from '@/components/chats/ChannelBadge';
 import { HostAvatar, InstitutionalButton, HOST_GUTTER } from '@/app/design-system/components';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { ChannelSlug } from '@/utils/channelVisuals';
+import { useAgenteIaConfigQuery } from '@/hooks/useAgenteIaQueries';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -55,23 +56,50 @@ function OmnichannelChatHeaderComponent({
 
 type ActionBarProps = {
   onPress: () => void;
+  onPressAgenteIa?: () => void;
   cotizacionAceptada?: boolean;
 };
 
-function OmnichannelChatActionBarComponent({ onPress, cotizacionAceptada }: ActionBarProps) {
+function OmnichannelChatActionBarComponent({
+  onPress,
+  onPressAgenteIa,
+  cotizacionAceptada,
+}: ActionBarProps) {
+  const { data: agenteConfig } = useAgenteIaConfigQuery(Boolean(onPressAgenteIa));
+  const agenteActivo = Boolean(agenteConfig?.habilitado);
+
   return (
-    <InstitutionalButton
-      label={cotizacionAceptada ? 'Agendar cita' : 'Agendar o cotizar'}
-      variant="primary"
-      size="compact"
-      onPress={onPress}
-      accessibilityLabel={
-        cotizacionAceptada
-          ? 'Cotización aceptada, agendar cita'
-          : 'Agendar cita y cotizar con IA'
-      }
-      style={styles.footerCta}
-    />
+    <View style={styles.footerActions}>
+      {onPressAgenteIa ? (
+        <InstitutionalButton
+          label={agenteActivo ? 'IA activa' : 'Agente IA'}
+          variant="outline"
+          size="compact"
+          leading={
+            <Bot
+              size={16}
+              color={agenteActivo ? I.primary : I.ink}
+              strokeWidth={ICON_STROKE_WIDTH}
+            />
+          }
+          onPress={onPressAgenteIa}
+          accessibilityLabel="Activar o configurar agente IA en este chat"
+          style={styles.footerSecondary}
+        />
+      ) : null}
+      <InstitutionalButton
+        label={cotizacionAceptada ? 'Agendar cita' : 'Agendar o cotizar'}
+        variant="primary"
+        size="compact"
+        onPress={onPress}
+        accessibilityLabel={
+          cotizacionAceptada
+            ? 'Cotización aceptada, agendar cita'
+            : 'Agendar cita y cotizar con IA'
+        }
+        style={styles.footerPrimary}
+      />
+    </View>
   );
 }
 
@@ -115,8 +143,16 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
     color: I.ink,
   },
-  footerCta: {
-    alignSelf: 'stretch',
+  footerActions: {
     marginTop: SPACING.fixed.sm,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: SPACING.fixed.sm,
+  },
+  footerSecondary: {
+    flexShrink: 0,
+  },
+  footerPrimary: {
+    flex: 1,
   },
 });
