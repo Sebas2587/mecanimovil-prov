@@ -58,22 +58,22 @@ export function FinanzasLiquidacionSection() {
 
   return (
     <View style={[hostScreenStyles.stretch, styles.section]}>
-      <HostSectionKicker label="Finanzas del taller" />
+      <HostSectionKicker label="Liquidaciones Mercado Pago" />
       <HostPaperSection>
         <HostMetricRow
           label="Por cobrar"
           value={formatearMontoCLP(resumen.saldo_pendiente_clp)}
         />
         <HostMetricRow
-          label="Liquidado"
+          label="Ya transferido"
           value={formatearMontoCLP(resumen.total_liquidado_clp)}
         />
-        <HostMetricRow label="Estado" value={pendientesLabel} last />
+        <HostMetricRow label="Pendientes" value={pendientesLabel} last />
       </HostPaperSection>
 
       {items.length > 0 ? (
         <>
-          <HostSectionKicker label="Últimas liquidaciones" />
+          <HostSectionKicker label="Movimientos recientes" />
           <HostPaperSection>
             {items.map((item, index) => (
               <HostMetricRow

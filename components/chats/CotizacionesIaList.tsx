@@ -344,7 +344,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
               {activa.conversation ? (
                 <InstitutionalButton
                   label="Abrir chat del cliente"
-                  variant="secondary"
+                  variant="outline"
                   leading={
                     <MessageCircle size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                   }
@@ -358,7 +358,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
               {(activa.share_url || activa.url_publica) ? (
                 <InstitutionalButton
                   label="Compartir link"
-                  variant="secondary"
+                  variant="outline"
                   leading={
                     <Link2 size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                   }

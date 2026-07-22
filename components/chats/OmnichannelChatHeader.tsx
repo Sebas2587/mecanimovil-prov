@@ -1,17 +1,14 @@
-import React, { memo, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
-import { ArrowLeft, Sparkles } from 'lucide-react-native';
+import React, { memo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { ChannelBadge } from '@/components/chats/ChannelBadge';
-import { ChannelAvatar } from '@/components/chats/ChannelAvatar';
+import { HostAvatar, InstitutionalButton, HOST_GUTTER } from '@/app/design-system/components';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
-import { HOST_GUTTER } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { ChannelSlug } from '@/utils/channelVisuals';
-import { withWebLineHeight } from '@/utils/webTypography';
 
 const I = COLORS.institutional;
-const TITLE = withWebLineHeight(TYPOGRAPHY.styles.h4);
-const ACTION_LABEL = withWebLineHeight(TYPOGRAPHY.styles.captionBold);
+const FF = TYPOGRAPHY.fontFamily;
 
 type HeaderProps = {
   channel: ChannelSlug;
@@ -22,6 +19,9 @@ type HeaderProps = {
   onBack: () => void;
 };
 
+/**
+ * Header chat: back · avatar · nombre + canal (bloque de identidad cohesivo).
+ */
 function OmnichannelChatHeaderComponent({
   channel,
   displayName,
@@ -30,36 +30,25 @@ function OmnichannelChatHeaderComponent({
   paddingTop,
   onBack,
 }: HeaderProps) {
-  const badge = useMemo(() => {
-    if (isMetaPending && !hasKnownChannel) {
-      return (
-        <View style={styles.badgePlaceholder}>
-          <ActivityIndicator size="small" color={I.muted} />
-        </View>
-      );
-    }
-    if (!hasKnownChannel) return null;
-    return <ChannelBadge channel={channel} compact />;
-  }, [channel, hasKnownChannel, isMetaPending]);
-
   return (
     <View style={[styles.header, { paddingTop }]}>
-      <TouchableOpacity onPress={onBack} style={styles.sideBtn} accessibilityLabel="Volver">
+      <TouchableOpacity onPress={onBack} style={styles.backBtn} accessibilityLabel="Volver" hitSlop={8}>
         <ArrowLeft size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
       </TouchableOpacity>
 
-      <ChannelAvatar channel={hasKnownChannel ? channel : 'app'} size={36} />
-
-      <View style={styles.metaColumn}>
-        <View style={styles.titleRow}>
-          <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+      <View style={styles.identity}>
+        <HostAvatar name={displayName} size={40} />
+        <View style={styles.textCol}>
+          <Text style={styles.name} numberOfLines={1}>
             {displayName}
           </Text>
-          <View style={styles.badgeSlot}>{badge}</View>
+          {isMetaPending && !hasKnownChannel ? (
+            <ActivityIndicator size="small" color={I.muted} />
+          ) : hasKnownChannel ? (
+            <ChannelBadge channel={channel} compact />
+          ) : null}
         </View>
       </View>
-
-      <View style={styles.sideBtn} />
     </View>
   );
 }
@@ -71,27 +60,18 @@ type ActionBarProps = {
 
 function OmnichannelChatActionBarComponent({ onPress, cotizacionAceptada }: ActionBarProps) {
   return (
-    <TouchableOpacity
-      style={[styles.actionBar, cotizacionAceptada && styles.actionBarAccepted]}
+    <InstitutionalButton
+      label={cotizacionAceptada ? 'Agendar cita' : 'Agendar o cotizar'}
+      variant="primary"
+      size="compact"
       onPress={onPress}
-      activeOpacity={0.88}
-      accessibilityRole="button"
       accessibilityLabel={
         cotizacionAceptada
           ? 'Cotización aceptada, agendar cita'
           : 'Agendar cita y cotizar con IA'
       }
-    >
-      <Sparkles size={18} color={cotizacionAceptada ? I.onPrimary : I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-      <Text
-        style={[styles.actionBarText, cotizacionAceptada && styles.actionBarTextOnPrimary]}
-        numberOfLines={2}
-      >
-        {cotizacionAceptada
-          ? 'Cotización aceptada — toca para agendar la cita'
-          : 'Agendar cita · Cotizar con IA'}
-      </Text>
-    </TouchableOpacity>
+      style={styles.footerCta}
+    />
   );
 }
 
@@ -102,85 +82,41 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: HOST_GUTTER,
-    paddingBottom: SPACING.md,
-    minHeight: Platform.OS === 'web' ? 64 : 56,
+    gap: SPACING.fixed.xs,
     backgroundColor: I.canvas,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: I.hairline,
-    gap: SPACING.sm,
+    paddingBottom: SPACING.fixed.sm,
+    paddingHorizontal: HOST_GUTTER,
+    minHeight: 56,
   },
-  sideBtn: {
+  backBtn: {
     width: 40,
     height: 40,
-    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
-  metaColumn: {
+  identity: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+  },
+  textCol: {
     flex: 1,
     minWidth: 0,
     justifyContent: 'center',
+    gap: 3,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minWidth: 0,
-    gap: SPACING.sm,
-    ...(Platform.OS === 'web'
-      ? ({ width: '100%', flexWrap: 'nowrap' } as object)
-      : null),
-  },
-  headerTitle: {
-    ...TITLE,
-    color: I.ink,
-    fontWeight: '600',
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 0,
-    ...(Platform.OS === 'web'
-      ? ({
-          display: 'block',
-          width: 0,
-          flexBasis: 0,
-        } as object)
-      : null),
-  },
-  badgeSlot: {
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgePlaceholder: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginHorizontal: HOST_GUTTER,
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.xs,
-    paddingVertical: SPACING.sm + 2,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 14,
-    backgroundColor: I.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.primary,
-  },
-  actionBarAccepted: {
-    backgroundColor: I.primary,
-    borderColor: I.primary,
-  },
-  actionBarText: {
-    ...ACTION_LABEL,
-    flex: 1,
+  name: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
     color: I.ink,
   },
-  actionBarTextOnPrimary: {
-    color: I.onPrimary,
+  footerCta: {
+    alignSelf: 'stretch',
+    marginTop: SPACING.fixed.sm,
   },
 });

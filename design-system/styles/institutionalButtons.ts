@@ -1,6 +1,14 @@
 /**
- * Botones Airbnb Hosts — 60-30-10:
- * primary (10% brand gradient) · secondary/outline (30% paper) · tertiary (texto).
+ * Botones Airbnb Hosts + Tinder — 60-30-10:
+ * primary (10% brand gradient Tinder) · secondary (negro Host) · outline/tertiary (quiet).
+ *
+ * Roles:
+ * - primary: CTA de compromiso / dinero (Suscribirme, Pagar, Continuar)
+ * - secondary: CTA fuerte alternativo estilo Airbnb “Next” (negro)
+ * - outline: acción quieta con borde (Cancelar modal, Ver, Copiar)
+ * - tertiary: link de texto
+ * - destructiveOutline: cancelar/eliminar destructivo
+ * - success: aceptar / completar positivo
  */
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '../tokens';

@@ -6,11 +6,10 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
-  Image,
   Pressable,
 } from 'react-native';
 import {
-  Briefcase, CheckCircle, Inbox, User, Car, Clock,
+  CheckCircle, Inbox, Car, Clock,
   AlertTriangle, Shield, XCircle,
 } from 'lucide-react-native';
 import {
@@ -39,6 +38,7 @@ import { COLORS, withOpacity, TYPOGRAPHY, BORDERS, SPACING } from '@/app/design-
 import {
   Card,
   HostSectionKicker,
+  HostAvatar,
   hostScreenStyles,
 } from '@/app/design-system/components';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
@@ -227,9 +227,7 @@ export default function OrdenesScreen() {
 
             <View style={styles.cardBottom}>
               <View style={styles.cardUser}>
-                <View style={styles.avatarPlaceholder}>
-                  <User size={14} color={I.onPrimary} />
-                </View>
+                <HostAvatar name={cita.detalle.cliente_nombre} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.userName} numberOfLines={1}>{cita.detalle.cliente_nombre}</Text>
                   <View style={styles.vehicleRow}>
@@ -349,13 +347,7 @@ export default function OrdenesScreen() {
 
           <View style={styles.cardBottom}>
             <View style={styles.cardUser}>
-              {clienteFoto ? (
-                <Image source={{ uri: clienteFoto }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <User size={14} color={I.onPrimary} />
-                </View>
-              )}
+              <HostAvatar name={nombreCliente} uri={clienteFoto} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.userName} numberOfLines={1}>
                   {nombreCliente}
@@ -420,19 +412,16 @@ export default function OrdenesScreen() {
               {
                 key: 'activas',
                 label: 'Activas',
-                leading: <Briefcase size={14} color={tabActivo === 'activas' ? I.onPrimary : I.muted} />,
                 badge: counts.activas > 0 ? counts.activas : undefined,
               },
               {
                 key: 'completadas',
                 label: 'Completadas',
-                leading: <CheckCircle size={14} color={tabActivo === 'completadas' ? I.onPrimary : I.muted} />,
                 badge: counts.completadas > 0 ? counts.completadas : undefined,
               },
               {
                 key: 'rechazadas',
                 label: 'Rechazadas',
-                leading: <XCircle size={14} color={tabActivo === 'rechazadas' ? I.onPrimary : I.muted} />,
                 badge: counts.rechazadas > 0 ? counts.rechazadas : undefined,
               },
             ]}
@@ -656,20 +645,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.fixed.sm,
     flex: 1,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: I.surfaceStrong,
-  },
-  avatarPlaceholder: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: I.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   userName: {
     fontSize: TYPOGRAPHY.fontSize.base,

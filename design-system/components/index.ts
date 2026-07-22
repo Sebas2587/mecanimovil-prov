@@ -21,6 +21,7 @@ export {
   type HostMetricRowProps,
   type HostProgressRowProps,
 } from './HostSurfaces';
+export { HostAvatar, type HostAvatarProps, type HostAvatarSize } from './HostAvatar';
 export { AppHeader, type AppHeaderProps } from './AppHeader';
 export { BottomSheet, type BottomSheetProps } from './BottomSheet';
 export { PrimaryGradientFill } from './PrimaryGradientFill';

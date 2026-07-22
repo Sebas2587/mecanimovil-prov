@@ -17,8 +17,6 @@ import { useAuth } from '@/context/AuthContext';
 import { Stack, router } from 'expo-router';
 import {
   proveedorVerificadoAPI,
-  vehiculoAPI,
-  modelosAPI,
   type MarcaVehiculo,
   type ModeloVehiculo,
 } from '@/services/api';
@@ -33,6 +31,11 @@ import Snackbar from '@/components/Snackbar';
 import { INSTITUTIONAL_SELECTION } from '@/app/design-system/styles/institutionalSelection';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  invalidateEspecialidadesMarcasQueries,
+  useEspecialidadesMarcasQuery,
+} from '@/hooks/useEspecialidadesMarcasQuery';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -144,6 +147,8 @@ const MarcaCard = React.memo(function MarcaCard({
 export default function EspecialidadesMarcasScreen() {
   const { estadoProveedor } = useAuth();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
 
   const isMultimarca = useMemo(() => {
     const cobertura =
@@ -166,16 +171,20 @@ export default function EspecialidadesMarcasScreen() {
     [gridSlotWidth],
   );
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const {
+    todasMarcas,
+    modelosPorMarca,
+    marcasActuales,
+    marcasSeleccionadasIds,
+    loading,
+    isRefetching,
+    refresh,
+    error: catalogError,
+  } = useEspecialidadesMarcasQuery(cuentaAprobada);
+
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-
-  const [todasMarcas, setTodasMarcas] = useState<MarcaVehiculo[]>([]);
-  const [marcasActuales, setMarcasActuales] = useState<MarcaVehiculo[]>([]);
   const [marcasSeleccionadas, setMarcasSeleccionadas] = useState<number[]>([]);
-  const [modelosPorMarca, setModelosPorMarca] = useState<{ [key: number]: ModeloVehiculo[] }>({});
-
   const [busquedaMarcas, setBusquedaMarcas] = useState('');
   const [modoEdicion, setModoEdicion] = useState(false);
 
@@ -186,74 +195,29 @@ export default function EspecialidadesMarcasScreen() {
   const MAX_MARCAS = 3;
 
   useEffect(() => {
-    if (estadoProveedor?.estado_verificacion !== 'aprobado') {
+    if (estadoProveedor && estadoProveedor.estado_verificacion !== 'aprobado') {
       Alert.alert(
         'Acceso Restringido',
         'Solo los proveedores con cuenta aprobada pueden configurar sus marcas.',
         [{ text: 'Entendido', onPress: () => router.back() }],
       );
-      return;
     }
-
-    cargarDatos();
   }, [estadoProveedor]);
 
-  const cargarDatos = async () => {
-    try {
-      setLoading(true);
-
-      const marcasData = await vehiculoAPI.obtenerMarcas();
-      setTodasMarcas(marcasData);
-
-      const modelosData = await modelosAPI.obtenerTodosLosModelos();
-
-      const modelosAgrupados: { [key: number]: ModeloVehiculo[] } = {};
-      modelosData.forEach((modelo: ModeloVehiculo) => {
-        if (!modelosAgrupados[modelo.marca]) {
-          modelosAgrupados[modelo.marca] = [];
-        }
-        modelosAgrupados[modelo.marca].push(modelo);
-      });
-      setModelosPorMarca(modelosAgrupados);
-
-      try {
-        const datosProveedor = await proveedorVerificadoAPI.obtenerDatosCompletos();
-
-        if (datosProveedor.data.marcas_atendidas && Array.isArray(datosProveedor.data.marcas_atendidas)) {
-          if (
-            datosProveedor.data.marcas_atendidas.length > 0
-            && typeof datosProveedor.data.marcas_atendidas[0] === 'object'
-          ) {
-            setMarcasActuales(datosProveedor.data.marcas_atendidas);
-            setMarcasSeleccionadas(datosProveedor.data.marcas_atendidas.map((marca: MarcaVehiculo) => marca.id));
-          } else {
-            const marcasActualesObj = marcasData.filter((marca: MarcaVehiculo) =>
-              datosProveedor.data.marcas_atendidas.includes(marca.id),
-            );
-            setMarcasActuales(marcasActualesObj);
-            setMarcasSeleccionadas(datosProveedor.data.marcas_atendidas);
-          }
-        } else {
-          setMarcasActuales([]);
-          setMarcasSeleccionadas([]);
-        }
-      } catch (error) {
-        console.warn('⚠️ No se pudieron cargar datos actuales del proveedor:', error);
-        setMarcasActuales([]);
-        setMarcasSeleccionadas([]);
-      }
-    } catch (error) {
-      console.error('❌ Error cargando datos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los datos. Intenta nuevamente.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  useEffect(() => {
+    if (!modoEdicion && !hasChanges) {
+      setMarcasSeleccionadas(marcasSeleccionadasIds);
     }
-  };
+  }, [marcasSeleccionadasIds, modoEdicion, hasChanges]);
+
+  useEffect(() => {
+    if (catalogError) {
+      Alert.alert('Error', 'No se pudieron cargar los datos. Intenta nuevamente.');
+    }
+  }, [catalogError]);
 
   const onRefresh = () => {
-    setRefreshing(true);
-    cargarDatos();
+    void refresh();
   };
 
   const mostrarSnackbar = useCallback(
@@ -349,7 +313,8 @@ export default function EspecialidadesMarcasScreen() {
       setHasChanges(false);
       setModoEdicion(false);
       setBusquedaMarcas('');
-      await cargarDatos();
+      invalidateEspecialidadesMarcasQueries(queryClient);
+      await refresh();
     } catch (error: any) {
       console.error('Error guardando configuración:', error);
       Alert.alert(
@@ -399,7 +364,7 @@ export default function EspecialidadesMarcasScreen() {
       <ScrollView
         style={hostScreenStyles.scroll}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={I.primary} />}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={I.primary} />}
         contentContainerStyle={[
           hostScreenStyles.scrollInner,
           { paddingBottom: insets.bottom + (isMultimarca ? 24 : 88) },

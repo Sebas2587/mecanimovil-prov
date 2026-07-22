@@ -160,7 +160,7 @@ export default function CrearOfertaSecundariaScreen() {
   
   const handleIrAComprarCreditos = () => {
     setMostrarModalCreditos(false);
-    router.push('/creditos?tab=tienda');
+    router.push({ pathname: '/creditos', params: { tab: 'tienda' } });
   };
   
   const handleCerrarModalCreditos = () => {

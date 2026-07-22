@@ -487,7 +487,10 @@ export default function SolicitudDetalleScreen() {
   ]);
 
   const abrirTiendaCreditos = useCallback((minCreditos: number) => {
-    router.push(`/creditos?tab=tienda&minCreditos=${Math.max(1, minCreditos)}`);
+    router.push({
+      pathname: '/creditos',
+      params: { tab: 'tienda', minCreditos: String(Math.max(1, minCreditos)) },
+    });
   }, []);
 
   const ejecutarConfirmarCatalogo = async () => {

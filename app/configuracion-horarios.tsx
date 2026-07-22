@@ -18,25 +18,27 @@ import { horariosAPI, type HorarioProveedor, type ConfiguracionSemanal } from '@
 import { navigateBack } from '@/utils/navigateBack';
 import {
   normalizarActivo,
-  parseHorariosApiResponse,
   proveedorTieneHorariosActivos,
-  normalizarEstadoAgendaApi,
-  type EstadoAgendaProveedor,
 } from '@/utils/horariosProveedor';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import {
-  Card,
   HostPaperSection,
   HostSectionKicker,
   hostScreenStyles,
   HOST_GUTTER,
 } from '@/app/design-system/components';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
-import equipoTallerService from '@/services/equipoTallerService';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { useEquipoTallerQuery } from '@/hooks/useEquipoTallerQuery';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  invalidateHorariosTallerQueries,
+  useEstadoAgendaHorariosQuery,
+  useHorariosTallerQuery,
+} from '@/hooks/useHorariosTallerQuery';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -391,19 +393,32 @@ export default function ConfiguracionHorariosScreen() {
     [equipoMiembros],
   );
   const horariosHydratedRef = useRef(false);
+  const queryClient = useQueryClient();
 
   // Estados principales
   const [horarios, setHorarios] = useState<HorarioDia[]>([]);
   // Agenda por mecánico: null => horario general del taller (fallback)
   const [miembroSeleccionado, setMiembroSeleccionado] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   /** Sin registros en BD para la agenda seleccionada (general o mecánico). */
   const [sinHorariosEnServidor, setSinHorariosEnServidor] = useState(false);
-  /** Resumen global: horario general del taller + mecánicos con agenda propia. */
-  const [estadoAgenda, setEstadoAgenda] = useState<EstadoAgendaProveedor | null>(null);
+
+  const {
+    data: horariosRaw,
+    loading: horariosLoading,
+    isRefetching: horariosRefetching,
+    refresh: refreshHorarios,
+  } = useHorariosTallerQuery(miembroSeleccionado, cuentaAprobada);
+
+  const {
+    data: estadoAgenda,
+    isRefetching: estadoRefetching,
+    refresh: refreshEstadoAgenda,
+  } = useEstadoAgendaHorariosQuery(cuentaAprobada);
+
+  const loading = horariosLoading && !horariosHydratedRef.current;
+  const refreshing = horariosRefetching || estadoRefetching;
 
   // Estados para modal de edición
   const [modalEditarDia, setModalEditarDia] = useState<ModalEditarDia>({
@@ -468,30 +483,8 @@ export default function ConfiguracionHorariosScreen() {
         'Solo los proveedores con cuenta aprobada pueden configurar sus horarios.',
         [{ text: 'Entendido', onPress: () => navigateBack('/(tabs)') }]
       );
-      return;
     }
-
-    horariosHydratedRef.current = false;
-    cargarHorarios();
-    cargarEstadoAgenda();
-  }, [perfilKey, cuentaAprobada]);
-
-  const cargarEstadoAgenda = async () => {
-    try {
-      const estado = await horariosAPI.obtenerEstadoConfiguracion();
-      setEstadoAgenda(normalizarEstadoAgendaApi(estado));
-    } catch {
-      setEstadoAgenda(null);
-    }
-  };
-
-  // Recargar horarios al cambiar de mecánico (sin spinner si ya hubo datos)
-  useEffect(() => {
-    if (cuentaAprobada) {
-      cargarHorarios();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [miembroSeleccionado]);
+  }, [cuentaAprobada]);
 
   const formatearHoraApi = (hora: string | undefined, fallback: string): string => {
     if (!hora) return fallback;
@@ -503,56 +496,51 @@ export default function ConfiguracionHorariosScreen() {
     return fallback;
   };
 
-  const cargarHorarios = async () => {
-    try {
-      if (!horariosHydratedRef.current) {
-        setLoading(true);
-      }
-      const raw = await horariosAPI.obtenerMisHorarios(miembroSeleccionado);
-      const horariosData = parseHorariosApiResponse(raw);
-      const necesitaConfigurar = !proveedorTieneHorariosActivos(horariosData);
-      setSinHorariosEnServidor(necesitaConfigurar);
+  // Hidratar estado editable desde la query (sin pisar edits locales)
+  useEffect(() => {
+    if (!cuentaAprobada || horariosRaw == null) return;
+    if (hasChanges) return;
 
-      const horariosCompletos: HorarioDia[] = diasSemana.map((dia) => {
-        const horarioExistente = horariosData.find((h) => h.dia_semana === dia.id);
-        if (!horarioExistente) {
-          return {
-            dia_semana: dia.id,
-            dia_nombre: dia.nombre,
-            activo: false,
-            hora_inicio: '08:00',
-            hora_fin: '18:00',
-            duracion_slot: 60,
-            tiempo_descanso: 0,
-            editado: false,
-          };
-        }
+    const necesitaConfigurar = !proveedorTieneHorariosActivos(horariosRaw);
+    setSinHorariosEnServidor(necesitaConfigurar);
+
+    const horariosCompletos: HorarioDia[] = diasSemana.map((dia) => {
+      const horarioExistente = horariosRaw.find((h) => h.dia_semana === dia.id);
+      if (!horarioExistente) {
         return {
-          ...horarioExistente,
+          dia_semana: dia.id,
           dia_nombre: dia.nombre,
-          activo: normalizarActivo(horarioExistente.activo),
-          hora_inicio: formatearHoraApi(horarioExistente.hora_inicio, '08:00'),
-          hora_fin: formatearHoraApi(horarioExistente.hora_fin, '18:00'),
-          duracion_slot: horarioExistente.duracion_slot ?? 60,
-          tiempo_descanso: horarioExistente.tiempo_descanso ?? 0,
+          activo: false,
+          hora_inicio: '08:00',
+          hora_fin: '18:00',
+          duracion_slot: 60,
+          tiempo_descanso: 0,
           editado: false,
         };
-      });
-      setHorarios(horariosCompletos);
-      horariosHydratedRef.current = true;
-    } catch (error) {
-      console.error('Error cargando horarios:', error);
-      showAlert('Error', 'No se pudieron cargar los horarios configurados.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+      }
+      return {
+        ...horarioExistente,
+        dia_nombre: dia.nombre,
+        activo: normalizarActivo(horarioExistente.activo),
+        hora_inicio: formatearHoraApi(horarioExistente.hora_inicio, '08:00'),
+        hora_fin: formatearHoraApi(horarioExistente.hora_fin, '18:00'),
+        duracion_slot: horarioExistente.duracion_slot ?? 60,
+        tiempo_descanso: horarioExistente.tiempo_descanso ?? 0,
+        editado: false,
+      };
+    });
+    setHorarios(horariosCompletos);
+    horariosHydratedRef.current = true;
+  }, [cuentaAprobada, hasChanges, horariosRaw, miembroSeleccionado, perfilKey]);
+
+  useEffect(() => {
+    // Al cambiar de mecánico, permitir re-hidratación
+    setHasChanges(false);
+    horariosHydratedRef.current = false;
+  }, [miembroSeleccionado]);
 
   const onRefresh = () => {
-    setRefreshing(true);
-    cargarHorarios();
-    cargarEstadoAgenda();
+    void Promise.all([refreshHorarios(), refreshEstadoAgenda()]);
   };
 
 
@@ -673,8 +661,9 @@ export default function ConfiguracionHorariosScreen() {
         'Horarios guardados',
         `Tus horarios han sido actualizados correctamente. ${resultado.dias_activos} días activos configurados.`,
       );
-      await cargarHorarios();
-      await cargarEstadoAgenda();
+      invalidateHorariosTallerQueries(queryClient);
+      setHasChanges(false);
+      await Promise.all([refreshHorarios(), refreshEstadoAgenda()]);
       return true;
     } catch (error: unknown) {
       console.error('Error guardando horarios:', error);
@@ -746,63 +735,39 @@ export default function ConfiguracionHorariosScreen() {
     return (
       <View
         key={dia.id}
-        style={[styles.modernDiaCard, diaActivo && styles.modernDiaCardActive]}
+        style={[styles.modernDiaCard, !diaActivo && styles.modernDiaCardInactive]}
       >
         <View style={styles.modernDiaHeader}>
-          <View style={styles.modernDiaInfo}>
-            <View style={[styles.modernDiaIconContainer, diaActivo ? styles.modernDiaIconOn : styles.modernDiaIconOff]}>
-              <InstitutionalIcon name="event" size={16} color={diaActivo ? I.primary : I.body} />
-            </View>
-            <View style={styles.modernDiaTexto}>
-              <Text style={[styles.modernDiaNombre, diaActivo && styles.modernDiaNombreActive]}>{dia.corto}</Text>
-            </View>
-          </View>
-
-          <View style={styles.modernSwitchContainer}>
-            <Switch
-              value={diaActivo}
-              onValueChange={() => toggleDiaActivo(index)}
-              trackColor={{ false: I.hairline, true: I.primary }}
-              thumbColor={I.canvas}
-              style={styles.modernSwitch}
-            />
-          </View>
+          <Text style={[styles.modernDiaNombre, !diaActivo && styles.modernDiaNombreInactive]}>
+            {dia.corto}
+          </Text>
+          <Switch
+            value={diaActivo}
+            onValueChange={() => toggleDiaActivo(index)}
+            trackColor={{ false: '#E9E9EA', true: '#34C759' }}
+            thumbColor="#FFFFFF"
+            ios_backgroundColor="#E9E9EA"
+            accessibilityLabel={`${dia.nombre} ${diaActivo ? 'activo' : 'inactivo'}`}
+          />
         </View>
 
-        {!diaActivo ? (
-          <View style={styles.modernDiaInactiveBanner}>
-            <Text style={styles.modernDiaInactiveLabel}>Día deshabilitado</Text>
-            <Text style={styles.modernDiaInactiveHint}>Activa el interruptor para configurar el horario</Text>
-          </View>
-        ) : (
+        {diaActivo ? (
           <TouchableOpacity
-            style={styles.modernHorariosConfig}
             onPress={() => abrirModalEditarDia(index)}
             activeOpacity={0.88}
             accessibilityRole="button"
             accessibilityLabel={`Editar horario del ${dia.nombre}`}
           >
-            <View style={styles.modernTiemposContainer}>
-              <View style={styles.modernTiempoCard}>
-                <InstitutionalIcon name="play" size={14} color={I.semanticUp} />
-                <Text style={styles.modernTiempoValue}>{formatearHora(horario.hora_inicio)}</Text>
-              </View>
-
-              <InstitutionalIcon name="arrow-forward" size={12} color={I.muted} />
-
-              <View style={styles.modernTiempoCard}>
-                <InstitutionalIcon name="stop" size={14} color={I.semanticDown} />
-                <Text style={styles.modernTiempoValue}>{formatearHora(horario.hora_fin)}</Text>
-              </View>
-            </View>
-
-            <View style={styles.modernConfigSlots}>
-              <Text style={styles.modernSlotInfo}>
-                {horario.duracion_slot} min
-                {horario.tiempo_descanso > 0 && ` • ${horario.tiempo_descanso} min desc`}
-              </Text>
-            </View>
+            <Text style={styles.modernDiaHorario}>
+              {formatearHora(horario.hora_inicio)} – {formatearHora(horario.hora_fin)}
+            </Text>
+            <Text style={styles.modernDiaMeta}>
+              {horario.duracion_slot} min
+              {horario.tiempo_descanso > 0 ? ` · ${horario.tiempo_descanso} desc` : ''}
+            </Text>
           </TouchableOpacity>
+        ) : (
+          <Text style={styles.modernDiaMeta}>Cerrado</Text>
         )}
       </View>
     );
@@ -830,15 +795,13 @@ export default function ConfiguracionHorariosScreen() {
             <Text style={styles.modernModalSubtitle}>Ajusta horario y citas para este día</Text>
           </View>
           <View style={[styles.modernModalHeaderSlot, styles.modernModalHeaderSlotEnd]}>
-            <TouchableOpacity
+            <InstitutionalButton
+              label="Guardar"
+              variant="primary"
+              size="compact"
               onPress={guardarCambiosDia}
-              style={styles.modernModalSavePill}
-              activeOpacity={0.88}
-              accessibilityRole="button"
               accessibilityLabel="Guardar cambios del día"
-            >
-              <Text style={styles.modernModalSavePillText}>Guardar</Text>
-            </TouchableOpacity>
+            />
           </View>
         </View>
 
@@ -1026,25 +989,6 @@ export default function ConfiguracionHorariosScreen() {
             </>
           )}
 
-          <Card elevated padding="host" style={sinHorariosEnServidor ? styles.uiCardHighlight : undefined}>
-            <View style={styles.infoCardContent}>
-              <InstitutionalIcon
-                name={sinHorariosEnServidor ? 'alert-circle' : 'information-circle'}
-                size={20}
-                color={sinHorariosEnServidor ? I.accentYellow : I.primary}
-              />
-              <Text style={styles.infoText}>
-                {sinHorariosEnServidor
-                  ? miembroSeleccionado === null
-                    ? 'Aún no has configurado el horario general del taller. Activa los días que atiendes y pulsa «Guardar cambios».'
-                    : 'Este mecánico no tiene agenda propia. Configúrala aquí o usa el horario general del taller como respaldo.'
-                  : miembroSeleccionado === null
-                    ? 'Horario general del taller. Los mecánicos sin agenda propia lo heredan.'
-                    : 'Agenda individual del mecánico. Tiene prioridad sobre el horario general del taller.'}
-              </Text>
-            </View>
-          </Card>
-
           <HostSectionKicker label="Configuraciones rápidas" />
           <HostPaperSection>
             <View style={styles.modernPresetsGrid}>
@@ -1052,33 +996,36 @@ export default function ConfiguracionHorariosScreen() {
                 style={styles.modernPresetCard}
                 onPress={() => aplicarPreset('comercial')}
                 activeOpacity={0.88}
+                accessibilityRole="button"
+                accessibilityLabel="Aplicar horario comercial"
               >
-                <InstitutionalIcon name="business" size={20} color={I.primary} />
                 <Text style={styles.modernPresetTitle}>Comercial</Text>
                 <Text style={styles.modernPresetSubtitle}>Lun–Vie</Text>
-                <Text style={styles.modernPresetTimePrimary}>8:00–18:00</Text>
+                <Text style={styles.modernPresetTime}>8:00–18:00</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.modernPresetCard}
                 onPress={() => aplicarPreset('extendido')}
                 activeOpacity={0.88}
+                accessibilityRole="button"
+                accessibilityLabel="Aplicar horario extendido"
               >
-                <InstitutionalIcon name="time" size={20} color={I.semanticUp} />
                 <Text style={styles.modernPresetTitle}>Extendido</Text>
                 <Text style={styles.modernPresetSubtitle}>Lun–Sáb</Text>
-                <Text style={styles.modernPresetTimeAccent}>7:00–19:00</Text>
+                <Text style={styles.modernPresetTime}>7:00–19:00</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.modernPresetCard}
                 onPress={() => aplicarPreset('completo')}
                 activeOpacity={0.88}
+                accessibilityRole="button"
+                accessibilityLabel="Aplicar horario 7 días"
               >
-                <InstitutionalIcon name="calendar" size={20} color={I.primary} />
                 <Text style={styles.modernPresetTitle}>7 días</Text>
                 <Text style={styles.modernPresetSubtitle}>Toda la semana</Text>
-                <Text style={styles.modernPresetTimePrimary}>8:00–17:00</Text>
+                <Text style={styles.modernPresetTime}>8:00–17:00</Text>
               </TouchableOpacity>
             </View>
           </HostPaperSection>
@@ -1108,21 +1055,16 @@ export default function ConfiguracionHorariosScreen() {
           </HostPaperSection>
       </ScrollView>
 
-      {hasChanges || sinHorariosEnServidor ? (
+      {hasChanges ? (
         <SafeAreaView style={styles.modernActionButtonsContainer} edges={['bottom']}>
-          <TouchableOpacity
-            style={[styles.modernSaveButton, saving && styles.modernSaveButtonDisabled]}
+          <InstitutionalButton
+            label={saving ? 'Guardando…' : 'Guardar cambios'}
+            variant="primary"
             onPress={guardarCambios}
             disabled={saving}
-            activeOpacity={0.88}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color={I.onPrimary} />
-            ) : (
-              <InstitutionalIcon name="checkmark" size={20} color={I.onPrimary} />
-            )}
-            <Text style={styles.modernSaveButtonText}>{saving ? 'Guardando…' : 'Guardar cambios'}</Text>
-          </TouchableOpacity>
+            loading={saving}
+            style={styles.modernSaveButtonWrap}
+          />
         </SafeAreaView>
       ) : null}
 
@@ -1147,23 +1089,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansRegular,
     color: I.muted,
-  },
-  uiCardHighlight: {
-    borderColor: withOpacity(I.accentYellow, 0.55),
-    backgroundColor: withOpacity(I.accentYellow, 0.08),
-    marginBottom: SPACING.fixed.sm,
-  },
-  infoCardContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.fixed.md,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansRegular,
-    lineHeight: Math.round(TYPOGRAPHY.fontSize.base * TYPOGRAPHY.lineHeight.normal),
-    color: I.body,
   },
   mecanicoSelectorRow: {
     flexDirection: 'row',
@@ -1218,44 +1143,35 @@ const styles = StyleSheet.create({
   modernPresetsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: SPACING.fixed.xs,
+    gap: SPACING.fixed.sm,
   },
   modernPresetCard: {
     flex: 1,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.lg,
-    padding: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.sm,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    ...SHADOWS.editorial,
   },
   modernPresetTitle: {
-    fontSize: TYPOGRAPHY.fontSize.base,
+    fontSize: TYPOGRAPHY.fontSize.md,
     fontFamily: FF.sansSemiBold,
-    marginTop: SPACING.fixed.sm,
-    textAlign: 'center',
     color: I.ink,
   },
   modernPresetSubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansRegular,
-    marginTop: SPACING.fixed.xxs,
-    textAlign: 'center',
+    marginTop: 4,
     color: I.muted,
   },
-  modernPresetTimePrimary: {
+  modernPresetTime: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.monoMedium,
-    marginTop: SPACING.fixed.xxs,
-    textAlign: 'center',
-    color: I.primary,
-  },
-  modernPresetTimeAccent: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.monoMedium,
-    marginTop: SPACING.fixed.xxs,
-    textAlign: 'center',
-    color: I.semanticUp,
+    marginTop: SPACING.fixed.sm,
+    color: I.ink,
   },
 
   modernDiasGrid: {
@@ -1265,17 +1181,15 @@ const styles = StyleSheet.create({
   },
   modernDiaCard: {
     width: '48%',
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.lg,
     padding: SPACING.fixed.md,
     marginBottom: SPACING.fixed.md,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    minHeight: 120,
   },
-  modernDiaCardActive: {
-    backgroundColor: COLORS.background.paper,
-    borderColor: I.primary,
+  modernDiaCardInactive: {
+    opacity: 0.72,
   },
   modernDiaHeader: {
     flexDirection: 'row',
@@ -1283,112 +1197,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.fixed.sm,
   },
-  modernDiaInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  modernDiaIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.fixed.sm,
-  },
-  modernDiaIconOn: {
-    backgroundColor: COLORS.selection.background,
-    borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.selection.border,
-  },
-  modernDiaIconOff: {
-    backgroundColor: I.surfaceSoft,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
-  modernDiaTexto: {
-    flex: 1,
-  },
   modernDiaNombre: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansSemiBold,
-    color: I.body,
-  },
-  modernDiaNombreActive: {
-    color: I.primary,
-  },
-  modernDiaInactiveBanner: {
-    backgroundColor: I.surfaceStrong,
-    borderRadius: BORDERS.radius.md,
-    paddingVertical: SPACING.fixed.xs + 2,
-    paddingHorizontal: SPACING.fixed.sm,
-    marginBottom: SPACING.fixed.sm,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
-  modernDiaInactiveLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontSize: TYPOGRAPHY.fontSize.md,
     fontFamily: FF.sansSemiBold,
     color: I.ink,
   },
-  modernDiaInactiveHint: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansRegular,
+  modernDiaNombreInactive: {
     color: I.muted,
-    marginTop: 2,
   },
-  modernSwitchContainer: {
-    alignItems: 'center',
-  },
-  modernSwitch: {
-    transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
-  },
-  modernHorariosConfig: {
-    borderTopWidth: BORDERS.width.thin,
-    borderTopColor: I.hairline,
-    paddingTop: SPACING.fixed.sm,
-    marginTop: SPACING.fixed.sm,
-  },
-  modernTiemposContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.fixed.sm,
-    gap: SPACING.xs,
-  },
-  modernTiempoCard: {
-    flex: 1,
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.fixed.sm,
-    alignItems: 'center',
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    gap: 2,
-  },
-  modernTiempoValue: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+  modernDiaHorario: {
+    fontSize: TYPOGRAPHY.fontSize.md,
     fontFamily: FF.monoMedium,
     color: I.ink,
+    letterSpacing: TYPOGRAPHY.letterSpacing.tight,
   },
-  modernTiempoCardInactive: {
-    backgroundColor: I.surfaceStrong,
-    borderColor: I.hairline,
-  },
-  modernTiempoValueInactive: {
-    color: I.body,
-  },
-  modernConfigSlots: {
-    alignItems: 'center',
-  },
-  modernSlotInfo: {
+  modernDiaMeta: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansRegular,
-    textAlign: 'center',
     color: I.muted,
-  },
-  modernSlotInfoInactive: {
-    color: I.body,
+    marginTop: 4,
   },
 
   modernResumenContent: {
@@ -1418,24 +1245,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: hx,
     paddingTop: SPACING.fixed.md,
   },
-  modernSaveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.fixed.md,
-    paddingHorizontal: SPACING.fixed.lg,
-    borderRadius: BORDERS.radius.pill,
-    gap: SPACING.fixed.sm,
-    backgroundColor: I.primary,
-    ...SHADOWS.editorial,
-  },
-  modernSaveButtonDisabled: {
-    opacity: 0.55,
-  },
-  modernSaveButtonText: {
-    color: I.onPrimary,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansSemiBold,
+  modernSaveButtonWrap: {
+    alignSelf: 'stretch',
   },
 
   modernModalContainer: {

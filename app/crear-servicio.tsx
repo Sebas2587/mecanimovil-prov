@@ -28,8 +28,9 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import {
-  Card,
+  HostPaperSection,
   HostSectionKicker,
+  InstitutionalButton,
   hostScreenStyles,
 } from '@/app/design-system/components';
 import { INSTITUTIONAL_SELECTION } from '@/app/design-system/styles/institutionalSelection';
@@ -2034,7 +2035,7 @@ const CrearServicioScreen = () => {
     return (
       <>
         <HostSectionKicker label="Tipo de servicio" />
-        <Card elevated padding="host" style={styles.sectionContainer}>
+        <HostPaperSection style={styles.sectionContainer}>
         {isEditMode && (
           <Text style={styles.subtitle}>
             Editando servicio - puedes cambiar cualquier opción
@@ -2081,7 +2082,7 @@ const CrearServicioScreen = () => {
             </Text>
           </TouchableOpacity>
         </View>
-              </Card>
+              </HostPaperSection>
       </>
 
     );
@@ -2302,10 +2303,10 @@ const CrearServicioScreen = () => {
 
     if (loadingMarcas) {
       return (
-        <Card elevated padding="host" style={styles.sectionContainer}>
+        <HostPaperSection style={styles.sectionContainer}>
           <ActivityIndicator size="large" color={I.primary} style={styles.loader} />
           <Text style={styles.loadingText}>Cargando marcas de vehículos…</Text>
-        </Card>
+        </HostPaperSection>
       );
     }
 
@@ -2313,14 +2314,14 @@ const CrearServicioScreen = () => {
       return (
         <>
           <HostSectionKicker label="¿Para qué vehículos?" />
-          <Card elevated padding="host" style={styles.sectionContainer}>
+          <HostPaperSection style={styles.sectionContainer}>
           <View style={styles.noDataContainer}>
             <InstitutionalIcon name="information-circle-outline" size={24} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.noDataText}>
               Configura las marcas que atiendes en Marcas antes de publicar servicios.
             </Text>
           </View>
-                  </Card>
+                  </HostPaperSection>
         </>
 
       );
@@ -2329,7 +2330,7 @@ const CrearServicioScreen = () => {
     return (
       <>
         <HostSectionKicker label="¿Para qué vehículos?" />
-        <Card elevated padding="host" style={styles.sectionContainer}>
+        <HostPaperSection style={styles.sectionContainer}>
         <Text style={styles.subtitle}>
           {isEditMode && !tieneSeleccionMarca && servicioSeleccionado
             ? 'Identificando la marca de esta oferta…'
@@ -2345,15 +2346,14 @@ const CrearServicioScreen = () => {
         </Text>
 
         {edicionMarcaUnica && servicioSeleccionado ? (
-          <View style={styles.edicionMarcaUnicaBanner}>
-            <View style={styles.edicionMarcaUnicaContent}>
-              <InstitutionalIcon name="information-circle-outline" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.edicionMarcaUnicaText}>
-                Cada marca puede tener su propio precio. No agregues marcas aquí si el monto es distinto: crea otra tarifa.
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.edicionMarcaUnicaCta}
+          <View style={styles.hostHintBlock}>
+            <Text style={styles.hostHintText}>
+              Cada marca puede tener su propio precio. No agregues marcas aquí si el monto es distinto: crea otra tarifa.
+            </Text>
+            <InstitutionalButton
+              label="Agregar tarifa para otra marca"
+              variant="secondary"
+              size="compact"
               onPress={() => {
                 const primeraSinOferta = marcasReales.find(
                   (m) => !marcasInicialesEnEdicion.has(m.id),
@@ -2367,18 +2367,13 @@ const CrearServicioScreen = () => {
                   );
                 }
               }}
-              activeOpacity={0.88}
-            >
-              <InstitutionalIcon name="add-circle-outline" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.edicionMarcaUnicaCtaText}>Agregar tarifa para otra marca</Text>
-            </TouchableOpacity>
+            />
           </View>
         ) : null}
 
         {modoSincronizarMarcas && !edicionGrupo ? (
-          <View style={styles.modoSyncBanner}>
-            <InstitutionalIcon name="layers" size={18} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.modoSyncBannerText}>
+          <View style={styles.hostHintBlock}>
+            <Text style={styles.hostHintText}>
               Modo sincronizado: el precio actual se aplicará a todas las marcas seleccionadas al guardar.
             </Text>
           </View>
@@ -2405,16 +2400,11 @@ const CrearServicioScreen = () => {
             <>
               {tabsMarca.length > 1 && <View style={styles.marcaPanelDivider} />}
               <View style={styles.marcaPanelBody}>
-                <View style={styles.marcaInfoNotice}>
-                  <View style={styles.marcaInfoNoticeContent}>
-                    <InstitutionalIcon name="information-circle-outline" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.marcaInfoNoticeText}>
-                      {permiteMultiplesMarcas
-                        ? 'Marca con «Activa» ya tiene oferta. Las marcadas «Nueva» recibirán el mismo precio al guardar.'
-                        : 'Selecciona una marca. Para otra marca con distinto precio, usa el botón «Agregar tarifa para otra marca».'}
-                    </Text>
-                  </View>
-                </View>
+                <Text style={styles.hostHintText}>
+                  {permiteMultiplesMarcas
+                    ? 'Marca con «Activa» ya tiene oferta. Las marcadas «Nueva» recibirán el mismo precio al guardar.'
+                    : 'Selecciona una marca. Para otra marca con distinto precio, usa el botón «Agregar tarifa para otra marca».'}
+                </Text>
 
                 <View style={styles.marcaToolsPanel}>
                   {mostrarBusqueda ? (
@@ -2618,14 +2608,9 @@ const CrearServicioScreen = () => {
             <>
               {tabsMarca.length > 1 && <View style={styles.marcaPanelDivider} />}
               <View style={styles.marcaPanelBody}>
-                <View style={styles.marcaInfoNotice}>
-                  <View style={styles.marcaInfoNoticeContent}>
-                    <InstitutionalIcon name="information-circle-outline" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.marcaInfoNoticeText}>
-                      Para diagnóstico, revisión general u otros servicios que no dependen de una marca de auto. No uses esta opción si el servicio es específico de Toyota, Chevrolet, etc.
-                    </Text>
-                  </View>
-                </View>
+                <Text style={styles.hostHintText}>
+                  Para diagnóstico, revisión general u otros servicios que no dependen de una marca de auto. No uses esta opción si el servicio es específico de Toyota, Chevrolet, etc.
+                </Text>
                 <TouchableOpacity
                   style={[
                     styles.marcaGenericoCta,
@@ -2637,7 +2622,7 @@ const CrearServicioScreen = () => {
                   <InstitutionalIcon
                     name="checkmark-circle"
                     size={22}
-                    color={esGenericoTodasMarcas ? I.primary : I.muted}
+                    color={esGenericoTodasMarcas ? I.ink : I.muted}
                     strokeWidth={ICON_STROKE_WIDTH}
                   />
                   <Text
@@ -2665,7 +2650,7 @@ const CrearServicioScreen = () => {
             </Text>
           </View>
         )}
-              </Card>
+              </HostPaperSection>
       </>
 
     );
@@ -2735,7 +2720,7 @@ const CrearServicioScreen = () => {
     return (
       <>
         <HostSectionKicker label="Servicio ofrecido" />
-        <Card elevated padding="host" style={styles.sectionContainer}>
+        <HostPaperSection style={styles.sectionContainer}>
         {isEditMode && servicioEditReadonly ? (
           <>
             <Text style={styles.subtitle}>
@@ -2840,7 +2825,7 @@ const CrearServicioScreen = () => {
             )}
           </>
         )}
-              </Card>
+              </HostPaperSection>
       </>
 
     );
@@ -3058,13 +3043,13 @@ const CrearServicioScreen = () => {
       return (
         <>
           <HostSectionKicker label="Motores aplicables" />
-          <Card elevated padding="host" style={styles.sectionContainer}>
+          <HostPaperSection style={styles.sectionContainer}>
           <Text style={styles.subtitle}>
             Definido en el catálogo Mecanimovil. Tu precio aplica a estos vehículos.
           </Text>
           <MotoresAplicablesChips motores={motoresCatalogoSeleccionado} variant="card" />
           <MotoresAplicablesHint motores={motoresCatalogoSeleccionado} />
-                  </Card>
+                  </HostPaperSection>
         </>
 
       );
@@ -3073,7 +3058,7 @@ const CrearServicioScreen = () => {
     return (
       <>
         <HostSectionKicker label="Precio por tipo de motor" />
-        <Card elevated padding="host" style={styles.sectionContainer}>
+        <HostPaperSection style={styles.sectionContainer}>
         <Text style={styles.subtitle}>
           Este servicio aplica a varios motores. Indica si este precio es para todos o solo uno.
         </Text>
@@ -3119,7 +3104,7 @@ const CrearServicioScreen = () => {
               : 'Para otro motor con precio distinto, publica otra configuración desde Mis servicios.'}
           </Text>
         ) : null}
-              </Card>
+              </HostPaperSection>
       </>
 
     );
@@ -3132,7 +3117,7 @@ const CrearServicioScreen = () => {
     return (
       <>
         <HostSectionKicker label="Repuestos a incluir" />
-        <Card elevated padding="host" style={styles.sectionContainer}>
+        <HostPaperSection style={styles.sectionContainer}>
         {loadingRepuestos ? (
           <ActivityIndicator style={styles.loader} />
         ) : repuestos.length > 0 ? (
@@ -3224,7 +3209,7 @@ const CrearServicioScreen = () => {
             </View>
           </View>
         )}
-              </Card>
+              </HostPaperSection>
       </>
 
     );
@@ -3234,7 +3219,7 @@ const CrearServicioScreen = () => {
   const FotoSelector = () => (
     <>
       <HostSectionKicker label="Fotos del servicio (opcional)" />
-      <Card elevated padding="host" style={styles.sectionContainer}>
+      <HostPaperSection style={styles.sectionContainer}>
       <Text style={styles.fotoSubtitle}>
         Agrega hasta 5 fotos que muestren tu trabajo o materiales
       </Text>
@@ -3268,7 +3253,7 @@ const CrearServicioScreen = () => {
           </Text>
         </TouchableOpacity>
       )}
-          </Card>
+          </HostPaperSection>
     </>
 
   );
@@ -3280,7 +3265,7 @@ const CrearServicioScreen = () => {
     return (
       <>
       <HostSectionKicker label="Cálculo de precios" />
-      <Card elevated padding="host" style={styles.calculosContainer}>
+      <HostPaperSection style={styles.calculosContainer}>
         <Text style={styles.calculosTitle}>Desglose de precios</Text>
 
         <View style={styles.calculoRow}>
@@ -3322,7 +3307,7 @@ const CrearServicioScreen = () => {
             ${calculos.precio_final_cliente.toLocaleString('es-CL')}
           </Text>
         </View>
-      </Card>
+      </HostPaperSection>
       </>
     );
   };
@@ -3376,7 +3361,7 @@ const CrearServicioScreen = () => {
           {/* Descripción */}
           <>
             <HostSectionKicker label="Descripción del servicio" />
-            <Card elevated padding="host" style={styles.sectionContainer}>
+            <HostPaperSection style={styles.sectionContainer}>
             <TextInput
               style={styles.textArea}
               placeholder="Describe tu servicio, metodología, garantías, etc."
@@ -3387,13 +3372,13 @@ const CrearServicioScreen = () => {
               onChangeText={setDescripcion}
               textAlignVertical="top"
             />
-                      </Card>
+                      </HostPaperSection>
           </>
 
 
           <>
             <HostSectionKicker label="Tiempo estimado del servicio" />
-            <Card elevated padding="host" style={styles.sectionContainer}>
+            <HostPaperSection style={styles.sectionContainer}>
             <Text style={styles.sectionHint}>
               Define el rango en minutos. Los clientes verán horarios disponibles según esta duración.
             </Text>
@@ -3421,14 +3406,14 @@ const CrearServicioScreen = () => {
                 />
               </View>
             </View>
-                      </Card>
+                      </HostPaperSection>
           </>
 
 
           {/* Costos */}
           <>
             <HostSectionKicker label="Costos (sin IVA)" />
-            <Card elevated padding="host" style={styles.sectionContainer}>
+            <HostPaperSection style={styles.sectionContainer}>
 
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Costo mano de obra *</Text>
@@ -3459,7 +3444,7 @@ const CrearServicioScreen = () => {
                 </Text>
               </View>
             )}
-                      </Card>
+                      </HostPaperSection>
           </>
 
 
@@ -3525,28 +3510,13 @@ const CrearServicioScreen = () => {
               </View>
             ) : null}
 
-            <TouchableOpacity
-              style={[
-                styles.publishButton,
-                loading && styles.publishButtonDisabled
-              ]}
-              onPress={publicarServicio}
+            <InstitutionalButton
+              label={publishButtonLabel}
+              variant="primary"
+              loading={loading}
               disabled={loading}
-              activeOpacity={0.88}
-              accessibilityState={{ busy: loading, disabled: loading }}
-            >
-              {loading ? (
-                <>
-                  <ActivityIndicator size="small" color={I.onPrimary} />
-                  <Text style={styles.publishButtonText}>{publishButtonLabel}</Text>
-                </>
-              ) : (
-                <>
-                  <InstitutionalIcon name={isEditMode ? "checkmark-circle" : "rocket"} size={20} color={I.onPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.publishButtonText}>{publishButtonLabel}</Text>
-                </>
-              )}
-            </TouchableOpacity>
+              onPress={publicarServicio}
+            />
 
             <Text style={styles.publishNote}>
               {isEditMode
@@ -3564,7 +3534,7 @@ const CrearServicioScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: I.canvas,
   },
   flex: {
     flex: 1,
@@ -3651,39 +3621,39 @@ const styles = StyleSheet.create({
   motorOpcionRow: {
     marginBottom: 0,
   },
+  /** Contenido plano dentro del paper — sin segunda card. */
   marcaPanel: {
     marginTop: SPACING.fixed.sm,
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.card.xl,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    overflow: 'hidden',
   },
   marcaTabsInPanel: {
-    marginHorizontal: SPACING.fixed.sm,
-    marginTop: SPACING.fixed.sm,
+    marginTop: 0,
   },
   marcaPanelDivider: {
-    height: BORDERS.width.thin,
+    height: StyleSheet.hairlineWidth,
     backgroundColor: I.hairline,
-    marginHorizontal: SPACING.fixed.sm,
+    marginVertical: SPACING.fixed.sm,
   },
   marcaPanelBody: {
-    paddingHorizontal: MARCA_PANEL_BODY_PAD,
-    paddingTop: SPACING.fixed.sm,
-    paddingBottom: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.xs,
+    gap: SPACING.fixed.sm,
   },
-  marcaInfoNotice: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.lg,
-    padding: SPACING.fixed.sm,
+  hostHintBlock: {
+    marginTop: SPACING.fixed.sm,
     marginBottom: SPACING.fixed.sm,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
+    gap: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
   },
-  marcaInfoNoticeMuted: {
-    backgroundColor: I.surfaceSoft,
+  hostHintText: {
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.body,
+    marginBottom: SPACING.fixed.xs,
   },
+  marcaInfoNotice: {},
+  marcaInfoNoticeMuted: {},
   marcaInfoNoticeContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -3691,9 +3661,9 @@ const styles = StyleSheet.create({
   },
   marcaInfoNoticeText: {
     flex: 1,
-    fontSize: TYPOGRAPHY.fontSize.base,
+    fontSize: TS.body.fontSize,
     fontFamily: FF.sansRegular,
-    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.body.lineHeight),
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
     color: I.body,
   },
   marcaToolsPanel: {
@@ -3731,12 +3701,12 @@ const styles = StyleSheet.create({
   selectionToolbarActionTextUp: {
     fontSize: TS.caption.fontSize,
     fontFamily: FF.sansSemiBold,
-    color: I.semanticUp,
+    color: I.ink,
   },
   selectionToolbarActionTextDown: {
     fontSize: TS.caption.fontSize,
     fontFamily: FF.sansSemiBold,
-    color: I.semanticDown,
+    color: I.muted,
   },
   marcaSearchField: {
     flexDirection: 'row',
@@ -3946,16 +3916,16 @@ const styles = StyleSheet.create({
     paddingLeft: SPACING.fixed.sm,
     paddingRight: SPACING.fixed.xs,
     borderRadius: BORDERS.radius.pill,
-    backgroundColor: withOpacity(I.primary, 0.1),
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.primary, 0.25),
+    backgroundColor: I.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
     maxWidth: 160,
   },
   marcaChipText: {
     flex: 1,
     fontSize: TS.caption.fontSize,
     fontFamily: FF.sansSemiBold,
-    color: I.primary,
+    color: I.ink,
   },
   modelosSection: {
     marginTop: SPACING.fixed.sm,
@@ -4038,8 +4008,8 @@ const styles = StyleSheet.create({
     backgroundColor: I.canvas,
   },
   modeloChipSelected: {
-    borderColor: I.primary,
-    backgroundColor: withOpacity(I.primary, 0.1),
+    borderColor: I.ink,
+    backgroundColor: I.surfaceStrong,
   },
   modeloChipText: {
     fontSize: TS.caption.fontSize,
@@ -4061,9 +4031,9 @@ const styles = StyleSheet.create({
     backgroundColor: I.canvas,
   },
   marcaGenericoCtaSelected: {
-    borderColor: I.primary,
+    borderColor: I.ink,
     borderWidth: BORDERS.width.medium,
-    backgroundColor: I.canvas,
+    backgroundColor: I.surfaceStrong,
   },
   marcaGenericoCtaText: {
     flex: 1,
@@ -4072,18 +4042,16 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   marcaGenericoCtaTextSelected: {
-    color: I.primary,
+    color: I.ink,
   },
   marcaResumenBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.fixed.xs,
     marginTop: SPACING.fixed.sm,
-    padding: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: withOpacity(I.primary, 0.08),
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.primary, 0.2),
+    paddingVertical: SPACING.fixed.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
   },
   marcaResumenBannerText: {
     flex: 1,
@@ -4097,11 +4065,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: SPACING.fixed.sm,
-    padding: SPACING.fixed.sm,
-    backgroundColor: withOpacity(I.semanticUp, 0.1),
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.semanticUp, 0.35),
+    paddingVertical: SPACING.fixed.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
   },
   selectedText: {
     marginLeft: SPACING.fixed.xs,
@@ -4390,12 +4356,10 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.fixed.xxs,
   },
   calculoFinal: {
-    backgroundColor: withOpacity(I.primary, 0.1),
-    padding: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.md,
+    paddingVertical: SPACING.fixed.sm,
     marginTop: SPACING.fixed.xs,
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.primary, 0.22),
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
   },
   calculoLabel: {
     fontSize: TYPOGRAPHY.fontSize.base,
@@ -4416,7 +4380,7 @@ const styles = StyleSheet.create({
   calculoPrecioPublico: {
     fontSize: TYPOGRAPHY.fontSize.lg,
     fontFamily: FF.monoMedium,
-    color: I.primary,
+    color: I.ink,
   },
   separador: {
     height: BORDERS.width.thin,

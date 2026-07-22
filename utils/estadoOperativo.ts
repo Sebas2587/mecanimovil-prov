@@ -7,6 +7,7 @@ export type EstadoOperativoUnificado =
   | 'agendado'
   | 'en_ejecucion'
   | 'completado'
+  /** @deprecated Alias de completado (citas cerradas legacy). Preferir `completado`. */
   | 'cerrado'
   | 'cancelado';
 
@@ -17,7 +18,8 @@ export const ESTADO_OPERATIVO_LABELS: Record<EstadoOperativoUnificado, string> =
   agendado: 'Agendado',
   en_ejecucion: 'En ejecución',
   completado: 'Completado',
-  cerrado: 'Cerrado',
+  /** Legacy: cita `cerrada` = servicio terminado. */
+  cerrado: 'Completado',
   cancelado: 'Cancelado',
 };
 
@@ -31,7 +33,7 @@ export const ESTADO_OPERATIVO_VARIANT: Record<
   agendado: 'info',
   en_ejecucion: 'warning',
   completado: 'success',
-  cerrado: 'neutral',
+  cerrado: 'success',
   cancelado: 'error',
 };
 
@@ -66,11 +68,12 @@ export function mapCitaEstadoOperativo(
   horarioPorConfirmar?: boolean,
 ): EstadoOperativoUnificado {
   if (horarioPorConfirmar) return 'por_agendar';
+  // Cita cerrada / legacy `cerrado` = servicio completado.
+  if (estadoCita === 'cerrada' || estadoOperativo === 'cerrado') return 'completado';
   if (estadoOperativo) {
     const known = ESTADO_OPERATIVO_LABELS[estadoOperativo as EstadoOperativoUnificado];
     if (known) return estadoOperativo as EstadoOperativoUnificado;
   }
-  if (estadoCita === 'cerrada') return 'cerrado';
   if (estadoCita === 'cancelada') return 'cancelado';
   return 'agendado';
 }
@@ -104,6 +107,8 @@ export function mapOrdenEstadoToOperativo(estado: string): EstadoOperativoUnific
       return 'en_ejecucion';
     case 'completado':
     case 'completada':
+    case 'cerrada':
+    case 'cerrado':
       return 'completado';
     case 'cancelado':
     case 'rechazada_por_proveedor':

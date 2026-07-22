@@ -13,7 +13,13 @@ export default function NotFoundScreen() {
       <View style={styles.container}>
         <InstitutionalText role="h4">Esta pantalla no existe.</InstitutionalText>
         <Link href="/" asChild>
-          <InstitutionalButton label="Ir al inicio" variant="primary" size="compact" style={styles.link} />
+          <InstitutionalButton
+            label="Ir al inicio"
+            variant="secondary"
+            size="compact"
+            onPress={() => {}}
+            style={styles.link}
+          />
         </Link>
       </View>
     </>

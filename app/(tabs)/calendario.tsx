@@ -36,6 +36,7 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS, withOpacity } from '@/ap
 import {
   Card,
   HostSectionKicker,
+  HostAvatar,
   hostScreenStyles,
 } from '@/app/design-system/components';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
@@ -176,9 +177,7 @@ const AgendaEventCard = React.memo(function AgendaEventCard({
       </View>
 
       <View style={styles.cardGuestRow}>
-        <View style={styles.cardGuestAvatar}>
-          <InstitutionalIcon name="person" size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-        </View>
+        <HostAvatar name={evento.cliente_nombre || 'Cliente'} />
         <View style={styles.cardGuestCopy}>
           <Text style={styles.cardGuestName} numberOfLines={1}>
             {evento.cliente_nombre || 'Cliente'}
@@ -588,7 +587,7 @@ export default function CalendarioScreen() {
         />
         <InstitutionalButton
           label="Ver solicitudes disponibles"
-          variant="secondary"
+          variant="outline"
           onPress={handleVerSolicitudesDisponibles}
           style={styles.agendarSheetBtn}
         />
@@ -802,15 +801,6 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.fixed.xs,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
-  },
-  cardGuestAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: I.surfaceSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
   },
   cardGuestCopy: {
     flex: 1,

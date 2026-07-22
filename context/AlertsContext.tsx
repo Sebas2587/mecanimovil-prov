@@ -315,7 +315,7 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           mensaje: 'Como mecánico a domicilio, necesitas definir al menos una zona de cobertura activa para estar disponible para los clientes. Configura tus zonas de servicio ahora.',
           accion: {
             texto: 'Configurar Zonas',
-            ruta: '/(tabs)/zonas-servicio',
+            ruta: '/zonas-servicio',
           },
           prioridad: 'alta',
         });

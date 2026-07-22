@@ -17,20 +17,24 @@ import { router, Stack, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   User,
-  Mail,
-  Phone,
-  MapPin,
   ChevronRight,
   LogOut,
   CreditCard,
   Wallet,
+  History,
+  TrendingUp,
+  Landmark,
   Headphones,
   FileText,
   MessageCircle,
+  Bot,
   Camera,
   Bookmark,
   Users,
   Clock,
+  Wrench,
+  Tags,
+  MapPinned,
   type LucideIcon,
 } from 'lucide-react-native';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
@@ -142,15 +146,15 @@ export default function PerfilScreen() {
   const warningEmphasis = COLORS.warning.dark;
 
   const handlePerformanceWidgetPress = useCallback(() => {
-    router.push('/creditos?tab=rendimiento');
+    router.push('/rendimiento-kpis');
   }, []);
 
   const handleRecargarCreditos = useCallback(() => {
-    router.push('/creditos?tab=tienda');
+    router.push({ pathname: '/creditos', params: { tab: 'tienda' } });
   }, []);
 
   const handleFinanzasCardPress = useCallback(() => {
-    router.push('/creditos?tab=saldo');
+    router.push('/creditos/saldo' as never);
   }, []);
 
   const handleFinanzasCanalPress = useCallback((canal: 'app' | 'propias') => {
@@ -158,7 +162,7 @@ export default function PerfilScreen() {
   }, []);
 
   const handlePressPlanSuscripcion = useCallback(() => {
-    router.push('/creditos?tab=suscripcion');
+    router.push({ pathname: '/creditos', params: { tab: 'suscripcion' } });
   }, []);
 
   useFocusEffect(
@@ -338,8 +342,29 @@ export default function PerfilScreen() {
   const gestionRows: SettingRow[] = useMemo(() => {
     if (esMecanicoEquipo) return [];
     const rows: SettingRow[] = [];
-    // Servicios vive en el tab inferior (Activas / Completadas / Rechazadas).
-    // Bandeja comercial: card en Hoy — no duplicar aquí.
+    // Tab inferior «Servicios» = órdenes operativas. Catálogo/precios vive aquí (Mis servicios).
+    if (!esSupervisor || puede('servicios')) {
+      rows.push({
+        Icon: Wrench,
+        title: 'Mis servicios',
+        subtitle: 'Catálogo, precios y disponibilidad',
+        onPress: () => router.push('/mis-servicios'),
+      });
+      rows.push({
+        Icon: Tags,
+        title: 'Especialidades',
+        subtitle: 'Marcas que atiendes',
+        onPress: () => router.push('/especialidades-marcas'),
+      });
+    }
+    if (!esSupervisor || puede('zonas_cobertura')) {
+      rows.push({
+        Icon: MapPinned,
+        title: 'Zonas de servicio',
+        subtitle: 'Cobertura geográfica',
+        onPress: () => router.push('/zonas-servicio'),
+      });
+    }
     if (!esSupervisor || puede('mecanicos')) {
       rows.push({
         Icon: Users,
@@ -359,18 +384,36 @@ export default function PerfilScreen() {
     return rows;
   }, [esMecanicoEquipo, esSupervisor, puede]);
 
-  // Airbnb Hosts: Dinero separado de herramientas de operación.
+  // Airbnb Hosts: Dinero — pantallas dedicadas (sin hub saturado).
   const dineroRows: SettingRow[] = useMemo(() => {
     if (esSupervisor || esMecanicoEquipo) return [];
     return [
       {
         Icon: CreditCard,
-        title: 'Finanzas',
-        subtitle: 'Plan, créditos y rendimiento',
-        onPress: () => router.push('/creditos?tab=saldo'),
+        title: 'Plan y créditos',
+        subtitle: 'Suscripción mensual y tienda',
+        onPress: () => router.push('/creditos'),
       },
       {
         Icon: Wallet,
+        title: 'Saldo',
+        subtitle: 'Créditos, uso del plan y liquidación',
+        onPress: () => router.push('/creditos/saldo' as never),
+      },
+      {
+        Icon: History,
+        title: 'Historial',
+        subtitle: 'Compras y consumos de créditos',
+        onPress: () => router.push('/creditos/historial' as never),
+      },
+      {
+        Icon: TrendingUp,
+        title: 'Rendimiento',
+        subtitle: 'KPIs e insignias del taller',
+        onPress: () => router.push('/rendimiento-kpis'),
+      },
+      {
+        Icon: Landmark,
         title: 'Mercado Pago',
         subtitle: 'Cobros y cuenta',
         onPress: () => router.push('/configuracion-mercadopago'),
@@ -386,6 +429,12 @@ export default function PerfilScreen() {
         title: 'Canales de mensajería',
         subtitle: 'WhatsApp, Facebook e Instagram',
         onPress: () => router.push('/configuracion-canales' as never),
+      });
+      rows.push({
+        Icon: Bot,
+        title: 'Agente IA',
+        subtitle: 'Respuestas automáticas y cotizaciones',
+        onPress: () => router.push('/configuracion-agente-ia' as never),
       });
     }
     if (!esMecanicoEquipo) {
@@ -407,26 +456,6 @@ export default function PerfilScreen() {
 
   type MenuSection = { kicker: string; rows: SettingRow[] };
 
-  const infoRows = useMemo(() => {
-    const rows: { Icon: LucideIcon; label: string; value: string }[] = [
-      { Icon: User, label: 'Usuario', value: usuario?.username ? `@${usuario.username}` : 'Sin usuario' },
-      { Icon: Mail, label: 'Email de acceso', value: usuario?.email || 'Sin email' },
-    ];
-    return rows;
-  }, [usuario?.email, usuario?.username]);
-
-  const tallerContactRows = useMemo(() => {
-    const rows: { Icon: LucideIcon; label: string; value: string }[] = [];
-    const tel = estadoProveedor?.datos_proveedor?.telefono;
-    if (tel) rows.push({ Icon: Phone, label: 'Teléfono comercial', value: tel });
-    const datos = estadoProveedor?.datos_proveedor as
-      | { direccion_fisica?: { direccion_completa?: string }; direccion?: string }
-      | undefined;
-    const dir = datos?.direccion_fisica?.direccion_completa || datos?.direccion;
-    if (dir) rows.push({ Icon: MapPin, label: 'Dirección del taller', value: dir });
-    return rows;
-  }, [estadoProveedor?.datos_proveedor]);
-
   const menuSections = useMemo((): MenuSection[] => {
     const sections: MenuSection[] = [];
     if (gestionRows.length > 0) sections.push({ kicker: 'Operar', rows: gestionRows });
@@ -434,32 +463,6 @@ export default function PerfilScreen() {
     if (herramientasRows.length > 0) sections.push({ kicker: 'Herramientas', rows: herramientasRows });
     return sections;
   }, [gestionRows, dineroRows, herramientasRows]);
-
-  const renderInfoRows = (
-    rows: { Icon: LucideIcon; label: string; value: string }[],
-  ) =>
-    rows.map((item, index) => (
-      <View
-        key={`${item.label}-${index}`}
-        style={[
-          styles.contactRow,
-          index < rows.length - 1 && {
-            borderBottomWidth: StyleSheet.hairlineWidth,
-            borderBottomColor: I.hairline,
-          },
-        ]}
-      >
-        <View style={[styles.rowIconPlate, { backgroundColor: I.surfaceSoft }]}>
-          <item.Icon size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-        </View>
-        <View style={styles.rowText}>
-          <Text style={[styles.infoFieldLabel, { color: I.muted }]}>{item.label}</Text>
-          <Text style={[styles.infoFieldValue, { color: I.ink }]} numberOfLines={3}>
-            {item.value}
-          </Text>
-        </View>
-      </View>
-    ));
 
   const renderMenuRow = (item: SettingRow, showDivider: boolean, rowKey: string) => (
     <TouchableOpacity
@@ -497,6 +500,7 @@ export default function PerfilScreen() {
 
   const renderTallerIdentityCard = (showFotoEdit = false) => {
     const tagEstado = getEstadoTag();
+    const showGestionarPerfil = !esSupervisor && !esMecanicoEquipo;
     return (
     <Card elevated padding="host" style={styles.surfaceCard}>
       <View style={styles.profileIdentityRow}>
@@ -535,32 +539,32 @@ export default function PerfilScreen() {
         </View>
       </View>
 
-      {(rolTaller === 'mandante' || etiquetasPerfil.length > 0) ? (
-        <View style={styles.identityTagsRow}>
-          {rolTaller === 'mandante' ? (
-            <InstitutionalTag label={tagEstado.label} variant={tagEstado.variant} size="sm" />
-          ) : null}
-          {etiquetasPerfil.map((badge) => (
-            <InstitutionalTag
-              key={badge.label}
-              label={badge.label}
-              variant={perfilBadgeToTag(badge.variant)}
-              size="sm"
+      {(rolTaller === 'mandante' || etiquetasPerfil.length > 0 || showGestionarPerfil) ? (
+        <View style={styles.identityMetaRow}>
+          <View style={styles.identityTagsRow}>
+            {rolTaller === 'mandante' ? (
+              <InstitutionalTag label={tagEstado.label} variant={tagEstado.variant} size="sm" />
+            ) : null}
+            {etiquetasPerfil.map((badge) => (
+              <InstitutionalTag
+                key={badge.label}
+                label={badge.label}
+                variant={perfilBadgeToTag(badge.variant)}
+                size="sm"
+              />
+            ))}
+          </View>
+          {showGestionarPerfil ? (
+            <InstitutionalButton
+              label="Gestionar perfil"
+              variant="outlineAccent"
+              size="compact"
+              onPress={() => router.push('/configuracion-perfil')}
+              accessibilityLabel="Gestionar perfil"
+              style={styles.gestionarPerfilBtn}
             />
-          ))}
+          ) : null}
         </View>
-      ) : null}
-
-      <View style={styles.inCardDivider} />
-      <Text style={styles.inCardBlockLabel}>Datos de acceso</Text>
-      {renderInfoRows(infoRows)}
-
-      {tallerContactRows.length > 0 ? (
-        <>
-          <View style={styles.inCardDivider} />
-          <Text style={styles.inCardBlockLabel}>Contacto del taller</Text>
-          {renderInfoRows(tallerContactRows)}
-        </>
       ) : null}
     </Card>
     );
@@ -583,19 +587,7 @@ export default function PerfilScreen() {
     <TabScreenWrapper>
       <View style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Header
-          title="Menú"
-          rightComponent={
-            esSupervisor || esMecanicoEquipo ? undefined : (
-              <InstitutionalButton
-                label="Gestionar perfil"
-                variant="tertiary"
-                onPress={() => router.push('/configuracion-perfil')}
-                accessibilityLabel="Gestionar perfil"
-              />
-            )
-          }
-        />
+        <Header title="Menú" />
 
         <ScrollView
           style={hostScreenStyles.scroll}
@@ -736,26 +728,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
     overflow: 'hidden',
   },
-  inCardBlockLabel: {
-    fontSize: TYPOGRAPHY.styles.small.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: '600',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
-    textTransform: 'uppercase',
-    color: I.body,
-    marginBottom: SPACING.xs,
-  },
-  inCardDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: I.hairline,
-    marginVertical: SPACING.sm,
-  },
-  contactRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.sm,
-  },
   insightsStack: {
     gap: SPACING.md,
     marginBottom: SPACING.sm,
@@ -877,33 +849,25 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     lineHeight: Math.round(TYPOGRAPHY.styles.caption.fontSize * TYPOGRAPHY.styles.caption.lineHeight),
   },
+  identityMetaRow: {
+    marginTop: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+  },
   identityTagsRow: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: SPACING.sm,
-  },
-  rowIconPlate: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDERS.radius.full,
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
+  },
+  gestionarPerfilBtn: {
+    flexShrink: 0,
   },
   rowText: { flex: 1, minWidth: 0 },
-  infoFieldLabel: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  infoFieldValue: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    lineHeight: 22,
-  },
   logoutRow: {
     flexDirection: 'row',
     alignItems: 'center',

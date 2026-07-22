@@ -25,8 +25,7 @@ import {
 import ServerConfig from '@/services/serverConfig';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Header from '@/components/Header';
-import {COLORS, SPACING, TYPOGRAPHY, BORDERS} from '@/app/design-system/tokens';
-import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
+import {COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity} from '@/app/design-system/tokens';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import {
@@ -46,7 +45,41 @@ import {
 } from '@/hooks/usePerfilDocumentosQuery';
 
 const I = COLORS.institutional;
-const warningStatus = institutionalStatusColors('warning');
+
+type DocumentStatusTone = 'success' | 'warning' | 'meta' | 'info';
+
+/** Tag indicativo de estado (no es botón). */
+function DocumentStatusTag({
+  tone,
+  label,
+  icon,
+}: {
+  tone: DocumentStatusTone;
+  label: string;
+  icon?: string;
+}) {
+  const palette =
+    tone === 'success'
+      ? { bg: withOpacity(I.semanticUp, 0.1), text: I.semanticUp, icon: I.semanticUp }
+      : tone === 'warning'
+        ? { bg: withOpacity(I.accentYellow, 0.14), text: COLORS.warning.dark, icon: I.accentYellow }
+        : tone === 'info'
+          ? { bg: COLORS.selection.background, text: COLORS.selection.text, icon: I.primary }
+          : { bg: I.surfaceSoft, text: I.muted, icon: I.muted };
+
+  return (
+    <View
+      style={[styles.statusTag, { backgroundColor: palette.bg }]}
+      accessibilityRole="text"
+      accessibilityLabel={`Estado: ${label}`}
+    >
+      {icon ? (
+        <InstitutionalIcon name={icon as any} size={11} color={palette.icon} strokeWidth={ICON_STROKE_WIDTH} />
+      ) : null}
+      <Text style={[styles.statusTagText, { color: palette.text }]}>{label}</Text>
+    </View>
+  );
+}
 
 interface DocumentoLocal extends DocumentoLocalRow {}
 
@@ -429,10 +462,6 @@ export default function ConfiguracionPerfilScreen() {
     }
   };
 
-  const obtenerColorEstado = (verificado: boolean | undefined) => {
-    return verificado ? I.semanticUp : I.accentYellow;
-  };
-
   const obtenerTextoEstado = (verificado: boolean | undefined) => {
     return verificado ? 'Verificado' : 'Pendiente';
   };
@@ -512,9 +541,11 @@ export default function ConfiguracionPerfilScreen() {
           </View>
         </View>
         <View style={styles.documentCardStatus}>
-          <View style={[styles.statusBadge, { backgroundColor: obtenerColorEstado(documento.verificado) }]}>
-            <Text style={styles.statusBadgeText}>{obtenerTextoEstado(documento.verificado)}</Text>
-          </View>
+          <DocumentStatusTag
+            tone={documento.verificado ? 'success' : 'warning'}
+            label={obtenerTextoEstado(documento.verificado)}
+            icon={documento.verificado ? 'check-circle' : 'schedule'}
+          />
         </View>
       </View>
 
@@ -524,7 +555,7 @@ export default function ConfiguracionPerfilScreen() {
         </Text>
         <InstitutionalButton
           label="Actualizar"
-          variant="secondary"
+          variant="outline"
           size="compact"
           onPress={() =>
             abrirGaleriaParaDocumento({
@@ -537,15 +568,6 @@ export default function ConfiguracionPerfilScreen() {
           }
         />
       </View>
-
-      {documento.esObligatorio && !documento.verificado && (
-        <View style={styles.verificationNotice}>
-          <InstitutionalIcon name="info" size={16} color={warningStatus.icon} strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={styles.verificationNoticeText}>
-            Documento en proceso de verificación por el administrador.
-          </Text>
-        </View>
-      )}
     </View>
   );
 
@@ -553,11 +575,7 @@ export default function ConfiguracionPerfilScreen() {
     const info = tiposDocumentoInfo[tipoDocumento as keyof typeof tiposDocumentoInfo];
 
     return (
-      <TouchableOpacity
-        key={tipoDocumento}
-        style={styles.missingDocumentCard}
-        onPress={() => abrirGaleriaParaDocumento({ key: tipoDocumento, label: info.nombre } as TipoDocumento)}
-      >
+      <View key={tipoDocumento} style={styles.missingDocumentCard}>
         <InstitutionalIcon name={info.icono as any} size={24} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
         <Text style={styles.missingDocumentTitle}>
           {info.nombre}
@@ -565,10 +583,19 @@ export default function ConfiguracionPerfilScreen() {
         <Text style={styles.missingDocumentSubtitle}>
           {info.descripcion}
         </Text>
-        <Text style={styles.uploadHint}>
-          Tocar para subir
-        </Text>
-      </TouchableOpacity>
+        <InstitutionalButton
+          label="Tocar para subir"
+          variant="outline"
+          size="compact"
+          onPress={() =>
+            abrirGaleriaParaDocumento({ key: tipoDocumento, label: info.nombre } as TipoDocumento)
+          }
+          leading={
+            <InstitutionalIcon name="cloud-upload" size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+          }
+          style={styles.uploadButton}
+        />
+      </View>
     );
   };
 
@@ -659,6 +686,29 @@ export default function ConfiguracionPerfilScreen() {
             <HostSectionKicker label="Datos personales" />
             <HostPaperSection>
               <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Usuario</Text>
+                <View style={styles.formInputReadOnly}>
+                  <InstitutionalIcon
+                    name="person"
+                    size={18}
+                    color={textTertiary}
+                    style={styles.lockIcon}
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
+                  <Text
+                    style={styles.formInputReadOnlyText}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {usuario?.username ? `@${usuario.username}` : 'Sin usuario'}
+                  </Text>
+                </View>
+                <Text style={[styles.formHint, { color: textTertiary }]}>
+                  Identificador de acceso (no editable)
+                </Text>
+              </View>
+
+              <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Nombre Completo</Text>
                 <TextInput
                   style={styles.formInput}
@@ -674,7 +724,7 @@ export default function ConfiguracionPerfilScreen() {
 
               <View style={styles.formGroup}>
                 <PhoneInput
-                  label="Teléfono"
+                  label="Teléfono comercial"
                   value={datosPersonales.telefono}
                   onChangeText={(value) => {
                     setDatosPersonales(prev => ({ ...prev, telefono: value }));
@@ -684,7 +734,7 @@ export default function ConfiguracionPerfilScreen() {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Email</Text>
+                <Text style={styles.formLabel}>Email de acceso</Text>
                 <View style={styles.formInputReadOnly}>
                   <InstitutionalIcon
                     name="lock"
@@ -752,13 +802,44 @@ export default function ConfiguracionPerfilScreen() {
                 </View>
               )}
 
-              {/* Información para talleres */}
+              {/* Dirección del taller (lectura + enlace a gestionar) */}
               {estadoProveedor?.tipo_proveedor === 'taller' && (
-                <View style={styles.infoCard}>
-                  <InstitutionalIcon name="info" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.infoText}>
-                    Para gestionar la dirección de tu taller, ve a la sección "Servicios y Cobertura" → "Gestionar Taller"
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Dirección del taller</Text>
+                  <View style={[styles.formInputReadOnly, styles.formInputReadOnlyMultiline]}>
+                    <InstitutionalIcon
+                      name="place"
+                      size={18}
+                      color={textTertiary}
+                      style={styles.lockIcon}
+                      strokeWidth={ICON_STROKE_WIDTH}
+                    />
+                    <Text style={styles.formInputReadOnlyText} numberOfLines={4}>
+                      {(
+                        (estadoProveedor?.datos_proveedor as
+                          | {
+                              direccion_fisica?: { direccion_completa?: string };
+                              direccion?: string;
+                            }
+                          | undefined)?.direccion_fisica?.direccion_completa ||
+                        (estadoProveedor?.datos_proveedor as { direccion?: string } | undefined)
+                          ?.direccion ||
+                        'Sin dirección registrada'
+                      )}
+                    </Text>
+                  </View>
+                  <Text style={[styles.formHint, { color: textTertiary }]}>
+                    Para editarla, usá Operar → Gestionar taller (o Zonas de servicio).
                   </Text>
+                  <TouchableOpacity
+                    style={styles.linkUbicacionBtn}
+                    onPress={() => router.push('/gestionar-taller' as never)}
+                    activeOpacity={0.8}
+                  >
+                    <InstitutionalIcon name="store" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Text style={styles.linkUbicacionText}>Gestionar taller</Text>
+                    <InstitutionalIcon name="chevron-right" size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                  </TouchableOpacity>
                 </View>
               )}
             </HostPaperSection>
@@ -814,22 +895,11 @@ export default function ConfiguracionPerfilScreen() {
                           <InstitutionalIcon name={documento.icono as any} size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
                         </View>
                         <View style={styles.documentCardStatus}>
-                          <View style={styles.statusBadge}>
-                            <InstitutionalIcon
-                              name={documento.verificado ? 'check-circle' : 'schedule'}
-                              size={12}
-                              color={documento.verificado ? success500 : warning500}
-                              strokeWidth={ICON_STROKE_WIDTH}
-                            />
-                            <Text
-                              style={[
-                                styles.statusBadgeText,
-                                { color: documento.verificado ? success500 : warning500 },
-                              ]}
-                            >
-                              {documento.verificado ? 'Verificado' : 'Pendiente'}
-                            </Text>
-                          </View>
+                          <DocumentStatusTag
+                            tone={documento.verificado ? 'success' : 'warning'}
+                            label={documento.verificado ? 'Verificado' : 'Pendiente'}
+                            icon={documento.verificado ? 'check-circle' : 'schedule'}
+                          />
                         </View>
                       </View>
 
@@ -848,7 +918,7 @@ export default function ConfiguracionPerfilScreen() {
                       <View style={styles.documentCardActions}>
                         <InstitutionalButton
                           label="Actualizar"
-                          variant="primary"
+                          variant="outline"
                           size="compact"
                           onPress={() =>
                             abrirGaleriaParaDocumento({
@@ -860,21 +930,12 @@ export default function ConfiguracionPerfilScreen() {
                             <InstitutionalIcon
                               name="camera-alt"
                               size={16}
-                              color={I.onPrimary}
+                              color={I.ink}
                               strokeWidth={ICON_STROKE_WIDTH}
                             />
                           }
                         />
                       </View>
-
-                      {documento.esObligatorio && !documento.verificado && (
-                        <View style={styles.verificationNotice}>
-                          <InstitutionalIcon name="info" size={14} color={warning500} strokeWidth={ICON_STROKE_WIDTH} />
-                          <Text style={styles.verificationNoticeText}>
-                            En proceso de verificación
-                          </Text>
-                        </View>
-                      )}
                     </View>
                   ))}
                 </View>
@@ -927,10 +988,7 @@ export default function ConfiguracionPerfilScreen() {
                           <InstitutionalIcon name={documento.icono as any} size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
                         </View>
                         <View style={styles.documentCardStatus}>
-                          <View style={styles.statusBadge}>
-                            <InstitutionalIcon name="star" size={12} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                            <Text style={[styles.statusBadgeText, { color: I.muted }]}>Opcional</Text>
-                          </View>
+                          <DocumentStatusTag tone="meta" label="Opcional" />
                         </View>
                       </View>
 
@@ -949,7 +1007,7 @@ export default function ConfiguracionPerfilScreen() {
                       <View style={styles.documentCardActions}>
                         <InstitutionalButton
                           label="Actualizar"
-                          variant="secondary"
+                          variant="outline"
                           size="compact"
                           onPress={() =>
                             abrirGaleriaParaDocumento({
@@ -986,23 +1044,13 @@ export default function ConfiguracionPerfilScreen() {
                         .map(tipoDocumento => {
                           const info = tiposDocumentoInfo[tipoDocumento as keyof typeof tiposDocumentoInfo];
                           return (
-                            <TouchableOpacity
-                              key={tipoDocumento}
-                              style={styles.documentCard}
-                              onPress={() => abrirGaleriaParaDocumento({
-                                key: tipoDocumento,
-                                label: info.nombre
-                              } as TipoDocumento)}
-                            >
+                            <View key={tipoDocumento} style={styles.documentCard}>
                               <View style={styles.documentCardHeader}>
                                 <View style={styles.documentIconContainer}>
                                   <InstitutionalIcon name={info.icono as any} size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
                                 </View>
                                 <View style={styles.documentCardStatus}>
-                                  <View style={styles.statusBadge}>
-                                    <InstitutionalIcon name="add" size={12} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                                    <Text style={[styles.statusBadgeText, { color: I.primary }]}>Agregar</Text>
-                                  </View>
+                                  <DocumentStatusTag tone="meta" label="Sin subir" />
                                 </View>
                               </View>
 
@@ -1012,12 +1060,28 @@ export default function ConfiguracionPerfilScreen() {
                               </View>
 
                               <View style={styles.documentCardActions}>
-                                <View style={styles.uploadPrompt}>
-                                  <InstitutionalIcon name="cloud-upload" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                                  <Text style={styles.uploadPromptText}>Tocar para subir</Text>
-                                </View>
+                                <InstitutionalButton
+                                  label="Tocar para subir"
+                                  variant="outline"
+                                  size="compact"
+                                  onPress={() =>
+                                    abrirGaleriaParaDocumento({
+                                      key: tipoDocumento,
+                                      label: info.nombre,
+                                    } as TipoDocumento)
+                                  }
+                                  leading={
+                                    <InstitutionalIcon
+                                      name="cloud-upload"
+                                      size={16}
+                                      color={I.ink}
+                                      strokeWidth={ICON_STROKE_WIDTH}
+                                    />
+                                  }
+                                  style={styles.uploadButton}
+                                />
                               </View>
-                            </TouchableOpacity>
+                            </View>
                           );
                         })}
                     </View>
@@ -1067,23 +1131,13 @@ export default function ConfiguracionPerfilScreen() {
                       .map(tipoDocumento => {
                         const info = tiposDocumentoInfo[tipoDocumento as keyof typeof tiposDocumentoInfo];
                         return (
-                          <TouchableOpacity
-                            key={tipoDocumento}
-                            style={styles.documentCard}
-                            onPress={() => abrirGaleriaParaDocumento({
-                              key: tipoDocumento,
-                              label: info.nombre
-                            } as TipoDocumento)}
-                          >
+                          <View key={tipoDocumento} style={styles.documentCard}>
                             <View style={styles.documentCardHeader}>
                               <View style={styles.documentIconContainer}>
                                 <InstitutionalIcon name={info.icono as any} size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
                               </View>
                               <View style={styles.documentCardStatus}>
-                                <View style={styles.statusBadge}>
-                                  <InstitutionalIcon name="add" size={12} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                                  <Text style={[styles.statusBadgeText, { color: I.primary }]}>Agregar</Text>
-                                </View>
+                                <DocumentStatusTag tone="meta" label="Sin subir" />
                               </View>
                             </View>
 
@@ -1093,12 +1147,28 @@ export default function ConfiguracionPerfilScreen() {
                             </View>
 
                             <View style={styles.documentCardActions}>
-                              <View style={styles.uploadPrompt}>
-                                <InstitutionalIcon name="cloud-upload" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                                <Text style={styles.uploadPromptText}>Tocar para subir</Text>
-                              </View>
+                              <InstitutionalButton
+                                label="Tocar para subir"
+                                variant="outline"
+                                size="compact"
+                                onPress={() =>
+                                  abrirGaleriaParaDocumento({
+                                    key: tipoDocumento,
+                                    label: info.nombre,
+                                  } as TipoDocumento)
+                                }
+                                leading={
+                                  <InstitutionalIcon
+                                    name="cloud-upload"
+                                    size={16}
+                                    color={I.ink}
+                                    strokeWidth={ICON_STROKE_WIDTH}
+                                  />
+                                }
+                                style={styles.uploadButton}
+                              />
                             </View>
-                          </TouchableOpacity>
+                          </View>
                         );
                       })}
                   </View>
@@ -1196,6 +1266,11 @@ const createStyles = () => {
       minHeight: 48,
       backgroundColor: Ig.surfaceSoft,
       borderColor: Ig.hairline,
+    },
+    formInputReadOnlyMultiline: {
+      alignItems: 'flex-start',
+      paddingVertical: spacingMd,
+      minHeight: 72,
     },
     formInputReadOnlyText: {
       flex: 1,
@@ -1431,6 +1506,21 @@ const createStyles = () => {
       fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
       fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     },
+    statusTag: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: BORDERS.radius.sm,
+    },
+    statusTagText: {
+      fontSize: 10,
+      fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+      fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+      letterSpacing: 0.4,
+      textTransform: 'uppercase',
+    },
     documentCardContent: {
       padding: spacingSm + 4,
       borderBottomWidth: StyleSheet.hairlineWidth,
@@ -1556,6 +1646,10 @@ const createStyles = () => {
       fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
       fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
       color: Ig.primary,
+    },
+    uploadButton: {
+      alignSelf: 'stretch',
+      width: '100%',
     },
     // Nuevos estilos para documentos
     documentInfo: {

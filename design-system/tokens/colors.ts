@@ -268,11 +268,15 @@ export const COLORS = {
     selectedOnFill: '#FFFFFF',
   },
 
+  /**
+   * Secondary = CTA Airbnb Host “Next” (negro ink + texto blanco).
+   * Primary usa gradiente Tinder; tertiary/outline cubren acciones quietas.
+   */
   buttonSecondary: {
-    background: TONAL,
+    background: INK,
     backgroundPaper: '#FFFFFF',
-    text: INK,
-    border: HAIRLINE,
+    text: '#FFFFFF',
+    border: INK,
     outline: ORANGE,
     outlineText: ORANGE,
   },

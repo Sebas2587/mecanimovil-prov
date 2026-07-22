@@ -85,7 +85,7 @@ export const RechazarSolicitudModal: React.FC<RechazarSolicitudModalProps> = ({
         <View style={styles.footer}>
           <InstitutionalButton
             label="Cancelar"
-            variant="secondary"
+            variant="outline"
             size="compact"
             onPress={handleClose}
             disabled={loading}
@@ -93,12 +93,12 @@ export const RechazarSolicitudModal: React.FC<RechazarSolicitudModalProps> = ({
           />
           <InstitutionalButton
             label="Confirmar Rechazo"
-            variant="primary"
+            variant="destructiveOutline"
             size="compact"
             onPress={handleConfirm}
             disabled={!motivoSeleccionado}
             loading={loading}
-            style={[styles.footerButton, styles.confirmButton, { backgroundColor: I.semanticDown, borderColor: I.semanticDown }]}
+            style={styles.footerButton}
           />
         </View>
       }

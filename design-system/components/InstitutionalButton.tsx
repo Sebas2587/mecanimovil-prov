@@ -21,7 +21,7 @@ const I = COLORS.institutional;
 const spinnerColor: Record<InstitutionalButtonVariant, string> = {
   primary: I.onPrimary,
   success: I.onPrimary,
-  secondary: I.primary,
+  secondary: COLORS.buttonSecondary.text,
   outline: I.ink,
   outlineAccent: COLORS.brand.orange,
   destructiveOutline: I.semanticDown,

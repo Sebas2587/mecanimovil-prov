@@ -24,6 +24,11 @@ import Header from '@/components/Header';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  invalidateZonasServicioQueries,
+  useZonasServicioQuery,
+} from '@/hooks/useZonasServicioQuery';
 
 // Interfaces TypeScript
 
@@ -31,10 +36,28 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 export default function ZonasServicioScreen() {
   const { estadoProveedor } = useAuth();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const esDomicilio = estadoProveedor?.tipo_proveedor !== 'taller';
+
+  const {
+    areas: serviceAreasFromQuery,
+    stats: statsFromQuery,
+    loading,
+    isRefetching,
+    refresh,
+    error: loadError,
+  } = useZonasServicioQuery(esDomicilio);
+
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([]);
   const [stats, setStats] = useState<ServiceAreaStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    setServiceAreas(serviceAreasFromQuery);
+  }, [serviceAreasFromQuery]);
+
+  useEffect(() => {
+    setStats(statsFromQuery);
+  }, [statsFromQuery]);
 
   const I = COLORS.institutional;
 
@@ -54,34 +77,11 @@ export default function ZonasServicioScreen() {
     }
   }, [estadoProveedor?.tipo_proveedor]);
 
-  // Cargar zonas de servicio
-  const loadServiceAreas = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      // Llamada real a la API
-      const data = await serviceAreasApi.getServiceAreas();
-      setServiceAreas(data);
-
-    } catch (error) {
-      console.error('Error cargando zonas de servicio:', error);
+  useEffect(() => {
+    if (loadError) {
       Alert.alert('Error', 'No se pudieron cargar las zonas de servicio');
-    } finally {
-      setLoading(false);
     }
-  }, []);
-
-  // Cargar estadísticas
-  const loadStats = useCallback(async () => {
-    try {
-      // Llamada real a la API
-      const statsData = await serviceAreasApi.getServiceAreaStats();
-      setStats(statsData);
-
-    } catch (error) {
-      console.error('Error cargando estadísticas:', error);
-    }
-  }, []);
+  }, [loadError]);
 
   // Activar/desactivar zona
   const toggleZoneActive = async (zoneId: string, currentStatus: boolean) => {
@@ -106,7 +106,8 @@ export default function ZonasServicioScreen() {
                     : zone
                 ));
 
-                await loadStats();
+                invalidateZonasServicioQueries(queryClient);
+                await refresh();
               } catch (error) {
                 console.error('Error actualizando zona:', error);
                 Alert.alert('Error', 'No se pudo actualizar la zona');
@@ -137,7 +138,8 @@ export default function ZonasServicioScreen() {
 
               // Actualizar localmente
               setServiceAreas(prev => prev.filter(zone => zone.id !== zoneId));
-              await loadStats();
+              invalidateZonasServicioQueries(queryClient);
+              await refresh();
 
               Alert.alert('Éxito', 'Zona eliminada correctamente');
             } catch (error) {
@@ -159,17 +161,9 @@ export default function ZonasServicioScreen() {
     router.push(`/editar-zona-servicio?id=${zoneId}`);
   };
 
-  // Efectos
-  useEffect(() => {
-    loadServiceAreas();
-    loadStats();
-  }, [loadServiceAreas, loadStats]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([loadServiceAreas(), loadStats()]);
-    setRefreshing(false);
-  }, [loadServiceAreas, loadStats]);
+  const onRefresh = useCallback(() => {
+    void refresh();
+  }, [refresh]);
 
   const bgPaper = I.canvas;
   const bgDefault = I.surfaceSoft;
@@ -320,7 +314,7 @@ export default function ZonasServicioScreen() {
       <ScrollView
         style={hostScreenStyles.scroll}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[

@@ -16,7 +16,7 @@ Queremos la **arquitectura visual de la app Airbnb Anfitriones**: tabs operativo
 ## Non-goals
 
 - Cambios de backend/API
-- Tab Insights dedicado (KPIs en Hoy + Menú)
+- Tab Insights dedicado (KPIs en Hoy + Menú → Dinero → Rendimiento como Detail)
 - Copy literal Airbnb ("guests", "listings")
 
 ## Alcance

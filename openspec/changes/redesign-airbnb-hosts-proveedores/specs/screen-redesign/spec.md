@@ -15,4 +15,14 @@ Month grid + day events + FAB; hairline cards.
 Segmented tabs Activas/Completadas/Rechazadas; reservation-style order rows.
 
 ### Requirement: Menú
-Grouped sections (CUENTA / GESTIÓN / RENDIMIENTO), list rows, logout at bottom.
+Grouped sections with Host kickers (`Tu perfil` · `Tu negocio` · `Operar` · `Dinero` · `Herramientas` · `Cuenta`), list rows, logout at bottom.
+
+### Requirement: Menú → Dinero (finanzas desacopladas)
+The Dinero section SHALL expose dedicated destinations (not a single saturated hub):
+- Plan y créditos → `/creditos` (tabs Suscripción + Tienda only)
+- Saldo → `/creditos/saldo`
+- Historial → `/creditos/historial`
+- Rendimiento → `/rendimiento-kpis`
+- Mercado Pago → `/configuracion-mercadopago`
+
+Legacy deep links `/creditos?tab=saldo|historial|rendimiento` SHALL redirect to the dedicated screens.

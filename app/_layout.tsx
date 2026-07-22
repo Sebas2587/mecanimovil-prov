@@ -207,6 +207,9 @@ export default function RootLayout() {
                     }}
                   />
                   <Stack.Screen name="creditos" options={{ headerShown: false }} />
+                  <Stack.Screen name="creditos/saldo" options={{ headerShown: false }} />
+                  <Stack.Screen name="creditos/historial" options={{ headerShown: false }} />
+                  <Stack.Screen name="creditos/comprar" options={{ headerShown: false }} />
                   <Stack.Screen name="mis-servicios" options={{ headerShown: false }} />
                   <Stack.Screen name="configuracion-horarios" options={{ headerShown: false }} />
                   <Stack.Screen name="especialidades-marcas" options={{ headerShown: false }} />
@@ -238,6 +241,7 @@ export default function RootLayout() {
                     }}
                   />
                   <Stack.Screen name="configuracion-canales" options={{ headerShown: false }} />
+                  <Stack.Screen name="configuracion-agente-ia" options={{ headerShown: false }} />
                   <Stack.Screen name="cotizaciones-plantillas" options={{ headerShown: false }} />
                   <Stack.Screen
                     name="cotizar-ia"

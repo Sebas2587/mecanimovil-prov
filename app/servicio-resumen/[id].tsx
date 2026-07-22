@@ -4,30 +4,31 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import Header from '@/components/Header';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import {
-  Card,
+  HostPaperSection,
   HostSectionKicker,
+  HostMetricRow,
+  InstitutionalButton,
+  InstitutionalTag,
   hostScreenStyles,
   HOST_GUTTER,
 } from '@/app/design-system/components';
-import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
-import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { parseOfertasGrupoParam, ofertaToGrupoItem } from '@/utils/agruparOfertasServicio';
 import { TarifaMarcaResumenCard } from '@/components/servicios/TarifasMarcaCatalogo';
 import { etiquetaMarcaOferta } from '@/utils/tarifasPorMarca';
+import { parseOfertasGrupoParam, ofertaToGrupoItem } from '@/utils/agruparOfertasServicio';
 import { navigateBack } from '@/utils/navigateBack';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
 
 interface ServicioOferta {
   id: number;
@@ -100,6 +101,11 @@ function parseOfertasCatalogoParam(raw?: string | string[]): ServicioOferta[] {
   }
 }
 
+function fmtMoney(n: number | string | undefined): string {
+  const v = typeof n === 'string' ? parseFloat(n) || 0 : typeof n === 'number' ? n : 0;
+  return `$${v.toLocaleString('es-CL')}`;
+}
+
 function DesglosePrecioOferta({
   oferta,
   omitirPrecioPublicoHero = false,
@@ -108,34 +114,41 @@ function DesglosePrecioOferta({
   omitirPrecioPublicoHero?: boolean;
 }) {
   const desglose = oferta.desglose_precios;
+  const showRepuestos =
+    oferta.tipo_servicio === 'con_repuestos' &&
+    parseFloat(String(oferta.costo_repuestos_sin_iva)) > 0;
+
   return (
-    <View style={styles.priceBlock}>
-      <View style={styles.priceRow}>
-        <Text style={styles.priceLabel}>Precio mano de obra</Text>
-        <Text style={styles.priceValue}>{fmtMoney(oferta.costo_mano_de_obra_sin_iva)}</Text>
-      </View>
-      {oferta.tipo_servicio === 'con_repuestos'
-      && parseFloat(String(oferta.costo_repuestos_sin_iva)) > 0 ? (
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Precio repuestos</Text>
-          <Text style={styles.priceValue}>{fmtMoney(oferta.costo_repuestos_sin_iva)}</Text>
-        </View>
+    <View>
+      <HostMetricRow
+        label="Precio mano de obra"
+        value={fmtMoney(oferta.costo_mano_de_obra_sin_iva)}
+        last={!showRepuestos && !desglose}
+      />
+      {showRepuestos ? (
+        <HostMetricRow
+          label="Precio repuestos"
+          value={fmtMoney(oferta.costo_repuestos_sin_iva)}
+          last={!desglose}
+        />
       ) : null}
       {desglose ? (
         <>
-          <View style={[styles.priceRow, styles.subtotalBox]}>
-            <Text style={styles.subtotalLabel}>Costo total sin IVA</Text>
-            <Text style={styles.subtotalValue}>{fmtMoney(desglose.costo_total_sin_iva)}</Text>
-          </View>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>IVA 19%</Text>
-            <Text style={styles.priceValue}>{fmtMoney(desglose.iva_19_porciento)}</Text>
-          </View>
+          <HostMetricRow
+            label="Costo total sin IVA"
+            value={fmtMoney(desglose.costo_total_sin_iva)}
+          />
+          <HostMetricRow
+            label="IVA 19%"
+            value={fmtMoney(desglose.iva_19_porciento)}
+            last={omitirPrecioPublicoHero}
+          />
           {!omitirPrecioPublicoHero ? (
-            <View style={[styles.priceRow, styles.highlightBox]}>
-              <Text style={styles.highlightLabel}>Precio al público</Text>
-              <Text style={styles.highlightValue}>{fmtMoney(desglose.precio_final_cliente)}</Text>
-            </View>
+            <HostMetricRow
+              label="Precio al público"
+              value={fmtMoney(desglose.precio_final_cliente)}
+              last
+            />
           ) : null}
         </>
       ) : (
@@ -143,11 +156,6 @@ function DesglosePrecioOferta({
       )}
     </View>
   );
-}
-
-function fmtMoney(n: number | string | undefined): string {
-  const v = typeof n === 'string' ? parseFloat(n) || 0 : typeof n === 'number' ? n : 0;
-  return `$${v.toLocaleString('es-CL')}`;
 }
 
 export default function ServicioResumenScreen() {
@@ -166,12 +174,12 @@ export default function ServicioResumenScreen() {
 
   const ofertasGrupo = useMemo(
     () => parseOfertasGrupoParam(ofertasGrupoParam),
-    [ofertasGrupoParam]
+    [ofertasGrupoParam],
   );
 
   const ofertasCatalogo = useMemo(
     () => parseOfertasCatalogoParam(ofertasCatalogoParam),
-    [ofertasCatalogoParam]
+    [ofertasCatalogoParam],
   );
 
   const initial = useMemo(() => parseServicioFromParams(servicioData), [servicioData]);
@@ -280,15 +288,12 @@ export default function ServicioResumenScreen() {
     if (servicio?.id) cargarFotos();
   }, [servicio?.id]);
 
-  const aplicarDisponibilidadLocal = useCallback(
-    (ofertaId: number, disponible: boolean) => {
-      setOfertasEnGrupo((prev) =>
-        prev.map((o) => (o.id === ofertaId ? { ...o, disponible } : o)),
-      );
-      setServicio((prev) => (prev?.id === ofertaId ? { ...prev, disponible } : prev));
-    },
-    [],
-  );
+  const aplicarDisponibilidadLocal = useCallback((ofertaId: number, disponible: boolean) => {
+    setOfertasEnGrupo((prev) =>
+      prev.map((o) => (o.id === ofertaId ? { ...o, disponible } : o)),
+    );
+    setServicio((prev) => (prev?.id === ofertaId ? { ...prev, disponible } : prev));
+  }, []);
 
   const toggleDisponibilidadOferta = async (ofertaId: number, disponibleActual: boolean) => {
     const nueva = !disponibleActual;
@@ -317,9 +322,7 @@ export default function ServicioResumenScreen() {
     if (!servicio || ofertasParaDesglose.length === 0) return;
     const activar = resumenDisponibilidad.activas < resumenDisponibilidad.total;
     const accion = activar ? 'activar' : 'pausar';
-    const nombres = ofertasParaDesglose
-      .map((o) => etiquetaMarcaOferta(o))
-      .join(', ');
+    const nombres = ofertasParaDesglose.map((o) => etiquetaMarcaOferta(o)).join(', ');
 
     showConfirm(
       activar ? 'Activar todas las marcas' : 'Pausar todas las marcas',
@@ -339,7 +342,10 @@ export default function ServicioResumenScreen() {
             showAlert('Éxito', `Todas las marcas fueron ${activar ? 'activadas' : 'pausadas'}.`);
           } catch (error) {
             console.error('❌ Error cambiando disponibilidad masiva:', error);
-            showAlert('Error', `No se pudo ${accion} todas las marcas. Revisa el detalle de cada una.`);
+            showAlert(
+              'Error',
+              `No se pudo ${accion} todas las marcas. Revisa el detalle de cada una.`,
+            );
           } finally {
             setTogglingTodas(false);
           }
@@ -419,6 +425,32 @@ export default function ServicioResumenScreen() {
     navigateBack('/mis-servicios');
   }, []);
 
+  const statusLabel = useMemo(() => {
+    if (variasTarifas) {
+      if (resumenDisponibilidad.activas === resumenDisponibilidad.total) return 'Todas activas';
+      if (resumenDisponibilidad.activas === 0) return 'Todas pausadas';
+      return `${resumenDisponibilidad.activas}/${resumenDisponibilidad.total} activas`;
+    }
+    return servicio?.disponible ? 'Activo' : 'Pausado';
+  }, [variasTarifas, resumenDisponibilidad, servicio?.disponible]);
+
+  const statusVariant = useMemo(() => {
+    if (variasTarifas) {
+      if (resumenDisponibilidad.activas === resumenDisponibilidad.total) return 'success' as const;
+      if (resumenDisponibilidad.activas === 0) return 'error' as const;
+      return 'warning' as const;
+    }
+    return servicio?.disponible ? ('success' as const) : ('error' as const);
+  }, [variasTarifas, resumenDisponibilidad, servicio?.disponible]);
+
+  const pauseAllLabel = variasTarifas
+    ? resumenDisponibilidad.activas === resumenDisponibilidad.total
+      ? 'Pausar todas'
+      : 'Activar todas'
+    : servicio?.disponible
+      ? 'Pausar'
+      : 'Activar';
+
   if (loading) {
     return (
       <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
@@ -450,11 +482,8 @@ export default function ServicioResumenScreen() {
           titleColor={I.ink}
         />
         <View style={styles.centered}>
-          <InstitutionalIcon name="error-outline" size={48} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.errorTitle}>No se pudo cargar el servicio</Text>
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleBack} activeOpacity={0.88}>
-            <Text style={styles.primaryBtnText}>Volver</Text>
-          </TouchableOpacity>
+          <InstitutionalButton label="Volver" variant="secondary" onPress={handleBack} />
         </View>
       </SafeAreaView>
     );
@@ -466,6 +495,19 @@ export default function ServicioResumenScreen() {
       : servicio.repuestos_seleccionados?.length > 0
         ? servicio.repuestos_seleccionados
         : [];
+
+  const repuestosValue =
+    servicio.tipo_servicio === 'con_repuestos'
+      ? repuestosLista.length > 0
+        ? repuestosLista
+            .map((r: any, i: number) => {
+              const nombre = r.nombre || r.descripcion || `Repuesto ${i + 1}`;
+              const cantidad = r.cantidad ? ` ×${r.cantidad}` : '';
+              return `${nombre}${cantidad}`;
+            })
+            .join(' · ')
+        : 'Sin repuestos seleccionados'
+      : 'Sin repuestos';
 
   return (
     <SafeAreaView style={styles.screen} edges={['left', 'right']}>
@@ -486,151 +528,61 @@ export default function ServicioResumenScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.heroSub}>Servicio #{servicio.id}</Text>
-
-        <>
-        <HostSectionKicker label="Estado" />
-        <Card elevated padding="host" style={styles.card}>
-          <View style={styles.statusRow}>
-            <View
-              style={[
-                styles.statusPill,
-                resumenDisponibilidad.activas === resumenDisponibilidad.total
-                  ? styles.statusPillOn
-                  : resumenDisponibilidad.activas === 0
-                    ? styles.statusPillOff
-                    : styles.statusPillPartial,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusPillText,
-                  resumenDisponibilidad.activas === resumenDisponibilidad.total
-                    ? styles.statusPillTextOn
-                    : resumenDisponibilidad.activas === 0
-                      ? styles.statusPillTextOff
-                      : styles.statusPillTextPartial,
-                ]}
-              >
-                {variasTarifas
-                  ? resumenDisponibilidad.activas === resumenDisponibilidad.total
-                    ? 'Todas activas'
-                    : resumenDisponibilidad.activas === 0
-                      ? 'Todas pausadas'
-                      : `${resumenDisponibilidad.activas}/${resumenDisponibilidad.total} activas`
-                  : servicio.disponible
-                    ? 'Activo'
-                    : 'Pausado'}
-              </Text>
-            </View>
+        <View style={styles.heading}>
+          <Text style={styles.h1}>{servicio.servicio_info.nombre}</Text>
+          <View style={styles.headingMeta}>
+            <InstitutionalTag label={statusLabel} variant={statusVariant} size="sm" />
             <Text style={styles.metaDate}>Creado {formatearFecha(servicio.fecha_creacion)}</Text>
           </View>
           {variasTarifas ? (
             <Text style={styles.statusHint}>
-              Cada marca/modelo tiene su precio. Usa «Editar» en la tarjeta correspondiente; la pausa es por tarifa.
+              Cada marca tiene su precio. Edita o pausa por tarifa en cada bloque.
             </Text>
           ) : null}
-        </Card>
-        </>
+        </View>
 
-        <>
-        <HostSectionKicker label="Información del servicio" />
-        <Card elevated padding="host" style={styles.card}>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoIcon}>
-              <InstitutionalIcon name="build" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
-            </View>
-            <View style={styles.infoBody}>
-              <Text style={styles.label}>Nombre</Text>
-              <Text style={styles.value}>{servicio.servicio_info.nombre}</Text>
-            </View>
-          </View>
-
+        <HostSectionKicker label="Información" style={styles.kickerFlush} />
+        <HostPaperSection style={styles.paper}>
+          <HostMetricRow label="Nombre" value={servicio.servicio_info.nombre} />
           {!variasTarifas ? (
-            <View style={[styles.infoRow, styles.infoRowDivider]}>
-              <View style={styles.infoIcon}>
-                <InstitutionalIcon name="directions-car" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
-              </View>
-              <View style={styles.infoBody}>
-                <Text style={styles.label}>Marca / modelo</Text>
-                <Text style={styles.value}>
-                  {etiquetaMarcaOferta(servicio)}
-                </Text>
-              </View>
-            </View>
+            <HostMetricRow label="Marca / modelo" value={etiquetaMarcaOferta(servicio)} />
           ) : null}
+          <HostMetricRow label="Repuestos" value={repuestosValue} last={!loadingFotos && !servicio.fotos_urls?.length} />
 
-          <View style={[styles.infoRow, styles.infoRowDivider]}>
-            <View style={styles.infoIcon}>
-              <InstitutionalIcon name="settings" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
-            </View>
-            <View style={styles.infoBody}>
-              <Text style={styles.label}>Repuestos</Text>
-              {servicio.tipo_servicio === 'con_repuestos' ? (
-                repuestosLista.length > 0 ? (
-                  <View style={styles.tagsWrap}>
-                    {repuestosLista.map((repuesto: any, index: number) => {
-                      const nombre = repuesto.nombre || repuesto.descripcion || `Repuesto ${index + 1}`;
-                      const cantidad = repuesto.cantidad ? ` ×${repuesto.cantidad}` : '';
-                      return (
-                        <View key={repuesto.id ?? index} style={styles.tag}>
-                          <Text style={styles.tagText}>
-                            {nombre}
-                            {cantidad}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                ) : (
-                  <Text style={styles.valueMuted}>Sin repuestos seleccionados</Text>
-                )
-              ) : (
-                <Text style={styles.valueMuted}>Sin repuestos</Text>
-              )}
-            </View>
-          </View>
-
-          <View style={[styles.infoRow, styles.infoRowDivider]}>
-            <View style={styles.infoIcon}>
-              <InstitutionalIcon name="photo-library" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
-            </View>
-            <View style={styles.infoBody}>
-              <Text style={styles.label}>Fotos del servicio</Text>
-              {loadingFotos ? (
-                <View style={styles.rowInline}>
-                  <ActivityIndicator size="small" color={I.primary} />
-                  <Text style={styles.valueMuted}>Cargando fotos…</Text>
+          <View style={styles.fotosBlock}>
+            <Text style={styles.fotosLabel}>Fotos del servicio</Text>
+            {loadingFotos ? (
+              <View style={styles.rowInline}>
+                <ActivityIndicator size="small" color={I.muted} />
+                <Text style={styles.valueMuted}>Cargando fotos…</Text>
+              </View>
+            ) : servicio.fotos_urls?.length ? (
+              <>
+                <View style={styles.photosRow}>
+                  {servicio.fotos_urls.slice(0, 4).map((foto, index) => (
+                    <Image key={index} source={{ uri: foto }} style={styles.photoThumb} />
+                  ))}
+                  {servicio.fotos_urls.length > 4 ? (
+                    <View style={[styles.photoThumb, styles.photoMore]}>
+                      <Text style={styles.photoMoreText}>+{servicio.fotos_urls.length - 4}</Text>
+                    </View>
+                  ) : null}
                 </View>
-              ) : servicio.fotos_urls?.length ? (
-                <>
-                  <View style={styles.photosRow}>
-                    {servicio.fotos_urls.slice(0, 4).map((foto, index) => (
-                      <Image key={index} source={{ uri: foto }} style={styles.photoThumb} />
-                    ))}
-                    {servicio.fotos_urls.length > 4 ? (
-                      <View style={[styles.photoThumb, styles.photoMore]}>
-                        <Text style={styles.photoMoreText}>+{servicio.fotos_urls.length - 4}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <Text style={styles.caption}>
-                    {servicio.fotos_urls.length} foto{servicio.fotos_urls.length !== 1 ? 's' : ''}
-                  </Text>
-                </>
-              ) : (
-                <Text style={styles.valueMuted}>No hay fotos disponibles</Text>
-              )}
-            </View>
+                <Text style={styles.caption}>
+                  {servicio.fotos_urls.length} foto
+                  {servicio.fotos_urls.length !== 1 ? 's' : ''}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.valueMuted}>No hay fotos disponibles</Text>
+            )}
           </View>
-        </Card>
-        </>
+        </HostPaperSection>
 
         {variasTarifas ? (
           <>
             <HostSectionKicker
-              label={`${ofertasParaDesglose.length} configuraciones por marca/modelo`}
+              label={`${ofertasParaDesglose.length} tarifas por marca`}
             />
             {ofertasParaDesglose.map((oferta) => (
               <TarifaMarcaResumenCard
@@ -648,90 +600,49 @@ export default function ServicioResumenScreen() {
           </>
         ) : (
           <>
-<HostSectionKicker label="Desglose de precios" />
-          <Card elevated padding="host" style={styles.card}>
-            <DesglosePrecioOferta oferta={servicio} />
-          </Card>
+            <HostSectionKicker label="Desglose de precios" />
+            <HostPaperSection style={styles.paper}>
+              <DesglosePrecioOferta oferta={servicio} />
+            </HostPaperSection>
           </>
         )}
       </ScrollView>
 
       <SafeAreaView style={styles.footerSafe} edges={['bottom']}>
-        <View style={[styles.actionsBar, { paddingBottom: Math.max(insets.bottom, SPACING.fixed.sm) }]}>
-          <TouchableOpacity
-            style={[
-              styles.actionBtn,
-              variasTarifas
-                ? resumenDisponibilidad.activas === resumenDisponibilidad.total
-                  ? styles.actionPause
-                  : styles.actionPlay
-                : servicio.disponible
-                  ? styles.actionPause
-                  : styles.actionPlay,
-            ]}
-            onPress={toggleDisponibilidad}
-            disabled={togglingTodas || togglingOfertaId != null}
-            activeOpacity={0.88}
-          >
-            {togglingTodas ? (
-              <ActivityIndicator size="small" color={I.primary} />
-            ) : (
-              <InstitutionalIcon
-                name={
-                  variasTarifas
-                    ? resumenDisponibilidad.activas === resumenDisponibilidad.total
-                      ? 'pause'
-                      : 'play-arrow'
-                    : servicio.disponible
-                      ? 'pause'
-                      : 'play-arrow'
-                }
-                size={20}
-                color={
-                  variasTarifas
-                    ? resumenDisponibilidad.activas === resumenDisponibilidad.total
-                      ? I.accentYellow
-                      : I.semanticUp
-                    : servicio.disponible
-                      ? I.accentYellow
-                      : I.semanticUp
-                }
-                strokeWidth={ICON_STROKE_WIDTH}
-              />
-            )}
-            <Text
-              style={[
-                styles.actionText,
-                variasTarifas
-                  ? resumenDisponibilidad.activas === resumenDisponibilidad.total
-                    ? styles.actionTextPause
-                    : styles.actionTextPlay
-                  : servicio.disponible
-                    ? styles.actionTextPause
-                    : styles.actionTextPlay,
-              ]}
-            >
-              {variasTarifas
-                ? resumenDisponibilidad.activas === resumenDisponibilidad.total
-                  ? 'Pausar todas'
-                  : 'Activar todas'
-                : servicio.disponible
-                  ? 'Pausar'
-                  : 'Activar'}
-            </Text>
-          </TouchableOpacity>
-
+        <View
+          style={[
+            styles.actionsBar,
+            { paddingBottom: Math.max(insets.bottom, SPACING.fixed.sm) },
+          ]}
+        >
+          <View style={styles.actionFlex}>
+            <InstitutionalButton
+              label={pauseAllLabel}
+              variant="secondary"
+              size="compact"
+              loading={togglingTodas}
+              disabled={togglingTodas || togglingOfertaId != null}
+              onPress={toggleDisponibilidad}
+            />
+          </View>
           {!variasTarifas ? (
-            <TouchableOpacity style={[styles.actionBtn, styles.actionEdit]} onPress={editarServicio} activeOpacity={0.88}>
-              <InstitutionalIcon name="edit" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.actionTextEdit}>Editar</Text>
-            </TouchableOpacity>
+            <View style={styles.actionFlex}>
+              <InstitutionalButton
+                label="Editar"
+                variant="outline"
+                size="compact"
+                onPress={editarServicio}
+              />
+            </View>
           ) : null}
-
-          <TouchableOpacity style={[styles.actionBtn, styles.actionDelete]} onPress={eliminarServicio} activeOpacity={0.88}>
-            <InstitutionalIcon name="delete-outline" size={20} color={I.semanticDown}  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.actionTextDelete}>Eliminar</Text>
-          </TouchableOpacity>
+          <View style={styles.actionFlex}>
+            <InstitutionalButton
+              label="Eliminar"
+              variant="destructiveOutline"
+              size="compact"
+              onPress={eliminarServicio}
+            />
+          </View>
         </View>
       </SafeAreaView>
     </SafeAreaView>
@@ -741,22 +652,14 @@ export default function ServicioResumenScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: I.surfaceSoft,
-  },
-  scroll: {
-    flex: 1,
-  },
-  heroSub: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansRegular,
-    color: I.muted,
-    marginBottom: SPACING.fixed.md,
+    backgroundColor: I.canvas,
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.fixed.xl,
+    gap: SPACING.fixed.md,
   },
   mutedCenter: {
     marginTop: SPACING.fixed.md,
@@ -765,155 +668,82 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   errorTitle: {
-    marginTop: SPACING.fixed.md,
     fontSize: TYPOGRAPHY.fontSize.lg,
     fontFamily: FF.sansSemiBold,
     color: I.ink,
     textAlign: 'center',
+  },
+  heading: {
     marginBottom: SPACING.fixed.lg,
+    gap: SPACING.fixed.xs,
   },
-  primaryBtn: {
-    backgroundColor: I.primary,
-    paddingHorizontal: SPACING.fixed.xl,
-    paddingVertical: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.pill,
-  },
-  primaryBtnText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
+  h1: {
+    fontSize: TS.h3.fontSize,
+    lineHeight: Math.round(TS.h3.fontSize * 1.2),
     fontFamily: FF.sansSemiBold,
-    color: I.onPrimary,
+    color: I.ink,
   },
-  card: {
-    marginBottom: SPACING.fixed.md,
-  },
-  statusRow: {
+  headingMeta: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: SPACING.fixed.sm,
-  },
-  statusPill: {
-    paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.xs,
-    borderRadius: BORDERS.radius.pill,
-  },
-  statusPillOn: {
-    backgroundColor: withOpacity(I.semanticUp, 0.14),
-  },
-  statusPillOff: {
-    backgroundColor: withOpacity(I.semanticDown, 0.1),
-  },
-  statusPillPartial: {
-    backgroundColor: withOpacity(I.accentYellow, 0.18),
-  },
-  statusPillText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansSemiBold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  statusPillTextOn: { color: I.semanticUp },
-  statusPillTextOff: { color: I.semanticDown },
-  statusPillTextPartial: { color: I.ink },
-  statusHint: {
-    marginTop: SPACING.fixed.sm,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansRegular,
-    color: I.muted,
-    lineHeight: Math.round(TYPOGRAPHY.fontSize.sm * 1.4),
   },
   metaDate: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansRegular,
     color: I.muted,
-    flexShrink: 1,
-    textAlign: 'right',
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.fixed.md,
-  },
-  infoRowDivider: {
-    marginTop: SPACING.fixed.md,
-    paddingTop: SPACING.fixed.md,
-    borderTopWidth: BORDERS.width.thin,
-    borderTopColor: I.hairline,
-  },
-  infoIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: COLORS.primary[50],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  infoBody: {
-    flex: 1,
-    minWidth: 0,
-  },
-  label: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansSemiBold,
-    color: I.muted,
-    marginBottom: SPACING.fixed.xxs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.35,
-  },
-  value: {
-    fontSize: TYPOGRAPHY.fontSize.base,
+  statusHint: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansRegular,
-    color: I.ink,
-    lineHeight: Math.round(TYPOGRAPHY.fontSize.base * (TYPOGRAPHY.lineHeight?.normal ?? 1.5)),
+    color: I.muted,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize.sm * 1.4),
+  },
+  kickerFlush: {
+    marginTop: 0,
+  },
+  paper: {
+    marginBottom: SPACING.fixed.md,
   },
   valueMuted: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansRegular,
     color: I.muted,
+    paddingVertical: SPACING.fixed.sm,
   },
-  tagsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.fixed.sm,
-    marginTop: SPACING.fixed.xxs,
+  fotosBlock: {
+    paddingTop: SPACING.fixed.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+    gap: SPACING.fixed.xs,
   },
-  tag: {
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: SPACING.fixed.xxs + 2,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: COLORS.primary[50],
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.primary, 0.2),
-  },
-  tagText: {
+  fotosLabel: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansRegular,
-    color: I.primary,
+    fontFamily: FF.sansMedium,
+    color: I.muted,
   },
   rowInline: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.fixed.sm,
-    marginTop: SPACING.fixed.xxs,
   },
   photosRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: SPACING.fixed.sm,
-    marginTop: SPACING.fixed.xxs,
   },
   photoThumb: {
-    width: 52,
-    height: 52,
+    width: 56,
+    height: 56,
     borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: I.hairline,
     backgroundColor: I.surfaceStrong,
   },
   photoMore: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: I.surfaceStrong,
   },
   photoMoreText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
@@ -921,81 +751,13 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   caption: {
-    marginTop: SPACING.fixed.xs,
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansRegular,
     color: I.muted,
   },
-  sectionHeading: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: SPACING.fixed.sm,
-    marginTop: SPACING.fixed.xs,
-  },
-  priceBlock: {
-    gap: SPACING.fixed.sm,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: SPACING.fixed.md,
-  },
-  priceLabel: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansRegular,
-    color: I.body,
-  },
-  priceValue: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.monoMedium,
-    color: I.ink,
-    textAlign: 'right',
-  },
-  subtotalBox: {
-    marginTop: SPACING.fixed.xs,
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.surfaceStrong,
-  },
-  subtotalLabel: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
-    flex: 1,
-  },
-  subtotalValue: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.monoMedium,
-    color: I.ink,
-  },
-  highlightBox: {
-    marginTop: SPACING.fixed.xs,
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: withOpacity(I.primary, 0.08),
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.primary, 0.22),
-  },
-  highlightLabel: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
-    flex: 1,
-  },
-  highlightValue: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontFamily: FF.monoMedium,
-    color: I.primary,
-    textAlign: 'right',
-  },
   footerSafe: {
     backgroundColor: I.canvas,
-    borderTopWidth: BORDERS.width.thin,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
   },
   actionsBar: {
@@ -1004,49 +766,8 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.fixed.md,
     gap: SPACING.fixed.sm,
   },
-  actionBtn: {
+  actionFlex: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.lg,
-    gap: SPACING.fixed.xxs,
-  },
-  actionPause: {
-    backgroundColor: withOpacity(I.accentYellow, 0.16),
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.accentYellow, 0.35),
-  },
-  actionPlay: {
-    backgroundColor: withOpacity(I.semanticUp, 0.12),
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.semanticUp, 0.28),
-  },
-  actionText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-  },
-  actionTextPause: { color: I.ink },
-  actionTextPlay: { color: I.semanticUp },
-  actionEdit: {
-    backgroundColor: COLORS.primary[50],
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.primary, 0.25),
-  },
-  actionTextEdit: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.primary,
-  },
-  actionDelete: {
-    backgroundColor: withOpacity(I.semanticDown, 0.08),
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.semanticDown, 0.22),
-  },
-  actionTextDelete: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    color: I.semanticDown,
+    minWidth: 0,
   },
 });

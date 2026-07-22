@@ -253,11 +253,20 @@ export function CotizacionIaEditor({
             </InstitutionalText>
           ) : null}
         </View>
-        <InstitutionalTag
-          label={cotizacion.estado}
-          variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
-          size="sm"
-        />
+        <View style={styles.headerTags}>
+          {cotizacion.metadata?.origen === 'agente_ia' ? (
+            <InstitutionalTag
+              label="Generada por IA — revisa antes de enviar"
+              variant="warning"
+              size="sm"
+            />
+          ) : null}
+          <InstitutionalTag
+            label={cotizacion.estado}
+            variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
+            size="sm"
+          />
+        </View>
       </View>
 
       {cotizacion.tipo_motor_label || cotizacion.aviso_motor ? (
@@ -402,7 +411,7 @@ export function CotizacionIaEditor({
       {editable && onGuardarPlantilla ? (
         <InstitutionalButton
           label="Guardar como plantilla"
-          variant="secondary"
+          variant="outline"
           onPress={onGuardarPlantilla}
           loading={guardandoPlantilla}
           disabled={guardandoPlantilla}
@@ -412,7 +421,7 @@ export function CotizacionIaEditor({
       {cotizacion.estado === 'enviada' && onMarcarAceptada ? (
         <InstitutionalButton
           label="Cliente aceptó (manual)"
-          variant="secondary"
+          variant="success"
           onPress={onMarcarAceptada}
         />
       ) : null}
@@ -431,6 +440,7 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.sm,
   },
   headerText: { flex: 1, minWidth: 0, gap: 2 },
+  headerTags: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, alignItems: 'center' },
   motorCard: { gap: SPACING.fixed.sm },
   motorHeader: {
     flexDirection: 'row',

@@ -346,7 +346,7 @@ export const ChecklistDiffModal: React.FC<ChecklistDiffModalProps> = ({
         <View style={styles.footer}>
           <InstitutionalButton
             label="Revisar respuestas"
-            variant="secondary"
+            variant="outline"
             size="compact"
             onPress={onCancel}
             disabled={finalizing}

@@ -1,28 +1,24 @@
 /**
- * Modal: servicios del sistema y créditos por postulación (API).
- * Estética institucional / referencia Coinbase: canvas, hairline, radio xl, sombra editorial,
- * números en mono, acento primario residual (spinner).
+ * Modal Host: servicios del sistema y créditos por postulación (API).
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Modal,
-  Pressable,
   ScrollView,
   ActivityIndicator,
-  useWindowDimensions,
-  Dimensions,
 } from 'react-native';
-import { Card } from '@/app/design-system/components';
-import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
-import { SPACING, TYPOGRAPHY, COLORS, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { InstitutionalModal } from '@/app/design-system/components/InstitutionalModal';
+import { InstitutionalTag, InstitutionalButton } from '@/app/design-system/components';
+import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
+import { SPACING, TYPOGRAPHY, COLORS, BORDERS } from '@/app/design-system/tokens';
 import creditosService, { type ServicioCreditoTablaRow } from '@/services/creditosService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
 
 type Section = { title: string; data: ServicioCreditoTablaRow[] };
 
@@ -54,17 +50,15 @@ export interface TablaServiciosCreditosModalProps {
   onClose: () => void;
 }
 
-export const TablaServiciosCreditosModal: React.FC<TablaServiciosCreditosModalProps> = ({ visible, onClose }) => {
-  const { height: winH } = useWindowDimensions();
+export const TablaServiciosCreditosModal: React.FC<TablaServiciosCreditosModalProps> = ({
+  visible,
+  onClose,
+}) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filas, setFilas] = useState<ServicioCreditoTablaRow[]>([]);
 
   const sections = useMemo(() => buildSections(filas), [filas]);
-
-  const screenH = winH > 120 ? winH : Dimensions.get('window').height;
-  const maxH = Math.max(340, Math.min(screenH * 0.88, 620));
-  const listMaxH = Math.max(220, maxH - 200);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -82,263 +76,220 @@ export const TablaServiciosCreditosModal: React.FC<TablaServiciosCreditosModalPr
   useEffect(() => {
     if (visible) {
       setFilas([]);
-      cargar();
+      void cargar();
     }
   }, [visible, cargar]);
 
-  const renderRow = useCallback(
-    (item: ServicioCreditoTablaRow) => (
-      <View key={item.servicio_id} style={[styles.row, { borderBottomColor: I.hairline }]}>
-        <Text style={[styles.nombre, { color: I.ink }]} numberOfLines={2}>
-          {item.nombre}
-        </Text>
-        <Text style={[styles.ref, { color: I.body }]}>{formatRef(item.precio_referencia_clp)}</Text>
-        <View style={[styles.credPill, { backgroundColor: I.surfaceStrong }]}>
-          <Text style={[styles.credPillTxt, { color: I.ink }]}>{item.creditos_requeridos}</Text>
-        </View>
-      </View>
-    ),
-    []
-  );
+  const renderRow = useCallback((item: ServicioCreditoTablaRow, isLast: boolean) => (
+    <View key={item.servicio_id} style={[styles.row, !isLast && styles.rowBorder]}>
+      <Text style={styles.nombre} numberOfLines={2}>
+        {item.nombre}
+      </Text>
+      <Text style={styles.ref}>{formatRef(item.precio_referencia_clp)}</Text>
+      <Text style={styles.cred}>{item.creditos_requeridos}</Text>
+    </View>
+  ), []);
 
   return (
-    <Modal
+    <InstitutionalModal
       visible={visible}
-      animationType="fade"
-      transparent
       onRequestClose={onClose}
-      statusBarTranslucent
+      onClose={onClose}
+      title="Servicios y créditos"
+      animationType="slide"
+      footer={
+        <InstitutionalButton
+          label="Cerrar"
+          variant="outline"
+          size="compact"
+          onPress={onClose}
+          style={styles.footerBtn}
+        />
+      }
     >
-      <View style={[styles.backdrop, { backgroundColor: withOpacity(I.ink, 0.48) }]}>
-        <Pressable style={styles.dismissHit} onPress={onClose} accessibilityLabel="Cerrar" />
-        <View style={[styles.sheetWrap, { maxHeight: maxH }]}>
-          <Card
-            elevated
-            padding={0}
-            style={[
-              styles.card,
-              {
-                maxHeight: maxH,
-                minHeight: 280,
-              },
-            ]}
-          >
-            <View style={styles.inner}>
-              <View style={styles.header}>
-                <View style={styles.headerTextCol}>
-                  <View style={[styles.kickerPill, { backgroundColor: I.surfaceStrong }]}>
-                    <Text style={[styles.kickerPillTxt, { color: I.muted }]}>REFERENCIA</Text>
-                  </View>
-                  <Text style={[styles.title, { color: I.ink }]}>Servicios y créditos</Text>
+      <View style={styles.introRow}>
+        <InstitutionalTag label="Referencia" variant="neutral" size="sm" />
+      </View>
+      <Text style={styles.sub}>
+        El precio de referencia es orientativo. Al postular se descuentan los créditos indicados.
+      </Text>
+
+      <View style={styles.tableHead}>
+        <Text style={[styles.th, styles.thServicio]}>Servicio</Text>
+        <Text style={[styles.th, styles.thRef]}>Ref. CLP</Text>
+        <Text style={[styles.th, styles.thCred]}>Cr.</Text>
+      </View>
+
+      {loading ? (
+        <View style={styles.centerPad}>
+          <ActivityIndicator size="large" color={I.primary} />
+        </View>
+      ) : error ? (
+        <View style={styles.centerPad}>
+          <Text style={styles.errorText}>{error}</Text>
+          <InstitutionalButton
+            label="Reintentar"
+            variant="tertiary"
+            size="compact"
+            onPress={() => {
+              void cargar();
+            }}
+          />
+        </View>
+      ) : filas.length === 0 ? (
+        <View style={styles.centerPad}>
+          <Text style={styles.empty}>No hay servicios cargados.</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator
+          keyboardShouldPersistTaps="handled"
+        >
+          {sections.map((section) => (
+            <View key={section.title} style={styles.section}>
+              <View style={styles.sectionHead}>
+                <View style={styles.sectionIcon}>
+                  <InstitutionalIcon
+                    name="layers"
+                    size={16}
+                    color={I.ink}
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
                 </View>
-                <Pressable
-                  onPress={onClose}
-                  hitSlop={12}
-                  style={[styles.closePlate, { backgroundColor: I.surfaceStrong }]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cerrar"
-                >
-                  <InstitutionalIcon name="close" size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                </Pressable>
+                <Text style={styles.sectionTitle} numberOfLines={2}>
+                  {section.title}
+                </Text>
+                <Text style={styles.sectionCount}>{section.data.length}</Text>
               </View>
-              <Text style={[styles.sub, { color: I.body }]}>
-                El precio de referencia es orientativo. Al postular se descuentan los créditos indicados.
-              </Text>
-              <View style={[styles.tableHead, { borderBottomColor: I.hairline }]}>
-                <Text style={[styles.th, { flex: 1, color: I.muted }]}>Servicio</Text>
-                <Text style={[styles.th, { width: 92, color: I.muted }]}>Ref. CLP</Text>
-                <Text style={[styles.th, { width: 40, textAlign: 'right', color: I.muted }]}>Cr.</Text>
-              </View>
-              {loading ? (
-                <View style={[styles.centerPad, { minHeight: listMaxH * 0.4 }]}>
-                  <ActivityIndicator size="large" color={I.primary} />
-                </View>
-              ) : error ? (
-                <View style={[styles.centerPad, { minHeight: listMaxH * 0.4 }]}>
-                  <Text style={[styles.errorText, { color: I.semanticDown }]}>{error}</Text>
-                </View>
-              ) : filas.length === 0 ? (
-                <View style={[styles.centerPad, { minHeight: listMaxH * 0.4 }]}>
-                  <Text style={[styles.empty, { color: I.muted }]}>No hay servicios cargados.</Text>
-                </View>
-              ) : (
-                <ScrollView
-                  style={{ maxHeight: listMaxH }}
-                  contentContainerStyle={styles.scrollContent}
-                  showsVerticalScrollIndicator
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {sections.map((section, sIdx) => (
-                    <View key={section.title}>
-                      <View
-                        style={[
-                          styles.sectionHead,
-                          {
-                            backgroundColor: I.surfaceSoft,
-                            borderColor: I.hairline,
-                            marginTop: sIdx > 0 ? SPACING.sm : SPACING.xs,
-                          },
-                        ]}
-                      >
-                        <View style={[styles.sectionIconPlate, { backgroundColor: I.surfaceStrong }]}>
-                          <InstitutionalIcon name="layers" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                        </View>
-                        <InstitutionalSectionHeader title={section.title} />
-                        <Text style={[styles.sectionCount, { color: I.muted }]}>({section.data.length})</Text>
-                      </View>
-                      {section.data.map((item) => renderRow(item))}
-                    </View>
-                  ))}
-                </ScrollView>
+              {section.data.map((item, idx) =>
+                renderRow(item, idx === section.data.length - 1)
               )}
             </View>
-          </Card>
-        </View>
-      </View>
-    </Modal>
+          ))}
+        </ScrollView>
+      )}
+    </InstitutionalModal>
   );
 };
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-  },
-  dismissHit: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 0,
-  },
-  sheetWrap: {
-    width: '100%',
-    maxWidth: 440,
-    zIndex: 1,
-    elevation: 8,
-  },
-  card: {
-    width: '100%',
-    borderRadius: BORDERS.radius.xl,
-    overflow: 'hidden',
-  },
-  inner: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.lg,
-    width: '100%',
-  },
-  scrollContent: { paddingBottom: SPACING.md },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.sm,
-    gap: SPACING.sm,
-  },
-  headerTextCol: { flex: 1, minWidth: 0 },
-  kickerPill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radius.pill,
-    marginBottom: SPACING.xs,
-  },
-  kickerPillTxt: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
-  },
-  title: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    lineHeight: TYPOGRAPHY.fontSize.lg * 1.25,
+  introRow: {
+    marginBottom: SPACING.fixed.sm,
   },
   sub: {
     fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
     lineHeight: 20,
-    marginBottom: SPACING.md,
-  },
-  closePlate: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDERS.radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+    color: I.body,
+    marginBottom: SPACING.fixed.md,
   },
   tableHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingBottom: SPACING.sm,
+    paddingBottom: SPACING.fixed.sm,
     borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairline,
+    marginBottom: SPACING.fixed.xs,
   },
   th: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     letterSpacing: TYPOGRAPHY.letterSpacing.wide,
     textTransform: 'uppercase',
+    color: I.muted,
+  },
+  thServicio: { flex: 1 },
+  thRef: { width: 88, textAlign: 'right' },
+  thCred: { width: 36, textAlign: 'right' },
+  list: {
+    maxHeight: 420,
+  },
+  scrollContent: {
+    paddingBottom: SPACING.fixed.md,
+  },
+  section: {
+    marginTop: SPACING.fixed.sm,
   },
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    gap: SPACING.sm,
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.sm,
   },
-  sectionIconPlate: {
+  sectionIcon: {
+    ...hostIconPlateStyle,
     width: 32,
     height: 32,
-    borderRadius: BORDERS.radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 16,
+  },
+  sectionTitle: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    color: I.ink,
   },
   sectionCount: {
     fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    fontFamily: FF.monoMedium,
+    color: I.muted,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.sm,
+    paddingVertical: SPACING.fixed.sm,
+  },
+  rowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
   },
   nombre: {
     flex: 1,
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
-    paddingRight: SPACING.sm,
+    fontFamily: FF.sansRegular,
+    color: I.ink,
+    paddingRight: SPACING.fixed.sm,
   },
   ref: {
-    width: 92,
+    width: 88,
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontFamily: FF.monoMedium,
     textAlign: 'right',
+    color: I.body,
   },
-  credPill: {
-    width: 40,
-    borderRadius: BORDERS.radius.pill,
-    paddingVertical: 5,
+  cred: {
+    width: 36,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.monoMedium,
+    textAlign: 'right',
+    color: I.ink,
+  },
+  centerPad: {
+    paddingVertical: SPACING.fixed.xl,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: SPACING.fixed.sm,
   },
-  credPillTxt: {
+  empty: {
+    textAlign: 'center',
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
-    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
+    fontFamily: FF.sansRegular,
+    color: I.muted,
   },
-  centerPad: { paddingVertical: SPACING.lg, alignItems: 'center', justifyContent: 'center' },
-  empty: { textAlign: 'center', fontSize: TYPOGRAPHY.fontSize.sm },
   errorText: {
     textAlign: 'center',
-    paddingHorizontal: SPACING.sm,
+    paddingHorizontal: SPACING.fixed.sm,
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontFamily: FF.sansRegular,
     lineHeight: 20,
+    color: I.semanticDown,
+  },
+  footerBtn: {
+    alignSelf: 'stretch',
+    width: '100%',
   },
 });

@@ -23,7 +23,7 @@ export function HostSectionKicker({
   style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={style}>
+    <View style={[styles.kickerWrap, style]}>
       <Text style={styles.kicker}>{label}</Text>
     </View>
   );
@@ -93,9 +93,11 @@ export function HostProgressRow({ label, score, last }: HostProgressRowProps) {
 }
 
 const styles = StyleSheet.create({
-  kicker: {
+  kickerWrap: {
     marginTop: SPACING.fixed.md,
     marginBottom: SPACING.fixed.xs,
+  },
+  kicker: {
     fontSize: TS.h6.fontSize,
     lineHeight: lh(TS.h6.fontSize, TS.h6.lineHeight),
     fontFamily: FF.sansMedium,

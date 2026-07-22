@@ -19,6 +19,7 @@
 
 ## Fase 3 — Pantallas tab
 - [x] Hoy, Mensajes, Agenda, Servicios, Menú
+- [x] Menú → Dinero: Plan y créditos / Saldo / Historial / Rendimiento / Mercado Pago (pantallas dedicadas)
 
 ## Fase 4 — Cards + modals
 - [x] OrdenCard, SolicitudCard, OfertaCard, FinanzasTallerCard, PaqueteCard

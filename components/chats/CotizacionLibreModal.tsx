@@ -196,9 +196,17 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
       );
       setVehiculoDesdePatente(true);
       setPatenteHint('Datos del vehículo cargados desde la patente.');
-    } catch {
+    } catch (err) {
       setVehiculoDesdePatente(false);
-      setPatenteHint('No se encontró la patente. Completa marca y modelo manualmente.');
+      if (esErrorCuota(err)) {
+        setPatenteHint(mensajeCuotaError(err, 'Necesitás una suscripción activa para consultar patentes.'));
+        setUpsellCuota({
+          visible: true,
+          mensaje: mensajeCuotaError(err, 'Necesitás una suscripción activa para consultar patentes.'),
+        });
+      } else {
+        setPatenteHint('No se encontró la patente. Completa marca y modelo manualmente.');
+      }
     } finally {
       setBuscandoPatente(false);
     }

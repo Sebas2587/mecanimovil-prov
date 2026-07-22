@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { ChevronRight, FileText, Trash2 } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
@@ -22,10 +22,16 @@ import { showAlert, showConfirm } from '@/utils/platformAlert';
 import cotizacionCanalService, { type CotizacionPlantilla } from '@/services/cotizacionCanalService';
 import { etiquetaVehiculoActual, resumenVehiculoPlantilla } from '@/utils/plantillasCotizacionVehiculo';
 import { PlantillaCotizacionDetalleModal } from '@/components/chats/PlantillaCotizacionDetalleModal';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  invalidateCotizacionPlantillasQueries,
+  useCotizacionPlantillasQuery,
+} from '@/hooks/useCotizacionPlantillasQuery';
 
 const I = COLORS.institutional;
 
 export default function CotizacionesPlantillasScreen() {
+  const queryClient = useQueryClient();
   const params = useLocalSearchParams<{
     marca?: string | string[];
     modelo?: string | string[];
@@ -44,31 +50,17 @@ export default function CotizacionesPlantillasScreen() {
 
   const filtrandoPorVehiculo = filtroVehiculo.marca.length > 0 && filtroVehiculo.modelo.length > 0;
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [plantillas, setPlantillas] = useState<CotizacionPlantilla[]>([]);
-  const [detallePlantilla, setDetallePlantilla] = useState<CotizacionPlantilla | null>(null);
-
-  const cargar = useCallback(async () => {
-    try {
-      const rows = filtrandoPorVehiculo
-        ? await cotizacionCanalService.listarPlantillas(filtroVehiculo)
-        : await cotizacionCanalService.listarPlantillas();
-      setPlantillas(rows);
-    } catch {
-      showAlert('Error', 'No se pudieron cargar las plantillas.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [filtrandoPorVehiculo, filtroVehiculo]);
-
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      void cargar();
-    }, [cargar]),
+  const {
+    plantillas,
+    loading,
+    isRefetching,
+    refresh,
+  } = useCotizacionPlantillasQuery(
+    filtrandoPorVehiculo ? filtroVehiculo : null,
+    true,
   );
+
+  const [detallePlantilla, setDetallePlantilla] = useState<CotizacionPlantilla | null>(null);
 
   const eliminar = (plantilla: CotizacionPlantilla) => {
     showConfirm('Eliminar plantilla', `¿Eliminar "${plantilla.titulo}"?`, {
@@ -76,7 +68,8 @@ export default function CotizacionesPlantillasScreen() {
       onConfirm: async () => {
         try {
           await cotizacionCanalService.eliminarPlantilla(plantilla.id);
-          setPlantillas((prev) => prev.filter((p) => p.id !== plantilla.id));
+          invalidateCotizacionPlantillasQueries(queryClient);
+          await refresh();
           if (detallePlantilla?.id === plantilla.id) setDetallePlantilla(null);
         } catch {
           showAlert('Error', 'No se pudo eliminar.');
@@ -84,6 +77,10 @@ export default function CotizacionesPlantillasScreen() {
       },
     });
   };
+
+  const onRefresh = useCallback(() => {
+    void refresh();
+  }, [refresh]);
 
   return (
     <View style={styles.root}>
@@ -100,11 +97,8 @@ export default function CotizacionesPlantillasScreen() {
           contentContainerStyle={[hostScreenStyles.scrollInner, styles.listInner]}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                void cargar();
-              }}
+              refreshing={isRefetching}
+              onRefresh={onRefresh}
             />
           }
         >

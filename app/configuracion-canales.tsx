@@ -13,7 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, router, useFocusEffect } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import {
   MessageCircle,
   Link2,
@@ -35,7 +35,15 @@ import omnichannelService, {
   type ConexionCanal,
 } from '@/services/omnichannelService';
 import { useMetaChannelConnect } from '@/hooks/useMetaChannelConnect';
-import suscripcionesService, { type UsoFeaturesMes } from '@/services/suscripcionesService';
+import {
+  OMNICHANNEL_CONNECTIONS_QUERY_KEY,
+  useOmnichannelConnections,
+} from '@/hooks/useOmnichannelConnections';
+import {
+  usoFeaturesQueryKey,
+  useUsoFeaturesQuery,
+} from '@/hooks/useCreditosQueries';
+import { useQueryClient } from '@tanstack/react-query';
 import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
 
 const I = COLORS.institutional;
@@ -102,46 +110,47 @@ function mensajeEstadoParaUsuario(msg: string | null | undefined): string | null
 }
 
 export default function ConfiguracionCanalesScreen() {
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [featureEnabled, setFeatureEnabled] = useState(true);
-  const [connections, setConnections] = useState<ConexionCanal[]>([]);
+  const queryClient = useQueryClient();
   const [conectando, setConectando] = useState<CanalSlug | null>(null);
-  const [usoFeatures, setUsoFeatures] = useState<UsoFeaturesMes | null>(null);
   const [upsellCuota, setUpsellCuota] = useState<{ visible: boolean; mensaje: string }>({
     visible: false,
     mensaje: '',
   });
   const oauthInProgress = useRef(false);
 
-  const cargar = useCallback(async (isRefresh = false) => {
-    try {
-      if (!isRefresh) setLoading(true);
-      const data = await omnichannelService.obtenerEstadoCanales();
-      setFeatureEnabled(data.enabled);
-      setConnections(data.connections || []);
-      const uso = await suscripcionesService.obtenerUsoFeatures();
-      if (uso.success && uso.data) setUsoFeatures(uso.data);
-    } catch (e) {
-      console.error('[configuracion-canales]', e);
-      Alert.alert('Error', 'No se pudo cargar el estado de los canales.');
-    } finally {
-      setLoading(false);
-      if (isRefresh) setRefreshing(false);
-    }
-  }, []);
+  const {
+    data: canalesData,
+    isPending: canalesPending,
+    isFetching: canalesFetching,
+    refetch: refetchCanales,
+    isError: canalesError,
+  } = useOmnichannelConnections(true);
+
+  const {
+    data: usoFeatures,
+    loading: usoLoading,
+    isRefetching: usoRefetching,
+    refresh: refreshUso,
+  } = useUsoFeaturesQuery(true);
+
+  const connections = canalesData?.connections ?? [];
+  const featureEnabled = canalesData?.enabled ?? true;
+  const loading = (canalesPending && canalesData == null) || usoLoading;
+  const refreshing = (canalesFetching && canalesData != null) || usoRefetching;
 
   const recargarCanales = useCallback(() => {
-    void cargar(true);
-  }, [cargar]);
+    void queryClient.invalidateQueries({ queryKey: OMNICHANNEL_CONNECTIONS_QUERY_KEY });
+    void queryClient.invalidateQueries({ queryKey: usoFeaturesQueryKey() });
+    void Promise.all([refetchCanales(), refreshUso()]);
+  }, [queryClient, refetchCanales, refreshUso]);
 
   const { connect: conectarCanalMeta } = useMetaChannelConnect(recargarCanales);
 
-  useFocusEffect(
-    useCallback(() => {
-      cargar();
-    }, [cargar]),
-  );
+  React.useEffect(() => {
+    if (canalesError) {
+      Alert.alert('Error', 'No se pudo cargar el estado de los canales.');
+    }
+  }, [canalesError]);
 
   React.useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
@@ -157,21 +166,21 @@ export default function ConfiguracionCanalesScreen() {
       const data = event.data;
       if (!data || data.type !== 'mecanimovil:meta-oauth') return;
       oauthInProgress.current = false;
-      void cargar(true);
+      recargarCanales();
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [cargar]);
+  }, [recargarCanales]);
 
   React.useEffect(() => {
     const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
       if (state === 'active' && oauthInProgress.current) {
         oauthInProgress.current = false;
-        cargar(true);
+        recargarCanales();
       }
     });
     return () => sub.remove();
-  }, [cargar]);
+  }, [recargarCanales]);
 
   const handleConectar = async (slug: CanalSlug) => {
     try {
@@ -200,11 +209,11 @@ export default function ConfiguracionCanalesScreen() {
 
   const handleToggle = async (conn: ConexionCanal, value: boolean) => {
     try {
-      const updated = await omnichannelService.toggleCanal(conn.id, value);
-      setConnections((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      await omnichannelService.toggleCanal(conn.id, value);
+      recargarCanales();
     } catch (e: unknown) {
       Alert.alert('Error', extractApiError(e, 'No se pudo cambiar el estado del canal.'));
-      cargar(true);
+      recargarCanales();
     }
   };
 
@@ -216,8 +225,8 @@ export default function ConfiguracionCanalesScreen() {
       );
       if (!ok) return;
       try {
-        const updated = await omnichannelService.desconectarCanal(conn.id);
-        setConnections((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+        await omnichannelService.desconectarCanal(conn.id);
+        recargarCanales();
       } catch (e: unknown) {
         Alert.alert('Error', extractApiError(e, 'No se pudo desconectar.'));
       }
@@ -313,7 +322,7 @@ export default function ConfiguracionCanalesScreen() {
           style={hostScreenStyles.scroll}
           contentContainerStyle={[hostScreenStyles.scrollInner, { paddingBottom: SPACING['2xl'] }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); cargar(true); }} />
+            <RefreshControl refreshing={refreshing} onRefresh={recargarCanales} />
           }
         >
           {!featureEnabled ? (

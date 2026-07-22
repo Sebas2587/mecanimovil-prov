@@ -1,8 +1,16 @@
 import React from 'react';
-import { Modal, View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
-import { InstitutionalButton } from '@/app/design-system/components';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import {
+  InstitutionalButton,
+  InstitutionalTag,
+  InstitutionalText,
+} from '@/app/design-system/components';
+import { InstitutionalModal } from '@/app/design-system/components/InstitutionalModal';
+import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const I = COLORS.institutional;
 
@@ -28,49 +36,81 @@ export function UpsellCuotaModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
-          <Text style={styles.title}>{titulo}</Text>
-          <Text style={styles.message}>{mensaje}</Text>
-          <View style={styles.actions}>
-            <InstitutionalButton label="Ver mi plan" variant="primary" onPress={irACreditos} />
-            <InstitutionalButton label="Cerrar" variant="secondary" onPress={onClose} />
+    <InstitutionalModal
+      visible={visible}
+      onRequestClose={onClose}
+      onClose={onClose}
+      title={titulo}
+      animationType="slide"
+      footer={
+        <View style={styles.footer}>
+          <InstitutionalButton
+            label="Ver mi plan"
+            variant="primary"
+            size="compact"
+            onPress={irACreditos}
+            style={styles.footerBtn}
+          />
+          <InstitutionalButton
+            label="Cerrar"
+            variant="outline"
+            size="compact"
+            onPress={onClose}
+            style={styles.footerBtn}
+          />
+        </View>
+      }
+    >
+      <View style={styles.body}>
+        <View style={styles.introRow}>
+          <View style={styles.iconPlate}>
+            <InstitutionalIcon
+              name="info-outline"
+              size={18}
+              color={I.accentYellow}
+              strokeWidth={ICON_STROKE_WIDTH}
+            />
           </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+          <InstitutionalTag label="Plan" variant="warning" size="sm" />
+        </View>
+        <InstitutionalText role="body" color="body" style={styles.message}>
+          {mensaje}
+        </InstitutionalText>
+        <InstitutionalText role="caption" color="muted" style={styles.hint}>
+          Podés activar o cambiar tu suscripción desde Plan y créditos.
+        </InstitutionalText>
+      </View>
+    </InstitutionalModal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    padding: SPACING.lg,
+  body: {
+    gap: SPACING.fixed.md,
   },
-  card: {
-    backgroundColor: I.surface,
-    borderRadius: BORDERS.radius.lg,
-    padding: SPACING.lg,
-    gap: SPACING.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
+  introRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.sm,
   },
-  title: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    color: I.ink,
+  iconPlate: {
+    ...hostIconPlateStyle,
+    backgroundColor: COLORS.background.warning,
   },
   message: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.body,
     lineHeight: 20,
   },
-  actions: {
-    gap: SPACING.sm,
-    marginTop: SPACING.xs,
+  hint: {
+    lineHeight: 18,
+  },
+  footer: {
+    gap: SPACING.fixed.sm,
+    width: '100%',
+  },
+  footerBtn: {
+    alignSelf: 'stretch',
+    width: '100%',
   },
 });

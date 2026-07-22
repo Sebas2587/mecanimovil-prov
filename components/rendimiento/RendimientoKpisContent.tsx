@@ -319,7 +319,7 @@ export function RendimientoKpisContent() {
                   <Text style={styles.insigneTitle}>Insignia en la app de usuarios</Text>
                   <Text style={styles.insigneBody}>{data.mensaje_sugerencia_suscripcion}</Text>
                   <TouchableOpacity
-                    onPress={() => router.push('/creditos?tab=suscripcion')}
+                    onPress={() => router.push({ pathname: '/creditos', params: { tab: 'suscripcion' } })}
                     style={styles.insigneCta}
                     activeOpacity={0.85}
                     accessibilityRole="button"

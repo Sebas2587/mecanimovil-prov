@@ -4,13 +4,12 @@ import {
   Text,
   StyleSheet,
   SectionList,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
   Linking,
 } from 'react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
-import { Card, hostScreenStyles } from '@/app/design-system/components';
+import { Card, hostScreenStyles, InstitutionalButton } from '@/app/design-system/components';
 import creditosService, { CompraCreditos } from '@/services/creditosService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -309,32 +308,57 @@ export const HistorialCompras: React.FC<HistorialComprasProps> = ({
                   <View style={styles.actionsRow}>
                     {isMercadoPago ? (
                       <>
-                        <TouchableOpacity
-                          style={[styles.btnPrimary, { backgroundColor: I.primary }]}
-                          onPress={() => handleVerificarPago(item)}
-                          activeOpacity={0.88}
-                        >
-                          <InstitutionalIcon name="refresh" size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                          <Text style={[styles.btnPrimaryText, { color: I.onPrimary }]}>Verificar</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.btnSecondary, { backgroundColor: I.surfaceStrong, borderColor: I.hairline }]}
+                        <InstitutionalButton
+                          label="Pagar"
+                          variant="primary"
+                          size="compact"
                           onPress={() => handleReintentarPago(item)}
-                          activeOpacity={0.88}
-                        >
-                          <InstitutionalIcon name="payment" size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                          <Text style={[styles.btnSecondaryText, { color: I.ink }]}>Pagar</Text>
-                        </TouchableOpacity>
+                          leading={
+                            <InstitutionalIcon
+                              name="payment"
+                              size={16}
+                              color={I.onPrimary}
+                              strokeWidth={ICON_STROKE_WIDTH}
+                            />
+                          }
+                          style={styles.actionBtn}
+                        />
+                        <InstitutionalButton
+                          label="Verificar"
+                          variant="secondary"
+                          size="compact"
+                          onPress={() => handleVerificarPago(item)}
+                          disabled={procesando === item.id}
+                          loading={procesando === item.id}
+                          leading={
+                            procesando === item.id ? undefined : (
+                              <InstitutionalIcon
+                                name="refresh"
+                                size={16}
+                                color={COLORS.buttonSecondary.text}
+                                strokeWidth={ICON_STROKE_WIDTH}
+                              />
+                            )
+                          }
+                          style={styles.actionBtn}
+                        />
                       </>
                     ) : null}
-                    <TouchableOpacity
-                      style={[styles.btnGhost, { borderColor: I.hairline }]}
+                    <InstitutionalButton
+                      label="Cancelar"
+                      variant="destructiveOutline"
+                      size="compact"
                       onPress={() => handleCancelarCompra(item)}
-                      activeOpacity={0.88}
-                    >
-                      <InstitutionalIcon name="close" size={16} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                      <Text style={[styles.btnGhostText, { color: I.semanticDown }]}>Cancelar</Text>
-                    </TouchableOpacity>
+                      leading={
+                        <InstitutionalIcon
+                          name="close"
+                          size={16}
+                          color={I.semanticDown}
+                          strokeWidth={ICON_STROKE_WIDTH}
+                        />
+                      }
+                      style={styles.actionBtn}
+                    />
                   </View>
                 </>
               )}
@@ -527,6 +551,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: SPACING.sm,
+  },
+  actionBtn: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    minWidth: 100,
   },
   btnPrimary: {
     flexDirection: 'row',

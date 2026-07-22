@@ -209,10 +209,10 @@ export default function PrivacidadDatosScreen() {
           </InstitutionalText>
           <InstitutionalButton
             label="Exportar mis datos"
-            variant="primary"
+            variant="secondary"
             onPress={() => void handleExport()}
             loading={exporting}
-            leading={<Share2 size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
+            leading={<Share2 size={16} color={COLORS.buttonSecondary.text} strokeWidth={ICON_STROKE_WIDTH} />}
           />
         </Card>
 

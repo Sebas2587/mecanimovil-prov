@@ -752,9 +752,18 @@ export function AgendarDesdeCanalModal({
       );
       setVehiculoDesdePatente(true);
       setPatenteHint('Datos del vehículo cargados desde la patente.');
-    } catch {
+    } catch (err) {
       resetVehiculoManual();
-      setPatenteHint('No se encontró la patente. Completa marca y modelo manualmente.');
+      if (esErrorCuota(err)) {
+        const mensaje = mensajeCuotaError(
+          err,
+          'Necesitás una suscripción activa para consultar patentes.',
+        );
+        setPatenteHint(mensaje);
+        setUpsellCuota({ visible: true, mensaje });
+      } else {
+        setPatenteHint('No se encontró la patente. Completa marca y modelo manualmente.');
+      }
     } finally {
       setBuscandoPatente(false);
     }

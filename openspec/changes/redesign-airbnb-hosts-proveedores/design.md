@@ -71,3 +71,17 @@ Hoy | Mensajes | Agenda | Servicios | Menú
 ## Plantillas
 
 Hub (Hoy, Menú), Listing (Servicios, Mensajes), Calendar (Agenda), Detail, Wizard, Focus
+
+## Menú → Dinero (IA finanzas)
+
+Evitar un hub único con 5 tabs. Separar responsabilidades Host Detail:
+
+| Destino Menú | Ruta | Contenido |
+|--------------|------|-----------|
+| Plan y créditos | `/creditos` | Tabs: Suscripción · Tienda |
+| Saldo | `/creditos/saldo` | Balance, uso del plan, liquidación, stats |
+| Historial | `/creditos/historial` | Sub-tabs Compras / Consumos |
+| Rendimiento | `/rendimiento-kpis` | KPIs e insignias |
+| Mercado Pago | `/configuracion-mercadopago` | OAuth / cobros |
+
+Deep links legacy `?tab=saldo|historial|rendimiento` redirigen a las pantallas dedicadas.

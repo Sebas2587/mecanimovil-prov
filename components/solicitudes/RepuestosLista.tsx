@@ -211,7 +211,7 @@ export const RepuestosLista: React.FC<RepuestosListaProps> = ({
           {editable && (
             <InstitutionalButton
               label="Agregar primer repuesto"
-              variant="primary"
+              variant="secondary"
               size="compact"
               onPress={() => setMostrarSelector(true)}
             />

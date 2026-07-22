@@ -29,8 +29,10 @@ import {
   noShadow,
 } from '@/app/design-system/tokens';
 import {
-  Card,
   HostSectionKicker,
+  HostPaperSection,
+  HostMetricRow,
+  HostAvatar,
   hostScreenStyles,
   HOST_GUTTER,
 } from '@/app/design-system/components';
@@ -96,32 +98,6 @@ type FeedbackAccion = {
   titulo: string;
   mensaje: string;
 };
-
-function estadoLabel(estado: string): string {
-  switch (estado) {
-    case 'activa':
-      return 'Activa';
-    case 'cerrada':
-      return 'Completada';
-    case 'cancelada':
-      return 'Cancelada';
-    default:
-      return estado;
-  }
-}
-
-function estadoColors(estado: string) {
-  switch (estado) {
-    case 'activa':
-      return { bg: withOpacity(I.primary, 0.1), text: I.primaryActive, border: withOpacity(I.primary, 0.28) };
-    case 'cerrada':
-      return { bg: withOpacity(I.semanticUp, 0.12), text: I.semanticUp, border: withOpacity(I.semanticUp, 0.35) };
-    case 'cancelada':
-      return { bg: withOpacity(I.semanticDown, 0.1), text: I.semanticDown, border: withOpacity(I.semanticDown, 0.35) };
-    default:
-      return { bg: I.surfaceStrong, text: I.body, border: I.hairline };
-  }
-}
 
 function formatDuracion(min?: number): string | null {
   if (!min || min <= 0) return null;
@@ -329,11 +305,6 @@ export default function CitaAgendaPersonalDetalleScreen() {
     !!cita?.checklist_id
     && checklistIniciado
     && !puedeOperarChecklist;
-
-  const estadoStyle = useMemo(
-    () => (cita ? estadoColors(cita.estado) : estadoColors('activa')),
-    [cita],
-  );
 
   const footerBottomPad = Math.max(insets.bottom, Platform.OS === 'web' ? 12 : 0);
 
@@ -786,6 +757,9 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
   const duracionLabel = formatDuracion(cita.duracion_minutos);
   const esDomicilio = cita.tipo_servicio === 'domicilio';
+  const metaFactsLine = [esDomicilio ? 'A domicilio' : 'En taller', duracionLabel]
+    .filter(Boolean)
+    .join(' · ');
   const textoUbicacion = esDomicilio
     ? det.direccion?.trim() || 'Dirección no registrada'
     : 'El cliente acudirá al taller';
@@ -814,64 +788,16 @@ export default function CitaAgendaPersonalDetalleScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.badgesContainer}>
-            <View
-              style={[
-                styles.metaBadge,
-                {
-                  backgroundColor: withOpacity(I.primary, 0.1),
-                  borderColor: withOpacity(I.primary, 0.28),
-                },
-              ]}
-            >
-              <InstitutionalIcon name="note" size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={[styles.metaBadgeText, { color: I.primary }]}>Personal</Text>
-            </View>
-
-            <View
-              style={[
-                styles.metaBadge,
-                { backgroundColor: estadoStyle.bg, borderColor: estadoStyle.border },
-              ]}
-            >
-              <InstitutionalIcon name="ellipse-outline" size={10} color={estadoStyle.text} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={[styles.metaBadgeText, { color: estadoStyle.text }]}>
-                {ESTADO_OPERATIVO_LABELS[estadoOperativo]}
-              </Text>
-            </View>
-
+          <View style={styles.statusBlock}>
+            <InstitutionalTag
+              label={ESTADO_OPERATIVO_LABELS[estadoOperativo]}
+              variant={ESTADO_OPERATIVO_VARIANT[estadoOperativo]}
+              size="sm"
+            />
             {cita.template_generado_por_ia ? (
-              <InstitutionalTag label="Checklist generado por IA" variant="info" size="sm" />
+              <InstitutionalTag label="Checklist IA" variant="info" size="sm" />
             ) : null}
-
-            <View
-              style={[
-                styles.metaBadge,
-                esDomicilio
-                  ? {
-                      backgroundColor: withOpacity(I.primary, 0.1),
-                      borderColor: withOpacity(I.primary, 0.28),
-                    }
-                  : styles.metaBadgeNeutral,
-              ]}
-            >
-              <InstitutionalIcon
-                name={esDomicilio ? 'home' : 'build'}
-                size={16}
-                color={esDomicilio ? I.primary : I.muted}
-                strokeWidth={ICON_STROKE_WIDTH}
-              />
-              <Text style={[styles.metaBadgeText, { color: esDomicilio ? I.primary : I.muted }]}>
-                {esDomicilio ? 'A domicilio' : 'En taller'}
-              </Text>
-            </View>
-
-            {duracionLabel ? (
-              <View style={[styles.metaBadge, styles.metaBadgeNeutral]}>
-                <InstitutionalIcon name="access-time" size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[styles.metaBadgeText, { color: I.muted }]}>{duracionLabel}</Text>
-              </View>
-            ) : null}
+            {metaFactsLine ? <Text style={styles.metaFacts}>{metaFactsLine}</Text> : null}
           </View>
 
           {editando && esActiva && permitirEditarCita ? (
@@ -925,13 +851,9 @@ export default function CitaAgendaPersonalDetalleScreen() {
           ) : (
             <>
               <HostSectionKicker label="Cliente y vehículo" />
-                <Card elevated padding="host" style={styles.section}>
+              <HostPaperSection style={styles.section}>
                 <View style={styles.clientInfoContainer}>
-                  <View style={styles.clientAvatarWrap}>
-                    <View style={styles.clientAvatarPlaceholder}>
-                      <InstitutionalIcon name="person" size={36} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                    </View>
-                  </View>
+                  <HostAvatar name={det.cliente_nombre} size={56} />
                   <View style={styles.clientInfoTextos}>
                     <Text style={styles.clientName} numberOfLines={2}>
                       {det.cliente_nombre}
@@ -945,82 +867,71 @@ export default function CitaAgendaPersonalDetalleScreen() {
                   </View>
                 </View>
 
-                <View style={styles.vehicleCard}>
-                  <View style={styles.vehicleCardHeader}>
-                    <InstitutionalIcon name="directions-car" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.vehicleCardTitle}>Vehículo</Text>
-                  </View>
-                  <View style={styles.vehicleTitleRow}>
-                    <Text style={styles.vehicleMarcaModelo} numberOfLines={2}>
-                      <Text style={styles.vehicleHighlight}>{det.vehiculo_marca}</Text> {det.vehiculo_modelo}
-                    </Text>
-                    {det.vehiculo_patente ? (
-                      <View style={styles.patentePill}>
-                        <InstitutionalIcon name="badge" size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                        <Text style={styles.patentePillText}>{det.vehiculo_patente}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  <View style={styles.vehiculoGrid}>
-                    <View style={styles.vehiculoGridItem}>
-                      <View style={styles.vehiculoGridItemHeader}>
-                        <InstitutionalIcon name="calendar-today" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                        <Text style={styles.vehiculoGridItemLabel}>Año</Text>
-                      </View>
-                      <Text style={styles.vehiculoGridItemValue}>{det.vehiculo_anio ?? 'N/A'}</Text>
-                    </View>
-                    <View style={styles.vehiculoGridItem}>
-                      <View style={styles.vehiculoGridItemHeader}>
-                        <InstitutionalIcon name="speed" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                        <Text style={styles.vehiculoGridItemLabel}>Kilometraje</Text>
-                      </View>
-                      <Text style={styles.vehiculoGridItemValue}>N/A</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.vehiculoGrid}>
-                    <View style={styles.vehiculoGridItem}>
-                      <View style={styles.vehiculoGridItemHeader}>
-                        <InstitutionalIcon name="document" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                        <Text style={styles.vehiculoGridItemLabel}>VIN</Text>
-                      </View>
-                      <Text style={styles.vehiculoGridItemValue} numberOfLines={2}>
-                        {det.vehiculo_vin || 'N/A'}
-                      </Text>
-                    </View>
-                    <View style={styles.vehiculoGridItem}>
-                      <View style={styles.vehiculoGridItemHeader}>
-                        <InstitutionalIcon name="tune" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                        <Text style={styles.vehiculoGridItemLabel}>Cilindraje</Text>
-                      </View>
-                      <Text style={styles.vehiculoGridItemValue}>
-                        {cilindrajeEfectivo(det.vehiculo_cilindraje, det.vehiculo_marca, det.vehiculo_modelo) || 'N/A'}
-                      </Text>
-                    </View>
-                  </View>
+                <View style={styles.vehicleBlock}>
+                  <Text style={styles.vehicleMarcaModelo} numberOfLines={2}>
+                    {[det.vehiculo_marca, det.vehiculo_modelo].filter(Boolean).join(' ')}
+                  </Text>
+                  {det.vehiculo_patente ? (
+                    <Text style={styles.vehiclePatente}>{det.vehiculo_patente}</Text>
+                  ) : null}
                 </View>
-              </Card>
 
-              <>
+                <HostMetricRow label="Año" value={String(det.vehiculo_anio ?? 'N/A')} />
+                <HostMetricRow label="Kilometraje" value="N/A" />
+                <HostMetricRow label="VIN" value={det.vehiculo_vin || 'N/A'} />
+                <HostMetricRow
+                  label="Cilindraje"
+                  value={
+                    cilindrajeEfectivo(det.vehiculo_cilindraje, det.vehiculo_marca, det.vehiculo_modelo) || 'N/A'
+                  }
+                  last
+                />
+              </HostPaperSection>
+
+              <HostSectionKicker label="Fecha y hora" />
+              <HostPaperSection style={styles.section}>
+                {horarioPorConfirmar ? (
+                  <>
+                    <InstitutionalTag label="Por confirmar" variant="warning" size="sm" />
+                    <Text style={styles.horarioPendienteTitle}>Horario pendiente</Text>
+                    <Text style={styles.horarioPendienteBody}>
+                      El cliente aceptó la cotización. Usa «Confirmar horario» para elegir técnico
+                      (o automático) y luego el día y hora en su calendario.
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <HostMetricRow
+                      label="Fecha"
+                      value={formatearFecha(cita.fecha_servicio)}
+                    />
+                    <HostMetricRow
+                      label="Horario"
+                      value={formatearRangoHora(cita.hora_servicio, cita.duracion_minutos)}
+                      last
+                    />
+                  </>
+                )}
+              </HostPaperSection>
+
+              <HostSectionKicker label="Ubicación del servicio" />
+              <HostPaperSection style={styles.section}>
+                <Text style={styles.addressText}>{textoUbicacion}</Text>
+                {!esDomicilio ? (
+                  <Text style={styles.addressDetailsText}>Servicio presencial en el taller</Text>
+                ) : null}
+              </HostPaperSection>
+
               <HostSectionKicker label="Servicios solicitados" />
-                <Card elevated padding="host" style={styles.section}>
-                <View style={styles.serviciosListaDetalle}>
-                  <View style={styles.servicioDetalleCard}>
-                    <Text style={styles.servicioDetalleNombre} numberOfLines={3}>
-                      {nombreServicio}
-                    </Text>
-                  </View>
-                </View>
-
+              <HostPaperSection style={styles.section}>
+                <Text style={styles.servicioDetalleNombre} numberOfLines={3}>
+                  {nombreServicio}
+                </Text>
                 {precio ? <Text style={styles.ofertaPrecio}>{precio}</Text> : null}
 
                 {det.descripcion ? (
                   <View style={styles.descripcionBlock}>
-                    <View style={styles.descripcionBlockHeader}>
-                      <InstitutionalIcon name="description" size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                      <Text style={styles.descripcionBlockLabel}>Notas del servicio</Text>
-                    </View>
+                    <Text style={styles.descripcionBlockLabel}>Notas del servicio</Text>
                     <Text style={styles.descriptionText}>{det.descripcion}</Text>
                   </View>
                 ) : null}
@@ -1030,29 +941,27 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     <AsistenteDiagnosticoCard origen="cita" entityId={cita.id} habilitado />
                   </View>
                 ) : null}
-              </Card>
-              </>
-
-              {horarioPorConfirmar ? (
-                <>
-<HostSectionKicker label="Horario" />
-                <Card elevated padding="host" style={styles.section}>
-                  <View style={styles.horarioPendienteBanner}>
-                    <InstitutionalTag label="Por confirmar" variant="warning" size="sm" />
-                    <Text style={styles.horarioPendienteTitle}>Horario pendiente</Text>
-                    <Text style={styles.horarioPendienteBody}>
-                      El cliente aceptó la cotización. Usa «Confirmar horario» para elegir técnico
-                      (o automático) y luego el día y hora en su calendario.
-                    </Text>
-                  </View>
-                </Card>
-                </>
-              ) : null}
+              </HostPaperSection>
 
               <HostSectionKicker label="Técnico asignado" />
-              <Card elevated padding="host" style={styles.section}>
+              <HostPaperSection style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
-                  <View style={styles.sectionHeaderTitleInline} />
+                  <View style={styles.tecnicoRow}>
+                    <HostAvatar name={cita.mecanico_nombre?.trim() || 'Sin técnico'} size="sm" />
+                    <View style={styles.tecnicoInfo}>
+                      <Text style={styles.tecnicoNombre}>
+                        {cita.mecanico_nombre?.trim() || 'Sin técnico asignado'}
+                      </Text>
+                      {tecnicoModalidad ? (
+                        <Text style={styles.tecnicoSub}>Atiende: {tecnicoModalidad}</Text>
+                      ) : null}
+                      {tecnicoEspecialidades ? (
+                        <Text style={styles.tecnicoSub} numberOfLines={2}>
+                          {tecnicoEspecialidades}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
                   {esActiva && permitirEditarCita ? (
                     <InstitutionalButton
                       label={cita.miembro_taller ? 'Reasignar' : 'Asignar'}
@@ -1062,30 +971,12 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     />
                   ) : null}
                 </View>
-                <View style={styles.tecnicoCard}>
-                  <View style={styles.tecnicoAvatarPlaceholder}>
-                    <InstitutionalIcon name="person" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  </View>
-                  <View style={styles.tecnicoInfo}>
-                    <Text style={styles.tecnicoNombre}>
-                      {cita.mecanico_nombre?.trim() || 'Sin técnico asignado'}
-                    </Text>
-                    {tecnicoModalidad ? (
-                      <Text style={styles.tecnicoSub}>Atiende: {tecnicoModalidad}</Text>
-                    ) : null}
-                    {tecnicoEspecialidades ? (
-                      <Text style={styles.tecnicoSub} numberOfLines={2}>
-                        {tecnicoEspecialidades}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-              </Card>
+              </HostPaperSection>
 
               {cita.tiene_checklist ? (
                 <>
                   <HostSectionKicker label="Checklist operativo" />
-                  <Card elevated padding="host" style={styles.section}>
+                  <HostPaperSection style={styles.section}>
                   <View style={styles.sectionHeaderRow}>
                     <View style={styles.sectionHeaderTitleInline} />
                     <InstitutionalTag
@@ -1105,7 +996,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     />
                   </View>
 
-                  <View style={styles.checklistStatusCard}>
+                  <View style={styles.checklistStatusBlock}>
                     {cita.checklist_id ? (
                       <>
                         <Text style={styles.checklistProgressTitle}>
@@ -1174,7 +1065,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                       ) : null}
                       {puedeOperarChecklist && !cita.checklist_id && horarioPorConfirmar ? (
                         <Text style={styles.horarioPendienteBody}>
-                          Confirma el horario abajo antes de iniciar el servicio.
+                          Confirma el horario arriba antes de iniciar el servicio.
                         </Text>
                       ) : null}
 
@@ -1206,7 +1097,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                           || checklistCompletado) ? (
                         <InstitutionalButton
                           label="Ver resumen del trabajo"
-                          variant="primary"
+                          variant="outline"
                           onPress={() => setShowChecklistResumen(true)}
                         />
                       ) : null}
@@ -1227,61 +1118,16 @@ export default function CitaAgendaPersonalDetalleScreen() {
                                 ? 'Copiar enlace'
                                 : 'Copiar / compartir enlace'
                             }
-                            variant="secondary"
+                            variant="outline"
                             onPress={() => void copiarEnlaceInformeCita(cita.informe_publico_url!)}
                           />
                         </View>
                       ) : null}
                     </View>
                   </View>
-                </Card>
+                  </HostPaperSection>
                 </>
               ) : null}
-
-              <HostSectionKicker label="Fecha y hora" />
-              <Card elevated padding="host" style={styles.section}>
-                {horarioPorConfirmar ? (
-                  <Text style={styles.horarioPendienteBody}>
-                    Aún no hay día ni hora confirmados. Usa «Confirmar horario» al pie: primero eliges
-                    técnico y después su calendario.
-                  </Text>
-                ) : (
-                  <>
-                    <View style={styles.dateTimeRow}>
-                      <InstitutionalIcon name="calendar-today" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                      <View style={styles.dateTimeTextos}>
-                        <Text style={styles.dateTimeLabel}>Fecha</Text>
-                        <Text style={styles.dateTimeValue}>{formatearFecha(cita.fecha_servicio)}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.dateTimeDivider} />
-                    <View style={styles.dateTimeRow}>
-                      <InstitutionalIcon name="access-time" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                      <View style={styles.dateTimeTextos}>
-                        <Text style={styles.dateTimeLabel}>Horario</Text>
-                        <Text style={styles.dateTimeValue}>
-                          {formatearRangoHora(cita.hora_servicio, cita.duracion_minutos)}
-                        </Text>
-                      </View>
-                    </View>
-                  </>
-                )}
-              </Card>
-
-              <HostSectionKicker label="Ubicación del servicio" />
-              <Card elevated padding="host" style={styles.section}>
-                <View style={styles.addressCard}>
-                  <View style={styles.addressHeader}>
-                    <InstitutionalIcon name="location-on" size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <View style={styles.addressContent}>
-                      <Text style={styles.addressText}>{textoUbicacion}</Text>
-                      {!esDomicilio ? (
-                        <Text style={styles.addressDetailsText}>Servicio presencial en el taller</Text>
-                      ) : null}
-                    </View>
-                  </View>
-                </View>
-              </Card>
             </>
           )}
 
@@ -1411,9 +1257,9 @@ function EditSection({ title, children }: { title: string; children: React.React
   return (
     <>
       <HostSectionKicker label={title} />
-      <Card elevated padding="host" style={styles.section}>
+      <HostPaperSection style={styles.section}>
         <View style={styles.editFields}>{children}</View>
-      </Card>
+      </HostPaperSection>
     </>
   );
 }
@@ -1618,32 +1464,19 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
 
-  badgesContainer: {
+  statusBlock: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING.fixed.sm,
-    marginBottom: SPACING.fixed.md,
-  },
-  metaBadge: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: 6,
-    borderRadius: BORDERS.radius.pill,
-    borderWidth: BORDERS.width.thin,
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
   },
-  metaBadgeNeutral: {
-    backgroundColor: I.surfaceStrong,
-    borderColor: I.hairline,
-  },
-  metaBadgeText: {
+  metaFacts: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
-  },
-
-  section: {
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.tight),
+    color: I.muted,
+  },  section: {
     marginBottom: SPACING.fixed.md,
   },
   sectionHeaderTitle: {
@@ -1654,13 +1487,7 @@ const styles = StyleSheet.create({
     color: I.ink,
     marginBottom: SPACING.fixed.sm,
   },
-  checklistStatusCard: {
-    marginTop: SPACING.fixed.xxs,
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.surfaceSoft,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
+  checklistStatusBlock: {
     gap: SPACING.fixed.sm,
   },
   checklistStatusCopy: {
@@ -1685,14 +1512,14 @@ const styles = StyleSheet.create({
   },
   checklistProgressTrack: {
     marginTop: SPACING.fixed.xs,
-    height: 8,
-    borderRadius: 4,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: I.hairline,
     overflow: 'hidden',
   },
   checklistProgressFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 2,
     backgroundColor: I.primary,
   },
   informeLinkInline: {
@@ -1731,22 +1558,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.fixed.sm,
-    marginBottom: SPACING.fixed.md,
-  },
-  clientAvatarWrap: {
-    borderRadius: 28,
-    overflow: 'hidden',
-  },
-  clientAvatarPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: withOpacity(I.primary, 0.12),
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginBottom: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
   },
   clientInfoTextos: {
     flex: 1,
+    minWidth: 0,
     gap: 4,
   },
   clientName: {
@@ -1768,110 +1587,30 @@ const styles = StyleSheet.create({
     color: I.primary,
   },
 
-  vehicleCard: {
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.fixed.sm + 2,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    gap: SPACING.fixed.sm,
-  },
-  vehicleCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.sm,
-  },
-  vehicleCardTitle: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
-    color: I.muted,
-  },
-  vehicleTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: SPACING.fixed.sm,
+  vehicleBlock: {
+    gap: 2,
+    paddingTop: SPACING.fixed.xs,
+    paddingBottom: SPACING.fixed.xs,
   },
   vehicleMarcaModelo: {
-    flex: 1,
-    minWidth: 0,
     fontSize: TS.body.fontSize,
     fontFamily: FF.sansSemiBold,
     lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
     color: I.ink,
   },
-  vehicleHighlight: {
-    fontFamily: FF.sansSemiBold,
-    color: I.primary,
-  },
-  patentePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.pill,
-    backgroundColor: withOpacity(I.primary, 0.1),
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.primary, 0.25),
-  },
-  patentePillText: {
+  vehiclePatente: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
-    color: I.primary,
-    letterSpacing: 0.4,
-  },
-  vehiculoGrid: {
-    flexDirection: 'row',
-    gap: SPACING.fixed.sm,
-  },
-  vehiculoGridItem: {
-    flex: 1,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.fixed.sm + 2,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
-  vehiculoGridItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  vehiculoGridItemLabel: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: FF.sansMedium,
-    lineHeight: lh(TYPOGRAPHY.fontSize.xs, TYPOGRAPHY.lineHeight.normal),
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
     color: I.muted,
-    textTransform: 'uppercase',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
-  },
-  vehiculoGridItemValue: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
-    color: I.ink,
-  },
-
-  serviciosListaDetalle: {
-    gap: SPACING.fixed.sm,
-    marginBottom: SPACING.fixed.sm,
-  },
-  servicioDetalleCard: {
-    backgroundColor: I.surfaceStrong,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.fixed.sm + 2,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
+    letterSpacing: 0.4,
   },
   servicioDetalleNombre: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansSemiBold,
     lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
     color: I.ink,
+    marginBottom: SPACING.fixed.xs,
   },
   ofertaPrecio: {
     fontSize: TS.numberDisplay.fontSize,
@@ -1885,19 +1624,14 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.fixed.md,
     borderTopWidth: BORDERS.width.thin,
     borderTopColor: I.hairline,
+    gap: SPACING.fixed.xs,
   },
   asistenteIaWrap: {
     marginTop: SPACING.fixed.md,
   },
-  descripcionBlockHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xs,
-    marginBottom: SPACING.fixed.sm,
-  },
   descripcionBlockLabel: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansSemiBold,
+    fontFamily: FF.sansMedium,
     lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
     color: I.muted,
     textTransform: 'uppercase',
@@ -1910,42 +1644,25 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
 
-  horarioPendienteBanner: {
-    gap: SPACING.fixed.sm,
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.canvas,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
   horarioPendienteTitle: {
     fontSize: TS.h4.fontSize,
     fontFamily: FF.sansSemiBold,
     color: I.ink,
+    marginTop: SPACING.fixed.sm,
   },
   horarioPendienteBody: {
     fontSize: TS.caption.fontSize,
     fontFamily: FF.sansRegular,
     lineHeight: lh(TS.caption.fontSize, 1.45),
     color: I.body,
+    marginTop: SPACING.fixed.xs,
   },
-  tecnicoCard: {
+  tecnicoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.canvas,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
+    flex: 1,
+    minWidth: 0,
     gap: SPACING.fixed.sm,
-  },
-  tecnicoAvatarPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: I.surfaceStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   tecnicoInfo: {
     flex: 1,
@@ -1962,63 +1679,17 @@ const styles = StyleSheet.create({
     color: I.body,
   },
 
-  dateTimeRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.fixed.sm,
-  },
-  dateTimeTextos: {
-    flex: 1,
-    gap: 2,
-  },
-  dateTimeLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansMedium,
-    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
-    color: I.muted,
-    textTransform: 'uppercase',
-    letterSpacing: TYPOGRAPHY.letterSpacing.wide,
-  },
-  dateTimeValue: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansSemiBold,
-    lineHeight: lh(TYPOGRAPHY.fontSize.base, TS.captionBold.lineHeight),
-    color: I.ink,
-    textTransform: 'capitalize',
-  },
-  dateTimeDivider: {
-    height: BORDERS.width.thin,
-    backgroundColor: I.hairline,
-    marginVertical: SPACING.fixed.sm,
-  },
-
-  addressCard: {
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.md,
-  },
-  addressHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.fixed.sm,
-  },
-  addressContent: {
-    flex: 1,
-  },
   addressText: {
     fontSize: TS.body.fontSize,
-    fontFamily: FF.sansMedium,
+    fontFamily: FF.sansRegular,
     lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
     color: I.ink,
   },
   addressDetailsText: {
+    marginTop: SPACING.fixed.xs,
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansRegular,
-    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
     color: I.muted,
-    marginTop: SPACING.fixed.xxs,
   },
 
   processingRow: {

@@ -36,6 +36,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
 import { AudioRecorderBar } from '@/components/chats/AudioRecorderBar';
 import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
+import { AgenteIaChatBanner } from '@/components/chats/AgenteIaChatBanner';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
@@ -119,6 +120,7 @@ export default function ChatOfertaScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [attachments, setAttachments] = useState<StagedAttachment[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
   const mensajesEnviadosRef = useRef<Set<string>>(new Set());
@@ -253,6 +255,7 @@ export default function ChatOfertaScreen() {
         type: 'service',
       });
       conversationIdRef.current = conversationId;
+      setConversationId(conversationId);
 
       const rows = await chatService.getMessages(conversationId);
       const solicitudDetail = ofertaData.solicitud_detail ?? null;
@@ -549,6 +552,8 @@ export default function ChatOfertaScreen() {
         </View>
         <View style={styles.headerSpacer} />
       </View>
+
+      <AgenteIaChatBanner conversationId={conversationId} />
 
       <View style={styles.chatArea}>
         {mensajes.length > 0 ? (

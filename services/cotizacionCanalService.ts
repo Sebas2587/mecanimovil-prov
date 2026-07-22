@@ -58,6 +58,7 @@ export interface CotizacionCanal {
   rechazada_en?: string | null;
   creado_en?: string;
   actualizado_en?: string;
+  metadata?: { origen?: string; sesion_id?: number; plantilla_id?: number };
 }
 
 export interface CotizacionPlantilla {

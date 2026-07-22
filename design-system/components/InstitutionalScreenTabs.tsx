@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, ScrollView } from 'react-native';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -21,8 +21,9 @@ export type InstitutionalScreenTabsProps<K extends string> = {
 };
 
 /**
- * Tabs segmentados institucionales (pista surfaceStrong, ítem activo primario).
- * Usar en pantallas con secciones por pestaña (órdenes, perfil, especialidades, etc.).
+ * Tabs segmentados institucionales.
+ * El label siempre se muestra completo (no se comprime/oculta en mobile);
+ * si el ancho no alcanza, la pista scrollea en horizontal.
  */
 export function InstitutionalScreenTabs<K extends string>({
   tabs,
@@ -31,58 +32,75 @@ export function InstitutionalScreenTabs<K extends string>({
   style,
 }: InstitutionalScreenTabsProps<K>) {
   return (
-    <View style={[styles.track, style]}>
-      {tabs.map((t) => {
-        const active = t.key === activeKey;
-        const showBadge =
-          t.badge != null &&
-          t.badge !== '' &&
-          !(typeof t.badge === 'number' && t.badge <= 0);
+    <View style={[styles.shell, style]}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        bounces={false}
+        contentContainerStyle={styles.track}
+      >
+        {tabs.map((t) => {
+          const active = t.key === activeKey;
+          const showBadge =
+            t.badge != null &&
+            t.badge !== '' &&
+            !(typeof t.badge === 'number' && t.badge <= 0);
 
-        return (
-          <TouchableOpacity
-            key={String(t.key)}
-            style={[styles.cell, active && styles.cellActive]}
-            onPress={() => onChange(t.key)}
-            activeOpacity={0.88}
-          >
-            {t.leading ? <View style={styles.lead}>{t.leading}</View> : null}
-            <Text style={[styles.label, active && styles.labelActive]} numberOfLines={1}>
-              {t.label}
-            </Text>
-            {showBadge ? (
-              <View style={[styles.badge, active && styles.badgeActive]}>
-                <Text style={[styles.badgeText, active && styles.badgeTextActive]}>
-                  {typeof t.badge === 'number' && t.badge > 99 ? '99+' : String(t.badge)}
-                </Text>
-              </View>
-            ) : null}
-          </TouchableOpacity>
-        );
-      })}
+          return (
+            <TouchableOpacity
+              key={String(t.key)}
+              style={[styles.cell, active && styles.cellActive]}
+              onPress={() => onChange(t.key)}
+              activeOpacity={0.88}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={
+                showBadge ? `${t.label}, ${String(t.badge)}` : t.label
+              }
+            >
+              {t.leading ? <View style={styles.lead}>{t.leading}</View> : null}
+              <Text style={[styles.label, active && styles.labelActive]}>
+                {t.label}
+              </Text>
+              {showBadge ? (
+                <View style={[styles.badge, active && styles.badgeActive]}>
+                  <Text style={[styles.badgeText, active && styles.badgeTextActive]}>
+                    {typeof t.badge === 'number' && t.badge > 99 ? '99+' : String(t.badge)}
+                  </Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  shell: {
+    backgroundColor: COLORS.tab.unselectedBg,
+    borderRadius: BORDERS.radius.lg,
+    overflow: 'hidden',
+  },
   track: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    backgroundColor: COLORS.tab.unselectedBg,
-    borderRadius: BORDERS.radius.lg,
+    flexGrow: 1,
     padding: SPACING.fixed.xxs + 2,
     gap: SPACING.fixed.xxs + 2,
+    minWidth: '100%',
   },
   cell: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 0,
     paddingVertical: SPACING.fixed.xs + 2,
-    paddingHorizontal: SPACING.fixed.xxs,
+    paddingHorizontal: SPACING.fixed.sm,
     borderRadius: BORDERS.radius.md,
-    gap: SPACING.fixed.xxs,
+    gap: SPACING.fixed.xxs + 2,
   },
   cellActive: {
     backgroundColor: COLORS.tab.selectedBg,
@@ -96,7 +114,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansMedium,
     color: I.muted,
-    flexShrink: 1,
+    flexShrink: 0,
   },
   labelActive: {
     fontFamily: FF.sansSemiBold,

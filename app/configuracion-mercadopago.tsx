@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,140 +6,59 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
-  TouchableOpacity,
   Alert,
   Linking,
-  FlatList,
   AppState,
   AppStateStatus,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, router, useFocusEffect } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import Header from '@/components/Header';
 import {
-  Card,
+  HostPaperSection,
   HostSectionKicker,
+  HostMetricRow,
+  InstitutionalButton,
+  InstitutionalTag,
   hostScreenStyles,
 } from '@/app/design-system/components';
+import type { InstitutionalTagVariant } from '@/app/design-system/styles/institutionalTags';
+import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
 import mercadoPagoProveedorService, {
-  type CuentaMercadoPagoProveedor,
-  type EstadisticasPagosMP,
   type EstadoCuentaMP,
   type PagoRecibido,
 } from '@/services/mercadoPagoProveedorService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { useMercadoPagoCuentaQuery } from '@/hooks/useMercadoPagoCuentaQuery';
+
+const I = COLORS.institutional;
+const CANVAS = COLORS.background.default;
 
 // Necesario para que WebBrowser pueda completar la sesión de autenticación
 WebBrowser.maybeCompleteAuthSession();
 
 export default function ConfiguracionMercadoPagoScreen() {
   // Estados
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [conectando, setConectando] = useState(false);
   const [desconectando, setDesconectando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // Datos
-  const [cuenta, setCuenta] = useState<CuentaMercadoPagoProveedor | null>(null);
-  const [estadisticas, setEstadisticas] = useState<EstadisticasPagosMP | null>(null);
-  const [historialPagos, setHistorialPagos] = useState<PagoRecibido[]>([]);
-
-  // Sistema de diseño institucional (Coinbase-like)
-  const I = COLORS.institutional;
-  const bgPaper = I.canvas;
-  const bgDefault = I.surfaceSoft;
-  const textPrimary = I.ink;
-  const textSecondary = I.body;
-  const textTertiary = I.muted;
-  const primary500 = I.primary;
-  const primaryLight = I.surfaceSoft;
-  const success500 = I.semanticUp;
-  const successLight = I.surfaceSoft;
-  const error500 = I.semanticDown;
-  const errorLight = I.surfaceSoft;
-  const warning500 = I.accentYellow;
-  const warningLight = I.surfaceSoft;
-  const borderLight = I.hairline;
-  const borderMain = I.hairline;
-  const neutralGray100 = I.surfaceSoft;
-
-  // Color de Mercado Pago (marca externa — aproximado con tokens)
-  /** Marca Mercado Pago (externa) — no es brand Tinder. */
-  const mpBlue = '#009EE3';
-  const mpBlueLight = COLORS.info.light;
-
-  // Cargar datos
-  const cargarDatos = useCallback(async (isRefreshing = false) => {
-    try {
-      if (!isRefreshing) {
-        setLoading(true);
-      }
-      setError(null);
-
-      // Obtener estado de la cuenta
-      const cuentaResult = await mercadoPagoProveedorService.obtenerEstadoCuenta();
-      if (cuentaResult.success && cuentaResult.data) {
-        setCuenta(cuentaResult.data);
-
-        // Si la cuenta está conectada, obtener estadísticas e historial
-        if (cuentaResult.data.estado === 'conectada') {
-          // Cargar estadísticas e historial en paralelo
-          const [estadisticasResult, historialResult] = await Promise.all([
-            mercadoPagoProveedorService.obtenerEstadisticasPagos(),
-            mercadoPagoProveedorService.obtenerHistorialPagos(),
-          ]);
-
-          if (estadisticasResult.success && estadisticasResult.data) {
-            console.log('✅ Estadísticas cargadas:', estadisticasResult.data);
-            setEstadisticas(estadisticasResult.data);
-          } else {
-            console.warn('⚠️ Error cargando estadísticas:', estadisticasResult.error);
-            // Inicializar con valores por defecto si hay error
-            setEstadisticas({
-              total_recibido: 0,
-              total_recibido_mes: 0,
-              total_recibido_mes_anterior: 0,
-              cantidad_transacciones: 0,
-              cantidad_transacciones_mes: 0,
-              cantidad_transacciones_mes_anterior: 0,
-              ultima_transaccion: null,
-              cantidad_pagos_repuestos: 0,
-              total_repuestos: 0,
-              moneda: 'CLP'
-            });
-          }
-
-          if (historialResult.success && historialResult.data) {
-            console.log('✅ Historial cargado:', historialResult.data.historial?.length || 0, 'pagos');
-            setHistorialPagos(historialResult.data.historial || []);
-          } else {
-            console.warn('⚠️ Error cargando historial:', historialResult.error);
-            setHistorialPagos([]);
-          }
-        }
-      } else if (cuentaResult.error) {
-        setError(cuentaResult.error);
-      }
-    } catch (err: any) {
-      console.error('Error cargando datos de Mercado Pago:', err);
-      setError(err.message || 'Error al cargar datos');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+  const {
+    cuenta,
+    estadisticas,
+    historialPagos,
+    loading,
+    isRefetching,
+    error,
+    refresh,
+    invalidate,
+  } = useMercadoPagoCuentaQuery(true);
 
   // Referencia para rastrear si estamos en proceso de conexión OAuth
   const oauthInProgress = useRef(false);
   const appState = useRef(AppState.currentState);
-
-  useEffect(() => {
-    cargarDatos();
-  }, [cargarDatos]);
 
   // Listener para detectar cuando la app vuelve del background después de OAuth
   useEffect(() => {
@@ -156,7 +75,8 @@ export default function ConfiguracionMercadoPagoScreen() {
           console.log('🔄 App volvió de OAuth, recargando datos de Mercado Pago...');
           oauthInProgress.current = false;
           setTimeout(() => {
-            cargarDatos(true);
+            invalidate();
+            void refresh();
           }, 1000);
         }
       }
@@ -169,7 +89,7 @@ export default function ConfiguracionMercadoPagoScreen() {
     return () => {
       subscription?.remove();
     };
-  }, [cargarDatos]);
+  }, [invalidate, refresh]);
 
   // Listener para el deep link callback
   useEffect(() => {
@@ -180,7 +100,8 @@ export default function ConfiguracionMercadoPagoScreen() {
         console.log('✅ Callback de Mercado Pago recibido, recargando datos...');
         oauthInProgress.current = false;
         setTimeout(() => {
-          cargarDatos(true);
+          invalidate();
+          void refresh();
         }, 500);
       }
     };
@@ -192,31 +113,19 @@ export default function ConfiguracionMercadoPagoScreen() {
     Linking.getInitialURL().then((url) => {
       if (url && url.includes('mercadopago/callback')) {
         console.log('🔗 App iniciada con deep link de callback:', url);
-        cargarDatos(true);
+        invalidate();
+        void refresh();
       }
     });
 
     return () => {
       subscription?.remove();
     };
-  }, [cargarDatos]);
-
-  // Recargar datos cuando la pantalla vuelve a estar en foco
-  // Esto es importante para cuando el usuario vuelve del navegador OAuth
-  useFocusEffect(
-    useCallback(() => {
-      // Solo recargar si no está cargando actualmente
-      if (!loading && !conectando) {
-        console.log('🔄 ConfiguracionMercadoPago: Pantalla en foco, recargando datos...');
-        cargarDatos(true);
-      }
-    }, [loading, conectando, cargarDatos])
-  );
+  }, [invalidate, refresh]);
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    cargarDatos(true);
-  }, [cargarDatos]);
+    void refresh();
+  }, [refresh]);
 
   // Manejar conexión de cuenta
   const handleConectarCuenta = async () => {
@@ -270,7 +179,7 @@ export default function ConfiguracionMercadoPagoScreen() {
 
         // Recargar datos para actualizar el estado de la cuenta
         // (por si el backend marcó la cuenta como pendiente antes del error)
-        await cargarDatos();
+        await refresh();
       }
     } catch (err: any) {
       console.error('Error conectando cuenta MP:', err);
@@ -299,7 +208,8 @@ export default function ConfiguracionMercadoPagoScreen() {
 
               if (result.success) {
                 Alert.alert('Proceso cancelado', 'Puedes intentar conectar tu cuenta nuevamente cuando lo desees.');
-                cargarDatos();
+                invalidate();
+                void refresh();
               } else {
                 Alert.alert('Error', result.error || 'No se pudo cancelar el proceso');
               }
@@ -333,7 +243,8 @@ export default function ConfiguracionMercadoPagoScreen() {
 
               if (result.success) {
                 Alert.alert('Éxito', 'Cuenta de Mercado Pago desconectada correctamente');
-                cargarDatos();
+                invalidate();
+                void refresh();
               } else {
                 Alert.alert('Error', result.error || 'No se pudo desconectar la cuenta');
               }
@@ -349,516 +260,415 @@ export default function ConfiguracionMercadoPagoScreen() {
     );
   };
 
-  // Obtener estilos según el estado
-  const getEstadoStyles = (estado: EstadoCuentaMP) => {
+  const getEstadoPresentation = (estado: EstadoCuentaMP): {
+    icon: string;
+    label: string;
+    tag: InstitutionalTagVariant;
+    iconColor: string;
+  } => {
     switch (estado) {
       case 'conectada':
         return {
-          textColor: success500,
-          icon: 'check-circle' as const,
+          icon: 'check-circle',
           label: 'Conectada',
+          tag: 'success',
+          iconColor: I.semanticUp,
         };
       case 'pendiente':
         return {
-          textColor: warning500,
-          icon: 'schedule' as const,
+          icon: 'schedule',
           label: 'Pendiente',
+          tag: 'warning',
+          iconColor: I.accentYellow,
         };
       case 'error':
       case 'suspendida':
         return {
-          textColor: error500,
-          icon: 'error' as const,
-          label: 'Error',
+          icon: 'error',
+          label: estado === 'suspendida' ? 'Suspendida' : 'Error',
+          tag: 'error',
+          iconColor: I.semanticDown,
         };
       case 'desconectada':
         return {
-          textColor: textTertiary,
-          icon: 'link-off' as const,
+          icon: 'link-off',
           label: 'Desconectada',
+          tag: 'neutral',
+          iconColor: I.muted,
         };
       case 'no_configurada':
       default:
         return {
-          textColor: primary500,
-          icon: 'add-circle-outline' as const,
+          icon: 'add-circle-outline',
           label: 'Sin configurar',
+          tag: 'primary',
+          iconColor: I.primary,
         };
     }
   };
 
-  // Renderizar estado de la cuenta
   const renderEstadoCuenta = () => {
     if (!cuenta) return null;
 
-    const estadoStyles = getEstadoStyles(cuenta.estado);
+    const estado = getEstadoPresentation(cuenta.estado);
 
     return (
       <>
-      <HostSectionKicker label="Estado de la cuenta" />
-      <Card elevated padding={0}>
-        <View style={styles.estadoHeader}>
-          <View style={[styles.estadoIconPlate, { backgroundColor: I.surfaceStrong }]}>
-            <InstitutionalIcon
-              name={estadoStyles.icon}
-              size={22}
-              color={estadoStyles.textColor}
-              strokeWidth={ICON_STROKE_WIDTH}
-            />
-          </View>
-          <View style={styles.estadoHeaderText}>
-            <View style={styles.estadoTitleRow}>
-              <Text style={[styles.estadoTitulo, { color: textPrimary }]}>
-                {cuenta.estado_display || getEstadoDisplayText(cuenta.estado)}
-              </Text>
-              <View style={[styles.estadoBadge, { backgroundColor: I.surfaceStrong }]}>
-                <Text style={[styles.estadoBadgeText, { color: estadoStyles.textColor }]}>{estadoStyles.label}</Text>
-              </View>
+        <HostSectionKicker label="Estado de la cuenta" />
+        <HostPaperSection style={styles.blockCard}>
+          <View style={styles.estadoHeader}>
+            <View style={styles.iconPlate}>
+              <InstitutionalIcon
+                name={estado.icon}
+                size={20}
+                color={estado.iconColor}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
             </View>
-            <Text style={[styles.estadoSubtitulo, { color: textSecondary }]}>
-              {cuenta.mensaje_estado}
-            </Text>
-          </View>
-        </View>
-
-        {/* Información de la cuenta si está conectada */}
-        {cuenta.estado === 'conectada' && cuenta.email_mp && (
-          <View style={styles.cuentaInfo}>
-            <View style={styles.infoRow}>
-              <InstitutionalIcon name="email" size={18} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={[styles.infoText, { color: textPrimary }]}>
-                {cuenta.email_mp}
-              </Text>
-            </View>
-            {cuenta.nombre_cuenta && (
-              <View style={styles.infoRow}>
-                <InstitutionalIcon name="person" size={18} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[styles.infoText, { color: textPrimary }]}>
-                  {cuenta.nombre_cuenta}
+            <View style={styles.estadoHeaderText}>
+              <View style={styles.estadoTitleRow}>
+                <Text style={styles.estadoTitulo} numberOfLines={2}>
+                  {cuenta.estado_display || getEstadoDisplayText(cuenta.estado)}
                 </Text>
+                <InstitutionalTag label={estado.label} variant={estado.tag} size="sm" />
               </View>
-            )}
-            {cuenta.fecha_conexion && (
-              <View style={styles.infoRow}>
-                <InstitutionalIcon name="event" size={18} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={[styles.infoText, { color: textSecondary }]}>
-                  Conectada desde: {new Date(cuenta.fecha_conexion).toLocaleDateString('es-CL')}
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Botón de acción */}
-        <View style={styles.accionesContainer}>
-          {cuenta.estado === 'no_configurada' || cuenta.estado === 'desconectada' ? (
-            <TouchableOpacity
-              style={[styles.botonPrincipal, { backgroundColor: primary500 }]}
-              onPress={handleConectarCuenta}
-              disabled={conectando}
-              activeOpacity={0.8}
-            >
-              {conectando ? (
-                <ActivityIndicator size="small" color={I.onPrimary} />
-              ) : (
-                <>
-                  <Text style={[styles.botonPrincipalTexto, { color: I.onPrimary }]}>
-                    {cuenta.estado === 'desconectada' ? 'Reconectar Cuenta' : 'Conectar Mercado Pago'}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          ) : cuenta.estado === 'pendiente' || cuenta.estado === 'error' ? (
-            <View style={styles.botonesMultiples}>
-              <TouchableOpacity
-                style={[styles.botonPrincipal, { backgroundColor: primary500, flex: 1 }]}
-                onPress={handleConectarCuenta}
-                disabled={conectando}
-                activeOpacity={0.8}
-              >
-                {conectando ? (
-                  <ActivityIndicator size="small" color={I.onPrimary} />
-                ) : (
-                  <>
-                    <Text style={[styles.botonPrincipalTexto, { color: I.onPrimary }]}>
-                      Reintentar Conexión
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.botonSecundario, { borderColor: borderLight, backgroundColor: I.surfaceStrong }]}
-                onPress={handleCancelarConexion}
-                disabled={desconectando}
-                activeOpacity={0.8}
-              >
-                {desconectando ? (
-                  <ActivityIndicator size="small" color={textSecondary} />
-                ) : (
-                  <>
-                    <Text style={[styles.botonSecundarioTexto, { color: textPrimary }]}>
-                      Cancelar
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              {cuenta.mensaje_estado ? (
+                <Text style={styles.estadoSubtitulo}>{cuenta.mensaje_estado}</Text>
+              ) : null}
             </View>
-          ) : cuenta.estado === 'conectada' ? (
-            <TouchableOpacity
-              style={[styles.botonSecundario, { borderColor: borderLight, backgroundColor: I.surfaceStrong }]}
-              onPress={handleDesconectarCuenta}
-              disabled={desconectando}
-              activeOpacity={0.8}
-            >
-              {desconectando ? (
-                <ActivityIndicator size="small" color={error500} />
-              ) : (
-                <>
-                  <Text style={[styles.botonSecundarioTexto, { color: error500 }]}>
-                    Desconectar Cuenta
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+          </View>
+
+          {cuenta.estado === 'conectada' && cuenta.email_mp ? (
+            <View style={styles.cuentaInfo}>
+              <HostMetricRow
+                label="Email"
+                value={cuenta.email_mp}
+                last={!cuenta.nombre_cuenta && !cuenta.fecha_conexion}
+              />
+              {cuenta.nombre_cuenta ? (
+                <HostMetricRow
+                  label="Titular"
+                  value={cuenta.nombre_cuenta}
+                  last={!cuenta.fecha_conexion}
+                />
+              ) : null}
+              {cuenta.fecha_conexion ? (
+                <HostMetricRow
+                  label="Conectada desde"
+                  value={new Date(cuenta.fecha_conexion).toLocaleDateString('es-CL')}
+                  last
+                />
+              ) : null}
+            </View>
           ) : null}
-        </View>
-      </Card>
+
+          <View style={styles.accionesContainer}>
+            {cuenta.estado === 'no_configurada' || cuenta.estado === 'desconectada' ? (
+              <InstitutionalButton
+                label={cuenta.estado === 'desconectada' ? 'Reconectar cuenta' : 'Conectar Mercado Pago'}
+                variant="primary"
+                size="compact"
+                loading={conectando}
+                onPress={handleConectarCuenta}
+              />
+            ) : null}
+
+            {cuenta.estado === 'pendiente' || cuenta.estado === 'error' ? (
+              <View style={styles.botonesMultiples}>
+                <InstitutionalButton
+                  label="Reintentar conexión"
+                  variant="primary"
+                  size="compact"
+                  loading={conectando}
+                  onPress={handleConectarCuenta}
+                />
+                <InstitutionalButton
+                  label="Cancelar"
+                  variant="outline"
+                  size="compact"
+                  loading={desconectando}
+                  onPress={handleCancelarConexion}
+                />
+              </View>
+            ) : null}
+
+            {cuenta.estado === 'conectada' ? (
+              <InstitutionalButton
+                label="Desconectar cuenta"
+                variant="destructiveOutline"
+                size="compact"
+                loading={desconectando}
+                onPress={handleDesconectarCuenta}
+              />
+            ) : null}
+          </View>
+        </HostPaperSection>
       </>
     );
   };
 
-  // Renderizar estadísticas de pagos
   const renderEstadisticas = () => {
-    if (cuenta?.estado !== 'conectada') {
-      console.log('⚠️ Cuenta no conectada, no se muestran estadísticas. Estado:', cuenta?.estado);
-      return null;
-    }
+    if (cuenta?.estado !== 'conectada') return null;
 
-    // Mostrar estadísticas incluso si están en 0 o no están disponibles
-    // Esto ayuda a identificar si el problema es que no hay datos o que no se están cargando
     if (!estadisticas) {
-      console.log('⚠️ Estadísticas no disponibles, mostrando valores por defecto');
-      // Mostrar card con valores en 0 para indicar que no hay datos
       return (
         <>
           <HostSectionKicker label="Estadísticas de pagos" />
-          <Card elevated padding={0}>
-            <View style={styles.emptyHistorial}>
-              <InstitutionalIcon name="info" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={[styles.emptyHistorialTexto, { color: textSecondary }]}>
-                Cargando estadísticas...
-              </Text>
+          <HostPaperSection>
+            <View style={styles.emptyBlock}>
+              <ActivityIndicator size="small" color={I.primary} />
+              <Text style={styles.emptyTitle}>Cargando estadísticas…</Text>
             </View>
-          </Card>
+          </HostPaperSection>
         </>
       );
     }
 
-    console.log('📊 Renderizando estadísticas:', estadisticas);
-
     return (
       <>
-      <HostSectionKicker label="Estadísticas de pagos" />
-      <Card elevated padding={0}>
-        <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: success500 }]}>
-              {mercadoPagoProveedorService.formatearMonto(estadisticas.total_recibido_mes)}
-            </Text>
-            <Text style={[styles.statLabel, { color: textSecondary }]}>
-              Recibido este mes
-            </Text>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: primary500 }]}>
-              {estadisticas.cantidad_transacciones_mes}
-            </Text>
-            <Text style={[styles.statLabel, { color: textSecondary }]}>
-              Transacciones
-            </Text>
-          </View>
-        </View>
-
-        <View style={[styles.divider, { backgroundColor: borderLight }]} />
-
-        <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: textPrimary }]}>
-              {mercadoPagoProveedorService.formatearMonto(estadisticas.total_recibido)}
-            </Text>
-            <Text style={[styles.statLabel, { color: textSecondary }]}>
-              Total recibido
-            </Text>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: textPrimary }]}>
-              {estadisticas.cantidad_transacciones}
-            </Text>
-            <Text style={[styles.statLabel, { color: textSecondary }]}>
-              Total transacciones
-            </Text>
-          </View>
-        </View>
-
-        {estadisticas.ultima_transaccion && (
-          <View style={[styles.ultimaTransaccion, { backgroundColor: neutralGray100 }]}>
-            <InstitutionalIcon name="access-time" size={16} color={textSecondary}  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[styles.ultimaTransaccionTexto, { color: textSecondary }]}>
-              Última transacción: {new Date(estadisticas.ultima_transaccion).toLocaleDateString('es-CL')}
-            </Text>
-          </View>
-        )}
-      </Card>
+        <HostSectionKicker label="Estadísticas de pagos" />
+        <HostPaperSection>
+          <HostMetricRow
+            label="Recibido este mes"
+            value={mercadoPagoProveedorService.formatearMonto(estadisticas.total_recibido_mes)}
+          />
+          <HostMetricRow
+            label="Transacciones del mes"
+            value={String(estadisticas.cantidad_transacciones_mes)}
+          />
+          <HostMetricRow
+            label="Total recibido"
+            value={mercadoPagoProveedorService.formatearMonto(estadisticas.total_recibido)}
+          />
+          <HostMetricRow
+            label="Total transacciones"
+            value={String(estadisticas.cantidad_transacciones)}
+            last={!estadisticas.ultima_transaccion}
+          />
+          {estadisticas.ultima_transaccion ? (
+            <HostMetricRow
+              label="Última transacción"
+              value={new Date(estadisticas.ultima_transaccion).toLocaleDateString('es-CL')}
+              last
+            />
+          ) : null}
+        </HostPaperSection>
       </>
     );
   };
 
-  // Renderizar un item del historial de pagos (estilo lista clásica)
-  const renderPagoItem = ({ item }: { item: PagoRecibido }) => {
-    // Formatear fecha y hora de forma breve
+  const renderPagoItem = ({ item, isLast }: { item: PagoRecibido; isLast: boolean }) => {
     const fechaFormateada = item.fecha
       ? new Date(item.fecha).toLocaleDateString('es-CL', {
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+          day: '2-digit',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
       : 'Fecha no disponible';
 
-    // Obtener etiqueta breve del servicio (solo el primer servicio o los primeros caracteres)
     const serviciosTexto = item.servicios || 'Servicio';
-    const servicioBreve = serviciosTexto.length > 35
-      ? serviciosTexto.substring(0, 35) + '...'
-      : serviciosTexto;
+    const servicioBreve =
+      serviciosTexto.length > 35 ? `${serviciosTexto.substring(0, 35)}…` : serviciosTexto;
 
     return (
-      <>
-        {/* Icono a la izquierda */}
-        <View style={[styles.pagoListIcon, { backgroundColor: successLight, borderColor: borderLight }]}>
-          <InstitutionalIcon name="payments" size={20} color={success500}  strokeWidth={ICON_STROKE_WIDTH} />
+      <View style={[styles.pagoListItem, !isLast && styles.pagoListItemBorder]}>
+        <View style={styles.iconPlate}>
+          <InstitutionalIcon
+            name="payments"
+            size={18}
+            color={I.ink}
+            strokeWidth={ICON_STROKE_WIDTH}
+          />
         </View>
-
-        {/* Información principal en el medio */}
         <View style={styles.pagoListInfo}>
-          <Text style={[styles.pagoListCliente, { color: textPrimary }]} numberOfLines={1}>
+          <Text style={styles.pagoListCliente} numberOfLines={1}>
             {item.cliente_nombre || 'Cliente'}
           </Text>
-          <Text style={[styles.pagoListServicio, { color: textSecondary }]} numberOfLines={1}>
+          <Text style={styles.pagoListServicio} numberOfLines={1}>
             {servicioBreve}
           </Text>
-          <View style={styles.pagoListMeta}>
-            <InstitutionalIcon name="access-time" size={12} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[styles.pagoListFecha, { color: textTertiary }]}>
-              {fechaFormateada}
-            </Text>
-          </View>
+          <Text style={styles.pagoListFecha}>{fechaFormateada}</Text>
         </View>
-
-        {/* Monto y badge a la derecha */}
         <View style={styles.pagoListRight}>
-          <Text style={[styles.pagoListMonto, { color: success500 }]}>
+          <Text style={styles.pagoListMonto}>
             {mercadoPagoProveedorService.formatearMonto(item.monto)}
           </Text>
-          {item.estado_oferta === 'pagada_parcialmente' && (
-            <View style={[styles.pagoListBadge, { backgroundColor: warningLight }]}>
-              <Text style={[styles.pagoListBadgeText, { color: warning500 }]}>
-                Parcial
-              </Text>
-            </View>
-          )}
+          {item.estado_oferta === 'pagada_parcialmente' ? (
+            <InstitutionalTag label="Parcial" variant="warning" size="sm" />
+          ) : null}
         </View>
-      </>
+      </View>
     );
   };
 
-  // Renderizar historial de pagos
   const renderHistorialPagos = () => {
-    if (cuenta?.estado !== 'conectada') {
-      console.log('⚠️ Cuenta no conectada, no se muestra historial. Estado:', cuenta?.estado);
-      return null;
-    }
+    if (cuenta?.estado !== 'conectada') return null;
 
-    console.log('📋 Renderizando historial. Total pagos:', historialPagos.length);
+    const visible = historialPagos.slice(0, 10);
 
     return (
       <>
-      <HostSectionKicker label="Pagos recibidos" />
-      <Card elevated padding={0}>
-        {historialPagos.length > 0 ? (
-          <View style={[styles.countBadgeRow, { backgroundColor: mpBlueLight }]}>
-            <Text style={[styles.countBadgeText, { color: mpBlue }]}>
-              {historialPagos.length} pagos
-            </Text>
-          </View>
-        ) : null}
+        <HostSectionKicker label="Pagos recibidos" />
+        <HostPaperSection>
+          {historialPagos.length > 0 ? (
+            <View style={styles.countRow}>
+              <InstitutionalTag
+                label={`${historialPagos.length} pagos`}
+                variant="neutral"
+                size="sm"
+              />
+            </View>
+          ) : null}
 
-        {historialPagos.length === 0 ? (
-          <View style={styles.emptyHistorial}>
-            <InstitutionalIcon name="inbox" size={48} color={textTertiary}  strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={[styles.emptyHistorialTexto, { color: textSecondary }]}>
-              Aún no has recibido pagos
-            </Text>
-            <Text style={[styles.emptyHistorialSubtexto, { color: textTertiary }]}>
-              Cuando los clientes paguen tus servicios, aparecerán aquí
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.historialLista}>
-            {historialPagos.slice(0, 10).map((pago, index) => {
-              const isLast = index === Math.min(historialPagos.length, 10) - 1;
-              return (
-                <View
-                  key={pago.id}
-                  style={[
-                    styles.pagoListItem,
-                    {
-                      borderBottomColor: borderLight,
-                      borderBottomWidth: isLast ? 0 : 1,
-                    }
-                  ]}
-                >
-                  {renderPagoItem({ item: pago })}
+          {historialPagos.length === 0 ? (
+            <View style={styles.emptyBlock}>
+              <View style={styles.iconPlate}>
+                <InstitutionalIcon
+                  name="inbox"
+                  size={18}
+                  color={I.muted}
+                  strokeWidth={ICON_STROKE_WIDTH}
+                />
+              </View>
+              <Text style={styles.emptyTitle}>Aún no has recibido pagos</Text>
+              <Text style={styles.emptySubtitle}>
+                Cuando los clientes paguen tus servicios, aparecerán aquí
+              </Text>
+            </View>
+          ) : (
+            <View>
+              {visible.map((pago, index) => (
+                <React.Fragment key={pago.id}>
+                  {renderPagoItem({
+                    item: pago,
+                    isLast: index === visible.length - 1 && historialPagos.length <= 10,
+                  })}
+                </React.Fragment>
+              ))}
+              {historialPagos.length > 10 ? (
+                <View style={styles.verMasWrap}>
+                  <InstitutionalButton
+                    label={`Ver más (${historialPagos.length - 10} restantes)`}
+                    variant="tertiary"
+                    size="compact"
+                    onPress={() => Alert.alert('Info', 'Funcionalidad de ver más próximamente')}
+                  />
                 </View>
-              );
-            })}
-            {historialPagos.length > 10 && (
-              <TouchableOpacity
-                style={[styles.verMasButton, { borderColor: mpBlue, marginTop: SPACING?.md || 16, marginHorizontal: SPACING?.md || 16 }]}
-                onPress={() => Alert.alert('Info', 'Funcionalidad de ver más próximamente')}
-              >
-                <Text style={[styles.verMasTexto, { color: mpBlue }]}>
-                  Ver más ({historialPagos.length - 10} restantes)
-                </Text>
-                <InstitutionalIcon name="chevron-right" size={20} color={mpBlue}  strokeWidth={ICON_STROKE_WIDTH} />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-      </Card>
+              ) : null}
+            </View>
+          )}
+        </HostPaperSection>
       </>
     );
   };
 
-  // Renderizar información sobre Mercado Pago
   const renderInfoMercadoPago = () => (
     <>
-    <HostSectionKicker label="¿Por qué conectar Mercado Pago?" />
-    <Card elevated padding={0}>
-      <View style={styles.beneficiosList}>
-        <View style={styles.beneficioItem}>
-          <View style={[styles.beneficioIcon, { backgroundColor: successLight }]}>
-            <InstitutionalIcon name="payments" size={20} color={success500}  strokeWidth={ICON_STROKE_WIDTH} />
-          </View>
-          <View style={styles.beneficioTexto}>
-            <Text style={[styles.beneficioTitulo, { color: textPrimary }]}>
-              Pagos directos
-            </Text>
-            <Text style={[styles.beneficioDescripcion, { color: textSecondary }]}>
-              Recibe el pago de tus servicios directamente en tu cuenta
-            </Text>
-          </View>
+      <HostSectionKicker label="¿Por qué conectar Mercado Pago?" />
+      <HostPaperSection>
+        <View style={styles.beneficiosList}>
+          {(
+            [
+              {
+                icon: 'payments' as const,
+                title: 'Pagos directos',
+                description: 'Recibe el pago de tus servicios directamente en tu cuenta',
+              },
+              {
+                icon: 'speed' as const,
+                title: 'Cobros inmediatos',
+                description: 'Los clientes pagan al confirmar el servicio',
+              },
+              {
+                icon: 'security' as const,
+                title: 'Seguro y confiable',
+                description: 'Respaldado por Mercado Pago con protección al vendedor',
+              },
+            ] as const
+          ).map((item, index, arr) => (
+            <View
+              key={item.title}
+              style={[styles.beneficioItem, index < arr.length - 1 && styles.beneficioItemBorder]}
+            >
+              <View style={styles.iconPlate}>
+                <InstitutionalIcon
+                  name={item.icon}
+                  size={18}
+                  color={I.ink}
+                  strokeWidth={ICON_STROKE_WIDTH}
+                />
+              </View>
+              <View style={styles.beneficioTexto}>
+                <Text style={styles.beneficioTitulo}>{item.title}</Text>
+                <Text style={styles.beneficioDescripcion}>{item.description}</Text>
+              </View>
+            </View>
+          ))}
         </View>
-
-        <View style={styles.beneficioItem}>
-          <View style={[styles.beneficioIcon, { backgroundColor: primaryLight }]}>
-            <InstitutionalIcon name="speed" size={20} color={primary500}  strokeWidth={ICON_STROKE_WIDTH} />
-          </View>
-          <View style={styles.beneficioTexto}>
-            <Text style={[styles.beneficioTitulo, { color: textPrimary }]}>
-              Cobros inmediatos
-            </Text>
-            <Text style={[styles.beneficioDescripcion, { color: textSecondary }]}>
-              Los clientes pagan al confirmar el servicio
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.beneficioItem}>
-          <View style={[styles.beneficioIcon, { backgroundColor: mpBlueLight }]}>
-            <InstitutionalIcon name="security" size={20} color={mpBlue}  strokeWidth={ICON_STROKE_WIDTH} />
-          </View>
-          <View style={styles.beneficioTexto}>
-            <Text style={[styles.beneficioTitulo, { color: textPrimary }]}>
-              Seguro y confiable
-            </Text>
-            <Text style={[styles.beneficioDescripcion, { color: textSecondary }]}>
-              Respaldado por Mercado Pago con protección al vendedor
-            </Text>
-          </View>
-        </View>
-      </View>
-    </Card>
+      </HostPaperSection>
     </>
   );
 
-  // Función segura para volver atrás
-  // En Expo Router, router.back() muestra un warning si no hay pantalla anterior
-  // Para evitar el warning, navegamos directamente a la pantalla de perfil
-  // ya que esta pantalla generalmente se accede desde el perfil
   const handleGoBack = useCallback(() => {
-    // Navegar directamente a la pantalla de perfil para evitar el warning
-    // cuando no hay pantalla anterior en el stack
     router.replace('/(tabs)/perfil');
   }, []);
 
-  // Loading state
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: bgDefault }]} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Header
-          title="Mercado Pago"
-          showBack={true}
-          onBackPress={handleGoBack}
-        />
+        <Header title="Mercado Pago" showBack onBackPress={handleGoBack} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={primary500} />
-          <Text style={[styles.loadingText, { color: textSecondary }]}>
-            Cargando configuración...
-          </Text>
+          <ActivityIndicator size="large" color={I.primary} />
+          <Text style={styles.loadingText}>Cargando configuración…</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: bgDefault }]} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <Stack.Screen options={{ headerShown: false }} />
-      <Header
-        title="Mercado Pago"
-        showBack={true}
-        onBackPress={handleGoBack}
-      />
+      <Header title="Mercado Pago" showBack onBackPress={handleGoBack} />
 
       <ScrollView
         style={hostScreenStyles.scroll}
         contentContainerStyle={[
           hostScreenStyles.scrollInner,
-          { paddingBottom: SPACING?.xl || 32, gap: SPACING?.sm || 8 },
+          { paddingBottom: SPACING.fixed['2xl'], gap: SPACING.fixed.sm },
         ]}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
+            refreshing={isRefetching}
             onRefresh={onRefresh}
-            colors={[primary500]}
-            tintColor={primary500}
+            colors={[I.primary]}
+            tintColor={I.primary}
           />
         }
         showsVerticalScrollIndicator={false}
       >
-        {error && (
-          <Card elevated padding="host" style={styles.errorCard}>
-            <View style={[styles.errorIconPlate, { backgroundColor: I.surfaceStrong }]}>
-              <InstitutionalIcon name="error-outline" size={18} color={error500} strokeWidth={ICON_STROKE_WIDTH} />
+        {error ? (
+          <HostPaperSection style={styles.errorCard}>
+            <View style={styles.iconPlate}>
+              <InstitutionalIcon
+                name="error-outline"
+                size={18}
+                color={I.semanticDown}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
             </View>
-            <Text style={[styles.errorText, { color: textPrimary }]}>{error}</Text>
-            <TouchableOpacity onPress={() => cargarDatos()}>
-              <Text style={[styles.errorRetry, { color: primary500 }]}>Reintentar</Text>
-            </TouchableOpacity>
-          </Card>
-        )}
+            <Text style={styles.errorText}>{error}</Text>
+            <InstitutionalButton
+              label="Reintentar"
+              variant="tertiary"
+              size="compact"
+              onPress={() => {
+                void refresh();
+              }}
+            />
+          </HostPaperSection>
+        ) : null}
 
         {renderEstadoCuenta()}
         {renderEstadisticas()}
@@ -891,335 +701,174 @@ const getEstadoDisplayText = (estado: EstadoCuentaMP): string => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: CANVAS,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: SPACING?.md || 16,
+    gap: SPACING.fixed.md,
   },
   loadingText: {
-    fontSize: TYPOGRAPHY?.fontSize?.md || 16,
+    fontSize: TYPOGRAPHY.fontSize.md,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
+    color: I.body,
   },
-  card: {
-    borderRadius: BORDERS?.radius?.lg || 12,
-    borderWidth: BORDERS?.width?.thin || 1,
-    overflow: 'hidden',
+  blockCard: {
+    gap: SPACING.fixed.md,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING?.sm || 8,
-    padding: SPACING?.md || 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  cardTitle: {
-    fontSize: TYPOGRAPHY?.fontSize?.lg || 18,
-    fontWeight: TYPOGRAPHY?.fontWeight?.semibold || '600',
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    flex: 1,
+  iconPlate: {
+    ...hostIconPlateStyle,
   },
   estadoHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING?.md || 16,
-    padding: SPACING?.md || 16,
-  },
-  estadoIconPlate: {
-    width: 44,
-    height: 44,
-    borderRadius: BORDERS?.radius?.full || 9999,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.md,
   },
   estadoHeaderText: {
     flex: 1,
+    minWidth: 0,
+    gap: SPACING.fixed.xs,
   },
   estadoTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: SPACING?.sm || 8,
+    gap: SPACING.fixed.sm,
   },
   estadoTitulo: {
-    fontSize: TYPOGRAPHY?.fontSize?.lg || 18,
-    fontWeight: TYPOGRAPHY?.fontWeight?.semibold || '600',
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     flex: 1,
     minWidth: 0,
-  },
-  estadoBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BORDERS?.radius?.pill || 9999,
-  },
-  estadoBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.lg,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    color: I.ink,
   },
   estadoSubtitulo: {
-    marginTop: SPACING?.xs || 4,
-    fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
+    fontSize: TYPOGRAPHY.fontSize.sm,
     lineHeight: 20,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
+    color: I.body,
   },
   cuentaInfo: {
-    padding: SPACING?.md || 16,
-    gap: SPACING?.sm || 8,
     borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING?.sm || 8,
-  },
-  infoText: {
-    fontSize: TYPOGRAPHY?.fontSize?.md || 16,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
-    flex: 1,
+    borderTopColor: I.hairline,
+    paddingTop: SPACING.fixed.xs,
   },
   accionesContainer: {
-    padding: SPACING?.md || 16,
     borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  botonPrincipal: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 44,
-    paddingVertical: 12,
-    paddingHorizontal: SPACING?.lg || 24,
-    borderRadius: BORDERS?.radius?.pill || 9999,
-  },
-  botonPrincipalTexto: {
-    fontSize: TYPOGRAPHY.styles.button.fontSize,
-    lineHeight: Math.round(TYPOGRAPHY.styles.button.fontSize * TYPOGRAPHY.styles.button.lineHeight),
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.styles.button.fontWeight as '600',
-  },
-  botonSecundario: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 44,
-    paddingVertical: 12,
-    paddingHorizontal: SPACING?.lg || 24,
-    borderRadius: BORDERS?.radius?.pill || 9999,
-    borderWidth: BORDERS?.width?.thin || 1,
-  },
-  botonSecundarioTexto: {
-    fontSize: TYPOGRAPHY.styles.button.fontSize,
-    lineHeight: Math.round(TYPOGRAPHY.styles.button.fontSize * TYPOGRAPHY.styles.button.lineHeight),
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontWeight: TYPOGRAPHY.styles.button.fontWeight as '600',
+    borderTopColor: I.hairline,
+    paddingTop: SPACING.fixed.md,
+    gap: SPACING.fixed.sm,
   },
   botonesMultiples: {
-    gap: SPACING?.sm || 8,
+    gap: SPACING.fixed.sm,
   },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: SPACING?.md || 16,
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statValue: {
-    fontSize: TYPOGRAPHY?.fontSize?.['2xl'] || 24,
-    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    marginBottom: SPACING?.xs || 4,
-  },
-  statLabel: {
-    fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
-    textAlign: 'center',
-  },
-  divider: {
-    height: 1,
-    marginHorizontal: SPACING?.md || 16,
-  },
-  ultimaTransaccion: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING?.xs || 4,
-    margin: SPACING?.md || 16,
-    marginTop: 0,
-    padding: SPACING?.sm || 8,
-    borderRadius: BORDERS?.radius?.md || 8,
-  },
-  ultimaTransaccionTexto: {
-    fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
-  },
-  beneficiosList: {
-    padding: SPACING?.md || 16,
-    gap: SPACING?.md || 16,
-  },
-  beneficioItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING?.md || 16,
-  },
-  beneficioIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  beneficioTexto: {
-    flex: 1,
-  },
-  beneficioTitulo: {
-    fontSize: TYPOGRAPHY?.fontSize?.md || 16,
-    fontWeight: TYPOGRAPHY?.fontWeight?.semibold || '600',
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    marginBottom: SPACING?.xs || 4,
-  },
-  beneficioDescripcion: {
-    fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
-    lineHeight: 20,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
-  },
-  errorCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING?.sm || 8,
-  },
-  countBadgeRow: {
-    paddingHorizontal: SPACING?.md || 16,
-    paddingVertical: SPACING?.sm || 8,
-    alignItems: 'flex-start',
-  },
-  errorIconPlate: {
-    width: 36,
-    height: 36,
-    borderRadius: BORDERS?.radius?.full || 9999,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    flex: 1,
-    fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
-  },
-  errorRetry: {
-    fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
-    fontWeight: TYPOGRAPHY?.fontWeight?.semibold || '600',
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-  },
-  bottomSpacing: {
-    height: SPACING?.xl || 32,
-  },
-  // Estilos para el historial de pagos (estilo lista clásica)
-  countBadgeText: {
-    fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
-    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-  },
-  historialLista: {
-    paddingHorizontal: 0, // Sin padding horizontal, el padding viene del card
+  countRow: {
+    marginBottom: SPACING.fixed.sm,
   },
   pagoListItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING?.md || 16,
-    paddingHorizontal: SPACING?.md || 16,
-    gap: SPACING?.md || 16,
+    gap: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.md,
   },
-  pagoListIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
+  pagoListItemBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
   },
   pagoListInfo: {
     flex: 1,
-    gap: SPACING?.xs || 4,
+    minWidth: 0,
+    gap: 2,
   },
   pagoListCliente: {
-    fontSize: TYPOGRAPHY?.fontSize?.md || 16,
-    fontWeight: TYPOGRAPHY?.fontWeight?.semibold || '600',
+    fontSize: TYPOGRAPHY.fontSize.md,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    color: I.ink,
   },
   pagoListServicio: {
-    fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
+    fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
-  },
-  pagoListMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING?.xs || 4,
-    marginTop: SPACING?.xs || 4,
+    color: I.body,
   },
   pagoListFecha: {
-    fontSize: TYPOGRAPHY?.fontSize?.xs || 12,
+    fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
+    color: I.muted,
   },
   pagoListRight: {
     alignItems: 'flex-end',
-    gap: SPACING?.xs || 4,
+    gap: SPACING.fixed.xs,
   },
   pagoListMonto: {
-    fontSize: TYPOGRAPHY?.fontSize?.lg || 18,
+    fontSize: TYPOGRAPHY.fontSize.md,
     fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    color: I.ink,
   },
-  pagoListBadge: {
-    paddingHorizontal: SPACING?.sm || 8,
-    paddingVertical: SPACING?.xs || 4,
-    borderRadius: BORDERS?.radius?.sm || 6,
+  emptyBlock: {
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.lg,
   },
-  pagoListBadgeText: {
-    fontSize: TYPOGRAPHY?.fontSize?.xs || 12,
+  emptyTitle: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
+    color: I.ink,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.muted,
+    textAlign: 'center',
+  },
+  verMasWrap: {
+    paddingTop: SPACING.fixed.sm,
+    alignItems: 'center',
+  },
+  beneficiosList: {
+    gap: 0,
+  },
+  beneficioItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.md,
+  },
+  beneficioItemBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+  },
+  beneficioTexto: {
+    flex: 1,
+    gap: SPACING.fixed.xs,
+  },
+  beneficioTitulo: {
+    fontSize: TYPOGRAPHY.fontSize.md,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    color: I.ink,
   },
-  emptyHistorial: {
-    alignItems: 'center',
-    padding: SPACING?.xl || 32,
-    gap: SPACING?.sm || 8,
-  },
-  emptyHistorialTexto: {
-    fontSize: TYPOGRAPHY?.fontSize?.md || 16,
-    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
-    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
-    textAlign: 'center',
-  },
-  emptyHistorialSubtexto: {
-    fontSize: TYPOGRAPHY?.fontSize?.sm || 14,
+  beneficioDescripcion: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: 20,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
-    textAlign: 'center',
+    color: I.body,
   },
-  verMasButton: {
+  errorCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING?.md || 16,
-    borderWidth: 1,
-    borderRadius: BORDERS?.radius?.lg || 12,
-    gap: SPACING?.xs || 4,
+    gap: SPACING.fixed.sm,
   },
-  verMasTexto: {
-    fontSize: TYPOGRAPHY?.fontSize?.md || 16,
-    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
-    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
+  errorText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    color: I.ink,
   },
 });
 

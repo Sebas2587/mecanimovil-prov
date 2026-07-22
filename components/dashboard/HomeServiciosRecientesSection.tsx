@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
 } from 'react-native';
 import { ChevronRight, ClipboardList } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -21,6 +20,7 @@ import { parseReferenciaDate } from '@/utils/fechaLocal';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
+import { HostAvatar } from '@/app/design-system/components';
 import { institutionalCardStyles } from '@/app/design-system/styles/institutionalSemantic';
 import { OrigenOrdenBadge } from '@/components/ordenes/OrigenOrdenBadge';
 
@@ -146,20 +146,8 @@ function fotoCliente(item: OrdenActivaItem): string | null {
   return item.oferta?.solicitud_detail?.cliente_foto || null;
 }
 
-function inicialCliente(nombre: string): string {
-  const t = nombre.trim();
-  return t ? t.charAt(0).toUpperCase() : '?';
-}
-
 function AvatarSoft({ name, uri }: { name: string; uri: string | null }) {
-  if (uri) {
-    return <Image source={{ uri }} style={styles.avatar} accessibilityIgnoresInvertColors />;
-  }
-  return (
-    <View style={styles.avatarSoft}>
-      <Text style={styles.avatarSoftText}>{inicialCliente(name)}</Text>
-    </View>
-  );
+  return <HostAvatar name={name} uri={uri} />;
 }
 
 export type HomeServiciosRecientesSectionProps = {
@@ -388,28 +376,6 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.fixed.xs,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-  },
-  avatarSoft: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: I.surfaceStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-  },
-  avatarSoftText: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
   },
   cardMetaTextCol: { flex: 1, minWidth: 0, gap: 2 },
   cardClient: {

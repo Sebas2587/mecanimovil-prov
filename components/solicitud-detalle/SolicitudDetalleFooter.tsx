@@ -84,7 +84,7 @@ function CatalogFooter({
         />
         <InstitutionalButton
           label="Aceptar asignación"
-          variant="primary"
+          variant="success"
           size="default"
           onPress={onConfirm}
           disabled={confirmLoading || rejectLoading}
@@ -176,7 +176,7 @@ function EjecucionFooter(props: EjecucionFooterProps) {
         : typeof nec === 'number' && nec > 0
           ? nec
           : 1;
-    router.push(`/creditos?tab=tienda&minCreditos=${minCompra}`);
+    router.push(`/creditos?tab=tienda&minCreditos=${minCompra}` as never);
   };
 
   return (

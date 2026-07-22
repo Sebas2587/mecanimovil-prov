@@ -199,7 +199,7 @@ export default function IndexScreen() {
         <InstitutionalButton
           label="Reintentar"
           onPress={handleRetry}
-          variant="primary"
+          variant="secondary"
           style={styles.actionButton}
         />
         

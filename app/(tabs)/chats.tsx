@@ -41,7 +41,7 @@ import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
 import { ChannelBadge } from '@/components/chats/ChannelBadge';
 import { ChannelAvatar } from '@/components/chats/ChannelAvatar';
 import { ChatInboxLinkRow } from '@/components/chats/ChatInboxLinkRow';
-import { resolveChatHref } from '@/utils/chatRoutes';
+import { omnichannelChatHref, resolveChatHref } from '@/utils/chatRoutes';
 import { useOmnichannelConnectionMap } from '@/hooks/useOmnichannelConnections';
 import {
   getChannelDisconnectedReason,
@@ -54,6 +54,7 @@ import { SolicitudesDisponiblesContent } from '@/components/solicitudes/Solicitu
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
 import { useSolicitudesDisponiblesQuery } from '@/hooks/useSolicitudesDisponiblesQuery';
 import { useCotizacionesCanalPendientesQuery } from '@/hooks/useCotizacionesCanalPendientesQuery';
+import { useAgenteBorradoresPendientesQuery } from '@/hooks/useAgenteIaQueries';
 import type { ChannelSlug } from '@/utils/channelVisuals';
 
 type MensajesTab = 'chats' | 'solicitudes';
@@ -81,6 +82,9 @@ export default function ChatsScreen() {
     && radarOportunidadesActivo;
   const { data: solicitudesDisponibles = [] } = useSolicitudesDisponiblesQuery(solicitudesQueryEnabled);
   const { data: cotizacionesCanalPendientes = 0 } = useCotizacionesCanalPendientesQuery(cuentaAprobada);
+  const { data: borradoresAgente } = useAgenteBorradoresPendientesQuery(cuentaAprobada);
+  const borradoresAgenteCount = borradoresAgente?.count ?? 0;
+  const primerBorradorConvId = borradoresAgente?.results?.[0]?.conversation_id;
   const queryClient = useQueryClient();
   const invalidateChatInbox = useInvalidateChatInbox();
   const {
@@ -425,6 +429,25 @@ export default function ChatsScreen() {
             onChange={setActiveTab}
           />
         </View>
+
+        {activeTab === 'chats' && borradoresAgenteCount > 0 ? (
+          <TouchableOpacity
+            style={styles.canalPendienteBanner}
+            activeOpacity={0.85}
+            onPress={() => {
+              if (primerBorradorConvId) {
+                router.push(omnichannelChatHref(String(primerBorradorConvId)));
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Revisar cotizaciones generadas por el agente IA"
+          >
+            <Text style={styles.canalPendienteBannerText}>
+              {borradoresAgenteCount} cotización{borradoresAgenteCount === 1 ? '' : 'es'} del agente IA
+              pendiente{borradoresAgenteCount === 1 ? '' : 's'} de revisar
+            </Text>
+          </TouchableOpacity>
+        ) : null}
 
         {activeTab === 'chats' && cotizacionesCanalPendientes > 0 ? (
           <TouchableOpacity

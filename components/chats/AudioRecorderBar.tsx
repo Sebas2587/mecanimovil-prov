@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import {
   useAudioRecorder,
@@ -8,8 +8,9 @@ import {
   setAudioModeAsync,
 } from 'expo-audio';
 import { Mic, Square, X } from 'lucide-react-native';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { PrimaryGradientFill } from '@/app/design-system/components/PrimaryGradientFill';
 
 const I = COLORS.institutional;
 
@@ -18,12 +19,16 @@ export type RecordedAttachment = {
   type: 'audio';
   name: string;
   mime: string;
+  /** Alias usuarios app */
+  mimeType?: string;
 };
 
 type Props = {
   onRecorded: (attachment: RecordedAttachment) => void;
   onRecordingChange?: (recording: boolean) => void;
   disabled?: boolean;
+  /** `inline` = mic en composer (patrón mecanimovil-usuarios). */
+  variant?: 'default' | 'inline';
 };
 
 const formatMs = (ms: number) => {
@@ -33,14 +38,23 @@ const formatMs = (ms: number) => {
   return `${m}:${String(s).padStart(2, '0')}`;
 };
 
-export function AudioRecorderBar({ onRecorded, onRecordingChange, disabled }: Props) {
+/**
+ * Grabación de voz — alineado a mecanimovil-usuarios/AudioRecorderBar.
+ */
+export function AudioRecorderBar({
+  onRecorded,
+  onRecordingChange,
+  disabled,
+  variant = 'inline',
+}: Props) {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const state = useAudioRecorderState(recorder, 200);
   const [isRecording, setIsRecording] = useState(false);
   const [starting, setStarting] = useState(false);
   const activeRef = useRef(false);
+  const isInline = variant === 'inline';
 
-  React.useEffect(() => {
+  useEffect(() => {
     onRecordingChange?.(isRecording);
   }, [isRecording, onRecordingChange]);
 
@@ -50,7 +64,7 @@ export function AudioRecorderBar({ onRecorded, onRecordingChange, disabled }: Pr
     try {
       const { granted } = await requestRecordingPermissionsAsync();
       if (!granted) {
-        Alert.alert('Permiso denegado', 'Se requiere acceso al micrófono.');
+        Alert.alert('Permiso denegado', 'Se requiere acceso al micrófono para grabar mensajes de voz.');
         return;
       }
 
@@ -61,7 +75,6 @@ export function AudioRecorderBar({ onRecorded, onRecordingChange, disabled }: Pr
         });
       }
 
-      // UI inmediata: el estado nativo puede tardar y un sync prematuro apagaba la barra
       activeRef.current = true;
       setIsRecording(true);
 
@@ -101,6 +114,7 @@ export function AudioRecorderBar({ onRecorded, onRecordingChange, disabled }: Pr
           type: 'audio',
           name: `voice_${Date.now()}.m4a`,
           mime: 'audio/m4a',
+          mimeType: 'audio/m4a',
         });
       }
     } catch {
@@ -113,14 +127,17 @@ export function AudioRecorderBar({ onRecorded, onRecordingChange, disabled }: Pr
   if (!isRecording) {
     return (
       <TouchableOpacity
-        style={[styles.micBtn, (disabled || starting) && styles.micBtnDisabled]}
+        style={[
+          isInline ? styles.micBtnInline : styles.micBtn,
+          (disabled || starting) && styles.micBtnDisabled,
+        ]}
         onPress={startRecording}
         disabled={disabled || starting}
         accessibilityLabel="Grabar mensaje de voz"
       >
         <Mic
-          size={20}
-          color={disabled || starting ? I.mutedSoft : I.primary}
+          size={isInline ? 18 : 20}
+          color={disabled || starting ? I.mutedSoft : I.muted}
           strokeWidth={ICON_STROKE_WIDTH}
         />
       </TouchableOpacity>
@@ -128,15 +145,17 @@ export function AudioRecorderBar({ onRecorded, onRecordingChange, disabled }: Pr
   }
 
   return (
-    <View style={styles.recordingBar}>
-      <TouchableOpacity onPress={cancelRecording} hitSlop={8}>
-        <X size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+    <View style={[styles.recordingBar, isInline && styles.recordingBarInline]}>
+      <TouchableOpacity onPress={cancelRecording} style={styles.iconBtn} hitSlop={8}>
+        <X size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
       </TouchableOpacity>
       <View style={styles.dot} />
       <Text style={styles.timer}>{formatMs(state.durationMillis)}</Text>
       <Text style={styles.hint}>Grabando…</Text>
-      <TouchableOpacity onPress={finishRecording} style={styles.stopBtn}>
-        <Square size={14} color={I.onPrimary} fill={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+      <TouchableOpacity onPress={finishRecording} style={styles.stopBtn} activeOpacity={0.85}>
+        <PrimaryGradientFill style={styles.stopBtnFill}>
+          <Square size={14} color={I.onPrimary} fill={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+        </PrimaryGradientFill>
       </TouchableOpacity>
     </View>
   );
@@ -146,12 +165,21 @@ const styles = StyleSheet.create({
   micBtn: {
     width: 40,
     height: 40,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: I.surfaceStrong,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: I.hairline,
+    flexShrink: 0,
+  },
+  micBtnInline: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: I.surfaceStrong,
     flexShrink: 0,
   },
   micBtnDisabled: { opacity: 0.5 },
@@ -160,20 +188,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    backgroundColor: I.surfaceStrong,
-    borderRadius: BORDERS.radius.pill,
+    backgroundColor: withOpacity(I.semanticDown, 0.08),
+    borderRadius: 24,
     paddingHorizontal: SPACING.md,
     paddingVertical: 8,
-    minHeight: 40,
+    minHeight: 44,
   },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: I.semanticDown },
-  timer: { ...TYPOGRAPHY.styles.bodyBold, color: I.ink, minWidth: 36 },
-  hint: { ...TYPOGRAPHY.styles.caption, color: I.muted, flex: 1 },
+  recordingBarInline: {
+    width: '100%',
+    minHeight: 44,
+  },
+  iconBtn: { padding: 4 },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: I.semanticDown,
+  },
+  timer: {
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: I.ink,
+    minWidth: 36,
+  },
+  hint: {
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.muted,
+    flex: 1,
+  },
   stopBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: I.primary,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  stopBtnFill: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },

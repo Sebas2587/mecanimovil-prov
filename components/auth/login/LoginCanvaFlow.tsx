@@ -5,15 +5,25 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Image,
-  TextInput,
   Platform,
 } from 'react-native';
 import { ChevronLeft, ChevronRight, Mail, UserMinus } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
-import { Card } from '@/app/design-system/components';
+import {
+  HostPaperSection,
+  HostSectionKicker,
+  HostAvatar,
+  InstitutionalButton,
+} from '@/app/design-system/components';
+import { InstitutionalField } from '@/components/forms/InstitutionalField';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { ConnectedGoogleAccount } from '@/hooks/auth/useGoogleSignInFlow';
 import LegalAcceptanceRow from '@/components/legal/LegalAcceptanceRow';
+import { GoogleLogoMark } from '@/components/auth/GoogleLogoMark';
+
+const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
 
 export type LoginStep = 'accounts' | 'methods' | 'email';
 
@@ -42,6 +52,24 @@ type Props = {
   termsError?: string;
 };
 
+function BackLink({ onPress, label = 'Volver' }: { onPress: () => void; label?: string }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.backRow, webCursor]}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <ChevronLeft size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+      <Text style={styles.backText}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/**
+ * Login Host (Airbnb): kickers, paper única, filas hairline, CTAs InstitutionalButton.
+ */
 export function LoginCanvaFlow({
   step,
   connectedAccounts,
@@ -70,71 +98,59 @@ export function LoginCanvaFlow({
     return (
       <>
         <View style={styles.heading}>
-          <Text style={styles.eyebrow}>Cuentas guardadas</Text>
-          <Text style={styles.h1}>¿Con qué cuenta continuarás hoy?</Text>
+          <HostSectionKicker label="Cuentas guardadas" style={styles.kickerFlush} />
+          <Text style={styles.h1}>¿Con qué cuenta continuarás?</Text>
           <Text style={styles.subtitle}>
-            Selecciona una cuenta para iniciar sesión rápido o usa otra.
+            Elige una cuenta para entrar rápido o usa otra.
           </Text>
         </View>
 
-        <Card elevated padding="host" style={styles.card}>
-          {connectedAccounts.map((acc) => {
-            const initials = (acc.name || acc.email || '?')
-              .split(/\s+/)
-              .map((s) => s[0])
-              .filter(Boolean)
-              .slice(0, 2)
-              .join('')
-              .toUpperCase();
-            return (
+        <HostPaperSection style={styles.paper}>
+          {connectedAccounts.map((acc, index) => (
             <TouchableOpacity
               key={acc.email}
               onPress={() => onAccountTap(acc.email)}
               disabled={googleLoading || !acceptTerms}
-              style={[styles.accountRow, webCursor, (googleLoading || !acceptTerms) && styles.disabled]}
+              style={[
+                styles.row,
+                index < connectedAccounts.length - 1 && styles.rowBorder,
+                webCursor,
+                (googleLoading || !acceptTerms) && styles.disabled,
+              ]}
               activeOpacity={0.7}
             >
-                {acc.picture ? (
-                  <Image source={{ uri: acc.picture }} style={styles.avatarImg} />
-                ) : (
-                  <View style={styles.avatarFallback}>
-                    <Text style={styles.avatarInitials}>{initials}</Text>
-                  </View>
-                )}
-                <View style={styles.accountInfo}>
-                  {acc.name ? (
-                    <Text style={styles.accountName} numberOfLines={1}>
-                      {acc.name}
-                    </Text>
-                  ) : null}
-                  <Text style={styles.accountEmail} numberOfLines={1}>
-                    {acc.email}
+              <HostAvatar name={acc.name || acc.email} uri={acc.picture} size={40} />
+              <View style={styles.rowCopy}>
+                {acc.name ? (
+                  <Text style={styles.rowTitle} numberOfLines={1}>
+                    {acc.name}
                   </Text>
-                </View>
-                {googleLoading ? (
-                  <ActivityIndicator size="small" color={COLORS.institutional.primary} />
-                ) : (
-                  <ChevronRight size={18} color={COLORS.institutional.muted} />
-                )}
-              </TouchableOpacity>
-            );
-          })}
+                ) : null}
+                <Text style={styles.rowMeta} numberOfLines={1}>
+                  {acc.email}
+                </Text>
+              </View>
+              {googleLoading ? (
+                <ActivityIndicator size="small" color={I.muted} />
+              ) : (
+                <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+              )}
+            </TouchableOpacity>
+          ))}
 
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>O BIEN</Text>
-            <View style={styles.dividerLine} />
+          <View style={styles.orRow}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>o</Text>
+            <View style={styles.orLine} />
           </View>
 
-          <TouchableOpacity
+          <InstitutionalButton
+            label="Usar otra cuenta"
+            variant="secondary"
             onPress={onGoMethods}
             disabled={googleLoading}
-            style={[styles.btnPrimary, webCursor, googleLoading && styles.disabled]}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.btnPrimaryText}>Usar otra cuenta</Text>
-          </TouchableOpacity>
-        </Card>
+          />
+        </HostPaperSection>
 
         <LegalAcceptanceRow
           checked={acceptTerms}
@@ -148,7 +164,7 @@ export function LoginCanvaFlow({
           style={[styles.clearBtn, webCursor]}
           activeOpacity={0.7}
         >
-          <UserMinus size={14} color={COLORS.institutional.body} style={{ marginRight: 6 }} />
+          <UserMinus size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
           <Text style={styles.clearBtnText}>Quitar las cuentas</Text>
         </TouchableOpacity>
       </>
@@ -158,62 +174,62 @@ export function LoginCanvaFlow({
   if (step === 'methods') {
     return (
       <>
-        {connectedAccounts.length > 0 && (
-          <TouchableOpacity onPress={onGoAccounts} style={[styles.backRow, webCursor]} activeOpacity={0.7}>
-            <ChevronLeft size={20} color={COLORS.institutional.ink} />
-            <Text style={styles.backText}>Volver</Text>
-          </TouchableOpacity>
-        )}
+        {connectedAccounts.length > 0 ? <BackLink onPress={onGoAccounts} /> : null}
 
         <View style={styles.heading}>
-          <Text style={styles.eyebrow}>Portal de proveedores</Text>
+          <HostSectionKicker label="Portal de proveedores" style={styles.kickerFlush} />
           <Text style={styles.h1}>Inicia sesión o regístrate</Text>
           <Text style={styles.subtitle}>
-            Elige cómo quieres acceder a tu cuenta de proveedor.
+            Elige cómo quieres acceder a tu cuenta.
           </Text>
         </View>
 
-        <Card elevated padding="host" style={styles.card}>
-          <Text style={styles.cardLabel}>Método de acceso</Text>
-
+        <HostPaperSection style={styles.paper}>
           <TouchableOpacity
             onPress={onUseAnotherGoogle}
             disabled={googleLoading || !acceptTerms}
-            style={[styles.methodRow, webCursor, (googleLoading || !acceptTerms) && styles.disabled]}
+            style={[
+              styles.row,
+              styles.rowBorder,
+              webCursor,
+              (googleLoading || !acceptTerms) && styles.disabled,
+            ]}
             activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Continuar con Google"
           >
-            <View style={[styles.methodIconWrap, styles.methodIconGoogle]}>
+            <View style={styles.googleIcon}>
               {googleLoading ? (
-                <ActivityIndicator size="small" color={COLORS.institutional.ink} />
+                <ActivityIndicator size="small" color={I.ink} />
               ) : (
-                <Text style={styles.googleGlyph}>G</Text>
+                <GoogleLogoMark size={20} />
               )}
             </View>
-            <View style={styles.methodCopy}>
-              <Text style={styles.methodTitle}>Continuar con Google</Text>
-              <Text style={styles.methodHint}>Acceso rápido con tu cuenta Google</Text>
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowTitle}>Continuar con Google</Text>
+              <Text style={styles.rowMeta}>Acceso rápido con tu cuenta Google</Text>
             </View>
-            <ChevronRight size={18} color={COLORS.institutional.muted} />
+            <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
-
-          <View style={styles.methodDivider} />
 
           <TouchableOpacity
             onPress={onGoEmail}
             disabled={!acceptTerms}
-            style={[styles.methodRow, webCursor, !acceptTerms && styles.disabled]}
+            style={[styles.row, webCursor, !acceptTerms && styles.disabled]}
             activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Usar correo electrónico"
           >
-            <View style={styles.methodIconWrap}>
-              <Mail size={20} color={COLORS.institutional.ink} />
+            <View style={styles.mailIcon}>
+              <Mail size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
-            <View style={styles.methodCopy}>
-              <Text style={styles.methodTitle}>Usar correo electrónico</Text>
-              <Text style={styles.methodHint}>Inicia sesión o crea tu cuenta</Text>
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowTitle}>Usar correo electrónico</Text>
+              <Text style={styles.rowMeta}>Inicia sesión o crea tu cuenta</Text>
             </View>
-            <ChevronRight size={18} color={COLORS.institutional.muted} />
+            <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
           </TouchableOpacity>
-        </Card>
+        </HostPaperSection>
 
         <LegalAcceptanceRow
           checked={acceptTerms}
@@ -226,72 +242,59 @@ export function LoginCanvaFlow({
 
   return (
     <>
-      <TouchableOpacity onPress={onGoMethods} style={[styles.backRow, webCursor]} activeOpacity={0.7}>
-        <ChevronLeft size={20} color={COLORS.institutional.ink} />
-        <Text style={styles.backText}>Volver</Text>
-      </TouchableOpacity>
+      <BackLink onPress={onGoMethods} />
 
       <View style={styles.heading}>
-        <Text style={styles.eyebrow}>Acceso</Text>
+        <HostSectionKicker label="Acceso" style={styles.kickerFlush} />
         <Text style={styles.h1}>Inicia sesión</Text>
         <Text style={styles.subtitle}>
           Usa tu usuario o correo del taller.{' '}
-          <Text style={styles.headingLink} onPress={() => onGoRegister(email)}>
+          <Text style={styles.link} onPress={() => onGoRegister(email)}>
             Regístrate aquí
           </Text>
           .
         </Text>
       </View>
 
-      <Card elevated padding="host" style={styles.card}>
+      <HostPaperSection style={styles.paper}>
         {loginError ? (
-          <View style={styles.loginErrorBanner}>
-            <Text style={styles.loginErrorText}>{loginError}</Text>
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{loginError}</Text>
           </View>
         ) : null}
-        <View style={styles.fieldWrap}>
-          <Text style={styles.label}>Usuario o correo</Text>
-          <TextInput
-            style={[styles.input, emailError ? styles.inputError : null]}
-            placeholder="usuario o ejemplo@correo.com"
-            placeholderTextColor={COLORS.institutional.mutedSoft}
-            value={email}
-            onChangeText={onEmailChange}
-            keyboardType="default"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-        </View>
 
-        <View style={styles.fieldWrap}>
-          <Text style={styles.label}>Contraseña</Text>
-          <TextInput
-            style={[styles.input, passwordError ? styles.inputError : null]}
-            placeholder="••••••••"
-            placeholderTextColor={COLORS.institutional.mutedSoft}
-            value={password}
-            onChangeText={onPasswordChange}
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-        </View>
+        <InstitutionalField
+          label="Usuario o correo"
+          value={email}
+          onChangeText={onEmailChange}
+          placeholder="usuario o ejemplo@correo.com"
+          autoCapitalize="none"
+          error={emailError}
+          textInputProps={{ autoCorrect: false, keyboardType: 'default' }}
+        />
 
-        <TouchableOpacity
-          onPress={onEmailLogin}
+        <View style={styles.fieldGap} />
+
+        <InstitutionalField
+          label="Contraseña"
+          value={password}
+          onChangeText={onPasswordChange}
+          placeholder="••••••••"
+          autoCapitalize="none"
+          error={passwordError}
+          textInputProps={{ secureTextEntry: true, autoCorrect: false }}
+        />
+
+        <View style={styles.ctaGap} />
+
+        <InstitutionalButton
+          label={emailLoading ? 'Entrando…' : 'Iniciar sesión'}
+          variant="primary"
+          loading={emailLoading}
           disabled={emailLoading || !acceptTerms}
-          style={[styles.btnPrimary, webCursor, (emailLoading || !acceptTerms) && styles.disabled]}
-          activeOpacity={0.75}
-        >
-          {emailLoading ? (
-            <ActivityIndicator size="small" color={COLORS.institutional.onPrimary} />
-          ) : (
-            <Text style={styles.btnPrimaryText}>Iniciar sesión</Text>
-          )}
-        </TouchableOpacity>
-      </Card>
+          onPress={onEmailLogin}
+        />
+      </HostPaperSection>
 
       <LegalAcceptanceRow
         checked={acceptTerms}
@@ -304,230 +307,143 @@ export function LoginCanvaFlow({
 
 const styles = StyleSheet.create({
   heading: {
-    marginBottom: SPACING.xl,
-    gap: SPACING.xs,
+    marginBottom: SPACING.fixed.lg,
+    gap: SPACING.fixed.xs,
   },
-  eyebrow: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    color: COLORS.institutional.primary,
+  kickerFlush: {
+    marginTop: 0,
   },
   h1: {
-    fontSize: TYPOGRAPHY.fontSize['2xl'],
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    letterSpacing: TYPOGRAPHY.letterSpacing.tight,
-    lineHeight: 32,
-    color: COLORS.institutional.ink,
+    fontSize: TS.h3.fontSize,
+    lineHeight: Math.round(TS.h3.fontSize * TS.h3.lineHeight),
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+    letterSpacing: TS.h3.letterSpacing ?? 0,
   },
   subtitle: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    lineHeight: 22,
-    color: COLORS.institutional.body,
+    fontSize: TS.body.fontSize,
+    lineHeight: Math.round(TS.body.fontSize * 1.4),
+    fontFamily: FF.sansRegular,
+    color: I.body,
   },
-  headingLink: {
-    color: COLORS.institutional.primary,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  link: {
+    color: I.primary,
+    fontFamily: FF.sansSemiBold,
   },
-  card: {
-    marginBottom: SPACING.lg,
+  paper: {
+    marginBottom: SPACING.fixed.lg,
+    gap: 0,
   },
-  cardLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.institutional.muted,
-    marginBottom: SPACING.md,
-    letterSpacing: 0.2,
-  },
-  accountRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.institutional.hairlineSoft,
+    gap: SPACING.fixed.sm,
+    paddingVertical: 14,
   },
-  avatarImg: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: SPACING.md,
+  rowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
   },
-  avatarFallback: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.institutional.surfaceStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  avatarInitials: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: '700',
-    color: COLORS.institutional.primary,
-  },
-  accountInfo: {
+  rowCopy: {
     flex: 1,
     minWidth: 0,
+    gap: 2,
   },
-  accountName: {
+  rowTitle: {
+    fontSize: TYPOGRAPHY.fontSize.base,
+    fontFamily: FF.sansSemiBold,
+    color: I.ink,
+  },
+  rowMeta: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: '600',
-    color: COLORS.institutional.ink,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
   },
-  accountEmail: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.institutional.muted,
-    marginTop: 2,
+  googleIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: I.canvas,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  dividerRow: {
+  mailIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: I.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  orRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: SPACING.md,
+    marginVertical: SPACING.fixed.md,
+    gap: SPACING.fixed.sm,
   },
-  dividerLine: {
+  orLine: {
     flex: 1,
-    height: 1,
-    backgroundColor: COLORS.institutional.hairline,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: I.hairline,
   },
-  dividerText: {
-    marginHorizontal: SPACING.sm,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontWeight: '600',
-    color: COLORS.institutional.muted,
-    letterSpacing: 0.5,
-  },
-  btnPrimary: {
-    backgroundColor: COLORS.institutional.primary,
-    borderRadius: BORDERS.radius.md,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-  },
-  btnPrimaryText: {
-    color: COLORS.institutional.onPrimary,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: '600',
-  },
-  footer: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.institutional.muted,
-    textAlign: 'center',
-    lineHeight: 18,
-    paddingHorizontal: SPACING.md,
+  orText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
   },
   clearBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: SPACING.lg,
+    gap: 6,
+    marginTop: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.sm,
   },
   clearBtnText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.institutional.body,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
   },
   backRow: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    marginBottom: SPACING.lg,
-    paddingVertical: SPACING.fixed.xxs,
+    marginBottom: SPACING.fixed.md,
+    gap: 2,
   },
   backText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-    color: COLORS.institutional.ink,
-    marginLeft: 4,
+    fontFamily: FF.sansMedium,
+    color: I.ink,
   },
-  methodRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
+  fieldGap: {
+    height: SPACING.fixed.md,
   },
-  methodIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: COLORS.institutional.surfaceSoft,
-    borderWidth: 1,
-    borderColor: COLORS.institutional.hairlineSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
+  ctaGap: {
+    height: SPACING.fixed.lg,
   },
-  methodIconGoogle: {
-    backgroundColor: COLORS.institutional.surfaceStrong,
-  },
-  methodCopy: {
-    flex: 1,
-    minWidth: 0,
-    paddingRight: SPACING.sm,
-  },
-  methodTitle: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.institutional.ink,
-    marginBottom: 2,
-  },
-  methodHint: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    lineHeight: 18,
-    color: COLORS.institutional.muted,
-  },
-  methodDivider: {
-    height: 1,
-    backgroundColor: COLORS.institutional.hairlineSoft,
-    marginVertical: SPACING.xs,
-  },
-  googleGlyph: {
-    fontSize: 18,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.primary[400],
-    textAlign: 'center',
-  },
-  fieldWrap: {
-    marginBottom: SPACING.md,
-  },
-  label: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: '600',
-    color: COLORS.institutional.ink,
-    marginBottom: SPACING.xs,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: COLORS.institutional.hairline,
-    borderRadius: BORDERS.radius.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm + 2,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.institutional.ink,
-    backgroundColor: COLORS.institutional.surfaceSoft,
-  },
-  inputError: {
-    borderColor: COLORS.institutional.semanticDown,
-  },
-  loginErrorBanner: {
-    backgroundColor: COLORS.institutional.surfaceSoft,
+  errorBanner: {
+    backgroundColor: I.surfaceStrong,
     borderRadius: BORDERS.radius.md,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.institutional.semanticDown,
-    padding: SPACING.sm,
-    marginBottom: SPACING.md,
+    borderColor: I.semanticDown,
+    padding: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.md,
   },
-  loginErrorText: {
-    fontFamily: TYPOGRAPHY.fontFamily.sans,
+  errorBannerText: {
+    fontFamily: FF.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.institutional.semanticDown,
+    color: I.semanticDown,
     lineHeight: 20,
   },
-  errorText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.institutional.semanticDown,
-    marginTop: SPACING.xs,
-  },
   disabled: {
-    opacity: 0.6,
+    opacity: 0.55,
   },
 });
 

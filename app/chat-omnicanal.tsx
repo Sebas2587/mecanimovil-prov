@@ -28,6 +28,7 @@ import { useOmnichannelConnectionMap } from '@/hooks/useOmnichannelConnections';
 import { getChannelDisconnectedReason } from '@/utils/omnichannelConnection';
 import { getWhatsAppReplyBlockReason } from '@/utils/whatsappMessagingWindow';
 import { OmnichannelChatRestrictionBanner } from '@/components/chats/OmnichannelChatRestrictionBanner';
+import { AgenteIaChatBanner } from '@/components/chats/AgenteIaChatBanner';
 import {
   ChatMessageComposer,
 } from '@/components/chats/ChatMessageComposer';
@@ -43,7 +44,6 @@ import {
   normalizeMessageText,
 } from '@/utils/chatAttachmentMedia';
 import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
-import { AudioRecorderBar } from '@/components/chats/AudioRecorderBar';
 
 const I = COLORS.institutional;
 
@@ -369,11 +369,6 @@ export default function ChatOmnicanalScreen() {
           onBack={() => router.back()}
         />
 
-        <OmnichannelChatActionBar
-          cotizacionAceptada={Boolean(cotizacionAceptadaId)}
-          onPress={() => setAgendarVisible(true)}
-        />
-
         <AgendarDesdeCanalModal
           visible={agendarVisible}
           onClose={() => setAgendarVisible(false)}
@@ -401,12 +396,13 @@ export default function ChatOmnicanalScreen() {
               contentContainerStyle={[
                 hostScreenStyles.scrollInner,
                 styles.listContent,
-                { paddingBottom: 88 },
+                { paddingBottom: SPACING.lg },
               ]}
               onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
               onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-              renderItem={({ item }) => {
+              renderItem={({ item, index }) => {
                 const meta = item.channel_metadata;
+                const isLast = index === mensajes.length - 1;
                 if (meta?.tipo === 'cotizacion_canal') {
                   const repuestosRaw = meta.repuestos;
                   const repuestos = Array.isArray(repuestosRaw)
@@ -467,6 +463,9 @@ export default function ChatOmnicanalScreen() {
                       archivo_adjunto: item.archivo_adjunto,
                     }}
                     esPropio={item.es_proveedor}
+                    tone="host"
+                    peerName={conversationMeta.displayName}
+                    showReadReceipt={isLast && item.es_proveedor}
                     onImagePress={(url) => setSelectedImage(url)}
                   />
                 );
@@ -477,6 +476,8 @@ export default function ChatOmnicanalScreen() {
               <Text style={styles.emptyHint}>Comienza la conversación enviando un mensaje</Text>
             </View>
           )}
+
+          <AgenteIaChatBanner conversationId={convId} />
 
           {inputRestrictionMessage ? (
             <OmnichannelChatRestrictionBanner
@@ -496,17 +497,13 @@ export default function ChatOmnicanalScreen() {
             onChangeText={setTexto}
             onSend={() => enviar()}
             onAttachPress={handleAttachPress}
+            onAudioRecorded={(att) => enviar({ ...att, mime: att.mime || att.mimeType || 'audio/m4a' })}
             editable={canSendMessages}
             sending={enviando}
             hasAttachment={attachments.length > 0}
             paddingBottom={Math.max(insets.bottom, SPACING.sm)}
             stripAttached={Boolean(inputRestrictionMessage)}
-            voiceSlot={
-              <AudioRecorderBar
-                disabled={enviando || !canSendMessages}
-                onRecorded={(att) => enviar({ ...att, mime: att.mime || 'audio/m4a' })}
-              />
-            }
+            placeholder="Escribe un mensaje…"
             attachmentPreview={
               attachments.length > 0 ? (
                 <AttachmentStagingTray
@@ -514,6 +511,12 @@ export default function ChatOmnicanalScreen() {
                   onRemove={(index) => setAttachments((prev) => prev.filter((_, i) => i !== index))}
                 />
               ) : null
+            }
+            footerAction={
+              <OmnichannelChatActionBar
+                cotizacionAceptada={Boolean(cotizacionAceptadaId)}
+                onPress={() => setAgendarVisible(true)}
+              />
             }
           />
         </View>
@@ -540,7 +543,7 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: I.canvas,
   },
   centered: {
     flex: 1,
@@ -553,7 +556,10 @@ const styles = StyleSheet.create({
     color: I.muted,
     textAlign: 'center',
   },
-  chatArea: { flex: 1 },
+  chatArea: {
+    flex: 1,
+    backgroundColor: I.canvas,
+  },
   listContent: { paddingVertical: SPACING.md, flexGrow: 1 },
   modalBg: {
     flex: 1,

@@ -724,7 +724,7 @@ export function PipelineSeguimientoSection({
               {leadPuedeChat ? (
                 <InstitutionalButton
                   label="Ver conversación"
-                  variant="secondary"
+                  variant="outline"
                   leading={<MessageCircle size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
                   onPress={() => {
                     const id = leadActivo.conversation_id;
@@ -744,7 +744,7 @@ export function PipelineSeguimientoSection({
               {leadActivo.solicitud_id || leadActivo.cita_id || leadActivo.orden_id ? (
                 <InstitutionalButton
                   label="Ver detalle"
-                  variant="secondary"
+                  variant="outline"
                   leading={<UserRound size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
                   onPress={() => {
                     const item = leadActivo;
@@ -763,6 +763,7 @@ export function PipelineSeguimientoSection({
               {leadPuedeAceptar ? (
                 <InstitutionalButton
                   label="Marcar aceptada"
+                  variant="success"
                   loading={accionLoading}
                   onPress={() => void marcarAceptadaLead()}
                 />

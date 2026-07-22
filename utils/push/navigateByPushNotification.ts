@@ -126,6 +126,19 @@ export function navigateByPushNotification(
       router.push('/creditos');
       return true;
 
+    case 'agente_ia_cotizacion_borrador':
+    case 'agente_ia_escalamiento': {
+      const conversationId =
+        data.conversation_id != null ? String(data.conversation_id).trim() : '';
+      if (conversationId) {
+        if (queryClient) void prefetchChatInbox(queryClient);
+        router.push(omnichannelChatHref(conversationId));
+        return true;
+      }
+      router.push('/(tabs)/chats');
+      return true;
+    }
+
     default:
       break;
   }

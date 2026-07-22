@@ -170,7 +170,8 @@ export default function LoginScreen() {
       style={hostScreenStyles.scroll}
       contentContainerStyle={[
         hostScreenStyles.scrollInner,
-        { paddingTop: insets.top + SPACING.xl, paddingBottom: insets.bottom + SPACING.xl },
+        styles.scrollInner,
+        { paddingTop: insets.top + SPACING.lg, paddingBottom: insets.bottom + SPACING.xl },
       ]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === 'web' ? undefined : 'on-drag'}
@@ -257,13 +258,18 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  scrollInner: {
+    maxWidth: 440,
+    width: '100%',
+    alignSelf: 'center',
+  },
   logoWrap: {
     alignItems: 'center',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
   logo: {
-    width: 180,
-    height: 48,
+    width: 160,
+    height: 42,
   },
   loaderWrap: {
     paddingTop: 60,

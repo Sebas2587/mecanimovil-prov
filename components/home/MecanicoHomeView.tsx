@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { router } from 'expo-router';
-import { Calendar, Car, Clock, User, Wrench } from 'lucide-react-native';
+import { Calendar, Car, Clock, Wrench } from 'lucide-react-native';
 import { ASIGNACIONES_MECANICO_QUERY_KEY } from '@/utils/invalidateAsignacionesMecanico';
 import { useAsignacionesMecanicoRealtime } from '@/hooks/useAsignacionesMecanicoRealtime';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,6 +18,7 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens
 import {
   Card,
   HostSectionKicker,
+  HostAvatar,
   hostScreenStyles,
 } from '@/app/design-system/components';
 import { OrdenCard } from '@/components/ordenes/OrdenCard';
@@ -141,9 +142,7 @@ function CitaPersonalCard({ cita, onPress }: CitaPersonalCardProps) {
       <View style={styles.citaDivider} />
 
       <View style={styles.citaCliente}>
-        <View style={styles.citaAvatar}>
-          <User size={14} color={I.onPrimary} />
-        </View>
+        <HostAvatar name={cita.detalle.cliente_nombre} size="sm" />
         <View style={{ flex: 1 }}>
           <Text style={styles.citaClienteNombre} numberOfLines={1}>
             {cita.detalle.cliente_nombre}
@@ -412,14 +411,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-  },
-  citaAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: BORDERS.radius.full,
-    backgroundColor: I.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   citaClienteNombre: {
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,

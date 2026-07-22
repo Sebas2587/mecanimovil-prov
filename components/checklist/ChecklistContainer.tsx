@@ -556,13 +556,13 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
               autoStartTriedRef.current = false;
               void refetch?.();
             }}
-            variant="primary"
+            variant="secondary"
             style={{ minWidth: 160 }}
           />
           <InstitutionalButton
             label="Volver"
             onPress={() => onCancel?.()}
-            variant="secondary"
+            variant="outline"
             style={{ minWidth: 160, marginTop: SPACING.fixed.sm }}
           />
         </View>
@@ -582,7 +582,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           <InstitutionalButton
             label="Volver"
             onPress={() => onCancel?.()}
-            variant="primary"
+            variant="outline"
             style={{ minWidth: 160 }}
           />
         </View>
@@ -878,9 +878,9 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             <InstitutionalButton
               label="Ver resumen"
               onPress={() => setShowCompletedView(true)}
-              variant="primary"
+              variant="outline"
               leading={
-                <InstitutionalIcon name="visibility" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="visibility" size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
               }
               style={{ alignSelf: 'stretch' }}
             />
