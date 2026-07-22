@@ -22,10 +22,20 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  Pressable,
   Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Wallet, CreditCard, Store, History, Receipt, ScrollText, TrendingUp } from 'lucide-react-native';
+import {
+  Wallet,
+  CreditCard,
+  Store,
+  History,
+  Receipt,
+  ScrollText,
+  TrendingUp,
+  Info,
+} from 'lucide-react-native';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, withOpacity, BORDERS } from '@/app/design-system/tokens';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
@@ -797,31 +807,31 @@ export default function CreditosScreen() {
     );
   }
 
-  const mpBanner =
-    mpConectado === false ? (
-      <View
-        style={[
-          styles.mpBanner,
-          { backgroundColor: COLORS.selection.background, borderColor: COLORS.selection.border },
-        ]}
-      >
-        <View style={{ flex: 1, gap: 4 }}>
-          <Text style={[styles.mpBannerTitle, { color: COLORS.selection.text }]}>
-            Mercado Pago no conectado
-          </Text>
-          <Text style={[styles.mpBannerBody, { color: textSecondary }]}>
-            Puedes ver rendimiento y finanzas. Conecta MP para comprar créditos, suscribirte,
-            recibir pagos y postular.
-          </Text>
-        </View>
-        <InstitutionalButton
-          label="Conectar"
-          variant="primary"
-          size="compact"
-          onPress={() => router.push('/configuracion-mercadopago')}
-        />
-      </View>
-    ) : null;
+  // Aviso MP: solo en tabs donde bloquea una acción (Suscripción / Tienda) — no en
+  // Saldo, Historial ni Rendimiento, que se pueden ver sin conectar. Estilo inline,
+  // no bloque de color, para no competir con el contenido de cada tab.
+  const mpNoticeTone = institutionalStatusColors('info');
+  const mostrarMpBanner =
+    mpConectado === false && (activeTab === 'suscripcion' || activeTab === 'tienda');
+  const mpBannerAccion = activeTab === 'suscripcion' ? 'suscribirte' : 'comprar créditos';
+  const mpBanner = mostrarMpBanner ? (
+    <Pressable
+      onPress={() => router.push('/configuracion-mercadopago')}
+      style={({ pressed }) => [
+        styles.mpBanner,
+        { backgroundColor: mpNoticeTone.bg, borderColor: mpNoticeTone.border },
+        pressed && styles.mpBannerPressed,
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel="Conectar Mercado Pago"
+    >
+      <Info size={16} color={mpNoticeTone.icon} strokeWidth={ICON_STROKE_WIDTH} />
+      <Text style={[styles.mpBannerText, { color: textSecondary }]} numberOfLines={2}>
+        Conecta Mercado Pago para {mpBannerAccion}.{' '}
+        <Text style={[styles.mpBannerLink, { color: mpNoticeTone.text }]}>Conectar</Text>
+      </Text>
+    </Pressable>
+  ) : null;
 
   // ── Contenido por tab ─────────────────────────────────────
   const scrollInnerStyle = [hostScreenStyles.scrollInner, { paddingBottom: scrollBottomPad }];
@@ -1527,23 +1537,27 @@ const styles = StyleSheet.create({
 
   mpBanner: {
     marginHorizontal: SPACING.container.horizontal,
-    marginTop: SPACING.sm,
+    marginTop: SPACING.xs,
     marginBottom: SPACING.xs,
-    padding: SPACING.md,
-    borderRadius: BORDERS.radius.lg,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: BORDERS.radius.md,
     borderWidth: BORDERS.width.thin,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    gap: SPACING.xs,
   },
-  mpBannerTitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+  mpBannerPressed: {
+    opacity: 0.92,
   },
-  mpBannerBody: {
+  mpBannerText: {
+    flex: 1,
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     lineHeight: 16,
+  },
+  mpBannerLink: {
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
   },
 
   // ─── Bloqueo MP (legacy styles retained) ───────────────────

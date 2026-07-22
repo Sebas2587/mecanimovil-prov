@@ -7,9 +7,14 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  Pressable,
 } from 'react-native';
+import { ChevronRight } from 'lucide-react-native';
+import { router } from 'expo-router';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { institutionalTextStyle } from '@/app/design-system/styles/institutionalTypography';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { navegarServiciosCompletados } from '@/utils/navegarServiciosCompletados';
 import { useRendimientoEquipoDetalladoQuery } from '@/hooks/useRendimientoEquipoDetalladoQuery';
 import { MecanicoPickerHorizontal } from '@/components/equipo/MecanicoPickerHorizontal';
 import { ScoreCircle } from '@/components/equipo/ScoreCircle';
@@ -274,6 +279,16 @@ export function RendimientoEquipoTab() {
                     maximumFractionDigits: 0,
                   }).format(selected.facturacion_periodo)}
                 </Text>
+
+                <Pressable
+                  onPress={() => navegarServiciosCompletados(router, { canal: 'todos' })}
+                  style={({ pressed }) => [styles.verServiciosLink, pressed && styles.verServiciosPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ver servicios completados"
+                >
+                  <Text style={styles.verServiciosText}>Ver servicios completados</Text>
+                  <ChevronRight size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                </Pressable>
               </>
             )}
           </View>
@@ -356,7 +371,22 @@ const styles = StyleSheet.create({
     ...institutionalTextStyle('small', I.muted),
     textAlign: 'center',
     marginTop: SPACING.fixed.lg,
+    marginBottom: SPACING.fixed.xs,
+  },
+  verServiciosLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: SPACING.fixed.sm,
     marginBottom: SPACING.fixed.md,
+  },
+  verServiciosPressed: {
+    opacity: 0.92,
+  },
+  verServiciosText: {
+    ...institutionalTextStyle('captionBold', I.primary),
+    fontFamily: FF.sansSemiBold,
   },
   emptyWrap: {
     padding: SPACING.fixed.xl,

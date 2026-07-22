@@ -64,6 +64,7 @@ import {
   useSuscripcionProveedorQuery,
   invalidateDashboardFinanzasQueries,
 } from '@/hooks/useDashboardFinanzas';
+import { navegarServiciosCompletados } from '@/utils/navegarServiciosCompletados';
 
 const I = COLORS.institutional;
 
@@ -150,6 +151,10 @@ export default function PerfilScreen() {
 
   const handleFinanzasCardPress = useCallback(() => {
     router.push('/creditos?tab=saldo');
+  }, []);
+
+  const handleFinanzasCanalPress = useCallback((canal: 'app' | 'propias') => {
+    navegarServiciosCompletados(router, { canal, mes: 'actual' });
   }, []);
 
   const handlePressPlanSuscripcion = useCallback(() => {
@@ -629,6 +634,7 @@ export default function PerfilScreen() {
                             isLoadingCreditos={saldoCreditosQuery.loading && !saldoCreditos}
                             warningEmphasis={warningEmphasis}
                             onPress={handleFinanzasCardPress}
+                            onPressCanal={handleFinanzasCanalPress}
                             onRecargarCreditos={handleRecargarCreditos}
                             onPressPlan={handlePressPlanSuscripcion}
                           />

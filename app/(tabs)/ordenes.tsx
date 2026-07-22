@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Image,
+  Pressable,
 } from 'react-native';
 import {
   Briefcase, CheckCircle, Inbox, User, Car, Clock,
@@ -18,6 +19,14 @@ import {
   esClienteCompleto,
 } from '@/services/ordenesProveedor';
 import { router, useLocalSearchParams } from 'expo-router';
+import {
+  etiquetaFiltroServiciosCompletados,
+  filtrarServiciosCompletados,
+  parseCanalServiciosCompletados,
+  parseMesServiciosCompletados,
+  tieneFiltroServiciosCompletados,
+  type FiltroServiciosCompletados,
+} from '@/utils/serviciosCompletadosFiltro';
 import { useAuth } from '@/context/AuthContext';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
@@ -59,7 +68,7 @@ const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * l
 type TabType = 'activas' | 'completadas' | 'rechazadas';
 
 export default function OrdenesScreen() {
-  const params = useLocalSearchParams<{ tab?: string }>();
+  const params = useLocalSearchParams<{ tab?: string; canal?: string; mes?: string }>();
   const { estadoProveedor } = useAuth();
 
   const [tabActivo, setTabActivo] = useState<TabType>(() => {
@@ -67,6 +76,38 @@ export default function OrdenesScreen() {
     if (params.tab === 'rechazadas') return 'rechazadas';
     return 'activas';
   });
+
+  const filtroCompletadas = useMemo((): FiltroServiciosCompletados => ({
+    canal: parseCanalServiciosCompletados(params.canal),
+    mes: parseMesServiciosCompletados(params.mes),
+  }), [params.canal, params.mes]);
+
+  const filtroCompletadasActivo =
+    tabActivo === 'completadas' && tieneFiltroServiciosCompletados(filtroCompletadas);
+
+  useEffect(() => {
+    if (params.tab === 'completadas') setTabActivo('completadas');
+    else if (params.tab === 'rechazadas') setTabActivo('rechazadas');
+    else if (params.tab === 'activas') setTabActivo('activas');
+  }, [params.tab]);
+
+  const handleClearFiltroCompletadas = useCallback(() => {
+    router.replace('/(tabs)/ordenes?tab=completadas');
+  }, []);
+
+  const handleTabChange = useCallback((key: TabType) => {
+    setTabActivo(key);
+    if (key !== 'completadas') {
+      router.replace(`/(tabs)/ordenes?tab=${key}`);
+    } else if (filtroCompletadasActivo) {
+      const q = new URLSearchParams({ tab: 'completadas' });
+      if (filtroCompletadas.canal !== 'todos') q.set('canal', filtroCompletadas.canal);
+      if (filtroCompletadas.mes === 'actual') q.set('mes', 'actual');
+      router.replace(`/(tabs)/ordenes?${q.toString()}`);
+    } else {
+      router.replace('/(tabs)/ordenes?tab=completadas');
+    }
+  }, [filtroCompletadas, filtroCompletadasActivo]);
 
   const isVerified = estadoProveedor?.estado_verificacion === 'aprobado';
   const queryClient = useQueryClient();
@@ -105,12 +146,17 @@ export default function OrdenesScreen() {
     }, [isVerified, refetchAll]),
   );
 
-  const itemsTab =
+  const itemsTabBase =
     tabActivo === 'activas'
       ? activas
       : tabActivo === 'completadas'
         ? completadas
         : rechazadas;
+
+  const itemsTab = useMemo(() => {
+    if (tabActivo !== 'completadas' || !filtroCompletadasActivo) return itemsTabBase;
+    return filtrarServiciosCompletados(itemsTabBase, filtroCompletadas);
+  }, [tabActivo, filtroCompletadas, filtroCompletadasActivo, itemsTabBase]);
 
   const tieneDatos = itemsTab.length > 0;
 
@@ -341,7 +387,7 @@ export default function OrdenesScreen() {
     tabActivo === 'activas'
       ? { title: 'Próximos servicios', count: counts.activas }
       : tabActivo === 'completadas'
-        ? { title: 'Completadas', count: counts.completadas }
+        ? { title: 'Completadas', count: itemsTab.length }
         : { title: 'Rechazadas y canceladas', count: counts.rechazadas };
 
   if (!isVerified) {
@@ -369,7 +415,7 @@ export default function OrdenesScreen() {
         <View style={[styles.tabsOuter, hostScreenStyles.gutterX]}>
           <InstitutionalScreenTabs
             activeKey={tabActivo}
-            onChange={setTabActivo}
+            onChange={handleTabChange}
             tabs={[
               {
                 key: 'activas',
@@ -404,77 +450,104 @@ export default function OrdenesScreen() {
               <ActivityIndicator size="large" color={I.primary} />
               <Text style={styles.loadingText}>Cargando…</Text>
             </View>
-          ) : tieneDatos ? (
+          ) : (
             <>
-              {tabActivo === 'activas' && activasMarketplace.length > 0 && (
-                <View style={styles.bannerWrap}>
-                  {activasMarketplace.some(
-                    (i) =>
-                      i.estadoEfectivo === 'aceptada' || i.estadoEfectivo === 'pendiente_pago',
-                  ) && (
-                    <EstadoBanner
-                      type="warning"
-                      title="Esperando pago del cliente"
-                      message="La misma tarjeta pasará a «Pagada» cuando el cliente pague. No vayas al servicio antes."
-                      icon="info"
-                    />
+              {tieneDatos ? (
+                <>
+                  {tabActivo === 'activas' && activasMarketplace.length > 0 && (
+                    <View style={styles.bannerWrap}>
+                      {activasMarketplace.some(
+                        (i) =>
+                          i.estadoEfectivo === 'aceptada' || i.estadoEfectivo === 'pendiente_pago',
+                      ) && (
+                        <EstadoBanner
+                          type="warning"
+                          title="Esperando pago del cliente"
+                          message="La misma tarjeta pasará a «Pagada» cuando el cliente pague. No vayas al servicio antes."
+                          icon="info"
+                        />
+                      )}
+                      {activasMarketplace.some((i) => i.estadoEfectivo === 'pagada') && (
+                        <EstadoBanner
+                          type="success"
+                          title="Listo para realizar"
+                          message="Servicios pagados: revisa fecha, hora y checklist en el detalle."
+                          icon="check-circle"
+                        />
+                      )}
+                      {activasMarketplace.some(
+                        (i) => i.estadoEfectivo === 'pendiente_confirmacion',
+                      ) && (
+                        <EstadoBanner
+                          type="info"
+                          title="Confirma la asignación"
+                          message="Hay servicios de catálogo esperando tu confirmación en el detalle de la solicitud."
+                          icon="info"
+                        />
+                      )}
+                    </View>
                   )}
-                  {activasMarketplace.some((i) => i.estadoEfectivo === 'pagada') && (
-                    <EstadoBanner
-                      type="success"
-                      title="Listo para realizar"
-                      message="Servicios pagados: revisa fecha, hora y checklist en el detalle."
-                      icon="check-circle"
-                    />
-                  )}
-                  {activasMarketplace.some((i) => i.estadoEfectivo === 'pendiente_confirmacion') && (
-                    <EstadoBanner
-                      type="info"
-                      title="Confirma la asignación"
-                      message="Hay servicios de catálogo esperando tu confirmación en el detalle de la solicitud."
-                      icon="info"
-                    />
-                  )}
+
+                  <View style={styles.section}>
+                    <View style={styles.sectionHeaderRow}>
+                      <HostSectionKicker
+                        label={
+                          sectionMeta.count > 0
+                            ? `${sectionMeta.title} · ${sectionMeta.count}`
+                            : sectionMeta.title
+                        }
+                      />
+                      {filtroCompletadasActivo ? (
+                        <Pressable
+                          onPress={handleClearFiltroCompletadas}
+                          hitSlop={8}
+                          accessibilityRole="button"
+                          accessibilityLabel="Quitar filtro"
+                        >
+                          <Text style={styles.clearFilterText}>Quitar filtro</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                    {filtroCompletadasActivo ? (
+                      <Text style={styles.filtroInlineText}>
+                        Filtrado desde Finanzas · {etiquetaFiltroServiciosCompletados(filtroCompletadas)}
+                      </Text>
+                    ) : null}
+                    {itemsTab.map(renderOrdenUnificadaCard)}
+                  </View>
+                </>
+              ) : (
+                <View style={styles.centeredContainer}>
+                  <View style={styles.emptyIconWrap}>
+                    {tabActivo === 'activas' ? (
+                      <Inbox size={48} color={I.muted} />
+                    ) : tabActivo === 'completadas' ? (
+                      <CheckCircle size={48} color={I.muted} />
+                    ) : (
+                      <XCircle size={48} color={I.muted} />
+                    )}
+                  </View>
+                  <Text style={styles.emptyTitle}>
+                    {tabActivo === 'activas'
+                      ? 'Sin actividad'
+                      : tabActivo === 'completadas'
+                        ? filtroCompletadasActivo
+                          ? 'Sin coincidencias'
+                          : 'Sin completadas'
+                        : 'Sin rechazadas'}
+                  </Text>
+                  <Text style={styles.emptySubtitle}>
+                    {tabActivo === 'activas'
+                      ? 'No hay servicios programados. Las solicitudes Mecanimovil aparecerán aquí; también puedes agendar citas desde Calendario.'
+                      : tabActivo === 'completadas'
+                        ? filtroCompletadasActivo
+                          ? 'No hay servicios completados que coincidan con este filtro. Prueba quitar el filtro o revisa otro canal.'
+                          : 'Aquí verás servicios finalizados con éxito'
+                        : 'Aquí verás ofertas rechazadas, expiradas u órdenes canceladas'}
+                  </Text>
                 </View>
               )}
-
-              <View style={styles.section}>
-                <HostSectionKicker
-                  label={
-                    sectionMeta.count > 0
-                      ? `${sectionMeta.title} · ${sectionMeta.count}`
-                      : sectionMeta.title
-                  }
-                />
-                {itemsTab.map(renderOrdenUnificadaCard)}
-              </View>
             </>
-          ) : (
-            <View style={styles.centeredContainer}>
-              <View style={styles.emptyIconWrap}>
-                {tabActivo === 'activas' ? (
-                  <Inbox size={48} color={I.muted} />
-                ) : tabActivo === 'completadas' ? (
-                  <CheckCircle size={48} color={I.muted} />
-                ) : (
-                  <XCircle size={48} color={I.muted} />
-                )}
-              </View>
-              <Text style={styles.emptyTitle}>
-                {tabActivo === 'activas'
-                  ? 'Sin actividad'
-                  : tabActivo === 'completadas'
-                    ? 'Sin completadas'
-                    : 'Sin rechazadas'}
-              </Text>
-              <Text style={styles.emptySubtitle}>
-                {tabActivo === 'activas'
-                  ? 'No hay servicios programados. Las solicitudes Mecanimovil aparecerán aquí; también puedes agendar citas desde Calendario.'
-                  : tabActivo === 'completadas'
-                    ? 'Aquí verás servicios finalizados con éxito'
-                    : 'Aquí verás ofertas rechazadas, expiradas u órdenes canceladas'}
-              </Text>
-            </View>
           )}
         </ScrollView>
       </View>
@@ -512,6 +585,24 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: SPACING.fixed.lg,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  clearFilterText: {
+    fontSize: TS.caption.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
+    color: I.primary,
+  },
+  filtroInlineText: {
+    fontSize: TS.small.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),
+    color: I.muted,
+    marginBottom: SPACING.fixed.sm,
   },
 
   listCard: {

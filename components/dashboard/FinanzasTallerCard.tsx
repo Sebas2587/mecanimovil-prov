@@ -47,6 +47,8 @@ export type FinanzasTallerCardProps = {
   onPress: () => void;
   onRecargarCreditos: () => void;
   onPressPlan?: () => void;
+  /** Toca "App" o "Propias" en el desglose → Servicios Completadas filtradas por canal del mes. */
+  onPressCanal?: (canal: 'app' | 'propias') => void;
   style?: StyleProp<ViewStyle>;
   fill?: boolean;
   /** Sin borde/sombra propios — vive dentro de una card contenedora (Menú). */
@@ -74,6 +76,7 @@ export function FinanzasTallerCard({
   onPress,
   onRecargarCreditos,
   onPressPlan,
+  onPressCanal,
   style,
   fill = false,
   inset = false,
@@ -111,11 +114,10 @@ export function FinanzasTallerCard({
     ? 'Cargando resumen…'
     : `Día ${resumen.calendario.diaActual}/${resumen.calendario.diasEnMes} · ${resumen.delta.label}`;
 
-  const footerMetaLine = loadingGanancias
-    ? '—'
-    : resumen.tieneActividadSinIngreso
-      ? `App ${formatCompactMonto(resumen.mecanimovil)} (${resumen.nMkt}) · Propias ${formatCompactMonto(resumen.propias)} (${resumen.nPropias})`
-      : `App ${formatCompactMonto(resumen.mecanimovil)} · Propias ${formatCompactMonto(resumen.propias)}`;
+  const appSufijo =
+    resumen.tieneActividadSinIngreso && resumen.nMkt > 0 ? ` (${resumen.nMkt})` : '';
+  const propiasSufijo =
+    resumen.tieneActividadSinIngreso && resumen.nPropias > 0 ? ` (${resumen.nPropias})` : '';
 
   const body = (
     <View style={[styles.inner, inset && styles.innerInset, fill && styles.innerFill]}>
@@ -202,9 +204,45 @@ export function FinanzasTallerCard({
 
       <View style={styles.footerRow}>
         <View style={styles.footerMetaBlock}>
-          <Text style={styles.footerMeta} numberOfLines={2}>
-            {footerMetaLine}
-          </Text>
+          {loadingGanancias ? (
+            <Text style={styles.footerMeta} numberOfLines={2}>
+              —
+            </Text>
+          ) : (
+            <Text style={styles.footerMeta} numberOfLines={2}>
+              {onPressCanal ? (
+                <Text
+                  onPress={() => onPressCanal('app')}
+                  style={styles.footerMetaLink}
+                  suppressHighlighting
+                >
+                  App {formatCompactMonto(resumen.mecanimovil)}
+                  {appSufijo}
+                </Text>
+              ) : (
+                <Text>
+                  App {formatCompactMonto(resumen.mecanimovil)}
+                  {appSufijo}
+                </Text>
+              )}
+              {'  ·  '}
+              {onPressCanal ? (
+                <Text
+                  onPress={() => onPressCanal('propias')}
+                  style={styles.footerMetaLink}
+                  suppressHighlighting
+                >
+                  Propias {formatCompactMonto(resumen.propias)}
+                  {propiasSufijo}
+                </Text>
+              ) : (
+                <Text>
+                  Propias {formatCompactMonto(resumen.propias)}
+                  {propiasSufijo}
+                </Text>
+              )}
+            </Text>
+          )}
           {isLoadingCreditos && !saldoCreditos ? (
             <ActivityIndicator size="small" color={I.muted} />
           ) : (
@@ -395,6 +433,10 @@ const styles = StyleSheet.create({
     lineHeight: lh(TS.small.fontSize, TS.small.lineHeight),
     fontFamily: FF.sansRegular,
     color: I.body,
+  },
+  footerMetaLink: {
+    fontFamily: FF.sansSemiBold,
+    color: I.primary,
   },
   creditsText: {
     fontSize: TS.captionBold.fontSize,
