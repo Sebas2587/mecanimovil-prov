@@ -240,7 +240,7 @@ export default function ConfiguracionAgenteIaScreen() {
               <InstitutionalText role="caption" color="muted">
                 {config.agente_ia_disponible_en_plan === false
                   ? 'El Agente IA está disponible desde el Plan Profesional. Sube de plan para activar la auto-respuesta.'
-                  : 'Actívalo desde el botón Agente IA en cada chat. Aquí configuras canales, tono e información del taller.'}
+                  : 'Se activa chat por chat (como ManyChat): no basta con esta pantalla. En cada conversación usa el botón Agente IA. Aquí configuras canales, tono e información del taller.'}
               </InstitutionalText>
             </View>
           </View>

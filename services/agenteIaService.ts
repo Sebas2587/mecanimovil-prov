@@ -29,10 +29,13 @@ export interface AgenteSesionEstado {
   conversation_id?: number;
   estado?: string;
   datos_capturados?: Record<string, unknown>;
+  habilitado_en_chat?: boolean;
   pausado_por_taller?: boolean;
+  pausado_hasta?: string | null;
   cotizacion_borrador?: number | null;
   cotizacion_borrador_id?: number | null;
   ultima_interaccion_ia?: string | null;
+  agente_ia_disponible_en_plan?: boolean;
 }
 
 const agenteIaService = {
@@ -89,6 +92,17 @@ const agenteIaService = {
 
   async reanudarSesion(conversationId: number | string): Promise<void> {
     await api.post('/agente-ia/reanudar/', { conversation_id: conversationId });
+  },
+
+  async activarEnChat(
+    conversationId: number | string,
+    activo: boolean,
+  ): Promise<AgenteSesionEstado> {
+    const { data } = await api.post<AgenteSesionEstado>('/agente-ia/activar-chat/', {
+      conversation_id: conversationId,
+      activo,
+    });
+    return data;
   },
 
   async reindexarConocimiento(): Promise<{

@@ -388,6 +388,7 @@ export default function ChatOmnicanalScreen() {
         <AgenteIaChatToggleModal
           visible={agenteIaVisible}
           onClose={() => setAgenteIaVisible(false)}
+          conversationId={convId}
         />
 
         <View style={styles.chatArea}>
@@ -527,6 +528,7 @@ export default function ChatOmnicanalScreen() {
             footerAction={
               <OmnichannelChatActionBar
                 cotizacionAceptada={Boolean(cotizacionAceptadaId)}
+                conversationId={convId}
                 onPress={() => setAgendarVisible(true)}
                 onPressAgenteIa={() => setAgenteIaVisible(true)}
               />

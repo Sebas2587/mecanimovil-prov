@@ -39,7 +39,7 @@ import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
 import { AgenteIaChatBanner } from '@/components/chats/AgenteIaChatBanner';
 import { AgenteIaChatToggleModal } from '@/components/chats/AgenteIaChatToggleModal';
 import { InstitutionalButton } from '@/app/design-system/components';
-import { useAgenteIaConfigQuery } from '@/hooks/useAgenteIaQueries';
+import { useAgenteSesionQuery } from '@/hooks/useAgenteIaQueries';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
@@ -125,8 +125,9 @@ export default function ChatOfertaScreen() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [agenteIaVisible, setAgenteIaVisible] = useState(false);
-  const { data: agenteConfig } = useAgenteIaConfigQuery(true);
-  const agenteActivo = Boolean(agenteConfig?.habilitado);
+  const { data: agenteSesion } = useAgenteSesionQuery(conversationId, Boolean(conversationId));
+  const agenteActivo =
+    Boolean(agenteSesion?.habilitado_en_chat) && !Boolean(agenteSesion?.pausado_por_taller);
 
   const flatListRef = useRef<FlatList>(null);
   const mensajesEnviadosRef = useRef<Set<string>>(new Set());
@@ -563,6 +564,7 @@ export default function ChatOfertaScreen() {
       <AgenteIaChatToggleModal
         visible={agenteIaVisible}
         onClose={() => setAgenteIaVisible(false)}
+        conversationId={conversationId}
       />
 
       <View style={styles.chatArea}>

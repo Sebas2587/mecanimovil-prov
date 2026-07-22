@@ -6,7 +6,7 @@ import { HostAvatar, InstitutionalButton, HOST_GUTTER } from '@/app/design-syste
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { ChannelSlug } from '@/utils/channelVisuals';
-import { useAgenteIaConfigQuery } from '@/hooks/useAgenteIaQueries';
+import { useAgenteSesionQuery } from '@/hooks/useAgenteIaQueries';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -57,16 +57,21 @@ function OmnichannelChatHeaderComponent({
 type ActionBarProps = {
   onPress: () => void;
   onPressAgenteIa?: () => void;
+  conversationId?: string | number | null;
   cotizacionAceptada?: boolean;
 };
 
 function OmnichannelChatActionBarComponent({
   onPress,
   onPressAgenteIa,
+  conversationId,
   cotizacionAceptada,
 }: ActionBarProps) {
-  const { data: agenteConfig } = useAgenteIaConfigQuery(Boolean(onPressAgenteIa));
-  const agenteActivo = Boolean(agenteConfig?.habilitado);
+  const { data: sesion } = useAgenteSesionQuery(
+    conversationId,
+    Boolean(onPressAgenteIa && conversationId),
+  );
+  const agenteActivo = Boolean(sesion?.habilitado_en_chat) && !Boolean(sesion?.pausado_por_taller);
 
   return (
     <View style={styles.footerActions}>

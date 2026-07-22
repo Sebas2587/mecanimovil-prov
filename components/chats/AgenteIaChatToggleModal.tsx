@@ -13,8 +13,10 @@ import {
 } from '@/app/design-system/components';
 import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
 import {
-  useActualizarAgenteConfigMutation,
+  sesionAgenteActiva,
+  useActivarAgenteEnChatMutation,
   useAgenteIaConfigQuery,
+  useAgenteSesionQuery,
 } from '@/hooks/useAgenteIaQueries';
 
 const I = COLORS.institutional;
@@ -22,19 +24,35 @@ const I = COLORS.institutional;
 export interface AgenteIaChatToggleModalProps {
   visible: boolean;
   onClose: () => void;
+  /** Obligatorio: el agente se activa/desactiva SOLO en este chat. */
+  conversationId: string | number | null | undefined;
 }
 
-export function AgenteIaChatToggleModal({ visible, onClose }: AgenteIaChatToggleModalProps) {
-  const { data: config, isLoading } = useAgenteIaConfigQuery(visible);
-  const updateConfig = useActualizarAgenteConfigMutation();
+export function AgenteIaChatToggleModal({
+  visible,
+  onClose,
+  conversationId,
+}: AgenteIaChatToggleModalProps) {
+  const { data: config, isLoading: loadingConfig } = useAgenteIaConfigQuery(visible);
+  const { data: sesion, isLoading: loadingSesion } = useAgenteSesionQuery(conversationId, visible);
+  const activarChat = useActivarAgenteEnChatMutation();
 
-  const habilitado = Boolean(config?.habilitado);
-  const disponibleEnPlan = config?.agente_ia_disponible_en_plan !== false;
+  const disponibleEnPlan =
+    sesion?.agente_ia_disponible_en_plan !== false
+    && config?.agente_ia_disponible_en_plan !== false;
+  const pausado = Boolean(sesion?.pausado_por_taller && sesion?.habilitado_en_chat);
+  const switchOn = Boolean(sesion?.habilitado_en_chat) && !Boolean(sesion?.pausado_por_taller);
+  const habilitado = sesionAgenteActiva(sesion) || switchOn;
+  const isLoading = loadingConfig || loadingSesion;
 
   const handleToggle = useCallback(
     (value: boolean) => {
-      updateConfig.mutate(
-        { habilitado: value },
+      if (!conversationId) {
+        Alert.alert('Error', 'No se pudo identificar este chat.');
+        return;
+      }
+      activarChat.mutate(
+        { conversationId, activo: value },
         {
           onError: () => {
             Alert.alert(
@@ -45,7 +63,7 @@ export function AgenteIaChatToggleModal({ visible, onClose }: AgenteIaChatToggle
         },
       );
     },
-    [updateConfig],
+    [activarChat, conversationId],
   );
 
   const irAConfig = () => {
@@ -64,7 +82,7 @@ export function AgenteIaChatToggleModal({ visible, onClose }: AgenteIaChatToggle
         </TouchableOpacity>
       </View>
 
-      {isLoading || !config ? (
+      {isLoading ? (
         <ActivityIndicator color={I.primary} style={styles.loader} />
       ) : (
         <View style={styles.toggleRow}>
@@ -78,24 +96,38 @@ export function AgenteIaChatToggleModal({ visible, onClose }: AgenteIaChatToggle
           <View style={styles.toggleCopy}>
             <View style={styles.titleRow}>
               <InstitutionalText role="body" style={styles.toggleTitle} numberOfLines={2}>
-                Responder automáticamente
+                Responder en este chat
               </InstitutionalText>
               <InstitutionalTag
-                label={!disponibleEnPlan ? 'No incluido' : habilitado ? 'Activo' : 'Apagado'}
-                variant={!disponibleEnPlan ? 'neutral' : habilitado ? 'primary' : 'neutral'}
+                label={
+                  !disponibleEnPlan
+                    ? 'No incluido'
+                    : pausado
+                      ? 'Pausado'
+                      : habilitado
+                        ? 'Activo'
+                        : 'Apagado'
+                }
+                variant={
+                  !disponibleEnPlan
+                    ? 'neutral'
+                    : habilitado && !pausado
+                      ? 'primary'
+                      : 'neutral'
+                }
                 size="sm"
               />
             </View>
             <InstitutionalText role="caption" color="muted" style={styles.toggleHint}>
               {disponibleEnPlan
-                ? 'Captura datos del cliente, consulta tu catálogo e historial, y prepara cotizaciones para que las revises.'
+                ? 'Solo afecta este chat. Si el taller responde a mano, la IA se pausa y se reanuda sola después de un rato, o puedes reactivarla aquí.'
                 : 'Disponible desde el Plan Profesional. Sube de plan para activar la auto-respuesta.'}
             </InstitutionalText>
           </View>
           <Switch
-            value={habilitado}
+            value={switchOn}
             onValueChange={handleToggle}
-            disabled={updateConfig.isPending || !disponibleEnPlan}
+            disabled={activarChat.isPending || !disponibleEnPlan || !conversationId}
             {...institutionalSwitchProps}
             style={styles.switch}
           />

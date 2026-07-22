@@ -56,6 +56,22 @@ export function useReindexarAgenteConocimientoMutation() {
   });
 }
 
+export function useActivarAgenteEnChatMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      conversationId,
+      activo,
+    }: {
+      conversationId: string | number;
+      activo: boolean;
+    }) => agenteIaService.activarEnChat(conversationId, activo),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: agenteSesionQueryKey(vars.conversationId) });
+    },
+  });
+}
+
 export function usePausarAgenteSesionMutation() {
   const qc = useQueryClient();
   return useMutation({
@@ -78,9 +94,15 @@ export function useReanudarAgenteSesionMutation() {
 
 export function sesionAgenteActiva(sesion: AgenteSesionEstado | null | undefined): boolean {
   if (!sesion) return false;
+  if (sesion.habilitado_en_chat === false) return false;
   if (sesion.activa === false) return false;
   if (sesion.pausado_por_taller) return false;
-  return Boolean(sesion.activa || sesion.estado === 'capturando' || sesion.estado === 'listo_para_cotizar');
+  return Boolean(
+    sesion.habilitado_en_chat
+      || sesion.activa
+      || sesion.estado === 'capturando'
+      || sesion.estado === 'listo_para_cotizar',
+  );
 }
 
 export const AGENTE_IA_BORRADORES_KEY = ['agente-ia-borradores-pendientes'] as const;
