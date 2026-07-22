@@ -84,6 +84,8 @@ const I_TAB = COLORS.institutional;
 const PAPER = COLORS.background.paper;
 const CANVAS = COLORS.background.default;
 const HX = HOST_GUTTER;
+const FF = TYPOGRAPHY.fontFamily;
+const lh = (fontSize: number, mult: number) => Math.round(fontSize * mult);
 
 // ─────────────────────────────────────────────────────────────
 // Tipos
@@ -490,6 +492,7 @@ export default function CreditosScreen() {
   const borderMain = I_TAB.hairline;
 
   const warningStatus = institutionalStatusColors('warning');
+  const infoStatus = institutionalStatusColors('info');
 
   const scrollBottomPad = useMemo(() => Math.max(32, insets.bottom + 24), [insets.bottom]);
 
@@ -1284,13 +1287,13 @@ export default function CreditosScreen() {
             style={[
               styles.bannerAlerta,
               {
-                backgroundColor: COLORS.selection.background,
-                borderColor: COLORS.selection.border,
+                backgroundColor: infoStatus.bg,
+                borderColor: infoStatus.border,
                 marginBottom: 12,
               },
             ]}
           >
-            <InstitutionalIcon name="info-outline" size={20} color={primaryColor}  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="info-outline" size={20} color={infoStatus.icon} strokeWidth={ICON_STROKE_WIDTH} />
             <View style={{ flex: 1, marginLeft: 10 }}>
               <Text style={[styles.bannerTitulo, { color: textPrimary }]}>Mínimo sugerido</Text>
               <Text style={[styles.bannerSubtitulo, { color: textSecondary }]}>
@@ -1331,22 +1334,24 @@ export default function CreditosScreen() {
 
             <View style={styles.counterContainer}>
               <TouchableOpacity
-                style={[styles.counterButton, { backgroundColor: backgroundDefault, borderColor: borderMain }]}
+                style={[styles.counterButton, { backgroundColor: I_TAB.surfaceSoft, borderColor: borderMain }]}
                 onPress={() => setCantidadComprar(prev => Math.max(1, prev - 1))}
+                activeOpacity={0.85}
               >
-                <InstitutionalIcon name="remove" size={24} color={textPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="remove" size={22} color={textPrimary} strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
 
               <View style={styles.counterValueContainer}>
-                <Text style={[styles.counterValue, { color: primaryColor }]}>{cantidadComprar}</Text>
+                <Text style={[styles.counterValue, { color: textPrimary }]}>{cantidadComprar}</Text>
                 <Text style={[styles.counterLabel, { color: textSecondary }]}>créditos</Text>
               </View>
 
               <TouchableOpacity
-                style={[styles.counterButton, { backgroundColor: backgroundDefault, borderColor: borderMain }]}
+                style={[styles.counterButton, { backgroundColor: primaryColor, borderColor: primaryColor }]}
                 onPress={() => setCantidadComprar(prev => prev + 1)}
+                activeOpacity={0.85}
               >
-                <InstitutionalIcon name="add" size={24} color={textPrimary}  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="add" size={22} color={I_TAB.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
             </View>
 
@@ -1382,9 +1387,9 @@ export default function CreditosScreen() {
 
             <View style={[styles.separador, { backgroundColor: borderMain }]} />
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md }}>
-              <Text style={{ fontSize: TYPOGRAPHY.fontSize.lg, color: textSecondary, fontWeight: '600' }}>Total a pagar:</Text>
-              <Text style={{ fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: 'bold', color: textPrimary }}>{precioFormateado}</Text>
+            <View style={styles.tiendaTotalRow}>
+              <Text style={[styles.tiendaTotalLabel, { color: textSecondary }]}>Total a pagar</Text>
+              <Text style={[styles.tiendaTotalValue, { color: textPrimary }]}>{precioFormateado}</Text>
             </View>
 
             <InstitutionalButton
@@ -1611,8 +1616,8 @@ const styles = StyleSheet.create({
   bannerAlerta: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderRadius: 14,
+    borderWidth: BORDERS.width.thin,
+    borderRadius: BORDERS.radius.lg,
     paddingHorizontal: SPACING.md,
     paddingVertical: 12,
     marginBottom: SPACING.md,
@@ -1620,14 +1625,19 @@ const styles = StyleSheet.create({
   bannerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderRadius: 14,
+    borderWidth: BORDERS.width.thin,
+    borderRadius: BORDERS.radius.lg,
     paddingHorizontal: SPACING.md,
     paddingVertical: 12,
     marginBottom: SPACING.md,
   },
-  bannerTitulo: { fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: '700' },
-  bannerSubtitulo: { fontSize: TYPOGRAPHY.fontSize.xs, marginTop: 2 },
+  bannerTitulo: { fontSize: TYPOGRAPHY.fontSize.sm, fontFamily: FF.sansSemiBold },
+  bannerSubtitulo: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansRegular,
+    marginTop: 2,
+    lineHeight: lh(TYPOGRAPHY.fontSize.xs, 1.4),
+  },
   suscripcionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2069,8 +2079,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 5, borderBottomRightRadius: 12,
   },
   badgeSmallText: { color: COLORS.institutional.onPrimary, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  planNombre: { fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: '800', marginTop: SPACING.md },
-  planDescripcion: { fontSize: TYPOGRAPHY.fontSize.sm, marginTop: 4, lineHeight: 20 },
+  planNombre: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontFamily: FF.sansSemiBold,
+    marginTop: SPACING.md,
+  },
+  planDescripcion: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    marginTop: 4,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, 1.5),
+  },
   precioContainer: { flexDirection: 'row', alignItems: 'flex-end', marginTop: SPACING.md, gap: 2 },
   precioCurrency: { fontSize: 22, fontWeight: '700', paddingBottom: 4 },
   precioValor: { fontSize: 40, fontWeight: '900', lineHeight: 44 },
@@ -2078,6 +2097,21 @@ const styles = StyleSheet.create({
   creditosRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, marginBottom: SPACING.md },
   creditosTexto: { fontSize: TYPOGRAPHY.fontSize.md },
   separador: { height: 1, marginVertical: SPACING.sm },
+  tiendaTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: SPACING.md,
+  },
+  tiendaTotalLabel: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: FF.sansSemiBold,
+  },
+  tiendaTotalValue: {
+    fontSize: TYPOGRAPHY.fontSize['3xl'],
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize['3xl'], 1.15),
+  },
   botonSuscribirse: {
     marginTop: SPACING.sm,
     borderRadius: 10,
@@ -2246,26 +2280,28 @@ const styles = StyleSheet.create({
     gap: SPACING.lg,
   },
   counterButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: BORDERS.width.thin,
     alignItems: 'center',
     justifyContent: 'center',
   },
   counterValueContainer: {
     alignItems: 'center',
-    minWidth: 80,
+    minWidth: 96,
   },
   counterValue: {
-    fontSize: 48,
-    fontWeight: '900',
-    lineHeight: 52,
+    fontSize: TYPOGRAPHY.fontSize['4xl'],
+    fontFamily: FF.monoMedium,
+    lineHeight: lh(TYPOGRAPHY.fontSize['4xl'], 1.15),
   },
   counterLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
+    marginTop: 2,
   },
   quickSelectContainer: {
     flexDirection: 'row',
@@ -2276,7 +2312,7 @@ const styles = StyleSheet.create({
   quickSelectButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: BORDERS.radius.sm,
+    borderRadius: BORDERS.radius.pill,
     borderWidth: BORDERS.width.thin,
   },
   quickSelectText: {
