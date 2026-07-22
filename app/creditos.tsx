@@ -329,8 +329,13 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
     const ovDiag = plan.overage_diagnosticos_por_credito ?? 4;
     const ovPat = plan.overage_patentes_por_credito ?? 3;
 
+    const agenteIaValor = plan.agente_ia_incluido
+      ? `${(plan.conversaciones_agente_ia_max ?? 0).toLocaleString('es-CL')} / mes`
+      : 'No incluido';
+
     const features: { label: string; value: string }[] = [
       { label: 'Créditos marketplace', value: `${plan.creditos_mensuales} / mes` },
+      { label: 'Agente IA (chat + cotización)', value: agenteIaValor },
       { label: 'Cotizaciones IA', value: `${cotIa} / mes` },
       { label: 'Diagnósticos IA', value: `${diagIa} / mes` },
       { label: 'Consultas patente', value: `${patentes} / mes` },

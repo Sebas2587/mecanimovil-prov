@@ -27,6 +27,8 @@ export interface PlanSuscripcion {
     overage_diagnosticos_por_credito: number;
     overage_patentes_por_credito: number;
     acceso_endpoints_patente_pro: boolean;
+    agente_ia_incluido: boolean;
+    conversaciones_agente_ia_max: number;
     destacado: boolean;
     orden: number;
     fecha_creacion: string;
