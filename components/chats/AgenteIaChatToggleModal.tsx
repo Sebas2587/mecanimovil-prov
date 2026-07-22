@@ -16,6 +16,7 @@ import {
   useActivarAgenteEnChatMutation,
   useAgenteIaConfigQuery,
   useAgenteSesionQuery,
+  useReanudarAgenteSesionMutation,
 } from '@/hooks/useAgenteIaQueries';
 import { showAlert } from '@/utils/platformAlert';
 
@@ -36,14 +37,18 @@ export function AgenteIaChatToggleModal({
   const { data: config, isLoading: loadingConfig } = useAgenteIaConfigQuery(visible);
   const { data: sesion, isLoading: loadingSesion } = useAgenteSesionQuery(conversationId, visible);
   const activarChat = useActivarAgenteEnChatMutation();
+  const reanudarChat = useReanudarAgenteSesionMutation();
 
   const disponibleEnPlan =
     sesion?.agente_ia_disponible_en_plan !== false
     && config?.agente_ia_disponible_en_plan !== false;
-  const pausado = Boolean(sesion?.pausado_por_taller && sesion?.habilitado_en_chat);
-  const switchOn = Boolean(sesion?.habilitado_en_chat) && !Boolean(sesion?.pausado_por_taller);
-  const isLoading = loadingConfig || loadingSesion;
+  // El switch refleja SOLO el opt-in del chat. La pausa manual es un estado aparte
+  // (si mezclamos pausa = apagado, el toggle “se apaga solo” al pausar).
+  const switchOn = Boolean(sesion?.habilitado_en_chat);
+  const pausado = switchOn && Boolean(sesion?.pausado_por_taller);
+  const isLoading = (loadingConfig || loadingSesion) && !sesion && !config;
   const chatIdOk = conversationId != null && /^\d+$/.test(String(conversationId).trim());
+  const busy = activarChat.isPending || reanudarChat.isPending;
 
   const handleToggle = useCallback(
     (value: boolean) => {
@@ -51,6 +56,8 @@ export function AgenteIaChatToggleModal({
         showAlert('Error', 'No se pudo identificar este chat. Cierra y vuelve a abrirlo.');
         return;
       }
+      // Evita doble disparo del Switch en web (on/off inmediato).
+      if (value === switchOn || busy) return;
       activarChat.mutate(
         { conversationId: String(conversationId).trim(), activo: value },
         {
@@ -65,7 +72,7 @@ export function AgenteIaChatToggleModal({
         },
       );
     },
-    [activarChat, chatIdOk, conversationId],
+    [activarChat, busy, chatIdOk, conversationId, switchOn],
   );
 
   const irAConfig = () => {
@@ -133,12 +140,27 @@ export function AgenteIaChatToggleModal({
           <Switch
             value={switchOn}
             onValueChange={handleToggle}
-            disabled={activarChat.isPending || !disponibleEnPlan || !chatIdOk}
+            disabled={busy || !disponibleEnPlan || !chatIdOk}
             {...institutionalSwitchProps}
             style={styles.switch}
           />
         </View>
       )}
+
+      {pausado && chatIdOk ? (
+        <InstitutionalButton
+          label="Reanudar respuesta automática"
+          variant="outline"
+          size="compact"
+          onPress={() => {
+            reanudarChat.mutate(String(conversationId).trim(), {
+              onError: () => showAlert('Error', 'No se pudo reanudar el Agente IA.'),
+            });
+          }}
+          disabled={busy}
+          style={styles.cta}
+        />
+      ) : null}
 
       <InstitutionalButton
         label={disponibleEnPlan ? 'Configurar Agente IA' : 'Ver planes con Agente IA'}

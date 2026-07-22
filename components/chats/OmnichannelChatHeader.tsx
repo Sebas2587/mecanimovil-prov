@@ -71,19 +71,21 @@ function OmnichannelChatActionBarComponent({
     conversationId,
     Boolean(onPressAgenteIa && conversationId),
   );
-  const agenteActivo = Boolean(sesion?.habilitado_en_chat) && !Boolean(sesion?.pausado_por_taller);
+  const habilitado = Boolean(sesion?.habilitado_en_chat);
+  const pausado = habilitado && Boolean(sesion?.pausado_por_taller);
+  const agenteLabel = !habilitado ? 'Agente IA' : pausado ? 'IA pausada' : 'IA activa';
 
   return (
     <View style={styles.footerActions}>
       {onPressAgenteIa ? (
         <InstitutionalButton
-          label={agenteActivo ? 'IA activa' : 'Agente IA'}
+          label={agenteLabel}
           variant="outline"
           size="compact"
           leading={
             <Bot
               size={16}
-              color={agenteActivo ? I.primary : I.ink}
+              color={habilitado ? I.primary : I.ink}
               strokeWidth={ICON_STROKE_WIDTH}
             />
           }

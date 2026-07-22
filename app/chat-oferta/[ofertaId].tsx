@@ -126,8 +126,13 @@ export default function ChatOfertaScreen() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [agenteIaVisible, setAgenteIaVisible] = useState(false);
   const { data: agenteSesion } = useAgenteSesionQuery(conversationId, Boolean(conversationId));
-  const agenteActivo =
-    Boolean(agenteSesion?.habilitado_en_chat) && !Boolean(agenteSesion?.pausado_por_taller);
+  const agenteHabilitado = Boolean(agenteSesion?.habilitado_en_chat);
+  const agentePausado = agenteHabilitado && Boolean(agenteSesion?.pausado_por_taller);
+  const agenteActivoLabel = !agenteHabilitado
+    ? 'Agente IA'
+    : agentePausado
+      ? 'IA pausada'
+      : 'IA activa';
 
   const flatListRef = useRef<FlatList>(null);
   const mensajesEnviadosRef = useRef<Set<string>>(new Set());
@@ -606,13 +611,13 @@ export default function ChatOfertaScreen() {
             onRemove={(index) => setAttachments((prev) => prev.filter((_, i) => i !== index))}
           />
           <InstitutionalButton
-            label={agenteActivo ? 'IA activa' : 'Agente IA'}
+            label={agenteActivoLabel}
             variant="outline"
             size="compact"
             leading={
               <Bot
                 size={16}
-                color={agenteActivo ? I.primary : I.ink}
+                color={agenteHabilitado ? I.primary : I.ink}
                 strokeWidth={ICON_STROKE_WIDTH}
               />
             }

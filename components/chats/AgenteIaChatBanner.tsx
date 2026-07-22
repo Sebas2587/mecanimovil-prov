@@ -35,7 +35,13 @@ export function AgenteIaChatBanner({ conversationId }: Props) {
   const activa = sesionAgenteActiva(sesion);
   const esperandoRevision = sesion.estado === 'esperando_revision_taller';
 
-  if (!activa && !esperandoRevision && sesion.pausado_por_taller) {
+  // Solo si sigue habilitado en el chat (opt-in). Apagado ≠ pausado.
+  if (
+    !activa
+    && !esperandoRevision
+    && sesion.pausado_por_taller
+    && sesion.habilitado_en_chat
+  ) {
     return (
       <HostPaperSection style={styles.banner}>
         <View style={styles.row}>
