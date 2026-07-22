@@ -220,14 +220,27 @@ export default function ConfiguracionAgenteIaScreen() {
                   Respuestas automáticas
                 </InstitutionalText>
                 <InstitutionalTag
-                  label={config.habilitado ? 'Activo' : 'Apagado'}
-                  variant={config.habilitado ? 'primary' : 'neutral'}
+                  label={
+                    config.agente_ia_disponible_en_plan === false
+                      ? 'No incluido en tu plan'
+                      : config.habilitado
+                        ? 'Activo'
+                        : 'Apagado'
+                  }
+                  variant={
+                    config.agente_ia_disponible_en_plan === false
+                      ? 'neutral'
+                      : config.habilitado
+                        ? 'primary'
+                        : 'neutral'
+                  }
                   size="sm"
                 />
               </View>
               <InstitutionalText role="caption" color="muted">
-                Actívalo desde el botón Agente IA en cada chat. Aquí configuras canales,
-                tono e información del taller.
+                {config.agente_ia_disponible_en_plan === false
+                  ? 'El Agente IA está disponible desde el Plan Profesional. Sube de plan para activar la auto-respuesta.'
+                  : 'Actívalo desde el botón Agente IA en cada chat. Aquí configuras canales, tono e información del taller.'}
               </InstitutionalText>
             </View>
           </View>

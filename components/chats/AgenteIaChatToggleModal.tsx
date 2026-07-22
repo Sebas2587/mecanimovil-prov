@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, Switch, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Alert, View, StyleSheet, Switch, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
-import { Bot, Settings2, X } from 'lucide-react-native';
+import { Bot, Lock, Settings2, X } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
@@ -29,10 +29,21 @@ export function AgenteIaChatToggleModal({ visible, onClose }: AgenteIaChatToggle
   const updateConfig = useActualizarAgenteConfigMutation();
 
   const habilitado = Boolean(config?.habilitado);
+  const disponibleEnPlan = config?.agente_ia_disponible_en_plan !== false;
 
   const handleToggle = useCallback(
     (value: boolean) => {
-      updateConfig.mutate({ habilitado: value });
+      updateConfig.mutate(
+        { habilitado: value },
+        {
+          onError: () => {
+            Alert.alert(
+              'Agente IA no disponible',
+              'El Agente IA no está incluido en tu plan actual. Sube al Plan Profesional o Premium para activarlo.',
+            );
+          },
+        },
+      );
     },
     [updateConfig],
   );
@@ -58,7 +69,11 @@ export function AgenteIaChatToggleModal({ visible, onClose }: AgenteIaChatToggle
       ) : (
         <View style={styles.toggleRow}>
           <View style={styles.iconPlate}>
-            <Bot size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            {disponibleEnPlan ? (
+              <Bot size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            ) : (
+              <Lock size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+            )}
           </View>
           <View style={styles.toggleCopy}>
             <View style={styles.titleRow}>
@@ -66,20 +81,21 @@ export function AgenteIaChatToggleModal({ visible, onClose }: AgenteIaChatToggle
                 Responder automáticamente
               </InstitutionalText>
               <InstitutionalTag
-                label={habilitado ? 'Activo' : 'Apagado'}
-                variant={habilitado ? 'primary' : 'neutral'}
+                label={!disponibleEnPlan ? 'No incluido' : habilitado ? 'Activo' : 'Apagado'}
+                variant={!disponibleEnPlan ? 'neutral' : habilitado ? 'primary' : 'neutral'}
                 size="sm"
               />
             </View>
             <InstitutionalText role="caption" color="muted" style={styles.toggleHint}>
-              Captura datos del cliente, consulta tu catálogo e historial, y prepara cotizaciones
-              para que las revises.
+              {disponibleEnPlan
+                ? 'Captura datos del cliente, consulta tu catálogo e historial, y prepara cotizaciones para que las revises.'
+                : 'Disponible desde el Plan Profesional. Sube de plan para activar la auto-respuesta.'}
             </InstitutionalText>
           </View>
           <Switch
             value={habilitado}
             onValueChange={handleToggle}
-            disabled={updateConfig.isPending}
+            disabled={updateConfig.isPending || !disponibleEnPlan}
             {...institutionalSwitchProps}
             style={styles.switch}
           />
@@ -87,7 +103,7 @@ export function AgenteIaChatToggleModal({ visible, onClose }: AgenteIaChatToggle
       )}
 
       <InstitutionalButton
-        label="Configurar Agente IA"
+        label={disponibleEnPlan ? 'Configurar Agente IA' : 'Ver planes con Agente IA'}
         variant="primary"
         size="compact"
         leading={<Settings2 size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}

@@ -8,6 +8,8 @@ export interface AgenteIaConfig {
   canales_habilitados: CanalAgente[];
   mensaje_bienvenida: string;
   actualizado_en?: string;
+  /** false si el plan actual del taller no incluye el Agente IA (ej. Plan Básico). */
+  agente_ia_disponible_en_plan?: boolean;
 }
 
 export interface ConocimientoDocumento {
