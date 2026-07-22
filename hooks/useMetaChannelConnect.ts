@@ -1,8 +1,12 @@
 import { useCallback, useRef } from 'react';
 import { Alert, Linking } from 'react-native';
 import omnichannelService, { type CanalSlug } from '@/services/omnichannelService';
+import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
+
+export type MetaConnectResult = 'ok' | 'fail' | 'cuota';
 
 function extractApiError(error: unknown, fallback: string): string {
+  if (esErrorCuota(error)) return mensajeCuotaError(error, fallback);
   if (error && typeof error === 'object' && 'response' in error) {
     const data = (error as { response?: { data?: { error?: string; message?: string } } }).response?.data;
     return data?.error || data?.message || fallback;
@@ -14,7 +18,7 @@ function extractApiError(error: unknown, fallback: string): string {
 export function useMetaChannelConnect(_onComplete: () => void) {
   const connectingRef = useRef<CanalSlug | null>(null);
 
-  const connect = useCallback(async (slug: CanalSlug) => {
+  const connect = useCallback(async (slug: CanalSlug): Promise<MetaConnectResult> => {
     try {
       connectingRef.current = slug;
       const result = await omnichannelService.iniciarConexion(slug);
@@ -32,10 +36,13 @@ export function useMetaChannelConnect(_onComplete: () => void) {
           ? 'Completa el proceso en Meta con tu cuenta WhatsApp Business y vuelve a la app.'
           : 'Completa el proceso en Meta y vuelve a la app. El estado se actualizará automáticamente.',
       );
-      return true;
+      return 'ok';
     } catch (error: unknown) {
+      if (esErrorCuota(error)) {
+        return 'cuota';
+      }
       Alert.alert('Error', extractApiError(error, 'No se pudo iniciar la conexión.'));
-      return false;
+      return 'fail';
     } finally {
       connectingRef.current = null;
     }

@@ -35,6 +35,8 @@ import omnichannelService, {
   type ConexionCanal,
 } from '@/services/omnichannelService';
 import { useMetaChannelConnect } from '@/hooks/useMetaChannelConnect';
+import suscripcionesService, { type UsoFeaturesMes } from '@/services/suscripcionesService';
+import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
 
 const I = COLORS.institutional;
 
@@ -105,6 +107,11 @@ export default function ConfiguracionCanalesScreen() {
   const [featureEnabled, setFeatureEnabled] = useState(true);
   const [connections, setConnections] = useState<ConexionCanal[]>([]);
   const [conectando, setConectando] = useState<CanalSlug | null>(null);
+  const [usoFeatures, setUsoFeatures] = useState<UsoFeaturesMes | null>(null);
+  const [upsellCuota, setUpsellCuota] = useState<{ visible: boolean; mensaje: string }>({
+    visible: false,
+    mensaje: '',
+  });
   const oauthInProgress = useRef(false);
 
   const cargar = useCallback(async (isRefresh = false) => {
@@ -113,6 +120,8 @@ export default function ConfiguracionCanalesScreen() {
       const data = await omnichannelService.obtenerEstadoCanales();
       setFeatureEnabled(data.enabled);
       setConnections(data.connections || []);
+      const uso = await suscripcionesService.obtenerUsoFeatures();
+      if (uso.success && uso.data) setUsoFeatures(uso.data);
     } catch (e) {
       console.error('[configuracion-canales]', e);
       Alert.alert('Error', 'No se pudo cargar el estado de los canales.');
@@ -168,14 +177,26 @@ export default function ConfiguracionCanalesScreen() {
     try {
       setConectando(slug);
       oauthInProgress.current = true;
-      const ok = await conectarCanalMeta(slug);
-      if (!ok) {
+      const result = await conectarCanalMeta(slug);
+      if (result === 'cuota') {
+        oauthInProgress.current = false;
+        setUpsellCuota({
+          visible: true,
+          mensaje:
+            'Tu plan no permite conectar más canales de mensajería. Sube de plan en Suscripción & Créditos.',
+        });
+      } else if (result !== 'ok') {
         oauthInProgress.current = false;
       }
     } finally {
       setConectando(null);
     }
   };
+
+  const canalesConectados =
+    usoFeatures?.canales_conectados ??
+    connections.filter((c) => c.status === 'conectada').length;
+  const maxCanales = usoFeatures?.canales_mensajeria_max ?? null;
 
   const handleToggle = async (conn: ConexionCanal, value: boolean) => {
     try {
@@ -207,7 +228,9 @@ export default function ConfiguracionCanalesScreen() {
     const conn = findConnection(connections, cfg.slug);
     const conectada = conn?.status === 'conectada';
     const isConnecting = conectando === cfg.slug;
-    const puedeConectar = !conectada && featureEnabled;
+    const limiteCanales =
+      maxCanales != null && maxCanales > 0 && !conectada && canalesConectados >= maxCanales;
+    const puedeConectar = !conectada && featureEnabled && !limiteCanales;
 
     return (
       <View key={cfg.slug}>
@@ -236,7 +259,12 @@ export default function ConfiguracionCanalesScreen() {
             <InstitutionalText role="caption" color="body" style={styles.msgEstado}>
               {mensajeEstadoParaUsuario(conn.mensaje_estado)}
             </InstitutionalText>
-          ) : null}
+            ) : null}
+            {limiteCanales ? (
+              <InstitutionalText role="caption" color="body" style={styles.msgEstado}>
+                Límite de canales de tu plan alcanzado. Sube de plan para conectar más.
+              </InstitutionalText>
+            ) : null}
           <View style={styles.actions}>
             {puedeConectar ? (
               <TouchableOpacity
@@ -301,10 +329,20 @@ export default function ConfiguracionCanalesScreen() {
             Conecta WhatsApp, Facebook e Instagram de tu taller. Los mensajes llegarán al tab Chats con
             identificador de canal. Tu WhatsApp personal no se ve afectado.
           </InstitutionalText>
+          {maxCanales != null && maxCanales > 0 ? (
+            <InstitutionalText role="caption" color="muted" style={styles.intro}>
+              Tu plan incluye {maxCanales} canal(es): {canalesConectados} conectado(s).
+            </InstitutionalText>
+          ) : null}
 
           {CANALES.map(renderCanal)}
         </ScrollView>
       )}
+      <UpsellCuotaModal
+        visible={upsellCuota.visible}
+        mensaje={upsellCuota.mensaje}
+        onClose={() => setUpsellCuota({ visible: false, mensaje: '' })}
+      />
     </SafeAreaView>
   );
 }

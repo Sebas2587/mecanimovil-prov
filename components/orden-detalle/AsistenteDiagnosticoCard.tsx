@@ -20,6 +20,8 @@ import { guiasReparacionService } from '@/services/guiasReparacionService';
 import { GuiaReparacionContenido } from '@/components/orden-detalle/GuiaReparacionContenido';
 import { useAuth } from '@/context/AuthContext';
 import { Card } from '@/app/design-system/components';
+import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
+import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
 
 const I = COLORS.institutional;
 
@@ -44,6 +46,10 @@ export function AsistenteDiagnosticoCard({ origen, entityId, habilitado = true }
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [data, setData] = useState<AsistenteDiagnosticoResponse | null>(null);
+  const [upsellCuota, setUpsellCuota] = useState<{ visible: boolean; mensaje: string }>({
+    visible: false,
+    mensaje: '',
+  });
 
   const cargar = useCallback(async () => {
     if (!habilitado) return;
@@ -79,7 +85,11 @@ export function AsistenteDiagnosticoCard({ origen, entityId, habilitado = true }
           ? await asistenteDiagnosticoService.generarCita(entityId)
           : await asistenteDiagnosticoService.generarOrden(entityId);
       setData(resp);
-    } catch {
+    } catch (err) {
+      if (esErrorCuota(err)) {
+        setUpsellCuota({ visible: true, mensaje: mensajeCuotaError(err) });
+        return;
+      }
       setData({ disponible: false, contenido: null, error: 'No se pudo generar la guía.' });
     } finally {
       setGenerating(false);
@@ -118,6 +128,7 @@ export function AsistenteDiagnosticoCard({ origen, entityId, habilitado = true }
       : 'Toca para generar o ver la guía';
 
   return (
+    <>
     <Card elevated padding="host" style={styles.card}>
       <TouchableOpacity
         style={styles.header}
@@ -201,6 +212,12 @@ export function AsistenteDiagnosticoCard({ origen, entityId, habilitado = true }
         </View>
       ) : null}
     </Card>
+    <UpsellCuotaModal
+      visible={upsellCuota.visible}
+      mensaje={upsellCuota.mensaje}
+      onClose={() => setUpsellCuota({ visible: false, mensaje: '' })}
+    />
+    </>
   );
 }
 

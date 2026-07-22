@@ -37,6 +37,8 @@ import {
   normalizarTelefonoChileParaGuardar,
 } from '@/utils/chilePhone';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
+import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
+import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
 
 const MODALIDAD_TABS = [
   { key: 'taller' as const, label: 'En taller' },
@@ -90,6 +92,10 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
   const [patenteHint, setPatenteHint] = useState<string | null>(null);
   const [generandoIa, setGenerandoIa] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [upsellCuota, setUpsellCuota] = useState<{ visible: boolean; mensaje: string }>({
+    visible: false,
+    mensaje: '',
+  });
   const [errorIa, setErrorIa] = useState<string | null>(null);
   const [cotizacion, setCotizacion] = useState<CotizacionCanal | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -278,7 +284,11 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
         return;
       }
       setCotizacion(res.cotizacion);
-    } catch {
+    } catch (err) {
+      if (esErrorCuota(err)) {
+        setUpsellCuota({ visible: true, mensaje: mensajeCuotaError(err) });
+        return;
+      }
       setErrorIa('Error al generar cotización. Intenta de nuevo.');
     } finally {
       setGenerandoIa(false);
@@ -581,7 +591,7 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
                     </InstitutionalText>
                     <InstitutionalButton
                       label="Copiar link"
-                      variant="secondary"
+                      variant="outline"
                       onPress={() => void compartirLink(shareUrl)}
                     />
                   </View>
@@ -618,6 +628,11 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
           </View>
         </KeyboardAvoidingView>
       </View>
+      <UpsellCuotaModal
+        visible={upsellCuota.visible}
+        mensaje={upsellCuota.mensaje}
+        onClose={() => setUpsellCuota({ visible: false, mensaje: '' })}
+      />
     </Modal>
   );
 }

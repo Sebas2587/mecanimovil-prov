@@ -72,6 +72,8 @@ import cotizacionCanalService, {
 } from '@/services/cotizacionCanalService';
 import { etiquetaVehiculoActual } from '@/utils/plantillasCotizacionVehiculo';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
+import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
+import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
 import { obtenerMisOfertas } from '@/services/solicitudesService';
 import { fetchChatInboxQuery } from '@/hooks/useChatInboxQuery';
 import { buscarSolicitudActivaPorTelefono } from '@/utils/buscarSolicitudActivaPorTelefono';
@@ -91,7 +93,7 @@ const TIPO_SERVICIO_TABS = [
 
 const MODO_SERVICIO_TABS = [
   { key: 'catalogo' as const, label: 'Mi catálogo' },
-  { key: 'manual' as const, label: 'Escribir nombre' },
+  { key: 'manual' as const, label: 'Cotizar con IA' },
 ];
 
 type ModoServicio = 'catalogo' | 'manual';
@@ -254,6 +256,10 @@ export function AgendarDesdeCanalModal({
   const [cargandoPlantillas, setCargandoPlantillas] = useState(false);
   const [plantillaDetalle, setPlantillaDetalle] = useState<CotizacionPlantilla | null>(null);
   const [errorForm, setErrorForm] = useState<string | null>(null);
+  const [upsellCuota, setUpsellCuota] = useState<{ visible: boolean; mensaje: string }>({
+    visible: false,
+    mensaje: '',
+  });
 
   const channelLabel = useMemo(
     () => (channel ? channelRespondLabel(channel) : null),
@@ -915,7 +921,11 @@ export function AgendarDesdeCanalModal({
         return;
       }
       setCotizacion(res.cotizacion);
-    } catch {
+    } catch (err) {
+      if (esErrorCuota(err)) {
+        setUpsellCuota({ visible: true, mensaje: mensajeCuotaError(err) });
+        return;
+      }
       setErrorIa('Error al generar cotización. Intenta de nuevo.');
     } finally {
       setGenerandoIa(false);
@@ -1293,7 +1303,7 @@ export function AgendarDesdeCanalModal({
                   {esMecanico ? '1. Servicio a agendar' : '2. Servicio a agendar'}
                 </Text>
                 <Text style={styles.choiceHint}>
-                  Elige uno de tu catálogo o escribe el nombre si no está en la lista.
+                  Elige uno de tu catálogo o cotiza con IA si el servicio no está en la lista.
                 </Text>
                 <InstitutionalScreenTabs
                   tabs={MODO_SERVICIO_TABS}
@@ -1306,7 +1316,7 @@ export function AgendarDesdeCanalModal({
                     <ActivityIndicator color={I.primary} style={styles.loader} />
                   ) : serviciosCatalogoGrupos.length === 0 ? (
                     <Text style={styles.helperText}>
-                      No tienes servicios en catálogo. Cambia a «Escribir nombre» o créalos en Mis servicios.
+                      No tienes servicios en catálogo. Cambia a «Cotizar con IA» o créalos en Mis servicios.
                     </Text>
                   ) : (
                     <View style={styles.catalogoList}>
@@ -1425,21 +1435,18 @@ export function AgendarDesdeCanalModal({
                   )}
                   {!cotizacion ? (
                     <>
-                      <TouchableOpacity
-                        style={[styles.iaBtn, generandoIa && styles.confirmBtnDisabled]}
-                        onPress={() => void handleGenerarCotizacionIa()}
+                      <InstitutionalButton
+                        label={generandoIa ? 'Generando…' : 'Generar cotización con IA'}
+                        variant="primary"
+                        loading={generandoIa}
                         disabled={generandoIa}
-                        activeOpacity={0.85}
-                      >
-                        {generandoIa ? (
-                          <ActivityIndicator color={I.primary} />
-                        ) : (
-                          <>
-                            <Sparkles size={18} color={I.primary} strokeWidth={2} />
-                            <Text style={styles.iaBtnText}>Generar cotización con IA</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
+                        onPress={() => void handleGenerarCotizacionIa()}
+                        leading={
+                          generandoIa ? undefined : (
+                            <Sparkles size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                          )
+                        }
+                      />
                       {errorIa ? <Text style={styles.errorIaText}>{errorIa}</Text> : null}
                     </>
                   ) : (
@@ -1640,6 +1647,11 @@ export function AgendarDesdeCanalModal({
         setPlantillaDetalle(null);
         void handleAplicarPlantilla(id);
       }}
+    />
+    <UpsellCuotaModal
+      visible={upsellCuota.visible}
+      mensaje={upsellCuota.mensaje}
+      onClose={() => setUpsellCuota({ visible: false, mensaje: '' })}
     />
     </>
   );
@@ -1895,22 +1907,6 @@ const styles = StyleSheet.create({
   cotizacionIaBlock: {
     gap: SPACING.sm,
     marginTop: SPACING.xs,
-  },
-  iaBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.primary,
-    backgroundColor: I.surfaceSoft,
-  },
-  iaBtnText: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.primary,
   },
   errorIaText: {
     fontFamily: FF.sansRegular,

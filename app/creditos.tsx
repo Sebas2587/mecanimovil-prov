@@ -44,7 +44,15 @@ import { COLORS, SPACING, TYPOGRAPHY, withOpacity, BORDERS } from '@/app/design-
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
-import { Card, hostScreenStyles, HOST_GUTTER } from '@/app/design-system/components';
+import {
+  Card,
+  HostPaperSection,
+  HostMetricRow,
+  HostSectionKicker,
+  InstitutionalTag,
+  hostScreenStyles,
+  HOST_GUTTER,
+} from '@/app/design-system/components';
 import {
   hostIconPlateColor,
   hostIconPlateStyle,
@@ -65,6 +73,7 @@ import suscripcionesService, {
   type PlanSuscripcion,
   type SuscripcionProveedor,
   type CobroMP,
+  type UsoFeaturesMes,
 } from '@/services/suscripcionesService';
 import mercadoPagoProveedorService, { type EstadisticasPagosMP } from '@/services/mercadoPagoProveedorService';
 import { kpisProveedorService } from '@/services/kpisProveedorService';
@@ -82,6 +91,7 @@ import MercadoPagoWebViewModal from '@/components/creditos/MercadoPagoWebViewMod
 import Header from '@/components/Header';
 import { FALLBACK_PRECIO_CREDITO_BRUTO_CLP } from '@/constants/mercadoPagoPricing';
 import { RendimientoKpisContent } from '@/components/rendimiento';
+import { UsoPlanSection } from '@/components/creditos/UsoPlanSection';
 
 const I_TAB = COLORS.institutional;
 const PAPER = COLORS.background.paper;
@@ -198,14 +208,15 @@ const PlanesMensualesGlassIntro = React.memo(
           </View>
         </View>
 
-        <TouchableOpacity
-          style={[styles.planIntroCtaSecondary, { backgroundColor: I.surfaceStrong }]}
+        <InstitutionalButton
+          label="Servicios y créditos"
+          variant="outline"
+          size="compact"
           onPress={onVerTablaServicios}
-          activeOpacity={0.88}
-        >
-          <InstitutionalIcon name="table-chart" size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-          <Text style={[styles.planIntroCtaSecondaryText, { color: I.ink }]}>Servicios y créditos</Text>
-        </TouchableOpacity>
+          leading={
+            <InstitutionalIcon name="table-chart" size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+          }
+        />
       </>
     );
 
@@ -231,22 +242,16 @@ interface PlanCardProps {
   onSuscribirse: (plan: PlanSuscripcion) => void;
   cargando: boolean;
   precioRecargaPorCredito: number;
+  /** Iguala altura en carrusel (flex fill). */
+  fillHeight?: boolean;
 }
 
 const PlanCard: React.FC<PlanCardProps> = React.memo(
-  ({ plan, suscripcionActual, onSuscribirse, cargando, precioRecargaPorCredito }) => {
+  ({ plan, suscripcionActual, onSuscribirse, cargando, precioRecargaPorCredito, fillHeight = false }) => {
     const I = COLORS.institutional;
-    const hairlineW = StyleSheet.hairlineWidth;
     const featured = plan.destacado;
     const ink = I.ink;
-    const body = I.body;
     const muted = I.muted;
-    const line = I.hairline;
-    const panelBg = I.surfaceSoft;
-    const pctBg = COLORS.selection.background;
-    const pctBorder = COLORS.selection.border;
-    const neutralPanel = I.surfaceSoft;
-
     const esPlanActual =
       suscripcionActual?.plan?.id === plan.id &&
       ['activa', 'pendiente'].includes(suscripcionActual?.estado ?? '');
@@ -269,151 +274,89 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
           : `~${estMin}–${estMax} postulaciones/mes · orientativo`;
 
     const ctaDisabled = cargando || esPlanActual || (estaEnCualquierPlan && !esPlanActual);
-    const ctaPrimaryBg = I.primary;
-    const ctaSecondaryBg = I.surfaceSoft;
-    const ctaSecondaryText = I.ink;
+    const ctaEsSecundario = esPlanActual || (estaEnCualquierPlan && !esPlanActual);
+
+    const ctaLabel = esPlanActual
+      ? 'Plan activo'
+      : estaEnCualquierPlan
+        ? 'Cancelá tu plan actual para cambiar'
+        : 'Suscribirme';
+
+    const ahorroLabel =
+      pctAhorroUnDec != null && pctAhorroUnDec > 0
+        ? `~${pctAhorroUnDec.toLocaleString('es-CL', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          })}% menos vs Tienda`
+        : 'Mismo precio unitario que Tienda';
 
     return (
-      <Card
-        elevated
-        padding="host"
+      <HostPaperSection
         style={[
           styles.planTierOuter,
-          {
-            borderColor: featured ? I.primary : line,
-          },
+          fillHeight && styles.planTierOuterFill,
+          esPlanActual && styles.planTierOuterActive,
         ]}
       >
-        <View style={styles.planTierInner}>
-          {featured || esPlanActual ? (
-            <View style={styles.planTierHeaderRow}>
-              {featured ? (
-                <View
-                  style={[
-                    styles.planTierKicker,
-                    { backgroundColor: COLORS.selection.background, borderColor: COLORS.selection.border },
-                  ]}
-                >
-                  <Text style={[styles.planTierKickerText, { color: COLORS.selection.text }]}>
-                    DESTACADO
-                  </Text>
-                </View>
-              ) : (
-                <View style={{ flex: 1 }} />
-              )}
-              {esPlanActual ? (
-                <View
-                  style={[
-                    styles.planTierBadgeTuPlan,
-                    { backgroundColor: I.surfaceSoft, borderColor: I.hairline },
-                  ]}
-                >
-                  <Text style={[styles.planTierBadgeTuPlanText, { color: I.semanticUp }]}>TU PLAN</Text>
-                </View>
-              ) : null}
-            </View>
-          ) : null}
-
-          <Text style={[styles.planTierName, { color: ink }]}>{plan.nombre}</Text>
-
-          <View style={[styles.planTierTable, { backgroundColor: panelBg, borderColor: line }]}>
-            <View style={[styles.planTableRow, { borderBottomColor: line, borderBottomWidth: hairlineW }]}>
-              <Text style={[styles.planTableLabel, { color: muted }]}>Cuota mensual</Text>
-              <View style={styles.planTableValueRight}>
-                <Text style={[styles.planTablePriceMain, { color: ink, fontFamily: TYPOGRAPHY.fontFamily.monoMedium }]}>
-                  {formatCLP(Math.round(plan.precio))}
-                </Text>
-                <Text style={[styles.planTablePriceSub, { color: body }]}>/ mes</Text>
-              </View>
-            </View>
-            <View style={[styles.planTableRow, { borderBottomColor: line, borderBottomWidth: hairlineW }]}>
-              <Text style={[styles.planTableLabel, { color: muted }]}>Créditos</Text>
-              <Text style={[styles.planTableEmphasis, { color: ink, fontFamily: TYPOGRAPHY.fontFamily.monoMedium }]}>
-                {plan.creditos_mensuales} / mes
+        <View style={[styles.planTierInner, fillHeight && styles.planTierInnerFill]}>
+          <View style={styles.planAirbnbHeader}>
+            <View style={styles.planAirbnbHeaderText}>
+              <Text style={[styles.planTierName, { color: ink }]} numberOfLines={1}>
+                {plan.nombre}
+              </Text>
+              <Text style={[styles.planAirbnbHeaderMeta, { color: muted }]} numberOfLines={1}>
+                {textoPostulaciones}
               </Text>
             </View>
-            <View style={styles.planTableRow}>
-              <Text style={[styles.planTableLabel, { color: muted }]}>Por crédito</Text>
-              <View style={styles.planTableValueRight}>
-                <Text style={[styles.planTableEmphasis, { color: ink, fontFamily: TYPOGRAPHY.fontFamily.monoMedium }]}>
-                  {formatCLP(precioCreditoPlan)}
-                </Text>
-                <View style={styles.planTableStrikeRow}>
-                  <Text style={[styles.planTableStrike, { color: muted }]}>Tienda {formatCLP(precioRecargaPorCredito)}</Text>
-                </View>
-              </View>
+            <View style={styles.planAirbnbBadges}>
+              {esPlanActual ? <InstitutionalTag label="Tu plan" variant="success" size="sm" /> : null}
+              {!esPlanActual && featured ? (
+                <InstitutionalTag label="Destacado" variant="neutral" size="sm" />
+              ) : null}
             </View>
           </View>
 
-          {pctAhorroUnDec != null && pctAhorroUnDec > 0 ? (
-            <View style={[styles.planPctHero, { borderColor: pctBorder, backgroundColor: pctBg }]}>
-              <View style={styles.planPctHeroLeft}>
-                <Text style={[styles.planPctHeroNumber, { color: COLORS.selection.text }]}>
-                  ~
-                  {pctAhorroUnDec.toLocaleString('es-CL', {
-                    minimumFractionDigits: 1,
-                    maximumFractionDigits: 1,
-                  })}
-                  %
-                </Text>
-                <Text style={[styles.planPctHeroCaption, { color: ink }]}>menos por crédito vs Tienda</Text>
-                <Text style={[styles.planPctHeroSub, { color: body }]}>
-                  Mismo crédito, mejor precio unitario en el plan.
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <View style={[styles.planPctNeutral, { backgroundColor: neutralPanel, borderColor: line }]}>
-              <Text style={[styles.planPctNeutralText, { color: body }]}>
-                Mismo precio por crédito que la Tienda en este plan.
-              </Text>
-            </View>
-          )}
+          <HostMetricRow
+            label="Cuota mensual"
+            value={`${formatCLP(Math.round(plan.precio))} / mes`}
+          />
+          <HostMetricRow
+            label="Créditos"
+            value={`${plan.creditos_mensuales} / mes`}
+          />
+          <HostMetricRow
+            label="Por crédito"
+            value={formatCLP(precioCreditoPlan)}
+            meta={`Tienda ${formatCLP(precioRecargaPorCredito)} · ${ahorroLabel}`}
+          />
+          <HostMetricRow
+            label="Cotizaciones IA"
+            value={`${plan.cotizaciones_ia_mensuales ?? 0} / mes`}
+          />
+          <HostMetricRow
+            label="Canales mensajería"
+            value={`${plan.canales_mensajeria_max ?? 0} incluido(s)`}
+          />
+          <HostMetricRow
+            label="Incluye"
+            value="Marketplace · pagos MP · créditos al confirmar cobro"
+            last
+          />
 
-          <Text style={[styles.planFootnote, { color: body }]}>{textoPostulaciones}</Text>
-          <Text style={[styles.planFootnoteFine, { color: muted }]}>
-            Pagos de clientes a tu Mercado Pago · visibilidad en app · créditos al confirmar cobro.
-          </Text>
+          {fillHeight ? <View style={styles.planTierGrow} /> : null}
 
-          <TouchableOpacity
-            style={[
-              styles.planTierCta,
-              {
-                backgroundColor: esPlanActual || (estaEnCualquierPlan && !esPlanActual) ? ctaSecondaryBg : ctaPrimaryBg,
-                borderWidth: esPlanActual || (estaEnCualquierPlan && !esPlanActual) ? BORDERS.width.thin : 0,
-                borderColor: I.hairline,
-                opacity: ctaDisabled && !esPlanActual ? 0.55 : 1,
-              },
-            ]}
-            onPress={() => onSuscribirse(plan)}
-            disabled={ctaDisabled}
-            activeOpacity={0.88}
-          >
-            {cargando ? (
-              <ActivityIndicator
-                size="small"
-                color={esPlanActual || (estaEnCualquierPlan && !esPlanActual) ? I.primary : I.onPrimary}
-              />
-            ) : (
-              <Text
-                style={[
-                  styles.planTierCtaText,
-                  {
-                    color:
-                      esPlanActual || (estaEnCualquierPlan && !esPlanActual) ? ctaSecondaryText : I.onPrimary,
-                  },
-                ]}
-              >
-                {esPlanActual
-                  ? 'Plan activo'
-                  : estaEnCualquierPlan
-                    ? 'Cancelá tu plan actual para cambiar'
-                    : 'Suscribirme'}
-              </Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.planTierCtaBleed}>
+            <InstitutionalButton
+              label={ctaLabel}
+              variant={ctaEsSecundario ? 'secondary' : 'primary'}
+              size="compact"
+              onPress={() => onSuscribirse(plan)}
+              disabled={ctaDisabled}
+              loading={cargando}
+            />
+          </View>
         </View>
-      </Card>
+      </HostPaperSection>
     );
   }
 );
@@ -482,10 +425,13 @@ const PlanesCarousel: React.FC<PlanesCarouselProps> = React.memo(
           {planes.map((plan, index) => (
             <View
               key={plan.id}
-              style={{
-                width: cardWidth,
-                marginRight: index === planes.length - 1 ? 0 : SPACING.sm,
-              }}
+              style={[
+                styles.carouselSlide,
+                {
+                  width: cardWidth,
+                  marginRight: index === planes.length - 1 ? 0 : SPACING.sm,
+                },
+              ]}
             >
               <PlanCard
                 plan={plan}
@@ -493,6 +439,7 @@ const PlanesCarousel: React.FC<PlanesCarouselProps> = React.memo(
                 onSuscribirse={onSuscribirse}
                 cargando={cargando}
                 precioRecargaPorCredito={precioRecargaPorCredito}
+                fillHeight
               />
             </View>
           ))}
@@ -652,6 +599,7 @@ export default function CreditosScreen() {
     mostrar: boolean;
     mensaje: string | null;
   }>({ mostrar: false, mensaje: null });
+  const [usoFeatures, setUsoFeatures] = useState<UsoFeaturesMes | null>(null);
 
   // ── Computed ──────────────────────────────────────────────
   const tieneSuscripcionActiva = useMemo(
@@ -722,6 +670,7 @@ export default function CreditosScreen() {
         planesResult,
         cobrosResult,
         kpisResumenResult,
+        usoFeaturesResult,
       ] = await Promise.all([
         creditosService.obtenerSaldo(),
         creditosService.obtenerEstadisticas(),
@@ -731,6 +680,7 @@ export default function CreditosScreen() {
         suscripcionesService.obtenerPlanes(),
         suscripcionesService.obtenerHistorialCobros(),
         kpisProveedorService.obtenerResumen(30),
+        suscripcionesService.obtenerUsoFeatures(),
       ]);
 
       if (saldoResult.success && saldoResult.data) setSaldo(saldoResult.data);
@@ -739,6 +689,9 @@ export default function CreditosScreen() {
       if (consumosResult.success && consumosResult.data) setConsumos(consumosResult.data);
       if (suscripcionResult.success) setSuscripcion(suscripcionResult.suscripcion);
       if (planesResult.success) setPlanes(planesResult.planes);
+      if (usoFeaturesResult.success && usoFeaturesResult.data) {
+        setUsoFeatures(usoFeaturesResult.data);
+      }
       if (cobrosResult?.success) {
         setCobrosMP(cobrosResult.cobros);
       }
@@ -971,6 +924,8 @@ export default function CreditosScreen() {
         />
       )}
 
+      <UsoPlanSection uso={usoFeatures} />
+
       <FinanzasLiquidacionSection />
 
       {/* Gráfica interactiva */}
@@ -1058,110 +1013,93 @@ export default function CreditosScreen() {
       contentContainerStyle={scrollInnerStyle}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
     >
-      {/* Sincronizar — button-secondary-light (Coinbase / institucional) */}
-      <TouchableOpacity
-        style={[styles.syncButtonSecondary, { opacity: cargandoSincronizar ? 0.75 : 1 }]}
+      {/* Sincronizar — outline (acción quieta de recovery) */}
+      <InstitutionalButton
+        label="¿Suscripción no aparece? Sincronizar"
+        variant="outline"
+        size="compact"
         onPress={handleSincronizarSuscripcion}
         disabled={cargandoSincronizar}
-        activeOpacity={0.88}
-      >
-        {cargandoSincronizar ? (
-          <ActivityIndicator size="small" color={I_TAB.ink} />
-        ) : (
-          <>
+        loading={cargandoSincronizar}
+        leading={
+          cargandoSincronizar ? undefined : (
             <InstitutionalIcon name="sync" size={18} color={I_TAB.ink} strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.syncButtonSecondaryText}>¿Suscripción no aparece? Sincronizar</Text>
-          </>
-        )}
-      </TouchableOpacity>
+          )
+        }
+        style={styles.syncButtonWrap}
+      />
 
-      {/* Suscripción actual — product-ui-card-light */}
       {suscripcion && ['activa', 'pendiente', 'pausada'].includes(suscripcion.estado) && (
-        <Card elevated padding={0} style={styles.suscripcionActualCardInst}>
-          <View style={styles.suscripcionActualTopRow}>
-            <View style={[styles.suscripcionIconPlate, { backgroundColor: I_TAB.surfaceStrong }]}>
-              <InstitutionalIcon
-                name={suscripcion.esta_activa ? 'check-decagram' : 'clock-outline'}
-                size={22}
-                color={suscripcion.esta_activa ? I_TAB.semanticUp : I_TAB.accentYellow}
-                strokeWidth={ICON_STROKE_WIDTH}
-              />
-            </View>
+        <HostPaperSection style={styles.suscripcionActualCardInst}>
+          <View style={styles.suscripcionCompactRow}>
             <View style={styles.suscripcionActualTitleCol}>
               <View style={styles.suscripcionStatusKickerRow}>
-                <View style={[styles.badgePillKicker, { backgroundColor: I_TAB.surfaceStrong }]}>
-                  <Text style={[styles.badgePillKickerText, { color: I_TAB.muted }]}>
-                    {suscripcion.esta_activa ? 'ACTIVA' : suscripcion.estado === 'pendiente' ? 'PENDIENTE' : 'PAUSADA'}
-                  </Text>
-                </View>
+                <InstitutionalTag
+                  label={
+                    suscripcion.esta_activa
+                      ? 'Activa'
+                      : suscripcion.estado === 'pendiente'
+                        ? 'Pendiente'
+                        : 'Pausada'
+                  }
+                  variant={
+                    suscripcion.esta_activa
+                      ? 'success'
+                      : suscripcion.estado === 'pendiente'
+                        ? 'warning'
+                        : 'neutral'
+                  }
+                  size="sm"
+                />
               </View>
-              <Text style={[styles.suscripcionActualHeadline, { color: I_TAB.ink }]}>
-                {suscripcion.esta_activa ? 'Tu suscripción' : 'Estado del plan'}
+              <Text style={[styles.suscripcionActualHeadline, { color: I_TAB.ink }]} numberOfLines={1}>
+                {suscripcion.plan.nombre}
+              </Text>
+              <Text style={[styles.suscripcionCompactMeta, { color: I_TAB.muted }]} numberOfLines={2}>
+                {suscripcion.plan.creditos_mensuales} créditos/mes ·{' '}
+                {formatCLP(Math.round(suscripcion.plan.precio))}/mes
+                {suscripcion.fecha_proximo_cobro
+                  ? ` · Próx. ${new Date(suscripcion.fecha_proximo_cobro).toLocaleDateString('es-CL', {
+                      day: 'numeric',
+                      month: 'short',
+                    })}`
+                  : ''}
               </Text>
             </View>
+            <InstitutionalButton
+              label="Cancelar"
+              variant="destructiveOutline"
+              size="compact"
+              onPress={handleCancelarSuscripcion}
+              style={styles.botonCancelarCompact}
+            />
           </View>
 
-          <Text style={[styles.suscripcionPlanName, { color: I_TAB.ink }]}>{suscripcion.plan.nombre}</Text>
-          <Text
-            style={[
-              styles.suscripcionDetailMono,
-              { color: I_TAB.body, fontFamily: TYPOGRAPHY.fontFamily.monoMedium },
-            ]}
-          >
-            {suscripcion.plan.creditos_mensuales} créditos/mes · {formatCLP(Math.round(suscripcion.plan.precio))}/mes
-          </Text>
-          {suscripcion.fecha_proximo_cobro && (
-            <Text style={[styles.suscripcionDetailSecondary, { color: I_TAB.muted }]}>
-              Próximo cobro:{' '}
-              {new Date(suscripcion.fecha_proximo_cobro).toLocaleDateString('es-CL', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })}
-            </Text>
-          )}
-          {suscripcion.estado === 'pendiente' && (
+          {suscripcion.estado === 'pendiente' ? (
             <View style={styles.suscripcionPendienteBlock}>
               <Text style={[styles.pendienteNotaInst, { color: I_TAB.body }]}>
                 ¿Ya autorizaste el pago en Mercado Pago y sigue pendiente? Verificá el estado.
               </Text>
-              <TouchableOpacity
-                style={[styles.syncButtonSecondary, styles.suscripcionInlineSecondaryBtn]}
+              <InstitutionalButton
+                label="Verificar con Mercado Pago"
+                variant="secondary"
+                size="compact"
                 onPress={handleSincronizarSuscripcion}
                 disabled={cargandoSincronizar}
-                activeOpacity={0.88}
-              >
-                {cargandoSincronizar ? (
-                  <ActivityIndicator size="small" color={I_TAB.ink} />
-                ) : (
-                  <>
-                    <InstitutionalIcon name="sync" size={18} color={I_TAB.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.syncButtonSecondaryText}>Verificar con Mercado Pago</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+                loading={cargandoSincronizar}
+              />
             </View>
-          )}
-          <TouchableOpacity
-            style={[styles.botonCancelarInst, { borderColor: I_TAB.hairline }]}
-            onPress={handleCancelarSuscripcion}
-            activeOpacity={0.88}
-          >
-            <Text style={[styles.botonCancelarInstTexto, { color: I_TAB.semanticDown }]}>
-              Cancelar suscripción
-            </Text>
-          </TouchableOpacity>
-        </Card>
+          ) : null}
+        </HostPaperSection>
       )}
 
-      {/* Protagonistas: planes primero; guía y cobros van colapsados debajo */}
       {planes.length > 0 ? (
-        <View style={styles.suscripcionPlanosHeroHeader}>
-          <Text style={[styles.suscripcionPlanosHeroTitle, { color: I_TAB.ink }]}>Elegí tu plan</Text>
+        <>
+          <HostSectionKicker label="Elegí tu plan" />
           <Text style={[styles.suscripcionPlanosHeroSub, { color: I_TAB.body }]}>
-            Compará cuota, créditos y ahorro vs la Tienda. Más contexto en las secciones desplegables.
+            Compará cuota, créditos y ahorro vs la Tienda.
           </Text>
-        </View>
+        </>
       ) : null}
 
       <View style={{ marginTop: planes.length > 0 ? SPACING.sm : 0 }}>
@@ -1775,14 +1713,17 @@ const styles = StyleSheet.create({
     color: COLORS.institutional.ink,
   },
   suscripcionActualCardInst: {
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  suscripcionCompactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
   },
   suscripcionActualTopRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: SPACING.sm,
-    marginBottom: SPACING.sm,
   },
   suscripcionIconPlate: {
     width: 44,
@@ -1791,13 +1732,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  suscripcionActualTitleCol: { flex: 1, minWidth: 0 },
+  suscripcionActualTitleCol: { flex: 1, minWidth: 0, gap: 2 },
   suscripcionStatusKickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: SPACING.xs,
-    marginBottom: 4,
   },
   badgePillKicker: {
     alignSelf: 'flex-start',
@@ -1812,10 +1752,19 @@ const styles = StyleSheet.create({
     letterSpacing: TYPOGRAPHY.letterSpacing.wider,
   },
   suscripcionActualHeadline: {
-    fontSize: TYPOGRAPHY.styles.h3.fontSize,
+    fontSize: TYPOGRAPHY.styles.h4.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
-    lineHeight: TYPOGRAPHY.styles.h3.lineHeight * TYPOGRAPHY.styles.h3.fontSize,
+    lineHeight: Math.round(TYPOGRAPHY.styles.h4.fontSize * TYPOGRAPHY.styles.h4.lineHeight),
+  },
+  suscripcionCompactMeta: {
+    fontSize: TYPOGRAPHY.styles.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    lineHeight: Math.round(TYPOGRAPHY.styles.caption.fontSize * 1.35),
+  },
+  botonCancelarCompact: {
+    flexShrink: 0,
+    alignSelf: 'center',
   },
   suscripcionPlanName: {
     fontSize: TYPOGRAPHY.fontSize.lg,
@@ -1830,8 +1779,8 @@ const styles = StyleSheet.create({
   },
   suscripcionDetailSecondary: { fontSize: TYPOGRAPHY.fontSize.xs, marginTop: 4, lineHeight: 18 },
   suscripcionPendienteBlock: {
-    marginTop: SPACING.md,
-    paddingTop: SPACING.md,
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: COLORS.institutional.hairline,
   },
@@ -1951,18 +1900,87 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
   },
   planTierOuter: {
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
     marginBottom: SPACING.md,
-    overflow: 'hidden',
+    flex: 1,
   },
-  planTierInner: { padding: SPACING.md },
-  planTierHeaderRow: {
+  /** Destaca el plan con suscripción activa (sin borde brand). */
+  planTierOuterActive: {
+    backgroundColor: COLORS.institutional.surfaceStrong,
+    borderColor: COLORS.institutional.ink,
+    borderWidth: BORDERS.width.medium,
+  },
+  suscripcionKickerFlush: {
+    marginTop: 0,
+  },
+  planTierOuterFill: {
+    flex: 1,
+    marginBottom: 0,
+    height: '100%',
+  },
+  planTierInner: {
+    paddingBottom: SPACING.sm,
+  },
+  planTierInnerFill: {
+    flex: 1,
+  },
+  planTierGrow: {
+    flexGrow: 1,
+    minHeight: SPACING.sm,
+  },
+  planAirbnbHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: SPACING.sm,
-    gap: SPACING.xs,
+    gap: SPACING.sm,
+    paddingBottom: SPACING.fixed.sm,
+    minHeight: 56,
+  },
+  planAirbnbHeaderText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  planAirbnbHeaderMeta: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  planAirbnbBadges: {
+    alignItems: 'flex-end',
+    gap: 6,
+    flexShrink: 0,
+  },
+  planAirbnbSection: {
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.md,
+    minHeight: 72,
+    justifyContent: 'center',
+  },
+  planAirbnbSectionLast: {
+    minHeight: 64,
+  },
+  planAirbnbLabel: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    marginBottom: 4,
+  },
+  planAirbnbValue: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
+    letterSpacing: TYPOGRAPHY.letterSpacing.tight,
+  },
+  planAirbnbValueSuffix: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
+  },
+  planAirbnbHint: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    marginTop: 4,
+    lineHeight: 18,
   },
   planTierKicker: {
     paddingHorizontal: 10,
@@ -1990,29 +2008,20 @@ const styles = StyleSheet.create({
   },
   planTierName: {
     fontSize: TYPOGRAPHY.styles.h3.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: TYPOGRAPHY.fontWeight.regular as '400',
-    letterSpacing: TYPOGRAPHY.styles.h3.letterSpacing,
-    marginBottom: SPACING.sm,
-  },
-  planTierTable: {
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    overflow: 'hidden',
-  },
-  planTierCta: {
-    marginTop: SPACING.md,
-    minHeight: 44,
-    borderRadius: BORDERS.radius.pill,
-    paddingVertical: 12,
-    paddingHorizontal: SPACING.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  planTierCtaText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    letterSpacing: TYPOGRAPHY.styles.h3.letterSpacing,
+  },
+  planTierCtaBleed: {
+    marginTop: SPACING.sm,
+  },
+  syncButtonWrap: {
+    marginBottom: SPACING.md,
+    alignSelf: 'stretch',
+  },
+  botonCancelarWrap: {
+    marginTop: SPACING.md,
+    marginBottom: SPACING.md,
   },
   notaContainerInst: {
     flexDirection: 'row',
@@ -2104,14 +2113,16 @@ const styles = StyleSheet.create({
   planTableValueRight: { alignItems: 'flex-end', flex: 1, minWidth: 0 },
   planTablePriceMain: {
     fontSize: TYPOGRAPHY.fontSize['3xl'],
-    fontWeight: '800',
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
     letterSpacing: TYPOGRAPHY.letterSpacing.tight,
-    lineHeight: TYPOGRAPHY.fontSize['3xl'] * 1.1,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize['3xl'] * 1.15),
   },
   planTablePriceSub: { fontSize: TYPOGRAPHY.fontSize.xs, marginTop: 2 },
   planTableEmphasis: {
     fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
     textAlign: 'right',
     flexShrink: 1,
   },
@@ -2123,44 +2134,62 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   planPctHero: {
-    marginTop: SPACING.xs,
+    marginTop: SPACING.sm,
     borderRadius: BORDERS.radius.md,
     borderWidth: BORDERS.width.thin,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.sm,
+    minHeight: 92,
+    justifyContent: 'center',
   },
-  planPctHeroLeft: { alignItems: 'flex-start' },
   planPctHeroNumber: {
-    fontSize: TYPOGRAPHY.fontSize['4xl'],
-    fontWeight: '900',
-    letterSpacing: TYPOGRAPHY.letterSpacing.tighter,
-    lineHeight: TYPOGRAPHY.fontSize['4xl'] * 1.05,
+    fontSize: TYPOGRAPHY.fontSize['3xl'],
+    fontFamily: TYPOGRAPHY.fontFamily.monoMedium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium as '500',
+    letterSpacing: TYPOGRAPHY.letterSpacing.tight,
+    lineHeight: Math.round(TYPOGRAPHY.fontSize['3xl'] * 1.15),
   },
   planPctHeroCaption: {
     fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontWeight: TYPOGRAPHY.fontWeight.semibold as '600',
     marginTop: 2,
   },
-  planPctHeroSub: { fontSize: TYPOGRAPHY.fontSize.xs, marginTop: 6, lineHeight: 16 },
+  planPctHeroSub: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    marginTop: 6,
+    lineHeight: 16,
+  },
   planPctNeutral: {
-    marginTop: SPACING.xs,
+    marginTop: SPACING.sm,
     borderRadius: BORDERS.radius.md,
     borderWidth: BORDERS.width.thin,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.sm,
+    minHeight: 92,
+    justifyContent: 'center',
   },
-  planPctNeutralText: { fontSize: TYPOGRAPHY.fontSize.sm, textAlign: 'center', lineHeight: 20 },
+  planPctNeutralText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   planFootnote: {
     fontSize: TYPOGRAPHY.fontSize.xs,
-    marginTop: SPACING.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    marginTop: SPACING.sm,
     lineHeight: 16,
-    fontWeight: '500',
+    minHeight: 32,
     paddingHorizontal: 2,
   },
   planFootnoteFine: {
     fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     marginTop: 4,
     lineHeight: 15,
+    minHeight: 30,
     opacity: 0.9,
     paddingHorizontal: 2,
   },
@@ -2200,6 +2229,10 @@ const styles = StyleSheet.create({
   },
   carouselContent: {
     paddingHorizontal: HX,
+    alignItems: 'stretch',
+  },
+  carouselSlide: {
+    alignSelf: 'stretch',
   },
   carouselDotsRow: {
     flexDirection: 'row',

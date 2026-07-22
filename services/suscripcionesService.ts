@@ -18,6 +18,15 @@ export interface PlanSuscripcion {
     descripcion: string;
     precio: number;
     creditos_mensuales: number;
+    cotizaciones_ia_mensuales: number;
+    diagnosticos_ia_mensuales: number;
+    consultas_patente_mensuales: number;
+    canales_mensajeria_max: number;
+    conversaciones_salientes_max: number;
+    overage_cotizaciones_por_credito: number;
+    overage_diagnosticos_por_credito: number;
+    overage_patentes_por_credito: number;
+    acceso_endpoints_patente_pro: boolean;
     destacado: boolean;
     orden: number;
     fecha_creacion: string;
@@ -206,6 +215,29 @@ export interface SaludSuscripcion {
     accion: string | null;
 }
 
+export interface UsoFeatureResumen {
+    feature: string;
+    label: string;
+    limite: number;
+    usados: number;
+    restantes: number;
+    creditos_overage_gastados: number;
+    overage_por_credito: number;
+}
+
+export interface UsoFeaturesMes {
+    periodo: string;
+    plan: {
+        id: number;
+        nombre: string;
+        canales_mensajeria_max: number;
+        acceso_endpoints_patente_pro: boolean;
+    } | null;
+    features: UsoFeatureResumen[];
+    canales_mensajeria_max: number;
+    canales_conectados: number;
+}
+
 export interface CobroMP {
     id: string;
     status: string;
@@ -282,6 +314,27 @@ const obtenerEstadoSalud = async (): Promise<{
     }
 };
 
+/**
+ * Consumo mensual de features incluidas en el plan (IA, patente, mensajería).
+ */
+const obtenerUsoFeatures = async (): Promise<{
+    success: boolean;
+    data: UsoFeaturesMes | null;
+    error?: string;
+}> => {
+    try {
+        const response = await apiClient.get('/suscripciones/mi-suscripcion/uso-features/');
+        return { success: true, data: response.data };
+    } catch (error: any) {
+        console.error('[suscripcionesService] Error obteniendo uso features:', error?.response?.data || error);
+        return {
+            success: false,
+            data: null,
+            error: error?.response?.data?.error || 'No se pudo obtener el uso del plan.',
+        };
+    }
+};
+
 const suscripcionesService = {
     obtenerPlanes,
     suscribirse,
@@ -291,6 +344,7 @@ const suscripcionesService = {
     sincronizarSuscripcion,
     obtenerHistorialCobros,
     obtenerEstadoSalud,
+    obtenerUsoFeatures,
 };
 
 export default suscripcionesService;

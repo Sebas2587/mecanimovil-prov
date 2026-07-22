@@ -12,6 +12,12 @@ function mensajesDesdeObjeto(data: Record<string, unknown>): string[] {
   if (typeof data.error === 'string' && data.error.trim()) {
     lineas.push(data.error.trim());
   }
+  const code = typeof data.code === 'string' ? data.code : '';
+  if (code === 'cuota_agotada' || code === 'sin_suscripcion' || code === 'limite_canales') {
+    if (typeof data.error === 'string' && data.error.trim()) {
+      return data.error.trim();
+    }
+  }
   if (Array.isArray(data.non_field_errors)) {
     for (const item of data.non_field_errors) {
       if (typeof item === 'string' && item.trim()) lineas.push(item.trim());
