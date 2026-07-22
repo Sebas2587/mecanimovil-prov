@@ -5,7 +5,8 @@ export const AGENTE_IA_CONFIG_KEY = ['agente-ia-config'] as const;
 export const AGENTE_IA_DOCUMENTOS_KEY = ['agente-ia-documentos'] as const;
 
 export function agenteSesionQueryKey(conversationId: string | number | null | undefined) {
-  return ['agente-ia-sesion', conversationId] as const;
+  // Normaliza a string para que "24" y 24 no generen caches distintas.
+  return ['agente-ia-sesion', conversationId == null ? null : String(conversationId)] as const;
 }
 
 export function useAgenteIaConfigQuery(enabled = true) {
@@ -66,7 +67,30 @@ export function useActivarAgenteEnChatMutation() {
       conversationId: string | number;
       activo: boolean;
     }) => agenteIaService.activarEnChat(conversationId, activo),
-    onSuccess: (_data, vars) => {
+    onMutate: async (vars) => {
+      const key = agenteSesionQueryKey(vars.conversationId);
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<AgenteSesionEstado>(key);
+      qc.setQueryData<AgenteSesionEstado>(key, (old) => ({
+        ...(old || {}),
+        habilitado_en_chat: vars.activo,
+        pausado_por_taller: vars.activo ? false : true,
+        pausado_hasta: vars.activo ? null : old?.pausado_hasta ?? null,
+        activa: vars.activo,
+        estado: vars.activo ? 'capturando' : 'pausado_por_taller',
+      }));
+      return { previous, key };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous !== undefined) {
+        qc.setQueryData(ctx.key, ctx.previous);
+      }
+    },
+    onSuccess: (data, vars) => {
+      // Respuesta del server gana; evita que un refetch vacío deje el switch apagado.
+      qc.setQueryData(agenteSesionQueryKey(vars.conversationId), data);
+    },
+    onSettled: (_data, _err, vars) => {
       qc.invalidateQueries({ queryKey: agenteSesionQueryKey(vars.conversationId) });
     },
   });
