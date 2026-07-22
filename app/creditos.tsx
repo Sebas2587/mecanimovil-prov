@@ -24,6 +24,9 @@ import {
   TouchableOpacity,
   Pressable,
   Alert,
+  useWindowDimensions,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -415,6 +418,105 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
   }
 );
 PlanCard.displayName = 'PlanCard';
+
+// ─────────────────────────────────────────────────────────────
+// PlanesCarousel — carrusel horizontal estilo Airbnb (peek + snap + dots)
+// ─────────────────────────────────────────────────────────────
+interface PlanesCarouselProps {
+  planes: PlanSuscripcion[];
+  suscripcionActual: SuscripcionProveedor | null;
+  onSuscribirse: (plan: PlanSuscripcion) => void;
+  cargando: boolean;
+  precioRecargaPorCredito: number;
+}
+
+const CAROUSEL_PEEK = 28;
+
+const PlanesCarousel: React.FC<PlanesCarouselProps> = React.memo(
+  ({ planes, suscripcionActual, onSuscribirse, cargando, precioRecargaPorCredito }) => {
+    const { width } = useWindowDimensions();
+    const [activeIndex, setActiveIndex] = useState(0);
+    const cardWidth = Math.min(360, width - HX * 2 - CAROUSEL_PEEK);
+    const snapInterval = cardWidth + SPACING.sm;
+
+    const handleScroll = useCallback(
+      (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const idx = Math.round(e.nativeEvent.contentOffset.x / snapInterval);
+        setActiveIndex(Math.max(0, Math.min(planes.length - 1, idx)));
+      },
+      [planes.length, snapInterval]
+    );
+
+    if (planes.length <= 1) {
+      return (
+        <View>
+          {planes.map((plan) => (
+            <PlanCard
+              key={plan.id}
+              plan={plan}
+              suscripcionActual={suscripcionActual}
+              onSuscribirse={onSuscribirse}
+              cargando={cargando}
+              precioRecargaPorCredito={precioRecargaPorCredito}
+            />
+          ))}
+        </View>
+      );
+    }
+
+    return (
+      <View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          decelerationRate="fast"
+          snapToInterval={snapInterval}
+          snapToAlignment="start"
+          disableIntervalMomentum
+          onScroll={handleScroll}
+          scrollEventThrottle={32}
+          onMomentumScrollEnd={handleScroll}
+          contentContainerStyle={styles.carouselContent}
+          style={styles.carouselBleed}
+        >
+          {planes.map((plan, index) => (
+            <View
+              key={plan.id}
+              style={{
+                width: cardWidth,
+                marginRight: index === planes.length - 1 ? 0 : SPACING.sm,
+              }}
+            >
+              <PlanCard
+                plan={plan}
+                suscripcionActual={suscripcionActual}
+                onSuscribirse={onSuscribirse}
+                cargando={cargando}
+                precioRecargaPorCredito={precioRecargaPorCredito}
+              />
+            </View>
+          ))}
+        </ScrollView>
+
+        <View style={styles.carouselDotsRow}>
+          {planes.map((plan, index) => (
+            <View
+              key={plan.id}
+              style={[
+                styles.carouselDot,
+                {
+                  backgroundColor: index === activeIndex ? I_TAB.primary : I_TAB.hairline,
+                  width: index === activeIndex ? 18 : 6,
+                },
+              ]}
+            />
+          ))}
+        </View>
+      </View>
+    );
+  }
+);
+PlanesCarousel.displayName = 'PlanesCarousel';
 
 interface SuscripcionDisclosureSectionProps {
   title: string;
@@ -1071,16 +1173,13 @@ export default function CreditosScreen() {
             </Text>
           </View>
         ) : (
-          planesOrdenadosComparativa.map((plan) => (
-            <PlanCard
-              key={plan.id}
-              plan={plan}
-              suscripcionActual={suscripcion}
-              onSuscribirse={handleSuscribirse}
-              cargando={cargandoSuscripcion}
-              precioRecargaPorCredito={precioTopUpClp}
-            />
-          ))
+          <PlanesCarousel
+            planes={planesOrdenadosComparativa}
+            suscripcionActual={suscripcion}
+            onSuscribirse={handleSuscribirse}
+            cargando={cargandoSuscripcion}
+            precioRecargaPorCredito={precioTopUpClp}
+          />
         )}
       </View>
 
@@ -2096,6 +2195,24 @@ const styles = StyleSheet.create({
   precioPeriodo: { fontSize: TYPOGRAPHY.fontSize.md, paddingBottom: 6 },
   creditosRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, marginBottom: SPACING.md },
   creditosTexto: { fontSize: TYPOGRAPHY.fontSize.md },
+  carouselBleed: {
+    marginHorizontal: -HX,
+  },
+  carouselContent: {
+    paddingHorizontal: HX,
+  },
+  carouselDotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  carouselDot: {
+    height: 6,
+    borderRadius: BORDERS.radius.pill,
+  },
   separador: { height: 1, marginVertical: SPACING.sm },
   tiendaTotalRow: {
     flexDirection: 'row',
