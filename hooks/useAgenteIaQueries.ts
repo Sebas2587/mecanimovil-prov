@@ -3,6 +3,7 @@ import agenteIaService, { type AgenteIaConfig, type AgenteSesionEstado } from '@
 
 export const AGENTE_IA_CONFIG_KEY = ['agente-ia-config'] as const;
 export const AGENTE_IA_DOCUMENTOS_KEY = ['agente-ia-documentos'] as const;
+export const AGENTE_IA_APRENDIZAJE_KEY = ['agente-ia-aprendizaje'] as const;
 
 export function agenteSesionQueryKey(conversationId: string | number | null | undefined) {
   // Normaliza a string para que "24" y 24 no generen caches distintas.
@@ -22,6 +23,15 @@ export function useAgenteIaDocumentosQuery(enabled = true) {
     queryKey: AGENTE_IA_DOCUMENTOS_KEY,
     queryFn: () => agenteIaService.listarDocumentos(),
     enabled,
+  });
+}
+
+export function useAgenteAprendizajeScoreQuery(enabled = true) {
+  return useQuery({
+    queryKey: AGENTE_IA_APRENDIZAJE_KEY,
+    queryFn: () => agenteIaService.obtenerAprendizajeScore(),
+    enabled,
+    refetchInterval: 45000,
   });
 }
 
@@ -51,6 +61,7 @@ export function useActualizarAgenteConfigMutation() {
     mutationFn: (payload: Partial<AgenteIaConfig>) => agenteIaService.actualizarConfig(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: AGENTE_IA_CONFIG_KEY });
+      qc.invalidateQueries({ queryKey: AGENTE_IA_APRENDIZAJE_KEY });
     },
   });
 }

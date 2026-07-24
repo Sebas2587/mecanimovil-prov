@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
-import { Bot, FileText, MessageSquare, RefreshCw, Trash2, Upload } from 'lucide-react-native';
+import { Bot, FileText, MessageSquare, RefreshCw, Trash2, Upload, Brain } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -32,6 +32,7 @@ import {
 import {
   AGENTE_IA_DOCUMENTOS_KEY,
   useActualizarAgenteConfigMutation,
+  useAgenteAprendizajeScoreQuery,
   useAgenteIaConfigQuery,
   useAgenteIaDocumentosQuery,
   useReindexarAgenteConocimientoMutation,
@@ -67,6 +68,7 @@ function estadoDocLabel(
 export default function ConfiguracionAgenteIaScreen() {
   const qc = useQueryClient();
   const { data: config, isLoading } = useAgenteIaConfigQuery();
+  const { data: aprendizaje, isLoading: loadingAprendizaje } = useAgenteAprendizajeScoreQuery();
   const { data: documentos = [], isLoading: loadingDocs } = useAgenteIaDocumentosQuery();
   const updateConfig = useActualizarAgenteConfigMutation();
   const reindexar = useReindexarAgenteConocimientoMutation();
@@ -350,6 +352,61 @@ export default function ConfiguracionAgenteIaScreen() {
           ))}
         </HostPaperSection>
 
+        <HostSectionKicker label="Aprendizaje del agente" />
+        <HostPaperSection style={styles.section}>
+          {loadingAprendizaje && !aprendizaje ? (
+            <ActivityIndicator color={I.primary} style={styles.docLoader} />
+          ) : (
+            <>
+              <View style={styles.aprendizajeHeader}>
+                <View style={hostIconPlateStyle}>
+                  <Brain size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                </View>
+                <View style={styles.flex}>
+                  <InstitutionalText role="body" style={styles.title}>
+                    Contexto del taller
+                  </InstitutionalText>
+                  <InstitutionalText role="caption" color="muted">
+                    Se actualiza en vivo según tu configuración y la actividad del agente.
+                  </InstitutionalText>
+                </View>
+                <InstitutionalTag
+                  label={`${aprendizaje?.score ?? 0}%`}
+                  variant={(aprendizaje?.score ?? 0) >= 70 ? 'primary' : 'neutral'}
+                  size="sm"
+                />
+              </View>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${Math.min(100, aprendizaje?.score ?? 0)}%` },
+                  ]}
+                />
+              </View>
+              <InstitutionalText role="caption" color="muted" style={styles.aprendizajeSub}>
+                Completitud {aprendizaje?.completitud ?? 0}% · Actividad {aprendizaje?.actividad ?? 0}%
+              </InstitutionalText>
+              {(aprendizaje?.pendientes?.length ?? 0) > 0 ? (
+                <View style={styles.pendientesBox}>
+                  <InstitutionalText role="caption" color="muted">
+                    Para mejorar el agente:
+                  </InstitutionalText>
+                  {(aprendizaje?.pendientes ?? []).slice(0, 5).map((item) => (
+                    <InstitutionalText key={item} role="caption" style={styles.pendienteItem}>
+                      · {item}
+                    </InstitutionalText>
+                  ))}
+                </View>
+              ) : (
+                <InstitutionalText role="caption" color="muted">
+                  Tu taller tiene el contexto principal cargado. El agente puede responder con datos reales.
+                </InstitutionalText>
+              )}
+            </>
+          )}
+        </HostPaperSection>
+
         <HostSectionKicker label="Instrucciones para la IA" />
         <HostPaperSection style={styles.section}>
           <View style={institutionalInputStyles.field}>
@@ -603,5 +660,33 @@ const styles = StyleSheet.create({
   },
   docTitle: {
     fontFamily: FF.sansMedium,
+  },
+  aprendizajeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: I.hairline,
+    overflow: 'hidden',
+    marginBottom: SPACING.fixed.xs,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: I.primary,
+    borderRadius: 4,
+  },
+  aprendizajeSub: {
+    marginBottom: SPACING.fixed.sm,
+  },
+  pendientesBox: {
+    marginTop: SPACING.fixed.xs,
+    gap: 2,
+  },
+  pendienteItem: {
+    color: I.muted,
   },
 });

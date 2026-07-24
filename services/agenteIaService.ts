@@ -26,6 +26,31 @@ export interface ConocimientoDocumento {
   actualizado_en?: string;
 }
 
+export interface AgenteAprendizajeFactor {
+  clave: string;
+  label: string;
+  peso: number;
+  pct: number;
+  ok?: boolean;
+  detalle?: string;
+}
+
+export interface AgenteAprendizajeScore {
+  score: number;
+  completitud: number;
+  actividad: number;
+  detalle: AgenteAprendizajeFactor[];
+  pendientes: string[];
+  metricas?: {
+    ofertas_total?: number;
+    ofertas_con_precio?: number;
+    mecanicos?: number;
+    chunks_indexados?: number;
+    mensajes_procesados?: number;
+    documentos_listos?: number;
+  };
+}
+
 export interface AgenteSesionEstado {
   activa?: boolean;
   id?: number;
@@ -119,6 +144,11 @@ const agenteIaService = {
     documentos: number;
   }> {
     const { data } = await api.post('/agente-ia/reindexar/');
+    return data;
+  },
+
+  async obtenerAprendizajeScore(): Promise<AgenteAprendizajeScore> {
+    const { data } = await api.get<AgenteAprendizajeScore>('/agente-ia/aprendizaje-score/');
     return data;
   },
 
