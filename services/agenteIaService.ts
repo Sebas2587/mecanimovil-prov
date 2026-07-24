@@ -80,9 +80,13 @@ const agenteIaService = {
     await api.delete(`/agente-ia/documentos/${id}/`);
   },
 
-  async obtenerSesion(conversationId: number | string): Promise<AgenteSesionEstado> {
+  async obtenerSesion(
+    conversationId: number | string,
+    signal?: AbortSignal,
+  ): Promise<AgenteSesionEstado> {
     const { data } = await api.get<AgenteSesionEstado>('/agente-ia/sesion/', {
       params: { conversation_id: conversationId },
+      signal,
     });
     return data;
   },

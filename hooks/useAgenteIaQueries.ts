@@ -35,7 +35,9 @@ export function useAgenteSesionQuery(conversationId: string | number | null | un
   const idValido = esConversationIdValido(conversationId);
   return useQuery({
     queryKey: agenteSesionQueryKey(conversationId),
-    queryFn: () => agenteIaService.obtenerSesion(conversationId!),
+    // Se pasa el signal para que cancelQueries() de las mutations aborte el
+    // GET en curso de verdad, no solo descarte su resultado al llegar tarde.
+    queryFn: ({ signal }) => agenteIaService.obtenerSesion(conversationId!, signal),
     enabled: enabled && idValido,
     refetchInterval: 15000,
     // Evita que un refetch en curso deje el toggle en blanco/apagado.
@@ -118,8 +120,35 @@ export function usePausarAgenteSesionMutation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (conversationId: string | number) => agenteIaService.pausarSesion(conversationId),
-    onSuccess: (_data, conversationId) => {
-      qc.invalidateQueries({ queryKey: agenteSesionQueryKey(conversationId) });
+    onMutate: async (conversationId) => {
+      const key = agenteSesionQueryKey(conversationId);
+      // Igual que activar/reanudar: cancelar en vuelo + optimistic merge.
+      // Un invalidate aquí competía con el poll de 15s y podía pisar el
+      // toggle con un GET viejo justo después de pausar manualmente.
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<AgenteSesionEstado>(key);
+      qc.setQueryData<AgenteSesionEstado>(key, (old) => ({
+        ...(old || {}),
+        pausado_por_taller: true,
+        activa: false,
+        estado: 'pausado_por_taller',
+      }));
+      return { previous, key };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous !== undefined) {
+        qc.setQueryData(ctx.key, ctx.previous);
+      }
+    },
+    onSuccess: (data, conversationId) => {
+      const key = agenteSesionQueryKey(conversationId);
+      qc.setQueryData<AgenteSesionEstado>(key, (old) => ({
+        ...(old || {}),
+        ...data,
+        habilitado_en_chat: old?.habilitado_en_chat,
+        pausado_por_taller: true,
+        activa: false,
+      }));
     },
   });
 }
