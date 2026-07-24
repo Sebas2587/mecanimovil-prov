@@ -139,6 +139,17 @@ const omnichannelService = {
     return Array.isArray(data) ? data : [];
   },
 
+  async eliminarConversacion(conversationId: string | number): Promise<{
+    conversation_id: string;
+    conversaciones_eliminadas: number;
+  }> {
+    const { data } = await api.delete<{
+      conversation_id: string;
+      conversaciones_eliminadas: number;
+    }>(`/chat/conversations/${conversationId}/`);
+    return data;
+  },
+
   async vincularSolicitud(conversationId: string, solicitudId: string): Promise<void> {
     await api.post(`/chat/conversations/${conversationId}/vincular-solicitud/`, {
       solicitud_id: solicitudId,

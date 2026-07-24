@@ -46,7 +46,7 @@ import { useOmnichannelConnectionMap } from '@/hooks/useOmnichannelConnections';
 import {
   getChannelDisconnectedReason,
 } from '@/utils/omnichannelConnection';
-import type { CanalSlug } from '@/services/omnichannelService';
+import omnichannelService, { type CanalSlug } from '@/services/omnichannelService';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
@@ -98,7 +98,8 @@ export default function ChatsScreen() {
   const [activeTab, setActiveTab] = useState<MensajesTab>('chats');
   const [agendarContacto, setAgendarContacto] = useState<AgendarContactoState>(null);
   const [chatHighlighted, setChatHighlighted] = useState<string | null>(null);
-  const [deletingOfertaId, setDeletingOfertaId] = useState<string | null>(null);
+  /** Row en proceso de borrado: `oferta:{id}` o `omni:{conversationId}`. */
+  const [deletingRowKey, setDeletingRowKey] = useState<string | null>(null);
 
   const chatsVisibles = chats;
   const loading = isPending && chatsVisibles.length === 0;
@@ -213,7 +214,8 @@ export default function ChatsScreen() {
 
   const deleteChat = useCallback(
     async (ofertaId: string, unreadCount: number) => {
-      setDeletingOfertaId(ofertaId);
+      const rowKey = `oferta:${ofertaId}`;
+      setDeletingRowKey(rowKey);
       try {
         const result = await solicitudesService.eliminarChatPorOferta(ofertaId);
         if (!result.success) {
@@ -229,7 +231,37 @@ export default function ChatsScreen() {
           decrementarNoLeidos(unreadCount);
         }
       } finally {
-        setDeletingOfertaId(null);
+        setDeletingRowKey(null);
+      }
+    },
+    [decrementarNoLeidos, invalidateChatInbox, queryClient],
+  );
+
+  const deleteOmnichannelChat = useCallback(
+    async (conversationId: string | number, unreadCount: number) => {
+      const id = String(conversationId);
+      const rowKey = `omni:${id}`;
+      setDeletingRowKey(rowKey);
+      try {
+        await omnichannelService.eliminarConversacion(id);
+        queryClient.setQueryData(CHAT_INBOX_QUERY_KEY, (prev: typeof chats | undefined) => {
+          if (!prev) return prev;
+          return prev.filter((c) => String(c.conversation_id) !== id);
+        });
+        invalidateChatInbox();
+        if (unreadCount > 0) {
+          decrementarNoLeidos(unreadCount);
+        }
+      } catch (err: unknown) {
+        const message =
+          (err as { response?: { data?: { detail?: string } }; message?: string })?.response?.data
+            ?.detail
+          || (err as { message?: string })?.message
+          || 'No se pudo eliminar el chat';
+        Alert.alert('Error', message);
+        throw err;
+      } finally {
+        setDeletingRowKey(null);
       }
     },
     [decrementarNoLeidos, invalidateChatInbox, queryClient],
@@ -260,7 +292,9 @@ export default function ChatsScreen() {
     const isHighlighted = chatHighlighted === rowKey;
     const hasUnread = mensajes_no_leidos > 0;
     const vehiculoPill = formatVehiculoPillLabel(vehiculo);
-    const isDeleting = deletingOfertaId === oferta_id;
+    const isDeleting = isOmnichannel
+      ? deletingRowKey === `omni:${String(conversation_id)}`
+      : deletingRowKey === `oferta:${String(oferta_id)}`;
     const chatHref = resolveChatHref(item);
 
     const markReadIfNeeded = () => {
@@ -351,26 +385,32 @@ export default function ChatsScreen() {
 
     if (isOmnichannel && chatHref) {
       return (
-        <View style={styles.chatRowWithAction}>
-          <View style={styles.chatRowMain}>
-            <ChatInboxLinkRow
-              href={chatHref}
-              onPress={markReadIfNeeded}
-              highlighted={isHighlighted}
+        <ChatSwipeableRow
+          rowKey={`omni:${String(conversation_id)}`}
+          disabled={isDeleting}
+          onDelete={() => deleteOmnichannelChat(conversation_id, mensajes_no_leidos || 0)}
+        >
+          <View style={styles.chatRowWithAction}>
+            <View style={styles.chatRowMain}>
+              <ChatInboxLinkRow
+                href={chatHref}
+                onPress={markReadIfNeeded}
+                highlighted={isHighlighted}
+              >
+                {cardBody}
+              </ChatInboxLinkRow>
+            </View>
+            <TouchableOpacity
+              style={styles.quickActionBtn}
+              onPress={() => abrirAgendarDesdeFila(item)}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Agendar cita y cotizar con IA"
             >
-              {cardBody}
-            </ChatInboxLinkRow>
+              <Sparkles size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={styles.quickActionBtn}
-            onPress={() => abrirAgendarDesdeFila(item)}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Agendar cita y cotizar con IA"
-          >
-            <Sparkles size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-          </TouchableOpacity>
-        </View>
+        </ChatSwipeableRow>
       );
     }
 
@@ -396,8 +436,9 @@ export default function ChatsScreen() {
     channelConnections,
     chatHighlighted,
     decrementarNoLeidos,
-    deletingOfertaId,
+    deletingRowKey,
     deleteChat,
+    deleteOmnichannelChat,
     featureEnabled,
     queryClient,
   ]);
@@ -555,7 +596,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
-    marginBottom: SPACING.sm,
+    // marginBottom lo aporta ChatSwipeableRow para no duplicar espacio.
   },
   chatRowMain: {
     flex: 1,
