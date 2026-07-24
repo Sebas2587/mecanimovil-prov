@@ -35,7 +35,9 @@ export function useChatInboxQuery(enabled = true) {
     queryKey: CHAT_INBOX_QUERY_KEY,
     queryFn: fetchChatInboxQuery,
     enabled,
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: enabled ? 45_000 : false,
+    refetchOnWindowFocus: true,
     placeholderData: (previousData) => previousData,
   });
 }

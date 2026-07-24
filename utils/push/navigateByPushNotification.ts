@@ -4,6 +4,7 @@ import { prefetchSolicitudDetalle } from '@/hooks/useSolicitudDetalleQuery';
 import { openOfertaDetalle } from '@/utils/navigateProveedorDetalle';
 import { prefetchChatInbox } from '@/hooks/useChatInboxQuery';
 import { omnichannelChatHref, ofertaChatHref } from '@/utils/chatRoutes';
+import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 
 export type PushNotificationData = Record<string, unknown>;
 
@@ -126,12 +127,43 @@ export function navigateByPushNotification(
       router.push('/creditos');
       return true;
 
-    case 'agente_ia_cotizacion_borrador':
+    case 'agente_ia_cotizacion_borrador': {
+      if (queryClient) invalidateProveedorComercialQueries(queryClient);
+      router.push('/cotizar-ia');
+      return true;
+    }
+
+    case 'agente_ia_cotizacion_enviada':
     case 'agente_ia_escalamiento': {
+      if (queryClient) invalidateProveedorComercialQueries(queryClient);
       const conversationId =
         data.conversation_id != null ? String(data.conversation_id).trim() : '';
       if (conversationId) {
         if (queryClient) void prefetchChatInbox(queryClient);
+        router.push(omnichannelChatHref(conversationId));
+        return true;
+      }
+      router.push('/(tabs)/chats');
+      return true;
+    }
+
+    case 'agente_ia_cotizacion_aceptada':
+    case 'agente_ia_cita_confirmada': {
+      if (queryClient) invalidateProveedorComercialQueries(queryClient);
+      const citaId = data.cita_id != null ? String(data.cita_id).trim() : '';
+      if (citaId) {
+        router.push(`/cita-agenda-personal/${citaId}`);
+        return true;
+      }
+      router.push('/(tabs)/bandeja');
+      return true;
+    }
+
+    case 'agente_ia_cotizacion_rechazada': {
+      if (queryClient) invalidateProveedorComercialQueries(queryClient);
+      const conversationId =
+        data.conversation_id != null ? String(data.conversation_id).trim() : '';
+      if (conversationId) {
         router.push(omnichannelChatHref(conversationId));
         return true;
       }

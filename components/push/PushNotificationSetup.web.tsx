@@ -12,6 +12,7 @@ import {
 } from '@/services/push/webPushService';
 import { post } from '@/services/api';
 import { useAlerts } from '@/context/AlertsContext';
+import { maybeInvalidateFromPushData } from '@/utils/invalidateProveedorComercial';
 
 export function PushNotificationSetup() {
   const router = useRouter();
@@ -21,6 +22,7 @@ export function PushNotificationSetup() {
 
   const handlePushData = (data: PushNotificationData | undefined, navigate = true) => {
     if (!data) return;
+    maybeInvalidateFromPushData(queryClient, data);
     registrarAlertaPushMecanico(data);
     if (navigate) {
       navigateByPushNotification(router, data, queryClient);

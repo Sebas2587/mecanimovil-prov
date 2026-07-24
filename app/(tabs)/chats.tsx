@@ -48,17 +48,15 @@ import {
   getChannelDisconnectedReason,
 } from '@/utils/omnichannelConnection';
 import omnichannelService, { type CanalSlug } from '@/services/omnichannelService';
-import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
-import { SolicitudesDisponiblesContent } from '@/components/solicitudes/SolicitudesDisponiblesContent';
-import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
-import { useSolicitudesDisponiblesQuery } from '@/hooks/useSolicitudesDisponiblesQuery';
 import { useCotizacionesCanalPendientesQuery } from '@/hooks/useCotizacionesCanalPendientesQuery';
 import { useAgenteBorradoresPendientesQuery } from '@/hooks/useAgenteIaQueries';
 import type { ChannelSlug } from '@/utils/channelVisuals';
+import type { InboxChatItem } from '@/services/omnichannelService';
+import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 
-type MensajesTab = 'chats' | 'solicitudes';
+type ChatInboxFilter = 'todos' | 'sin_responder' | 'cotizacion_enviada' | 'cotizacion_aceptada' | 'borrador';
 
 type AgendarContactoState = {
   channel?: ChannelSlug;
@@ -72,20 +70,40 @@ const I = COLORS.institutional;
 /** Jerarquía tipo Coinbase / doc proveedores — tamaños desde `TYPOGRAPHY.styles`. */
 const T = TYPOGRAPHY.styles;
 
+const CHAT_FILTERS: { key: ChatInboxFilter; label: string }[] = [
+  { key: 'todos', label: 'Todos' },
+  { key: 'sin_responder', label: 'Sin responder' },
+  { key: 'cotizacion_enviada', label: 'Cotiz. enviada' },
+  { key: 'cotizacion_aceptada', label: 'Aceptadas' },
+  { key: 'borrador', label: 'Borrador IA' },
+];
+
+function matchesChatFilter(chat: InboxChatItem, filter: ChatInboxFilter): boolean {
+  if (filter === 'todos') return true;
+  if (filter === 'sin_responder') {
+    return Boolean(chat.cliente_sin_responder) || (chat.mensajes_no_leidos || 0) > 0;
+  }
+  if (filter === 'cotizacion_enviada') return chat.cotizacion_estado === 'enviada';
+  if (filter === 'cotizacion_aceptada') return chat.cotizacion_estado === 'aceptada';
+  if (filter === 'borrador') return chat.cotizacion_estado === 'borrador';
+  return true;
+}
+
+function cotizacionBadgeLabel(estado: string | null | undefined): string | null {
+  if (estado === 'enviada') return 'Cotización enviada';
+  if (estado === 'aceptada') return 'Cotización aceptada';
+  if (estado === 'borrador') return 'Borrador IA';
+  if (estado === 'rechazada') return 'Cotización rechazada';
+  return null;
+}
+
 export default function ChatsScreen() {
   const { totalMensajesNoLeidos, actualizarTotal, decrementarNoLeidos } = useChats();
   const { isAuthenticated, usuario, estadoProveedor } = useAuth();
-  const { radarOportunidadesActivo, radarPreferenciaCargada } = useRadarOportunidades();
   const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
-  const solicitudesQueryEnabled =
-    cuentaAprobada
-    && radarPreferenciaCargada
-    && radarOportunidadesActivo;
-  const { data: solicitudesDisponibles = [] } = useSolicitudesDisponiblesQuery(solicitudesQueryEnabled);
   const { data: cotizacionesCanalPendientes = 0 } = useCotizacionesCanalPendientesQuery(cuentaAprobada);
   const { data: borradoresAgente } = useAgenteBorradoresPendientesQuery(cuentaAprobada);
   const borradoresAgenteCount = borradoresAgente?.count ?? 0;
-  const primerBorradorConvId = borradoresAgente?.results?.[0]?.conversation_id;
   const queryClient = useQueryClient();
   const invalidateChatInbox = useInvalidateChatInbox();
   const {
@@ -96,32 +114,22 @@ export default function ChatsScreen() {
   const { map: channelConnections, featureEnabled, refetch: refetchConnections } =
     useOmnichannelConnectionMap(isAuthenticated && Boolean(usuario));
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<MensajesTab>('chats');
+  const [chatFilter, setChatFilter] = useState<ChatInboxFilter>('todos');
   const [agendarContacto, setAgendarContacto] = useState<AgendarContactoState>(null);
   const [chatHighlighted, setChatHighlighted] = useState<string | null>(null);
   /** Row en proceso de borrado: `oferta:{id}` o `omni:{conversationId}`. */
   const [deletingRowKey, setDeletingRowKey] = useState<string | null>(null);
 
-  const chatsVisibles = chats;
-  const loading = isPending && chatsVisibles.length === 0;
+  const chatsVisibles = useMemo(
+    () => chats.filter((c) => matchesChatFilter(c, chatFilter)),
+    [chats, chatFilter],
+  );
+  const loading = isPending && chats.length === 0;
 
   const totalNoLeidos = useMemo(
     () => chats.reduce((sum, chat) => sum + (chat.mensajes_no_leidos || 0), 0),
     [chats],
   );
-
-  const mensajesTabs = useMemo(() => [
-    {
-      key: 'chats' as const,
-      label: 'Chats',
-      badge: totalNoLeidos > 0 ? totalNoLeidos : null,
-    },
-    {
-      key: 'solicitudes' as const,
-      label: 'Solicitudes',
-      badge: solicitudesDisponibles.length > 0 ? solicitudesDisponibles.length : null,
-    },
-  ], [solicitudesDisponibles.length, totalNoLeidos]);
 
   const abrirAgendarDesdeFila = useCallback((item: {
     channel?: string;
@@ -293,6 +301,7 @@ export default function ChatsScreen() {
     const isHighlighted = chatHighlighted === rowKey;
     const hasUnread = mensajes_no_leidos > 0;
     const vehiculoPill = formatVehiculoPillLabel(vehiculo);
+    const cotizacionLabel = cotizacionBadgeLabel(item.cotizacion_estado);
     const isDeleting = isOmnichannel
       ? deletingRowKey === `omni:${String(conversation_id)}`
       : deletingRowKey === `oferta:${String(oferta_id)}`;
@@ -347,8 +356,25 @@ export default function ChatsScreen() {
               </Text>
             ) : null}
 
-            {!!vehiculoPill ? (
-              <InstitutionalTag label={vehiculoPill} variant="neutral" size="sm" />
+            {(!!vehiculoPill || !!cotizacionLabel) ? (
+              <View style={styles.tagsRow}>
+                {!!cotizacionLabel ? (
+                  <InstitutionalTag
+                    label={cotizacionLabel}
+                    variant={
+                      item.cotizacion_estado === 'aceptada'
+                        ? 'primary'
+                        : item.cotizacion_estado === 'enviada'
+                          ? 'primary'
+                          : 'neutral'
+                    }
+                    size="sm"
+                  />
+                ) : null}
+                {!!vehiculoPill ? (
+                  <InstitutionalTag label={vehiculoPill} variant="neutral" size="sm" />
+                ) : null}
+              </View>
             ) : null}
 
             <View style={styles.chatMessageRow}>
@@ -465,9 +491,13 @@ export default function ChatsScreen() {
       <View style={styles.emptyIconWrap}>
         <MessageCircle size={48} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
-      <Text style={styles.emptyTitle}>Sin conversaciones</Text>
+      <Text style={styles.emptyTitle}>
+        {chatFilter === 'todos' ? 'Sin conversaciones' : 'Sin resultados'}
+      </Text>
       <Text style={styles.emptySubtitle}>
-        Tus conversaciones con clientes aparecerán aquí
+        {chatFilter === 'todos'
+          ? 'Tus conversaciones con clientes aparecerán aquí'
+          : 'Ningún chat coincide con este filtro'}
       </Text>
     </View>
   );
@@ -480,22 +510,36 @@ export default function ChatsScreen() {
           badge={totalMensajesNoLeidos > 0 ? totalMensajesNoLeidos : undefined}
         />
 
-        <View style={[styles.tabsWrap, hostScreenStyles.gutterX]}>
-          <InstitutionalScreenTabs
-            tabs={mensajesTabs}
-            activeKey={activeTab}
-            onChange={setActiveTab}
+        <View style={[styles.filtersWrap, hostScreenStyles.gutterX]}>
+          <FlatList
+            horizontal
+            data={CHAT_FILTERS}
+            keyExtractor={(f) => f.key}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtersRow}
+            renderItem={({ item: f }) => {
+              const active = chatFilter === f.key;
+              return (
+                <TouchableOpacity
+                  style={[styles.filterChip, active && styles.filterChipActive]}
+                  onPress={() => setChatFilter(f.key)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
           />
         </View>
 
-        {activeTab === 'chats' && borradoresAgenteCount > 0 ? (
+        {borradoresAgenteCount > 0 ? (
           <TouchableOpacity
             style={styles.canalPendienteBanner}
             activeOpacity={0.85}
             onPress={() => {
-              if (primerBorradorConvId) {
-                router.push(omnichannelChatHref(String(primerBorradorConvId)));
-              }
+              router.push('/cotizar-ia');
             }}
             accessibilityRole="button"
             accessibilityLabel="Revisar cotizaciones generadas por el agente IA"
@@ -507,7 +551,7 @@ export default function ChatsScreen() {
           </TouchableOpacity>
         ) : null}
 
-        {activeTab === 'chats' && cotizacionesCanalPendientes > 0 ? (
+        {cotizacionesCanalPendientes > 0 ? (
           <TouchableOpacity
             style={styles.canalPendienteBanner}
             activeOpacity={0.85}
@@ -522,9 +566,7 @@ export default function ChatsScreen() {
           </TouchableOpacity>
         ) : null}
 
-        {activeTab === 'solicitudes' ? (
-          <SolicitudesDisponiblesContent variant="embedded" />
-        ) : loading && chatsVisibles.length === 0 ? (
+        {loading && chats.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={I.primary} />
             <Text style={styles.loadingText}>Cargando mensajes…</Text>
@@ -558,6 +600,7 @@ export default function ChatsScreen() {
           channelDisconnectedReason={agendarContacto?.channelDisconnectedReason}
           onCotizacionEnviada={() => {
             void refetch();
+            invalidateProveedorComercialQueries(queryClient);
           }}
         />
       </View>
@@ -605,9 +648,40 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
     color: I.ink,
   },
-  tabsWrap: {
+  filtersWrap: {
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.xs,
+  },
+  filtersRow: {
+    gap: SPACING.xs,
+    paddingRight: SPACING.sm,
+  },
+  filterChip: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: I.surfaceStrong,
+    backgroundColor: '#fff',
+  },
+  filterChipActive: {
+    backgroundColor: I.ink,
+    borderColor: I.ink,
+  },
+  filterChipText: {
+    fontSize: T.caption.fontSize,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    color: I.muted,
+  },
+  filterChipTextActive: {
+    color: '#fff',
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+    marginBottom: 2,
   },
   chatRowWithAction: {
     flexDirection: 'row',

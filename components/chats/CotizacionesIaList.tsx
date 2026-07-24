@@ -32,6 +32,7 @@ import {
   useAgenteBorradoresPendientesQuery,
 } from '@/hooks/useAgenteIaQueries';
 import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
+import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
@@ -284,7 +285,11 @@ export function CotizacionesIaList({ enabled = true }: Props) {
       await invalidate();
       await refetch();
       qc.invalidateQueries({ queryKey: AGENTE_IA_BORRADORES_KEY });
-      showAlert('Cotización enviada', 'El cliente recibirá un mensaje con el link para revisarla.');
+      invalidateProveedorComercialQueries(qc);
+      showAlert(
+        'Cotización enviada',
+        'El cliente recibirá el enlace para revisar y aceptar o rechazar en la página de la cotización.',
+      );
     } catch {
       showAlert('Error', 'No se pudo enviar la cotización.');
     } finally {

@@ -132,7 +132,9 @@ export function useOrdenesUnificadas(enabled: boolean): UseOrdenesUnificadasResu
     queryKey: ['ordenes-proveedor'],
     queryFn: fetchOrdenes,
     enabled,
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: enabled ? 45_000 : false,
+    refetchOnWindowFocus: true,
     placeholderData: (prev) => prev,
   });
 
@@ -144,7 +146,9 @@ export function useOrdenesUnificadas(enabled: boolean): UseOrdenesUnificadasResu
     queryKey: ['ofertas-proveedor'],
     queryFn: fetchOfertas,
     enabled,
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: enabled ? 45_000 : false,
+    refetchOnWindowFocus: true,
     placeholderData: (prev) => prev,
   });
 
@@ -156,7 +160,9 @@ export function useOrdenesUnificadas(enabled: boolean): UseOrdenesUnificadasResu
     queryKey: ['citas-agenda-proveedor'],
     queryFn: fetchCitasAgenda,
     enabled,
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: enabled ? 45_000 : false,
+    refetchOnWindowFocus: true,
     placeholderData: (prev) => prev,
   });
 
@@ -168,7 +174,9 @@ export function useOrdenesUnificadas(enabled: boolean): UseOrdenesUnificadasResu
     queryKey: ['citas-activas-proveedor'],
     queryFn: fetchCitasActivas,
     enabled,
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: enabled ? 45_000 : false,
+    refetchOnWindowFocus: true,
     placeholderData: (prev) => prev,
   });
 

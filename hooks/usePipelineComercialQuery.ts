@@ -36,12 +36,15 @@ export function usePipelineComercialQuery(
   params: PipelineQueryParams,
   options?: { enabled?: boolean },
 ) {
+  const enabled = options?.enabled ?? true;
   return useQuery({
     queryKey: pipelineQueryKey(params),
     queryFn: () => fetchPipeline(params),
-    enabled: options?.enabled ?? true,
+    enabled,
     placeholderData: keepPreviousData,
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: enabled ? 30_000 : false,
+    refetchOnWindowFocus: true,
   });
 }
 

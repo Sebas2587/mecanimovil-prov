@@ -8,6 +8,7 @@ import {
   navigateByPushNotification,
   type PushNotificationData,
 } from '@/utils/push/navigateByPushNotification';
+import { maybeInvalidateFromPushData } from '@/utils/invalidateProveedorComercial';
 
 const SOLICITUD_PUSH_TYPES = new Set([
   'nueva_solicitud',
@@ -29,6 +30,7 @@ export function PushNotificationListeners() {
 
   const handleData = (data: PushNotificationData | undefined) => {
     if (!isAuthenticated || !data) return;
+    maybeInvalidateFromPushData(queryClient, data);
     navigateByPushNotification(router, data, queryClient);
   };
 
@@ -49,6 +51,7 @@ export function PushNotificationListeners() {
     const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
       const data = notification.request.content.data as PushNotificationData;
       const type = typeof data?.type === 'string' ? data.type : '';
+      maybeInvalidateFromPushData(queryClient, data);
       if (MECANICO_PUSH_TYPES.has(type)) {
         registrarAlertaPushMecanico(data);
       }

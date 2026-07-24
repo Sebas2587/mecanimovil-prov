@@ -8,7 +8,9 @@ export function useCotizacionesCanalTallerQuery(enabled = true) {
     queryKey: [COTIZACIONES_CANAL_QUERY_KEY],
     queryFn: () => cotizacionCanalService.listar({ page_size: 100 }),
     enabled,
-    staleTime: 20_000,
+    staleTime: 10_000,
+    refetchInterval: enabled ? 30_000 : false,
+    refetchOnWindowFocus: true,
   });
 }
 

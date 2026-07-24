@@ -221,7 +221,8 @@ export function useAgenteBorradoresPendientesQuery(enabled = true) {
     queryKey: AGENTE_IA_BORRADORES_KEY,
     queryFn: () => agenteIaService.borradoresPendientes(),
     enabled,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: 15_000,
+    refetchInterval: enabled ? 30_000 : false,
+    refetchOnWindowFocus: true,
   });
 }

@@ -66,6 +66,8 @@ export interface CompletarConexionResponse {
   connection?: ConexionCanal;
 }
 
+export type InboxCotizacionEstado = 'borrador' | 'enviada' | 'aceptada' | 'rechazada' | string;
+
 export interface InboxChatItem {
   kind: 'oferta' | 'omnichannel';
   channel: string;
@@ -88,6 +90,12 @@ export interface InboxChatItem {
   };
   mensajes_no_leidos: number;
   estado_oferta?: string | null;
+  /** Estado de la última CotizacionCanal del chat (omnicanal). */
+  cotizacion_estado?: InboxCotizacionEstado | null;
+  cotizacion_id?: number | null;
+  cotizacion_servicio?: string | null;
+  /** Último mensaje del cliente o hay no leídos. */
+  cliente_sin_responder?: boolean;
 }
 
 const omnichannelService = {
