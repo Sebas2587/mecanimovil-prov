@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Play, Pause } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, withOpacity } from '@/app/design-system/tokens';
@@ -20,25 +20,50 @@ type Props = {
 };
 
 export function AudioMessageBubble({ uri, esPropio }: Props) {
-  const player = useAudioPlayer(uri);
+  const player = useAudioPlayer(uri || null);
   const status = useAudioPlayerStatus(player);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    setLoadError(false);
+  }, [uri]);
+
+  useEffect(() => {
+    // expo-audio marca isBuffering/isLoaded; si nunca carga tras un rato, mostrar error.
+    if (!uri || status.isLoaded || status.playing) return undefined;
+    const t = setTimeout(() => {
+      if (!status.isLoaded && (status.duration || 0) <= 0) {
+        setLoadError(true);
+      }
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [uri, status.isLoaded, status.duration, status.playing]);
 
   const togglePlay = useCallback(() => {
-    if (status.playing) player.pause();
-    else player.play();
-  }, [player, status.playing]);
+    if (!player || loadError) return;
+    try {
+      if (status.playing) player.pause();
+      else player.play();
+    } catch {
+      setLoadError(true);
+    }
+  }, [player, status.playing, loadError]);
 
   const duration = status.duration || 0;
   const current = status.currentTime || 0;
   const progress = duration > 0 ? Math.min(current / duration, 1) : 0;
+  const buffering = Boolean(uri && !status.isLoaded && !loadError && !status.playing);
 
   return (
     <View style={styles.wrap}>
       <TouchableOpacity
         style={[styles.playBtn, esPropio ? styles.playBtnOwn : styles.playBtnOther]}
         onPress={togglePlay}
+        disabled={loadError || buffering}
       >
-        {status.playing ? (
+        {buffering ? (
+          <ActivityIndicator size="small" color={esPropio ? I.onPrimary : I.primary} />
+        ) : status.playing ? (
           <Pause size={16} color={esPropio ? I.onPrimary : I.primary} fill={esPropio ? I.onPrimary : I.primary} strokeWidth={ICON_STROKE_WIDTH} />
         ) : (
           <Play size={16} color={esPropio ? I.onPrimary : I.primary} fill={esPropio ? I.onPrimary : I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -49,7 +74,11 @@ export function AudioMessageBubble({ uri, esPropio }: Props) {
           <View style={[styles.fill, esPropio ? styles.fillOwn : styles.fillOther, { width: `${progress * 100}%` }]} />
         </View>
         <Text style={[styles.time, esPropio ? styles.timeOwn : styles.timeOther]}>
-          {status.playing ? formatDuration(current) : formatDuration(duration)}
+          {loadError
+            ? 'Audio no disponible'
+            : status.playing
+              ? formatDuration(current)
+              : formatDuration(duration)}
         </Text>
       </View>
     </View>

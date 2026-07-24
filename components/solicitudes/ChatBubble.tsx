@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { CheckCheck, Check, FileText } from 'lucide-react-native';
 import { MensajeChat } from '@/services/solicitudesService';
@@ -57,8 +57,14 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   sendError,
 }) => {
   const [loadingImage, setLoadingImage] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const [textExpanded, setTextExpanded] = useState(false);
   const host = tone === 'host';
+
+  useEffect(() => {
+    setImageFailed(false);
+    setLoadingImage(false);
+  }, [mensaje.id, mensaje.archivo_adjunto, mensaje.attachment]);
 
   const formatTime = (timestamp: string) => {
     if (!timestamp) return '';
@@ -100,7 +106,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
         <Text style={styles.senderName}>{senderLabel}</Text>
       ) : null}
 
-      {showImage && imageUri ? (
+      {showImage && imageUri && !imageFailed ? (
         <View style={styles.imageWrap}>
           <TouchableOpacity
             activeOpacity={0.9}
@@ -113,6 +119,10 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
               resizeMode="cover"
               onLoadStart={() => setLoadingImage(true)}
               onLoadEnd={() => setLoadingImage(false)}
+              onError={() => {
+                setLoadingImage(false);
+                setImageFailed(true);
+              }}
             />
             {loadingImage && (
               <View style={styles.loadingOverlay}>
@@ -123,6 +133,18 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
               </View>
             )}
           </TouchableOpacity>
+        </View>
+      ) : null}
+      {showImage && imageFailed ? (
+        <View style={styles.mediaLink}>
+          <FileText
+            size={16}
+            color={esPropio ? I.onPrimary : I.ink}
+            strokeWidth={ICON_STROKE_WIDTH}
+          />
+          <Text style={[styles.mediaLinkText, esPropio ? styles.textPropio : styles.textOtro]}>
+            No se pudo cargar la imagen
+          </Text>
         </View>
       ) : null}
 
