@@ -76,13 +76,20 @@ export default function ConfiguracionAgenteIaScreen() {
   const [subiendo, setSubiendo] = useState(false);
   const [instrucciones, setInstrucciones] = useState('');
   const [bienvenida, setBienvenida] = useState('');
+  const [recargoDomicilio, setRecargoDomicilio] = useState('5000');
 
   useEffect(() => {
     if (config) {
       setInstrucciones(config.instrucciones_personalizadas || '');
       setBienvenida(config.mensaje_bienvenida || '');
+      setRecargoDomicilio(String(config.recargo_domicilio_clp ?? 5000));
     }
-  }, [config?.actualizado_en, config?.instrucciones_personalizadas, config?.mensaje_bienvenida]);
+  }, [
+    config?.actualizado_en,
+    config?.instrucciones_personalizadas,
+    config?.mensaje_bienvenida,
+    config?.recargo_domicilio_clp,
+  ]);
 
   const toggleCanal = useCallback(
     (canal: CanalAgente) => {
@@ -304,16 +311,31 @@ export default function ConfiguracionAgenteIaScreen() {
               placeholderTextColor={institutionalInputPlaceholder}
             />
           </View>
+          <View style={institutionalInputStyles.field}>
+            <InstitutionalText role="caption" color="muted" style={institutionalInputStyles.hint}>
+              Recargo a domicilio (CLP) — se suma a la mano de obra en cotizaciones IA a domicilio
+            </InstitutionalText>
+            <TextInput
+              style={institutionalInputStyles.input}
+              value={recargoDomicilio}
+              onChangeText={setRecargoDomicilio}
+              keyboardType="numeric"
+              placeholder="5000"
+              placeholderTextColor={institutionalInputPlaceholder}
+            />
+          </View>
           <InstitutionalButton
             label="Guardar instrucciones"
             variant="primary"
             size="compact"
-            onPress={() =>
+            onPress={() => {
+              const recargo = Math.max(0, parseInt(recargoDomicilio.replace(/\D/g, ''), 10) || 0);
               updateConfig.mutate({
                 instrucciones_personalizadas: instrucciones,
                 mensaje_bienvenida: bienvenida,
-              })
-            }
+                recargo_domicilio_clp: recargo,
+              });
+            }}
             disabled={updateConfig.isPending}
             style={styles.stretchBtn}
           />

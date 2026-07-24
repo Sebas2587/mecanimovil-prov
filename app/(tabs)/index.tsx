@@ -35,6 +35,7 @@ import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScree
 import { horariosAPI } from '@/services/api';
 import { MecanicoHomeView } from '@/components/home/MecanicoHomeView';
 import { HomeBandejaEntry } from '@/components/dashboard/HomeBandejaEntry';
+import { useAgenteBorradoresPendientesQuery } from '@/hooks/useAgenteIaQueries';
 import {
   normalizarEstadoAgendaApi,
 } from '@/utils/horariosProveedor';
@@ -57,6 +58,10 @@ export default function HomeScreen() {
 
   /** Habilitado por admin para operar (≠ sello "Verificado" en perfil). */
   const cuentaAprobadaPorAdmin = estadoProveedor?.estado_verificacion === 'aprobado';
+  const { data: borradoresAgente } = useAgenteBorradoresPendientesQuery(
+    cuentaAprobadaPorAdmin && puede('servicios'),
+  );
+  const borradoresAgenteCount = borradoresAgente?.count ?? 0;
   const perfilProveedorKey = useMemo(
     () => estadoProveedorReloadKey(estadoProveedor ?? null),
     [estadoProveedor]
@@ -540,6 +545,7 @@ export default function HomeScreen() {
               onAgendar={() => setAgendarRapidoVisible(true)}
               onCotizarIa={() => router.push('/cotizar-ia')}
               showCotizarIa={puede('servicios')}
+              cotizacionesIaPendientes={borradoresAgenteCount}
             />
           </View>
 

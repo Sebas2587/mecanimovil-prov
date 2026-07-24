@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
 import { router } from 'expo-router';
 import {
   ChevronRight,
+  Eye,
   Link2,
   MessageCircle,
   Sparkles,
@@ -26,6 +27,10 @@ import {
   useCotizacionesCanalTallerQuery,
   useInvalidateCotizacionesCanalTaller,
 } from '@/hooks/useCotizacionesCanalTallerQuery';
+import {
+  AGENTE_IA_BORRADORES_KEY,
+  useAgenteBorradoresPendientesQuery,
+} from '@/hooks/useAgenteIaQueries';
 import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
@@ -36,10 +41,11 @@ import {
   HostSectionKicker,
   hostScreenStyles,
 } from '@/app/design-system/components';
-import { COLORS, SPACING, BORDERS, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
+import { useQueryClient } from '@tanstack/react-query';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -64,6 +70,10 @@ const ESTADO_VARIANT: Record<
   cancelada: 'error',
 };
 
+function esBorradorAgenteIa(cot: CotizacionCanal): boolean {
+  return cot.estado === 'borrador' && cot.metadata?.origen === 'agente_ia';
+}
+
 function canalLabel(cot: CotizacionCanal): string {
   return CANAL_LABELS[cot.canal || ''] || (cot.es_libre ? 'Link libre' : 'Canal');
 }
@@ -87,9 +97,15 @@ function fechaLabel(iso?: string | null): string {
 const CotizacionCard = React.memo(function CotizacionCard({
   item,
   onPress,
+  tagLabel,
+  tagVariant,
+  showVista,
 }: {
   item: CotizacionCanal;
   onPress: (item: CotizacionCanal) => void;
+  tagLabel?: string;
+  tagVariant?: 'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info';
+  showVista?: boolean;
 }) {
   const handlePress = useCallback(() => onPress(item), [onPress, item]);
   const vehiculo = [item.vehiculo_marca, item.vehiculo_modelo].filter(Boolean).join(' ');
@@ -103,10 +119,21 @@ const CotizacionCard = React.memo(function CotizacionCard({
     >
       <View style={styles.cardTop}>
         <InstitutionalTag
-          label={item.estado === 'aceptada' ? 'Aceptada · por agendar' : item.estado}
-          variant={item.estado === 'aceptada' ? 'warning' : (ESTADO_VARIANT[item.estado] || 'neutral')}
+          label={tagLabel || (item.estado === 'aceptada' ? 'Aceptada · por agendar' : item.estado)}
+          variant={
+            tagVariant
+            || (item.estado === 'aceptada' ? 'warning' : (ESTADO_VARIANT[item.estado] || 'neutral'))
+          }
           size="sm"
         />
+        {showVista ? (
+          <InstitutionalTag
+            label={`Vista · ${fechaLabel(item.visto_en)}`}
+            variant="primary"
+            size="sm"
+            leading={<Eye size={12} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
+        ) : null}
         <InstitutionalTag label={canalLabel(item)} variant="neutral" size="sm" />
         <View style={styles.spacer} />
         <Text style={styles.price}>{formatearMontoCLP(item.total_clp)}</Text>
@@ -128,7 +155,9 @@ const CotizacionCard = React.memo(function CotizacionCard({
             </Text>
           ) : null}
         </View>
-        <Text style={styles.date}>{fechaLabel(item.enviada_en || item.creado_en)}</Text>
+        <Text style={styles.date}>
+          {fechaLabel(item.enviada_en || item.creado_en)}
+        </Text>
         <ChevronRight size={18} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
     </Card>
@@ -144,25 +173,33 @@ type Props = {
  * Independiente de Mensajes; el chat del cliente es opcional en el detalle.
  */
 export function CotizacionesIaList({ enabled = true }: Props) {
+  const qc = useQueryClient();
   const { data = [], isPending, isFetching, refetch } = useCotizacionesCanalTallerQuery(enabled);
+  const { data: borradoresAgente } = useAgenteBorradoresPendientesQuery(enabled);
   const invalidate = useInvalidateCotizacionesCanalTaller();
   const [libreVisible, setLibreVisible] = useState(false);
   const [activa, setActiva] = useState<CotizacionCanal | null>(null);
+  const [editDraft, setEditDraft] = useState<CotizacionCanal | null>(null);
   const [eliminando, setEliminando] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
 
-  /** Listado ya trae serializer completo; no hace falta otro GET al abrir. */
-  const abrirDetalle = useCallback((item: CotizacionCanal) => {
-    setActiva(item);
-  }, []);
-
-  const cerrarDetalle = useCallback(() => {
-    setActiva(null);
-  }, []);
+  const borradoresPorRevisar = useMemo(
+    () =>
+      [...data]
+        .filter(esBorradorAgenteIa)
+        .sort((a, b) => {
+          const ta = new Date(a.creado_en || 0).getTime();
+          const tb = new Date(b.creado_en || 0).getTime();
+          return tb - ta;
+        }),
+    [data],
+  );
 
   const items = useMemo(
     () =>
       [...data]
-        .filter((c) => c.estado !== 'borrador' && c.estado !== 'cancelada')
+        .filter((c) => !esBorradorAgenteIa(c) && c.estado !== 'borrador' && c.estado !== 'cancelada')
         .sort((a, b) => {
           const ta = new Date(a.enviada_en || a.creado_en || 0).getTime();
           const tb = new Date(b.enviada_en || b.creado_en || 0).getTime();
@@ -170,6 +207,25 @@ export function CotizacionesIaList({ enabled = true }: Props) {
         }),
     [data],
   );
+
+  const abrirDetalle = useCallback((item: CotizacionCanal) => {
+    setActiva(item);
+    setEditDraft(esBorradorAgenteIa(item) ? { ...item } : null);
+  }, []);
+
+  const cerrarDetalle = useCallback(() => {
+    setActiva(null);
+    setEditDraft(null);
+  }, []);
+
+  useEffect(() => {
+    if (activa && esBorradorAgenteIa(activa)) {
+      const fresh = data.find((c) => c.id === activa.id);
+      if (fresh) {
+        setEditDraft({ ...fresh });
+      }
+    }
+  }, [activa?.id, data]);
 
   const compartirLink = useCallback(async (url: string) => {
     try {
@@ -183,6 +239,58 @@ export function CotizacionesIaList({ enabled = true }: Props) {
       showAlert('Link de cotización', url);
     }
   }, []);
+
+  const guardarBorrador = useCallback(async () => {
+    if (!editDraft?.id) return;
+    setGuardando(true);
+    try {
+      const actualizada = await cotizacionCanalService.actualizar(editDraft.id, {
+        servicio_nombre: editDraft.servicio_nombre,
+        descripcion_problema: editDraft.descripcion_problema,
+        modalidad: editDraft.modalidad,
+        direccion_servicio: editDraft.direccion_servicio,
+        repuestos: editDraft.repuestos,
+        mano_obra_clp: editDraft.mano_obra_clp,
+        duracion_minutos_estimada: editDraft.duracion_minutos_estimada,
+      });
+      setActiva(actualizada);
+      setEditDraft({ ...actualizada });
+      await invalidate();
+      await refetch();
+    } catch {
+      showAlert('Error', 'No se pudo guardar los cambios.');
+    } finally {
+      setGuardando(false);
+    }
+  }, [editDraft, invalidate, refetch]);
+
+  const enviarCotizacion = useCallback(async () => {
+    if (!editDraft?.id) return;
+    setEnviando(true);
+    try {
+      if (editDraft !== activa) {
+        await cotizacionCanalService.actualizar(editDraft.id, {
+          servicio_nombre: editDraft.servicio_nombre,
+          descripcion_problema: editDraft.descripcion_problema,
+          modalidad: editDraft.modalidad,
+          direccion_servicio: editDraft.direccion_servicio,
+          repuestos: editDraft.repuestos,
+          mano_obra_clp: editDraft.mano_obra_clp,
+          duracion_minutos_estimada: editDraft.duracion_minutos_estimada,
+        });
+      }
+      await cotizacionCanalService.enviar(editDraft.id);
+      cerrarDetalle();
+      await invalidate();
+      await refetch();
+      qc.invalidateQueries({ queryKey: AGENTE_IA_BORRADORES_KEY });
+      showAlert('Cotización enviada', 'El cliente recibirá un mensaje con el link para revisarla.');
+    } catch {
+      showAlert('Error', 'No se pudo enviar la cotización.');
+    } finally {
+      setEnviando(false);
+    }
+  }, [activa, cerrarDetalle, editDraft, invalidate, qc, refetch]);
 
   const eliminarCotizacion = useCallback(() => {
     if (!activa?.id) return;
@@ -203,6 +311,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
             cerrarDetalle();
             await invalidate();
             await refetch();
+            qc.invalidateQueries({ queryKey: AGENTE_IA_BORRADORES_KEY });
             showAlert('Cotización eliminada', 'Quedó cancelada y fuera del listado.');
           } catch {
             showAlert('Error', 'No se pudo eliminar la cotización.');
@@ -212,7 +321,9 @@ export function CotizacionesIaList({ enabled = true }: Props) {
         },
       },
     );
-  }, [activa, invalidate, refetch, cerrarDetalle]);
+  }, [activa, cerrarDetalle, invalidate, qc, refetch]);
+
+  const borradoresCount = borradoresAgente?.count ?? borradoresPorRevisar.length;
 
   const header = useMemo(
     () => (
@@ -235,24 +346,50 @@ export function CotizacionesIaList({ enabled = true }: Props) {
           <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
         </Card>
 
+        {borradoresPorRevisar.length > 0 ? (
+          <>
+            <HostSectionKicker
+              label={`Por revisar${borradoresCount > 0 ? ` (${borradoresCount})` : ''}`}
+            />
+            <View style={styles.borradoresBlock}>
+              {borradoresPorRevisar.map((item) => (
+                <CotizacionCard
+                  key={`borrador-${item.id}`}
+                  item={item}
+                  onPress={abrirDetalle}
+                  tagLabel="Borrador IA · revisar"
+                  tagVariant="warning"
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
+
         <HostSectionKicker label="Cotizaciones enviadas" />
       </View>
     ),
-    [],
+    [abrirDetalle, borradoresCount, borradoresPorRevisar],
   );
 
   const renderItem = useCallback(
     ({ item }: { item: CotizacionCanal }) => (
-      <CotizacionCard item={item} onPress={abrirDetalle} />
+      <CotizacionCard
+        item={item}
+        onPress={abrirDetalle}
+        showVista={item.estado === 'enviada' && Boolean(item.visto_en)}
+      />
     ),
     [abrirDetalle],
   );
 
-  const vehiculoActiva = activa
-    ? [activa.vehiculo_marca, activa.vehiculo_modelo].filter(Boolean).join(' ')
+  const cotizacionDetalle = editDraft && esBorradorAgenteIa(editDraft) ? editDraft : activa;
+  const esBorradorEditable = Boolean(cotizacionDetalle && esBorradorAgenteIa(cotizacionDetalle));
+
+  const vehiculoActiva = cotizacionDetalle
+    ? [cotizacionDetalle.vehiculo_marca, cotizacionDetalle.vehiculo_modelo].filter(Boolean).join(' ')
     : '';
 
-  if (isPending && items.length === 0) {
+  if (isPending && items.length === 0 && borradoresPorRevisar.length === 0) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={I.primary} />
@@ -272,18 +409,23 @@ export function CotizacionesIaList({ enabled = true }: Props) {
         refreshControl={
           <RefreshControl
             refreshing={isFetching && !isPending}
-            onRefresh={() => void refetch()}
+            onRefresh={() => {
+              void refetch();
+              qc.invalidateQueries({ queryKey: AGENTE_IA_BORRADORES_KEY });
+            }}
             tintColor={I.primary}
             colors={[I.primary]}
           />
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <InstitutionalText role="bodyBold">Sin cotizaciones aún</InstitutionalText>
-            <InstitutionalText role="caption" color="muted" style={styles.emptySub}>
-              Crea una cotización libre o genera una desde un chat de canal.
-            </InstitutionalText>
-          </View>
+          borradoresPorRevisar.length === 0 ? (
+            <View style={styles.empty}>
+              <InstitutionalText role="bodyBold">Sin cotizaciones enviadas aún</InstitutionalText>
+              <InstitutionalText role="caption" color="muted" style={styles.emptySub}>
+                Crea una cotización libre o genera una desde un chat de canal.
+              </InstitutionalText>
+            </View>
+          ) : null
         }
       />
 
@@ -297,7 +439,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
       />
 
       <BottomSheet visible={Boolean(activa)} onClose={cerrarDetalle} style={styles.detalleSheet}>
-        {activa ? (
+        {cotizacionDetalle ? (
           <ScrollView
             style={styles.detalleScroll}
             contentContainerStyle={styles.detalleScrollContent}
@@ -306,12 +448,20 @@ export function CotizacionesIaList({ enabled = true }: Props) {
           >
             <View style={styles.detalleHeader}>
               <View style={styles.detalleHeaderText}>
-                <InstitutionalText role="h4">{clienteLabel(activa)}</InstitutionalText>
+                <InstitutionalText role="h4">{clienteLabel(cotizacionDetalle)}</InstitutionalText>
                 <InstitutionalText role="caption" color="muted">
-                  {canalLabel(activa)}
+                  {canalLabel(cotizacionDetalle)}
                   {vehiculoActiva ? ` · ${vehiculoActiva}` : ''}
-                  {activa.vehiculo_patente ? ` · ${activa.vehiculo_patente}` : ''}
+                  {cotizacionDetalle.vehiculo_patente ? ` · ${cotizacionDetalle.vehiculo_patente}` : ''}
                 </InstitutionalText>
+                {cotizacionDetalle.estado === 'enviada' && cotizacionDetalle.visto_en ? (
+                  <View style={styles.vistaRow}>
+                    <Eye size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <InstitutionalText role="caption" color="muted">
+                      Vista por el cliente · {fechaLabel(cotizacionDetalle.visto_en)}
+                    </InstitutionalText>
+                  </View>
+                ) : null}
               </View>
               <TouchableOpacity
                 onPress={cerrarDetalle}
@@ -324,24 +474,40 @@ export function CotizacionesIaList({ enabled = true }: Props) {
             </View>
 
             <CotizacionIaEditor
-              cotizacion={activa}
-              readonly
-              onChange={() => undefined}
+              cotizacion={cotizacionDetalle}
+              readonly={!esBorradorEditable}
+              onChange={esBorradorEditable ? setEditDraft : () => undefined}
             />
 
             <View style={styles.sheetActions}>
-              {activa.estado === 'aceptada' && activa.cita_personal_id ? (
+              {esBorradorEditable ? (
+                <>
+                  <InstitutionalButton
+                    label="Enviar cotización"
+                    variant="primary"
+                    loading={enviando}
+                    onPress={() => void enviarCotizacion()}
+                  />
+                  <InstitutionalButton
+                    label="Guardar cambios"
+                    variant="outline"
+                    loading={guardando}
+                    onPress={() => void guardarBorrador()}
+                  />
+                </>
+              ) : null}
+              {cotizacionDetalle.estado === 'aceptada' && cotizacionDetalle.cita_personal_id ? (
                 <InstitutionalButton
                   label="Confirmar horario"
                   variant="primary"
                   onPress={() => {
-                    const citaId = activa.cita_personal_id;
+                    const citaId = cotizacionDetalle.cita_personal_id;
                     cerrarDetalle();
                     if (citaId) router.push(`/cita-agenda-personal/${citaId}?agendar=1`);
                   }}
                 />
               ) : null}
-              {activa.conversation ? (
+              {cotizacionDetalle.conversation ? (
                 <InstitutionalButton
                   label="Abrir chat del cliente"
                   variant="outline"
@@ -349,13 +515,13 @@ export function CotizacionesIaList({ enabled = true }: Props) {
                     <MessageCircle size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                   }
                   onPress={() => {
-                    const id = activa.conversation;
+                    const id = cotizacionDetalle.conversation;
                     cerrarDetalle();
                     if (id) router.push(`/chat-omnicanal?conversationId=${id}`);
                   }}
                 />
               ) : null}
-              {(activa.share_url || activa.url_publica) ? (
+              {(cotizacionDetalle.share_url || cotizacionDetalle.url_publica) ? (
                 <InstitutionalButton
                   label="Compartir link"
                   variant="outline"
@@ -363,12 +529,12 @@ export function CotizacionesIaList({ enabled = true }: Props) {
                     <Link2 size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                   }
                   onPress={() => {
-                    const url = activa.share_url || activa.url_publica;
+                    const url = cotizacionDetalle.share_url || cotizacionDetalle.url_publica;
                     if (url) void compartirLink(url);
                   }}
                 />
               ) : null}
-              {activa.estado !== 'aceptada' ? (
+              {cotizacionDetalle.estado !== 'aceptada' ? (
                 <InstitutionalButton
                   label="Eliminar cotización"
                   variant="destructiveOutline"
@@ -395,6 +561,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   headerBlock: { gap: SPACING.md, marginBottom: SPACING.xs },
+  borradoresBlock: { gap: SPACING.sm },
   crearCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -499,6 +666,12 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   detalleHeaderText: { flex: 1, minWidth: 0, gap: 2 },
+  vistaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginTop: SPACING.xs,
+  },
   sheetActions: { gap: SPACING.sm, paddingBottom: SPACING.sm },
 });
 

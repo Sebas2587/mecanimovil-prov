@@ -16,6 +16,7 @@ export type HomeTodayActionsProps = {
   onAgendar: () => void;
   onCotizarIa: () => void;
   showCotizarIa?: boolean;
+  cotizacionesIaPendientes?: number;
 };
 
 /**
@@ -25,6 +26,7 @@ function HomeTodayActionsInner({
   onAgendar,
   onCotizarIa,
   showCotizarIa = true,
+  cotizacionesIaPendientes = 0,
 }: HomeTodayActionsProps) {
   return (
     <View style={styles.section}>
@@ -53,8 +55,15 @@ function HomeTodayActionsInner({
             style={styles.card}
             onPress={onCotizarIa}
           >
-            <View style={[hostIconPlateStyle, styles.iconPlateLg]}>
-              <Sparkles size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            <View style={styles.cardTopRow}>
+              <View style={[hostIconPlateStyle, styles.iconPlateLg]}>
+                <Sparkles size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              </View>
+              {cotizacionesIaPendientes > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{cotizacionesIaPendientes}</Text>
+                </View>
+              ) : null}
             </View>
             <Text style={styles.title}>Cotizar con IA</Text>
             <Text style={styles.sub} numberOfLines={2}>
@@ -88,6 +97,25 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: SPACING.xs,
     minHeight: 132,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  badge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: I.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontSize: 11,
+    color: I.onPrimary,
   },
   iconPlateLg: {
     width: 44,
