@@ -142,8 +142,8 @@ export function isChatAttachmentAudio(
   const normalized = normalizeAttachmentRef(uri);
   if (!normalized) return false;
   const path = normalized.split('?')[0];
-  if (/\.(mp3|m4a|ogg|wav|aac|caf)$/i.test(path)) return true;
-  if (hintName && (/\.(mp3|m4a|ogg|wav|aac|caf)$/i.test(hintName) || /^voice_/i.test(hintName))) {
+  if (/\.(mp3|m4a|ogg|oga|opus|wav|aac|caf)$/i.test(path)) return true;
+  if (hintName && (/\.(mp3|m4a|ogg|oga|opus|wav|aac|caf)$/i.test(hintName) || /^voice_/i.test(hintName))) {
     return true;
   }
   if (/voice_/i.test(path)) return true;
@@ -251,14 +251,26 @@ export async function appendChatFileToFormData(
 export function normalizeChatMessage<T extends Record<string, unknown>>(raw: T = {} as T) {
   const { mime, name } = getMessageAttachmentMeta(raw as Parameters<typeof getMessageAttachmentMeta>[0]);
   const attachment = getMessageAttachmentUri(raw as Parameters<typeof getMessageAttachmentUri>[0]);
+  const mediaMeta = (raw.channel_metadata as { media?: { mime_type?: string; mime?: string; filename?: string; name?: string } } | undefined)
+    ?.media;
+  const mimeFromMeta = mediaMeta?.mime_type || mediaMeta?.mime || null;
+  const nameFromMeta = mediaMeta?.filename || mediaMeta?.name || null;
+  const path = (attachment || '').split('?')[0];
+  let inferredMime = mime || mimeFromMeta;
+  if (!inferredMime && attachment) {
+    if (/\.(m4a|aac|caf)$/i.test(path)) inferredMime = 'audio/m4a';
+    else if (/\.(ogg|oga|opus)$/i.test(path)) inferredMime = 'audio/ogg';
+    else if (/\.(mp3)$/i.test(path)) inferredMime = 'audio/mpeg';
+    else if (/\.(jpe?g|png|gif|webp|heic)$/i.test(path)) inferredMime = 'image/jpeg';
+  }
   return {
     ...raw,
     content: normalizeMessageText(raw.content ?? raw.mensaje ?? raw.message),
     mensaje: normalizeMessageText(raw.mensaje ?? raw.content ?? raw.message),
     attachment,
     archivo_adjunto: attachment,
-    attachment_mime: mime || (attachment && /\.m4a$/i.test(attachment) ? 'audio/m4a' : null),
-    attachment_name: name,
+    attachment_mime: inferredMime,
+    attachment_name: name || nameFromMeta || null,
   };
 }
 

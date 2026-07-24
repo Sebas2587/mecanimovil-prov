@@ -88,9 +88,23 @@ function extractSendMessageError(error: unknown): string {
 }
 
 function mergeChatRow(prev: ChatRow[], row: ChatRow): ChatRow[] {
-  const idx = prev.findIndex((m) => m.id === row.id);
+  const idx = prev.findIndex((m) => String(m.id) === String(row.id));
   if (idx >= 0) {
-    return prev.map((m, i) => (i === idx ? { ...m, ...row } : m));
+    // Media inbound llega en 2 eventos (sin adjunto → con adjunto). Nunca pisar
+    // un archivo_adjunto válido con null del primer broadcast.
+    return prev.map((m, i) => {
+      if (i !== idx) return m;
+      const merged: ChatRow = { ...m, ...row };
+      if (!row.archivo_adjunto && m.archivo_adjunto) {
+        merged.archivo_adjunto = m.archivo_adjunto;
+        merged.attachment_mime = row.attachment_mime || m.attachment_mime;
+        merged.attachment_name = row.attachment_name || m.attachment_name;
+      }
+      if (!row.channel_metadata && m.channel_metadata) {
+        merged.channel_metadata = m.channel_metadata;
+      }
+      return merged;
+    });
   }
   return [...prev, row];
 }
@@ -210,7 +224,14 @@ export default function ChatOmnicanalScreen() {
     if (!convId) return;
     chatService.connect(convId, (data) => {
       const raw = data as Record<string, unknown>;
-      if (String(raw.conversation_id) !== convId) return;
+      // Socket ya es por conversación; solo filtrar si viene conversation_id distinto.
+      if (
+        raw.conversation_id != null
+        && String(raw.conversation_id) !== ''
+        && String(raw.conversation_id) !== convId
+      ) {
+        return;
+      }
       const msg = mapWsEvent(raw);
       setMensajes((prev) => mergeChatRow(prev, msg));
     });
@@ -469,6 +490,13 @@ export default function ChatOmnicanalScreen() {
                       leido: true,
                       fecha_lectura: null,
                       archivo_adjunto: item.archivo_adjunto,
+                      attachment_mime: item.attachment_mime
+                        || (
+                          (item.channel_metadata?.media as { mime_type?: string } | undefined)
+                            ?.mime_type
+                        )
+                        || null,
+                      attachment_name: item.attachment_name || null,
                     }}
                     esPropio={item.es_proveedor}
                     tone="host"
