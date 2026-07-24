@@ -91,22 +91,77 @@ export default function ConfiguracionAgenteIaScreen() {
     config?.recargo_domicilio_clp,
   ]);
 
+  const toggleMaster = useCallback(
+    (value: boolean) => {
+      if (!config) return;
+      if (value && config.agente_ia_disponible_en_plan === false) {
+        Alert.alert(
+          'No incluido en tu plan',
+          'El Agente IA está disponible desde el Plan Profesional.',
+        );
+        return;
+      }
+      updateConfig.mutate(
+        { habilitado: value },
+        {
+          onSuccess: (data) => {
+            const n = (data as { chats_desactivados?: number })?.chats_desactivados ?? 0;
+            if (!value && n > 0) {
+              Alert.alert(
+                'Agente desactivado',
+                `Se apagó el agente en ${n} chat${n === 1 ? '' : 's'}. Ya no responderá hasta que lo actives de nuevo en cada conversación.`,
+              );
+            }
+          },
+          onError: () => Alert.alert('Error', 'No se pudo actualizar el Agente IA.'),
+        },
+      );
+    },
+    [config, updateConfig],
+  );
+
   const toggleCanal = useCallback(
     (canal: CanalAgente) => {
       if (!config) return;
+      if (!config.habilitado) {
+        Alert.alert(
+          'Agente apagado',
+          'Primero activa “Respuestas automáticas” arriba para habilitar canales.',
+        );
+        return;
+      }
       const actuales = config.canales_habilitados?.length
         ? [...config.canales_habilitados]
         : CANALES.map((c) => c.key);
-      const next = actuales.includes(canal)
+      const apagando = actuales.includes(canal);
+      const next = apagando
         ? actuales.filter((c) => c !== canal)
         : [...actuales, canal];
-      updateConfig.mutate({ canales_habilitados: next });
+      // Lista vacía en backend = “todos los canales”. Si el taller apaga el último,
+      // apagamos también el master para que no queden todos activos por accidente.
+      const payload =
+        next.length === 0
+          ? { canales_habilitados: [] as CanalAgente[], habilitado: false }
+          : { canales_habilitados: next };
+      updateConfig.mutate(payload, {
+        onSuccess: (data) => {
+          const n = (data as { chats_desactivados?: number })?.chats_desactivados ?? 0;
+          if (apagando && n > 0) {
+            Alert.alert(
+              'Canal desactivado',
+              `Se apagó el agente en ${n} chat${n === 1 ? '' : 's'} de este canal.`,
+            );
+          }
+        },
+        onError: () => Alert.alert('Error', 'No se pudo actualizar el canal.'),
+      });
     },
     [config, updateConfig],
   );
 
   const canalActivo = useCallback(
     (canal: CanalAgente) => {
+      if (!config?.habilitado) return false;
       if (!config?.canales_habilitados?.length) return true;
       return config.canales_habilitados.includes(canal);
     },
@@ -217,7 +272,13 @@ export default function ConfiguracionAgenteIaScreen() {
       >
         <HostSectionKicker label="Estado" />
         <HostPaperSection style={styles.section}>
-          <View style={styles.statusRow}>
+          <Pressable
+            style={styles.statusRow}
+            onPress={() => {
+              if (config.agente_ia_disponible_en_plan === false) return;
+              toggleMaster(!config.habilitado);
+            }}
+          >
             <View style={hostIconPlateStyle}>
               <Bot size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
@@ -247,10 +308,16 @@ export default function ConfiguracionAgenteIaScreen() {
               <InstitutionalText role="caption" color="muted">
                 {config.agente_ia_disponible_en_plan === false
                   ? 'El Agente IA está disponible desde el Plan Profesional. Sube de plan para activar la auto-respuesta.'
-                  : 'Se activa chat por chat (como ManyChat): no basta con esta pantalla. En cada conversación usa el botón Agente IA. Aquí configuras canales, tono e información del taller.'}
+                  : 'Interruptor general del taller. Si lo apagas, el agente se desactiva en todos los chats y deja de contestar. Para intervenir en un chat puntual, apaga el Agente IA dentro de esa conversación.'}
               </InstitutionalText>
             </View>
-          </View>
+            <Switch
+              value={Boolean(config.habilitado)}
+              onValueChange={toggleMaster}
+              disabled={config.agente_ia_disponible_en_plan === false || updateConfig.isPending}
+              {...institutionalSwitchProps}
+            />
+          </Pressable>
         </HostPaperSection>
 
         <HostSectionKicker label="Canales activos" />

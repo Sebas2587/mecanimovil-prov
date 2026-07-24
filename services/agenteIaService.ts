@@ -11,6 +11,8 @@ export interface AgenteIaConfig {
   actualizado_en?: string;
   /** false si el plan actual del taller no incluye el Agente IA (ej. Plan Básico). */
   agente_ia_disponible_en_plan?: boolean;
+  /** Chats donde se apagó el agente al desactivar el master o un canal (respuesta del PATCH). */
+  chats_desactivados?: number;
 }
 
 export interface ConocimientoDocumento {
