@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Platform, View, Text, StyleSheet } from 'react-native';
-import { Home, ClipboardList, MessageCircle, Calendar, Menu, Inbox } from 'lucide-react-native';
+import { Home, ClipboardList, MessageCircle, Calendar, Inbox } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
@@ -14,6 +14,7 @@ import { platformShadow } from '@/app/design-system/tokens';
 import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
 import { useLegalConsentGate } from '@/hooks/useLegalConsentGate';
 import LegalConsentModal from '@/components/legal/LegalConsentModal';
+import MenuTabIcon from '@/components/navigation/MenuTabIcon';
 
 const C = COLORS;
 
@@ -190,9 +191,7 @@ export default function TabLayout() {
         name="perfil"
         options={{
           title: 'Menú',
-          tabBarIcon: ({ color, focused }) => (
-            <Menu size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
-          ),
+          tabBarIcon: ({ focused }) => <MenuTabIcon focused={focused} />,
         }}
       />
 
