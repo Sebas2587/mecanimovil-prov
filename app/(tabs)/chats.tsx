@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Alert,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import {
@@ -384,32 +385,48 @@ export default function ChatsScreen() {
     );
 
     if (isOmnichannel && chatHref) {
+      const agendarBtn = (
+        <TouchableOpacity
+          style={styles.quickActionBtn}
+          onPress={() => abrirAgendarDesdeFila(item)}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Agendar cita y cotizar con IA"
+        >
+          <Sparkles size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+        </TouchableOpacity>
+      );
+
       return (
         <ChatSwipeableRow
           rowKey={`omni:${String(conversation_id)}`}
           disabled={isDeleting}
           onDelete={() => deleteOmnichannelChat(conversation_id, mensajes_no_leidos || 0)}
+          // En web Agendar + Eliminar van en UNA columna (48px) para no achicar la card.
+          webSideActions={agendarBtn}
         >
-          <View style={styles.chatRowWithAction}>
-            <View style={styles.chatRowMain}>
-              <ChatInboxLinkRow
-                href={chatHref}
-                onPress={markReadIfNeeded}
-                highlighted={isHighlighted}
-              >
-                {cardBody}
-              </ChatInboxLinkRow>
-            </View>
-            <TouchableOpacity
-              style={styles.quickActionBtn}
-              onPress={() => abrirAgendarDesdeFila(item)}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Agendar cita y cotizar con IA"
+          {Platform.OS === 'web' ? (
+            <ChatInboxLinkRow
+              href={chatHref}
+              onPress={markReadIfNeeded}
+              highlighted={isHighlighted}
             >
-              <Sparkles size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-            </TouchableOpacity>
-          </View>
+              {cardBody}
+            </ChatInboxLinkRow>
+          ) : (
+            <View style={styles.chatRowWithAction}>
+              <View style={styles.chatRowMain}>
+                <ChatInboxLinkRow
+                  href={chatHref}
+                  onPress={markReadIfNeeded}
+                  highlighted={isHighlighted}
+                >
+                  {cardBody}
+                </ChatInboxLinkRow>
+              </View>
+              {agendarBtn}
+            </View>
+          )}
         </ChatSwipeableRow>
       );
     }

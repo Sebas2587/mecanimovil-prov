@@ -1,7 +1,6 @@
 import React from 'react';
 import { Platform, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Link, type Href } from 'expo-router';
-import { SPACING } from '@/app/design-system/tokens';
 
 type Props = {
   href: Href;
@@ -33,7 +32,7 @@ export function ChatInboxLinkRow({ href, onPress, highlighted, style, children }
 
 const styles = StyleSheet.create({
   wrap: {
-    marginBottom: SPACING.sm,
+    // El espaciado entre filas lo controla el contenedor (ChatSwipeableRow / listItemFallback).
   },
   highlighted: {
     opacity: 1,
