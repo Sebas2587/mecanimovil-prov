@@ -1733,48 +1733,50 @@ export const modelosAPI = {
   },
 };
 
-// Función helper para realizar peticiones HTTP
-const makeRequest = async (method: string, url: string, data?: any) => {
+// Función helper para realizar peticiones HTTP.
+// `config` se reenvía a axios (params, signal, headers, etc.). Sin esto,
+// llamadas como api.get(url, { params }) perdían querystring y AbortSignal.
+const makeRequest = async (method: string, url: string, data?: any, config?: any) => {
   const api = await getAPI();
   switch (method.toLowerCase()) {
-    case 'get':
-      return await api.get(url);
-    case 'post':
-      return await api.post(url, data);
-    case 'put':
-      return await api.put(url, data);
-    case 'patch':
-      return await api.patch(url, data);
-    case 'delete':
-      return await api.delete(url);
-    default:
-      throw new Error(`Método HTTP no soportado: ${method}`);
+  case 'get':
+    return await api.get(url, config);
+  case 'post':
+    return await api.post(url, data, config);
+  case 'put':
+    return await api.put(url, data, config);
+  case 'patch':
+    return await api.patch(url, data, config);
+  case 'delete':
+    return await api.delete(url, config);
+  default:
+    throw new Error(`Método HTTP no soportado: ${method}`);
   }
 };
 
 // Función para realizar peticiones GET
-const get = async (url: string) => {
-  return await makeRequest('get', url);
+const get = async (url: string, config?: any) => {
+  return await makeRequest('get', url, undefined, config);
 };
 
 // Función para realizar peticiones POST
-const post = async (url: string, data?: any) => {
-  return await makeRequest('post', url, data);
+const post = async (url: string, data?: any, config?: any) => {
+  return await makeRequest('post', url, data, config);
 };
 
 // Función para realizar peticiones PUT
-const put = async (url: string, data?: any) => {
-  return await makeRequest('put', url, data);
+const put = async (url: string, data?: any, config?: any) => {
+  return await makeRequest('put', url, data, config);
 };
 
 // Función para realizar peticiones PATCH
-const patch = async (url: string, data?: any) => {
-  return await makeRequest('patch', url, data);
+const patch = async (url: string, data?: any, config?: any) => {
+  return await makeRequest('patch', url, data, config);
 };
 
 // Función para realizar peticiones DELETE
-const del = async (url: string) => {
-  return await makeRequest('delete', url);
+const del = async (url: string, config?: any) => {
+  return await makeRequest('delete', url, undefined, config);
 };
 
 // Crear un objeto API con las funciones necesarias para mantener compatibilidad

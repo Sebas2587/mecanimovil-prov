@@ -133,7 +133,7 @@ export function AgenteIaChatToggleModal({
               {!chatIdOk
                 ? 'No se identificó la conversación. Cierra el modal y vuelve a entrar al chat.'
                 : disponibleEnPlan
-                  ? 'Solo afecta este chat. Si el taller responde a mano, la IA se pausa y se reanuda sola después de un rato, o puedes reactivarla aquí.'
+                  ? 'En chats nuevos el agente arranca activo. Apágalo solo si quieres responder tú a mano en este chat. Si escribes sin apagarlo, la IA se pausa un rato y luego se reanuda.'
                   : 'Disponible desde el Plan Profesional. Sube de plan para activar la auto-respuesta.'}
             </InstitutionalText>
           </View>
