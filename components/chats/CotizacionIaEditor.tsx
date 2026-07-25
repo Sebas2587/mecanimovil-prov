@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -63,7 +63,16 @@ function ClpMoneyInput({
   placeholder = '0',
   compact = false,
 }: ClpMoneyInputProps) {
-  const display = value > 0 ? formatMontoInputLocalized(value) : '';
+  const [focused, setFocused] = useState(false);
+  const [draft, setDraft] = useState(() =>
+    value > 0 ? formatMontoInputLocalized(value) : '',
+  );
+
+  // Solo sincroniza desde props cuando no se está escribiendo (evita borrar el monto a mitad de tipeo).
+  useEffect(() => {
+    if (focused) return;
+    setDraft(value > 0 ? formatMontoInputLocalized(value) : '');
+  }, [value, focused]);
 
   return (
     <View
@@ -81,12 +90,27 @@ function ClpMoneyInput({
           institutionalInputStyles.inputMono,
           compact && institutionalInputStyles.inputCompact,
         ]}
-        keyboardType="numeric"
+        keyboardType="number-pad"
         editable={editable}
         placeholder={placeholder}
         placeholderTextColor={institutionalInputPlaceholder}
-        value={display}
-        onChangeText={(t) => onChangeValue(redondearCLP(parseMontoDecimal(t)))}
+        value={draft}
+        onFocus={() => {
+          setFocused(true);
+          // Editar en dígitos crudos evita pelear con puntos de miles (es-CL).
+          setDraft(value > 0 ? String(Math.round(value)) : '');
+        }}
+        onBlur={() => {
+          const next = redondearCLP(parseMontoDecimal(draft));
+          onChangeValue(next);
+          setDraft(next > 0 ? formatMontoInputLocalized(next) : '');
+          setFocused(false);
+        }}
+        onChangeText={(t) => {
+          const cleaned = t.replace(/[^\d]/g, '');
+          setDraft(cleaned);
+          onChangeValue(redondearCLP(parseMontoDecimal(cleaned)));
+        }}
       />
     </View>
   );

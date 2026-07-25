@@ -219,14 +219,12 @@ export function CotizacionesIaList({ enabled = true }: Props) {
     setEditDraft(null);
   }, []);
 
+  // Rehidrata al abrir/cambiar cotización. No depende de `data`: un refetch
+  // no debe pisar lo que el taller está tipando (mano de obra, etc.).
   useEffect(() => {
-    if (activa && esBorradorAgenteIa(activa)) {
-      const fresh = data.find((c) => c.id === activa.id);
-      if (fresh) {
-        setEditDraft({ ...fresh });
-      }
-    }
-  }, [activa?.id, data]);
+    if (!activa || !esBorradorAgenteIa(activa)) return;
+    setEditDraft({ ...activa });
+  }, [activa?.id]);
 
   const compartirLink = useCallback(async (url: string) => {
     try {
