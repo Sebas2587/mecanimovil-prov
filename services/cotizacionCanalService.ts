@@ -60,7 +60,17 @@ export interface CotizacionCanal {
   rechazada_en?: string | null;
   creado_en?: string;
   actualizado_en?: string;
-  metadata?: { origen?: string; sesion_id?: number; plantilla_id?: number };
+  metadata?: {
+    origen?: string;
+    sesion_id?: number;
+    plantilla_id?: number;
+    listo_para_enviar?: boolean;
+    pendientes_revision?: string[];
+    vehiculo_kilometraje_actual?: number | null;
+    vehiculo_fuente?: string;
+    patente_enriquecida?: string;
+    precio_desde_catalogo?: boolean;
+  };
 }
 
 export interface CotizacionPlantilla {
