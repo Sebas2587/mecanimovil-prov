@@ -389,6 +389,27 @@ export function CotizacionIaEditor({
         </View>
       </Card>
 
+      {cotizacion.estado === 'borrador' ? (
+        <Card elevated padding="host" style={styles.readinessCard}>
+          {cotizacion.listo_para_enviar ? (
+            <InstitutionalText role="captionBold" color="ink">
+              Lista para enviar — revisa y envía al cliente con un clic.
+            </InstitutionalText>
+          ) : (cotizacion.pendientes_revision?.length ?? 0) > 0 ? (
+            <View style={styles.advertenciasBox}>
+              <InstitutionalText role="captionBold" color="ink">
+                Pendiente antes de enviar
+              </InstitutionalText>
+              {(cotizacion.pendientes_revision || []).map((pend, i) => (
+                <InstitutionalText key={`pend-${i}`} role="small" color="muted">
+                  • {pend}
+                </InstitutionalText>
+              ))}
+            </View>
+          ) : null}
+        </Card>
+      ) : null}
+
       {cotizacion.advertencias?.length ? (
         <View style={styles.advertenciasBox}>
           {cotizacion.advertencias.map((adv, i) => (
@@ -544,6 +565,7 @@ const styles = StyleSheet.create({
     fontSize: T.h3.fontSize,
   },
   advertenciasBox: { gap: 4 },
+  readinessCard: { gap: SPACING.fixed.xs },
 });
 
 export default CotizacionIaEditor;

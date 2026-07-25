@@ -46,6 +46,8 @@ export interface PipelineComercialItem {
   visto_sin_respuesta?: boolean;
   demorado_48h?: boolean;
   horario_por_confirmar?: boolean;
+  listo_para_enviar?: boolean;
+  pendientes_revision?: string[];
 }
 
 export interface PipelineComercialResponse {

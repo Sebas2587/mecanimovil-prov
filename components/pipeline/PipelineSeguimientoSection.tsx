@@ -178,6 +178,16 @@ const LeadCard = React.memo(function LeadCard({
         {item.template_generado_por_ia ? (
           <InstitutionalTag label="Checklist IA" variant="info" size="sm" />
         ) : null}
+        {item.estado_raw === 'borrador' && item.listo_para_enviar ? (
+          <InstitutionalTag label="Lista para enviar" variant="success" size="sm" />
+        ) : null}
+        {item.estado_raw === 'borrador' && !item.listo_para_enviar && (item.pendientes_revision?.length ?? 0) > 0 ? (
+          <InstitutionalTag
+            label={(item.pendientes_revision?.[0] || 'Pendiente').slice(0, 28)}
+            variant="warning"
+            size="sm"
+          />
+        ) : null}
         <View style={styles.cardTopSpacer} />
         {monto ? <Text style={styles.cardPrice}>{monto}</Text> : null}
       </View>
