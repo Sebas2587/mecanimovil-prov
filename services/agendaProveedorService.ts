@@ -59,6 +59,9 @@ export interface CitaAgendaPersonal {
   mecanico_modalidad_tecnico?: 'en_taller' | 'a_domicilio' | 'ambas' | null;
   mecanico_modalidad_display?: string | null;
   miembro_taller?: number | null;
+  conversation_id?: number | null;
+  cotizacion_canal_origen_id?: number | null;
+  permite_cotizacion_adicional?: boolean;
 }
 
 export interface EventoAgendaUnificado {

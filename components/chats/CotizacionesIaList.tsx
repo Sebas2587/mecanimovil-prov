@@ -71,8 +71,14 @@ const ESTADO_VARIANT: Record<
   cancelada: 'error',
 };
 
-function esBorradorAgenteIa(cot: CotizacionCanal): boolean {
-  return cot.estado === 'borrador' && cot.metadata?.origen === 'agente_ia';
+function esBorradorPorRevisar(cot: CotizacionCanal): boolean {
+  return cot.estado === 'borrador';
+}
+
+function esBorradorAgente(cot: CotizacionCanal): boolean {
+  if (cot.metadata?.origen === 'agente_ia') return true;
+  if (cot.es_cotizacion_adicional) return true;
+  return cot.metadata?.origen === 'cotizacion_adicional';
 }
 
 function canalLabel(cot: CotizacionCanal): string {
@@ -170,8 +176,8 @@ type Props = {
 };
 
 /**
- * Contenido de Cotizar con IA (`/cotizar-ia`): historial + nueva cotización.
- * Independiente de Mensajes; el chat del cliente es opcional en el detalle.
+ * Cotizar con IA (`/cotizar-ia`): solo borradores por revisar/enviar + crear.
+ * Enviadas, vistas y aceptadas viven en Bandeja; agendadas en Agenda.
  */
 export function CotizacionesIaList({ enabled = true }: Props) {
   const qc = useQueryClient();
@@ -188,7 +194,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
   const borradoresPorRevisar = useMemo(
     () =>
       [...data]
-        .filter(esBorradorAgenteIa)
+        .filter(esBorradorPorRevisar)
         .sort((a, b) => {
           const ta = new Date(a.creado_en || 0).getTime();
           const tb = new Date(b.creado_en || 0).getTime();
@@ -197,21 +203,13 @@ export function CotizacionesIaList({ enabled = true }: Props) {
     [data],
   );
 
-  const items = useMemo(
-    () =>
-      [...data]
-        .filter((c) => !esBorradorAgenteIa(c) && c.estado !== 'borrador' && c.estado !== 'cancelada')
-        .sort((a, b) => {
-          const ta = new Date(a.enviada_en || a.creado_en || 0).getTime();
-          const tb = new Date(b.enviada_en || b.creado_en || 0).getTime();
-          return tb - ta;
-        }),
-    [data],
-  );
-
   const abrirDetalle = useCallback((item: CotizacionCanal) => {
     setActiva(item);
-    setEditDraft(esBorradorAgenteIa(item) ? { ...item } : null);
+    setEditDraft(esBorradorPorRevisar(item) ? { ...item } : null);
+  }, []);
+
+  const irABandeja = useCallback(() => {
+    router.push('/(tabs)/bandeja');
   }, []);
 
   const cerrarDetalle = useCallback(() => {
@@ -222,7 +220,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
   // Rehidrata al abrir/cambiar cotización. No depende de `data`: un refetch
   // no debe pisar lo que el taller está tipando (mano de obra, etc.).
   useEffect(() => {
-    if (!activa || !esBorradorAgenteIa(activa)) return;
+    if (!activa || !esBorradorPorRevisar(activa)) return;
     setEditDraft({ ...activa });
   }, [activa?.id]);
 
@@ -286,7 +284,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
       invalidateProveedorComercialQueries(qc);
       showAlert(
         'Cotización enviada',
-        'El cliente recibirá el enlace para revisar y aceptar o rechazar en la página de la cotización.',
+        'Ya está en tu Bandeja para seguimiento. El cliente recibirá el enlace para aceptar o rechazar.',
       );
     } catch {
       showAlert('Error', 'No se pudo enviar la cotización.');
@@ -349,29 +347,29 @@ export function CotizacionesIaList({ enabled = true }: Props) {
           <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
         </Card>
 
-        {borradoresPorRevisar.length > 0 ? (
-          <>
-            <HostSectionKicker
-              label={`Por revisar${borradoresCount > 0 ? ` (${borradoresCount})` : ''}`}
-            />
-            <View style={styles.borradoresBlock}>
-              {borradoresPorRevisar.map((item) => (
-                <CotizacionCard
-                  key={`borrador-${item.id}`}
-                  item={item}
-                  onPress={abrirDetalle}
-                  tagLabel="Borrador IA · revisar"
-                  tagVariant="warning"
-                />
-              ))}
-            </View>
-          </>
-        ) : null}
+        <Card
+          elevated
+          padding="host"
+          style={styles.crearCard}
+          onPress={irABandeja}
+        >
+          <View style={styles.crearText}>
+            <Text style={styles.crearTitle}>Seguimiento en Bandeja</Text>
+            <Text style={styles.crearSub}>
+              Enviadas, vistas y aceptadas por agendar viven ahí — no en esta pantalla
+            </Text>
+          </View>
+          <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+        </Card>
 
-        <HostSectionKicker label="Cotizaciones enviadas" />
+        {borradoresPorRevisar.length > 0 ? (
+          <HostSectionKicker
+            label={`Por revisar${borradoresCount > 0 ? ` (${borradoresCount})` : ''}`}
+          />
+        ) : null}
       </View>
     ),
-    [abrirDetalle, borradoresCount, borradoresPorRevisar],
+    [borradoresCount, borradoresPorRevisar.length, irABandeja],
   );
 
   const renderItem = useCallback(
@@ -379,24 +377,25 @@ export function CotizacionesIaList({ enabled = true }: Props) {
       <CotizacionCard
         item={item}
         onPress={abrirDetalle}
-        showVista={item.estado === 'enviada' && Boolean(item.visto_en)}
+        tagLabel={esBorradorAgente(item) ? 'Borrador IA · revisar' : 'Borrador'}
+        tagVariant="warning"
       />
     ),
     [abrirDetalle],
   );
 
-  const cotizacionDetalle = editDraft && esBorradorAgenteIa(editDraft) ? editDraft : activa;
-  const esBorradorEditable = Boolean(cotizacionDetalle && esBorradorAgenteIa(cotizacionDetalle));
+  const cotizacionDetalle = editDraft && esBorradorPorRevisar(editDraft) ? editDraft : activa;
+  const esBorradorEditable = Boolean(cotizacionDetalle && esBorradorPorRevisar(cotizacionDetalle));
 
   const vehiculoActiva = cotizacionDetalle
     ? [cotizacionDetalle.vehiculo_marca, cotizacionDetalle.vehiculo_modelo].filter(Boolean).join(' ')
     : '';
 
-  if (isPending && items.length === 0 && borradoresPorRevisar.length === 0) {
+  if (isPending && borradoresPorRevisar.length === 0) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={I.primary} />
-        <Text style={styles.loadingText}>Cargando cotizaciones…</Text>
+        <Text style={styles.loadingText}>Cargando borradores…</Text>
       </View>
     );
   }
@@ -404,7 +403,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
   return (
     <View style={styles.root}>
       <FlatList
-        data={items}
+        data={borradoresPorRevisar}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
         ListHeaderComponent={header}
@@ -421,14 +420,17 @@ export function CotizacionesIaList({ enabled = true }: Props) {
           />
         }
         ListEmptyComponent={
-          borradoresPorRevisar.length === 0 ? (
-            <View style={styles.empty}>
-              <InstitutionalText role="bodyBold">Sin cotizaciones enviadas aún</InstitutionalText>
-              <InstitutionalText role="caption" color="muted" style={styles.emptySub}>
-                Crea una cotización libre o genera una desde un chat de canal.
-              </InstitutionalText>
-            </View>
-          ) : null
+          <View style={styles.empty}>
+            <InstitutionalText role="bodyBold">Sin borradores por revisar</InstitutionalText>
+            <InstitutionalText role="caption" color="muted" style={styles.emptySub}>
+              Crea una cotización o espera un borrador de la IA. Lo ya enviado o aceptado está en Bandeja.
+            </InstitutionalText>
+            <InstitutionalButton
+              label="Ir a Bandeja"
+              variant="outline"
+              onPress={irABandeja}
+            />
+          </View>
         }
       />
 
@@ -564,7 +566,6 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   headerBlock: { gap: SPACING.md, marginBottom: SPACING.xs },
-  borradoresBlock: { gap: SPACING.sm },
   crearCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -649,7 +650,7 @@ const styles = StyleSheet.create({
   empty: {
     paddingVertical: SPACING.xl,
     alignItems: 'center',
-    gap: SPACING.xs,
+    gap: SPACING.sm,
   },
   emptySub: { textAlign: 'center', paddingHorizontal: SPACING.lg },
   detalleSheet: {

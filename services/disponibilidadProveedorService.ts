@@ -40,6 +40,8 @@ function appendAgendaQuery(
     ofertaServicioId?: number;
     miembroTallerId?: number;
     modalidad?: 'a_domicilio' | 'en_taller';
+    /** agenda_personal: no exige especialidad; usa jornada del taller/equipo. */
+    contexto?: 'agenda_personal';
   },
 ): void {
   if (params.ofertaServicioId) {
@@ -50,6 +52,9 @@ function appendAgendaQuery(
   }
   if (params.modalidad) {
     query.set('modalidad', params.modalidad);
+  }
+  if (params.contexto) {
+    query.set('contexto', params.contexto);
   }
 }
 
@@ -81,6 +86,8 @@ export async function obtenerDisponibilidadConDuracion(params: {
   modalidad?: 'a_domicilio' | 'en_taller';
   /** Por defecto true en app proveedor: usa sesión autenticada. */
   usarSesionAutenticada?: boolean;
+  /** Confirmar horario del taller: no bloquear por especialidad del catálogo. */
+  contexto?: 'agenda_personal';
 }): Promise<DisponibilidadConDuracion> {
   const api = await getAPI();
   const query = new URLSearchParams({ fecha: params.fecha });
@@ -109,6 +116,7 @@ export async function obtenerDiasDisponiblesAgenda(params: {
   modalidad?: 'a_domicilio' | 'en_taller';
   dias?: number;
   usarSesionAutenticada?: boolean;
+  contexto?: 'agenda_personal';
 }): Promise<DiasDisponiblesAgenda> {
   const api = await getAPI();
   const query = new URLSearchParams({ dias: String(params.dias ?? 21) });

@@ -70,7 +70,12 @@ export interface CotizacionCanal {
     vehiculo_fuente?: string;
     patente_enriquecida?: string;
     precio_desde_catalogo?: boolean;
+    cotizacion_original_id?: number;
+    cita_personal_id?: number;
   };
+  cotizacion_original_id?: number | null;
+  es_cotizacion_adicional?: boolean;
+  motivo_servicio_adicional?: string;
 }
 
 export interface CotizacionPlantilla {
@@ -97,6 +102,16 @@ export interface GenerarCotizacionIaPayload {
   plantilla_id?: number;
 }
 
+export interface CrearCotizacionAdicionalPayload {
+  cita_id: number;
+  cotizacion_original_id: number;
+  motivo_servicio_adicional: string;
+  modo: 'catalogo' | 'ia';
+  servicios_catalogo?: Array<{ oferta_servicio_id: number; cantidad?: number }>;
+  servicio_nombre?: string;
+  descripcion_problema?: string;
+}
+
 export interface GenerarCotizacionIaResponse {
   disponible: boolean;
   cotizacion?: CotizacionCanal;
@@ -109,6 +124,11 @@ class CotizacionCanalService {
   async generarIa(payload: GenerarCotizacionIaPayload): Promise<GenerarCotizacionIaResponse> {
     const response = await api.post('/ordenes/cotizaciones-canal/generar-ia/', payload);
     return response.data as GenerarCotizacionIaResponse;
+  }
+
+  async crearAdicional(payload: CrearCotizacionAdicionalPayload): Promise<{ cotizacion: CotizacionCanal }> {
+    const response = await api.post('/ordenes/cotizaciones-canal/crear-adicional/', payload);
+    return response.data as { cotizacion: CotizacionCanal };
   }
 
   async actualizar(id: number, patch: Partial<CotizacionCanal>): Promise<CotizacionCanal> {

@@ -67,7 +67,7 @@ function HomeTodayActionsInner({
             </View>
             <Text style={styles.title}>Cotizar con IA</Text>
             <Text style={styles.sub} numberOfLines={2}>
-              Por WhatsApp u otro canal
+              Borradores por revisar y enviar al cliente
             </Text>
           </Card>
         ) : null}

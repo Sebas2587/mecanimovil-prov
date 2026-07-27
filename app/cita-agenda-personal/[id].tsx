@@ -270,6 +270,9 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const esCancelada = cita?.estado === 'cancelada';
   const horarioPorConfirmar = Boolean(cita?.horario_por_confirmar);
   const citaAgendada = esActiva && !horarioPorConfirmar;
+  const permitirAgregarServicio = Boolean(
+    cita?.permite_cotizacion_adicional && cita?.cotizacion_canal_origen_id,
+  );
 
   const checklistEstado = cita?.checklist_estado ?? null;
   const checklistIniciado = !!checklistEstado && checklistEstado !== 'PENDIENTE';
@@ -1163,6 +1166,11 @@ export default function CitaAgendaPersonalDetalleScreen() {
               citaAgendada && !cita.tiene_checklist
             }
             permitirConfirmarHorario={horarioPorConfirmar && permitirEditarCita}
+            permitirAgregarServicio={permitirAgregarServicio}
+            onAgregarServicio={() => {
+              if (!cita) return;
+              router.push(`/agregar-servicio-adicional/${cita.id}`);
+            }}
             onEditar={() => {
               setFeedbackAccion(null);
               setEditando(true);
@@ -1275,6 +1283,8 @@ type CitaPersonalFooterProps = {
   permitirCancelar: boolean;
   permitirCerrarManual: boolean;
   permitirConfirmarHorario?: boolean;
+  permitirAgregarServicio?: boolean;
+  onAgregarServicio?: () => void;
   onEditar: () => void;
   onCompletar: () => void;
   onConfirmarHorario?: () => void;
@@ -1295,6 +1305,8 @@ function CitaPersonalFooter({
   permitirCancelar,
   permitirCerrarManual,
   permitirConfirmarHorario = false,
+  permitirAgregarServicio = false,
+  onAgregarServicio,
   onEditar,
   onCompletar,
   onConfirmarHorario,
@@ -1309,6 +1321,15 @@ function CitaPersonalFooter({
       {esActiva && !editando ? (
         permitirEditar ? (
           <>
+            {permitirAgregarServicio ? (
+              <InstitutionalButton
+                label="Agregar otro servicio"
+                variant="outline"
+                onPress={onAgregarServicio ?? (() => undefined)}
+                disabled={procesando}
+                style={styles.footerBtnGrow}
+              />
+            ) : null}
             {permitirConfirmarHorario ? (
               <InstitutionalButton
                 label="Confirmar horario"

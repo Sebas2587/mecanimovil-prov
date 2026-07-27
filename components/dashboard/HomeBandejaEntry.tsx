@@ -66,8 +66,8 @@ function HomeBandejaEntryInner({ enabled = true, refreshKey = 0 }: HomeBandejaEn
           </View>
           <Text style={styles.sub} numberOfLines={2}>
             {pendientes > 0
-              ? `${pendientes} solicitud${pendientes === 1 ? '' : 'es'} o cotización${pendientes === 1 ? '' : 'es'} por atender`
-              : 'Solicitudes, cotizaciones y seguimiento del taller'}
+              ? `${pendientes} caso${pendientes === 1 ? '' : 's'} enviado${pendientes === 1 ? '' : 's'} por atender`
+              : 'Cotizaciones enviadas, seguimiento y agendamientos'}
           </Text>
         </View>
         <ChevronRight size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />

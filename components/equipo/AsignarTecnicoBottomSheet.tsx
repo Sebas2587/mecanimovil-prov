@@ -106,7 +106,7 @@ export function AsignarTecnicoBottomSheet({
             >
               <InstitutionalText role="bodyBold">Automático</InstitutionalText>
               <InstitutionalText role="caption" color="muted">
-                Mejor técnico disponible según especialidad y horario
+                Mejor técnico disponible según la agenda del taller y del equipo
               </InstitutionalText>
             </TouchableOpacity>
 

@@ -81,7 +81,6 @@ const ESTADOS_ABIERTOS: EstadoPipelineNormalizado[] = [
   'nuevo',
   'cotizacion_enviada',
   'en_negociacion',
-  'aceptado_agendado',
   'en_ejecucion',
 ];
 
@@ -178,15 +177,8 @@ const LeadCard = React.memo(function LeadCard({
         {item.template_generado_por_ia ? (
           <InstitutionalTag label="Checklist IA" variant="info" size="sm" />
         ) : null}
-        {item.estado_raw === 'borrador' && item.listo_para_enviar ? (
-          <InstitutionalTag label="Lista para enviar" variant="success" size="sm" />
-        ) : null}
-        {item.estado_raw === 'borrador' && !item.listo_para_enviar && (item.pendientes_revision?.length ?? 0) > 0 ? (
-          <InstitutionalTag
-            label={(item.pendientes_revision?.[0] || 'Pendiente').slice(0, 28)}
-            variant="warning"
-            size="sm"
-          />
+        {item.es_cotizacion_adicional ? (
+          <InstitutionalTag label="Servicio adicional" variant="info" size="sm" />
         ) : null}
         <View style={styles.cardTopSpacer} />
         {monto ? <Text style={styles.cardPrice}>{monto}</Text> : null}
@@ -442,6 +434,7 @@ export function PipelineSeguimientoSection({
   const leadPuedeCerrar =
     leadActivo?.tipo_entidad === 'cotizacion_canal'
     && !!leadActivo.cotizacion_id
+    && leadActivo.estado_raw !== 'borrador'
     && !['aceptada', 'rechazada', 'cancelada'].includes(leadActivo.estado_raw);
   const leadPuedeAceptar =
     leadActivo?.tipo_entidad === 'cotizacion_canal'
@@ -504,7 +497,7 @@ export function PipelineSeguimientoSection({
           <View style={styles.titleBlock}>
             <HostSectionKicker label="Bandeja" />
             <InstitutionalText role="caption" color="muted">
-              Solicitudes y cotizaciones del taller
+              Enviadas y por agendar aquí · citas confirmadas en Agenda
             </InstitutionalText>
           </View>
           {compact ? (

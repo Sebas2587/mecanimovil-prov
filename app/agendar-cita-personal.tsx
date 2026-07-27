@@ -241,6 +241,7 @@ export default function AgendarCitaPersonalScreen() {
       modalidad: modalidadApi,
       miembroTallerId: miembroSeleccionado ?? undefined,
       dias: 21,
+      contexto: 'agenda_personal',
     })
       .then((data) => {
         if (cancelled) return;
@@ -321,6 +322,7 @@ export default function AgendarCitaPersonalScreen() {
       ofertaServicioId: selectedOfertaId,
       modalidad: modalidadApi,
       miembroTallerId: miembroSeleccionado ?? undefined,
+      contexto: 'agenda_personal',
     })
       .then((data) => {
         if (cancelled) return;

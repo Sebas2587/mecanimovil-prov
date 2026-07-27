@@ -80,6 +80,7 @@ export function ConfirmarHorarioCitaSheet({
       modalidad: modalidadApi,
       miembroTallerId: miembroId ?? undefined,
       dias: 21,
+      contexto: 'agenda_personal',
     })
       .then((data) => {
         if (cancelled) return;
@@ -141,6 +142,7 @@ export function ConfirmarHorarioCitaSheet({
       ofertaServicioId: ofertaId,
       modalidad: modalidadApi,
       miembroTallerId: miembroId ?? undefined,
+      contexto: 'agenda_personal',
     })
       .then((data) => {
         if (cancelled) return;
@@ -262,8 +264,8 @@ export function ConfirmarHorarioCitaSheet({
         <InstitutionalText role="h4">Confirmar horario</InstitutionalText>
         <InstitutionalText role="caption" color="muted">
           {miembroId
-            ? 'Paso 2 de 2: elige día y hora según la agenda del técnico asignado.'
-            : 'Paso 2 de 2: elige día y hora según la agenda del taller (asignación automática).'}
+            ? 'Paso 2 de 2: elige día y hora según la agenda del técnico (o la jornada del taller si hereda horarios).'
+            : 'Paso 2 de 2: elige día y hora según la agenda del taller. Si el equipo no tiene jornada propia, se usa el horario general.'}
         </InstitutionalText>
 
         {cargandoFechas && fechasDisponibles === null ? (

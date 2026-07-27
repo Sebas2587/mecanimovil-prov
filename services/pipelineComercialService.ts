@@ -48,6 +48,7 @@ export interface PipelineComercialItem {
   horario_por_confirmar?: boolean;
   listo_para_enviar?: boolean;
   pendientes_revision?: string[];
+  es_cotizacion_adicional?: boolean;
 }
 
 export interface PipelineComercialResponse {
@@ -55,6 +56,7 @@ export interface PipelineComercialResponse {
   results: PipelineComercialItem[];
   resumen: Record<EstadoPipelineNormalizado, number>;
   esperando_respuesta_24h_count: number;
+  borradores_pendientes_count?: number;
 }
 
 export interface PipelineComercialParams {
