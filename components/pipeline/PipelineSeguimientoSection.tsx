@@ -25,8 +25,11 @@ import {
   type PipelineComercialItem,
   type EstadoPipelineNormalizado,
   type OrigenPipeline,
+  type LeadCategoria,
   ESTADO_PIPELINE_LABELS,
   ORIGEN_PIPELINE_LABELS,
+  LEAD_CATEGORIA_LABELS,
+  LEAD_CATEGORIA_VARIANT,
 } from '@/services/pipelineComercialService';
 import { usePipelineComercialQuery } from '@/hooks/usePipelineComercialQuery';
 import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
@@ -151,6 +154,8 @@ const LeadCard = React.memo(function LeadCard({
     horarioPorConfirmar: item.horario_por_confirmar,
   });
   const vehiculo = item.vehiculo_resumen?.trim();
+  const leadCat = (item.lead_categoria || 'sin_calificar') as LeadCategoria;
+  const showLeadTag = leadCat !== 'sin_calificar';
 
   return (
     <Card
@@ -179,6 +184,13 @@ const LeadCard = React.memo(function LeadCard({
         ) : null}
         {item.es_cotizacion_adicional ? (
           <InstitutionalTag label="Servicio adicional" variant="info" size="sm" />
+        ) : null}
+        {showLeadTag ? (
+          <InstitutionalTag
+            label={LEAD_CATEGORIA_LABELS[leadCat] || leadCat}
+            variant={LEAD_CATEGORIA_VARIANT[leadCat] || 'neutral'}
+            size="sm"
+          />
         ) : null}
         <View style={styles.cardTopSpacer} />
         {monto ? <Text style={styles.cardPrice}>{monto}</Text> : null}

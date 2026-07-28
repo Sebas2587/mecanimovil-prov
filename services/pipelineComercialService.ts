@@ -49,7 +49,41 @@ export interface PipelineComercialItem {
   listo_para_enviar?: boolean;
   pendientes_revision?: string[];
   es_cotizacion_adicional?: boolean;
+  lead_categoria?: LeadCategoria;
+  lead_score?: number;
 }
+
+export type LeadCategoria =
+  | 'sin_calificar'
+  | 'curioso'
+  | 'comparando'
+  | 'sin_presupuesto'
+  | 'interesado_calificado'
+  | 'listo_agendar'
+  | 'no_automotriz';
+
+export const LEAD_CATEGORIA_LABELS: Record<LeadCategoria, string> = {
+  sin_calificar: 'Sin calificar',
+  curioso: 'Curioso',
+  comparando: 'Comparando',
+  sin_presupuesto: 'Sin presupuesto',
+  interesado_calificado: 'Calificado',
+  listo_agendar: 'Listo agendar',
+  no_automotriz: 'No automotriz',
+};
+
+export const LEAD_CATEGORIA_VARIANT: Record<
+  LeadCategoria,
+  'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
+> = {
+  sin_calificar: 'neutral',
+  curioso: 'neutral',
+  comparando: 'info',
+  sin_presupuesto: 'error',
+  interesado_calificado: 'success',
+  listo_agendar: 'warning',
+  no_automotriz: 'neutral',
+};
 
 export interface PipelineComercialResponse {
   count: number;
