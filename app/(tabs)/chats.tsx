@@ -54,9 +54,20 @@ import { useCotizacionesCanalPendientesQuery } from '@/hooks/useCotizacionesCana
 import { useAgenteBorradoresPendientesQuery } from '@/hooks/useAgenteIaQueries';
 import type { ChannelSlug } from '@/utils/channelVisuals';
 import type { InboxChatItem } from '@/services/omnichannelService';
+import {
+  LEAD_CATEGORIA_LABELS,
+  LEAD_CATEGORIA_VARIANT,
+  type LeadCategoria,
+} from '@/services/pipelineComercialService';
 import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 
-type ChatInboxFilter = 'todos' | 'sin_responder' | 'cotizacion_enviada' | 'cotizacion_aceptada' | 'borrador';
+type ChatInboxFilter =
+  | 'todos'
+  | 'sin_responder'
+  | 'cotizacion_enviada'
+  | 'cotizacion_aceptada'
+  | 'borrador'
+  | 'calificados';
 
 type AgendarContactoState = {
   channel?: ChannelSlug;
@@ -73,6 +84,7 @@ const T = TYPOGRAPHY.styles;
 const CHAT_FILTERS: { key: ChatInboxFilter; label: string }[] = [
   { key: 'todos', label: 'Todos' },
   { key: 'sin_responder', label: 'Sin responder' },
+  { key: 'calificados', label: 'Calificados' },
   { key: 'cotizacion_enviada', label: 'Cotiz. enviada' },
   { key: 'cotizacion_aceptada', label: 'Aceptadas' },
   { key: 'borrador', label: 'Borrador IA' },
@@ -86,6 +98,12 @@ function matchesChatFilter(chat: InboxChatItem, filter: ChatInboxFilter): boolea
   if (filter === 'cotizacion_enviada') return chat.cotizacion_estado === 'enviada';
   if (filter === 'cotizacion_aceptada') return chat.cotizacion_estado === 'aceptada';
   if (filter === 'borrador') return chat.cotizacion_estado === 'borrador';
+  if (filter === 'calificados') {
+    return (
+      chat.lead_categoria === 'interesado_calificado'
+      || chat.lead_categoria === 'listo_agendar'
+    );
+  }
   return true;
 }
 
@@ -120,10 +138,10 @@ export default function ChatsScreen() {
   /** Row en proceso de borrado: `oferta:{id}` o `omni:{conversationId}`. */
   const [deletingRowKey, setDeletingRowKey] = useState<string | null>(null);
 
-  const chatsVisibles = useMemo(
-    () => chats.filter((c) => matchesChatFilter(c, chatFilter)),
-    [chats, chatFilter],
-  );
+  const chatsVisibles = useMemo(() => {
+    const filtered = chats.filter((c) => matchesChatFilter(c, chatFilter));
+    return [...filtered].sort((a, b) => (b.lead_score ?? 0) - (a.lead_score ?? 0));
+  }, [chats, chatFilter]);
   const loading = isPending && chats.length === 0;
 
   const totalNoLeidos = useMemo(
@@ -302,6 +320,8 @@ export default function ChatsScreen() {
     const hasUnread = mensajes_no_leidos > 0;
     const vehiculoPill = formatVehiculoPillLabel(vehiculo);
     const cotizacionLabel = cotizacionBadgeLabel(item.cotizacion_estado);
+    const leadCat = (item.lead_categoria || 'sin_calificar') as LeadCategoria;
+    const showLeadTag = leadCat !== 'sin_calificar';
     const isDeleting = isOmnichannel
       ? deletingRowKey === `omni:${String(conversation_id)}`
       : deletingRowKey === `oferta:${String(oferta_id)}`;
@@ -356,7 +376,7 @@ export default function ChatsScreen() {
               </Text>
             ) : null}
 
-            {(!!vehiculoPill || !!cotizacionLabel) ? (
+            {(!!vehiculoPill || !!cotizacionLabel || showLeadTag) ? (
               <View style={styles.tagsRow}>
                 {!!cotizacionLabel ? (
                   <InstitutionalTag
@@ -368,6 +388,13 @@ export default function ChatsScreen() {
                           ? 'primary'
                           : 'neutral'
                     }
+                    size="sm"
+                  />
+                ) : null}
+                {showLeadTag ? (
+                  <InstitutionalTag
+                    label={LEAD_CATEGORIA_LABELS[leadCat] || leadCat}
+                    variant={LEAD_CATEGORIA_VARIANT[leadCat] || 'neutral'}
                     size="sm"
                   />
                 ) : null}

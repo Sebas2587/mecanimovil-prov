@@ -2,6 +2,7 @@
  * Servicio para canales omnicanal Meta (WhatsApp, Messenger, Instagram).
  */
 import api from './api';
+import type { LeadCategoria } from './pipelineComercialService';
 
 export type CanalSlug = 'whatsapp' | 'messenger' | 'instagram';
 export type EstadoCanal =
@@ -96,6 +97,9 @@ export interface InboxChatItem {
   cotizacion_servicio?: string | null;
   /** Último mensaje del cliente o hay no leídos. */
   cliente_sin_responder?: boolean;
+  /** Calificación de intención del lead (omnicanal con agente IA). */
+  lead_categoria?: LeadCategoria;
+  lead_score?: number;
 }
 
 const omnichannelService = {
