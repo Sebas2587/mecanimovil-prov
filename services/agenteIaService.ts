@@ -4,6 +4,7 @@ export type CanalAgente = 'WHATSAPP' | 'MESSENGER' | 'INSTAGRAM' | 'APP';
 
 export interface AgenteIaConfig {
   habilitado: boolean;
+  nombre_agente?: string;
   instrucciones_personalizadas: string;
   canales_habilitados: CanalAgente[];
   mensaje_bienvenida: string;

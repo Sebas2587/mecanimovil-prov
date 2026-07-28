@@ -78,18 +78,21 @@ export default function ConfiguracionAgenteIaScreen() {
   const [subiendo, setSubiendo] = useState(false);
   const [instrucciones, setInstrucciones] = useState('');
   const [bienvenida, setBienvenida] = useState('');
+  const [nombreAgente, setNombreAgente] = useState('');
   const [recargoDomicilio, setRecargoDomicilio] = useState('5000');
 
   useEffect(() => {
     if (config) {
       setInstrucciones(config.instrucciones_personalizadas || '');
       setBienvenida(config.mensaje_bienvenida || '');
+      setNombreAgente(config.nombre_agente || '');
       setRecargoDomicilio(String(config.recargo_domicilio_clp ?? 5000));
     }
   }, [
     config?.actualizado_en,
     config?.instrucciones_personalizadas,
     config?.mensaje_bienvenida,
+    config?.nombre_agente,
     config?.recargo_domicilio_clp,
   ]);
 
@@ -434,6 +437,23 @@ export default function ConfiguracionAgenteIaScreen() {
         <HostPaperSection style={styles.section}>
           <View style={institutionalInputStyles.field}>
             <InstitutionalText role="caption" color="muted" style={institutionalInputStyles.hint}>
+              Nombre del agente (cómo se presenta a tus clientes)
+            </InstitutionalText>
+            <TextInput
+              style={institutionalInputStyles.input}
+              value={nombreAgente}
+              onChangeText={setNombreAgente}
+              placeholder="Ej: Carlos, Sofía, Andrés…"
+              placeholderTextColor={institutionalInputPlaceholder}
+              maxLength={80}
+              autoCapitalize="words"
+            />
+            <InstitutionalText role="caption" color="muted" style={institutionalInputStyles.hint}>
+              Si lo dejas vacío, se presenta solo con el nombre del taller. Con nombre: “Hola, soy Carlos de tu taller…”.
+            </InstitutionalText>
+          </View>
+          <View style={institutionalInputStyles.field}>
+            <InstitutionalText role="caption" color="muted" style={institutionalInputStyles.hint}>
               Cómo debe hablar con tus clientes, qué preguntar primero, políticas del taller.
             </InstitutionalText>
             <TextInput
@@ -478,6 +498,7 @@ export default function ConfiguracionAgenteIaScreen() {
             onPress={() => {
               const recargo = Math.max(0, parseInt(recargoDomicilio.replace(/\D/g, ''), 10) || 0);
               updateConfig.mutate({
+                nombre_agente: nombreAgente.trim(),
                 instrucciones_personalizadas: instrucciones,
                 mensaje_bienvenida: bienvenida,
                 recargo_domicilio_clp: recargo,
