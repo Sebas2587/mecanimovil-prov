@@ -589,18 +589,6 @@ export default function ChatsScreen() {
           />
         </View>
 
-        {borradoresAgenteCount > 0 ? (
-          <InboxAttentionCard
-            icon={Sparkles}
-            title="Cotizaciones IA por revisar"
-            subtitle="El agente armó borradores; revisa precios y envía al cliente"
-            count={borradoresAgenteCount}
-            tagVariant="warning"
-            onPress={() => router.push('/cotizar-ia')}
-            accessibilityLabel="Revisar cotizaciones generadas por el agente IA"
-          />
-        ) : null}
-
         {cotizacionesCanalPendientes > 0 ? (
           <InboxAttentionCard
             icon={Clock3}
