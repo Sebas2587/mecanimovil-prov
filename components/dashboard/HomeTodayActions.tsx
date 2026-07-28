@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CalendarPlus, Sparkles } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
-import { Card, HostSectionKicker } from '@/app/design-system/components';
+import { Card, HostSectionKicker, InstitutionalTag } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
   hostIconPlateColor,
@@ -60,9 +60,11 @@ function HomeTodayActionsInner({
                 <Sparkles size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               </View>
               {cotizacionesIaPendientes > 0 ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{cotizacionesIaPendientes}</Text>
-                </View>
+                <InstitutionalTag
+                  label={`${cotizacionesIaPendientes} por revisar`}
+                  variant="warning"
+                  size="sm"
+                />
               ) : null}
             </View>
             <Text style={styles.title}>Cotizar con IA</Text>
@@ -102,20 +104,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-  },
-  badge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: I.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
-  badgeText: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontSize: 11,
-    color: I.onPrimary,
   },
   iconPlateLg: {
     width: 44,

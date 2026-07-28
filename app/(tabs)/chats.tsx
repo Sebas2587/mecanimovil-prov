@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import {
-  MessageCircle, Check, CheckCheck, Sparkles,
+  MessageCircle, Check, CheckCheck, Sparkles, Clock3,
 } from 'lucide-react-native';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -34,7 +34,6 @@ import { useAuth } from '@/context/AuthContext';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import {
   Card,
-  HOST_GUTTER,
   hostScreenStyles,
 } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -50,6 +49,7 @@ import {
 import omnichannelService, { type CanalSlug } from '@/services/omnichannelService';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
+import { InboxAttentionCard } from '@/components/chats/InboxAttentionCard';
 import { useCotizacionesCanalPendientesQuery } from '@/hooks/useCotizacionesCanalPendientesQuery';
 import { useAgenteBorradoresPendientesQuery } from '@/hooks/useAgenteIaQueries';
 import type { ChannelSlug } from '@/utils/channelVisuals';
@@ -561,15 +561,28 @@ export default function ChatsScreen() {
             contentContainerStyle={styles.filtersRow}
             renderItem={({ item: f }) => {
               const active = chatFilter === f.key;
+              const badgeCount =
+                f.key === 'borrador' && borradoresAgenteCount > 0
+                  ? borradoresAgenteCount
+                  : 0;
               return (
                 <TouchableOpacity
                   style={[styles.filterChip, active && styles.filterChipActive]}
                   onPress={() => setChatFilter(f.key)}
                   activeOpacity={0.85}
                 >
-                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                    {f.label}
-                  </Text>
+                  <View style={styles.filterChipInner}>
+                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                      {f.label}
+                    </Text>
+                    {badgeCount > 0 ? (
+                      <View style={[styles.filterCount, active && styles.filterCountActive]}>
+                        <Text style={[styles.filterCountText, active && styles.filterCountTextActive]}>
+                          {badgeCount}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                 </TouchableOpacity>
               );
             }}
@@ -577,35 +590,27 @@ export default function ChatsScreen() {
         </View>
 
         {borradoresAgenteCount > 0 ? (
-          <TouchableOpacity
-            style={styles.canalPendienteBanner}
-            activeOpacity={0.85}
-            onPress={() => {
-              router.push('/cotizar-ia');
-            }}
-            accessibilityRole="button"
+          <InboxAttentionCard
+            icon={Sparkles}
+            title="Cotizaciones IA por revisar"
+            subtitle="El agente armó borradores; revisa precios y envía al cliente"
+            count={borradoresAgenteCount}
+            tagVariant="warning"
+            onPress={() => router.push('/cotizar-ia')}
             accessibilityLabel="Revisar cotizaciones generadas por el agente IA"
-          >
-            <Text style={styles.canalPendienteBannerText}>
-              {borradoresAgenteCount} cotización{borradoresAgenteCount === 1 ? '' : 'es'} del agente IA
-              pendiente{borradoresAgenteCount === 1 ? '' : 's'} de revisar
-            </Text>
-          </TouchableOpacity>
+          />
         ) : null}
 
         {cotizacionesCanalPendientes > 0 ? (
-          <TouchableOpacity
-            style={styles.canalPendienteBanner}
-            activeOpacity={0.85}
+          <InboxAttentionCard
+            icon={Clock3}
+            title="Sin respuesta +24h"
+            subtitle="Cotizaciones de WhatsApp/canal esperando al cliente"
+            count={cotizacionesCanalPendientes}
+            tagVariant="warning"
             onPress={() => router.push('/(tabs)/bandeja?filtro=esperando_24h')}
-            accessibilityRole="button"
             accessibilityLabel="Ver cotizaciones de canal sin respuesta hace más de 24 horas"
-          >
-            <Text style={styles.canalPendienteBannerText}>
-              {cotizacionesCanalPendientes} cotización{cotizacionesCanalPendientes === 1 ? '' : 'es'} por
-              WhatsApp/canal sin respuesta hace más de 24h
-            </Text>
-          </TouchableOpacity>
+          />
         ) : null}
 
         {loading && chats.length === 0 ? (
@@ -677,19 +682,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  canalPendienteBanner: {
-    marginHorizontal: HOST_GUTTER,
-    marginBottom: SPACING.xs,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: COLORS.institutional.accentYellow,
-  },
-  canalPendienteBannerText: {
-    fontSize: TYPOGRAPHY.styles.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
-    color: I.ink,
-  },
   filtersWrap: {
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.xs,
@@ -701,14 +693,19 @@ const styles = StyleSheet.create({
   filterChip: {
     paddingHorizontal: SPACING.sm,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: BORDERS.radius.sm,
     borderWidth: 1,
-    borderColor: I.surfaceStrong,
-    backgroundColor: '#fff',
+    borderColor: I.hairline,
+    backgroundColor: COLORS.background.paper,
   },
   filterChipActive: {
     backgroundColor: I.ink,
     borderColor: I.ink,
+  },
+  filterChipInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   filterChipText: {
     fontSize: T.caption.fontSize,
@@ -716,7 +713,30 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   filterChipTextActive: {
-    color: '#fff',
+    color: I.onPrimary,
+  },
+  filterCount: {
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    borderRadius: BORDERS.radius.sm,
+    backgroundColor: COLORS.selection.background,
+    borderWidth: BORDERS.width.thin,
+    borderColor: COLORS.selection.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterCountActive: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  filterCountText: {
+    fontSize: 11,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    color: I.primaryActive,
+  },
+  filterCountTextActive: {
+    color: I.onPrimary,
   },
   tagsRow: {
     flexDirection: 'row',
