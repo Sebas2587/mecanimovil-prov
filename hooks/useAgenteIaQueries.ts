@@ -15,6 +15,8 @@ export function useAgenteIaConfigQuery(enabled = true) {
     queryKey: AGENTE_IA_CONFIG_KEY,
     queryFn: () => agenteIaService.obtenerConfig(),
     enabled,
+    staleTime: 60_000,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -23,6 +25,8 @@ export function useAgenteIaDocumentosQuery(enabled = true) {
     queryKey: AGENTE_IA_DOCUMENTOS_KEY,
     queryFn: () => agenteIaService.listarDocumentos(),
     enabled,
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -31,7 +35,10 @@ export function useAgenteAprendizajeScoreQuery(enabled = true) {
     queryKey: AGENTE_IA_APRENDIZAJE_KEY,
     queryFn: () => agenteIaService.obtenerAprendizajeScore(),
     enabled,
-    refetchInterval: 45000,
+    // Actualización silenciosa: no spinea ni “resetea” a 0% entre polls.
+    refetchInterval: 120_000,
+    staleTime: 60_000,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -67,8 +74,16 @@ export function useActualizarAgenteConfigMutation() {
 }
 
 export function useReindexarAgenteConocimientoMutation() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: () => agenteIaService.reindexarConocimiento(),
+    onSuccess: () => {
+      // El worker tarda unos segundos; refresca el score sin forzar spinner.
+      setTimeout(() => {
+        void qc.invalidateQueries({ queryKey: AGENTE_IA_APRENDIZAJE_KEY });
+      }, 15_000);
+      void qc.invalidateQueries({ queryKey: AGENTE_IA_APRENDIZAJE_KEY });
+    },
   });
 }
 

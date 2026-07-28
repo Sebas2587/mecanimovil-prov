@@ -46,6 +46,8 @@ export interface AgenteAprendizajeScore {
     ofertas_con_precio?: number;
     mecanicos?: number;
     chunks_indexados?: number;
+    chunks_con_embedding?: number;
+    chunks_sin_embedding?: number;
     mensajes_procesados?: number;
     documentos_listos?: number;
   };

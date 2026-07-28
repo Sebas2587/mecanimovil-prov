@@ -250,13 +250,27 @@ export default function ConfiguracionAgenteIaScreen() {
     ]);
   };
 
-  if (isLoading || !config) {
+  if (isLoading && !config) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <Stack.Screen options={{ headerShown: false }} />
         <Header title="Agente IA" showBack onBackPress={() => router.back()} />
         <View style={styles.loader}>
           <ActivityIndicator color={I.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!config) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Header title="Agente IA" showBack onBackPress={() => router.back()} />
+        <View style={styles.loader}>
+          <InstitutionalText role="body" color="muted">
+            No se pudo cargar la configuración del agente.
+          </InstitutionalText>
         </View>
       </SafeAreaView>
     );
@@ -387,6 +401,15 @@ export default function ConfiguracionAgenteIaScreen() {
               <InstitutionalText role="caption" color="muted" style={styles.aprendizajeSub}>
                 Completitud {aprendizaje?.completitud ?? 0}% · Actividad {aprendizaje?.actividad ?? 0}%
               </InstitutionalText>
+              {aprendizaje?.metricas ? (
+                <InstitutionalText role="caption" color="muted" style={styles.aprendizajeSub}>
+                  Conocimiento usable:{' '}
+                  {aprendizaje.metricas.chunks_con_embedding ?? 0}/
+                  {aprendizaje.metricas.chunks_indexados ?? 0} fragmentos ·{' '}
+                  {aprendizaje.metricas.mensajes_procesados ?? 0} msgs agente ·{' '}
+                  {aprendizaje.metricas.ofertas_con_precio ?? 0} servicios con precio
+                </InstitutionalText>
+              ) : null}
               {(aprendizaje?.pendientes?.length ?? 0) > 0 ? (
                 <View style={styles.pendientesBox}>
                   <InstitutionalText role="caption" color="muted">
