@@ -507,22 +507,23 @@ export function CotizacionIaEditor({
       ) : null}
 
       <Card elevated padding="host" style={styles.sectionCard}>
-        <InstitutionalSectionHeader title="Mano de obra" />
+        <InstitutionalSectionHeader title="Mano de obra (IVA incl.)" />
         <ClpMoneyInput
           value={manoObra}
           editable={editable}
           onChangeValue={(next) => onChange({ ...cotizacion, mano_obra_clp: next })}
         />
-        {cotizacion.metadata?.valores_estimativos || cotizacion.metadata?.precio_parcial_catalogo ? (
-          <InstitutionalText role="caption" color="muted">
-            Valor estimativo precargado (catálogo / histórico / mercado). Edítalo si hace falta antes de enviar.
-          </InstitutionalText>
-        ) : null}
+        <InstitutionalText role="caption" color="muted">
+          Monto final al cliente con IVA 19% incluido.
+          {cotizacion.metadata?.valores_estimativos || cotizacion.metadata?.precio_parcial_catalogo
+            ? ' Valor estimativo precargado (catálogo / histórico / mercado): edítalo si hace falta.'
+            : ''}
+        </InstitutionalText>
       </Card>
 
       <View style={styles.section}>
         <InstitutionalSectionHeader
-          title="Repuestos"
+          title="Repuestos (IVA incl.)"
           count={repuestos.length > 0 ? repuestos.length : undefined}
           actionLabel={editable ? 'Agregar' : undefined}
           onActionPress={editable ? agregarRepuesto : undefined}
@@ -566,7 +567,7 @@ export function CotizacionIaEditor({
       <Card elevated padding="host" style={styles.summaryBox}>
         <View style={styles.summaryRow}>
           <InstitutionalText role="caption" color="muted">
-            Repuestos
+            Repuestos (IVA incl.)
           </InstitutionalText>
           <InstitutionalText role="captionBold" color="ink">
             {formatearMontoCLP(totalRepuestos)}
@@ -574,7 +575,7 @@ export function CotizacionIaEditor({
         </View>
         <View style={styles.summaryRow}>
           <InstitutionalText role="caption" color="muted">
-            Mano de obra
+            Mano de obra (IVA incl.)
           </InstitutionalText>
           <InstitutionalText role="captionBold" color="ink">
             {formatearMontoCLP(manoObra)}
@@ -583,12 +584,15 @@ export function CotizacionIaEditor({
         <View style={styles.summaryDivider} />
         <View style={styles.summaryRow}>
           <InstitutionalText role="h5" color="ink">
-            Total estimado
+            Total estimado (IVA incluido)
           </InstitutionalText>
           <InstitutionalText role="numberDisplay" color="ink" style={styles.totalValue}>
             {formatearMontoCLP(totalCalculado)}
           </InstitutionalText>
         </View>
+        <InstitutionalText role="caption" color="muted">
+          No se suma IVA adicional: los montos ya son finales al cliente.
+        </InstitutionalText>
       </Card>
 
       <Card elevated padding="host" style={styles.sectionCard}>
