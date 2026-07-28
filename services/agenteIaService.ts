@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import type { AxiosProgressEvent } from 'axios';
 import api from './api';
 
 export type CanalAgente = 'WHATSAPP' | 'MESSENGER' | 'INSTAGRAM' | 'APP';
@@ -21,6 +22,10 @@ export interface ConocimientoDocumento {
   id: number;
   titulo: string;
   archivo?: string | null;
+  /** URL firmada (Cloudflare R2) para abrir/ver el PDF. */
+  archivo_url?: string | null;
+  /** pdf | archivo | texto | otro */
+  tipo?: string;
   texto_pegado?: string;
   estado_procesamiento: 'pendiente' | 'procesando' | 'listo' | 'error';
   error_detalle?: string;
@@ -86,18 +91,23 @@ const agenteIaService = {
     return data;
   },
 
-  async crearDocumento(payload: {
-    titulo: string;
-    texto_pegado?: string;
-    archivo?: { uri: string; name: string; type: string } | null;
-  }): Promise<ConocimientoDocumento> {
+  async crearDocumento(
+    payload: {
+      titulo: string;
+      texto_pegado?: string;
+      archivo?: { uri: string; name: string; type: string } | null;
+    },
+    options?: {
+      onUploadProgress?: (pct: number) => void;
+    },
+  ): Promise<ConocimientoDocumento> {
     const form = new FormData();
-    form.append('titulo', payload.titulo);
+    form.append('titulo', payload.titulo.slice(0, 120));
     if (payload.texto_pegado?.trim()) {
       form.append('texto_pegado', payload.texto_pegado.trim());
     }
     if (payload.archivo?.uri) {
-      const name = payload.archivo.name || 'documento.pdf';
+      const name = (payload.archivo.name || 'documento.pdf').slice(0, 100);
       const type = payload.archivo.type || 'application/pdf';
       if (Platform.OS === 'web') {
         // En web hay que mandar Blob/File real; {uri,name,type} solo sirve en RN nativo.
@@ -123,7 +133,16 @@ const agenteIaService = {
         } as unknown as Blob);
       }
     }
-    const { data } = await api.post<ConocimientoDocumento>('/agente-ia/documentos/', form);
+
+    const { data } = await api.post<ConocimientoDocumento>('/agente-ia/documentos/', form, {
+      onUploadProgress: (event: AxiosProgressEvent) => {
+        const total = event.total ?? 0;
+        if (!total || !options?.onUploadProgress) return;
+        const pct = Math.min(100, Math.round((event.loaded / total) * 100));
+        options.onUploadProgress(pct);
+      },
+    });
+    options?.onUploadProgress?.(100);
     return data;
   },
 

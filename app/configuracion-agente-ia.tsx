@@ -7,11 +7,21 @@ import {
   TextInput,
   ActivityIndicator,
   Pressable,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
-import { Bot, FileText, MessageSquare, RefreshCw, Trash2, Upload, Brain } from 'lucide-react-native';
+import {
+  Bot,
+  ExternalLink,
+  FileText,
+  MessageSquare,
+  RefreshCw,
+  Trash2,
+  Upload,
+  Brain,
+} from 'lucide-react-native';
 import Header from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -35,9 +45,11 @@ import {
   useAgenteIaDocumentosQuery,
   useReindexarAgenteConocimientoMutation,
 } from '@/hooks/useAgenteIaQueries';
-import agenteIaService, { type CanalAgente } from '@/services/agenteIaService';
+import agenteIaService, { type CanalAgente, type ConocimientoDocumento } from '@/services/agenteIaService';
 import { useQueryClient } from '@tanstack/react-query';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
+
+const TITULO_MAX = 120;
 
 function mensajeErrorApi(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data;
@@ -51,6 +63,12 @@ function mensajeErrorApi(err: unknown, fallback: string): string {
     if (Array.isArray(first) && typeof first[0] === 'string') return first[0];
   }
   return fallback;
+}
+
+function truncarTitulo(titulo: string): string {
+  const t = (titulo || '').trim();
+  if (t.length <= TITULO_MAX) return t;
+  return t.slice(0, TITULO_MAX).trimEnd();
 }
 
 /** Nombre legible del archivo (web/móvil): title + fileName + mime. */
@@ -70,9 +88,22 @@ function identidadDesdeArchivo(asset: {
     (asset.mimeType || '').trim() ||
     (/\.pdf$/i.test(raw) ? 'application/pdf' : /\.txt$/i.test(raw) ? 'text/plain' : 'application/pdf');
   const ext = type.includes('pdf') ? '.pdf' : type.includes('text') ? '.txt' : '.pdf';
-  const fileName = raw.includes('.') ? raw : raw ? `${raw}${ext}` : `documento_${Date.now()}${ext}`;
-  const titulo = fileName.replace(/\.[^.]+$/, '').trim() || fileName;
+  let fileName = raw.includes('.') ? raw : raw ? `${raw}${ext}` : `documento_${Date.now()}${ext}`;
+  // Evitar nombres de archivo excesivos en R2 / multipart.
+  if (fileName.length > 100) {
+    const extMatch = fileName.match(/(\.[^.]+)$/);
+    const e = extMatch?.[1] || ext;
+    fileName = `${fileName.slice(0, 100 - e.length)}${e}`;
+  }
+  const titulo = truncarTitulo(fileName.replace(/\.[^.]+$/, '').trim() || fileName);
   return { titulo, fileName, type };
+}
+
+function urlDocumento(doc: ConocimientoDocumento): string | null {
+  const url = (doc.archivo_url || doc.archivo || '').trim();
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return null;
 }
 
 const I = COLORS.institutional;
@@ -111,10 +142,24 @@ export default function ConfiguracionAgenteIaScreen() {
   const [tituloDoc, setTituloDoc] = useState('');
   const [textoDoc, setTextoDoc] = useState('');
   const [subiendo, setSubiendo] = useState(false);
+  const [progresoSubida, setProgresoSubida] = useState<number | null>(null);
+  const [nombreSubiendo, setNombreSubiendo] = useState('');
   const [instrucciones, setInstrucciones] = useState('');
   const [bienvenida, setBienvenida] = useState('');
   const [nombreAgente, setNombreAgente] = useState('');
   const [recargoDomicilio, setRecargoDomicilio] = useState('5000');
+
+  // Mientras hay docs indexándose, refresca la lista para ver el estado.
+  useEffect(() => {
+    const pendientes = documentos.some(
+      (d) => d.estado_procesamiento === 'pendiente' || d.estado_procesamiento === 'procesando',
+    );
+    if (!pendientes) return;
+    const t = setInterval(() => {
+      void qc.invalidateQueries({ queryKey: AGENTE_IA_DOCUMENTOS_KEY });
+    }, 4000);
+    return () => clearInterval(t);
+  }, [documentos, qc]);
 
   useEffect(() => {
     if (config) {
@@ -218,11 +263,16 @@ export default function ConfiguracionAgenteIaScreen() {
       return;
     }
     setSubiendo(true);
+    setProgresoSubida(0);
+    setNombreSubiendo(truncarTitulo(tituloDoc));
     try {
-      await agenteIaService.crearDocumento({
-        titulo: tituloDoc.trim(),
-        texto_pegado: textoDoc,
-      });
+      await agenteIaService.crearDocumento(
+        {
+          titulo: truncarTitulo(tituloDoc),
+          texto_pegado: textoDoc,
+        },
+        { onUploadProgress: setProgresoSubida },
+      );
       setTituloDoc('');
       setTextoDoc('');
       await qc.invalidateQueries({ queryKey: AGENTE_IA_DOCUMENTOS_KEY });
@@ -231,6 +281,8 @@ export default function ConfiguracionAgenteIaScreen() {
       showAlert('Error', mensajeErrorApi(err, 'No se pudo guardar el documento.'));
     } finally {
       setSubiendo(false);
+      setProgresoSubida(null);
+      setNombreSubiendo('');
     }
   };
 
@@ -243,26 +295,53 @@ export default function ConfiguracionAgenteIaScreen() {
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
       const ident = identidadDesdeArchivo(asset);
-      // Si el taller escribió un título manual, se respeta; si no, se usa el nombre del archivo.
-      const titulo = tituloDoc.trim() || ident.titulo;
+      const titulo = truncarTitulo(tituloDoc.trim() || ident.titulo);
       setTituloDoc(titulo);
+      setNombreSubiendo(titulo);
       setSubiendo(true);
-      await agenteIaService.crearDocumento({
-        titulo,
-        archivo: {
-          uri: asset.uri,
-          name: ident.fileName,
-          type: ident.type,
+      setProgresoSubida(0);
+      await agenteIaService.crearDocumento(
+        {
+          titulo,
+          archivo: {
+            uri: asset.uri,
+            name: ident.fileName,
+            type: ident.type,
+          },
         },
-      });
+        { onUploadProgress: setProgresoSubida },
+      );
       setTituloDoc('');
       setTextoDoc('');
       await qc.invalidateQueries({ queryKey: AGENTE_IA_DOCUMENTOS_KEY });
-      showAlert('Documento subido', `"${titulo}" se está indexando para el Agente IA.`);
+      showAlert(
+        'Documento subido',
+        `"${titulo}" quedó guardado en Cloudflare y se está indexando para el Agente IA.`,
+      );
     } catch (err) {
       showAlert('Error', mensajeErrorApi(err, 'No se pudo subir el archivo.'));
     } finally {
       setSubiendo(false);
+      setProgresoSubida(null);
+      setNombreSubiendo('');
+    }
+  };
+
+  const handleAbrirDocumento = async (doc: ConocimientoDocumento) => {
+    const url = urlDocumento(doc);
+    if (!url) {
+      showAlert(
+        'Sin archivo',
+        doc.tipo === 'texto'
+          ? 'Este documento es solo texto pegado; no tiene PDF adjunto.'
+          : 'No hay un enlace disponible para este archivo todavía.',
+      );
+      return;
+    }
+    try {
+      await Linking.openURL(url);
+    } catch {
+      showAlert('Error', 'No se pudo abrir el documento.');
     }
   };
 
@@ -582,9 +661,10 @@ export default function ConfiguracionAgenteIaScreen() {
           <TextInput
             style={institutionalInputStyles.input}
             value={tituloDoc}
-            onChangeText={setTituloDoc}
+            onChangeText={(t) => setTituloDoc(t.slice(0, TITULO_MAX))}
             placeholder="Título (opcional en PDF: se usa el nombre del archivo)"
             placeholderTextColor={institutionalInputPlaceholder}
+            maxLength={TITULO_MAX}
           />
           <TextInput
             style={[institutionalInputStyles.input, institutionalInputStyles.inputMultiline, styles.textAreaTall]}
@@ -596,7 +676,7 @@ export default function ConfiguracionAgenteIaScreen() {
           />
           <View style={styles.docActions}>
             <InstitutionalButton
-              label={subiendo ? 'Guardando…' : 'Guardar texto'}
+              label={subiendo && progresoSubida == null ? 'Guardando…' : 'Guardar texto'}
               variant="primary"
               size="compact"
               onPress={() => void handleSubirDocumento()}
@@ -604,7 +684,13 @@ export default function ConfiguracionAgenteIaScreen() {
               style={styles.docBtn}
             />
             <InstitutionalButton
-              label={subiendo ? 'Subiendo…' : 'Subir PDF'}
+              label={
+                subiendo && progresoSubida != null
+                  ? `Subiendo ${progresoSubida}%`
+                  : subiendo
+                    ? 'Subiendo…'
+                    : 'Subir PDF'
+              }
               variant="outline"
               size="compact"
               leading={<Upload size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
@@ -613,6 +699,22 @@ export default function ConfiguracionAgenteIaScreen() {
               style={styles.docBtn}
             />
           </View>
+
+          {progresoSubida != null ? (
+            <View style={styles.uploadProgressBox}>
+              <InstitutionalText role="caption" color="muted" numberOfLines={1}>
+                {nombreSubiendo
+                  ? `Subiendo “${nombreSubiendo}”…`
+                  : 'Subiendo documento…'}
+              </InstitutionalText>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${progresoSubida}%` }]} />
+              </View>
+              <InstitutionalText role="caption" color="body" style={styles.progressPct}>
+                {progresoSubida}%
+              </InstitutionalText>
+            </View>
+          ) : null}
 
           {loadingDocs ? (
             <ActivityIndicator color={I.primary} style={styles.docLoader} />
@@ -625,16 +727,41 @@ export default function ConfiguracionAgenteIaScreen() {
           ) : (
             documentos.map((doc, index) => {
               const est = estadoDocLabel(doc.estado_procesamiento);
+              const url = urlDocumento(doc);
+              const esPdf = doc.tipo === 'pdf' || Boolean(url?.toLowerCase().includes('.pdf'));
               return (
                 <View key={doc.id} style={[styles.docRow, index === 0 && styles.docRowFirst]}>
                   <View style={[hostIconPlateStyle, styles.docIcon]}>
                     <FileText size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
                   </View>
                   <View style={styles.flex}>
-                    <InstitutionalText role="body" numberOfLines={1} style={styles.docTitle}>
+                    <InstitutionalText role="body" numberOfLines={2} style={styles.docTitle}>
                       {doc.titulo}
                     </InstitutionalText>
-                    <InstitutionalTag label={est.label} variant={est.variant} size="sm" />
+                    <View style={styles.docMetaRow}>
+                      <InstitutionalTag
+                        label={esPdf ? 'PDF' : doc.tipo === 'texto' ? 'Texto' : 'Archivo'}
+                        variant="neutral"
+                        size="sm"
+                      />
+                      <InstitutionalTag label={est.label} variant={est.variant} size="sm" />
+                    </View>
+                    {url ? (
+                      <Pressable
+                        onPress={() => void handleAbrirDocumento(doc)}
+                        hitSlop={6}
+                        style={styles.docLinkRow}
+                      >
+                        <ExternalLink size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                        <InstitutionalText role="caption" color="primary" numberOfLines={1}>
+                          {esPdf ? 'Ver / abrir PDF' : 'Abrir archivo'}
+                        </InstitutionalText>
+                      </Pressable>
+                    ) : doc.tipo === 'texto' ? (
+                      <InstitutionalText role="caption" color="muted" numberOfLines={1}>
+                        Solo texto (sin archivo adjunto)
+                      </InstitutionalText>
+                    ) : null}
                     {doc.error_detalle ? (
                       <InstitutionalText role="caption" color="body" numberOfLines={2}>
                         {doc.error_detalle}
@@ -757,6 +884,25 @@ const styles = StyleSheet.create({
     height: 32,
   },
   docTitle: {
+    fontFamily: FF.sansMedium,
+  },
+  docMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    alignItems: 'center',
+  },
+  docLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  uploadProgressBox: {
+    gap: 6,
+    paddingTop: SPACING.fixed.sm,
+  },
+  progressPct: {
     fontFamily: FF.sansMedium,
   },
   aprendizajeHeader: {
