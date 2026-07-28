@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import api from './api';
 
 export type CanalAgente = 'WHATSAPP' | 'MESSENGER' | 'INSTAGRAM' | 'APP';
@@ -95,12 +96,32 @@ const agenteIaService = {
     if (payload.texto_pegado?.trim()) {
       form.append('texto_pegado', payload.texto_pegado.trim());
     }
-    if (payload.archivo) {
-      form.append('archivo', {
-        uri: payload.archivo.uri,
-        name: payload.archivo.name,
-        type: payload.archivo.type,
-      } as unknown as Blob);
+    if (payload.archivo?.uri) {
+      const name = payload.archivo.name || 'documento.pdf';
+      const type = payload.archivo.type || 'application/pdf';
+      if (Platform.OS === 'web') {
+        // En web hay que mandar Blob/File real; {uri,name,type} solo sirve en RN nativo.
+        const res = await fetch(payload.archivo.uri);
+        if (!res.ok) {
+          throw new Error('No se pudo leer el archivo seleccionado.');
+        }
+        const blob = await res.blob();
+        const webFile =
+          typeof File !== 'undefined'
+            ? new File([blob], name, { type: type || blob.type || 'application/pdf' })
+            : blob;
+        if (webFile instanceof File) {
+          form.append('archivo', webFile);
+        } else {
+          form.append('archivo', webFile, name);
+        }
+      } else {
+        form.append('archivo', {
+          uri: payload.archivo.uri,
+          name,
+          type,
+        } as unknown as Blob);
+      }
     }
     const { data } = await api.post<ConocimientoDocumento>('/agente-ia/documentos/', form);
     return data;

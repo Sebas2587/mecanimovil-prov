@@ -6,8 +6,6 @@ import {
   Switch,
   TextInput,
   ActivityIndicator,
-  Alert,
-  Platform,
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -39,6 +37,21 @@ import {
 } from '@/hooks/useAgenteIaQueries';
 import agenteIaService, { type CanalAgente } from '@/services/agenteIaService';
 import { useQueryClient } from '@tanstack/react-query';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
+
+function mensajeErrorApi(err: unknown, fallback: string): string {
+  const data = (err as { response?: { data?: unknown } })?.response?.data;
+  if (!data) return fallback;
+  if (typeof data === 'string' && data.trim()) return data.trim();
+  if (typeof data === 'object' && data) {
+    const obj = data as Record<string, unknown>;
+    if (typeof obj.detail === 'string') return obj.detail;
+    if (typeof obj.error === 'string') return obj.error;
+    const first = Object.values(obj).find((v) => Array.isArray(v) && typeof v[0] === 'string');
+    if (Array.isArray(first) && typeof first[0] === 'string') return first[0];
+  }
+  return fallback;
+}
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -100,7 +113,7 @@ export default function ConfiguracionAgenteIaScreen() {
     (value: boolean) => {
       if (!config) return;
       if (value && config.agente_ia_disponible_en_plan === false) {
-        Alert.alert(
+        showAlert(
           'No incluido en tu plan',
           'El Agente IA está disponible desde el Plan Profesional.',
         );
@@ -112,13 +125,13 @@ export default function ConfiguracionAgenteIaScreen() {
           onSuccess: (data) => {
             const n = (data as { chats_desactivados?: number })?.chats_desactivados ?? 0;
             if (!value && n > 0) {
-              Alert.alert(
+              showAlert(
                 'Agente desactivado',
                 `Se apagó el agente en ${n} chat${n === 1 ? '' : 's'}. Ya no responderá hasta que lo actives de nuevo en cada conversación.`,
               );
             }
           },
-          onError: () => Alert.alert('Error', 'No se pudo actualizar el Agente IA.'),
+          onError: () => showAlert('Error', 'No se pudo actualizar el Agente IA.'),
         },
       );
     },
@@ -129,7 +142,7 @@ export default function ConfiguracionAgenteIaScreen() {
     (canal: CanalAgente) => {
       if (!config) return;
       if (!config.habilitado) {
-        Alert.alert(
+        showAlert(
           'Agente apagado',
           'Primero activa “Respuestas automáticas” arriba para habilitar canales.',
         );
@@ -152,13 +165,13 @@ export default function ConfiguracionAgenteIaScreen() {
         onSuccess: (data) => {
           const n = (data as { chats_desactivados?: number })?.chats_desactivados ?? 0;
           if (apagando && n > 0) {
-            Alert.alert(
+            showAlert(
               'Canal desactivado',
               `Se apagó el agente en ${n} chat${n === 1 ? '' : 's'} de este canal.`,
             );
           }
         },
-        onError: () => Alert.alert('Error', 'No se pudo actualizar el canal.'),
+        onError: () => showAlert('Error', 'No se pudo actualizar el canal.'),
       });
     },
     [config, updateConfig],
@@ -175,7 +188,11 @@ export default function ConfiguracionAgenteIaScreen() {
 
   const handleSubirDocumento = async () => {
     if (!tituloDoc.trim()) {
-      Alert.alert('Falta título', 'Indica un nombre para el documento.');
+      showAlert('Falta título', 'Indica un nombre para el documento.');
+      return;
+    }
+    if (!textoDoc.trim()) {
+      showAlert('Falta contenido', 'Pega texto o usa “Subir PDF” para cargar un archivo.');
       return;
     }
     setSubiendo(true);
@@ -186,9 +203,10 @@ export default function ConfiguracionAgenteIaScreen() {
       });
       setTituloDoc('');
       setTextoDoc('');
-      qc.invalidateQueries({ queryKey: AGENTE_IA_DOCUMENTOS_KEY });
-    } catch {
-      Alert.alert('Error', 'No se pudo guardar el documento.');
+      await qc.invalidateQueries({ queryKey: AGENTE_IA_DOCUMENTOS_KEY });
+      showAlert('Documento guardado', 'El texto se está indexando para el Agente IA.');
+    } catch (err) {
+      showAlert('Error', mensajeErrorApi(err, 'No se pudo guardar el documento.'));
     } finally {
       setSubiendo(false);
     }
@@ -213,9 +231,11 @@ export default function ConfiguracionAgenteIaScreen() {
         },
       });
       setTituloDoc('');
-      qc.invalidateQueries({ queryKey: AGENTE_IA_DOCUMENTOS_KEY });
-    } catch {
-      Alert.alert('Error', 'No se pudo subir el archivo.');
+      setTextoDoc('');
+      await qc.invalidateQueries({ queryKey: AGENTE_IA_DOCUMENTOS_KEY });
+      showAlert('Documento subido', `"${titulo}" se está indexando para el Agente IA.`);
+    } catch (err) {
+      showAlert('Error', mensajeErrorApi(err, 'No se pudo subir el archivo.'));
     } finally {
       setSubiendo(false);
     }
@@ -224,13 +244,13 @@ export default function ConfiguracionAgenteIaScreen() {
   const handleReindexar = async () => {
     try {
       const res = await reindexar.mutateAsync();
-      Alert.alert(
+      showAlert(
         'Reindexando conocimiento',
         `Se están actualizando ${res.ofertas} servicio(s), ${res.solicitudes} trabajo(s) del historial y ${res.documentos} documento(s). ` +
           'La IA usará este contexto en las próximas respuestas (puede tardar uno o dos minutos).',
       );
-    } catch {
-      Alert.alert('Error', 'No se pudo reindexar el conocimiento del taller.');
+    } catch (err) {
+      showAlert('Error', mensajeErrorApi(err, 'No se pudo reindexar el conocimiento del taller.'));
     }
   };
 
@@ -238,19 +258,36 @@ export default function ConfiguracionAgenteIaScreen() {
     const run = async () => {
       try {
         await agenteIaService.eliminarDocumento(id);
-        qc.invalidateQueries({ queryKey: AGENTE_IA_DOCUMENTOS_KEY });
-      } catch {
-        Alert.alert('Error', 'No se pudo eliminar el documento.');
+        await qc.invalidateQueries({ queryKey: AGENTE_IA_DOCUMENTOS_KEY });
+        showAlert('Documento eliminado', `"${titulo}" ya no estará en el conocimiento del agente.`);
+      } catch (err) {
+        showAlert('Error', mensajeErrorApi(err, 'No se pudo eliminar el documento.'));
       }
     };
-    if (Platform.OS === 'web') {
-      if (window.confirm(`¿Eliminar "${titulo}"?`)) void run();
-      return;
-    }
-    Alert.alert('Eliminar documento', `¿Eliminar "${titulo}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => void run() },
-    ]);
+    showConfirm(`¿Eliminar "${titulo}"?`, 'Esta acción no se puede deshacer.', {
+      confirmText: 'Eliminar',
+      onConfirm: () => void run(),
+    });
+  };
+
+  const handleGuardarInstrucciones = () => {
+    const recargo = Math.max(0, parseInt(recargoDomicilio.replace(/\D/g, ''), 10) || 0);
+    updateConfig.mutate(
+      {
+        nombre_agente: nombreAgente.trim(),
+        instrucciones_personalizadas: instrucciones,
+        mensaje_bienvenida: bienvenida,
+        recargo_domicilio_clp: recargo,
+      },
+      {
+        onSuccess: () => {
+          showAlert('Guardado', 'Las instrucciones del agente se actualizaron correctamente.');
+        },
+        onError: (err) => {
+          showAlert('Error', mensajeErrorApi(err, 'No se pudieron guardar las instrucciones.'));
+        },
+      },
+    );
   };
 
   if (isLoading && !config) {
@@ -495,15 +532,7 @@ export default function ConfiguracionAgenteIaScreen() {
             label="Guardar instrucciones"
             variant="primary"
             size="compact"
-            onPress={() => {
-              const recargo = Math.max(0, parseInt(recargoDomicilio.replace(/\D/g, ''), 10) || 0);
-              updateConfig.mutate({
-                nombre_agente: nombreAgente.trim(),
-                instrucciones_personalizadas: instrucciones,
-                mensaje_bienvenida: bienvenida,
-                recargo_domicilio_clp: recargo,
-              });
-            }}
+            onPress={handleGuardarInstrucciones}
             disabled={updateConfig.isPending}
             style={styles.stretchBtn}
           />
