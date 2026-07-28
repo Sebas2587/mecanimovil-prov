@@ -140,7 +140,22 @@ export default function ChatsScreen() {
 
   const chatsVisibles = useMemo(() => {
     const filtered = chats.filter((c) => matchesChatFilter(c, chatFilter));
-    return [...filtered].sort((a, b) => (b.lead_score ?? 0) - (a.lead_score ?? 0));
+    const ts = (c: InboxChatItem) => {
+      const raw = c.ultimo_mensaje?.fecha_envio;
+      if (!raw) return 0;
+      const n = Date.parse(raw);
+      return Number.isFinite(n) ? n : 0;
+    };
+    return [...filtered].sort((a, b) => {
+      // WhatsApp-like: el chat con el mensaje más reciente va arriba.
+      const diff = ts(b) - ts(a);
+      if (diff !== 0) return diff;
+      // Empate: en Calificados prioriza score; en el resto no mueve el orden.
+      if (chatFilter === 'calificados') {
+        return (b.lead_score ?? 0) - (a.lead_score ?? 0);
+      }
+      return 0;
+    });
   }, [chats, chatFilter]);
   const loading = isPending && chats.length === 0;
 
