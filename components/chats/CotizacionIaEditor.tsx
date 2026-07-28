@@ -130,6 +130,13 @@ const RepuestoRow = React.memo(function RepuestoRow({
   onDelete: (index: number) => void;
 }) {
   const subtotal = subtotalRepuesto(rep);
+  const [nombreFocused, setNombreFocused] = useState(false);
+  const [nombreDraft, setNombreDraft] = useState(rep.nombre);
+
+  useEffect(() => {
+    if (nombreFocused) return;
+    setNombreDraft(rep.nombre);
+  }, [rep.nombre, nombreFocused]);
 
   return (
     <Card elevated padding="host" style={styles.repuestoCard}>
@@ -137,8 +144,16 @@ const RepuestoRow = React.memo(function RepuestoRow({
         <View style={styles.nombreField}>
           <InstitutionalField
             label="Nombre"
-            value={rep.nombre}
-            onChangeText={(t) => onUpdate(index, { nombre: t })}
+            value={nombreDraft}
+            onChangeText={(t) => {
+              setNombreDraft(t);
+              onUpdate(index, { nombre: t });
+            }}
+            onFocus={() => setNombreFocused(true)}
+            onBlur={() => {
+              setNombreFocused(false);
+              onUpdate(index, { nombre: nombreDraft.trim() || rep.nombre });
+            }}
             placeholder="Nombre del repuesto"
             editable={editable}
           />
@@ -380,32 +395,62 @@ export function CotizacionIaEditor({
             </View>
           ) : null}
 
-          {(cotizacion.cliente_nombre || cotizacion.cliente_telefono) ? (
+          {(cotizacion.cliente_nombre || cotizacion.cliente_telefono || editable) ? (
             <View style={styles.contactBlock}>
-              {cotizacion.cliente_nombre ? (
-                <View style={styles.contactRow}>
-                  <UserRound size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                  <InstitutionalText role="caption" color="ink" numberOfLines={1}>
-                    {cotizacion.cliente_nombre}
-                  </InstitutionalText>
-                </View>
-              ) : null}
-              {cotizacion.cliente_telefono ? (
-                <View style={styles.contactRow}>
-                  <Phone size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                  <InstitutionalText role="caption" color="ink" numberOfLines={1}>
-                    {cotizacion.cliente_telefono}
-                  </InstitutionalText>
-                </View>
-              ) : null}
-              {cotizacion.direccion_servicio ? (
-                <View style={styles.contactRow}>
-                  <MapPin size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                  <InstitutionalText role="caption" color="ink" numberOfLines={2}>
-                    {cotizacion.direccion_servicio}
-                  </InstitutionalText>
-                </View>
-              ) : null}
+              {editable ? (
+                <>
+                  <InstitutionalField
+                    label="Nombre del cliente"
+                    value={cotizacion.cliente_nombre || ''}
+                    onChangeText={(t) => onChange({ ...cotizacion, cliente_nombre: t })}
+                    placeholder="Nombre"
+                    editable={editable}
+                  />
+                  <InstitutionalField
+                    label="Teléfono"
+                    value={cotizacion.cliente_telefono || ''}
+                    onChangeText={(t) => onChange({ ...cotizacion, cliente_telefono: t })}
+                    placeholder="+56 9 ..."
+                    keyboardType="phone-pad"
+                    editable={editable}
+                  />
+                  <InstitutionalField
+                    label="Dirección de servicio"
+                    value={cotizacion.direccion_servicio || ''}
+                    onChangeText={(t) => onChange({ ...cotizacion, direccion_servicio: t })}
+                    placeholder="Calle, comuna"
+                    editable={editable}
+                    multiline
+                  />
+                </>
+              ) : (
+                <>
+                  {cotizacion.cliente_nombre ? (
+                    <View style={styles.contactRow}>
+                      <UserRound size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                      <InstitutionalText role="caption" color="ink" numberOfLines={1}>
+                        {cotizacion.cliente_nombre}
+                      </InstitutionalText>
+                    </View>
+                  ) : null}
+                  {cotizacion.cliente_telefono ? (
+                    <View style={styles.contactRow}>
+                      <Phone size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                      <InstitutionalText role="caption" color="ink" numberOfLines={1}>
+                        {cotizacion.cliente_telefono}
+                      </InstitutionalText>
+                    </View>
+                  ) : null}
+                  {cotizacion.direccion_servicio ? (
+                    <View style={styles.contactRow}>
+                      <MapPin size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                      <InstitutionalText role="caption" color="ink" numberOfLines={2}>
+                        {cotizacion.direccion_servicio}
+                      </InstitutionalText>
+                    </View>
+                  ) : null}
+                </>
+              )}
             </View>
           ) : null}
 
@@ -539,6 +584,18 @@ export function CotizacionIaEditor({
             {formatearMontoCLP(totalCalculado)}
           </InstitutionalText>
         </View>
+      </Card>
+
+      <Card elevated padding="host" style={styles.sectionCard}>
+        <InstitutionalSectionHeader title="Notas internas" />
+        <InstitutionalField
+          label="Solo el taller las ve"
+          value={cotizacion.notas_internas || ''}
+          onChangeText={(t) => onChange({ ...cotizacion, notas_internas: t })}
+          placeholder="Comentarios para el equipo del taller…"
+          editable={editable}
+          multiline
+        />
       </Card>
 
       {cotizacion.estado === 'borrador' ? (

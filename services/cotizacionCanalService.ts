@@ -52,6 +52,7 @@ export interface CotizacionCanal {
   total_clp: number;
   duracion_minutos_estimada?: number | null;
   advertencias?: string[];
+  notas_internas?: string;
   listo_para_enviar?: boolean;
   pendientes_revision?: string[];
   message_envio?: number | null;

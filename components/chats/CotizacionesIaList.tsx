@@ -81,6 +81,21 @@ function esBorradorAgente(cot: CotizacionCanal): boolean {
   return cot.metadata?.origen === 'cotizacion_adicional';
 }
 
+function cotizacionEditableSnapshot(c: CotizacionCanal): string {
+  return JSON.stringify({
+    servicio_nombre: c.servicio_nombre,
+    descripcion_problema: c.descripcion_problema,
+    modalidad: c.modalidad,
+    direccion_servicio: c.direccion_servicio,
+    cliente_nombre: c.cliente_nombre,
+    cliente_telefono: c.cliente_telefono,
+    repuestos: c.repuestos,
+    mano_obra_clp: c.mano_obra_clp,
+    notas_internas: c.notas_internas,
+    duracion_minutos_estimada: c.duracion_minutos_estimada,
+  });
+}
+
 function canalLabel(cot: CotizacionCanal): string {
   return CANAL_LABELS[cot.canal || ''] || (cot.es_libre ? 'Link libre' : 'Canal');
 }
@@ -246,8 +261,11 @@ export function CotizacionesIaList({ enabled = true }: Props) {
         descripcion_problema: editDraft.descripcion_problema,
         modalidad: editDraft.modalidad,
         direccion_servicio: editDraft.direccion_servicio,
+        cliente_nombre: editDraft.cliente_nombre,
+        cliente_telefono: editDraft.cliente_telefono,
         repuestos: editDraft.repuestos,
         mano_obra_clp: editDraft.mano_obra_clp,
+        notas_internas: editDraft.notas_internas,
         duracion_minutos_estimada: editDraft.duracion_minutos_estimada,
       });
       setActiva(actualizada);
@@ -271,8 +289,11 @@ export function CotizacionesIaList({ enabled = true }: Props) {
           descripcion_problema: editDraft.descripcion_problema,
           modalidad: editDraft.modalidad,
           direccion_servicio: editDraft.direccion_servicio,
+          cliente_nombre: editDraft.cliente_nombre,
+          cliente_telefono: editDraft.cliente_telefono,
           repuestos: editDraft.repuestos,
           mano_obra_clp: editDraft.mano_obra_clp,
+          notas_internas: editDraft.notas_internas,
           duracion_minutos_estimada: editDraft.duracion_minutos_estimada,
         });
       }
@@ -386,6 +407,10 @@ export function CotizacionesIaList({ enabled = true }: Props) {
 
   const cotizacionDetalle = editDraft && esBorradorPorRevisar(editDraft) ? editDraft : activa;
   const esBorradorEditable = Boolean(cotizacionDetalle && esBorradorPorRevisar(cotizacionDetalle));
+  const hayCambiosSinGuardar = useMemo(() => {
+    if (!editDraft || !activa || !esBorradorEditable) return false;
+    return cotizacionEditableSnapshot(editDraft) !== cotizacionEditableSnapshot(activa);
+  }, [editDraft, activa, esBorradorEditable]);
 
   const vehiculoActiva = cotizacionDetalle
     ? [cotizacionDetalle.vehiculo_marca, cotizacionDetalle.vehiculo_modelo].filter(Boolean).join(' ')
@@ -468,15 +493,43 @@ export function CotizacionesIaList({ enabled = true }: Props) {
                   </View>
                 ) : null}
               </View>
-              <TouchableOpacity
-                onPress={cerrarDetalle}
-                accessibilityRole="button"
-                accessibilityLabel="Cerrar"
-                hitSlop={8}
-              >
-                <X size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-              </TouchableOpacity>
+              <View style={styles.detalleHeaderActions}>
+                {esBorradorEditable ? (
+                  <InstitutionalButton
+                    label="Guardar cambios"
+                    variant="outline"
+                    size="compact"
+                    loading={guardando}
+                    disabled={!hayCambiosSinGuardar || guardando}
+                    onPress={() => void guardarBorrador()}
+                  />
+                ) : null}
+                <TouchableOpacity
+                  onPress={cerrarDetalle}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cerrar"
+                  hitSlop={8}
+                >
+                  <X size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                </TouchableOpacity>
+              </View>
             </View>
+
+            {cotizacionDetalle.conversation ? (
+              <InstitutionalButton
+                label="Abrir chat del cliente"
+                variant="outline"
+                size="compact"
+                leading={
+                  <MessageCircle size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                }
+                onPress={() => {
+                  const id = cotizacionDetalle.conversation;
+                  cerrarDetalle();
+                  if (id) router.push(`/chat-omnicanal?conversationId=${id}`);
+                }}
+              />
+            ) : null}
 
             <CotizacionIaEditor
               cotizacion={cotizacionDetalle}
@@ -485,22 +538,6 @@ export function CotizacionesIaList({ enabled = true }: Props) {
             />
 
             <View style={styles.sheetActions}>
-              {esBorradorEditable ? (
-                <>
-                  <InstitutionalButton
-                    label="Enviar cotización"
-                    variant="primary"
-                    loading={enviando}
-                    onPress={() => void enviarCotizacion()}
-                  />
-                  <InstitutionalButton
-                    label="Guardar cambios"
-                    variant="outline"
-                    loading={guardando}
-                    onPress={() => void guardarBorrador()}
-                  />
-                </>
-              ) : null}
               {cotizacionDetalle.estado === 'aceptada' && cotizacionDetalle.cita_personal_id ? (
                 <InstitutionalButton
                   label="Confirmar horario"
@@ -509,20 +546,6 @@ export function CotizacionesIaList({ enabled = true }: Props) {
                     const citaId = cotizacionDetalle.cita_personal_id;
                     cerrarDetalle();
                     if (citaId) router.push(`/cita-agenda-personal/${citaId}?agendar=1`);
-                  }}
-                />
-              ) : null}
-              {cotizacionDetalle.conversation ? (
-                <InstitutionalButton
-                  label="Abrir chat del cliente"
-                  variant="outline"
-                  leading={
-                    <MessageCircle size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  }
-                  onPress={() => {
-                    const id = cotizacionDetalle.conversation;
-                    cerrarDetalle();
-                    if (id) router.push(`/chat-omnicanal?conversationId=${id}`);
                   }}
                 />
               ) : null}
@@ -540,15 +563,27 @@ export function CotizacionesIaList({ enabled = true }: Props) {
                 />
               ) : null}
               {cotizacionDetalle.estado !== 'aceptada' ? (
-                <InstitutionalButton
-                  label="Eliminar cotización"
-                  variant="destructiveOutline"
-                  loading={eliminando}
-                  leading={
-                    <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                  }
-                  onPress={eliminarCotizacion}
-                />
+                <View style={styles.primaryActionsRow}>
+                  <InstitutionalButton
+                    label="Eliminar"
+                    variant="destructiveOutline"
+                    loading={eliminando}
+                    style={styles.actionColSmall}
+                    leading={
+                      <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                    }
+                    onPress={eliminarCotizacion}
+                  />
+                  {esBorradorEditable ? (
+                    <InstitutionalButton
+                      label="Enviar cotización"
+                      variant="primary"
+                      loading={enviando}
+                      style={styles.actionColLarge}
+                      onPress={() => void enviarCotizacion()}
+                    />
+                  ) : null}
+                </View>
               ) : null}
             </View>
           </ScrollView>
@@ -669,6 +704,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: SPACING.sm,
   },
+  detalleHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    flexShrink: 0,
+  },
   detalleHeaderText: { flex: 1, minWidth: 0, gap: 2 },
   vistaRow: {
     flexDirection: 'row',
@@ -677,6 +718,17 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
   },
   sheetActions: { gap: SPACING.sm, paddingBottom: SPACING.sm },
+  primaryActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: SPACING.sm,
+  },
+  actionColSmall: {
+    flex: 1,
+  },
+  actionColLarge: {
+    flex: 1.4,
+  },
 });
 
 export default CotizacionesIaList;

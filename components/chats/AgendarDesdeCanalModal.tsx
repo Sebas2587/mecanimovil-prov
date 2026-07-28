@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -975,30 +975,62 @@ export function AgendarDesdeCanalModal({
     [conversationIdEfectivo, servicioManual, descripcion, tipoServicio, vehiculoPayload],
   );
 
-  const persistirCotizacion = useCallback(async (next: CotizacionCanal) => {
-    setCotizacion(next);
+  const persistSeqRef = useRef(0);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftRef = useRef<CotizacionCanal | null>(null);
+
+  const payloadEdicion = useCallback((next: CotizacionCanal) => ({
+    repuestos: next.repuestos,
+    mano_obra_clp: next.mano_obra_clp,
+    servicio_nombre: next.servicio_nombre,
+    descripcion_problema: next.descripcion_problema,
+    duracion_minutos_estimada: next.duracion_minutos_estimada,
+    cliente_nombre: next.cliente_nombre,
+    cliente_telefono: next.cliente_telefono,
+    direccion_servicio: next.direccion_servicio,
+    notas_internas: next.notas_internas,
+  }), []);
+
+  const ejecutarPersist = useCallback(async (next: CotizacionCanal, seq: number) => {
     if (next.estado !== 'borrador' || !next.id) return next;
     try {
-      const saved = await cotizacionCanalService.actualizar(next.id, {
-        repuestos: next.repuestos,
-        mano_obra_clp: next.mano_obra_clp,
-        servicio_nombre: next.servicio_nombre,
-        descripcion_problema: next.descripcion_problema,
-        duracion_minutos_estimada: next.duracion_minutos_estimada,
-      });
-      setCotizacion(saved);
-      return saved;
+      const saved = await cotizacionCanalService.actualizar(next.id, payloadEdicion(next));
+      if (seq === persistSeqRef.current) {
+        setCotizacion(saved);
+        return saved;
+      }
+      return next;
     } catch {
       return next;
     }
-  }, []);
+  }, [payloadEdicion]);
+
+  const persistirCotizacion = useCallback(async (next: CotizacionCanal, immediate = false) => {
+    setCotizacion(next);
+    draftRef.current = next;
+    if (next.estado !== 'borrador' || !next.id) return next;
+
+    const seq = ++persistSeqRef.current;
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+
+    if (immediate) {
+      return ejecutarPersist(next, seq);
+    }
+
+    return new Promise<CotizacionCanal>((resolve) => {
+      persistTimerRef.current = setTimeout(async () => {
+        const result = await ejecutarPersist(draftRef.current || next, seq);
+        resolve(result);
+      }, 600);
+    });
+  }, [ejecutarPersist]);
 
   const handleEnviarCotizacion = useCallback(async () => {
     if (!cotizacion?.id) return;
     setEnviandoCotizacion(true);
     setErrorIa(null);
     try {
-      const saved = await persistirCotizacion(cotizacion);
+      const saved = await persistirCotizacion(cotizacion, true);
       const res = await cotizacionCanalService.enviar(saved.id);
       setCotizacion(res.cotizacion);
       onCotizacionEnviada?.();
@@ -1028,7 +1060,7 @@ export function AgendarDesdeCanalModal({
     if (!cotizacion?.id) return;
     setGuardandoPlantilla(true);
     try {
-      await persistirCotizacion(cotizacion);
+      await persistirCotizacion(cotizacion, true);
       await cotizacionCanalService.guardarPlantilla({
         titulo: cotizacion.servicio_nombre || 'Plantilla cotización',
         cotizacion_id: cotizacion.id,
