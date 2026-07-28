@@ -53,6 +53,28 @@ function mensajeErrorApi(err: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Nombre legible del archivo (web/móvil): title + fileName + mime. */
+function identidadDesdeArchivo(asset: {
+  name?: string | null;
+  uri?: string;
+  mimeType?: string | null;
+}): { titulo: string; fileName: string; type: string } {
+  let raw =
+    (asset.name || '').trim() ||
+    decodeURIComponent((asset.uri || '').split('/').pop()?.split('?')[0] || '').trim();
+  // En web a veces llega "blob:..." o un UUID sin extensión.
+  if (!raw || /^blob:/i.test(raw) || /^[0-9a-f-]{20,}$/i.test(raw)) {
+    raw = '';
+  }
+  const type =
+    (asset.mimeType || '').trim() ||
+    (/\.pdf$/i.test(raw) ? 'application/pdf' : /\.txt$/i.test(raw) ? 'text/plain' : 'application/pdf');
+  const ext = type.includes('pdf') ? '.pdf' : type.includes('text') ? '.txt' : '.pdf';
+  const fileName = raw.includes('.') ? raw : raw ? `${raw}${ext}` : `documento_${Date.now()}${ext}`;
+  const titulo = fileName.replace(/\.[^.]+$/, '').trim() || fileName;
+  return { titulo, fileName, type };
+}
+
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 
@@ -220,14 +242,17 @@ export default function ConfiguracionAgenteIaScreen() {
       });
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
-      const titulo = tituloDoc.trim() || asset.name || 'Documento';
+      const ident = identidadDesdeArchivo(asset);
+      // Si el taller escribió un título manual, se respeta; si no, se usa el nombre del archivo.
+      const titulo = tituloDoc.trim() || ident.titulo;
+      setTituloDoc(titulo);
       setSubiendo(true);
       await agenteIaService.crearDocumento({
         titulo,
         archivo: {
           uri: asset.uri,
-          name: asset.name || 'documento.pdf',
-          type: asset.mimeType || 'application/pdf',
+          name: ident.fileName,
+          type: ident.type,
         },
       });
       setTituloDoc('');
@@ -558,7 +583,7 @@ export default function ConfiguracionAgenteIaScreen() {
             style={institutionalInputStyles.input}
             value={tituloDoc}
             onChangeText={setTituloDoc}
-            placeholder="Título del documento"
+            placeholder="Título (opcional en PDF: se usa el nombre del archivo)"
             placeholderTextColor={institutionalInputPlaceholder}
           />
           <TextInput
@@ -579,7 +604,7 @@ export default function ConfiguracionAgenteIaScreen() {
               style={styles.docBtn}
             />
             <InstitutionalButton
-              label="Subir PDF"
+              label={subiendo ? 'Subiendo…' : 'Subir PDF'}
               variant="outline"
               size="compact"
               leading={<Upload size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
