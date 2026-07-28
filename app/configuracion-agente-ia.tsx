@@ -737,15 +737,6 @@ export default function ConfiguracionAgenteIaScreen() {
             precios o políticas en texto o PDF. Si la IA responde de forma genérica o sin
             mencionar tus servicios reales, reindexa el conocimiento manualmente.
           </InstitutionalText>
-          <InstitutionalButton
-            label={reindexar.isPending ? 'Reindexando…' : 'Reindexar conocimiento'}
-            variant="outline"
-            size="compact"
-            leading={<RefreshCw size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
-            onPress={() => void handleReindexar()}
-            disabled={reindexar.isPending}
-            style={styles.stretchBtn}
-          />
           <TextInput
             style={institutionalInputStyles.input}
             value={tituloDoc}
@@ -867,6 +858,17 @@ export default function ConfiguracionAgenteIaScreen() {
               );
             })
           )}
+
+          <View style={styles.reindexRow}>
+            <InstitutionalButton
+              label={reindexar.isPending ? 'Reindexando…' : 'Reindexar conocimiento'}
+              variant="outline"
+              size="compact"
+              leading={<RefreshCw size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+              onPress={() => void handleReindexar()}
+              disabled={reindexar.isPending}
+            />
+          </View>
         </HostPaperSection>
       </ScrollView>
     </SafeAreaView>
@@ -936,6 +938,12 @@ const styles = StyleSheet.create({
   },
   stretchBtn: {
     alignSelf: 'stretch',
+  },
+  reindexRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: SPACING.fixed.xs,
   },
   docActions: {
     flexDirection: 'row',
