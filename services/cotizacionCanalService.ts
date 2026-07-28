@@ -73,6 +73,15 @@ export interface CotizacionCanal {
     precio_desde_catalogo?: boolean;
     cotizacion_original_id?: number;
     cita_personal_id?: number;
+    servicios_lineas?: Array<{
+      nombre?: string;
+      precio_catalogo_clp?: number | null;
+      precio_desde_catalogo?: boolean;
+      precio_estimado_historico_clp?: number | null;
+      precio_estimado_muestras?: number;
+      oferta_servicio_id?: number | null;
+      incluye_repuestos_solicitado?: boolean;
+    }>;
   };
   cotizacion_original_id?: number | null;
   es_cotizacion_adicional?: boolean;

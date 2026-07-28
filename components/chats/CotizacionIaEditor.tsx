@@ -506,6 +506,54 @@ export function CotizacionIaEditor({
         </Card>
       ) : null}
 
+      {(cotizacion.metadata?.servicios_lineas?.length ?? 0) > 0 ? (
+        <Card elevated padding="host" style={styles.sectionCard}>
+          <InstitutionalSectionHeader
+            title="Servicios en esta cotización"
+            count={cotizacion.metadata?.servicios_lineas?.length}
+          />
+          <View style={styles.serviciosList}>
+            {(cotizacion.metadata?.servicios_lineas ?? []).map((lin, idx) => {
+              const nombre = (lin.nombre || `Servicio ${idx + 1}`).trim();
+              const cat = Number(lin.precio_catalogo_clp || 0);
+              const hist = Number(lin.precio_estimado_historico_clp || 0);
+              let precioLabel = 'Sin precio — completar';
+              let tag: 'primary' | 'warning' | 'neutral' = 'warning';
+              if (lin.precio_desde_catalogo && cat > 0) {
+                precioLabel = formatearMontoCLP(cat);
+                tag = 'primary';
+              } else if (hist > 0) {
+                precioLabel = `Ref. histórica ${formatearMontoCLP(hist)}`;
+                tag = 'neutral';
+              }
+              return (
+                <View key={`${nombre}-${idx}`} style={styles.servicioRow}>
+                  <View style={styles.servicioCopy}>
+                    <InstitutionalText role="captionBold" numberOfLines={2}>
+                      {nombre}
+                    </InstitutionalText>
+                    <InstitutionalText role="small" color="muted" numberOfLines={1}>
+                      {precioLabel}
+                    </InstitutionalText>
+                  </View>
+                  <InstitutionalTag
+                    label={
+                      lin.precio_desde_catalogo && cat > 0
+                        ? 'Catálogo'
+                        : hist > 0
+                          ? 'Referencia'
+                          : 'Revisar'
+                    }
+                    variant={tag}
+                    size="sm"
+                  />
+                </View>
+              );
+            })}
+          </View>
+        </Card>
+      ) : null}
+
       <Card elevated padding="host" style={styles.sectionCard}>
         <InstitutionalSectionHeader title="Mano de obra" />
         <ClpMoneyInput
@@ -695,6 +743,23 @@ const styles = StyleSheet.create({
   warningText: { flex: 1 },
   section: { gap: SPACING.fixed.sm },
   sectionCard: { gap: SPACING.fixed.sm },
+  serviciosList: {
+    gap: SPACING.fixed.xs,
+  },
+  servicioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+  },
+  servicioCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
   moneyRowCompact: {
     minHeight: 44,
     paddingVertical: 0,
