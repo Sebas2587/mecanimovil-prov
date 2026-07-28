@@ -4,6 +4,9 @@ import api from './api';
 
 export type CanalAgente = 'WHATSAPP' | 'MESSENGER' | 'INSTAGRAM' | 'APP';
 
+export type NivelInsistenciaAgente = 'bajo' | 'medio' | 'alto';
+export type TonoVentasAgente = 'conservador' | 'balanceado' | 'proactivo';
+
 export interface AgenteIaConfig {
   habilitado: boolean;
   nombre_agente?: string;
@@ -11,6 +14,10 @@ export interface AgenteIaConfig {
   canales_habilitados: CanalAgente[];
   mensaje_bienvenida: string;
   recargo_domicilio_clp?: number;
+  nivel_insistencia?: NivelInsistenciaAgente;
+  permite_estimados_historicos?: boolean;
+  tono_ventas?: TonoVentasAgente;
+  requiere_direccion_antes_de_cotizar?: boolean;
   actualizado_en?: string;
   /** false si el plan actual del taller no incluye el Agente IA (ej. Plan Básico). */
   agente_ia_disponible_en_plan?: boolean;

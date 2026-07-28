@@ -148,6 +148,10 @@ export default function ConfiguracionAgenteIaScreen() {
   const [bienvenida, setBienvenida] = useState('');
   const [nombreAgente, setNombreAgente] = useState('');
   const [recargoDomicilio, setRecargoDomicilio] = useState('5000');
+  const [nivelInsistencia, setNivelInsistencia] = useState<'bajo' | 'medio' | 'alto'>('medio');
+  const [tonoVentas, setTonoVentas] = useState<'conservador' | 'balanceado' | 'proactivo'>('balanceado');
+  const [permiteEstimadosHistoricos, setPermiteEstimadosHistoricos] = useState(true);
+  const [requiereDireccionAntesCotizar, setRequiereDireccionAntesCotizar] = useState(false);
 
   // Mientras hay docs indexándose, refresca la lista para ver el estado.
   useEffect(() => {
@@ -167,6 +171,10 @@ export default function ConfiguracionAgenteIaScreen() {
       setBienvenida(config.mensaje_bienvenida || '');
       setNombreAgente(config.nombre_agente || '');
       setRecargoDomicilio(String(config.recargo_domicilio_clp ?? 5000));
+      setNivelInsistencia(config.nivel_insistencia || 'medio');
+      setTonoVentas(config.tono_ventas || 'balanceado');
+      setPermiteEstimadosHistoricos(config.permite_estimados_historicos !== false);
+      setRequiereDireccionAntesCotizar(Boolean(config.requiere_direccion_antes_de_cotizar));
     }
   }, [
     config?.actualizado_en,
@@ -174,6 +182,10 @@ export default function ConfiguracionAgenteIaScreen() {
     config?.mensaje_bienvenida,
     config?.nombre_agente,
     config?.recargo_domicilio_clp,
+    config?.nivel_insistencia,
+    config?.tono_ventas,
+    config?.permite_estimados_historicos,
+    config?.requiere_direccion_antes_de_cotizar,
   ]);
 
   const toggleMaster = useCallback(
@@ -382,6 +394,10 @@ export default function ConfiguracionAgenteIaScreen() {
         instrucciones_personalizadas: instrucciones,
         mensaje_bienvenida: bienvenida,
         recargo_domicilio_clp: recargo,
+        nivel_insistencia: nivelInsistencia,
+        tono_ventas: tonoVentas,
+        permite_estimados_historicos: permiteEstimadosHistoricos,
+        requiere_direccion_antes_de_cotizar: requiereDireccionAntesCotizar,
       },
       {
         onSuccess: () => {
@@ -630,6 +646,78 @@ export default function ConfiguracionAgenteIaScreen() {
               keyboardType="numeric"
               placeholder="5000"
               placeholderTextColor={institutionalInputPlaceholder}
+            />
+          </View>
+
+          <InstitutionalText role="caption" color="muted" style={styles.subKicker}>
+            Comportamiento comercial
+          </InstitutionalText>
+          <View style={institutionalInputStyles.field}>
+            <InstitutionalText role="caption" color="muted" style={institutionalInputStyles.hint}>
+              Nivel de insistencia al proponer cotización o agenda
+            </InstitutionalText>
+            <View style={styles.chipRow}>
+              {(['bajo', 'medio', 'alto'] as const).map((nivel) => (
+                <Pressable
+                  key={nivel}
+                  style={[styles.chip, nivelInsistencia === nivel && styles.chipActive]}
+                  onPress={() => setNivelInsistencia(nivel)}
+                >
+                  <InstitutionalText
+                    role="caption"
+                    style={nivelInsistencia === nivel ? styles.chipTextActive : undefined}
+                  >
+                    {nivel === 'bajo' ? 'Bajo' : nivel === 'medio' ? 'Medio' : 'Alto'}
+                  </InstitutionalText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          <View style={institutionalInputStyles.field}>
+            <InstitutionalText role="caption" color="muted" style={institutionalInputStyles.hint}>
+              Tono de ventas
+            </InstitutionalText>
+            <View style={styles.chipRow}>
+              {(['conservador', 'balanceado', 'proactivo'] as const).map((tono) => (
+                <Pressable
+                  key={tono}
+                  style={[styles.chip, tonoVentas === tono && styles.chipActive]}
+                  onPress={() => setTonoVentas(tono)}
+                >
+                  <InstitutionalText
+                    role="caption"
+                    style={tonoVentas === tono ? styles.chipTextActive : undefined}
+                  >
+                    {tono === 'conservador' ? 'Conservador' : tono === 'balanceado' ? 'Balanceado' : 'Proactivo'}
+                  </InstitutionalText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          <View style={styles.switchRow}>
+            <View style={styles.flex}>
+              <InstitutionalText role="body">Mostrar referencias históricas de precio</InstitutionalText>
+              <InstitutionalText role="caption" color="muted">
+                Cuando no hay tarifa en catálogo, el agente puede citar montos orientativos de trabajos similares completados.
+              </InstitutionalText>
+            </View>
+            <Switch
+              {...institutionalSwitchProps}
+              value={permiteEstimadosHistoricos}
+              onValueChange={setPermiteEstimadosHistoricos}
+            />
+          </View>
+          <View style={styles.switchRow}>
+            <View style={styles.flex}>
+              <InstitutionalText role="body">Pedir dirección antes de cotizar</InstitutionalText>
+              <InstitutionalText role="caption" color="muted">
+                El agente no armará borrador hasta tener la dirección del cliente (servicio a domicilio).
+              </InstitutionalText>
+            </View>
+            <Switch
+              {...institutionalSwitchProps}
+              value={requiereDireccionAntesCotizar}
+              onValueChange={setRequiereDireccionAntesCotizar}
             />
           </View>
           <InstitutionalButton
@@ -932,5 +1020,40 @@ const styles = StyleSheet.create({
   },
   pendienteItem: {
     color: I.muted,
+  },
+  subKicker: {
+    marginTop: SPACING.fixed.sm,
+    fontFamily: FF.sansSemiBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.xs,
+    marginTop: SPACING.fixed.xs,
+  },
+  chip: {
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+    backgroundColor: I.paper,
+  },
+  chipActive: {
+    borderColor: I.primary,
+    backgroundColor: I.canvas,
+  },
+  chipTextActive: {
+    color: I.primary,
+    fontFamily: FF.sansMedium,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xs,
   },
 });
