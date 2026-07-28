@@ -587,12 +587,12 @@ export function CotizacionIaEditor({
       </Card>
 
       <Card elevated padding="host" style={styles.sectionCard}>
-        <InstitutionalSectionHeader title="Notas internas" />
+        <InstitutionalSectionHeader title="Notas de cotización" />
         <InstitutionalField
-          label="Solo el taller las ve"
+          label="Las genera el agente según el servicio; puedes editarlas"
           value={cotizacion.notas_internas || ''}
           onChangeText={(t) => onChange({ ...cotizacion, notas_internas: t })}
-          placeholder="Comentarios para el equipo del taller…"
+          placeholder={'1. Síntoma…\n2. Servicio propuesto…\n3. Consideraciones…'}
           editable={editable}
           multiline
         />
@@ -620,13 +620,16 @@ export function CotizacionIaEditor({
       ) : null}
 
       {cotizacion.advertencias?.length ? (
-        <View style={styles.advertenciasBox}>
-          {cotizacion.advertencias.map((adv, i) => (
-            <InstitutionalText key={`adv-${i}`} role="small" color="muted">
-              • {adv}
-            </InstitutionalText>
-          ))}
-        </View>
+        <Card elevated padding="host" style={styles.sectionCard}>
+          <InstitutionalSectionHeader title="Alertas del sistema" />
+          <View style={styles.advertenciasBox}>
+            {cotizacion.advertencias.map((adv, i) => (
+              <InstitutionalText key={`adv-${i}`} role="small" color="muted">
+                • {adv}
+              </InstitutionalText>
+            ))}
+          </View>
+        </Card>
       ) : null}
 
       {(editable && (onEnviar || onGuardarPlantilla))
