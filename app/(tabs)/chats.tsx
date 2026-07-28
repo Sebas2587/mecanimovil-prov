@@ -120,8 +120,11 @@ export default function ChatsScreen() {
   const { isAuthenticated, usuario, estadoProveedor } = useAuth();
   const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
   const { data: cotizacionesCanalPendientes = 0 } = useCotizacionesCanalPendientesQuery(cuentaAprobada);
-  const { data: borradoresAgente } = useAgenteBorradoresPendientesQuery(cuentaAprobada);
-  const borradoresAgenteCount = borradoresAgente?.count ?? 0;
+  const {
+    data: borradoresAgente,
+    refetch: refetchBorradoresAgente,
+  } = useAgenteBorradoresPendientesQuery(cuentaAprobada);
+  const borradoresAgenteCount = Math.max(0, Number(borradoresAgente?.count) || 0);
   const queryClient = useQueryClient();
   const invalidateChatInbox = useInvalidateChatInbox();
   const {
@@ -241,8 +244,18 @@ export default function ChatsScreen() {
       if (isAuthenticated && usuario) {
         void refetch();
         void refetchConnections();
+        if (cuentaAprobada) {
+          void refetchBorradoresAgente();
+        }
       }
-    }, [isAuthenticated, usuario, refetch, refetchConnections]),
+    }, [
+      isAuthenticated,
+      usuario,
+      cuentaAprobada,
+      refetch,
+      refetchConnections,
+      refetchBorradoresAgente,
+    ]),
   );
 
   const formatearFecha = (fechaStr: string) => {

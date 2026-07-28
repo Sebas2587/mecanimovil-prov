@@ -58,10 +58,13 @@ export default function HomeScreen() {
 
   /** Habilitado por admin para operar (≠ sello "Verificado" en perfil). */
   const cuentaAprobadaPorAdmin = estadoProveedor?.estado_verificacion === 'aprobado';
-  const { data: borradoresAgente } = useAgenteBorradoresPendientesQuery(
+  const {
+    data: borradoresAgente,
+    refetch: refetchBorradoresAgente,
+  } = useAgenteBorradoresPendientesQuery(
     cuentaAprobadaPorAdmin && puede('servicios'),
   );
-  const borradoresAgenteCount = borradoresAgente?.count ?? 0;
+  const borradoresAgenteCount = Math.max(0, Number(borradoresAgente?.count) || 0);
   const perfilProveedorKey = useMemo(
     () => estadoProveedorReloadKey(estadoProveedor ?? null),
     [estadoProveedor]
@@ -317,7 +320,12 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await verificarHorariosConfigurados();
+    await Promise.all([
+      verificarHorariosConfigurados(),
+      cuentaAprobadaPorAdmin && puede('servicios')
+        ? refetchBorradoresAgente()
+        : Promise.resolve(),
+    ]);
     setRefreshing(false);
   };
 
