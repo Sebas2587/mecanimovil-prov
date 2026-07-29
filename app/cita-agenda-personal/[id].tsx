@@ -292,8 +292,9 @@ export default function CitaAgendaPersonalDetalleScreen() {
     && !esMecanicoEquipo;
   const puedeCancelarCita = esActiva && (cita?.puede_cancelar !== false) && !checklistIniciado;
 
-  // Técnico asignado siempre puede operar. Taller/supervisor puede iniciar
-  // si aún no arrancó; una vez iniciado por el técnico, solo ven progreso.
+  // Técnico asignado siempre puede operar.
+  // Mandante/supervisor: pueden iniciar Y continuar (antes, tras iniciar con
+  // técnico asignado perdían el CTA y el checklist quedaba inaccesible).
   const esTecnicoAsignado =
     esMecanicoEquipo
     && miembroId != null
@@ -301,6 +302,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     && Number(miembroId) === Number(cita.miembro_taller);
   const puedeOperarChecklist = (() => {
     if (esMecanicoEquipo) return esTecnicoAsignado;
+    if (esMandanteTaller || esSupervisor) return true;
     if (!cita?.miembro_taller) return true;
     return !checklistIniciado;
   })();
@@ -1121,6 +1123,14 @@ export default function CitaAgendaPersonalDetalleScreen() {
                           variant="outline"
                           onPress={() => router.push(`/agregar-servicio-adicional/${cita.id}`)}
                           disabled={procesando}
+                        />
+                      ) : null}
+
+                      {puedeContinuarChecklistSticky ? (
+                        <InstitutionalButton
+                          label={checklistEnCurso ? 'Continuar checklist' : 'Completar checklist'}
+                          variant="primary"
+                          onPress={() => setShowChecklist(true)}
                         />
                       ) : null}
 
