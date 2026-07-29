@@ -328,27 +328,49 @@ export default function CitaAgendaPersonalDetalleScreen() {
     return () => clearInterval(timer);
   }, [mostrarProgresoChecklist, citaId, refetchCita]);
 
+  const puedeIniciarServicioSticky = Boolean(
+    esActiva
+    && cita?.tiene_checklist
+    && puedeOperarChecklist
+    && !cita.checklist_id
+    && citaAgendada
+    && !editando,
+  );
+  const puedeContinuarChecklistSticky = Boolean(
+    esActiva
+    && puedeOperarChecklist
+    && cita?.checklist_id
+    && !checklistCompletado
+    && !checklistPendienteSupervisor
+    && !checklistPendienteFirmaCliente
+    && !editando,
+  );
+  const mostrarStickyPrimario = Boolean(
+    (horarioPorConfirmar && permitirEditarCita)
+    || puedeIniciarServicioSticky
+    || puedeContinuarChecklistSticky
+    || puedeRectificarSupervisor
+    || (citaAgendada && !cita?.tiene_checklist && !editando)
+    || puedeCancelarCita
+    || (esActiva && editando && permitirEditarCita)
+    || (esCancelada && permitirEliminarCita),
+  );
+
   const footerReserve = useMemo(() => {
-    if (!muestraFooterAcciones) return SPACING.fixed.lg + footerBottomPad;
-    if (esActiva && !editando) {
-      if (checklistEnCurso && !puedeOperarChecklist) {
-        return 24 + footerBottomPad + SPACING.fixed.md;
-      }
-      const filasFooter = permitirEditarCita
-        ? (puedeCancelarCita ? 132 : 72)
-        : (puedeCancelarCita ? 72 : 72);
-      return filasFooter + footerBottomPad + SPACING.fixed.md;
+    if (!muestraFooterAcciones || !mostrarStickyPrimario) {
+      return SPACING.fixed.lg + footerBottomPad;
     }
-    return 72 + footerBottomPad + SPACING.fixed.md;
+    if (esActiva && editando) {
+      return 72 + footerBottomPad + SPACING.fixed.md;
+    }
+    // Una sola fila: cancelar (izq) + CTA primario (der)
+    return 64 + footerBottomPad + SPACING.fixed.md;
   }, [
     muestraFooterAcciones,
+    mostrarStickyPrimario,
     esActiva,
     editando,
     footerBottomPad,
-    permitirEditarCita,
-    puedeCancelarCita,
-    checklistEnCurso,
-    puedeOperarChecklist,
   ]);
 
   const handleLlamar = useCallback(() => {
@@ -445,7 +467,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
   }, [citaId, recargarCita, mostrarFeedback, queryClient]);
 
   const handleCancelar = useCallback(() => {
-    showConfirm('Cancelar cita', '¿Confirmas que deseas cancelar esta cita?', {
+    showConfirm('Cancelar visita', '¿Confirmas que deseas cancelar esta visita?', {
       confirmText: 'Sí, cancelar',
       onConfirm: ejecutarCancelar,
     });
@@ -776,9 +798,31 @@ export default function CitaAgendaPersonalDetalleScreen() {
     puedeServicios: !esSupervisor || puede('servicios'),
   });
 
+  const mostrarEditarHeader =
+    esActiva && permitirEditarCita && !editando && !checklistEnCurso;
+
   return (
     <View style={styles.container}>
-      <Stack.Screen options={stackOptions} />
+      <Stack.Screen
+        options={{
+          ...stackOptions,
+          headerRight: () =>
+            mostrarEditarHeader ? (
+              <Pressable
+                onPress={() => {
+                  setFeedbackAccion(null);
+                  setEditando(true);
+                }}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Editar cita"
+                style={styles.headerEditPressable}
+              >
+                <Text style={styles.headerEditLabel}>Editar</Text>
+              </Pressable>
+            ) : null,
+        }}
+      />
 
       <KeyboardAvoidingView style={styles.screenRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
@@ -944,6 +988,17 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     <AsistenteDiagnosticoCard origen="cita" entityId={cita.id} habilitado />
                   </View>
                 ) : null}
+
+                {!cita.tiene_checklist && permitirAgregarServicio ? (
+                  <View style={styles.checklistActions}>
+                    <InstitutionalButton
+                      label="Agregar otro servicio"
+                      variant="outline"
+                      onPress={() => router.push(`/agregar-servicio-adicional/${cita.id}`)}
+                      disabled={procesando}
+                    />
+                  </View>
+                ) : null}
               </HostPaperSection>
 
               <HostSectionKicker label="Técnico asignado" />
@@ -978,7 +1033,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
               {cita.tiene_checklist ? (
                 <>
-                  <HostSectionKicker label="Checklist operativo" />
+                  <HostSectionKicker label="Ejecución del servicio" />
                   <HostPaperSection style={styles.section}>
                   <View style={styles.sectionHeaderRow}>
                     <View style={styles.sectionHeaderTitleInline} />
@@ -1052,45 +1107,20 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     ) : (
                       <Text style={styles.checklistStatusCopy}>
                         {puedeOperarChecklist
-                          ? 'Inicia el servicio para generar y completar el checklist.'
+                          ? horarioPorConfirmar
+                            ? 'Confirma el horario arriba antes de iniciar el servicio.'
+                            : 'Usa «Iniciar servicio» abajo para generar y completar el checklist.'
                           : 'El técnico asignado debe iniciar el servicio para comenzar el checklist.'}
                       </Text>
                     )}
 
                     <View style={styles.checklistActions}>
-                      {puedeOperarChecklist && !cita.checklist_id && citaAgendada ? (
+                      {permitirAgregarServicio ? (
                         <InstitutionalButton
-                          label={iniciandoChecklist ? 'Preparando checklist…' : 'Iniciar servicio'}
-                          variant="primary"
-                          loading={iniciandoChecklist}
-                          onPress={() => void handleIniciarServicioChecklist()}
-                        />
-                      ) : null}
-                      {puedeOperarChecklist && !cita.checklist_id && horarioPorConfirmar ? (
-                        <Text style={styles.horarioPendienteBody}>
-                          Confirma el horario arriba antes de iniciar el servicio.
-                        </Text>
-                      ) : null}
-
-                      {puedeOperarChecklist
-                        && cita.checklist_id
-                        && !checklistCompletado
-                        && !checklistPendienteSupervisor
-                        && !checklistPendienteFirmaCliente ? (
-                        <InstitutionalButton
-                          label={checklistEnCurso ? 'Continuar checklist' : 'Completar checklist'}
-                          variant="primary"
-                          onPress={() => setShowChecklist(true)}
-                        />
-                      ) : null}
-
-                      {puedeRectificarSupervisor ? (
-                        <InstitutionalButton
-                          label={firmandoSupervisor ? 'Generando informe…' : 'Firmar y generar informe'}
-                          variant="primary"
-                          loading={firmandoSupervisor}
-                          disabled={firmandoSupervisor}
-                          onPress={() => setShowSupervisorFirmaModal(true)}
+                          label="Agregar otro servicio"
+                          variant="outline"
+                          onPress={() => router.push(`/agregar-servicio-adicional/${cita.id}`)}
+                          disabled={procesando}
                         />
                       ) : null}
 
@@ -1152,29 +1182,26 @@ export default function CitaAgendaPersonalDetalleScreen() {
           )}
         </ScrollView>
 
-        {muestraFooterAcciones ? (
+        {muestraFooterAcciones && mostrarStickyPrimario ? (
           <CitaPersonalFooter
             esActiva={esActiva}
             esCancelada={esCancelada}
             editando={editando}
-            procesando={procesando}
+            procesando={procesando || iniciandoChecklist}
             bottomPad={footerBottomPad}
-            permitirEditar={permitirEditarCita && !checklistEnCurso}
             permitirEliminar={permitirEliminarCita}
             permitirCancelar={puedeCancelarCita}
-            permitirCerrarManual={
-              citaAgendada && !cita.tiene_checklist
-            }
+            permitirCerrarManual={citaAgendada && !cita.tiene_checklist}
             permitirConfirmarHorario={horarioPorConfirmar && permitirEditarCita}
-            permitirAgregarServicio={permitirAgregarServicio}
-            onAgregarServicio={() => {
-              if (!cita) return;
-              router.push(`/agregar-servicio-adicional/${cita.id}`);
-            }}
-            onEditar={() => {
-              setFeedbackAccion(null);
-              setEditando(true);
-            }}
+            permitirIniciarServicio={puedeIniciarServicioSticky}
+            iniciandoServicio={iniciandoChecklist}
+            permitirContinuarChecklist={puedeContinuarChecklistSticky}
+            continuarChecklistLabel={checklistEnCurso ? 'Continuar checklist' : 'Completar checklist'}
+            permitirFirmarSupervisor={puedeRectificarSupervisor && !editando}
+            firmandoSupervisor={firmandoSupervisor}
+            onIniciarServicio={() => void handleIniciarServicioChecklist()}
+            onContinuarChecklist={() => setShowChecklist(true)}
+            onFirmarSupervisor={() => setShowSupervisorFirmaModal(true)}
             onCompletar={handleCerrar}
             onConfirmarHorario={abrirConfirmarHorario}
             onCancelar={handleCancelar}
@@ -1278,14 +1305,19 @@ type CitaPersonalFooterProps = {
   editando: boolean;
   procesando: boolean;
   bottomPad: number;
-  permitirEditar: boolean;
   permitirEliminar: boolean;
   permitirCancelar: boolean;
   permitirCerrarManual: boolean;
   permitirConfirmarHorario?: boolean;
-  permitirAgregarServicio?: boolean;
-  onAgregarServicio?: () => void;
-  onEditar: () => void;
+  permitirIniciarServicio?: boolean;
+  iniciandoServicio?: boolean;
+  permitirContinuarChecklist?: boolean;
+  continuarChecklistLabel?: string;
+  permitirFirmarSupervisor?: boolean;
+  firmandoSupervisor?: boolean;
+  onIniciarServicio?: () => void;
+  onContinuarChecklist?: () => void;
+  onFirmarSupervisor?: () => void;
   onCompletar: () => void;
   onConfirmarHorario?: () => void;
   onCancelar: () => void;
@@ -1300,14 +1332,19 @@ function CitaPersonalFooter({
   editando,
   procesando,
   bottomPad,
-  permitirEditar,
   permitirEliminar,
   permitirCancelar,
   permitirCerrarManual,
   permitirConfirmarHorario = false,
-  permitirAgregarServicio = false,
-  onAgregarServicio,
-  onEditar,
+  permitirIniciarServicio = false,
+  iniciandoServicio = false,
+  permitirContinuarChecklist = false,
+  continuarChecklistLabel = 'Continuar checklist',
+  permitirFirmarSupervisor = false,
+  firmandoSupervisor = false,
+  onIniciarServicio,
+  onContinuarChecklist,
+  onFirmarSupervisor,
   onCompletar,
   onConfirmarHorario,
   onCancelar,
@@ -1315,106 +1352,93 @@ function CitaPersonalFooter({
   onDescartar,
   onEliminar,
 }: CitaPersonalFooterProps) {
-  /** Footer solo con InstitutionalButton — primary = gradiente Tinder, no magenta sólido. */
+  const estiloCtaDerecha = permitirCancelar ? styles.footerBtnPrimary : styles.footerBtnGrow;
+  const ctaDerecha = (() => {
+    if (permitirConfirmarHorario) {
+      return (
+        <InstitutionalButton
+          label="Confirmar horario"
+          variant="primary"
+          onPress={onConfirmarHorario ?? (() => undefined)}
+          disabled={procesando}
+          leading={
+            <InstitutionalIcon name="calendar-today" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+          }
+          style={estiloCtaDerecha}
+        />
+      );
+    }
+    if (permitirIniciarServicio) {
+      return (
+        <InstitutionalButton
+          label={iniciandoServicio ? 'Preparando…' : 'Iniciar servicio'}
+          variant="primary"
+          loading={iniciandoServicio}
+          onPress={onIniciarServicio ?? (() => undefined)}
+          disabled={procesando}
+          style={estiloCtaDerecha}
+        />
+      );
+    }
+    if (permitirFirmarSupervisor) {
+      return (
+        <InstitutionalButton
+          label={firmandoSupervisor ? 'Generando…' : 'Firmar informe'}
+          variant="primary"
+          loading={firmandoSupervisor}
+          onPress={onFirmarSupervisor ?? (() => undefined)}
+          disabled={procesando || firmandoSupervisor}
+          style={estiloCtaDerecha}
+        />
+      );
+    }
+    if (permitirContinuarChecklist) {
+      return (
+        <InstitutionalButton
+          label={continuarChecklistLabel}
+          variant="primary"
+          onPress={onContinuarChecklist ?? (() => undefined)}
+          disabled={procesando}
+          style={estiloCtaDerecha}
+        />
+      );
+    }
+    if (permitirCerrarManual) {
+      return (
+        <InstitutionalButton
+          label="Completar"
+          variant="success"
+          onPress={onCompletar}
+          disabled={procesando}
+          leading={
+            <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+          }
+          style={estiloCtaDerecha}
+        />
+      );
+    }
+    return null;
+  })();
+
   return (
     <View style={[styles.footer, { paddingBottom: bottomPad }]}>
       {esActiva && !editando ? (
-        permitirEditar ? (
-          <>
-            {permitirAgregarServicio ? (
-              <InstitutionalButton
-                label="Agregar otro servicio"
-                variant="outline"
-                onPress={onAgregarServicio ?? (() => undefined)}
-                disabled={procesando}
-                style={styles.footerBtnGrow}
-              />
-            ) : null}
-            {permitirConfirmarHorario ? (
-              <InstitutionalButton
-                label="Confirmar horario"
-                variant="primary"
-                onPress={onConfirmarHorario ?? (() => undefined)}
-                disabled={procesando}
-                leading={
-                  <InstitutionalIcon name="calendar-today" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                }
-                style={styles.footerBtnGrow}
-              />
-            ) : null}
-            {(permitirEditar || permitirCerrarManual) && !permitirConfirmarHorario ? (
-              <View style={styles.footerRow}>
-                {permitirEditar ? (
-                  <InstitutionalButton
-                    label="Editar"
-                    variant="outline"
-                    onPress={onEditar}
-                    disabled={procesando}
-                    leading={
-                      <InstitutionalIcon name="create" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                    }
-                    style={styles.footerBtnGrow}
-                  />
-                ) : null}
-                {permitirCerrarManual ? (
-                  <InstitutionalButton
-                    label="Completar"
-                    variant="success"
-                    onPress={onCompletar}
-                    disabled={procesando}
-                    leading={
-                      <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                    }
-                    style={styles.footerBtnGrow}
-                  />
-                ) : null}
-              </View>
-            ) : null}
-            {permitirCancelar ? (
-              <InstitutionalButton
-                label="Cancelar cita"
-                variant="destructiveOutline"
-                onPress={onCancelar}
-                disabled={procesando}
-                leading={
-                  <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                }
-              />
-            ) : null}
-          </>
-        ) : (
-          (permitirCancelar || permitirCerrarManual) ? (
-            <View style={styles.footerRow}>
-              {permitirCancelar ? (
-                <InstitutionalButton
-                  label="Cancelar cita"
-                  variant="destructiveOutline"
-                  onPress={onCancelar}
-                  disabled={procesando}
-                  leading={
-                    <InstitutionalIcon name="cancel" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                  }
-                  style={styles.footerBtnGrow}
-                />
-              ) : null}
-              {permitirCerrarManual ? (
-                <InstitutionalButton
-                  label="Completar"
-                  variant="success"
-                  onPress={onCompletar}
-                  disabled={procesando}
-                  leading={
-                    <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                  }
-                  style={[styles.footerBtnGrow, styles.footerBtnWide]}
-                />
-              ) : null}
-            </View>
-          ) : null
-        )
+        <View style={styles.footerRow}>
+          {permitirCancelar ? (
+            <InstitutionalButton
+              label="Cancelar visita"
+              variant="destructiveOutline"
+              size="compact"
+              onPress={onCancelar}
+              disabled={procesando}
+              style={ctaDerecha ? styles.footerBtnCancel : styles.footerBtnGrow}
+            />
+          ) : null}
+          {ctaDerecha}
+        </View>
       ) : null}
 
-      {esActiva && editando && permitirEditar ? (
+      {esActiva && editando ? (
         <View style={styles.footerRow}>
           <InstitutionalButton
             label="Descartar"
@@ -1485,6 +1509,17 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
 
+  headerEditPressable: {
+    marginRight: Platform.OS === 'web' ? SPACING.fixed.sm : 0,
+    paddingVertical: SPACING.fixed.xs,
+    paddingHorizontal: SPACING.fixed.xs,
+  },
+  headerEditLabel: {
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.primary,
+  },
   statusBlock: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1497,7 +1532,8 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.tight),
     color: I.muted,
-  },  section: {
+  },
+  section: {
     marginBottom: SPACING.fixed.md,
   },
   sectionHeaderTitle: {
@@ -1745,12 +1781,17 @@ const styles = StyleSheet.create({
   },
   footerRow: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     gap: SPACING.fixed.sm,
   },
   footerBtnGrow: {
     flex: 1,
   },
-  footerBtnWide: {
-    flex: 1.65,
+  footerBtnCancel: {
+    flex: 0.9,
+    alignSelf: 'center',
+  },
+  footerBtnPrimary: {
+    flex: 1.85,
   },
 });
