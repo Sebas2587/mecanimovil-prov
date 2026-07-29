@@ -65,6 +65,8 @@ interface ChecklistItemRendererProps {
   kmActual?: number | null;
   /** Oculta el header interno cuando la pantalla padre ya muestra el título. */
   hideHeader?: boolean;
+  /** Solo lectura: revisión supervisor/mandante o espera de firma cliente. */
+  readOnly?: boolean;
 }
 
 function nivelDesdePct(pct: number): keyof typeof SALUD_NIVEL_COLORS {
@@ -275,6 +277,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   saludSnapshot,
   kmActual,
   hideHeader = false,
+  readOnly = false,
 }) => {
   const [inputValue, setInputValue] = useState<any>('');
   const [isModified, setIsModified] = useState(false);
@@ -810,8 +813,17 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
     );
   };
 
-  // Determinar si este item pide solo firma del técnico, solo del cliente, o ambas
+  // En citas de taller el cliente nunca firma aquí; solo técnico/mandante en prov.
   const getSignatureMode = (): SignatureMode => {
+    const esCitaTaller = !!(
+      instance?.cita_personal
+      || instance?.cita_personal_info
+      || instance?.cita_personal_id
+    );
+    if (esCitaTaller) {
+      return 'tecnico_only';
+    }
+
     const text = (item.pregunta_texto || '').toLowerCase();
     if (/firma del cliente/i.test(text) && !/técnico|tecnico/.test(text)) {
       return 'cliente_only';
@@ -819,7 +831,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
     if (/firma del técnico|firma del tecnico|técnico responsable|tecnico responsable/i.test(text)) {
       return 'tecnico_only';
     }
-    return 'both';
+    return 'tecnico_only';
   };
 
   const signatureMode = getSignatureMode();
@@ -1340,16 +1352,28 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         {
           const signatureButtonLabel =
             response?.completado
-              ? (signatureMode === 'tecnico_only'
-                  ? 'Firma del técnico capturada ✓'
+              ? (signatureMode === 'supervisor_only'
+                  ? 'Firma del supervisor capturada ✓'
                   : signatureMode === 'cliente_only'
                     ? 'Firma del cliente capturada ✓'
-                    : 'Firmas capturadas ✓')
-              : (signatureMode === 'tecnico_only'
-                  ? 'Capturar firma del técnico'
+                    : 'Firma capturada ✓')
+              : (signatureMode === 'supervisor_only'
+                  ? 'Capturar firma del supervisor'
                   : signatureMode === 'cliente_only'
                     ? 'Capturar firma del cliente'
-                    : 'Capturar firmas (técnico y cliente)');
+                    : 'Capturar firma');
+
+          if (readOnly) {
+            return (
+              <View style={styles.modernSignatureContainer}>
+                <Text style={styles.modernSignatureHelp}>
+                  {response?.completado
+                    ? 'Firma registrada (solo lectura).'
+                    : 'Sin firma registrada en este paso.'}
+                </Text>
+              </View>
+            );
+          }
 
           return (
             <View style={styles.modernSignatureContainer}>
@@ -1689,7 +1713,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       </View>
 
       {/* CTA principal */}
-      {item.tipo_pregunta === 'PHOTO' ? (
+      {!readOnly && (item.tipo_pregunta === 'PHOTO' ? (
         <View style={{ marginTop: 8, gap: 10 }}>
           {response?.completado && photos.every((p) => p.id) ? (
             <View style={styles.completedIndicator}>
@@ -1731,7 +1755,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
             onPress={handleSave}
           />
         </View>
-      )}
+      ))}
 
       {/* Modal de firma digital (una sola firma según el item: técnico o cliente) */}
       {showSignatureModal && (

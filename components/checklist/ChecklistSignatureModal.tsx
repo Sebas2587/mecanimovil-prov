@@ -397,6 +397,13 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
   };
 
   const stepInfo = getStepInfo();
+  const headerTitle =
+    signatureMode === 'both'
+      ? 'Firmas Digitales'
+      : stepInfo.title;
+
+  const mostrarClienteAtendido =
+    signatureMode === 'both' || signatureMode === 'cliente_only';
 
   return (
     <>
@@ -420,7 +427,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
           </TouchableOpacity>
           
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Firmas Digitales</Text>
+            <Text style={styles.headerTitle}>{headerTitle}</Text>
           </View>
           
           <View style={styles.headerRight} />
@@ -474,13 +481,19 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
             </View>
           ) : null}
 
-          {/* Información de la orden - minimalista */}
+          {/* Contexto del servicio (no implica firma del cliente en taller) */}
           <View style={styles.orderInfo}>
-            <View style={[styles.orderInfoRow, styles.orderInfoRowFirst]}>
-              <Text style={styles.orderInfoLabel}>Cliente</Text>
-              <Text style={styles.orderInfoValue}>{ordenInfo.cliente}</Text>
-            </View>
-            <View style={[styles.orderInfoRow, styles.orderInfoRowLast]}>
+            {mostrarClienteAtendido ? (
+              <View style={[styles.orderInfoRow, styles.orderInfoRowFirst]}>
+                <Text style={styles.orderInfoLabel}>Cliente atendido</Text>
+                <Text style={styles.orderInfoValue}>{ordenInfo.cliente}</Text>
+              </View>
+            ) : null}
+            <View style={[
+              styles.orderInfoRow,
+              mostrarClienteAtendido ? undefined : styles.orderInfoRowFirst,
+              styles.orderInfoRowLast,
+            ]}>
               <Text style={styles.orderInfoLabel}>Vehículo</Text>
               <Text style={styles.orderInfoValue}>{ordenInfo.vehiculo}</Text>
             </View>

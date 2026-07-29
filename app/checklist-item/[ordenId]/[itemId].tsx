@@ -108,9 +108,15 @@ export default function ChecklistItemDetailScreen() {
     setLocalResponse(response);
   }, [response]);
 
+  const readOnlyChecklist =
+    instance?.estado === 'PENDIENTE_FIRMA_SUPERVISOR'
+    || instance?.estado === 'PENDIENTE_FIRMA_CLIENTE'
+    || instance?.estado === 'COMPLETADO';
+
   useEffect(() => {
     const ensurePhotoResponse = async () => {
       if (!item || !instance) return;
+      if (readOnlyChecklist) return;
       if (item.tipo_pregunta !== 'PHOTO') return;
       if (localResponse?.id) return;
 
@@ -145,7 +151,7 @@ export default function ChecklistItemDetailScreen() {
     };
 
     void ensurePhotoResponse();
-  }, [item, instance, localResponse?.id, saveResponse]);
+  }, [item, instance, localResponse?.id, saveResponse, readOnlyChecklist]);
 
   const handleGoBack = () => {
     router.back();
@@ -153,7 +159,9 @@ export default function ChecklistItemDetailScreen() {
 
   const handleSave = async (responseData: Record<string, unknown>, options?: { silent?: boolean }) => {
     if (!item) return { success: false, message: 'Item no disponible' };
-
+    if (readOnlyChecklist) {
+      return { success: false, message: 'El checklist está en revisión o cerrado; no se puede editar.' };
+    }
     const result = await saveResponse(
       item.id,
       responseData,
@@ -305,6 +313,7 @@ export default function ChecklistItemDetailScreen() {
               saludSnapshot={saludSnapshot}
               kmActual={kmActual}
               hideHeader
+              readOnly={readOnlyChecklist}
             />
           </HostPaperSection>
         </ScrollView>

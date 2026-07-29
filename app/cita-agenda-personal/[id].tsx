@@ -211,12 +211,23 @@ export default function CitaAgendaPersonalDetalleScreen() {
         }
         const informeUrl = result.data?.informe?.url;
         const enviado = result.data?.informe?.enviado;
+        const via = result.data?.informe?.via;
         await recargarCita();
         if (informeUrl) {
+          const viaLabel =
+            via === 'whatsapp'
+              ? 'WhatsApp'
+              : via === 'instagram'
+                ? 'Instagram'
+                : via === 'messenger'
+                  ? 'Messenger'
+                  : via === 'app'
+                    ? 'Mecanimovil'
+                    : null;
           showAlert(
             'Informe generado',
-            enviado
-              ? 'El informe se envió al cliente. También puedes copiar el enlace desde esta pantalla.'
+            enviado && viaLabel
+              ? `El informe se envió al cliente por ${viaLabel}. También puedes copiar el enlace desde esta pantalla.`
               : 'Comparte el enlace del informe para que el cliente revise y firme el servicio.',
           );
         } else {

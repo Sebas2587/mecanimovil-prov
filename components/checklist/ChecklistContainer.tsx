@@ -434,21 +434,32 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
 
       if (result.success) {
         const requiereFirmaSupervisor = result.requiere_firma_supervisor;
-        const requiereFirmaCliente = !firmaCliente && !requiereFirmaSupervisor;
+        const informe = result.informe as
+          | { url?: string; enviado?: boolean; via?: string; mensaje_envio?: string }
+          | undefined;
+
+        if (informe?.url) {
+          setInformeLink(informe.url);
+          setInformeEnvio({ enviado: informe.enviado, via: informe.via });
+        }
 
         if (requiereFirmaSupervisor) {
           showAlert(
             'Firma enviada',
             'Tu firma quedó registrada. El supervisor del taller debe rectificar el trabajo para generar el informe al cliente.',
           );
-          // Cita personal: el estado vive en la ficha (firma supervisor + enlace).
-          // Órdenes marketplace: quedar en el checklist con banner de espera.
           if (citaPersonalId) {
             onComplete?.();
           } else {
             setShowCompletedView(true);
           }
-        } else if (requiereFirmaCliente) {
+        } else if (informe?.url || result.data?.requiere_firma_cliente) {
+          const enviadoMsg = informe?.enviado
+            ? `Se envió el informe al cliente por ${informe.via || 'canal conectado'}.`
+            : 'Comparte el enlace del informe para que el cliente revise y firme el servicio.';
+          showAlert('Informe generado', enviadoMsg);
+          onComplete?.();
+        } else if (!firmaCliente) {
           showAlert(
             'Firma enviada',
             'Tu firma quedó registrada. El cliente recibirá una notificación para firmar desde su app y cerrar el servicio.',
@@ -493,7 +504,17 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           setInformeEnvio({ enviado: informe.enviado, via: informe.via });
         }
         const enviadoMsg = informe?.enviado
-          ? `Se envió el informe al cliente por ${informe.via || 'canal conectado'}.`
+          ? `Se envió el informe al cliente por ${
+            informe.via === 'whatsapp'
+              ? 'WhatsApp'
+              : informe.via === 'instagram'
+                ? 'Instagram'
+                : informe.via === 'messenger'
+                  ? 'Messenger'
+                  : informe.via === 'app'
+                    ? 'Mecanimovil'
+                    : informe.via || 'canal conectado'
+          }.`
           : 'Comparte el enlace del informe para que el cliente firme sin necesidad de cuenta.';
         showAlert('Informe generado', enviadoMsg);
         if (citaPersonalId) {
@@ -666,7 +687,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             />
             {puedeFirmarSupervisor ? (
               <InstitutionalButton
-                label="Firmar como supervisor"
+                label="Revisar y firmar"
                 onPress={() => setShowSupervisorSignatureModal(true)}
                 variant="primary"
                 leading={
@@ -784,9 +805,9 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           </View>
         )}
 
-        {instance.estado === 'EN_PROGRESO' && !isCompleted && template.items && (
+        {(instance.estado === 'EN_PROGRESO' || esperandoFirmaSupervisor) && !isCompleted && template.items && (
           <View style={styles.checklistItemsList}>
-            {!canFinalize && pendientesObligatorios.length > 0 && (
+            {!esperandoFirmaSupervisor && !canFinalize && pendientesObligatorios.length > 0 && (
               <EstadoBanner
                 type="warning"
                 title="Ítems pendientes"
@@ -800,7 +821,9 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             )}
             <View style={styles.checklistSummary}>
               <Text style={styles.checklistSummaryText}>
-                {totalCompletados} de {totalSteps} completados
+                {esperandoFirmaSupervisor
+                  ? 'Revisa los ítems completados antes de firmar'
+                  : `${totalCompletados} de ${totalSteps} completados`}
               </Text>
             </View>
             {sortedItems.map((item) => {
