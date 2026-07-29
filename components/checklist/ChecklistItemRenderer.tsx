@@ -858,9 +858,39 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   ];
   const isSingleSelect = SINGLE_SELECT_TYPES.includes(item.tipo_pregunta);
 
+  const opcionesSeleccionEfectivas = (() => {
+    const raw = item.opciones_seleccion;
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.map((o) => String(o));
+    }
+    // Templates IA a veces llegan sin opciones → el paso quedaba vacío.
+    if (item.tipo_pregunta === 'FLUID_LEVEL') {
+      const nombre = `${item.catalog_item?.nombre || ''} ${item.pregunta_texto || ''}`.toLowerCase();
+      if (
+        nombre.includes('complement')
+        || nombre.includes('fluidos')
+        || nombre.includes('niveles')
+        || nombre.includes('refriger')
+      ) {
+        return [
+          'Todos correctos',
+          'Algunos bajos',
+          'Refrigerante bajo',
+          'Aceite bajo',
+          'Requiere rellenado',
+        ];
+      }
+      return ['Mínimo', 'Bajo', 'Normal', 'Alto', 'Sobre máximo'];
+    }
+    if (SINGLE_SELECT_TYPES.includes(item.tipo_pregunta) || item.tipo_pregunta === 'MULTISELECT') {
+      return ['Excelente', 'Bueno', 'Regular', 'Malo', 'Crítico'];
+    }
+    return [];
+  })();
+
   // Renderizar opciones de selección - Minimalista
   const renderSelectOptions = () => {
-    if (!item.opciones_seleccion) return null;
+    if (!opcionesSeleccionEfectivas.length) return null;
 
     const isSelected = (opcion: any) => {
       if (isSingleSelect) {
@@ -870,7 +900,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       return currentValues.includes(opcion);
     };
 
-    return item.opciones_seleccion.map((opcion: any, index: number) => {
+    return opcionesSeleccionEfectivas.map((opcion: any, index: number) => {
       const selected = isSelected(opcion);
 
       return (
