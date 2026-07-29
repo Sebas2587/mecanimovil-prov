@@ -292,16 +292,22 @@ export default function CitaAgendaPersonalDetalleScreen() {
     && !esMecanicoEquipo;
   const puedeCancelarCita = esActiva && (cita?.puede_cancelar !== false) && !checklistIniciado;
 
-  // Técnico asignado siempre puede operar.
-  // Mandante/supervisor: pueden iniciar Y continuar (antes, tras iniciar con
-  // técnico asignado perdían el CTA y el checklist quedaba inaccesible).
+  // Flujo: mecánico llena → supervisor/mandante revisa → cliente cierra.
   const esTecnicoAsignado =
     esMecanicoEquipo
     && miembroId != null
     && cita?.miembro_taller != null
     && Number(miembroId) === Number(cita.miembro_taller);
+  const enEtapaRevisionOCierre =
+    checklistPendienteSupervisor
+    || checklistPendienteFirmaCliente
+    || checklistCompletado;
+  // Llenado de ítems (no revisión ni cierre del cliente).
   const puedeOperarChecklist = (() => {
+    if (enEtapaRevisionOCierre) return false;
     if (esMecanicoEquipo) return esTecnicoAsignado;
+    // Cita personal: mandante/supervisor pueden ejecutar el servicio si no hay
+    // mecánico de app, o hasta enviar a revisión (firma técnico → supervisor).
     if (esMandanteTaller || esSupervisor) return true;
     if (!cita?.miembro_taller) return true;
     return !checklistIniciado;
@@ -309,7 +315,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const mostrarProgresoChecklist =
     !!cita?.checklist_id
     && checklistIniciado
-    && !puedeOperarChecklist;
+    && !puedeOperarChecklist
+    && !enEtapaRevisionOCierre;
 
   const footerBottomPad = Math.max(insets.bottom, Platform.OS === 'web' ? 12 : 0);
 
@@ -1061,14 +1068,16 @@ export default function CitaAgendaPersonalDetalleScreen() {
                       <>
                         <Text style={styles.checklistProgressTitle}>
                           {checklistCompletado
-                            ? 'Servicio checklist completado'
+                            ? 'Servicio cerrado'
                             : checklistPendienteSupervisor
                               ? puedeRectificarSupervisor
-                                ? 'Listo para tu rectificación'
-                                : 'Esperando firma del supervisor'
+                                ? 'Etapa 2 · Revisar y firmar (supervisor/mandante)'
+                                : 'Etapa 2 · Esperando revisión del supervisor'
                               : checklistPendienteFirmaCliente
-                                ? 'Informe listo para el cliente'
-                                : 'En ejecución por el técnico'}
+                                ? 'Etapa 3 · El cliente debe cerrar el servicio'
+                                : puedeOperarChecklist
+                                  ? 'Etapa 1 · Llenar checklist'
+                                  : 'Etapa 1 · En ejecución por el técnico'}
                         </Text>
                         <Text style={styles.checklistProgressMeta}>
                           {(cita.checklist_items_completados ?? 0)} de{' '}
@@ -1093,17 +1102,17 @@ export default function CitaAgendaPersonalDetalleScreen() {
                         <Text style={styles.checklistStatusCopy}>
                           {checklistPendienteSupervisor
                             ? puedeRectificarSupervisor
-                              ? 'Revisa el trabajo del técnico y firma para generar el informe al cliente.'
-                              : 'El técnico ya firmó. Cuando el supervisor rectifique, se generará el enlace del informe.'
+                              ? 'El mecánico ya terminó el llenado. Revisa el trabajo y firma para generar el informe; el cliente cerrará el servicio después.'
+                              : 'El mecánico ya firmó. Falta la revisión del supervisor o mandante para enviar el informe al cliente.'
                             : checklistPendienteFirmaCliente
-                              ? 'Comparte el enlace para que el cliente vea lo realizado y certifique el servicio.'
+                              ? 'Comparte el enlace del informe. El cliente revisa, firma y con eso se cierra el servicio.'
                               : checklistCompletado
                                 ? cita.informe_publico_url
-                                  ? 'El checklist quedó cerrado. Puedes reenviar el enlace para que el cliente vuelva a ver el informe.'
-                                  : 'El checklist quedó cerrado y firmado.'
+                                  ? 'El cliente ya cerró el servicio. Puedes reenviar el enlace del informe si lo necesita.'
+                                  : 'El servicio quedó cerrado y firmado por el cliente.'
                                 : puedeOperarChecklist
-                                  ? 'Continúa el checklist paso a paso hasta finalizarlo.'
-                                  : 'El progreso se actualiza mientras el técnico completa el servicio.'}
+                                  ? 'Completa los pasos del checklist. Al finalizar firmas como técnico; luego supervisor/mandante revisa y el cliente cierra.'
+                                  : 'El técnico está llenando el checklist. Cuando termine, te toca revisar y firmar.'}
                         </Text>
                       </>
                     ) : (
@@ -1393,7 +1402,7 @@ function CitaPersonalFooter({
     if (permitirFirmarSupervisor) {
       return (
         <InstitutionalButton
-          label={firmandoSupervisor ? 'Generando…' : 'Firmar informe'}
+          label={firmandoSupervisor ? 'Generando…' : 'Revisar y firmar'}
           variant="primary"
           loading={firmandoSupervisor}
           onPress={onFirmarSupervisor ?? (() => undefined)}
