@@ -1647,9 +1647,12 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           </TouchableOpacity>
         )}
 
-        {/* TIPOS NO IMPLEMENTADOS */}
+        {/* TIPOS NO IMPLEMENTADOS (solo si falta UI real; texto largo ya está en renderItemComponent) */}
         {![
           'TEXT',
+          'FINAL_NOTES',
+          'WORK_SUMMARY',
+          'DAMAGE_REPORT',
           'NUMBER',
           'KILOMETER_INPUT',
           'BOOLEAN',
@@ -1674,6 +1677,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           'DATETIME',
           'LOCATION',
           'SIGNATURE',
+          'VEHICLE_DIAGRAM',
         ].includes(item.tipo_pregunta) && (
           <View style={styles.notImplementedContainer}>
             <InstitutionalIcon name="warning" size={20} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
