@@ -63,6 +63,8 @@ interface ChecklistItemRendererProps {
   saludSnapshot?: ChecklistSaludSnapshotItem | null;
   /** Kilometraje actual del vehículo (root del snapshot de salud). */
   kmActual?: number | null;
+  ubicacionPreferida?: { lat: number; lng: number } | null;
+  modoUbicacion?: 'taller' | 'domicilio';
   /** Oculta el header interno cuando la pantalla padre ya muestra el título. */
   hideHeader?: boolean;
   /** Solo lectura: revisión supervisor/mandante o espera de firma cliente. */
@@ -276,6 +278,8 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   deletePhoto,
   saludSnapshot,
   kmActual,
+  ubicacionPreferida = null,
+  modoUbicacion = 'domicilio',
   hideHeader = false,
   readOnly = false,
 }) => {
@@ -1764,6 +1768,8 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           onComplete={handleSignatureComplete}
           onClose={handleSignatureCancel}
           signatureMode={signatureMode}
+          ubicacionPreferida={ubicacionPreferida}
+          modoUbicacion={modoUbicacion}
           ordenInfo={{
             id: instance?.orden_info?.id || instance?.orden || 0,
             cliente: ordenSignatureDisplay.cliente,

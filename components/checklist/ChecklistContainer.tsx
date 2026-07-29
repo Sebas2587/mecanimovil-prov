@@ -707,7 +707,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           </View>
         )}
 
-        {citaPersonalId && informeLink ? (
+        {informeLink ? (
           <View style={styles.informeLinkCard}>
             <Text style={styles.informeLinkTitle}>
               {esperandoFirmaCliente ? 'Informe para el cliente' : 'Enlace del informe'}
@@ -805,9 +805,9 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           </View>
         )}
 
-        {(instance.estado === 'EN_PROGRESO' || esperandoFirmaSupervisor) && !isCompleted && template.items && (
+        {(instance.estado === 'EN_PROGRESO' || esperandoFirmaSupervisor || esperandoFirmaCliente) && !isCompleted && template.items && (
           <View style={styles.checklistItemsList}>
-            {!esperandoFirmaSupervisor && !canFinalize && pendientesObligatorios.length > 0 && (
+            {!esperandoFirmaSupervisor && !esperandoFirmaCliente && !canFinalize && pendientesObligatorios.length > 0 && (
               <EstadoBanner
                 type="warning"
                 title="Ítems pendientes"
@@ -823,7 +823,9 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
               <Text style={styles.checklistSummaryText}>
                 {esperandoFirmaSupervisor
                   ? 'Revisa los ítems completados antes de firmar'
-                  : `${totalCompletados} de ${totalSteps} completados`}
+                  : esperandoFirmaCliente
+                    ? 'Resumen de ítems completados en este servicio'
+                    : `${totalCompletados} de ${totalSteps} completados`}
               </Text>
             </View>
             {sortedItems.map((item) => {

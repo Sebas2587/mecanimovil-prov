@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Dimensions,
   ScrollView,
+  Platform,
 } from 'react-native';
 import SignaturePad, { type SignaturePadRef } from '@/components/signature/SignaturePad';
 import * as Location from 'expo-location';
@@ -66,8 +67,49 @@ interface SignatureData {
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-// Altura responsiva para el lienzo de firma (máximo 420)
-const CANVAS_HEIGHT = Math.min(Math.round(SCREEN_HEIGHT * 0.5), 420);
+// Web: canvas compacto para que el estado de ubicación quede visible sin scroll.
+const CANVAS_HEIGHT =
+  Platform.OS === 'web'
+    ? Math.min(Math.round(SCREEN_HEIGHT * 0.28), 220)
+    : Math.min(Math.round(SCREEN_HEIGHT * 0.42), 320);
+
+function resolvePreferida(
+  ubicacionPreferida?: { lat: number; lng: number } | null,
+): { lat: number; lng: number } | null {
+  if (
+    ubicacionPreferida
+    && Number.isFinite(ubicacionPreferida.lat)
+    && Number.isFinite(ubicacionPreferida.lng)
+    && !(ubicacionPreferida.lat === 0 && ubicacionPreferida.lng === 0)
+  ) {
+    return ubicacionPreferida;
+  }
+  return null;
+}
+
+/** GPS del navegador con timeout corto (evita colgarse en web). */
+async function tryBrowserGeolocation(timeoutMs = 1500): Promise<{ lat: number; lng: number } | null> {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) return null;
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), timeoutMs);
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          clearTimeout(timer);
+          resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        () => {
+          clearTimeout(timer);
+          resolve(null);
+        },
+        { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 60_000 },
+      );
+    } catch (e) {
+      clearTimeout(timer);
+      resolve(null);
+    }
+  });
+}
 
 export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = ({
   visible,
@@ -210,64 +252,80 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
     const firmaTecnico = finalSignatures.tecnico || '';
     const firmaCliente = finalSignatures.cliente || null;
     if (firmaTecnico || firmaCliente) {
-      onComplete(firmaTecnico, firmaCliente, coords);
+      try {
+        onComplete(firmaTecnico, firmaCliente, coords);
+      } catch (err) {
+        console.error('❌ Error en callback onComplete:', err);
+      }
     }
   };
 
   /**
-   * Resuelve ubicación sin bloquear la firma con alerts de GPS.
-   * Taller → ubicación registrada del local.
-   * Domicilio → última GPS conocida, intento corto, o última del proveedor.
+   * Resuelve ubicación sin bloquear la firma.
+   * Web: no abre el gate de consentimiento (quedaba detrás del modal y colgaba);
+   * usa ubicación del taller/proveedor o GPS del navegador con timeout corto.
    */
   const obtenerUbicacion = async (finalSignatures: SignatureData) => {
     setObtainingLocation(true);
 
     try {
-      const preferida =
-        ubicacionPreferida
-        && Number.isFinite(ubicacionPreferida.lat)
-        && Number.isFinite(ubicacionPreferida.lng)
-        && !(ubicacionPreferida.lat === 0 && ubicacionPreferida.lng === 0)
-          ? ubicacionPreferida
-          : null;
+      const preferida = resolvePreferida(ubicacionPreferida);
+      const esTallerOSupervisor =
+        modoUbicacion === 'taller' || signatureMode === 'supervisor_only';
 
-      // Servicio en taller (o firma de supervisor): no pedir GPS live.
-      if (modoUbicacion === 'taller' || signatureMode === 'supervisor_only') {
+      // Taller / supervisor: ubicación del local de inmediato.
+      if (esTallerOSupervisor && preferida) {
+        console.log('📍 Usando ubicación del taller:', preferida);
+        completarConUbicacion(finalSignatures, preferida);
+        return;
+      }
+
+      // Web: no usar ensureLocationConsent (modal queda detrás y “Obteniendo GPS” no termina).
+      if (Platform.OS === 'web') {
         if (preferida) {
-          console.log('📍 Usando ubicación del taller:', preferida);
           completarConUbicacion(finalSignatures, preferida);
           return;
         }
-      }
-
-      // Última ubicación conocida del dispositivo (rápida, típica en domicilio).
-      try {
-        const last = await Location.getLastKnownPositionAsync({
-          maxAge: 30 * 60 * 1000,
-          requiredAccuracy: 500,
-        });
-        if (last?.coords) {
-          const coords = {
-            lat: last.coords.latitude,
-            lng: last.coords.longitude,
-          };
-          console.log('📍 Usando última ubicación conocida:', coords);
-          completarConUbicacion(finalSignatures, coords);
-          return;
+        try {
+          const browserCoords = await tryBrowserGeolocation(1500);
+          if (browserCoords) {
+            console.log('📍 GPS navegador:', browserCoords);
+            completarConUbicacion(finalSignatures, browserCoords);
+            return;
+          }
+        } catch (err) {
+          console.warn('📍 Error intentando GPS navegador:', err);
         }
-      } catch (e) {
-        console.warn('No hay última ubicación conocida:', e);
+        console.log('📍 Web sin GPS; continuando con (0,0)');
+        completarConUbicacion(finalSignatures, { lat: 0, lng: 0 });
+        return;
       }
 
-      // Intento corto de GPS actual (sin alert si falla).
+      // Nativo — última conocida (domicilio).
+      if (!esTallerOSupervisor) {
+        try {
+          const last = await Location.getLastKnownPositionAsync({
+            maxAge: 30 * 60 * 1000,
+            requiredAccuracy: 500,
+          });
+          if (last?.coords) {
+            const coords = {
+              lat: last.coords.latitude,
+              lng: last.coords.longitude,
+            };
+            console.log('📍 Usando última ubicación conocida:', coords);
+            completarConUbicacion(finalSignatures, coords);
+            return;
+          }
+        } catch (e) {
+          console.warn('No hay última ubicación conocida:', e);
+        }
+      }
+
       try {
         const consented = await ensureLocationConsent();
         if (!consented) {
-          if (preferida) {
-            completarConUbicacion(finalSignatures, preferida);
-            return;
-          }
-          completarConUbicacion(finalSignatures, { lat: 0, lng: 0 });
+          completarConUbicacion(finalSignatures, preferida || { lat: 0, lng: 0 });
           return;
         }
         const enabled = await Location.hasServicesEnabledAsync();
@@ -279,16 +337,14 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
                 accuracy: Location.Accuracy.Balanced,
               }),
               new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Timeout ubicacion')), 5000);
+                setTimeout(() => reject(new Error('Timeout ubicacion')), 3000);
               }),
             ])) as Location.LocationObject;
 
-            const coords = {
+            completarConUbicacion(finalSignatures, {
               lat: currentLocation.coords.latitude,
               lng: currentLocation.coords.longitude,
-            };
-            console.log('📍 GPS actual:', coords);
-            completarConUbicacion(finalSignatures, coords);
+            });
             return;
           }
         }
@@ -296,14 +352,10 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
         console.warn('GPS live no disponible, usando fallback:', e);
       }
 
-      if (preferida) {
-        console.log('📍 Fallback a ubicación del proveedor:', preferida);
-        completarConUbicacion(finalSignatures, preferida);
-        return;
-      }
-
-      console.log('📍 Sin ubicación disponible; continuando con (0,0)');
-      completarConUbicacion(finalSignatures, { lat: 0, lng: 0 });
+      completarConUbicacion(finalSignatures, preferida || { lat: 0, lng: 0 });
+    } catch (err) {
+      console.error('❌ Error general en obtenerUbicacion:', err);
+      completarConUbicacion(finalSignatures, resolvePreferida(ubicacionPreferida) || { lat: 0, lng: 0 });
     } finally {
       setObtainingLocation(false);
     }
