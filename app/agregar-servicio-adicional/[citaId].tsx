@@ -1,28 +1,41 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
-import { COLORS, SPACING, BORDERS, TYPOGRAPHY } from '@/app/design-system/tokens';
-import { HostPaperSection, hostScreenStyles } from '@/app/design-system/components';
+import { InstitutionalField } from '@/components/forms/InstitutionalField';
+import {
+  COLORS,
+  SPACING,
+  BORDERS,
+  TYPOGRAPHY,
+  withOpacity,
+} from '@/app/design-system/tokens';
+import {
+  HostPaperSection,
+  HostSectionKicker,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import { useCitaPersonalQuery } from '@/hooks/useCitaPersonalQuery';
 import { useMisServiciosQuery } from '@/hooks/useMisServiciosQuery';
 import cotizacionCanalService from '@/services/cotizacionCanalService';
 import type { ServicioOfertaRow } from '@/hooks/useMisServiciosQuery';
+import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
+const TS = TYPOGRAPHY.styles;
+const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
 function formatPrecio(val: string | number | undefined): string {
   const n = Number(val);
@@ -66,12 +79,12 @@ export default function AgregarServicioAdicionalScreen() {
 
   const handleSubmit = useCallback(async () => {
     if (!cita?.cotizacion_canal_origen_id) {
-      Alert.alert('No disponible', 'Esta cita no tiene una cotización de canal asociada.');
+      showAlert('No disponible', 'Esta cita no tiene una cotización de canal asociada.');
       return;
     }
     const motivoTrim = motivo.trim();
     if (!motivoTrim) {
-      Alert.alert('Motivo requerido', 'Indica por qué se detectó este servicio adicional.');
+      showAlert('Motivo requerido', 'Indica por qué se detectó este servicio adicional.');
       return;
     }
 
@@ -86,7 +99,7 @@ export default function AgregarServicioAdicionalScreen() {
       if (modo === 'ia') {
         const nombre = servicioIa.trim();
         if (!nombre) {
-          Alert.alert('Servicio requerido', 'Indica qué servicio adicional quieres cotizar.');
+          showAlert('Servicio requerido', 'Indica qué servicio adicional quieres cotizar.');
           return;
         }
         await cotizacionCanalService.crearAdicional({
@@ -98,7 +111,7 @@ export default function AgregarServicioAdicionalScreen() {
       } else {
         const ids = Object.keys(seleccionados).map(Number);
         if (ids.length === 0) {
-          Alert.alert('Catálogo', 'Selecciona al menos un servicio del catálogo.');
+          showAlert('Catálogo', 'Selecciona al menos un servicio del catálogo.');
           return;
         }
         await cotizacionCanalService.crearAdicional({
@@ -110,7 +123,7 @@ export default function AgregarServicioAdicionalScreen() {
           })),
         });
       }
-      Alert.alert(
+      showAlertButtons(
         'Borrador creado',
         'La cotización adicional quedó en Cotizar con IA para que la revises y envíes.',
         [{ text: 'Ir a Cotizar con IA', onPress: () => router.replace('/cotizar-ia') }],
@@ -121,7 +134,7 @@ export default function AgregarServicioAdicionalScreen() {
           ?.response?.data?.detail
         || (err as Error)?.message
         || 'No se pudo crear la cotización adicional.';
-      Alert.alert('Error', String(msg));
+      showAlert('Error', String(msg));
     } finally {
       setEnviando(false);
     }
@@ -129,25 +142,33 @@ export default function AgregarServicioAdicionalScreen() {
 
   if (citaLoading || !Number.isFinite(parsedId)) {
     return (
-      <View style={[styles.center, hostScreenStyles.screen]}>
-        <ActivityIndicator color={I.primary} />
+      <View style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.center}>
+          <ActivityIndicator color={I.primary} />
+        </View>
       </View>
     );
   }
 
   if (!cita) {
     return (
-      <View style={[styles.center, hostScreenStyles.screen]}>
-        <Text style={styles.errorText}>No encontramos esta cita.</Text>
+      <View style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Header title="Servicio adicional" showBack onBackPress={() => router.back()} />
+        <View style={styles.center}>
+          <Text style={styles.errorText}>No encontramos esta cita.</Text>
+        </View>
       </View>
     );
   }
 
   if (!cita.permite_cotizacion_adicional) {
     return (
-      <View style={hostScreenStyles.screen}>
+      <View style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
         <Header title="Servicio adicional" showBack onBackPress={() => router.back()} />
-        <View style={styles.center}>
+        <View style={[styles.center, hostScreenStyles.gutterX]}>
           <Text style={styles.errorText}>
             Este trabajo aún no permite cotizaciones adicionales. Confirma el horario o inicia el
             servicio primero.
@@ -164,7 +185,7 @@ export default function AgregarServicioAdicionalScreen() {
     || 'Servicio en curso';
 
   return (
-    <View style={hostScreenStyles.screen}>
+    <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
       <Header title="Agregar otro servicio" showBack onBackPress={() => router.back()} />
 
@@ -173,108 +194,120 @@ export default function AgregarServicioAdicionalScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
+          style={hostScreenStyles.scroll}
           contentContainerStyle={[
-            styles.scroll,
-            { paddingBottom: insets.bottom + SPACING.xl },
+            hostScreenStyles.scrollInner,
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) + SPACING.fixed.xl },
           ]}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <HostPaperSection>
-            <Text style={styles.kicker}>Trabajo actual</Text>
+          <HostSectionKicker label="Trabajo actual" />
+          <HostPaperSection style={styles.section}>
             <Text style={styles.cardTitle}>{servicioOriginal}</Text>
             <Text style={styles.cardSub}>
-              {cita.detalle.cliente_nombre} · {[cita.detalle.vehiculo_marca, cita.detalle.vehiculo_modelo]
+              {[cita.detalle.cliente_nombre, [cita.detalle.vehiculo_marca, cita.detalle.vehiculo_modelo]
                 .filter(Boolean)
-                .join(' ')}
+                .join(' ')]
+                .filter(Boolean)
+                .join(' · ')}
             </Text>
           </HostPaperSection>
 
-          <HostPaperSection style={styles.sectionGap}>
-            <Text style={styles.label}>Motivo del servicio adicional *</Text>
-            <TextInput
-              style={styles.textArea}
+          <HostSectionKicker label="Motivo" />
+          <HostPaperSection style={styles.section}>
+            <InstitutionalField
+              label="Motivo del servicio adicional"
               multiline
               placeholder="Ej.: Al revisar el vehículo se detectó filtro de aceite obstruido"
-              placeholderTextColor={I.mutedSoft}
               value={motivo}
               onChangeText={setMotivo}
             />
           </HostPaperSection>
 
-          <HostPaperSection style={styles.sectionGap}>
-            <Text style={styles.label}>Modo de cotización</Text>
+          <HostSectionKicker label="Modo de cotización" />
+          <HostPaperSection style={styles.section}>
             <View style={styles.modeRow}>
-              <TouchableOpacity
+              <Pressable
                 style={[styles.modeChip, modo === 'catalogo' && styles.modeChipActive]}
                 onPress={() => setModo('catalogo')}
               >
                 <Text style={[styles.modeChipText, modo === 'catalogo' && styles.modeChipTextActive]}>
                   Manual (catálogo)
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </Pressable>
+              <Pressable
                 style={[styles.modeChip, modo === 'ia' && styles.modeChipActive]}
                 onPress={() => setModo('ia')}
               >
                 <Text style={[styles.modeChipText, modo === 'ia' && styles.modeChipTextActive]}>
                   Con IA
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </HostPaperSection>
 
           {modo === 'catalogo' ? (
-            <HostPaperSection style={styles.sectionGap}>
-              <Text style={styles.label}>Servicios del catálogo</Text>
-              {catalogoLoading ? (
-                <ActivityIndicator color={I.primary} style={{ marginTop: SPACING.md }} />
-              ) : serviciosDisponibles.length === 0 ? (
-                <Text style={styles.hint}>No hay servicios publicados en tu catálogo.</Text>
-              ) : (
-                serviciosDisponibles.map((oferta) => {
-                  const selected = Boolean(seleccionados[oferta.id]);
-                  const nombre = oferta.servicio_info?.nombre || 'Servicio';
-                  const precio =
-                    oferta.desglose_precios?.precio_final_cliente
-                    ?? oferta.precio_publicado_cliente;
-                  return (
-                    <TouchableOpacity
-                      key={oferta.id}
-                      style={[styles.servicioRow, selected && styles.servicioRowSelected]}
-                      onPress={() => toggleServicio(oferta)}
-                    >
-                      <View style={styles.servicioTextCol}>
-                        <Text style={styles.servicioNombre}>{nombre}</Text>
-                        <Text style={styles.servicioPrecio}>{formatPrecio(precio)}</Text>
-                      </View>
-                      <View style={[styles.check, selected && styles.checkOn]}>
-                        {selected ? <Text style={styles.checkMark}>✓</Text> : null}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </HostPaperSection>
+            <>
+              <HostSectionKicker label="Servicios del catálogo" />
+              <HostPaperSection style={styles.section}>
+                {catalogoLoading ? (
+                  <ActivityIndicator color={I.primary} style={{ marginVertical: SPACING.fixed.md }} />
+                ) : serviciosDisponibles.length === 0 ? (
+                  <Text style={styles.hint}>No hay servicios publicados en tu catálogo.</Text>
+                ) : (
+                  serviciosDisponibles.map((oferta, index) => {
+                    const selected = Boolean(seleccionados[oferta.id]);
+                    const nombre = oferta.servicio_info?.nombre || 'Servicio';
+                    const precio =
+                      oferta.desglose_precios?.precio_final_cliente
+                      ?? oferta.precio_publicado_cliente;
+                    const last = index === serviciosDisponibles.length - 1;
+                    return (
+                      <Pressable
+                        key={oferta.id}
+                        style={[
+                          styles.servicioRow,
+                          !last && styles.servicioRowBorder,
+                          selected && styles.servicioRowSelected,
+                        ]}
+                        onPress={() => toggleServicio(oferta)}
+                      >
+                        <View style={styles.servicioTextCol}>
+                          <Text style={styles.servicioNombre}>{nombre}</Text>
+                          <Text style={styles.servicioPrecio}>{formatPrecio(precio)}</Text>
+                        </View>
+                        <View style={[styles.check, selected && styles.checkOn]}>
+                          {selected ? <Text style={styles.checkMark}>✓</Text> : null}
+                        </View>
+                      </Pressable>
+                    );
+                  })
+                )}
+              </HostPaperSection>
+            </>
           ) : (
-            <HostPaperSection style={styles.sectionGap}>
-              <Text style={styles.label}>Servicio a cotizar con IA *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej.: Cambio de filtro de aceite"
-                placeholderTextColor={I.mutedSoft}
-                value={servicioIa}
-                onChangeText={setServicioIa}
-              />
-              <Text style={[styles.label, { marginTop: SPACING.md }]}>Detalle (opcional)</Text>
-              <TextInput
-                style={styles.textArea}
-                multiline
-                placeholder="Contexto adicional para la IA"
-                placeholderTextColor={I.mutedSoft}
-                value={descripcionIa}
-                onChangeText={setDescripcionIa}
-              />
-            </HostPaperSection>
+            <>
+              <HostSectionKicker label="Cotización con IA" />
+              <HostPaperSection style={styles.section}>
+                <View style={styles.fieldsStack}>
+                  <InstitutionalField
+                    label="Servicio a cotizar"
+                    placeholder="Ej.: Cambio de filtro de aceite"
+                    value={servicioIa}
+                    onChangeText={setServicioIa}
+                  />
+                  <InstitutionalField
+                    label="Detalle (opcional)"
+                    multiline
+                    placeholder="Contexto adicional para la IA"
+                    value={descripcionIa}
+                    onChangeText={setDescripcionIa}
+                  />
+                </View>
+              </HostPaperSection>
+            </>
           )}
 
           <InstitutionalButton
@@ -282,6 +315,7 @@ export default function AgregarServicioAdicionalScreen() {
             variant="primary"
             onPress={() => void handleSubmit()}
             disabled={enviando}
+            loading={enviando}
             style={styles.submitBtn}
           />
         </ScrollView>
@@ -291,110 +325,104 @@ export default function AgregarServicioAdicionalScreen() {
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: I.surfaceSoft,
+  },
   flex: { flex: 1 },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: SPACING.lg,
+    padding: SPACING.fixed.lg,
   },
-  scroll: {
-    padding: SPACING.lg,
-    gap: SPACING.md,
+  scrollContent: {
+    paddingTop: SPACING.fixed.sm,
   },
-  sectionGap: { marginTop: SPACING.sm },
-  kicker: {
-    ...TYPOGRAPHY.styles.caption,
-    color: I.muted,
-    marginBottom: SPACING.xs,
+  section: {
+    marginBottom: SPACING.fixed.sm,
+  },
+  fieldsStack: {
+    gap: SPACING.fixed.md,
   },
   cardTitle: {
-    ...TYPOGRAPHY.styles.subtitle,
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
     color: I.ink,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
   },
   cardSub: {
-    ...TYPOGRAPHY.styles.bodySmall,
+    marginTop: SPACING.fixed.xs,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.tight),
     color: I.muted,
-    marginTop: SPACING.xs,
-  },
-  label: {
-    ...TYPOGRAPHY.styles.bodySmall,
-    color: I.ink,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    marginBottom: SPACING.xs,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: I.border,
-    borderRadius: BORDERS.radius.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    color: I.ink,
-    backgroundColor: I.canvas,
-  },
-  textArea: {
-    borderWidth: 1,
-    borderColor: I.border,
-    borderRadius: BORDERS.radius.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    minHeight: 96,
-    textAlignVertical: 'top',
-    color: I.ink,
-    backgroundColor: I.canvas,
   },
   modeRow: {
     flexDirection: 'row',
-    gap: SPACING.sm,
+    gap: SPACING.fixed.sm,
   },
   modeChip: {
     flex: 1,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: 1,
-    borderColor: I.border,
+    minHeight: 48,
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.lg,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: COLORS.background.paper,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modeChipActive: {
-    borderColor: I.primary,
-    backgroundColor: `${I.primary}12`,
+    borderColor: withOpacity(I.primary, 0.35),
+    backgroundColor: withOpacity(I.primary, 0.08),
   },
   modeChipText: {
-    ...TYPOGRAPHY.styles.bodySmall,
-    color: I.muted,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.body,
   },
   modeChipTextActive: {
     color: I.primary,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+    fontFamily: FF.sansSemiBold,
   },
   servicioRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.sm,
+    paddingVertical: 14,
+    gap: SPACING.fixed.sm,
+  },
+  servicioRowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: I.border,
+    borderBottomColor: I.hairline,
   },
   servicioRowSelected: {
-    backgroundColor: `${I.primary}08`,
+    backgroundColor: withOpacity(I.primary, 0.06),
+    marginHorizontal: -SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.md,
   },
-  servicioTextCol: { flex: 1 },
+  servicioTextCol: { flex: 1, minWidth: 0 },
   servicioNombre: {
-    ...TYPOGRAPHY.styles.body,
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansMedium,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
     color: I.ink,
   },
   servicioPrecio: {
-    ...TYPOGRAPHY.styles.caption,
-    color: I.muted,
     marginTop: 2,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
+    color: I.muted,
   },
   check: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: I.border,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
+    backgroundColor: COLORS.background.paper,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -405,18 +433,23 @@ const styles = StyleSheet.create({
   checkMark: {
     color: I.onPrimary,
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: FF.sansSemiBold,
   },
   hint: {
-    ...TYPOGRAPHY.styles.bodySmall,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.sansRegular,
     color: I.muted,
+    lineHeight: lh(TYPOGRAPHY.fontSize.sm, TYPOGRAPHY.lineHeight.normal),
   },
   submitBtn: {
-    marginTop: SPACING.lg,
+    marginTop: SPACING.fixed.md,
+    alignSelf: 'stretch',
   },
   errorText: {
-    ...TYPOGRAPHY.styles.body,
-    color: I.muted,
+    fontSize: TS.body.fontSize,
+    fontFamily: FF.sansRegular,
+    lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
+    color: I.body,
     textAlign: 'center',
   },
 });
