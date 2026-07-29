@@ -447,8 +447,8 @@ export const authAPI = {
     const baseURL = await getBaseURL();
     const loginUrl = `${baseURL.replace(/\/$/, '')}/usuarios/login-proveedor/`;
 
-    // Diagnóstico de conectividad (solo dev)
-    if (__DEV__) {
+    // Diagnóstico de conectividad (solo dev nativo)
+    if (__DEV__ && Platform.OS !== 'web') {
       console.log('🩺 Diagnóstico de red antes de login...');
       const probes = [
         { label: 'Google HTTPS', url: 'https://www.google.com/generate_204' },
@@ -463,6 +463,7 @@ export const authAPI = {
             method: 'GET',
             signal: ctrl.signal,
             headers: { Accept: '*/*' },
+            mode: 'no-cors',
           });
           clearTimeout(tm);
           console.log(`  ✅ ${probe.label}: HTTP ${r.status} (${Date.now() - t0}ms)`);
