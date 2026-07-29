@@ -566,7 +566,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   // Función para tomar foto
   const handleTakePicture = async () => {
     if (!takePicture) {
-      Alert.alert('Error', 'Función de cámara no disponible');
+      showAlert('Error', 'Función de cámara no disponible');
       return;
     }
     const result = await takePicture();
@@ -575,13 +575,15 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       setPendingPhotoData(result.data);
       setPhotoDescriptionInput(defaultDesc);
       setShowDescriptionModal(true);
+    } else if (result.message && result.message !== 'Captura cancelada') {
+      showAlert('Error', result.message || 'No se pudo tomar la foto');
     }
   };
 
   // Función para seleccionar de galería
   const handlePickFromGallery = async () => {
     if (!pickFromGallery) {
-      Alert.alert('Error', 'Función de galería no disponible');
+      showAlert('Error', 'Función de galería no disponible');
       return;
     }
     const result = await pickFromGallery();
@@ -590,6 +592,8 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       setPendingPhotoData(result.data);
       setPhotoDescriptionInput(defaultDesc);
       setShowDescriptionModal(true);
+    } else if (result.message && result.message !== 'Selección cancelada') {
+      showAlert('Error', result.message || 'No se pudo seleccionar la foto');
     }
   };
 
@@ -610,7 +614,11 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         const saveResult = await onSave({ completado: false }, { silent: true });
         responseId = saveResult?.data?.id;
         if (!responseId) {
-          Alert.alert('Error', 'No se pudo registrar la respuesta del item. Intenta de nuevo.');
+          showAlert(
+            'Error',
+            saveResult?.message
+              || 'No se pudo registrar la respuesta del item. Intenta de nuevo.',
+          );
           return;
         }
       }
@@ -650,7 +658,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       }, { silent: true });
     } catch (error) {
       console.error('❌ Error agregando foto local:', error);
-      Alert.alert('Error', 'No se pudo agregar la foto. Intenta de nuevo.');
+      showAlert('Error', 'No se pudo agregar la foto. Intenta de nuevo.');
     } finally {
       setPendingPhotoData(null);
       setPhotoDescriptionInput('');
@@ -702,7 +710,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
   const handlePhotoSaveAndContinue = async () => {
     const minRequired = item.min_fotos || 1;
     if (photos.length < minRequired) {
-      Alert.alert(
+      showAlert(
         'Faltan fotos',
         `Agrega al menos ${minRequired} foto${minRequired !== 1 ? 's' : ''} antes de continuar.`,
       );
@@ -719,18 +727,34 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         const saveResult = await onSave({ completado: false }, { silent: true });
         responseId = saveResult?.data?.id;
         if (!responseId) {
-          Alert.alert('Error', 'No se pudo registrar la respuesta del item. Intenta de nuevo.');
+          showAlert(
+            'Error',
+            saveResult?.message
+              || 'No se pudo registrar la respuesta del item. Intenta de nuevo.',
+          );
           return;
         }
       }
 
-      // Mejor esfuerzo: si falla la red, igual marcamos completo y se reintenta al finalizar.
       const syncResult = await syncPendingPhotos(responseId);
       if (!syncResult.success) {
-        console.warn('⚠️ Fotos pendientes; se reintentarán al finalizar:', syncResult.message);
+        showAlert(
+          'Error al subir fotos',
+          syncResult.message || 'No se pudo subir una de las fotos. Intenta de nuevo.',
+        );
+        return;
       }
 
       const finalPhotos = syncResult.photos;
+      const stillPending = finalPhotos.some((p) => !p.id);
+      if (stillPending) {
+        showAlert(
+          'Error al subir fotos',
+          'Quedaron fotos sin sincronizar. Revisa tu conexión e intenta de nuevo.',
+        );
+        return;
+      }
+
       await onSave({
         id: responseId,
         completado: finalPhotos.length >= minRequired,
@@ -738,7 +762,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
       });
     } catch (error) {
       console.error('❌ Error guardando fotos:', error);
-      Alert.alert('Error', 'No se pudo guardar el ítem de fotos. Intenta de nuevo.');
+      showAlert('Error', 'No se pudo guardar el ítem de fotos. Intenta de nuevo.');
     } finally {
       setUploadingPhoto(false);
       setUploadProgressText(null);
@@ -747,40 +771,42 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
 
   // Eliminar foto
   const handleDeletePhoto = async (photo: any, index: number) => {
-    Alert.alert(
+    showConfirm(
       'Eliminar foto',
       `¿Eliminar "${photo.descripcion || `Foto ${index + 1}`}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            // Si tiene ID del servidor, intentar eliminar en backend.
-            // Tolerante: si el registro ya no existe (404) o falla, igual lo
-            // quitamos localmente para no dejar fotos "en blanco" atascadas.
-            if (photo.id && deletePhoto) {
-              const result = await deletePhoto(photo.id);
-              if (!result.success) {
-                console.warn('⚠️ No se pudo eliminar la foto en backend, se quita localmente:', result.message);
-              }
+      {
+        confirmText: 'Eliminar',
+        onConfirm: async () => {
+          // Si tiene ID del servidor, intentar eliminar en backend.
+          // Tolerante: si el registro ya no existe (404) o falla, igual lo
+          // quitamos localmente para no dejar fotos "en blanco" atascadas.
+          if (photo.id && deletePhoto) {
+            const result = await deletePhoto(photo.id);
+            if (!result.success) {
+              console.warn(
+                '⚠️ No se pudo eliminar la foto en backend, se quita localmente:',
+                result.message,
+              );
             }
-            // Si es foto local pendiente, eliminar del storage offline
-            if (photo.local_id) {
-              await checklistService.removeOfflinePhoto(photo.local_id);
-            }
-            const updatedPhotos = photos.filter((_, i) => i !== index);
-            setPhotos(updatedPhotos);
-            const isComplete = updatedPhotos.length >= (item.min_fotos || 1);
-            await onSave({
+          }
+          if (photo.local_id) {
+            await checklistService.removeOfflinePhoto(photo.local_id);
+          }
+          const updatedPhotos = photos.filter((_, i) => i !== index);
+          setPhotos(updatedPhotos);
+          const isComplete = updatedPhotos.length >= (item.min_fotos || 1);
+          await onSave(
+            {
               completado: isComplete,
-              respuesta_texto: updatedPhotos.length > 0
-                ? `${updatedPhotos.length} foto(s) de evidencia`
-                : '',
-            }, { silent: true });
-          },
+              respuesta_texto:
+                updatedPhotos.length > 0
+                  ? `${updatedPhotos.length} foto(s) de evidencia`
+                  : '',
+            },
+            { silent: true },
+          );
         },
-      ]
+      },
     );
   };
 

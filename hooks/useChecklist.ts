@@ -339,6 +339,32 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
     [instance, template, patchInstance, invalidateChecklist, updateUi],
   );
 
+  const persistPickerUri = useCallback(async (uri: string) => {
+    // En web el blob: se invalida al remount del picker; data URL sobrevive AsyncStorage.
+    if (Platform.OS !== 'web' || !uri || !uri.startsWith('blob:')) {
+      return uri;
+    }
+    try {
+      const resp = await fetch(uri);
+      const blob = await resp.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string' && reader.result) {
+            resolve(reader.result);
+          } else {
+            reject(new Error('FileReader vacío'));
+          }
+        };
+        reader.onerror = () => reject(reader.error || new Error('FileReader error'));
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.warn('⚠️ No se pudo persistir blob de foto en web:', e);
+      return uri;
+    }
+  }, []);
+
   const takePicture = useCallback(async () => {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -351,14 +377,15 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8,
+        quality: Platform.OS === 'web' ? 0.6 : 0.8,
       });
 
       if (!result.canceled && result.assets[0]) {
+        const uri = await persistPickerUri(result.assets[0].uri);
         return {
           success: true,
           data: {
-            uri: result.assets[0].uri,
+            uri,
             type: 'image/jpeg',
             name: `checklist_photo_${Date.now()}.jpg`,
           },
@@ -369,7 +396,7 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
     } catch {
       return { success: false, message: 'Error al tomar foto' };
     }
-  }, []);
+  }, [persistPickerUri]);
 
   const pickFromGallery = useCallback(async () => {
     try {
@@ -383,14 +410,15 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8,
+        quality: Platform.OS === 'web' ? 0.6 : 0.8,
       });
 
       if (!result.canceled && result.assets[0]) {
+        const uri = await persistPickerUri(result.assets[0].uri);
         return {
           success: true,
           data: {
-            uri: result.assets[0].uri,
+            uri,
             type: 'image/jpeg',
             name: `checklist_photo_${Date.now()}.jpg`,
           },
@@ -401,7 +429,7 @@ export const useChecklist = ({ ordenId, citaPersonalId }: UseChecklistProps) => 
     } catch {
       return { success: false, message: 'Error al seleccionar foto' };
     }
-  }, []);
+  }, [persistPickerUri]);
 
   const uploadPhoto = useCallback(
     async (

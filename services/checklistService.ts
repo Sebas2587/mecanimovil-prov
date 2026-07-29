@@ -1169,6 +1169,23 @@ class ChecklistService {
 
   // ==================== RESPUESTAS ====================
 
+  private async recoverExistingResponse(
+    instanceId: number,
+    itemTemplateId: number,
+  ): Promise<ChecklistItemResponse | null> {
+    try {
+      const instanceResult = await this.getInstance(instanceId);
+      const found = instanceResult.data?.respuestas?.find(
+        (r) =>
+          r.item_template === itemTemplateId
+          || String(r.item_template) === String(itemTemplateId),
+      );
+      return found?.id ? found : null;
+    } catch {
+      return null;
+    }
+  }
+
   async saveResponse(response: ChecklistItemResponse, instanceId: number): Promise<ServiceResponse<ChecklistItemResponse>> {
     try {
       // Guardar offline primero (offline-first)
@@ -1202,8 +1219,37 @@ class ChecklistService {
         const status = onlineError?.response?.status;
         // Auth / validación: no fingir éxito offline (rompe el progreso en UI).
         if (status === 400 || status === 403 || status === 404) {
+          if (!response.id && response.item_template) {
+            const recovered = await this.recoverExistingResponse(
+              instanceId,
+              response.item_template,
+            );
+            if (recovered) {
+              await this.offlineManager.saveResponse(recovered, instanceId);
+              return { success: true, data: recovered };
+            }
+          }
           return this.handleServiceError(onlineError, 'guardar respuesta');
         }
+
+        // Create sin id: no fingir éxito (disparaba loop ensurePhoto + botón eterno).
+        // Si el servidor escribió pero el cliente abortó (499), recuperar la fila.
+        if (!response.id && response.item_template) {
+          const recovered = await this.recoverExistingResponse(
+            instanceId,
+            response.item_template,
+          );
+          if (recovered) {
+            await this.offlineManager.saveResponse(recovered, instanceId);
+            return { success: true, data: recovered };
+          }
+          return {
+            success: false,
+            message:
+              'No se pudo registrar la respuesta del ítem. Revisa tu conexión e intenta de nuevo.',
+          };
+        }
+
         console.log('⚠️ Saved offline only, will sync later');
         return {
           success: true,

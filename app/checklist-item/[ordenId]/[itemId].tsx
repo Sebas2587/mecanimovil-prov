@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -101,6 +101,8 @@ export default function ChecklistItemDetailScreen() {
   }, [snapshotRoot, item]);
 
   const [localResponse, setLocalResponse] = useState<typeof response>(null);
+  const ensuringPhotoResponseRef = useRef(false);
+  const photoResponseInitKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     setLocalResponse(response);
@@ -112,16 +114,37 @@ export default function ChecklistItemDetailScreen() {
       if (item.tipo_pregunta !== 'PHOTO') return;
       if (localResponse?.id) return;
 
-      // skipInvalidate: un refetch fallido dejaba template=null y mostraba "No se pudo cargar".
-      const result = await saveResponse(item.id, { completado: false }, { skipInvalidate: true });
-      if (result.success) {
-        setLocalResponse(result.data ?? null);
-      } else {
-        console.error('❌ No se pudo inicializar respuesta para item PHOTO:', result.message);
+      const initKey = `${instance.id}:${item.id}`;
+      // Evita ráfaga de POST /responses/ (499) cuando saveResponse cambia de identidad
+      // o cuando un create falla sin devolver id — dejaba "Guardar" cargando forever.
+      if (photoResponseInitKeyRef.current === initKey || ensuringPhotoResponseRef.current) {
+        return;
+      }
+      photoResponseInitKeyRef.current = initKey;
+      ensuringPhotoResponseRef.current = true;
+
+      try {
+        // skipInvalidate: un refetch fallido dejaba template=null y mostraba "No se pudo cargar".
+        const result = await saveResponse(
+          item.id,
+          { completado: false },
+          { skipInvalidate: true },
+        );
+        if (result.success && result.data?.id) {
+          setLocalResponse(result.data);
+        } else {
+          photoResponseInitKeyRef.current = null;
+          console.error(
+            '❌ No se pudo inicializar respuesta para item PHOTO:',
+            result.message,
+          );
+        }
+      } finally {
+        ensuringPhotoResponseRef.current = false;
       }
     };
 
-    ensurePhotoResponse();
+    void ensurePhotoResponse();
   }, [item, instance, localResponse?.id, saveResponse]);
 
   const handleGoBack = () => {
