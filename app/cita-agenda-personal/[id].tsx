@@ -1135,14 +1135,6 @@ export default function CitaAgendaPersonalDetalleScreen() {
                         />
                       ) : null}
 
-                      {puedeContinuarChecklistSticky ? (
-                        <InstitutionalButton
-                          label={checklistEnCurso ? 'Continuar checklist' : 'Completar checklist'}
-                          variant="primary"
-                          onPress={() => setShowChecklist(true)}
-                        />
-                      ) : null}
-
                       {cita.checklist_id
                         && (checklistPendienteSupervisor
                           || checklistPendienteFirmaCliente
