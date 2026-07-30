@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   FlatList,
   ActivityIndicator,
@@ -136,13 +137,24 @@ export default function ChatsScreen() {
     useOmnichannelConnectionMap(isAuthenticated && Boolean(usuario));
   const [refreshing, setRefreshing] = useState(false);
   const [chatFilter, setChatFilter] = useState<ChatInboxFilter>('todos');
+  const [searchQuery, setSearchQuery] = useState('');
   const [agendarContacto, setAgendarContacto] = useState<AgendarContactoState>(null);
   const [chatHighlighted, setChatHighlighted] = useState<string | null>(null);
   /** Row en proceso de borrado: `oferta:{id}` o `omni:{conversationId}`. */
   const [deletingRowKey, setDeletingRowKey] = useState<string | null>(null);
 
   const chatsVisibles = useMemo(() => {
-    const filtered = chats.filter((c) => matchesChatFilter(c, chatFilter));
+    let filtered = chats.filter((c) => matchesChatFilter(c, chatFilter));
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter((c) => {
+        const nombre = (c.otra_persona?.nombre || c.external_contact_id || '').toString().toLowerCase();
+        const tel = (c.otra_persona?.telefono || '').toString().toLowerCase();
+        const patente = (c.vehiculo_patente || '').toLowerCase();
+        const msg = (c.ultimo_mensaje?.mensaje || '').toLowerCase();
+        return nombre.includes(q) || tel.includes(q) || patente.includes(q) || msg.includes(q);
+      });
+    }
     const ts = (c: InboxChatItem) => {
       const raw = c.ultimo_mensaje?.fecha_envio;
       if (!raw) return 0;
@@ -159,7 +171,7 @@ export default function ChatsScreen() {
       }
       return 0;
     });
-  }, [chats, chatFilter]);
+  }, [chats, chatFilter, searchQuery]);
   const loading = isPending && chats.length === 0;
 
   const totalNoLeidos = useMemo(
@@ -565,6 +577,16 @@ export default function ChatsScreen() {
           badge={totalMensajesNoLeidos > 0 ? totalMensajesNoLeidos : undefined}
         />
 
+        <View style={[styles.searchBarWrap, hostScreenStyles.gutterX]}>
+          <TextInput
+            style={styles.searchBarInput}
+            placeholder="Buscar por cliente, teléfono, patente o mensaje…"
+            placeholderTextColor={I.muted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+
         <View style={[styles.filtersWrap, hostScreenStyles.gutterX]}>
           <FlatList
             horizontal
@@ -891,5 +913,19 @@ const styles = StyleSheet.create({
     lineHeight: Math.round(T.small.fontSize * T.small.lineHeight),
     color: I.muted,
     textAlign: 'center',
+  },
+  searchBarWrap: {
+    paddingTop: SPACING.xs,
+    paddingBottom: SPACING.xs,
+  },
+  searchBarInput: {
+    backgroundColor: COLORS.background.paper,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
+    borderRadius: BORDERS.radius.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.text.primary,
   },
 });

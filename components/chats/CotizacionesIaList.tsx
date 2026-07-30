@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   FlatList,
   ScrollView,
@@ -205,6 +206,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
   const [eliminando, setEliminando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const borradoresPorRevisar = useMemo(
     () =>
@@ -217,6 +219,25 @@ export function CotizacionesIaList({ enabled = true }: Props) {
         }),
     [data],
   );
+
+  const borradoresFiltrados = useMemo(() => {
+    if (!searchQuery.trim()) return borradoresPorRevisar;
+    const q = searchQuery.trim().toLowerCase();
+    return borradoresPorRevisar.filter((item) => {
+      const cliente = clienteLabel(item).toLowerCase();
+      const servicio = (item.servicio_nombre || '').toLowerCase();
+      const patente = (item.vehiculo_patente || '').toLowerCase();
+      const marca = (item.vehiculo_marca || '').toLowerCase();
+      const modelo = (item.vehiculo_modelo || '').toLowerCase();
+      return (
+        cliente.includes(q) ||
+        servicio.includes(q) ||
+        patente.includes(q) ||
+        marca.includes(q) ||
+        modelo.includes(q)
+      );
+    });
+  }, [borradoresPorRevisar, searchQuery]);
 
   const abrirDetalle = useCallback((item: CotizacionCanal) => {
     setActiva(item);
@@ -368,29 +389,25 @@ export function CotizacionesIaList({ enabled = true }: Props) {
           <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
         </Card>
 
-        <Card
-          elevated
-          padding="host"
-          style={styles.crearCard}
-          onPress={irABandeja}
-        >
-          <View style={styles.crearText}>
-            <Text style={styles.crearTitle}>Seguimiento en Bandeja</Text>
-            <Text style={styles.crearSub}>
-              Enviadas, vistas y aceptadas por agendar viven ahí — no en esta pantalla
-            </Text>
-          </View>
-          <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-        </Card>
+        {/* Buscador de cotizaciones */}
+        <View style={styles.searchWrap}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar por cliente, servicio, patente o vehículo…"
+            placeholderTextColor={I.muted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
 
-        {borradoresPorRevisar.length > 0 ? (
+        {borradoresFiltrados.length > 0 ? (
           <HostSectionKicker
-            label={`Por revisar${borradoresCount > 0 ? ` (${borradoresCount})` : ''}`}
+            label={`Por revisar${borradoresCount > 0 ? ` (${borradoresFiltrados.length})` : ''}`}
           />
         ) : null}
       </View>
     ),
-    [borradoresCount, borradoresPorRevisar.length, irABandeja],
+    [borradoresCount, borradoresFiltrados.length, searchQuery],
   );
 
   const renderItem = useCallback(
@@ -428,7 +445,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
   return (
     <View style={styles.root}>
       <FlatList
-        data={borradoresPorRevisar}
+        data={borradoresFiltrados}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
         ListHeaderComponent={header}
@@ -600,7 +617,23 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xl,
     gap: SPACING.sm,
   },
-  headerBlock: { gap: SPACING.md, marginBottom: SPACING.xs },
+  headerBlock: {
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  searchWrap: {
+    marginVertical: SPACING.xs,
+  },
+  searchInput: {
+    backgroundColor: COLORS.background.paper,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
+    borderRadius: BORDERS.radius.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.text.primary,
+  },
   crearCard: {
     flexDirection: 'row',
     alignItems: 'center',
