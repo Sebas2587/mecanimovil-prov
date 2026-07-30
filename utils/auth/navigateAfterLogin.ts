@@ -12,7 +12,12 @@ export function navigateAfterLogin(
     router.replace('/(onboarding)/tipo-cuenta');
     return;
   }
-  if (estadoActual.onboarding_iniciado && !estadoActual.onboarding_completado) {
+  // Si la cuenta ya está aprobada por admin o no necesita onboarding, ir a (tabs)
+  if (estadoActual.estado_verificacion === 'aprobado' || estadoActual.necesita_onboarding === false) {
+    router.replace('/(tabs)' as any);
+    return;
+  }
+  if (estadoActual.necesita_onboarding && !estadoActual.onboarding_completado) {
     router.replace('/(onboarding)/tipo-cuenta');
     return;
   }

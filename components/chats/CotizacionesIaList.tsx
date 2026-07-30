@@ -43,7 +43,7 @@ import {
   HostSectionKicker,
   hostScreenStyles,
 } from '@/app/design-system/components';
-import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { BORDERS, COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { showAlert, showConfirm } from '@/utils/platformAlert';

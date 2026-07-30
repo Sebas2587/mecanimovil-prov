@@ -137,7 +137,7 @@ export default function HomeScreen() {
   // Redirigir al onboarding si el usuario no tiene perfil
   useEffect(() => {
     if (!isLoading && estadoProveedor) {
-      if (!estadoProveedor.tiene_perfil || estadoProveedor.necesita_onboarding) {
+      if (!estadoProveedor.tiene_perfil && estadoProveedor.necesita_onboarding === true) {
         devLog('Usuario sin perfil de proveedor, redirigiendo al onboarding');
         router.replace('/(onboarding)/tipo-cuenta');
       }
@@ -387,7 +387,7 @@ export default function HomeScreen() {
   }
 
   // Si no tiene perfil, no mostrar nada (se está redirigiendo)
-  if (!estadoProveedor.tiene_perfil || estadoProveedor.necesita_onboarding) {
+  if (!estadoProveedor.tiene_perfil && estadoProveedor.necesita_onboarding === true) {
     return (
       <SafeAreaView style={themedStyles.loadingContainer}>
         <ActivityIndicator size="large" color={loadingColor} />

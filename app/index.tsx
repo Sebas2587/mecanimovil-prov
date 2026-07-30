@@ -85,7 +85,16 @@ export default function IndexScreen() {
         return;
       }
 
-      // CASO 4: Usuario SIN perfil de proveedor - debe crear uno desde cero
+      // CASO 4: Cuenta aprobada por admin o perfil activo sin onboarding pendiente -> tabs
+      if (estadoProveedor.estado_verificacion === 'aprobado' || (estadoProveedor.tiene_perfil && estadoProveedor.necesita_onboarding === false)) {
+        if (__DEV__) {
+          console.log('✅ Cuenta aprobada o sin onboarding pendiente - navegando a tabs principales');
+        }
+        router.replace('/(tabs)');
+        return;
+      }
+
+      // CASO 5: Usuario SIN perfil de proveedor - debe crear uno desde cero
       if (!estadoProveedor.tiene_perfil) {
         if (__DEV__) {
           console.log('🚀 Usuario sin perfil de proveedor - navegando a onboarding desde cero');
@@ -94,30 +103,12 @@ export default function IndexScreen() {
         return;
       }
 
-      // CASO 5: Usuario CON perfil pero onboarding NO completado - EMPEZAR DE CERO
-      if (estadoProveedor.tiene_perfil && !estadoProveedor.onboarding_completado) {
+      // CASO 6: Usuario CON perfil pero onboarding pendiente
+      if (estadoProveedor.tiene_perfil && estadoProveedor.necesita_onboarding && !estadoProveedor.onboarding_completado) {
         if (__DEV__) {
-          console.log('🔄 Usuario con onboarding incompleto - empezando desde cero (tipo-cuenta)');
-          console.log(`Perfil actual: ${estadoProveedor.tipo_proveedor}, pero empezará desde el principio`);
+          console.log('🔄 Usuario con onboarding incompleto - navegando a tipo-cuenta');
         }
         router.replace('/(onboarding)/tipo-cuenta');
-        return;
-      }
-
-      // CASO 6: Onboarding listo; cuenta aún no aprobada por admin
-      if (estadoProveedor.onboarding_completado && estadoProveedor.estado_verificacion !== 'aprobado') {
-        if (__DEV__) {
-          console.log('⏳ Onboarding completado, cuenta pendiente de aprobación');
-        }
-        return;
-      }
-
-      // CASO 7: Cuenta aprobada por admin → tabs
-      if (estadoProveedor.estado_verificacion === 'aprobado') {
-        if (__DEV__) {
-          console.log('✅ Cuenta aprobada - navegando a tabs principales');
-        }
-        router.replace('/(tabs)');
         return;
       }
 
