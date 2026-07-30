@@ -60,7 +60,8 @@ export type LeadCategoria =
   | 'sin_presupuesto'
   | 'interesado_calificado'
   | 'listo_agendar'
-  | 'no_automotriz';
+  | 'no_automotriz'
+  | 'cerrado_perdido';
 
 export const LEAD_CATEGORIA_LABELS: Record<LeadCategoria, string> = {
   sin_calificar: 'Sin calificar',
@@ -70,6 +71,7 @@ export const LEAD_CATEGORIA_LABELS: Record<LeadCategoria, string> = {
   interesado_calificado: 'Calificado',
   listo_agendar: 'Listo agendar',
   no_automotriz: 'No automotriz',
+  cerrado_perdido: 'Cerrado / Perdido',
 };
 
 export const LEAD_CATEGORIA_VARIANT: Record<
@@ -83,6 +85,7 @@ export const LEAD_CATEGORIA_VARIANT: Record<
   interesado_calificado: 'success',
   listo_agendar: 'warning',
   no_automotriz: 'neutral',
+  cerrado_perdido: 'neutral',
 };
 
 export interface PipelineComercialResponse {

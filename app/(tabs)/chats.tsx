@@ -101,8 +101,10 @@ function matchesChatFilter(chat: InboxChatItem, filter: ChatInboxFilter): boolea
   if (filter === 'borrador') return chat.cotizacion_estado === 'borrador';
   if (filter === 'calificados') {
     return (
-      chat.lead_categoria === 'interesado_calificado'
-      || chat.lead_categoria === 'listo_agendar'
+      (chat.lead_categoria === 'interesado_calificado' || chat.lead_categoria === 'listo_agendar')
+      && chat.lead_categoria !== 'cerrado_perdido'
+      && chat.cotizacion_estado !== 'cancelada'
+      && chat.cotizacion_estado !== 'rechazada'
     );
   }
   return true;
@@ -113,6 +115,7 @@ function cotizacionBadgeLabel(estado: string | null | undefined): string | null 
   if (estado === 'aceptada') return 'Cotización aceptada';
   if (estado === 'borrador') return 'Borrador IA';
   if (estado === 'rechazada') return 'Cotización rechazada';
+  if (estado === 'cancelada') return 'Cotización cancelada';
   return null;
 }
 
