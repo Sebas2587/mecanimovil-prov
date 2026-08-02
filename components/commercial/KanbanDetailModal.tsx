@@ -8,8 +8,8 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   ActivityIndicator,
-  TextInput,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import {
   Bot,
@@ -18,7 +18,9 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Edit3,
   MessageCircle,
+  Paperclip,
   Phone,
   Power,
   Send,
@@ -26,6 +28,8 @@ import {
   Wrench,
   X,
 } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { COLORS, SPACING, BORDERS, TYPOGRAPHY } from '@/app/design-system/tokens';
 import {
   Card,
@@ -39,6 +43,10 @@ import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import type { PipelineComercialItem } from '@/services/pipelineComercialService';
 import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
 import agenteIaService from '@/services/agenteIaService';
+import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
+import { ChatMessageComposer } from '@/components/chats/ChatMessageComposer';
+import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
+import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
 import { showAlert } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
@@ -66,15 +74,21 @@ export function KanbanDetailModal({
   const [cotizacionDetalle, setCotizacionDetalle] = useState<CotizacionCanal | null>(null);
   const [cargando, setCargando] = useState(false);
   const [aprobando, setAprobando] = useState(false);
+  const [enviandoCliente, setEnviandoCliente] = useState(false);
   const [iaActiva, setIaActiva] = useState(true);
   const [togglingIa, setTogglingIa] = useState(false);
+  const [modoEdicion, setModoEdicion] = useState(false);
+
+  // Chat composer states
   const [nuevoMensaje, setNuevoMensaje] = useState('');
   const [enviandoMensaje, setEnviandoMensaje] = useState(false);
+  const [stagedAttachment, setStagedAttachment] = useState<StagedAttachment | null>(null);
 
   // Load detailed quotation data when leadItem changes
   useEffect(() => {
     if (!visible || !leadItem?.cotizacion_id) {
       setCotizacionDetalle(null);
+      setModoEdicion(false);
       return;
     }
     let isMounted = true;
@@ -120,15 +134,34 @@ export function KanbanDetailModal({
     }
   }, [leadItem, iaActiva]);
 
-  // Action: Approve & Trigger Agent 2
+  // Action 1: Send Quotation to Customer (for customer price approval)
+  const handleEnviarSoloCliente = useCallback(async () => {
+    if (!leadItem?.cotizacion_id) return;
+    setEnviandoCliente(true);
+    try {
+      await cotizacionCanalService.enviar(leadItem.cotizacion_id);
+      showAlert(
+        'Cotización Enviada al Cliente',
+        'La cotización ha sido enviada al cliente por WhatsApp para su revisión y aprobación de precio.',
+      );
+      onAprobadoExitoso?.();
+      onClose();
+    } catch {
+      showAlert('Error', 'No se pudo enviar la cotización.');
+    } finally {
+      setEnviandoCliente(false);
+    }
+  }, [leadItem, onAprobadoExitoso, onClose]);
+
+  // Action 2: Approve & Trigger Agent 2 (Agenda)
   const handleAprobarYEnviar = useCallback(async () => {
     if (!leadItem?.cotizacion_id) return;
     setAprobando(true);
     try {
       await cotizacionCanalService.enviar(leadItem.cotizacion_id);
       showAlert(
-        'Cotización Aprobada y Enviada',
-        'El Agente 2 (Agenda) tomará el control conversacional para proponer los mejores bloques de horario al cliente.',
+        'Cotización Aprobada',
+        'La cotización fue aprobada y enviada. El Agente 2 (Agenda) tomará el control conversacional para coordinar la cita.',
       );
       onAprobadoExitoso?.();
       onClose();
@@ -139,23 +172,48 @@ export function KanbanDetailModal({
     }
   }, [leadItem, onAprobadoExitoso, onClose]);
 
-  // Action: Send manual chat message directly
+  // Attachment Handler: Image & Document Pickers
+  const handleAttachPress = useCallback(async () => {
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+      });
+      if (!res.canceled && res.assets[0]) {
+        const asset = res.assets[0];
+        setStagedAttachment({
+          uri: asset.uri,
+          name: asset.fileName || 'imagen.jpg',
+          type: asset.mimeType || 'image/jpeg',
+          kind: 'image',
+        });
+      }
+    } catch {
+      showAlert('Error', 'No se pudo seleccionar el archivo.');
+    }
+  }, []);
+
+  // Action: Send message (Text / Image / Voice)
   const handleEnviarMensajeDirecto = useCallback(async () => {
-    if (!nuevoMensaje.trim() || !leadItem?.conversation_id) return;
+    if (!nuevoMensaje.trim() && !stagedAttachment) return;
+    if (!leadItem?.conversation_id) return;
+
     setEnviandoMensaje(true);
     try {
       const { default: api } = await import('@/services/api');
       await api.post(`/chat/conversations/${leadItem.conversation_id}/mensajes/`, {
         mensaje: nuevoMensaje.trim(),
+        archivo: stagedAttachment?.uri,
       });
       setNuevoMensaje('');
-      showAlert('Mensaje enviado', 'Tu mensaje fue enviado al cliente por el canal conversacional.');
+      setStagedAttachment(null);
+      showAlert('Mensaje Enviado', 'Mensaje transmitido al cliente por WhatsApp / Canal.');
     } catch {
       showAlert('Error', 'No se pudo enviar el mensaje.');
     } finally {
       setEnviandoMensaje(false);
     }
-  }, [nuevoMensaje, leadItem]);
+  }, [nuevoMensaje, stagedAttachment, leadItem]);
 
   if (!leadItem) return null;
   const isMarketplace = leadItem.origen === 'marketplace' || leadItem.origen === 'catalogo';
@@ -182,28 +240,38 @@ export function KanbanDetailModal({
             </View>
           </View>
 
+          {/* Action CTAs: Enviar Cliente, Aprobar + Agenda, Rechazar */}
           <View style={styles.headerRight}>
             {leadItem.cotizacion_id ? (
-              <InstitutionalButton
-                label={aprobando ? 'Aprobando...' : 'Aprobar y activar agenda'}
-                variant="primary"
-                size="compact"
-                onPress={handleAprobarYEnviar}
-                disabled={aprobando}
-                style={styles.tinderBtn}
-              />
+              <>
+                <InstitutionalButton
+                  label={enviandoCliente ? 'Enviando...' : '📤 Enviar a Cliente'}
+                  variant="outline"
+                  size="compact"
+                  onPress={handleEnviarSoloCliente}
+                  disabled={enviandoCliente || aprobando}
+                />
+                <InstitutionalButton
+                  label={aprobando ? 'Aprobando...' : '🚀 Aprobar & Activar Agenda'}
+                  variant="primary"
+                  size="compact"
+                  onPress={handleAprobarYEnviar}
+                  disabled={enviandoCliente || aprobando}
+                  style={styles.tinderBtn}
+                />
+              </>
             ) : null}
 
             {leadItem.cotizacion_id && onAbrirModalRechazo ? (
               <InstitutionalButton
-                label="Rechazar con motivo"
+                label="Rechazar"
                 variant="destructiveOutline"
                 size="compact"
                 onPress={() => {
                   onClose();
                   onAbrirModalRechazo(leadItem.cotizacion_id!);
                 }}
-                disabled={aprobando}
+                disabled={enviandoCliente || aprobando}
               />
             ) : null}
           </View>
@@ -218,7 +286,7 @@ export function KanbanDetailModal({
             >
               <MessageCircle size={14} color={activeTabMobile === 'chat' ? I.primary : I.muted} />
               <Text style={[styles.mobileTabText, activeTabMobile === 'chat' && styles.mobileTabTextActive]}>
-                Chat Conversacional
+                Chat Airbnb
               </Text>
             </TouchableOpacity>
 
@@ -228,7 +296,7 @@ export function KanbanDetailModal({
             >
               <Car size={14} color={activeTabMobile === 'datos' ? I.primary : I.muted} />
               <Text style={[styles.mobileTabText, activeTabMobile === 'datos' && styles.mobileTabTextActive]}>
-                Ficha del Vehículo & Cotización
+                Ficha & Editar Cotización
               </Text>
             </TouchableOpacity>
           </View>
@@ -236,9 +304,10 @@ export function KanbanDetailModal({
 
         {/* Full Screen Body Grid */}
         <View style={styles.fullScreenBody}>
-          {/* LEFT PANEL: Official Chat Screen Stream */}
+          {/* LEFT PANEL: Official Airbnb Chat Screen Stream */}
           {(isDesktop || activeTabMobile === 'chat') ? (
             <View style={[styles.colChat, !isDesktop && styles.colFull]}>
+              {/* AI Agent Status Switch */}
               <View style={styles.iaToggleRow}>
                 <View style={styles.iaStatusTag}>
                   <Bot size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
@@ -259,6 +328,7 @@ export function KanbanDetailModal({
                 </TouchableOpacity>
               </View>
 
+              {/* Chat Messages Stream */}
               <ScrollView contentContainerStyle={styles.chatScroll}>
                 <View style={styles.msgInbound}>
                   <Text style={styles.msgText}>
@@ -271,100 +341,147 @@ export function KanbanDetailModal({
                   </Text>
                 </View>
 
+                {/* Render CotizacionCanalBubble if detailed quote exists */}
                 {cotizacionDetalle ? (
-                  <Card elevated padding="host" style={styles.quoteCardBubble}>
-                    <HostSectionKicker label="BORRADOR ESTIMATIVO IA" />
-                    <Text style={styles.quoteTitle}>{cotizacionDetalle.servicio_nombre}</Text>
-                    <Text style={styles.quoteTotal}>{formatearMontoCLP(cotizacionDetalle.total_clp)}</Text>
-                  </Card>
+                  <CotizacionCanalBubble
+                    cotizacion={cotizacionDetalle}
+                    esTaller={true}
+                    onVerDetalle={() => setModoEdicion(true)}
+                  />
                 ) : null}
               </ScrollView>
 
-              {/* Official Chat Composer */}
-              <View style={styles.composerRow}>
-                <TextInput
-                  style={styles.composerInput}
-                  value={nuevoMensaje}
-                  onChangeText={setNuevoMensaje}
-                  placeholder="Escribir mensaje al cliente por WhatsApp / Canal..."
-                  placeholderTextColor={I.mutedSoft}
+              {/* Staged Attachment Tray */}
+              {stagedAttachment ? (
+                <AttachmentStagingTray
+                  attachment={stagedAttachment}
+                  onClear={() => setStagedAttachment(null)}
                 />
-                <TouchableOpacity
-                  style={styles.sendBtn}
-                  onPress={handleEnviarMensajeDirecto}
-                  disabled={enviandoMensaje}
-                >
-                  <Send size={16} color="#FFFFFF" strokeWidth={ICON_STROKE_WIDTH} />
-                </TouchableOpacity>
-              </View>
+              ) : null}
+
+              {/* Official Airbnb ChatMessageComposer with attach & audio support */}
+              <ChatMessageComposer
+                value={nuevoMensaje}
+                onChangeText={setNuevoMensaje}
+                onSend={handleEnviarMensajeDirecto}
+                onAttachPress={handleAttachPress}
+                sending={enviandoMensaje}
+                placeholder="Escribe un mensaje al cliente por WhatsApp..."
+              />
             </View>
           ) : null}
 
-          {/* RIGHT PANEL: Smart Vehicle Ficha & Quote Breakdown */}
+          {/* RIGHT PANEL: Vehicle Ficha & CotizacionIaEditor */}
           {(isDesktop || activeTabMobile === 'datos') ? (
             <View style={[styles.colDatos, !isDesktop && styles.colFull]}>
               <ScrollView contentContainerStyle={styles.datosScroll}>
-                <HostSectionKicker label="FICHA DEL VEHÍCULO Y CLIENTE" />
-
-                <Card elevated padding="host" style={styles.infoCard}>
-                  <View style={styles.infoRow}>
-                    <User size={16} color={I.primary} />
-                    <View style={styles.infoCol}>
-                      <InstitutionalText role="captionBold">{leadItem.cliente_nombre || 'Cliente'}</InstitutionalText>
-                      <InstitutionalText role="small" color="muted">{leadItem.cliente_telefono || 'Sin teléfono'}</InstitutionalText>
+                {modoEdicion && cotizacionDetalle ? (
+                  <View style={styles.editorContainer}>
+                    <View style={styles.editorHeaderRow}>
+                      <HostSectionKicker label="EDITAR COTIZACIÓN BORRADOR" />
+                      <TouchableOpacity onPress={() => setModoEdicion(false)} hitSlop={8}>
+                        <X size={16} color={I.primary} />
+                      </TouchableOpacity>
                     </View>
+                    <CotizacionIaEditor
+                      cotizacion={cotizacionDetalle}
+                      onGuardar={(cotActualizada) => {
+                        setCotizacionDetalle(cotActualizada);
+                        setModoEdicion(false);
+                        showAlert('Cotización Actualizada', 'Los precios y repuestos fueron guardados.');
+                      }}
+                      onEnviar={() => {
+                        setModoEdicion(false);
+                        handleAprobarYEnviar();
+                      }}
+                      onCerrar={() => setModoEdicion(false)}
+                    />
                   </View>
-
-                  <View style={styles.infoRow}>
-                    <Car size={16} color={I.primary} />
-                    <View style={styles.infoCol}>
-                      <InstitutionalText role="captionBold">{leadItem.vehiculo_resumen || 'Vehículo no especificado'}</InstitutionalText>
-                      <InstitutionalTag
-                        label={isMarketplace ? 'Marketplace App' : 'WhatsApp Directo'}
-                        variant={isMarketplace ? 'primary' : 'info'}
-                        size="sm"
-                      />
-                    </View>
-                  </View>
-                </Card>
-
-                <HostSectionKicker label="DESGLOSE DE COTIZACIÓN" />
-                {cargando ? (
-                  <ActivityIndicator size="small" color={I.primary} style={{ marginVertical: 12 }} />
-                ) : cotizacionDetalle ? (
-                  <Card elevated padding="host" style={styles.breakdownCard}>
-                    <InstitutionalText role="captionBold">{cotizacionDetalle.servicio_nombre}</InstitutionalText>
-                    {cotizacionDetalle.descripcion_problema ? (
-                      <InstitutionalText role="caption" color="muted">
-                        {cotizacionDetalle.descripcion_problema}
-                      </InstitutionalText>
-                    ) : null}
-
-                    {cotizacionDetalle.repuestos.map((rep, idx) => (
-                      <View key={`rep-${idx}`} style={styles.repLine}>
-                        <InstitutionalText role="small">
-                          {rep.nombre} ×{rep.cantidad || 1}
-                        </InstitutionalText>
-                        <InstitutionalText role="captionBold">
-                          {formatearMontoCLP((rep.cantidad || 1) * (rep.precio_unitario_clp || 0))}
-                        </InstitutionalText>
-                      </View>
-                    ))}
-
-                    <View style={styles.divider} />
-                    <View style={styles.priceRow}>
-                      <InstitutionalText role="caption" color="muted">Mano de Obra:</InstitutionalText>
-                      <InstitutionalText role="captionBold">{formatearMontoCLP(cotizacionDetalle.mano_obra_clp)}</InstitutionalText>
-                    </View>
-                    <View style={styles.priceRow}>
-                      <InstitutionalText role="h4" color="primary">Total Final:</InstitutionalText>
-                      <InstitutionalText role="h4" color="primary">{formatearMontoCLP(cotizacionDetalle.total_clp)}</InstitutionalText>
-                    </View>
-                  </Card>
                 ) : (
-                  <InstitutionalText role="caption" color="muted">
-                    No hay desglose de cotización disponible aún.
-                  </InstitutionalText>
+                  <>
+                    <HostSectionKicker label="FICHA DEL VEHÍCULO Y CLIENTE" />
+
+                    <Card elevated padding="host" style={styles.infoCard}>
+                      <View style={styles.infoRow}>
+                        <User size={16} color={I.primary} />
+                        <View style={styles.infoCol}>
+                          <InstitutionalText role="captionBold">{leadItem.cliente_nombre || 'Cliente'}</InstitutionalText>
+                          <InstitutionalText role="small" color="muted">{leadItem.cliente_telefono || 'Sin teléfono'}</InstitutionalText>
+                        </View>
+                      </View>
+
+                      <View style={styles.infoRow}>
+                        <Car size={16} color={I.primary} />
+                        <View style={styles.infoCol}>
+                          <InstitutionalText role="captionBold">{leadItem.vehiculo_resumen || 'Vehículo no especificado'}</InstitutionalText>
+                          <InstitutionalTag
+                            label={isMarketplace ? 'Marketplace App' : 'WhatsApp Directo'}
+                            variant={isMarketplace ? 'primary' : 'info'}
+                            size="sm"
+                          />
+                        </View>
+                      </View>
+                    </Card>
+
+                    <View style={styles.quoteHeaderRow}>
+                      <HostSectionKicker label="DESGLOSE DE COTIZACIÓN BORRADOR" />
+                      {cotizacionDetalle ? (
+                        <TouchableOpacity
+                          style={styles.editQuoteBtn}
+                          onPress={() => setModoEdicion(true)}
+                        >
+                          <Edit3 size={14} color={I.primary} />
+                          <Text style={styles.editQuoteBtnText}>Editar precios</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+
+                    {cargando ? (
+                      <ActivityIndicator size="small" color={I.primary} style={{ marginVertical: 12 }} />
+                    ) : cotizacionDetalle ? (
+                      <Card elevated padding="host" style={styles.breakdownCard}>
+                        <InstitutionalText role="captionBold">{cotizacionDetalle.servicio_nombre}</InstitutionalText>
+                        {cotizacionDetalle.descripcion_problema ? (
+                          <InstitutionalText role="caption" color="muted">
+                            {cotizacionDetalle.descripcion_problema}
+                          </InstitutionalText>
+                        ) : null}
+
+                        {cotizacionDetalle.repuestos.map((rep, idx) => (
+                          <View key={`rep-${idx}`} style={styles.repLine}>
+                            <InstitutionalText role="small">
+                              {rep.nombre} ×{rep.cantidad || 1}
+                            </InstitutionalText>
+                            <InstitutionalText role="captionBold">
+                              {formatearMontoCLP((rep.cantidad || 1) * (rep.precio_unitario_clp || 0))}
+                            </InstitutionalText>
+                          </View>
+                        ))}
+
+                        <View style={styles.divider} />
+                        <View style={styles.priceRow}>
+                          <InstitutionalText role="caption" color="muted">Mano de Obra:</InstitutionalText>
+                          <InstitutionalText role="captionBold">{formatearMontoCLP(cotizacionDetalle.mano_obra_clp)}</InstitutionalText>
+                        </View>
+                        <View style={styles.priceRow}>
+                          <InstitutionalText role="h4" color="primary">Total Final:</InstitutionalText>
+                          <InstitutionalText role="h4" color="primary">{formatearMontoCLP(cotizacionDetalle.total_clp)}</InstitutionalText>
+                        </View>
+
+                        <InstitutionalButton
+                          label="✏️ Editar Precios y Repuestos"
+                          variant="outline"
+                          size="compact"
+                          onPress={() => setModoEdicion(true)}
+                          style={{ marginTop: 8 }}
+                        />
+                      </Card>
+                    ) : (
+                      <InstitutionalText role="caption" color="muted">
+                        No hay desglose de cotización disponible aún.
+                      </InstitutionalText>
+                    )}
+                  </>
                 )}
               </ScrollView>
             </View>
@@ -459,7 +576,7 @@ const styles = StyleSheet.create({
     borderRightColor: I.hairline,
   },
   colDatos: {
-    width: 320,
+    width: 360,
     minWidth: 0,
     padding: SPACING.fixed.sm,
     gap: SPACING.fixed.xs,
@@ -525,47 +642,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.xs,
     color: I.ink,
   },
-  quoteCardBubble: {
-    gap: 2,
-  },
-  quoteTitle: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
-  },
-  quoteTotal: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    color: I.primary,
-  },
-  composerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xs,
-    paddingTop: SPACING.fixed.xs,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: I.hairline,
-  },
-  composerInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: I.hairline,
-    borderRadius: BORDERS.radius.md,
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: 8,
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: I.ink,
-    backgroundColor: I.canvas,
-  },
-  sendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: I.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   datosScroll: {
     gap: SPACING.fixed.xs,
   },
@@ -581,6 +657,21 @@ const styles = StyleSheet.create({
     gap: 2,
     flex: 1,
   },
+  quoteHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  editQuoteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  editQuoteBtnText: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.primary,
+  },
   breakdownCard: {
     gap: SPACING.fixed.xs,
   },
@@ -595,6 +686,14 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  editorContainer: {
+    gap: SPACING.fixed.xs,
+  },
+  editorHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
