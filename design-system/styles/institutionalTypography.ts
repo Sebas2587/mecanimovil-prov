@@ -18,8 +18,8 @@ export function institutionalTextStyle(
   role: InstitutionalTextRole,
   color: string = I.ink,
 ): TextStyle {
-  const def = TS[role];
-  const fontFamily = weightToFamily[String(def.fontWeight)] ?? FF.sansRegular;
+  const def = TS[role] || TS.body;
+  const fontFamily = weightToFamily[String(def?.fontWeight)] ?? FF.sansRegular;
   return {
     color,
     fontSize: def.fontSize,

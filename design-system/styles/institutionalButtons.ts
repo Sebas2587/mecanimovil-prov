@@ -151,8 +151,8 @@ export function institutionalButtonStyles(
   size: InstitutionalButtonSize = 'default',
   disabled = false,
 ) {
-  const v = variantStyles[variant];
-  const s = sizeStyles[size];
+  const v = variantStyles[variant] || variantStyles.primary;
+  const s = sizeStyles[size] || sizeStyles.default;
   const isTertiary = variant === 'tertiary';
 
   return StyleSheet.create({

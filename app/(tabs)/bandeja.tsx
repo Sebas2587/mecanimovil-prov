@@ -10,10 +10,6 @@ import type { OrigenPipeline } from '@/services/pipelineComercialService';
 
 const I = COLORS.institutional;
 
-/**
- * Tab principal de administración comercial (inbox helpdesk).
- * Acceso siempre visible en la barra inferior — no depende de un link en Hoy.
- */
 export default function BandejaTabScreen() {
   const params = useLocalSearchParams<{ filtro?: string | string[]; origen?: string | string[] }>();
 
@@ -41,7 +37,7 @@ export default function BandejaTabScreen() {
   return (
     <TabScreenWrapper>
       <View style={styles.screen}>
-        <Header title="Bandeja" backgroundColor={I.canvas} titleColor={I.ink} />
+        <Header title="Bandeja Comercial" backgroundColor={I.canvas} titleColor={I.ink} />
         <View style={[styles.body, hostScreenStyles.scroll]}>
           <PipelineSeguimientoSection
             compact={false}

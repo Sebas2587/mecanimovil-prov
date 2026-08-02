@@ -8,7 +8,10 @@ import {
   TouchableOpacity,
   Image,
   Animated,
+  Platform,
 } from 'react-native';
+import { CommercialCommandCenter } from '@/components/commercial/CommercialCommandCenter';
+import { MultiAgentKanban } from '@/components/commercial/MultiAgentKanban';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Bell,
@@ -547,26 +550,9 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          {/* 1) Crear: agendar / cotizar IA */}
-          <View style={themedStyles.sectionWrap}>
-            <HomeTodayActions
-              onAgendar={() => setAgendarRapidoVisible(true)}
-              onCotizarIa={() => router.push('/cotizar-ia')}
-              showCotizarIa={puede('servicios')}
-              cotizacionesIaPendientes={borradoresAgenteCount}
-            />
-          </View>
-
-          {/* 2) Acceso primario a Bandeja (también es tab inferior) */}
-          {!esMecanicoEquipo && cuentaAprobadaPorAdmin ? (
-            <View style={themedStyles.sectionWrap}>
-              <HomeBandejaEntry enabled={cuentaAprobadaPorAdmin} />
-            </View>
-          ) : null}
-
-          {/* 3) Operación: órdenes/citas/ofertas activas del taller */}
-          <View style={themedStyles.sectionWrap}>
-            <HomeServiciosRecientesSection enabled={cuentaAprobadaPorAdmin} />
+          {/* Kanban Comercial Multi-Agente (Agente 1 SDR + HITL + Agente 2 Cierre) */}
+          <View style={[themedStyles.sectionWrap, { flex: 1, minHeight: 480 }]}>
+            <MultiAgentKanban />
           </View>
         </ScrollView>
 

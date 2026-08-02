@@ -171,6 +171,16 @@ const RepuestoRow = React.memo(function RepuestoRow({
         ) : null}
       </View>
 
+      {rep.fuente_repuesto ? (
+        <View style={styles.fuenteBadgeRow}>
+          <InstitutionalTag
+            label={`Origen: ${rep.fuente_repuesto}`}
+            variant="info"
+            size="sm"
+          />
+        </View>
+      ) : null}
+
       <View style={styles.repuestoGrid}>
         <View style={styles.gridColCant}>
           <InstitutionalField
@@ -824,6 +834,10 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.fixed.xs,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
+  },
+  fuenteBadgeRow: {
+    marginBottom: SPACING.fixed.xs,
+    alignSelf: 'flex-start',
   },
   actionsFooter: {
     gap: SPACING.fixed.sm,

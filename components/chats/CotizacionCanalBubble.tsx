@@ -23,6 +23,12 @@ export interface RepuestoCotizacionBubble {
   precio_unitario_clp: number;
 }
 
+export interface HorarioSugeridoSlot {
+  fecha: string;
+  hora: string;
+  label: string;
+}
+
 export interface CotizacionCanalBubbleProps {
   servicioNombre: string;
   totalClp: number;
@@ -42,6 +48,9 @@ export interface CotizacionCanalBubbleProps {
   repuestos?: RepuestoCotizacionBubble[];
   advertencias?: string[];
   fallbackDetalle?: string;
+  horariosSugeridos?: HorarioSugeridoSlot[];
+  onSelectHorario?: (slot: HorarioSugeridoSlot) => void;
+  onVerMasHorarios?: () => void;
 }
 
 function etiquetaVehiculo(props: CotizacionCanalBubbleProps): string {
@@ -191,6 +200,30 @@ export function CotizacionCanalBubble({
         </Text>
       ) : null}
 
+      {horariosSugeridos && horariosSugeridos.length > 0 ? (
+        <View style={styles.horariosBlock}>
+          <Text style={[styles.horariosTitle, t.kicker]}>
+            Horarios sugeridos (Tap para agendar 1-clic):
+          </Text>
+          <View style={styles.horariosGrid}>
+            {horariosSugeridos.map((slot, sIdx) => (
+              <Pressable
+                key={`slot-${sIdx}`}
+                style={styles.horarioPill}
+                onPress={() => onSelectHorario?.(slot)}
+              >
+                <Text style={styles.horarioPillText}>{slot.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {onVerMasHorarios ? (
+            <Pressable style={styles.verMasBtn} onPress={onVerMasHorarios}>
+              <Text style={styles.verMasBtnText}>📅 Ver más fechas en la Agenda Global</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
       <View style={[styles.footer, t.footer]}>
         <Text style={[styles.total, t.total]}>{formatearMontoCLP(totalClp)}</Text>
         {showExpand ? (
@@ -299,5 +332,41 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
     fontSize: TYPOGRAPHY.fontSize.sm,
     textDecorationLine: 'underline',
+  },
+  horariosBlock: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+    gap: 6,
+  },
+  horariosTitle: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+  },
+  horariosGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  horarioPill: {
+    backgroundColor: I.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  horarioPillText: {
+    color: '#FFFFFF',
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+  },
+  verMasBtn: {
+    marginTop: 4,
+    paddingVertical: 4,
+  },
+  verMasBtnText: {
+    color: I.primary,
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.xs,
   },
 });

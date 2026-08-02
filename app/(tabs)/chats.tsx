@@ -51,6 +51,7 @@ import omnichannelService, { type CanalSlug } from '@/services/omnichannelServic
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { InboxAttentionCard } from '@/components/chats/InboxAttentionCard';
+import { CommercialCommandCenter } from '@/components/commercial/CommercialCommandCenter';
 import { useCotizacionesCanalPendientesQuery } from '@/hooks/useCotizacionesCanalPendientesQuery';
 import { useAgenteBorradoresPendientesQuery } from '@/hooks/useAgenteIaQueries';
 import type { ChannelSlug } from '@/utils/channelVisuals';

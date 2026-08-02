@@ -6,6 +6,7 @@ export interface RepuestoCotizacion {
   cantidad: number;
   precio_unitario_clp: number;
   precio_referencia_ia?: number;
+  fuente_repuesto?: string;
   comentario?: string;
 }
 
