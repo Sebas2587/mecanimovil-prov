@@ -30,12 +30,15 @@ export interface HorarioSugeridoSlot {
 }
 
 export interface CotizacionCanalBubbleProps {
-  servicioNombre: string;
-  totalClp: number;
+  cotizacion?: CotizacionCanal;
+  esTaller?: boolean;
+  onVerDetalle?: () => void;
+  servicioNombre?: string;
+  totalClp?: number;
   manoObraClp?: number;
   costoRepuestosClp?: number;
-  estado: string;
-  esPropio: boolean;
+  estado?: string;
+  esPropio?: boolean;
   vehiculoMarca?: string;
   vehiculoModelo?: string;
   vehiculoAnio?: number | string | null;
@@ -54,34 +57,43 @@ export interface CotizacionCanalBubbleProps {
 }
 
 function etiquetaVehiculo(props: CotizacionCanalBubbleProps): string {
+  const vMarca = props.vehiculoMarca || props.cotizacion?.vehiculo_marca;
+  const vModelo = props.vehiculoModelo || props.cotizacion?.vehiculo_modelo;
+  const vAnio = props.vehiculoAnio || props.cotizacion?.vehiculo_anio;
   const partes = [
-    props.vehiculoMarca?.trim(),
-    props.vehiculoModelo?.trim(),
-    props.vehiculoAnio ? String(props.vehiculoAnio) : '',
+    vMarca?.trim(),
+    vModelo?.trim(),
+    vAnio ? String(vAnio) : '',
   ].filter(Boolean);
   return partes.join(' · ');
 }
 
 /** Tarjeta cotización en chat: colapsable con Ver más / Ver menos. */
-export function CotizacionCanalBubble({
-  servicioNombre,
-  totalClp,
-  manoObraClp = 0,
-  costoRepuestosClp = 0,
-  estado,
-  esPropio,
-  vehiculoMarca,
-  vehiculoModelo,
-  vehiculoAnio,
-  vehiculoPatente,
-  tipoMotorLabel,
-  modalidad,
-  descripcionProblema,
-  duracionMinutos,
-  repuestos = [],
-  advertencias = [],
-  fallbackDetalle,
-}: CotizacionCanalBubbleProps) {
+export function CotizacionCanalBubble(props: CotizacionCanalBubbleProps) {
+  const {
+    cotizacion,
+    esTaller,
+    onVerDetalle,
+    servicioNombre = cotizacion?.servicio_nombre || 'Cotización',
+    totalClp = cotizacion?.total_clp || 0,
+    manoObraClp = cotizacion?.mano_obra_clp || 0,
+    costoRepuestosClp = cotizacion?.costo_repuestos_clp || 0,
+    estado = cotizacion?.estado || 'borrador',
+    esPropio = esTaller ?? true,
+    vehiculoMarca = cotizacion?.vehiculo_marca,
+    vehiculoModelo = cotizacion?.vehiculo_modelo,
+    vehiculoAnio = cotizacion?.vehiculo_anio,
+    vehiculoPatente = cotizacion?.vehiculo_patente,
+    tipoMotorLabel = cotizacion?.tipo_motor_label,
+    modalidad = cotizacion?.modalidad,
+    descripcionProblema = cotizacion?.descripcion_problema,
+    duracionMinutos = cotizacion?.duracion_minutos,
+    repuestos = (cotizacion?.repuestos as RepuestoCotizacionBubble[]) || [],
+    advertencias = [],
+    fallbackDetalle,
+    horariosSugeridos = [],
+    onSelectHorario,
+  } = props;
   const [expanded, setExpanded] = useState(false);
   const t = esPropio ? own : soft;
 
