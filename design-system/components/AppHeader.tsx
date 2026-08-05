@@ -16,12 +16,12 @@ export type AppHeaderProps = {
   onBackPress?: () => void;
   backgroundColor?: string;
   titleColor?: string;
-  titleRole?: 'h3' | 'h4' | 'h5';
+  titleRole?: 'h2' | 'h3' | 'h4' | 'h5';
   badge?: number | string;
   style?: object;
 };
 
-/** Header compacto Airbnb Hosts — back + título h5, canvas. */
+/** Header compacto Airbnb Hosts — back + título h2 (pantalla), canvas. */
 export function AppHeader({
   title,
   leftComponent,
@@ -30,7 +30,7 @@ export function AppHeader({
   onBackPress,
   backgroundColor,
   titleColor,
-  titleRole = 'h5',
+  titleRole = 'h2',
   badge,
   style,
 }: AppHeaderProps) {

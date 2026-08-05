@@ -369,32 +369,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 console.log('❌ Error obteniendo estado del proveedor:', error.response?.status);
               }
               
-              if (error.response?.status === 404) {
-                // Usuario no tiene perfil de proveedor - esto es normal para usuarios nuevos
-                if (__DEV__) {
-                  console.log('👤 Usuario no tiene perfil de proveedor, estableciendo estado inicial');
-                }
-                setEstadoProveedor({ 
-                  tiene_perfil: false,
-                  estado_verificacion: 'pendiente' as const,
-                  verificado: false,
-                  onboarding_iniciado: false,
-                  onboarding_completado: false,
-                  activo: false
-                });
-              } else if (error.response?.status === 403) {
-                // Usuario autenticado pero sin permisos de proveedor
-                if (__DEV__) {
-                  console.log('🚫 Usuario sin permisos de proveedor, necesita completar onboarding');
-                }
-                setEstadoProveedor({ 
+              if (error.response?.status === 404 || error.response?.status === 403) {
+                const sinPerfil = {
                   tiene_perfil: false,
                   estado_verificacion: 'pendiente' as const,
                   verificado: false,
                   onboarding_iniciado: false,
                   onboarding_completado: false,
                   activo: false,
-                  necesita_onboarding: true // Flag para indicar redirección
+                  necesita_onboarding: true,
+                } as EstadoProveedor;
+                if (__DEV__) {
+                  console.log(
+                    error.response?.status === 404
+                      ? '👤 Usuario no tiene perfil de proveedor, estableciendo estado inicial'
+                      : '🚫 Usuario sin permisos de proveedor, evaluando si conservar estado previo',
+                  );
+                }
+                setEstadoProveedor((prev) => {
+                  if (
+                    prev?.tiene_perfil
+                    && (prev.onboarding_completado
+                      || prev.necesita_onboarding === false
+                      || prev.estado_verificacion === 'aprobado')
+                  ) {
+                    return prev;
+                  }
+                  return sinPerfil;
                 });
               } else {
                 // Otro tipo de error - mantener como null para mostrar error
@@ -922,8 +923,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             activo: false,
             necesita_onboarding: true,
           } as EstadoProveedor;
-          setEstadoProveedor(sinPerfil);
-          return sinPerfil;
+          let resolved: EstadoProveedor = sinPerfil;
+          setEstadoProveedor((prev) => {
+            if (
+              prev?.tiene_perfil
+              && (prev.onboarding_completado
+                || prev.necesita_onboarding === false
+                || prev.estado_verificacion === 'aprobado')
+            ) {
+              resolved = prev;
+              return prev;
+            }
+            return sinPerfil;
+          });
+          return resolved;
         }
 
         if (__DEV__) {

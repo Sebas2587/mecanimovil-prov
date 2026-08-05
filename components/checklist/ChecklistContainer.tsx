@@ -25,6 +25,7 @@ import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { showAlert, showConfirm, showAlertButtons } from '@/utils/platformAlert';
 import { useOrdenSignatureDisplay } from '@/hooks/useOrdenSignatureDisplay';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { MecanicoAsignadoCard } from '@/components/equipo/MecanicoAsignadoCard';
 import { useAuth } from '@/context/AuthContext';
 
@@ -615,17 +616,16 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header Coinbase: canvas blanco + hairline */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleCancel} style={styles.closeButton} accessibilityLabel="Cerrar checklist">
           <InstitutionalIcon name="close" size={ICON_SIZE.md} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
         </TouchableOpacity>
 
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{template.nombre}</Text>
-          <Text style={styles.headerSubtitle}>
+          <InstitutionalText role="h4" numberOfLines={1}>{template.nombre}</InstitutionalText>
+          <InstitutionalText role="caption" color="body">
             {totalCompletados}/{totalSteps} · {labelEstadoChecklist(instance.estado)}
-          </Text>
+          </InstitutionalText>
         </View>
       </View>
 
@@ -696,13 +696,15 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                 style={{ alignSelf: 'stretch' }}
               />
             ) : (
-              <TouchableOpacity
-                style={styles.secondaryOutlineButton}
+              <InstitutionalButton
+                label="Ver resumen del checklist"
                 onPress={() => setShowCompletedView(true)}
-              >
-                <InstitutionalIcon name="visibility" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.secondaryOutlineButtonText}>Ver resumen del checklist</Text>
-              </TouchableOpacity>
+                variant="outline"
+                leading={
+                  <InstitutionalIcon name="visibility" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                }
+                style={{ alignSelf: 'stretch' }}
+              />
             )}
           </View>
         )}
@@ -723,15 +725,15 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                   : 'Puedes reenviar este enlace las veces que necesites. El cliente puede volver a ver el informe.'}
               </Text>
             )}
-            <TouchableOpacity
-              style={styles.secondaryOutlineButton}
+            <InstitutionalButton
+              label={esperandoFirmaCliente ? 'Copiar enlace del informe' : 'Copiar / compartir enlace'}
               onPress={() => void copiarEnlaceInforme(informeLink)}
-            >
-              <InstitutionalIcon name="link" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.secondaryOutlineButtonText}>
-                {esperandoFirmaCliente ? 'Copiar enlace del informe' : 'Copiar / compartir enlace'}
-              </Text>
-            </TouchableOpacity>
+              variant="outline"
+              leading={
+                <InstitutionalIcon name="link" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              }
+              style={{ alignSelf: 'stretch' }}
+            />
           </View>
         ) : null}
 
@@ -747,13 +749,15 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
               }
               icon="schedule"
             />
-            <TouchableOpacity
-              style={styles.secondaryOutlineButton}
+            <InstitutionalButton
+              label="Ver resumen del checklist"
               onPress={() => setShowCompletedView(true)}
-            >
-              <InstitutionalIcon name="visibility" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-              <Text style={styles.secondaryOutlineButtonText}>Ver resumen del checklist</Text>
-            </TouchableOpacity>
+              variant="outline"
+              leading={
+                <InstitutionalIcon name="visibility" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              }
+              style={{ alignSelf: 'stretch' }}
+            />
           </View>
         )}
 

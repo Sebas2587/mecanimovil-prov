@@ -18,6 +18,7 @@ import {
   Card,
   HostPaperSection,
   HostSectionKicker,
+  HostEmptyState,
   hostScreenStyles,
 } from '@/app/design-system/components';
 import Header from '@/components/Header';
@@ -29,6 +30,7 @@ import {
   invalidateZonasServicioQueries,
   useZonasServicioQuery,
 } from '@/hooks/useZonasServicioQuery';
+import { MapPin } from 'lucide-react-native';
 
 // Interfaces TypeScript
 
@@ -358,13 +360,12 @@ export default function ZonasServicioScreen() {
             {serviceAreas.map(renderServiceArea)}
           </View>
         ) : (
-          <View style={styles.emptyContainer}>
-            <InstitutionalIcon name="location-outline" size={56} color={textTertiary} strokeWidth={ICON_STROKE_WIDTH} />
-            <Text style={styles.emptyTitle}>No tienes zonas de servicio</Text>
-            <Text style={styles.emptySubtitle}>
-              Crea tu primera zona para empezar a recibir solicitudes de servicio
-            </Text>
-          </View>
+          <HostEmptyState
+            icon={MapPin}
+            title="No tienes zonas de servicio"
+            description="Crea tu primera zona para empezar a recibir solicitudes de servicio en tus comunas."
+            primaryAction={{ label: 'Crear zona', onPress: navigateToCreateZone }}
+          />
         )}
       </ScrollView>
       </SafeAreaView>

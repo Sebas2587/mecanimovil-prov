@@ -20,7 +20,11 @@ import {
   HostSectionKicker,
   HostAvatar,
   hostScreenStyles,
+  InstitutionalText,
+  HostEmptyState,
+  hostIconPlateStyle,
 } from '@/app/design-system/components';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { OrdenCard } from '@/components/ordenes/OrdenCard';
 import { OrigenOrdenBadge } from '@/components/ordenes/OrigenOrdenBadge';
 import {
@@ -215,10 +219,10 @@ export function MecanicoHomeView() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.hero}>
-        <Text style={styles.greeting}>Tus servicios asignados</Text>
-        <Text style={styles.subtitle}>
+        <InstitutionalText role="h2">Tus servicios asignados</InstitutionalText>
+        <InstitutionalText role="caption" color="body" style={styles.subtitle}>
           Completa el checklist cuando corresponda y revisa tu calendario.
-        </Text>
+        </InstitutionalText>
       </View>
 
       <Card
@@ -228,8 +232,8 @@ export function MecanicoHomeView() {
         onPress={() => router.push('/(tabs)/calendario' as never)}
       >
         <View style={styles.calendarCardRow}>
-          <View style={styles.calendarIconWrap}>
-            <Calendar size={22} color={I.primary} strokeWidth={2} />
+          <View style={hostIconPlateStyle}>
+            <Calendar size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.calendarTitle}>Mi calendario</Text>
@@ -245,13 +249,11 @@ export function MecanicoHomeView() {
           <ActivityIndicator size="large" color={I.primary} />
         </View>
       ) : asignaciones.length === 0 ? (
-        <Card elevated padding="host" style={styles.emptyCard}>
-          <Wrench size={28} color={I.muted} strokeWidth={1.8} />
-          <Text style={styles.emptyTitle}>Sin servicios asignados</Text>
-          <Text style={styles.emptyText}>
-            Cuando el taller te asigne un servicio o una cita personal, aparecerá aquí.
-          </Text>
-        </Card>
+        <HostEmptyState
+          icon={Wrench}
+          title="Sin servicios asignados"
+          description="Cuando el taller te asigne un servicio o una cita personal, aparecerá aquí."
+        />
       ) : (
         asignaciones.map((item) => {
           if (item.kind === 'cita') {
@@ -287,15 +289,7 @@ const styles = StyleSheet.create({
   hero: {
     gap: SPACING.xs,
   },
-  greeting: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansBold,
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    color: I.ink,
-  },
   subtitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.sans,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.body,
     lineHeight: 20,
   },
   calendarCard: {},
@@ -304,21 +298,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.md,
   },
-  calendarIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.surfaceSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   calendarTitle: {
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontSize: TYPOGRAPHY.fontSize.md,
     color: I.ink,
   },
   calendarSubtitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.sans,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.muted,
     marginTop: 2,
@@ -337,7 +323,7 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
   emptyText: {
-    fontFamily: TYPOGRAPHY.fontFamily.sans,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.muted,
     textAlign: 'center',
@@ -387,7 +373,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   citaMetaText: {
-    fontFamily: TYPOGRAPHY.fontFamily.sans,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: I.muted,
   },
@@ -424,7 +410,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   citaVehiculoText: {
-    fontFamily: TYPOGRAPHY.fontFamily.sans,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.xs,
     color: I.muted,
     flex: 1,

@@ -6,9 +6,19 @@ import Header from '@/components/Header';
 import PipelineSeguimientoSection from '@/components/pipeline/PipelineSeguimientoSection';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
 import { hostScreenStyles } from '@/app/design-system/components';
-import type { OrigenPipeline } from '@/services/pipelineComercialService';
+import type { OrigenPipeline, EstadoPipelineNormalizado } from '@/services/pipelineComercialService';
 
 const I = COLORS.institutional;
+
+const ESTADOS_FILTRO_URL: EstadoPipelineNormalizado[] = [
+  'nuevo',
+  'cotizacion_enviada',
+  'en_negociacion',
+  'aceptado_agendado',
+  'rechazado_perdido',
+  'en_ejecucion',
+  'completado',
+];
 
 export default function BandejaTabScreen() {
   const params = useLocalSearchParams<{ filtro?: string | string[]; origen?: string | string[] }>();
@@ -16,6 +26,13 @@ export default function BandejaTabScreen() {
   const filtroParam = Array.isArray(params.filtro) ? params.filtro[0] : params.filtro;
   const origenParam = Array.isArray(params.origen) ? params.origen[0] : params.origen;
   const filtroEsperando24h = filtroParam === 'esperando_24h';
+
+  const filtroEstadoInicial = useMemo((): EstadoPipelineNormalizado | undefined => {
+    if (!filtroParam || filtroEsperando24h) return undefined;
+    return ESTADOS_FILTRO_URL.includes(filtroParam as EstadoPipelineNormalizado)
+      ? (filtroParam as EstadoPipelineNormalizado)
+      : undefined;
+  }, [filtroParam, filtroEsperando24h]);
 
   const filtroOrigen = useMemo((): OrigenPipeline | undefined => {
     if (!origenParam) return undefined;
@@ -44,6 +61,7 @@ export default function BandejaTabScreen() {
             limite={100}
             hideTitle
             filtroEsperando24h={filtroEsperando24h}
+            filtroEstadoInicial={filtroEstadoInicial}
             filtroOrigen={filtroOrigen}
           />
         </View>

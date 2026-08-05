@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     color: withOpacity(I.onPrimary, 0.9),
   },
   expandLinkOwnHost: {
-    color: 'rgba(255,255,255,0.9)',
+    color: withOpacity(I.onPrimary, 0.9),
   },
   expandLinkOther: {
     color: I.primary,
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     color: I.onPrimary,
   },
   textPropioHost: {
-    color: '#FFFFFF',
+    color: I.onPrimary,
   },
   textOtro: {
     color: I.ink,

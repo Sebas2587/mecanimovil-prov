@@ -14,8 +14,6 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import {
-  ChevronRight,
-  Eye,
   Link2,
   MessageCircle,
   Sparkles,
@@ -24,6 +22,7 @@ import {
 } from 'lucide-react-native';
 import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
 import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
+import { CotizacionPendienteRow } from '@/components/home/CotizacionPendienteRow';
 import {
   useCotizacionesCanalTallerQuery,
   useInvalidateCotizacionesCanalTaller,
@@ -39,47 +38,20 @@ import { InstitutionalText } from '@/app/design-system/components/InstitutionalT
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import {
-  Card,
   HostSectionKicker,
   hostScreenStyles,
 } from '@/app/design-system/components';
-import { BORDERS, COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { BORDERS, COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { institutionalInputStyles, institutionalInputPlaceholder } from '@/app/design-system/styles/institutionalInputs';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { useQueryClient } from '@tanstack/react-query';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 
-const CANAL_LABELS: Record<string, string> = {
-  whatsapp: 'WhatsApp',
-  instagram: 'Instagram',
-  messenger: 'Messenger',
-  directo: 'Link libre',
-  canal: 'Canal',
-};
-
-const ESTADO_VARIANT: Record<
-  CotizacionCanal['estado'],
-  'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
-> = {
-  borrador: 'neutral',
-  enviada: 'info',
-  aceptada: 'success',
-  rechazada: 'error',
-  expirada: 'warning',
-  cancelada: 'error',
-};
-
 function esBorradorPorRevisar(cot: CotizacionCanal): boolean {
   return cot.estado === 'borrador';
-}
-
-function esBorradorAgente(cot: CotizacionCanal): boolean {
-  if (cot.metadata?.origen === 'agente_ia') return true;
-  if (cot.es_cotizacion_adicional) return true;
-  return cot.metadata?.origen === 'cotizacion_adicional';
 }
 
 function cotizacionEditableSnapshot(c: CotizacionCanal): string {
@@ -97,10 +69,6 @@ function cotizacionEditableSnapshot(c: CotizacionCanal): string {
   });
 }
 
-function canalLabel(cot: CotizacionCanal): string {
-  return CANAL_LABELS[cot.canal || ''] || (cot.es_libre ? 'Link libre' : 'Canal');
-}
-
 function clienteLabel(cot: CotizacionCanal): string {
   return (
     cot.cliente_display
@@ -109,83 +77,6 @@ function clienteLabel(cot: CotizacionCanal): string {
     || 'Cliente'
   );
 }
-
-function fechaLabel(iso?: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short' });
-}
-
-const CotizacionCard = React.memo(function CotizacionCard({
-  item,
-  onPress,
-  tagLabel,
-  tagVariant,
-  showVista,
-}: {
-  item: CotizacionCanal;
-  onPress: (item: CotizacionCanal) => void;
-  tagLabel?: string;
-  tagVariant?: 'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info';
-  showVista?: boolean;
-}) {
-  const handlePress = useCallback(() => onPress(item), [onPress, item]);
-  const vehiculo = [item.vehiculo_marca, item.vehiculo_modelo].filter(Boolean).join(' ');
-
-  return (
-    <Card
-      elevated
-      padding="host"
-      style={styles.card}
-      onPress={handlePress}
-    >
-      <View style={styles.cardTop}>
-        <InstitutionalTag
-          label={tagLabel || (item.estado === 'aceptada' ? 'Aceptada · por agendar' : item.estado)}
-          variant={
-            tagVariant
-            || (item.estado === 'aceptada' ? 'warning' : (ESTADO_VARIANT[item.estado] || 'neutral'))
-          }
-          size="sm"
-        />
-        {showVista ? (
-          <InstitutionalTag
-            label={`Vista · ${fechaLabel(item.visto_en)}`}
-            variant="primary"
-            size="sm"
-            leading={<Eye size={12} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
-          />
-        ) : null}
-        <InstitutionalTag label={canalLabel(item)} variant="neutral" size="sm" />
-        <View style={styles.spacer} />
-        <Text style={styles.price}>{formatearMontoCLP(item.total_clp)}</Text>
-      </View>
-
-      <Text style={styles.title} numberOfLines={2}>
-        {item.servicio_nombre || 'Cotización'}
-      </Text>
-
-      <View style={styles.footer}>
-        <View style={styles.footerText}>
-          <Text style={styles.client} numberOfLines={1}>
-            {clienteLabel(item)}
-          </Text>
-          {vehiculo ? (
-            <Text style={styles.meta} numberOfLines={1}>
-              {vehiculo}
-              {item.vehiculo_patente ? ` · ${item.vehiculo_patente}` : ''}
-            </Text>
-          ) : null}
-        </View>
-        <Text style={styles.date}>
-          {fechaLabel(item.enviada_en || item.creado_en)}
-        </Text>
-        <ChevronRight size={18} color={I.mutedSoft} strokeWidth={ICON_STROKE_WIDTH} />
-      </View>
-    </Card>
-  );
-});
 
 type Props = {
   enabled?: boolean;
@@ -371,35 +262,15 @@ export function CotizacionesIaList({ enabled = true }: Props) {
   const header = useMemo(
     () => (
       <View style={styles.headerBlock}>
-        <Card
-          elevated
-          padding="host"
-          style={styles.crearCard}
-          onPress={() => setLibreVisible(true)}
-        >
-          <View style={styles.crearIcon}>
-            <Sparkles size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-          </View>
-          <View style={styles.crearText}>
-            <Text style={styles.crearTitle}>Nueva cotización</Text>
-            <Text style={styles.crearSub}>
-              Elige un cliente de Mensajes o crea una cotización con link público
-            </Text>
-          </View>
-          <ChevronRight size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-        </Card>
-
-        {/* Buscador de cotizaciones */}
         <View style={styles.searchWrap}>
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar por cliente, servicio, patente o vehículo…"
-            placeholderTextColor={I.muted}
+            placeholderTextColor={institutionalInputPlaceholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
-
         {borradoresFiltrados.length > 0 ? (
           <HostSectionKicker
             label={`Por revisar${borradoresCount > 0 ? ` (${borradoresFiltrados.length})` : ''}`}
@@ -411,15 +282,21 @@ export function CotizacionesIaList({ enabled = true }: Props) {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: CotizacionCanal }) => (
-      <CotizacionCard
-        item={item}
-        onPress={abrirDetalle}
-        tagLabel={esBorradorAgente(item) ? 'Borrador IA · revisar' : 'Borrador'}
-        tagVariant="warning"
-      />
-    ),
-    [abrirDetalle],
+    ({ item, index }: { item: CotizacionCanal; index: number }) => {
+      const last = index === borradoresFiltrados.length - 1;
+      return (
+        <View
+          style={[
+            styles.paperListItem,
+            index === 0 && styles.paperListFirst,
+            last && styles.paperListLast,
+          ]}
+        >
+          <CotizacionPendienteRow item={item} onPress={abrirDetalle} last={last} />
+        </View>
+      );
+    },
+    [abrirDetalle, borradoresFiltrados.length],
   );
 
   const cotizacionDetalle = editDraft && esBorradorPorRevisar(editDraft) ? editDraft : activa;
@@ -450,6 +327,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
         renderItem={renderItem}
         ListHeaderComponent={header}
         contentContainerStyle={styles.list}
+        style={styles.listFlex}
         refreshControl={
           <RefreshControl
             refreshing={isFetching && !isPending}
@@ -476,6 +354,19 @@ export function CotizacionesIaList({ enabled = true }: Props) {
         }
       />
 
+      {/* Sticky inferior Host: crear cotización */}
+      <View style={styles.stickyCrear}>
+        <InstitutionalButton
+          label="Nueva cotización"
+          variant="primary"
+          leading={<Sparkles size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
+          onPress={() => setLibreVisible(true)}
+        />
+        <InstitutionalText role="caption" color="body" style={styles.stickyHint}>
+          Cliente de Mensajes o link público
+        </InstitutionalText>
+      </View>
+
       <CotizacionLibreModal
         visible={libreVisible}
         onClose={() => setLibreVisible(false)}
@@ -487,85 +378,49 @@ export function CotizacionesIaList({ enabled = true }: Props) {
 
       <BottomSheet visible={Boolean(activa)} onClose={cerrarDetalle} style={styles.detalleSheet}>
         {cotizacionDetalle ? (
-          <ScrollView
-            style={styles.detalleScroll}
-            contentContainerStyle={styles.detalleScrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
+          <View style={styles.detalleRoot}>
             <View style={styles.detalleHeader}>
               <View style={styles.detalleHeaderText}>
                 <InstitutionalText role="h4">{clienteLabel(cotizacionDetalle)}</InstitutionalText>
                 <InstitutionalText role="caption" color="muted">
-                  {canalLabel(cotizacionDetalle)}
-                  {vehiculoActiva ? ` · ${vehiculoActiva}` : ''}
+                  {vehiculoActiva || 'Vehículo'}
                   {cotizacionDetalle.vehiculo_patente ? ` · ${cotizacionDetalle.vehiculo_patente}` : ''}
                 </InstitutionalText>
-                {cotizacionDetalle.estado === 'enviada' && cotizacionDetalle.visto_en ? (
-                  <View style={styles.vistaRow}>
-                    <Eye size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <InstitutionalText role="caption" color="muted">
-                      Vista por el cliente · {fechaLabel(cotizacionDetalle.visto_en)}
-                    </InstitutionalText>
-                  </View>
-                ) : null}
               </View>
-              <View style={styles.detalleHeaderActions}>
-                {esBorradorEditable ? (
-                  <InstitutionalButton
-                    label="Guardar cambios"
-                    variant="outline"
-                    size="compact"
-                    loading={guardando}
-                    disabled={!hayCambiosSinGuardar || guardando}
-                    onPress={() => void guardarBorrador()}
-                  />
-                ) : null}
+              {cotizacionDetalle.conversation ? (
                 <TouchableOpacity
-                  onPress={cerrarDetalle}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cerrar"
-                  hitSlop={8}
+                  style={styles.headerIconBtn}
+                  onPress={() => {
+                    const id = cotizacionDetalle.conversation;
+                    cerrarDetalle();
+                    if (id) router.push(`/chat-omnicanal?conversationId=${id}`);
+                  }}
+                  accessibilityLabel="Abrir chat"
                 >
-                  <X size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                  <MessageCircle size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                 </TouchableOpacity>
-              </View>
+              ) : null}
+              <TouchableOpacity
+                onPress={cerrarDetalle}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar"
+                hitSlop={8}
+              >
+                <X size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+              </TouchableOpacity>
             </View>
 
-            {cotizacionDetalle.conversation ? (
-              <InstitutionalButton
-                label="Abrir chat del cliente"
-                variant="outline"
-                size="compact"
-                leading={
-                  <MessageCircle size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                }
-                onPress={() => {
-                  const id = cotizacionDetalle.conversation;
-                  cerrarDetalle();
-                  if (id) router.push(`/chat-omnicanal?conversationId=${id}`);
-                }}
+            <ScrollView
+              style={styles.detalleScroll}
+              contentContainerStyle={styles.detalleScrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <CotizacionIaEditor
+                cotizacion={cotizacionDetalle}
+                readonly={!esBorradorEditable}
+                onChange={esBorradorEditable ? setEditDraft : () => undefined}
               />
-            ) : null}
-
-            <CotizacionIaEditor
-              cotizacion={cotizacionDetalle}
-              readonly={!esBorradorEditable}
-              onChange={esBorradorEditable ? setEditDraft : () => undefined}
-            />
-
-            <View style={styles.sheetActions}>
-              {cotizacionDetalle.estado === 'aceptada' && cotizacionDetalle.cita_personal_id ? (
-                <InstitutionalButton
-                  label="Confirmar horario"
-                  variant="primary"
-                  onPress={() => {
-                    const citaId = cotizacionDetalle.cita_personal_id;
-                    cerrarDetalle();
-                    if (citaId) router.push(`/cita-agenda-personal/${citaId}?agendar=1`);
-                  }}
-                />
-              ) : null}
               {(cotizacionDetalle.share_url || cotizacionDetalle.url_publica) ? (
                 <InstitutionalButton
                   label="Compartir link"
@@ -579,31 +434,56 @@ export function CotizacionesIaList({ enabled = true }: Props) {
                   }}
                 />
               ) : null}
+            </ScrollView>
+
+            <View style={styles.detalleFooter}>
               {cotizacionDetalle.estado !== 'aceptada' ? (
-                <View style={styles.primaryActionsRow}>
-                  <InstitutionalButton
-                    label="Eliminar"
-                    variant="destructiveOutline"
-                    loading={eliminando}
-                    style={styles.actionColSmall}
-                    leading={
-                      <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                    }
-                    onPress={eliminarCotizacion}
-                  />
-                  {esBorradorEditable ? (
-                    <InstitutionalButton
-                      label="Enviar cotización"
-                      variant="primary"
-                      loading={enviando}
-                      style={styles.actionColLarge}
-                      onPress={() => void enviarCotizacion()}
-                    />
-                  ) : null}
-                </View>
+                <TouchableOpacity
+                  style={styles.footerGhost}
+                  onPress={eliminarCotizacion}
+                  disabled={eliminando}
+                >
+                  <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.footerGhostLabel}>Eliminar</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.footerGhost} />
+              )}
+              {esBorradorEditable ? (
+                <InstitutionalButton
+                  label="Guardar"
+                  variant="outline"
+                  size="compact"
+                  loading={guardando}
+                  disabled={!hayCambiosSinGuardar || guardando}
+                  style={styles.footerMid}
+                  onPress={() => void guardarBorrador()}
+                />
+              ) : null}
+              {esBorradorEditable ? (
+                <InstitutionalButton
+                  label="Aprobar y enviar"
+                  variant="primary"
+                  size="compact"
+                  loading={enviando}
+                  style={styles.footerPrimary}
+                  onPress={() => void enviarCotizacion()}
+                />
+              ) : cotizacionDetalle.estado === 'aceptada' && cotizacionDetalle.cita_personal_id ? (
+                <InstitutionalButton
+                  label="Confirmar horario"
+                  variant="primary"
+                  size="compact"
+                  style={styles.footerPrimary}
+                  onPress={() => {
+                    const citaId = cotizacionDetalle.cita_personal_id;
+                    cerrarDetalle();
+                    if (citaId) router.push(`/cita-agenda-personal/${citaId}?agendar=1`);
+                  }}
+                />
               ) : null}
             </View>
-          </ScrollView>
+          </View>
         ) : null}
       </BottomSheet>
     </View>
@@ -611,98 +491,59 @@ export function CotizacionesIaList({ enabled = true }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: I.canvas },
+  listFlex: { flex: 1 },
   list: {
     ...hostScreenStyles.scrollInner,
-    paddingBottom: SPACING.xl,
-    gap: SPACING.sm,
+    paddingBottom: SPACING.sm,
+    gap: 0,
   },
   headerBlock: {
     gap: SPACING.sm,
     marginBottom: SPACING.sm,
   },
   searchWrap: {
-    marginVertical: SPACING.xs,
+    marginTop: SPACING.xs,
   },
   searchInput: {
+    ...institutionalInputStyles.input,
     backgroundColor: COLORS.background.paper,
-    borderWidth: 1,
-    borderColor: COLORS.border.light,
-    borderRadius: BORDERS.radius.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.text.primary,
+    minHeight: 48,
   },
-  crearCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
+  /** Un solo paper Host para toda la lista (no una card por fila). */
+  paperListItem: {
+    backgroundColor: COLORS.background.paper,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+    paddingHorizontal: SPACING.fixed.md,
   },
-  crearIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.selection.background,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.selection.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+  paperListFirst: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopLeftRadius: BORDERS.radius.lg,
+    borderTopRightRadius: BORDERS.radius.lg,
+    overflow: 'hidden',
   },
-  crearText: { flex: 1, minWidth: 0, gap: 2 },
-  crearTitle: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: I.ink,
+  paperListLast: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomLeftRadius: BORDERS.radius.lg,
+    borderBottomRightRadius: BORDERS.radius.lg,
+    overflow: 'hidden',
+    marginBottom: SPACING.sm,
+    ...SHADOWS.editorial,
   },
-  crearSub: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.muted,
-  },
-  card: {
-    gap: SPACING.sm,
-  },
-  cardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: SPACING.xs,
-  },
-  spacer: { flex: 1, minWidth: 8 },
-  price: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
-  },
-  title: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: I.ink,
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingTop: SPACING.xs,
+  stickyCrear: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
+    backgroundColor: COLORS.background.paper,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.md,
+    gap: 4,
+    ...SHADOWS.editorial,
   },
-  footerText: { flex: 1, minWidth: 0, gap: 2 },
-  client: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
-  },
-  meta: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: I.muted,
-  },
-  date: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: I.muted,
+  stickyHint: {
+    textAlign: 'center',
   },
   loading: {
     flex: 1,
@@ -724,8 +565,13 @@ const styles = StyleSheet.create({
   detalleSheet: {
     maxHeight: '94%',
   },
-  detalleScroll: {
+  detalleRoot: {
+    flexGrow: 1,
     maxHeight: '100%',
+  },
+  detalleScroll: {
+    flexGrow: 1,
+    maxHeight: '70%',
   },
   detalleScrollContent: {
     gap: SPACING.md,
@@ -733,35 +579,40 @@ const styles = StyleSheet.create({
   },
   detalleHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: SPACING.sm,
-  },
-  detalleHeaderActions: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
-    flexShrink: 0,
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
   },
   detalleHeaderText: { flex: 1, minWidth: 0, gap: 2 },
-  vistaRow: {
+  headerIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: I.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detalleFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
-    marginTop: SPACING.xs,
-  },
-  sheetActions: { gap: SPACING.sm, paddingBottom: SPACING.sm },
-  primaryActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
     gap: SPACING.sm,
+    paddingTop: SPACING.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
   },
-  actionColSmall: {
-    flex: 1,
+  footerGhost: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    minWidth: 56,
   },
-  actionColLarge: {
-    flex: 1.4,
+  footerGhostLabel: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.semanticDown,
   },
+  footerMid: { flex: 1 },
+  footerPrimary: { flex: 1.35 },
 });
 
 export default CotizacionesIaList;

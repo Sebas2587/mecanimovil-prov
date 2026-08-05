@@ -3,7 +3,7 @@
 ## ADDED Requirements
 
 ### Requirement: Hoy (Today)
-The home tab SHALL organize content in priority blocks: alerts → active work → opportunities → workshop shortcuts. Header SHALL be compact (avatar, name, notifications).
+The home tab SHALL use: responsive 2-column grid (Cotizar con IA · Bandeja) + Host list of pending quotes opening a fullscreen review modal (approve → Bandeja). Alerts SHALL be floating and dismissible, not fixed banners in the feed.
 
 ### Requirement: Mensajes (Inbox)
 Chats list SHALL use clean rows, soft channel tags, canvas background.

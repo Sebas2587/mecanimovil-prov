@@ -2,16 +2,17 @@ import React from 'react';
 import {
   View,
   ActivityIndicator,
-  Text,
   StyleSheet,
+  type ViewStyle,
 } from 'react-native';
-import { COLORS } from '@/app/design-system/tokens';
+import { COLORS, SPACING } from '@/app/design-system/tokens';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 
 interface LoadingSpinnerProps {
   size?: 'small' | 'large';
   color?: string;
   text?: string;
-  style?: any;
+  style?: ViewStyle;
 }
 
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
@@ -23,7 +24,11 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   return (
     <View style={[styles.container, style]}>
       <ActivityIndicator size={size} color={color} />
-      {text && <Text style={[styles.text, { color }]}>{text}</Text>}
+      {text ? (
+        <InstitutionalText role="body" color="body" style={styles.text}>
+          {text}
+        </InstitutionalText>
+      ) : null}
     </View>
   );
 };
@@ -33,12 +38,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: SPACING.fixed.lg,
   },
   text: {
-    marginTop: 12,
-    fontSize: 16,
-    fontWeight: '500',
+    marginTop: SPACING.fixed.sm,
     textAlign: 'center',
   },
 });

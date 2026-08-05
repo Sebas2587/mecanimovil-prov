@@ -74,6 +74,45 @@ function buildTargetUrl(data) {
     return `${APP_ORIGIN}/creditos`;
   }
 
+  if (type === 'agente_ia_cotizacion_borrador') {
+    return `${APP_ORIGIN}/cotizar-ia`;
+  }
+
+  if (type === 'agente_ia_cotizacion_enviada' || type === 'agente_ia_escalamiento') {
+    if (conversationId) {
+      const params = new URLSearchParams();
+      params.set('conversationId', String(conversationId));
+      return `${APP_ORIGIN}/chat-omnicanal?${params.toString()}`;
+    }
+    return `${APP_ORIGIN}/(tabs)/chats`;
+  }
+
+  if (type === 'agente_ia_cotizacion_aceptada' || type === 'agente_ia_cita_confirmada') {
+    const citaId = data.cita_id || data.citaId || '';
+    if (citaId) {
+      return `${APP_ORIGIN}/cita-agenda-personal/${encodeURIComponent(String(citaId))}`;
+    }
+    return `${APP_ORIGIN}/(tabs)/bandeja`;
+  }
+
+  if (type === 'agente_ia_cotizacion_rechazada') {
+    if (conversationId) {
+      const params = new URLSearchParams();
+      params.set('conversationId', String(conversationId));
+      return `${APP_ORIGIN}/chat-omnicanal?${params.toString()}`;
+    }
+    return `${APP_ORIGIN}/(tabs)/chats`;
+  }
+
+  if (type === 'agente_ia_procesando') {
+    if (conversationId) {
+      const params = new URLSearchParams();
+      params.set('conversationId', String(conversationId));
+      return `${APP_ORIGIN}/chat-omnicanal?${params.toString()}`;
+    }
+    return `${APP_ORIGIN}/(tabs)/index`;
+  }
+
   return `${APP_ORIGIN}/notificaciones`;
 }
 
@@ -99,6 +138,8 @@ self.addEventListener('push', (event) => {
     'checklist_pendiente',
     'orden_asignada_mecanico',
     'chat_message',
+    'agente_ia_cotizacion_borrador',
+    'agente_ia_escalamiento',
   ].includes(type);
 
   const tagSuffix =

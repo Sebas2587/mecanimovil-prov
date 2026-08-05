@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { COLORS, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { COLORS, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { formatearMontoCLP, redondearCLP } from '@/utils/formatearMontoCLP';
 
 const I = COLORS.institutional;
@@ -268,21 +268,21 @@ const soft = StyleSheet.create({
 });
 
 const own = StyleSheet.create({
-  kicker: { color: 'rgba(255,255,255,0.65)' },
-  title: { color: '#FFFFFF' },
-  meta: { color: 'rgba(255,255,255,0.7)' },
-  body: { color: 'rgba(255,255,255,0.88)' },
-  line: { color: 'rgba(255,255,255,0.92)' },
-  lineMuted: { color: 'rgba(255,255,255,0.6)' },
-  footer: { borderTopColor: 'rgba(255,255,255,0.2)' },
-  total: { color: '#FFFFFF' },
-  expandLink: { color: 'rgba(255,255,255,0.9)' },
+  kicker: { color: withOpacity(I.onPrimary, 0.65) },
+  title: { color: I.onPrimary },
+  meta: { color: withOpacity(I.onPrimary, 0.7) },
+  body: { color: withOpacity(I.onPrimary, 0.88) },
+  line: { color: withOpacity(I.onPrimary, 0.92) },
+  lineMuted: { color: withOpacity(I.onPrimary, 0.6) },
+  footer: { borderTopColor: withOpacity(I.onPrimary, 0.2) },
+  total: { color: I.onPrimary },
+  expandLink: { color: withOpacity(I.onPrimary, 0.9) },
 });
 
 const styles = StyleSheet.create({
   card: {
     maxWidth: 280,
-    borderRadius: 18,
+    borderRadius: BORDERS.radius.lg,
     paddingVertical: 12,
     paddingHorizontal: 14,
     gap: 4,
@@ -365,10 +365,10 @@ const styles = StyleSheet.create({
     backgroundColor: I.primary,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: BORDERS.radius.lg,
   },
   horarioPillText: {
-    color: '#FFFFFF',
+    color: I.onPrimary,
     fontFamily: FF.sansSemiBold,
     fontSize: TYPOGRAPHY.fontSize.xs,
   },

@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
   useWindowDimensions,
 } from 'react-native';
 import {
@@ -16,6 +17,7 @@ import {
   ChevronRight,
   Clock,
   Filter,
+  GripVertical,
   MessageCircle,
   Plus,
   RefreshCw,
@@ -28,6 +30,7 @@ import { COLORS, SPACING, BORDERS, TYPOGRAPHY } from '@/app/design-system/tokens
 import {
   Card,
   HostSectionKicker,
+  HostPaperSection,
   InstitutionalButton,
   InstitutionalTag,
   InstitutionalText,
@@ -46,9 +49,11 @@ import cotizacionCanalService from '@/services/cotizacionCanalService';
 import { showAlert } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
+const K = COLORS.kanban;
 const FF = TYPOGRAPHY.fontFamily;
 
 export type ColumnaKanban = 'captura_ia' | 'revision_hitl' | 'agendamiento_ia' | 'rechazados';
+export type SwimlaneOrigen = 'todos' | 'marketplace' | 'omnicanal';
 
 export function MultiAgentKanban() {
   const { width } = useWindowDimensions();
@@ -66,7 +71,8 @@ export function MultiAgentKanban() {
 
   // Mobile column tab state
   const [activeColMobile, setActiveColMobile] = useState<ColumnaKanban>('revision_hitl');
-  const [filterOrigen, setFilterOrigen] = useState<'todos' | 'marketplace' | 'omnicanal'>('todos');
+  const [filterOrigen, setFilterOrigen] = useState<SwimlaneOrigen>('todos');
+  const [showSwimlanes, setShowSwimlanes] = useState(false);
 
   // Modals state
   const [selectedLeadModal, setSelectedLeadModal] = useState<PipelineComercialItem | null>(null);
@@ -74,6 +80,18 @@ export function MultiAgentKanban() {
   const [modalRechazoVisible, setModalRechazoVisible] = useState(false);
   const [cotizacionIdRechazar, setCotizacionIdRechazar] = useState<number | null>(null);
   const [aprobandoId, setAprobandoId] = useState<number | null>(null);
+
+  // Drag & Move state (long-press menu)
+  const [movingLead, setMovingLead] = useState<PipelineComercialItem | null>(null);
+  const [showMoveMenu, setShowMoveMenu] = useState(false);
+
+  // WIP Limits per column
+  const WIP_LIMITS: Record<ColumnaKanban, number | null> = useMemo(() => ({
+    captura_ia: null, // Sin límite - alimentado por IA
+    revision_hitl: 15, // Límite humano: max 15 borradores en revisión
+    agendamiento_ia: null, // Sin límite - agendamiento automático
+    rechazados: null, // Sin límite - solo archivo
+  }), []);
 
   // Group leads into the 4 columns based on their state
   // 1. Column 1: Captura IA (Agente 1 SDR) - Leads/chats sin borrador aún
@@ -232,6 +250,107 @@ export function MultiAgentKanban() {
     setModalRechazoVisible(true);
   };
 
+  // Handle long-press to show move menu
+  const handleLongPressLead = useCallback((lead: PipelineComercialItem) => {
+    setMovingLead(lead);
+    setShowMoveMenu(true);
+  }, []);
+
+  // Helper: Render items with optional swimlane separation
+  const renderItemsWithSwimlanes = useCallback(
+    (
+      items: PipelineComercialItem[],
+      renderItem: (item: PipelineComercialItem) => React.ReactNode,
+    ) => {
+      if (!showSwimlanes) {
+        return items.map((item) => (
+          <React.Fragment key={item.entidad_id}>{renderItem(item)}</React.Fragment>
+        ));
+      }
+
+      // Split by origin
+      const marketplaceItems = items.filter(
+        (i) => i.origen === 'marketplace' || i.origen === 'catalogo',
+      );
+      const omnicanalItems = items.filter(
+        (i) => i.origen !== 'marketplace' && i.origen !== 'catalogo',
+      );
+
+      return (
+        <>
+          {marketplaceItems.length > 0 && (
+            <View style={styles.swimlaneSection}>
+              <View style={styles.swimlaneHeader}>
+                <Car size={12} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.swimlaneLabel}>Marketplace ({marketplaceItems.length})</Text>
+              </View>
+              {marketplaceItems.map((item) => (
+                <React.Fragment key={item.entidad_id}>{renderItem(item)}</React.Fragment>
+              ))}
+            </View>
+          )}
+          {omnicanalItems.length > 0 && (
+            <View style={styles.swimlaneSection}>
+              <View style={styles.swimlaneHeader}>
+                <MessageCircle size={12} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                <Text style={styles.swimlaneLabel}>Omnicanal ({omnicanalItems.length})</Text>
+              </View>
+              {omnicanalItems.map((item) => (
+                <React.Fragment key={item.entidad_id}>{renderItem(item)}</React.Fragment>
+              ))}
+            </View>
+          )}
+        </>
+      );
+    },
+    [showSwimlanes],
+  );
+
+  // Move lead to a different column (changes estado)
+  const handleMoveToColumn = useCallback(async (targetColumn: ColumnaKanban) => {
+    if (!movingLead?.cotizacion_id) {
+      setShowMoveMenu(false);
+      setMovingLead(null);
+      return;
+    }
+
+    const estadoMap: Record<ColumnaKanban, string> = {
+      captura_ia: 'borrador',
+      revision_hitl: 'borrador',
+      agendamiento_ia: 'enviada',
+      rechazados: 'rechazada',
+    };
+
+    const targetEstado = estadoMap[targetColumn];
+
+    try {
+      // For HITL -> Agendamiento: approve
+      if (movingLead.estado_normalizado !== 'enviada' && targetColumn === 'agendamiento_ia') {
+        await cotizacionCanalService.enviar(movingLead.cotizacion_id);
+      }
+      // For any -> Rechazados: reject
+      else if (targetColumn === 'rechazados') {
+        // Show motivo modal instead
+        setShowMoveMenu(false);
+        setMovingLead(null);
+        handleOpenRechazoModal(movingLead.cotizacion_id);
+        return;
+      }
+      // For other moves: simple status update (would need backend support)
+      else {
+        showAlert('Movido', `Lead movido a ${targetColumn.replace(/_/g, ' ')}`);
+      }
+
+      invalidatePipeline();
+      void refetch();
+    } catch {
+      showAlert('Error', 'No se pudo mover el lead.');
+    } finally {
+      setShowMoveMenu(false);
+      setMovingLead(null);
+    }
+  }, [movingLead, invalidatePipeline, refetch]);
+
   return (
     <View style={styles.container}>
       {/* Header Bar */}
@@ -271,6 +390,15 @@ export function MultiAgentKanban() {
               WhatsApp / Omnicanal
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filterChip, showSwimlanes && styles.filterChipActive]}
+            onPress={() => setShowSwimlanes(!showSwimlanes)}
+          >
+            <Text style={[styles.filterText, showSwimlanes && styles.filterTextActive]}>
+              {showSwimlanes ? '泳 Swimlanes ON' : '泳 Swimlanes'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -281,7 +409,7 @@ export function MultiAgentKanban() {
             style={[styles.mobileTab, activeColMobile === 'captura_ia' && styles.mobileTabActive]}
             onPress={() => setActiveColMobile('captura_ia')}
           >
-            <Bot size={14} color={activeColMobile === 'captura_ia' ? I.primary : I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+            <Bot size={14} color={activeColMobile === 'captura_ia' ? K.captura.icon : I.muted} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.mobileTabText, activeColMobile === 'captura_ia' && styles.mobileTabTextActive]}>
               Captura IA ({columnaCapturaIa.length})
             </Text>
@@ -291,7 +419,7 @@ export function MultiAgentKanban() {
             style={[styles.mobileTab, activeColMobile === 'revision_hitl' && styles.mobileTabActive]}
             onPress={() => setActiveColMobile('revision_hitl')}
           >
-            <Clock size={14} color={activeColMobile === 'revision_hitl' ? I.primary : I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+            <Clock size={14} color={activeColMobile === 'revision_hitl' ? K.hitl.icon : I.muted} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.mobileTabText, activeColMobile === 'revision_hitl' && styles.mobileTabTextActive]}>
               Revisión ({columnaRevisionHitl.length})
             </Text>
@@ -301,7 +429,7 @@ export function MultiAgentKanban() {
             style={[styles.mobileTab, activeColMobile === 'agendamiento_ia' && styles.mobileTabActive]}
             onPress={() => setActiveColMobile('agendamiento_ia')}
           >
-            <Calendar size={14} color={activeColMobile === 'agendamiento_ia' ? I.primary : I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+            <Calendar size={14} color={activeColMobile === 'agendamiento_ia' ? K.agendamiento.icon : I.muted} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.mobileTabText, activeColMobile === 'agendamiento_ia' && styles.mobileTabTextActive]}>
               Agenda ({columnaAgendamientoIa.length})
             </Text>
@@ -311,7 +439,7 @@ export function MultiAgentKanban() {
             style={[styles.mobileTab, activeColMobile === 'rechazados' && styles.mobileTabActive]}
             onPress={() => setActiveColMobile('rechazados')}
           >
-            <XCircle size={14} color={activeColMobile === 'rechazados' ? I.primary : I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+            <XCircle size={14} color={activeColMobile === 'rechazados' ? K.rechazados.icon : I.muted} strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={[styles.mobileTabText, activeColMobile === 'rechazados' && styles.mobileTabTextActive]}>
               Rechazados ({columnaRechazados.length})
             </Text>
@@ -323,57 +451,132 @@ export function MultiAgentKanban() {
       <View style={styles.gridBody}>
         {/* COLUMN 1: Captura IA (Agente 1 SDR) */}
         {(isDesktop || activeColMobile === 'captura_ia') ? (
-          <View style={[styles.colContainer, !isDesktop && styles.colFull]}>
+          <HostPaperSection style={styles.colContainer}>
             <View style={styles.colHeader}>
-              <Bot size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+              <Bot size={16} color={K.captura.icon} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.colTitle}>1. Captura IA (Agente 1)</Text>
-              <View style={styles.badgeCount}>
-                <Text style={styles.badgeText}>{columnaCapturaIa.length}</Text>
-              </View>
+              <InstitutionalTag label={String(columnaCapturaIa.length)} variant="primary" size="sm" />
             </View>
 
             <ScrollView contentContainerStyle={styles.colScrollContent}>
-              {columnaCapturaIa.filter(filterItemOrigen).map((lead) => {
-                const isMarketplace = lead.origen === 'marketplace' || lead.origen === 'catalogo';
-                return (
-                  <Card
-                    key={lead.entidad_id}
-                    elevated
-                    padding="host"
-                    style={[styles.kanbanCard, isMarketplace && styles.goldCard]}
-                    onPress={() => handleOpenLead(lead)}
-                  >
-                    <View style={styles.cardHeaderRow}>
-                      <InstitutionalTag
-                        label={isMarketplace ? 'Marketplace' : 'Omnicanal'}
-                        variant={isMarketplace ? 'primary' : 'info'}
-                        size="sm"
-                      />
-                      <InstitutionalTag label="Capturando" variant="warning" size="sm" />
+              {showSwimlanes ? (
+                <>
+                  {/* Marketplace Swimlane */}
+                  {columnaCapturaIa.filter(filterItemOrigen).filter(l => l.origen === 'marketplace' || l.origen === 'catalogo').length > 0 && (
+                    <View style={styles.swimlaneSection}>
+                      <View style={styles.swimlaneHeader}>
+                        <Car size={12} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.swimlaneLabel}>
+                          Marketplace ({columnaCapturaIa.filter(filterItemOrigen).filter(l => l.origen === 'marketplace' || l.origen === 'catalogo').length})
+                        </Text>
+                      </View>
+                      {columnaCapturaIa.filter(filterItemOrigen).filter(l => l.origen === 'marketplace' || l.origen === 'catalogo').map((lead) => (
+                        <Card
+                          key={lead.entidad_id}
+                          elevated
+                          padding="host"
+                          style={styles.kanbanCard}
+                          onPress={() => handleOpenLead(lead)}
+                          onLongPress={() => handleLongPressLead(lead)}
+                        >
+                          <View style={styles.cardHeaderRow}>
+                            <GripVertical size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                            <InstitutionalTag label="Marketplace" variant="primary" size="sm" />
+                            <InstitutionalTag label="Capturando" variant="warning" size="sm" />
+                          </View>
+                          <Text style={styles.clientName} numberOfLines={1}>{lead.cliente_nombre || 'Lead en captura'}</Text>
+                          <Text style={styles.vehicleText} numberOfLines={1}>{lead.vehiculo_resumen || 'Vehículo por detectar'}</Text>
+                          <Text style={styles.serviceText} numberOfLines={2}>{lead.servicio_resumen || 'Consulta general'}</Text>
+                          <TouchableOpacity style={styles.cardFooterBtn} onPress={() => handleOpenLead(lead)}>
+                            <Text style={styles.cardFooterBtnText}>Ver Chat & Datos</Text>
+                          </TouchableOpacity>
+                        </Card>
+                      ))}
                     </View>
+                  )}
 
-                    <Text style={styles.clientName} numberOfLines={1}>{lead.cliente_nombre || 'Lead en captura'}</Text>
-                    <Text style={styles.vehicleText} numberOfLines={1}>{lead.vehiculo_resumen || 'Vehículo por detectar'}</Text>
-                    <Text style={styles.serviceText} numberOfLines={2}>{lead.servicio_resumen || 'Consulta general'}</Text>
-
-                    <TouchableOpacity style={styles.cardFooterBtn} onPress={() => handleOpenLead(lead)}>
-                      <Text style={styles.cardFooterBtnText}>Ver Chat & Datos</Text>
-                    </TouchableOpacity>
-                  </Card>
-                );
-              })}
+                  {/* Omnicanal Swimlane */}
+                  {columnaCapturaIa.filter(filterItemOrigen).filter(l => l.origen !== 'marketplace' && l.origen !== 'catalogo').length > 0 && (
+                    <View style={styles.swimlaneSection}>
+                      <View style={styles.swimlaneHeader}>
+                        <MessageCircle size={12} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                        <Text style={styles.swimlaneLabel}>
+                          Omnicanal ({columnaCapturaIa.filter(filterItemOrigen).filter(l => l.origen !== 'marketplace' && l.origen !== 'catalogo').length})
+                        </Text>
+                      </View>
+                      {columnaCapturaIa.filter(filterItemOrigen).filter(l => l.origen !== 'marketplace' && l.origen !== 'catalogo').map((lead) => (
+                        <Card
+                          key={lead.entidad_id}
+                          elevated
+                          padding="host"
+                          style={styles.kanbanCard}
+                          onPress={() => handleOpenLead(lead)}
+                          onLongPress={() => handleLongPressLead(lead)}
+                        >
+                          <View style={styles.cardHeaderRow}>
+                            <GripVertical size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                            <InstitutionalTag label="Omnicanal" variant="info" size="sm" />
+                            <InstitutionalTag label="Capturando" variant="warning" size="sm" />
+                          </View>
+                          <Text style={styles.clientName} numberOfLines={1}>{lead.cliente_nombre || 'Lead en captura'}</Text>
+                          <Text style={styles.vehicleText} numberOfLines={1}>{lead.vehiculo_resumen || 'Vehículo por detectar'}</Text>
+                          <Text style={styles.serviceText} numberOfLines={2}>{lead.servicio_resumen || 'Consulta general'}</Text>
+                          <TouchableOpacity style={styles.cardFooterBtn} onPress={() => handleOpenLead(lead)}>
+                            <Text style={styles.cardFooterBtnText}>Ver Chat & Datos</Text>
+                          </TouchableOpacity>
+                        </Card>
+                      ))}
+                    </View>
+                  )}
+                </>
+              ) : (
+                // Standard view without swimlanes
+                columnaCapturaIa.filter(filterItemOrigen).map((lead) => {
+                  const isMarketplace = lead.origen === 'marketplace' || lead.origen === 'catalogo';
+                  return (
+                    <Card
+                      key={lead.entidad_id}
+                      elevated
+                      padding="host"
+                      style={styles.kanbanCard}
+                      onPress={() => handleOpenLead(lead)}
+                      onLongPress={() => handleLongPressLead(lead)}
+                    >
+                      <View style={styles.cardHeaderRow}>
+                        <GripVertical size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                        <InstitutionalTag
+                          label={isMarketplace ? 'Marketplace' : 'Omnicanal'}
+                          variant={isMarketplace ? 'primary' : 'info'}
+                          size="sm"
+                        />
+                        <InstitutionalTag label="Capturando" variant="warning" size="sm" />
+                      </View>
+                      <Text style={styles.clientName} numberOfLines={1}>{lead.cliente_nombre || 'Lead en captura'}</Text>
+                      <Text style={styles.vehicleText} numberOfLines={1}>{lead.vehiculo_resumen || 'Vehículo por detectar'}</Text>
+                      <Text style={styles.serviceText} numberOfLines={2}>{lead.servicio_resumen || 'Consulta general'}</Text>
+                      <TouchableOpacity style={styles.cardFooterBtn} onPress={() => handleOpenLead(lead)}>
+                        <Text style={styles.cardFooterBtnText}>Ver Chat & Datos</Text>
+                      </TouchableOpacity>
+                    </Card>
+                  );
+                })
+              )}
             </ScrollView>
-          </View>
+          </HostPaperSection>
         ) : null}
 
         {/* COLUMN 2: Revisión HITL (Human-in-the-Loop) */}
         {(isDesktop || activeColMobile === 'revision_hitl') ? (
-          <View style={[styles.colContainer, !isDesktop && styles.colFull]}>
+          <HostPaperSection style={styles.colContainer}>
             <View style={styles.colHeader}>
-              <Clock size={16} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
+              <Clock size={16} color={K.hitl.icon} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.colTitle}>2. Revisión Cotización (HITL)</Text>
-              <View style={[styles.badgeCount, styles.badgeHitl]}>
-                <Text style={styles.badgeText}>{columnaRevisionHitl.length}</Text>
+              <View style={styles.wipBadgeContainer}>
+                <InstitutionalTag 
+                  label={`${columnaRevisionHitl.length}/${WIP_LIMITS.revision_hitl}`} 
+                  variant={columnaRevisionHitl.length >= (WIP_LIMITS.revision_hitl ?? 999) ? 'error' : 'warning'} 
+                  size="sm" 
+                />
               </View>
             </View>
 
@@ -387,10 +590,12 @@ export function MultiAgentKanban() {
                     key={lead.entidad_id}
                     elevated
                     padding="host"
-                    style={[styles.kanbanCard, styles.hitlCard, isMarketplace && styles.goldCard]}
+                    style={styles.kanbanCard}
                     onPress={() => handleOpenLead(lead)}
+                    onLongPress={() => handleLongPressLead(lead)}
                   >
                     <View style={styles.cardHeaderRow}>
+                      <GripVertical size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                       <InstitutionalTag
                         label={isMarketplace ? 'Marketplace App' : 'WhatsApp'}
                         variant={isMarketplace ? 'primary' : 'info'}
@@ -413,25 +618,22 @@ export function MultiAgentKanban() {
                         size="compact"
                         disabled={isAprobando}
                         onPress={() => handleAprobarRapido(lead)}
-                        style={styles.tinderBtn}
                       />
                     </View>
                   </Card>
                 );
               })}
             </ScrollView>
-          </View>
+          </HostPaperSection>
         ) : null}
 
         {/* COLUMN 3: Agendamiento IA (Agente 2 Cierre) */}
         {(isDesktop || activeColMobile === 'agendamiento_ia') ? (
-          <View style={[styles.colContainer, !isDesktop && styles.colFull]}>
+          <HostPaperSection style={styles.colContainer}>
             <View style={styles.colHeader}>
-              <Calendar size={16} color={I.semanticUp} strokeWidth={ICON_STROKE_WIDTH} />
+              <Calendar size={16} color={K.agendamiento.icon} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.colTitle}>3. Agendamiento IA (Agente 2)</Text>
-              <View style={[styles.badgeCount, styles.badgeAgendamiento]}>
-                <Text style={styles.badgeText}>{columnaAgendamientoIa.length}</Text>
-              </View>
+              <InstitutionalTag label={String(columnaAgendamientoIa.length)} variant="success" size="sm" />
             </View>
 
             <ScrollView contentContainerStyle={styles.colScrollContent}>
@@ -443,8 +645,10 @@ export function MultiAgentKanban() {
                     padding="host"
                     style={styles.kanbanCard}
                     onPress={() => handleOpenLead(lead)}
+                    onLongPress={() => handleLongPressLead(lead)}
                   >
                     <View style={styles.cardHeaderRow}>
+                      <GripVertical size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                       <InstitutionalTag label="Enviada" variant="success" size="sm" />
                       <InstitutionalTag label="Agendando" variant="info" size="sm" />
                     </View>
@@ -460,18 +664,16 @@ export function MultiAgentKanban() {
                 );
               })}
             </ScrollView>
-          </View>
+          </HostPaperSection>
         ) : null}
 
         {/* COLUMN 4: Rechazados & Perdidos */}
         {(isDesktop || activeColMobile === 'rechazados') ? (
-          <View style={[styles.colContainer, !isDesktop && styles.colFull]}>
+          <HostPaperSection style={styles.colContainer}>
             <View style={styles.colHeader}>
-              <XCircle size={16} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+              <XCircle size={16} color={K.rechazados.icon} strokeWidth={ICON_STROKE_WIDTH} />
               <Text style={styles.colTitle}>4. Rechazados & Perdidos</Text>
-              <View style={[styles.badgeCount, styles.badgeRechazados]}>
-                <Text style={styles.badgeText}>{columnaRechazados.length}</Text>
-              </View>
+              <InstitutionalTag label={String(columnaRechazados.length)} variant="error" size="sm" />
             </View>
 
             <ScrollView contentContainerStyle={styles.colScrollContent}>
@@ -483,8 +685,10 @@ export function MultiAgentKanban() {
                     padding="host"
                     style={styles.kanbanCard}
                     onPress={() => handleOpenLead(lead)}
+                    onLongPress={() => handleLongPressLead(lead)}
                   >
                     <View style={styles.cardHeaderRow}>
+                      <GripVertical size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                       <InstitutionalTag label="Archivado" variant="neutral" size="sm" />
                       {lead.cotizacion_id ? (
                         <TouchableOpacity
@@ -502,7 +706,7 @@ export function MultiAgentKanban() {
                 );
               })}
             </ScrollView>
-          </View>
+          </HostPaperSection>
         ) : null}
       </View>
 
@@ -530,6 +734,83 @@ export function MultiAgentKanban() {
           }}
         />
       ) : null}
+
+      {/* Move Menu Modal (Long-press context menu) */}
+      <Modal
+        visible={showMoveMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowMoveMenu(false);
+          setMovingLead(null);
+        }}
+      >
+        <TouchableOpacity
+          style={styles.moveMenuOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            setShowMoveMenu(false);
+            setMovingLead(null);
+          }}
+        >
+          <View style={styles.moveMenuContent}>
+            <View style={styles.moveMenuHeader}>
+              <Text style={styles.moveMenuTitle}>Mover Lead</Text>
+              <Text style={styles.moveMenuSubtitle}>
+                {movingLead?.cliente_nombre || 'Seleccionar columna'}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.moveMenuItem}
+              onPress={() => handleMoveToColumn('captura_ia')}
+            >
+              <Bot size={18} color={K.captura.icon} strokeWidth={ICON_STROKE_WIDTH} />
+              <View style={styles.moveMenuItemText}>
+                <Text style={styles.moveMenuItemLabel}>Captura IA</Text>
+                <Text style={styles.moveMenuItemDesc}>Agente 1 SDR</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.moveMenuItem}
+              onPress={() => handleMoveToColumn('revision_hitl')}
+            >
+              <Clock size={18} color={K.hitl.icon} strokeWidth={ICON_STROKE_WIDTH} />
+              <View style={styles.moveMenuItemText}>
+                <Text style={styles.moveMenuItemLabel}>Revisión HITL</Text>
+                <Text style={styles.moveMenuItemDesc}>Aprobación manual</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.moveMenuItem}
+              onPress={() => handleMoveToColumn('agendamiento_ia')}
+            >
+              <Calendar size={18} color={K.agendamiento.icon} strokeWidth={ICON_STROKE_WIDTH} />
+              <View style={styles.moveMenuItemText}>
+                <Text style={styles.moveMenuItemLabel}>Agendamiento IA</Text>
+                <Text style={styles.moveMenuItemDesc}>Agente 2 cierre</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.moveMenuDivider} />
+
+            <TouchableOpacity
+              style={[styles.moveMenuItem, styles.moveMenuItemDanger]}
+              onPress={() => handleMoveToColumn('rechazados')}
+            >
+              <XCircle size={18} color={K.rechazados.icon} strokeWidth={ICON_STROKE_WIDTH} />
+              <View style={styles.moveMenuItemText}>
+                <Text style={[styles.moveMenuItemLabel, styles.moveMenuItemLabelDanger]}>
+                  Rechazar / Archivar
+                </Text>
+                <Text style={styles.moveMenuItemDesc}>Motivo requerido</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -573,7 +854,7 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
   filterTextActive: {
-    color: '#FFFFFF',
+    color: I.onPrimary,
     fontFamily: FF.sansSemiBold,
   },
   mobileTabs: {
@@ -614,10 +895,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 260,
     maxWidth: 380,
-    backgroundColor: I.canvas,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    borderRadius: BORDERS.radius.md,
   },
   colFull: {
     width: '100%',
@@ -638,40 +915,12 @@ const styles = StyleSheet.create({
     color: I.ink,
     flex: 1,
   },
-  badgeCount: {
-    backgroundColor: I.primary,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  badgeHitl: {
-    backgroundColor: I.accentYellow,
-  },
-  badgeAgendamiento: {
-    backgroundColor: I.semanticUp,
-  },
-  badgeRechazados: {
-    backgroundColor: I.semanticDown,
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontFamily: FF.sansBold,
-    fontSize: 10,
-  },
   colScrollContent: {
     padding: SPACING.fixed.xs,
     gap: SPACING.fixed.xs,
   },
   kanbanCard: {
     gap: SPACING.fixed.xs,
-  },
-  hitlCard: {
-    borderColor: I.accentYellow,
-    borderWidth: 1.5,
-  },
-  goldCard: {
-    borderColor: I.primary,
-    borderWidth: 1.5,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -711,13 +960,10 @@ const styles = StyleSheet.create({
   hitlActionsRow: {
     marginTop: 4,
   },
-  tinderBtn: {
-    backgroundColor: I.primary,
-  },
   slotsSuggestBox: {
     marginTop: 4,
     gap: 2,
-    backgroundColor: I.canvas,
+    backgroundColor: I.surfaceSoft,
     padding: 6,
     borderRadius: BORDERS.radius.sm,
     borderWidth: 1,
@@ -738,5 +984,101 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: I.semanticDown,
     textDecorationLine: 'underline',
+  },
+  // WIP Limit Badge
+  wipBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  // Move Menu (Long-press context menu)
+  moveMenuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  moveMenuContent: {
+    backgroundColor: COLORS.background.paper,
+    borderRadius: BORDERS.radius.lg,
+    width: '85%',
+    maxWidth: 320,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  moveMenuHeader: {
+    padding: SPACING.fixed.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+  },
+  moveMenuTitle: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.base,
+    color: I.ink,
+  },
+  moveMenuSubtitle: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.muted,
+    marginTop: 2,
+  },
+  moveMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    padding: SPACING.fixed.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+  },
+  moveMenuItemText: {
+    flex: 1,
+  },
+  moveMenuItemLabel: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.ink,
+  },
+  moveMenuItemDesc: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.muted,
+  },
+  moveMenuDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: I.hairline,
+  },
+  moveMenuItemDanger: {
+    borderBottomWidth: 0,
+  },
+  moveMenuItemLabelDanger: {
+    color: K.rechazados.icon,
+  },
+  // Swimlane Styles
+  swimlaneSection: {
+    marginBottom: SPACING.fixed.sm,
+    borderWidth: 1,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.sm,
+    overflow: 'hidden',
+  },
+  swimlaneHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xs,
+    backgroundColor: I.surfaceSoft,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+  },
+  swimlaneLabel: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.ink,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

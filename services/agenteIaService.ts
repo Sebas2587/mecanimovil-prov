@@ -82,6 +82,21 @@ export interface AgenteSesionEstado {
   agente_ia_disponible_en_plan?: boolean;
 }
 
+export interface AgenteIaActividadEvento {
+  conversation_id: number;
+  estado: string;
+  estado_label: string;
+  cliente_nombre: string;
+  procesando?: boolean;
+}
+
+export interface AgenteIaActividadTaller {
+  sesiones_activas_count: number;
+  procesando_count: number;
+  esperando_revision_count: number;
+  eventos_recientes: AgenteIaActividadEvento[];
+}
+
 const agenteIaService = {
   async obtenerConfig(): Promise<AgenteIaConfig> {
     const { data } = await api.get<AgenteIaConfig>('/agente-ia/config/');
@@ -212,6 +227,11 @@ const agenteIaService = {
     }>;
   }> {
     const { data } = await api.get('/agente-ia/borradores-pendientes/');
+    return data;
+  },
+
+  async actividadTaller(): Promise<AgenteIaActividadTaller> {
+    const { data } = await api.get<AgenteIaActividadTaller>('/agente-ia/actividad-taller/');
     return data;
   },
 };

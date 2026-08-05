@@ -37,7 +37,8 @@ export default function TabLayout() {
 
   useEffect(() => {
     websocketService.setMecanicoEquipoSession(Boolean(esMecanicoEquipo));
-  }, [esMecanicoEquipo]);
+    websocketService.setTallerTabsSession(Boolean(isAuthenticated && !isLoading));
+  }, [esMecanicoEquipo, isAuthenticated, isLoading]);
 
   useEffect(() => {
     if (__DEV__) {
@@ -54,12 +55,14 @@ export default function TabLayout() {
     }
 
     if (!isLoading && isAuthenticated && radarPreferenciaCargada) {
-      const mantenerWs = radarOportunidadesActivo || esMecanicoEquipo;
+      const mantenerWs =
+        radarOportunidadesActivo || esMecanicoEquipo || websocketService.isTallerTabsSessionActive();
       if (mantenerWs) {
         if (__DEV__) {
           console.log('🔗 TabLayout - WebSocket activo', {
             radar: radarOportunidadesActivo,
             mecanico: esMecanicoEquipo,
+            tallerTabs: websocketService.isTallerTabsSessionActive(),
           });
         }
         void websocketService.connect({ force: esMecanicoEquipo });
@@ -70,7 +73,7 @@ export default function TabLayout() {
         }
       } else {
         if (__DEV__) {
-          console.log('⏸️ TabLayout - Sin radar ni sesión mecánico: WebSocket apagado');
+          console.log('⏸️ TabLayout - Sin sesión comercial activa: WebSocket apagado');
         }
         if (!websocketService.isChatSessionActive()) {
           websocketService.disconnect();

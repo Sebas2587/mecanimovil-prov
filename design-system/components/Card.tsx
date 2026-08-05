@@ -10,6 +10,7 @@ export type CardPadding = keyof typeof SPACING.fixed | 'host' | number;
 export type CardProps = {
   children: React.ReactNode;
   onPress?: () => void;
+  onLongPress?: () => void;
   /**
    * `host` = padding Host asimétrico (H md / V sm).
    * Número o key de `SPACING.fixed` = padding uniforme.
@@ -38,6 +39,7 @@ function resolvePadding(padding: CardPadding): ViewStyle {
 export function Card({
   children,
   onPress,
+  onLongPress,
   padding = 'host',
   style,
   elevated = true,
@@ -57,6 +59,18 @@ export function Card({
     return (
       <Pressable
         onPress={onPress}
+        onLongPress={onLongPress}
+        style={({ pressed }) => [surfaceStyle, pressed && { opacity: 0.96 }, style]}
+      >
+        {children}
+      </Pressable>
+    );
+  }
+
+  if (onLongPress) {
+    return (
+      <Pressable
+        onLongPress={onLongPress}
         style={({ pressed }) => [surfaceStyle, pressed && { opacity: 0.96 }, style]}
       >
         {children}

@@ -61,7 +61,10 @@ export default function LoginScreen() {
   const handleGoogleSuccess = useCallback(
     async (result: { success: boolean; estadoProveedor?: any }) => {
       if (result.success) {
-        navigateAfterLogin(router, result.estadoProveedor);
+        const navigated = navigateAfterLogin(router, result.estadoProveedor);
+        if (!navigated) {
+          router.replace('/');
+        }
       }
     },
     [router],
@@ -142,7 +145,10 @@ export default function LoginScreen() {
     setLoginError(null);
     try {
       const { estadoProveedor: estadoActual } = await login(email.trim(), password, true, true);
-      navigateAfterLogin(router, estadoActual);
+      const navigated = navigateAfterLogin(router, estadoActual);
+      if (!navigated) {
+        router.replace('/');
+      }
     } catch (error: any) {
       const message = error?.message || 'Verifica tus credenciales e intenta nuevamente.';
       setLoginError(message);

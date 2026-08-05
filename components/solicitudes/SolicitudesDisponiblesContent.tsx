@@ -27,15 +27,17 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
   COLORS,
   SPACING,
+  TYPOGRAPHY,
   BORDERS,
   platformShadow,
   withOpacity,
 } from '@/app/design-system/tokens';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
-import { HOST_GUTTER } from '@/app/design-system/components';
-import { Radar } from 'lucide-react-native';
+import { HOST_GUTTER, HostEmptyState } from '@/app/design-system/components';
+import { Radar, Zap } from 'lucide-react-native';
 
 const I = COLORS.institutional;
+const FF = TYPOGRAPHY.fontFamily;
 
 type FiltroUrgencia = 'todos' | 'urgente' | 'normal';
 
@@ -184,10 +186,10 @@ export function SolicitudesDisponiblesContent({
 
   if (!radarPreferenciaCargada || loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={I.primary} />
+      <View style={styles.loadingContainerAirbnb}>
+        <ActivityIndicator size="large" color={COLORS.brand.magenta} />
         <InstitutionalText role="body" color="body" style={styles.loadingText}>
-          Cargando solicitudes…
+          Buscando solicitudes B2C en tus zonas de cobertura…
         </InstitutionalText>
       </View>
     );
@@ -195,16 +197,12 @@ export function SolicitudesDisponiblesContent({
 
   if (!radarOportunidadesActivo) {
     return (
-      <View style={[styles.emptyWrap, { paddingHorizontal: containerHorizontal }]}>
-        <View style={styles.embeddedEmptyInner}>
-          <Radar size={40} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-          <InstitutionalText role="h4" color="ink" style={styles.emptyTitle}>
-            Radar apagado
-          </InstitutionalText>
-          <InstitutionalText role="body" color="body" style={styles.emptySub}>
-            Activa la disponibilidad en Hoy para recibir solicitudes de clientes Mecanimovil.
-          </InstitutionalText>
-        </View>
+      <View style={[styles.emptyWrapAirbnb, { paddingHorizontal: containerHorizontal }]}>
+        <HostEmptyState
+          icon={Radar}
+          title="Radar de Oportunidades Desactivado"
+          description="Activa el radar de disponibilidad en la pestaña Hoy para recibir solicitudes de clientes cercanas en tiempo real."
+        />
       </View>
     );
   }
@@ -227,8 +225,8 @@ export function SolicitudesDisponiblesContent({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={I.primary}
-              colors={[I.primary]}
+              tintColor={COLORS.brand.magenta}
+              colors={[COLORS.brand.magenta]}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -242,71 +240,18 @@ export function SolicitudesDisponiblesContent({
           ))}
         </ScrollView>
       ) : (
-        <View style={[styles.emptyWrap, { paddingHorizontal: containerHorizontal }]}>
-          {embedded ? (
-            <View style={styles.embeddedEmptyInner}>
-              <InstitutionalIcon name="inbox" size={40} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-              <InstitutionalText role="h4" color="ink" style={styles.emptyTitle}>
-                Sin solicitudes
-              </InstitutionalText>
-              <InstitutionalText role="body" color="body" style={styles.emptySub}>
-                {filtroUrgencia !== 'todos'
-                  ? `No hay solicitudes ${filtroUrgencia === 'urgente' ? 'urgentes' : 'normales'} ahora.`
-                  : 'Cuando haya pedidos compatibles con tu perfil, aparecerán aquí.'}
-              </InstitutionalText>
-              <TouchableOpacity
-                style={[styles.refreshEmbeddedBtn, { borderColor: I.hairline }]}
-                onPress={onRefresh}
-                activeOpacity={0.88}
-              >
-                <InstitutionalIcon name="refresh" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                <InstitutionalText role="captionBold" color="primary">
-                  Actualizar
-                </InstitutionalText>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={[styles.emptyGlassOuter, isDark && styles.emptyGlassOuterDark]}>
-              <BlurView intensity={blurIntensity} tint={blurTint} style={styles.emptyGlassBlur}>
-                <View style={styles.emptyInner}>
-                  <View
-                    style={[
-                      styles.emptyIconCircle,
-                      {
-                        backgroundColor: isDark
-                          ? withOpacity(I.onDark, 0.08)
-                          : withOpacity(I.canvas, 0.55),
-                      },
-                    ]}
-                  >
-                    <InstitutionalIcon name="inbox" size={40} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                  </View>
-                  <InstitutionalText role="h4" color={isDark ? I.onDark : 'ink'} style={styles.emptyTitle}>
-                    Sin solicitudes
-                  </InstitutionalText>
-                  <InstitutionalText
-                    role="body"
-                    color={isDark ? I.onDarkSoft : I.body}
-                    style={styles.emptySub}
-                  >
-                    {filtroUrgencia !== 'todos'
-                      ? `No hay solicitudes ${filtroUrgencia === 'urgente' ? 'urgentes' : 'normales'} ahora.`
-                      : 'Cuando haya pedidos compatibles con tu perfil, aparecerán aquí.'}
-                  </InstitutionalText>
-                  <TouchableOpacity
-                    style={[styles.refreshGlassBtn, { borderColor: filtroChipBorder }]}
-                    onPress={onRefresh}
-                    activeOpacity={0.88}
-                  >
-                    <InstitutionalIcon name="refresh" size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <InstitutionalText role="captionBold" color="primary">
-                      Actualizar
-                    </InstitutionalText>
-                  </TouchableOpacity>
-                </View>
-              </BlurView>
-            </View>
-          )}
+        <View style={[styles.emptyWrapAirbnb, { paddingHorizontal: containerHorizontal }]}>
+          <HostEmptyState
+            icon={Zap}
+            title="Sin Solicitudes Activas en tu Zona"
+            description={
+              filtroUrgencia !== 'todos'
+                ? `No hay solicitudes ${filtroUrgencia === 'urgente' ? 'urgentes' : 'normales'} registradas en este momento.`
+                : 'No se encontraron solicitudes de clientes en tus comunas/zonas de servicio configuradas.'
+            }
+            primaryAction={{ label: 'Actualizar Lista', onPress: onRefresh }}
+            secondaryAction={{ label: 'Configurar Zonas', onPress: () => router.push('/zonas-servicio') }}
+          />
         </View>
       )}
     </View>
@@ -318,7 +263,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   filterGlassOuter: {
-    borderRadius: 18,
+    borderRadius: BORDERS.radius.lg,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: withOpacity(I.canvas, 0.6),
@@ -359,6 +304,16 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 4,
+  },
+  loadingContainerAirbnb: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: SPACING.fixed.xl,
+  },
+  emptyWrapAirbnb: {
+    paddingVertical: SPACING.fixed.lg,
+    justifyContent: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -421,7 +376,7 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xs,
     paddingHorizontal: 20,
     paddingVertical: 11,
-    borderRadius: BORDERS.radius.xl,
+    borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     backgroundColor: withOpacity(I.canvas, 0.35),
   },

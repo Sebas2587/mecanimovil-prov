@@ -6,6 +6,7 @@ import EstadoRevisionScreen from '@/components/EstadoRevisionScreen';
 import { getItem } from '@/utils/authStorage';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { applyProveedorRoute, resolveProveedorRoute } from '@/utils/auth/resolveProveedorRoute';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -85,36 +86,18 @@ export default function IndexScreen() {
         return;
       }
 
-      // CASO 4: Cuenta aprobada por admin o perfil activo sin onboarding pendiente -> tabs
-      if (estadoProveedor.estado_verificacion === 'aprobado' || (estadoProveedor.tiene_perfil && estadoProveedor.necesita_onboarding === false)) {
+      const route = resolveProveedorRoute(estadoProveedor, { authenticated: true });
+      if (route.kind === 'href') {
         if (__DEV__) {
-          console.log('✅ Cuenta aprobada o sin onboarding pendiente - navegando a tabs principales');
+          console.log('✅ Navegando según resolveProveedorRoute:', route.href);
         }
-        router.replace('/(tabs)');
+        applyProveedorRoute(router, route);
         return;
       }
 
-      // CASO 5: Usuario SIN perfil de proveedor - debe crear uno desde cero
-      if (!estadoProveedor.tiene_perfil) {
-        if (__DEV__) {
-          console.log('🚀 Usuario sin perfil de proveedor - navegando a onboarding desde cero');
-        }
-        router.replace('/(onboarding)/tipo-cuenta');
-        return;
-      }
-
-      // CASO 6: Usuario CON perfil pero onboarding pendiente
-      if (estadoProveedor.tiene_perfil && estadoProveedor.necesita_onboarding && !estadoProveedor.onboarding_completado) {
-        if (__DEV__) {
-          console.log('🔄 Usuario con onboarding incompleto - navegando a tipo-cuenta');
-        }
-        router.replace('/(onboarding)/tipo-cuenta');
-        return;
-      }
-
-      // CASO 8: Caso edge - mostrar pantalla de revisión por defecto
+      // stay: onboarding completado pero en revisión — render EstadoRevisionScreen abajo
       if (__DEV__) {
-        console.log('❓ Caso edge - mostrando pantalla de revisión');
+        console.log('📋 Permaneciendo en index (revisión o edge case)');
       }
       return;
     } else {

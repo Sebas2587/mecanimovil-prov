@@ -230,6 +230,7 @@ export function sesionAgenteActiva(sesion: AgenteSesionEstado | null | undefined
 }
 
 export const AGENTE_IA_BORRADORES_KEY = ['agente-ia-borradores-pendientes'] as const;
+export const AGENTE_IA_ACTIVIDAD_KEY = ['agente-ia-actividad-taller'] as const;
 
 export function useAgenteBorradoresPendientesQuery(enabled = true) {
   return useQuery({
@@ -241,5 +242,17 @@ export function useAgenteBorradoresPendientesQuery(enabled = true) {
     refetchInterval: enabled ? 20_000 : false,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
+  });
+}
+
+export function useAgenteIaActividadQuery(enabled = true) {
+  return useQuery({
+    queryKey: AGENTE_IA_ACTIVIDAD_KEY,
+    queryFn: () => agenteIaService.actividadTaller(),
+    enabled,
+    staleTime: 5_000,
+    refetchInterval: enabled ? 20_000 : false,
+    refetchOnWindowFocus: true,
+    placeholderData: (prev) => prev,
   });
 }

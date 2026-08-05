@@ -386,6 +386,41 @@ export const COLORS = {
     },
   },
 
+  kanban: {
+    captura: {
+      bg: SOFT,
+      border: '#FFB8D4',
+      text: '#C2185B',
+      badgeBg: MAGENTA,
+      badgeText: '#FFFFFF',
+      icon: MAGENTA,
+    },
+    hitl: {
+      bg: '#fff8e6',
+      border: '#ffe399',
+      text: '#5c4309',
+      badgeBg: WARNING,
+      badgeText: '#FFFFFF',
+      icon: ORANGE,
+    },
+    agendamiento: {
+      bg: '#e6f7ef',
+      border: '#99dfbf',
+      text: '#075f42',
+      badgeBg: SUCCESS,
+      badgeText: '#FFFFFF',
+      icon: SUCCESS,
+    },
+    rechazados: {
+      bg: '#fde8ea',
+      border: '#fbd1d5',
+      text: '#ae263a',
+      badgeBg: ERROR,
+      badgeText: '#FFFFFF',
+      icon: ERROR,
+    },
+  },
+
   opacity: {
     5: 0.05,
     10: 0.1,

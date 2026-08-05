@@ -15,6 +15,11 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS } from '@/app/design-system/tokens';
 import { onboardingStyles } from '@/app/design-system/styles/onboarding';
+import {
+  applyProveedorRoute,
+  resolveProveedorRoute,
+  shouldSkipTipoCuenta,
+} from '@/utils/auth/resolveProveedorRoute';
 
 const I = COLORS.institutional;
 
@@ -30,8 +35,18 @@ export default function TipoCuentaScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingCredentials, setIsCheckingCredentials] = useState(true);
   const router = useRouter();
-  const { login, isAuthenticated, updateUser, refrescarEstadoProveedor } = useAuth();
+  const { login, isAuthenticated, updateUser, refrescarEstadoProveedor, estadoProveedor, isLoading: authLoading } = useAuth();
   const { draft, patchDraft } = useOnboardingDraft();
+
+  useFocusEffect(
+    useCallback(() => {
+      if (authLoading || !estadoProveedor) return;
+      if (shouldSkipTipoCuenta(estadoProveedor)) {
+        const route = resolveProveedorRoute(estadoProveedor, { authenticated: true });
+        applyProveedorRoute(router, route);
+      }
+    }, [authLoading, estadoProveedor, router]),
+  );
 
   useFocusEffect(
     useCallback(() => {

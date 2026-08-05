@@ -4,8 +4,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
+  useWindowDimensions,
 } from 'react-native';
-import { AlertTriangle, Car, Fuel, MapPin, Phone, Plus, Trash2, UserRound } from 'lucide-react-native';
+import { AlertTriangle, Car, MapPin, Phone, Plus, Trash2, UserRound } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
@@ -234,6 +235,8 @@ interface CotizacionIaEditorProps {
   enviando?: boolean;
   guardandoPlantilla?: boolean;
   readonly?: boolean;
+  /** Oculta título/servicio cuando el host (modal) ya los muestra. */
+  compactHeader?: boolean;
 }
 
 export function CotizacionIaEditor({
@@ -246,7 +249,10 @@ export function CotizacionIaEditor({
   enviando = false,
   guardandoPlantilla = false,
   readonly = false,
+  compactHeader = false,
 }: CotizacionIaEditorProps) {
+  const { width } = useWindowDimensions();
+  const stackedFacts = width < 520;
   const repuestos = cotizacion.repuestos ?? [];
   const editable = !readonly && cotizacion.estado === 'borrador';
   const manoObra = redondearCLP(cotizacion.mano_obra_clp);
@@ -306,7 +312,6 @@ export function CotizacionIaEditor({
     if (cotizacion.vehiculo_patente) {
       rows.push({ label: 'Patente', value: cotizacion.vehiculo_patente.toUpperCase() });
     }
-    if (vehiculoTitulo) rows.push({ label: 'Vehículo', value: vehiculoTitulo });
     if (cotizacion.vehiculo_cilindraje) {
       rows.push({ label: 'Cilindraje', value: cotizacion.vehiculo_cilindraje });
     }
@@ -333,54 +338,33 @@ export function CotizacionIaEditor({
     cotizacion.vehiculo_patente,
     cotizacion.vehiculo_vin,
     kmMeta,
-    vehiculoTitulo,
   ]);
+
+  const showVehiculoCard =
+    factsVehiculo.length > 0
+    || Boolean(vehiculoTitulo)
+    || Boolean(cotizacion.modalidad);
+  const showClienteCard = Boolean(
+    cotizacion.cliente_nombre
+    || cotizacion.cliente_telefono
+    || cotizacion.direccion_servicio
+    || editable,
+  );
 
   return (
     <View style={styles.root}>
       <View style={styles.headerRow}>
-        <View style={styles.headerText}>
-          <InstitutionalText role="h4">Cotización</InstitutionalText>
-          {cotizacion.servicio_nombre ? (
-            <InstitutionalText role="caption" color="muted" numberOfLines={2}>
-              {cotizacion.servicio_nombre}
-            </InstitutionalText>
-          ) : null}
-        </View>
-        <View style={styles.headerTags}>
-          {cotizacion.metadata?.origen === 'agente_ia' ? (
+        {compactHeader ? (
+          <View style={styles.headerTags}>
+            {cotizacion.metadata?.origen === 'agente_ia' ? (
+              <InstitutionalTag label="IA" variant="warning" size="sm" />
+            ) : null}
             <InstitutionalTag
-              label="Generada por IA — revisa antes de enviar"
-              variant="warning"
+              label={cotizacion.estado}
+              variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
               size="sm"
+              uppercase
             />
-          ) : null}
-          <InstitutionalTag
-            label={cotizacion.estado}
-            variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
-            size="sm"
-          />
-        </View>
-      </View>
-
-      {(factsVehiculo.length > 0
-        || cotizacion.cliente_nombre
-        || cotizacion.cliente_telefono
-        || cotizacion.direccion_servicio
-        || cotizacion.descripcion_problema) ? (
-        <Card elevated padding="host" style={styles.factsCard}>
-          <View style={styles.factsHeader}>
-            <View style={hostIconPlateStyle}>
-              <Car size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-            </View>
-            <View style={styles.motorCopy}>
-              <InstitutionalText role="label" color="muted">
-                DATOS CAPTURADOS
-              </InstitutionalText>
-              <InstitutionalText role="h5" numberOfLines={2}>
-                {vehiculoTitulo || cotizacion.vehiculo_patente?.toUpperCase() || 'Vehículo'}
-              </InstitutionalText>
-            </View>
             {cotizacion.modalidad ? (
               <InstitutionalTag
                 label={cotizacion.modalidad === 'domicilio' ? 'Domicilio' : 'Taller'}
@@ -389,26 +373,85 @@ export function CotizacionIaEditor({
               />
             ) : null}
           </View>
+        ) : (
+          <>
+            <View style={styles.headerText}>
+              <InstitutionalText role="h4">Cotización</InstitutionalText>
+              {cotizacion.servicio_nombre ? (
+                <InstitutionalText role="caption" color="muted" numberOfLines={2}>
+                  {cotizacion.servicio_nombre}
+                </InstitutionalText>
+              ) : null}
+            </View>
+            <View style={styles.headerTags}>
+              {cotizacion.metadata?.origen === 'agente_ia' ? (
+                <InstitutionalTag
+                  label="Generada por IA — revisa antes de enviar"
+                  variant="warning"
+                  size="sm"
+                />
+              ) : null}
+              <InstitutionalTag
+                label={cotizacion.estado}
+                variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
+                size="sm"
+              />
+            </View>
+          </>
+        )}
+      </View>
 
-          {factsVehiculo.length > 0 ? (
-            <View style={styles.factsGrid}>
-              {factsVehiculo.map((row) => (
-                <View key={row.label} style={styles.factRow}>
-                  <InstitutionalText role="small" color="muted">
-                    {row.label}
+      {(showVehiculoCard || showClienteCard) ? (
+        <View style={[styles.factsColumns, stackedFacts && styles.factsColumnsStacked]}>
+          {showVehiculoCard ? (
+            <Card elevated padding="host" style={[styles.factsColCard, !stackedFacts && styles.factsColHalf]}>
+              <View style={styles.factsHeader}>
+                <View style={hostIconPlateStyle}>
+                  <Car size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                </View>
+                <View style={styles.motorCopy}>
+                  <InstitutionalText role="label" color="muted">
+                    VEHÍCULO
                   </InstitutionalText>
-                  <InstitutionalText role="captionBold" color="ink" numberOfLines={2}>
-                    {row.value}
+                  <InstitutionalText role="h5" numberOfLines={2}>
+                    {vehiculoTitulo || cotizacion.vehiculo_patente?.toUpperCase() || 'Sin datos'}
                   </InstitutionalText>
                 </View>
-              ))}
-            </View>
+              </View>
+              {factsVehiculo.length > 0 ? (
+                <View style={styles.factsGrid}>
+                  {factsVehiculo.map((row) => (
+                    <View key={row.label} style={styles.factRow}>
+                      <InstitutionalText role="small" color="muted">
+                        {row.label}
+                      </InstitutionalText>
+                      <InstitutionalText role="captionBold" color="ink" numberOfLines={2} style={styles.factValue}>
+                        {row.value}
+                      </InstitutionalText>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </Card>
           ) : null}
 
-          {(cotizacion.cliente_nombre || cotizacion.cliente_telefono || editable) ? (
-            <View style={styles.contactBlock}>
+          {showClienteCard ? (
+            <Card elevated padding="host" style={[styles.factsColCard, !stackedFacts && styles.factsColHalf]}>
+              <View style={styles.factsHeader}>
+                <View style={hostIconPlateStyle}>
+                  <UserRound size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                </View>
+                <View style={styles.motorCopy}>
+                  <InstitutionalText role="label" color="muted">
+                    CLIENTE
+                  </InstitutionalText>
+                  <InstitutionalText role="h5" numberOfLines={1}>
+                    {cotizacion.cliente_nombre || 'Sin nombre'}
+                  </InstitutionalText>
+                </View>
+              </View>
               {editable ? (
-                <>
+                <View style={styles.contactBlock}>
                   <InstitutionalField
                     label="Nombre del cliente"
                     value={cotizacion.cliente_nombre || ''}
@@ -432,38 +475,44 @@ export function CotizacionIaEditor({
                     editable={editable}
                     multiline
                   />
-                </>
+                </View>
               ) : (
-                <>
-                  {cotizacion.cliente_nombre ? (
-                    <View style={styles.contactRow}>
-                      <UserRound size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                      <InstitutionalText role="caption" color="ink" numberOfLines={1}>
-                        {cotizacion.cliente_nombre}
-                      </InstitutionalText>
-                    </View>
-                  ) : null}
+                <View style={styles.factsGrid}>
                   {cotizacion.cliente_telefono ? (
-                    <View style={styles.contactRow}>
-                      <Phone size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                      <InstitutionalText role="caption" color="ink" numberOfLines={1}>
-                        {cotizacion.cliente_telefono}
+                    <View style={styles.factRow}>
+                      <InstitutionalText role="small" color="muted">
+                        Teléfono
                       </InstitutionalText>
+                      <View style={styles.factValueRow}>
+                        <Phone size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                        <InstitutionalText role="captionBold" color="ink" numberOfLines={1}>
+                          {cotizacion.cliente_telefono}
+                        </InstitutionalText>
+                      </View>
                     </View>
                   ) : null}
                   {cotizacion.direccion_servicio ? (
-                    <View style={styles.contactRow}>
-                      <MapPin size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                      <InstitutionalText role="caption" color="ink" numberOfLines={2}>
-                        {cotizacion.direccion_servicio}
+                    <View style={styles.factRow}>
+                      <InstitutionalText role="small" color="muted">
+                        Dirección
                       </InstitutionalText>
+                      <View style={styles.factValueRow}>
+                        <MapPin size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+                        <InstitutionalText role="captionBold" color="ink" numberOfLines={2} style={styles.factValue}>
+                          {cotizacion.direccion_servicio}
+                        </InstitutionalText>
+                      </View>
                     </View>
                   ) : null}
-                </>
+                </View>
               )}
-            </View>
+            </Card>
           ) : null}
+        </View>
+      ) : null}
 
+      {cotizacion.descripcion_problema || cotizacion.aviso_motor ? (
+        <Card elevated padding="host" style={styles.factsColCard}>
           {cotizacion.descripcion_problema ? (
             <View style={styles.problemaBox}>
               <InstitutionalText role="label" color="muted">
@@ -474,39 +523,8 @@ export function CotizacionIaEditor({
               </InstitutionalText>
             </View>
           ) : null}
-
           {cotizacion.aviso_motor ? (
-            <View style={styles.warningBox}>
-              <AlertTriangle size={16} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
-              <InstitutionalText role="caption" color="body" style={styles.warningText}>
-                {cotizacion.aviso_motor}
-              </InstitutionalText>
-            </View>
-          ) : null}
-        </Card>
-      ) : cotizacion.tipo_motor_label || cotizacion.aviso_motor ? (
-        <Card elevated padding="host" style={styles.motorCard}>
-          <View style={styles.motorHeader}>
-            <View style={hostIconPlateStyle}>
-              <Fuel size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-            </View>
-            <View style={styles.motorCopy}>
-              <InstitutionalText role="label" color="muted">
-                MOTOR
-              </InstitutionalText>
-              {cotizacion.tipo_motor_label ? (
-                <InstitutionalText role="h4" numberOfLines={2}>
-                  {cotizacion.tipo_motor_label}
-                </InstitutionalText>
-              ) : (
-                <InstitutionalText role="h5" color="muted">
-                  Sin tipo de motor
-                </InstitutionalText>
-              )}
-            </View>
-          </View>
-          {cotizacion.aviso_motor ? (
-            <View style={styles.warningBox}>
+            <View style={[styles.warningBox, cotizacion.descripcion_problema ? styles.warningAfterProblema : null]}>
               <AlertTriangle size={16} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
               <InstitutionalText role="caption" color="body" style={styles.warningText}>
                 {cotizacion.aviso_motor}
@@ -800,7 +818,21 @@ const styles = StyleSheet.create({
   },
   advertenciasBox: { gap: 4 },
   readinessCard: { gap: SPACING.fixed.xs },
-  factsCard: { gap: SPACING.fixed.md },
+  factsColumns: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: SPACING.fixed.sm,
+  },
+  factsColumnsStacked: {
+    flexDirection: 'column',
+  },
+  factsColCard: {
+    gap: SPACING.fixed.sm,
+  },
+  factsColHalf: {
+    flex: 1,
+    minWidth: 0,
+  },
   factsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -818,22 +850,29 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: SPACING.fixed.md,
   },
+  factValue: {
+    flex: 1,
+    textAlign: 'right',
+  },
+  factValueRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    gap: 6,
+    minWidth: 0,
+  },
   contactBlock: {
     gap: SPACING.fixed.xs,
     paddingTop: SPACING.fixed.xs,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
   },
-  contactRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.fixed.sm,
-  },
   problemaBox: {
     gap: 4,
-    paddingTop: SPACING.fixed.xs,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: I.hairline,
+  },
+  warningAfterProblema: {
+    marginTop: SPACING.fixed.xs,
   },
   fuenteBadgeRow: {
     marginBottom: SPACING.fixed.xs,

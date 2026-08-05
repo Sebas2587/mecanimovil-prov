@@ -7,5 +7,5 @@ import { AppHeader, type AppHeaderProps } from '@/design-system/components/AppHe
 export type HeaderProps = AppHeaderProps;
 
 export default function Header(props: HeaderProps) {
-  return <AppHeader titleRole="h3" {...props} />;
+  return <AppHeader {...props} />;
 }

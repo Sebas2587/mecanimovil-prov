@@ -117,6 +117,19 @@ export interface AsignacionMecanicoEvent {
 
 export type AsignacionMecanicoCallback = (event: AsignacionMecanicoEvent) => void;
 
+export interface AgenteIaEvent {
+  type: string;
+  conversation_id?: number | string;
+  cotizacion_id?: number | string;
+  cita_id?: number | string;
+  mensaje_preview?: string;
+  prioridad?: string;
+  lead_categoria?: string;
+  timestamp?: string;
+}
+
+export type AgenteIaEventCallback = (event: AgenteIaEvent) => void;
+
 class WebSocketService {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
@@ -140,9 +153,25 @@ class WebSocketService {
   private mecanicoEquipoSession = false;
   /** Pantallas de chat abiertas: mantener WS aunque el radar esté apagado */
   private chatSessionCount = 0;
+  /** Taller autenticado en tabs: mantener WS para embudo comercial e IA */
+  private tallerTabsSession = false;
+  private agenteIaEventCallbacks: Set<AgenteIaEventCallback> = new Set();
 
   shouldMaintainConnection(): boolean {
-    return isRadarOportunidadesActivo() || this.chatSessionCount > 0 || this.mecanicoEquipoSession;
+    return (
+      isRadarOportunidadesActivo()
+      || this.chatSessionCount > 0
+      || this.mecanicoEquipoSession
+      || this.tallerTabsSession
+    );
+  }
+
+  setTallerTabsSession(active: boolean): void {
+    this.tallerTabsSession = active;
+  }
+
+  isTallerTabsSessionActive(): boolean {
+    return this.tallerTabsSession;
   }
 
   setMecanicoEquipoSession(active: boolean): void {
@@ -386,6 +415,17 @@ class WebSocketService {
             solicitud_id: data.solicitud_id != null ? String(data.solicitud_id) : undefined,
             miembro_id: data.miembro_id != null ? String(data.miembro_id) : undefined,
           });
+          break;
+
+        case 'agente_ia_procesando':
+        case 'agente_ia_cotizacion_borrador':
+        case 'agente_ia_cotizacion_enviada':
+        case 'agente_ia_cotizacion_aceptada':
+        case 'agente_ia_cotizacion_rechazada':
+        case 'agente_ia_cita_confirmada':
+        case 'agente_ia_escalamiento':
+          devLog('🤖 Evento agente IA:', data);
+          this.handleAgenteIaEvent(data as AgenteIaEvent);
           break;
 
         default:
@@ -813,6 +853,23 @@ class WebSocketService {
     };
   }
 
+  private handleAgenteIaEvent(event: AgenteIaEvent): void {
+    this.agenteIaEventCallbacks.forEach((callback) => {
+      try {
+        callback(event);
+      } catch (error) {
+        console.error('❌ Error en callback agente IA:', error);
+      }
+    });
+  }
+
+  onAgenteIaEvent(callback: AgenteIaEventCallback): () => void {
+    this.agenteIaEventCallbacks.add(callback);
+    return () => {
+      this.agenteIaEventCallbacks.delete(callback);
+    };
+  }
+
   /**
    * Limpia los listeners al destruir el servicio
    */
@@ -828,7 +885,9 @@ class WebSocketService {
     this.servicioCerradoPorClienteCallbacks.clear();
     this.ordenesListRefreshCallbacks.clear();
     this.asignacionMecanicoCallbacks.clear();
+    this.agenteIaEventCallbacks.clear();
     this.mecanicoEquipoSession = false;
+    this.tallerTabsSession = false;
     this.disconnect();
   }
 }

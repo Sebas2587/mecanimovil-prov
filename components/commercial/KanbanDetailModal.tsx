@@ -50,6 +50,7 @@ import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats
 import { showAlert } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
+const K = COLORS.kanban;
 const FF = TYPOGRAPHY.fontFamily;
 
 export interface KanbanDetailModalProps {
@@ -257,7 +258,6 @@ export function KanbanDetailModal({
                   size="compact"
                   onPress={handleAprobarYEnviar}
                   disabled={enviandoCliente || aprobando}
-                  style={styles.tinderBtn}
                 />
               </>
             ) : null}
@@ -321,7 +321,7 @@ export function KanbanDetailModal({
                   onPress={handleToggleIa}
                   disabled={togglingIa}
                 >
-                  <Power size={14} color="#FFFFFF" />
+                  <Power size={14} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.toggleText}>
                     {iaActiva ? 'Pausar IA' : 'Reanudar IA'}
                   </Text>
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
     backgroundColor: I.muted,
   },
   toggleText: {
-    color: '#FFFFFF',
+    color: I.onPrimary,
     fontFamily: FF.sansSemiBold,
     fontSize: TYPOGRAPHY.fontSize.xs,
   },
@@ -697,8 +697,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  tinderBtn: {
-    backgroundColor: I.primary,
   },
 });

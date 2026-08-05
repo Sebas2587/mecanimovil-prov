@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   Image,
   Animated,
-  Platform,
 } from 'react-native';
-import { CommercialCommandCenter } from '@/components/commercial/CommercialCommandCenter';
-import { MultiAgentKanban } from '@/components/commercial/MultiAgentKanban';
+import { HomeAttentionFeed } from '@/components/home/HomeAttentionFeed';
+import {
+  HomeFloatingAlertsDock,
+  type OpsFloatingAlert,
+} from '@/components/home/HomeFloatingAlertsDock';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Bell,
@@ -26,9 +28,6 @@ import websocketService, { type NuevaSolicitudEvent } from '@/app/services/webso
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import { HOST_GUTTER, hostScreenStyles } from '@/app/design-system/components';
-import { HomeInlineAlert } from '@/components/dashboard/HomeInlineAlert';
-import { HomeTodayActions } from '@/components/dashboard/HomeTodayActions';
-import { HomeServiciosRecientesSection } from '@/components/dashboard/HomeServiciosRecientesSection';
 import AlertaPagoExpirado from '@/components/alerts/AlertaPagoExpirado';
 import { useAlerts } from '@/context/AlertsContext';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
@@ -37,7 +36,6 @@ import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
 import { horariosAPI } from '@/services/api';
 import { MecanicoHomeView } from '@/components/home/MecanicoHomeView';
-import { HomeBandejaEntry } from '@/components/dashboard/HomeBandejaEntry';
 import { useAgenteBorradoresPendientesQuery } from '@/hooks/useAgenteIaQueries';
 import {
   normalizarEstadoAgendaApi,
@@ -61,13 +59,9 @@ export default function HomeScreen() {
 
   /** Habilitado por admin para operar (≠ sello "Verificado" en perfil). */
   const cuentaAprobadaPorAdmin = estadoProveedor?.estado_verificacion === 'aprobado';
-  const {
-    data: borradoresAgente,
-    refetch: refetchBorradoresAgente,
-  } = useAgenteBorradoresPendientesQuery(
+  const { refetch: refetchBorradoresAgente } = useAgenteBorradoresPendientesQuery(
     cuentaAprobadaPorAdmin && puede('servicios'),
   );
-  const borradoresAgenteCount = Math.max(0, Number(borradoresAgente?.count) || 0);
   const perfilProveedorKey = useMemo(
     () => estadoProveedorReloadKey(estadoProveedor ?? null),
     [estadoProveedor]
@@ -86,6 +80,9 @@ export default function HomeScreen() {
 
   /** null = aún no consultado; true = falta configurar horarios en BD */
   const [necesitaConfigurarHorarios, setNecesitaConfigurarHorarios] = useState<boolean | null>(null);
+  /** Alertas operativas flotantes: descartables en la sesión (no fijas en el feed). */
+  const [dismissHorariosAlert, setDismissHorariosAlert] = useState(false);
+  const [dismissSuscripcionAlert, setDismissSuscripcionAlert] = useState(false);
 
   // Animación de pulso para notificaciones y badges
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -136,16 +133,6 @@ export default function HomeScreen() {
       setNecesitaConfigurarHorarios(null);
     }
   }, [cuentaAprobadaPorAdmin]);
-
-  // Redirigir al onboarding si el usuario no tiene perfil
-  useEffect(() => {
-    if (!isLoading && estadoProveedor) {
-      if (!estadoProveedor.tiene_perfil && estadoProveedor.necesita_onboarding === true) {
-        devLog('Usuario sin perfil de proveedor, redirigiendo al onboarding');
-        router.replace('/(onboarding)/tipo-cuenta');
-      }
-    }
-  }, [isLoading, estadoProveedor]);
 
   // Horarios: solo al montar o cuando cambia el perfil (no en cada focus).
   useEffect(() => {
@@ -332,6 +319,58 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
+  const opsFloatingAlerts = useMemo((): OpsFloatingAlert[] => {
+    const list: OpsFloatingAlert[] = [];
+    if (necesitaConfigurarHorarios === true && !dismissHorariosAlert) {
+      list.push({
+        id: 'ops-horarios',
+        variant: 'warning',
+        Icon: Clock,
+        title: 'Configura tus horarios',
+        message: 'Activa el horario del taller o de un mecánico para que puedan agendar.',
+        onPress: () => router.push('/configuracion-horarios'),
+        onDismiss: () => setDismissHorariosAlert(true),
+      });
+    }
+    if (
+      !esSupervisor
+      && saludSuscripcion
+      && saludSuscripcion.estado_salud !== 'ok'
+      && !dismissSuscripcionAlert
+    ) {
+      list.push({
+        id: 'ops-suscripcion',
+        variant: saludSuscripcion.estado_salud === 'por_vencer' ? 'warning' : 'danger',
+        Icon:
+          saludSuscripcion.estado_salud === 'por_vencer'
+            ? Clock
+            : saludSuscripcion.estado_salud === 'pago_fallido'
+              ? CreditCard
+              : AlertTriangle,
+        title:
+          saludSuscripcion.estado_salud === 'por_vencer'
+            ? 'Renovación próxima'
+            : saludSuscripcion.estado_salud === 'pago_fallido'
+              ? 'Pago fallido'
+              : saludSuscripcion.estado_salud === 'sin_suscripcion'
+                ? 'Sin suscripción'
+                : 'Suscripción vencida',
+        message: saludSuscripcion.mensaje ?? undefined,
+        onPress: saludSuscripcion.accion
+          ? () => router.push(saludSuscripcion.accion as any)
+          : undefined,
+        onDismiss: () => setDismissSuscripcionAlert(true),
+      });
+    }
+    return list;
+  }, [
+    necesitaConfigurarHorarios,
+    dismissHorariosAlert,
+    esSupervisor,
+    saludSuscripcion,
+    dismissSuscripcionAlert,
+  ]);
+
   // Obtener saludo según hora del día
   const obtenerSaludo = () => {
     const hora = new Date().getHours();
@@ -372,7 +411,7 @@ export default function HomeScreen() {
       /** Header (fuera del ScrollView); el scroll usa hostScreenStyles.scrollInner. */
       horizontalPadding: HOST_GUTTER,
       sectionMarginBottom: typeof spFixed?.lg === 'number' ? spFixed.lg : SPACING.fixed.lg,
-      radiusCard: typeof br?.xl === 'number' ? br.xl : 24,
+      radiusCard: typeof br?.lg === 'number' ? br.lg : 16,
       radiusMd: typeof br?.md === 'number' ? br.md : 12,
       radiusSm: typeof br?.sm === 'number' ? br.sm : 8,
       avatarSize: 48,
@@ -385,16 +424,6 @@ export default function HomeScreen() {
       <SafeAreaView style={themedStyles.loadingContainer}>
         <ActivityIndicator size="large" color={loadingColor} />
         <Text style={themedStyles.loadingText}>Cargando...</Text>
-      </SafeAreaView>
-    );
-  }
-
-  // Si no tiene perfil, no mostrar nada (se está redirigiendo)
-  if (!estadoProveedor.tiene_perfil && estadoProveedor.necesita_onboarding === true) {
-    return (
-      <SafeAreaView style={themedStyles.loadingContainer}>
-        <ActivityIndicator size="large" color={loadingColor} />
-        <Text style={themedStyles.loadingText}>Redirigiendo al onboarding...</Text>
       </SafeAreaView>
     );
   }
@@ -506,55 +535,18 @@ export default function HomeScreen() {
             },
           ]}
         >
-          {(necesitaConfigurarHorarios === true
-            || (!esSupervisor && saludSuscripcion && saludSuscripcion.estado_salud !== 'ok')) ? (
-            <View style={[themedStyles.sectionWrap, themedStyles.alertsStack]}>
-              {necesitaConfigurarHorarios === true ? (
-                <HomeInlineAlert
-                  variant="warning"
-                  Icon={Clock}
-                  title="Configura tus horarios"
-                  message="Activa el horario del taller o de al menos un mecánico para que los clientes puedan agendar."
-                  onPress={() => router.push('/configuracion-horarios')}
-                />
-              ) : null}
-              {!esSupervisor && saludSuscripcion && saludSuscripcion.estado_salud !== 'ok' ? (
-                <HomeInlineAlert
-                  variant={
-                    saludSuscripcion.estado_salud === 'por_vencer' ? 'warning' : 'danger'
-                  }
-                  Icon={
-                    saludSuscripcion.estado_salud === 'por_vencer'
-                      ? Clock
-                      : saludSuscripcion.estado_salud === 'pago_fallido'
-                        ? CreditCard
-                        : AlertTriangle
-                  }
-                  title={
-                    saludSuscripcion.estado_salud === 'por_vencer'
-                      ? 'Renovación próxima'
-                      : saludSuscripcion.estado_salud === 'pago_fallido'
-                        ? 'Pago fallido'
-                        : saludSuscripcion.estado_salud === 'sin_suscripcion'
-                          ? 'Sin suscripción'
-                          : 'Suscripción vencida'
-                  }
-                  message={saludSuscripcion.mensaje ?? undefined}
-                  onPress={
-                    saludSuscripcion.accion
-                      ? () => router.push(saludSuscripcion.accion as any)
-                      : undefined
-                  }
-                />
-              ) : null}
-            </View>
-          ) : null}
-
-          {/* Kanban Comercial Multi-Agente (Agente 1 SDR + HITL + Agente 2 Cierre) */}
-          <View style={[themedStyles.sectionWrap, { flex: 1, minHeight: 480 }]}>
-            <MultiAgentKanban />
-          </View>
+          <HomeAttentionFeed
+            enabled={cuentaAprobadaPorAdmin && puede('servicios')}
+            refreshing={refreshing}
+            onRefreshFeed={onRefresh}
+            onAgendar={() => setAgendarRapidoVisible(true)}
+          />
         </ScrollView>
+
+        <HomeFloatingAlertsDock
+          enabled={cuentaAprobadaPorAdmin}
+          opsAlerts={opsFloatingAlerts}
+        />
 
         <AlertaPagoExpirado
           visible={mostrarAlertaPago}

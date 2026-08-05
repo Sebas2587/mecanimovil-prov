@@ -17,6 +17,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import { MecanicoAsignadoCard, type MecanicoAsignadoInfo } from '@/components/equipo/MecanicoAsignadoCard';
 import { useLocationConsentGate } from '@/hooks/useLocationConsentGate';
@@ -479,7 +480,7 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
           </TouchableOpacity>
           
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>{headerTitle}</Text>
+            <InstitutionalText role="h4" style={styles.headerTitle}>{headerTitle}</InstitutionalText>
           </View>
           
           <View style={styles.headerRight} />
@@ -523,8 +524,8 @@ export const ChecklistSignatureModal: React.FC<ChecklistSignatureModalProps> = (
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainer}>
           {/* Información del paso actual - minimalista */}
           <View style={styles.stepInfo}>
-            <Text style={styles.stepTitle}>{stepInfo.title}</Text>
-            <Text style={styles.stepSubtitle}>{stepInfo.subtitle}</Text>
+            <InstitutionalText role="h4" style={styles.stepTitle}>{stepInfo.title}</InstitutionalText>
+            <InstitutionalText role="body" color="body" style={styles.stepSubtitle}>{stepInfo.subtitle}</InstitutionalText>
           </View>
 
           {currentStep === 'tecnico' && mecanicoAsignado ? (

@@ -1,3 +1,5 @@
+import { COLORS } from '@/app/design-system/tokens';
+
 export type ChannelSlug = 'whatsapp' | 'messenger' | 'instagram' | 'app' | string;
 
 export type ChannelVisual = {
@@ -16,6 +18,8 @@ export type ChannelVisual = {
   instagramGradient: [string, string, ...string[]];
 };
 
+const ON_BRAND = COLORS.text.onPrimary;
+
 const CHANNEL_MAP: Record<string, Omit<ChannelVisual, 'slug'>> = {
   whatsapp: {
     label: 'WhatsApp',
@@ -23,7 +27,7 @@ const CHANNEL_MAP: Record<string, Omit<ChannelVisual, 'slug'>> = {
     backgroundColor: '#DCF8E8',
     borderColor: '#25D36655',
     brandBackground: '#25D366',
-    iconOnBrand: '#FFFFFF',
+    iconOnBrand: ON_BRAND,
     instagramGradient: ['#25D366', '#128C7E'],
   },
   messenger: {
@@ -32,7 +36,7 @@ const CHANNEL_MAP: Record<string, Omit<ChannelVisual, 'slug'>> = {
     backgroundColor: '#E7F3FF',
     borderColor: '#0084FF55',
     brandBackground: '#1877F2',
-    iconOnBrand: '#FFFFFF',
+    iconOnBrand: ON_BRAND,
     instagramGradient: ['#1877F2', '#0084FF'],
   },
   instagram: {
@@ -41,7 +45,7 @@ const CHANNEL_MAP: Record<string, Omit<ChannelVisual, 'slug'>> = {
     backgroundColor: '#FCE7F3',
     borderColor: '#E4405F55',
     brandBackground: '#E4405F',
-    iconOnBrand: '#FFFFFF',
+    iconOnBrand: ON_BRAND,
     instagramGradient: ['#F58529', '#DD2A7B', '#8134AF'],
   },
   app: {
@@ -50,7 +54,7 @@ const CHANNEL_MAP: Record<string, Omit<ChannelVisual, 'slug'>> = {
     backgroundColor: '#EEF2FF',
     borderColor: '#0052FF33',
     brandBackground: '#0052FF',
-    iconOnBrand: '#FFFFFF',
+    iconOnBrand: ON_BRAND,
     instagramGradient: ['#0052FF', '#003BB5'],
   },
 };

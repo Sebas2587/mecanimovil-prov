@@ -14,6 +14,7 @@ import {
 import { router, useFocusEffect } from 'expo-router';
 import {
   MessageCircle, Check, CheckCheck, Sparkles, Clock3,
+  Search, Filter, ChevronRight,
 } from 'lucide-react-native';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -36,6 +37,9 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens
 import {
   Card,
   hostScreenStyles,
+  HostSectionKicker,
+  InstitutionalButton,
+  InstitutionalText,
 } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
@@ -51,7 +55,6 @@ import omnichannelService, { type CanalSlug } from '@/services/omnichannelServic
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { InboxAttentionCard } from '@/components/chats/InboxAttentionCard';
-import { CommercialCommandCenter } from '@/components/commercial/CommercialCommandCenter';
 import { useCotizacionesCanalPendientesQuery } from '@/hooks/useCotizacionesCanalPendientesQuery';
 import { useAgenteBorradoresPendientesQuery } from '@/hooks/useAgenteIaQueries';
 import type { ChannelSlug } from '@/utils/channelVisuals';
@@ -581,17 +584,23 @@ export default function ChatsScreen() {
           badge={totalMensajesNoLeidos > 0 ? totalMensajesNoLeidos : undefined}
         />
 
+        {/* Search Bar - Airbnb Host style */}
         <View style={[styles.searchBarWrap, hostScreenStyles.gutterX]}>
-          <TextInput
-            style={styles.searchBarInput}
-            placeholder="Buscar por cliente, teléfono, patente o mensaje…"
-            placeholderTextColor={I.muted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+          <View style={styles.searchBarContainer}>
+            <Search size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+            <TextInput
+              style={styles.searchBarInput}
+              placeholder="Buscar por cliente, teléfono, patente o mensaje…"
+              placeholderTextColor={I.muted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
         </View>
 
+        {/* Filters - Airbnb Host style with HostSectionKicker */}
         <View style={[styles.filtersWrap, hostScreenStyles.gutterX]}>
+          <HostSectionKicker label="FILTROS" />
           <FlatList
             horizontal
             data={CHAT_FILTERS}
@@ -605,24 +614,22 @@ export default function ChatsScreen() {
                   ? borradoresAgenteCount
                   : 0;
               return (
-                <TouchableOpacity
-                  style={[styles.filterChip, active && styles.filterChipActive]}
+                <InstitutionalButton
+                  label={f.label}
+                  variant={active ? 'primary' : 'outline'}
+                  size="compact"
                   onPress={() => setChatFilter(f.key)}
-                  activeOpacity={0.85}
+                  disabled={active}
+                  style={styles.filterChip}
                 >
-                  <View style={styles.filterChipInner}>
-                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                      {f.label}
-                    </Text>
-                    {badgeCount > 0 ? (
-                      <View style={[styles.filterCount, active && styles.filterCountActive]}>
-                        <Text style={[styles.filterCountText, active && styles.filterCountTextActive]}>
-                          {badgeCount}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </TouchableOpacity>
+                  {badgeCount > 0 && (
+                    <View style={[styles.filterCount, active && styles.filterCountActive]}>
+                      <Text style={[styles.filterCountText, active && styles.filterCountTextActive]}>
+                        {badgeCount}
+                      </Text>
+                    </View>
+                  )}
+                </InstitutionalButton>
               );
             }}
           />
@@ -643,7 +650,7 @@ export default function ChatsScreen() {
         {loading && chats.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={I.primary} />
-            <Text style={styles.loadingText}>Cargando mensajes…</Text>
+            <InstitutionalText role="caption" color="muted">Cargando mensajes…</InstitutionalText>
           </View>
         ) : (
           <FlatList
@@ -691,14 +698,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: SPACING.sm,
-    fontSize: T.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontWeight: T.caption.fontWeight as '400',
-    lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
-    color: I.muted,
+    gap: SPACING.sm,
   },
   listContainer: {
     flexGrow: 1,
@@ -718,29 +718,8 @@ const styles = StyleSheet.create({
     paddingRight: SPACING.sm,
   },
   filterChip: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 6,
-    borderRadius: BORDERS.radius.sm,
-    borderWidth: 1,
-    borderColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
-  },
-  filterChipActive: {
-    backgroundColor: I.ink,
-    borderColor: I.ink,
-  },
-  filterChipInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  filterChipText: {
-    fontSize: T.caption.fontSize,
-    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
-    color: I.muted,
-  },
-  filterChipTextActive: {
-    color: I.onPrimary,
+    // Usa estilos de InstitutionalButton, solo margin extra
+    marginRight: 0,
   },
   filterCount: {
     minWidth: 18,
@@ -752,6 +731,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.selection.border,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 4,
   },
   filterCountActive: {
     backgroundColor: 'rgba(255,255,255,0.18)',
@@ -776,7 +756,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
-    // marginBottom lo aporta ChatSwipeableRow para no duplicar espacio.
   },
   chatRowMain: {
     flex: 1,
@@ -892,6 +871,7 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xl,
   },
   emptyIconWrap: {
     width: 80,
@@ -922,14 +902,21 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.xs,
     paddingBottom: SPACING.xs,
   },
-  searchBarInput: {
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
     backgroundColor: COLORS.background.paper,
     borderWidth: 1,
     borderColor: COLORS.border.light,
     borderRadius: BORDERS.radius.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
+  },
+  searchBarInput: {
+    flex: 1,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.text.primary,
+    paddingVertical: 0,
   },
 });

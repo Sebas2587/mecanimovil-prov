@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { AGENTE_IA_BORRADORES_KEY } from '@/hooks/useAgenteIaQueries';
+import { AGENTE_IA_BORRADORES_KEY, AGENTE_IA_ACTIVIDAD_KEY } from '@/hooks/useAgenteIaQueries';
 import { CHAT_INBOX_QUERY_KEY } from '@/hooks/useChatInboxQuery';
 import { COTIZACIONES_CANAL_QUERY_KEY } from '@/hooks/useCotizacionesCanalTallerQuery';
 import { COTIZACIONES_CANAL_PENDIENTES_KEY } from '@/hooks/useCotizacionesCanalPendientesQuery';
@@ -20,6 +20,7 @@ export function invalidateProveedorComercialQueries(queryClient: QueryClient) {
   void queryClient.invalidateQueries({ queryKey: CHAT_INBOX_QUERY_KEY });
   void queryClient.invalidateQueries({ queryKey: [COTIZACIONES_CANAL_QUERY_KEY] });
   void queryClient.invalidateQueries({ queryKey: AGENTE_IA_BORRADORES_KEY });
+  void queryClient.invalidateQueries({ queryKey: AGENTE_IA_ACTIVIDAD_KEY });
   void queryClient.invalidateQueries({ queryKey: COTIZACIONES_CANAL_PENDIENTES_KEY });
   void queryClient.invalidateQueries({ queryKey: [PIPELINE_COMERCIAL_QUERY_KEY] });
   invalidateProveedorMarketplaceQueries(queryClient);

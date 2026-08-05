@@ -32,8 +32,10 @@ export function PushNotificationSetup() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    void subscribeWebPush().catch(() => {
-      /* no crítico */
+    void subscribeWebPush().catch((err) => {
+      if (__DEV__) {
+        console.warn('[web-push] Suscripción automática falló:', err);
+      }
     });
   }, [isAuthenticated]);
 

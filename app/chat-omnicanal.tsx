@@ -14,14 +14,14 @@ import {
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X } from 'lucide-react-native';
+import { X, Edit3, Send, Paperclip, Mic, MoreHorizontal } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import chatService from '@/services/chatService';
 import { OmnichannelChatHeader, OmnichannelChatActionBar } from '@/components/chats/OmnichannelChatHeader';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
-import cotizacionCanalService from '@/services/cotizacionCanalService';
+import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
 import type { CanalSlug } from '@/services/omnichannelService';
 import { useOmnichannelConversationMeta } from '@/hooks/useOmnichannelConversationMeta';
 import { useOmnichannelConnectionMap } from '@/hooks/useOmnichannelConnections';
@@ -37,7 +37,7 @@ import { ChatBubble } from '@/components/solicitudes/ChatBubble';
 import { useAuth } from '@/context/AuthContext';
 import websocketService, { type NuevoMensajeChatEvent } from '@/app/services/websocketService';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
-import { hostScreenStyles } from '@/app/design-system/components';
+import { hostScreenStyles, HOST_GUTTER } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
   isChatAttachmentImage,
@@ -45,8 +45,12 @@ import {
   normalizeMessageText,
 } from '@/utils/chatAttachmentMedia';
 import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
+import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
+import { InstitutionalButton, InstitutionalText, Card, HostSectionKicker } from '@/app/design-system/components';
+import { InstitutionalModal } from '@/design-system/components/InstitutionalModal';
 
 const I = COLORS.institutional;
+const K = COLORS.kanban;
 
 type AttachmentState = StagedAttachment & { mime: string };
 
@@ -63,7 +67,7 @@ type ChatRow = {
 };
 
 function resolveConversationId(params: Record<string, string | string[] | undefined>): string {
-  const raw = params.conversationId;
+  const raw = params.conversationId || params.conversation_id || params.conversation || params.id;
   if (Array.isArray(raw)) return String(raw[0] || '').trim();
   return String(raw || '').trim();
 }
@@ -124,6 +128,7 @@ export default function ChatOmnicanalScreen() {
   const [cotizacionAceptadaId, setCotizacionAceptadaId] = useState<number | undefined>();
   const [attachments, setAttachments] = useState<AttachmentState[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [editingCotizacion, setEditingCotizacion] = useState<CotizacionCanal | null>(null);
 
   const conversationMeta = useOmnichannelConversationMeta(convId);
   const { map: channelConnections, featureEnabled } = useOmnichannelConnectionMap(Boolean(convId));
@@ -473,6 +478,31 @@ export default function ChatOmnicanalScreen() {
                         repuestos={repuestos}
                         advertencias={advertencias}
                         fallbackDetalle={item.mensaje}
+                        onVerDetalle={() => {
+                          // Construir objeto CotizacionCanal completo desde metadata
+                          const cot: CotizacionCanal = {
+                            id: meta.cotizacion_id ? Number(meta.cotizacion_id) : 0,
+                            servicio_nombre: String(meta.servicio_nombre || 'Servicio'),
+                            total_clp: Number(meta.total_clp || 0),
+                            mano_obra_clp: Number(meta.mano_obra_clp || 0),
+                            costo_repuestos_clp: Number(meta.costo_repuestos_clp || 0),
+                            estado: String(meta.estado || 'enviada'),
+                            vehiculo_marca: String(meta.vehiculo_marca || ''),
+                            vehiculo_modelo: String(meta.vehiculo_modelo || ''),
+                            vehiculo_anio: meta.vehiculo_anio as number | string | null | undefined,
+                            vehiculo_cilindraje: String(meta.vehiculo_cilindraje || ''),
+                            vehiculo_patente: String(meta.vehiculo_patente || ''),
+                            tipo_motor_label: String(meta.tipo_motor_label || ''),
+                            modalidad: String(meta.modalidad || 'taller'),
+                            descripcion_problema: String(meta.descripcion_problema || ''),
+                            duracion_minutos: meta.duracion_minutos_estimada != null ? Number(meta.duracion_minutos_estimada) : null,
+                            repuestos,
+                            advertencias,
+                            cliente_nombre: conversationMeta.contactName,
+                            cliente_telefono: conversationMeta.contactPhone,
+                          };
+                          setEditingCotizacion(cot);
+                        }}
                       />
                     </View>
                   );
@@ -574,6 +604,53 @@ export default function ChatOmnicanalScreen() {
             )}
           </View>
         </Modal>
+
+        {/* Modal flotante para editar cotización - Airbnb Host style */}
+        <InstitutionalModal
+          visible={!!editingCotizacion}
+          onClose={() => setEditingCotizacion(null)}
+          title="Editar Cotización"
+        >
+          {editingCotizacion && (
+            <CotizacionIaEditor
+              cotizacion={editingCotizacion}
+              onChange={(updated) => setEditingCotizacion(updated)}
+              onEnviar={async () => {
+                if (editingCotizacion.id) {
+                  try {
+                    await cotizacionCanalService.enviar(editingCotizacion.id);
+                    setEditingCotizacion(null);
+                    void cargar();
+                  } catch (e) {
+                    Alert.alert('Error', 'No se pudo enviar la cotización');
+                  }
+                }
+              }}
+              onGuardarPlantilla={async () => {
+                if (editingCotizacion.id) {
+                  try {
+                    await cotizacionCanalService.guardarPlantilla(editingCotizacion.id);
+                    Alert.alert('Guardado', 'Plantilla guardada correctamente');
+                  } catch (e) {
+                    Alert.alert('Error', 'No se pudo guardar la plantilla');
+                  }
+                }
+              }}
+              onMarcarAceptada={async () => {
+                if (editingCotizacion.id) {
+                  try {
+                    await cotizacionCanalService.marcarAceptada(editingCotizacion.id);
+                    setEditingCotizacion(null);
+                    void cargar();
+                  } catch (e) {
+                    Alert.alert('Error', 'No se pudo marcar como aceptada');
+                  }
+                }
+              }}
+              readonly={editingCotizacion.estado !== 'borrador'}
+            />
+          )}
+        </InstitutionalModal>
       </SafeAreaView>
     </View>
   );
@@ -638,9 +715,11 @@ const styles = StyleSheet.create({
   bubbleWrapOwn: {
     alignSelf: 'flex-end',
     marginVertical: SPACING.xs,
+    maxWidth: '85%',
   },
   bubbleWrapOther: {
     alignSelf: 'flex-start',
     marginVertical: SPACING.xs,
+    maxWidth: '85%',
   },
 });
