@@ -10,6 +10,12 @@ import {
   clearAuthTokenCache,
   completeAuthHydration,
 } from '@/utils/authTokenCache';
+import {
+  clearEstadoProveedorCache,
+  isUsableEstadoProveedorCache,
+  loadEstadoProveedorCache,
+  saveEstadoProveedorCache,
+} from '@/utils/auth/estadoProveedorCache';
 
 const IS_EXPO_GO = Constants.appOwnership === 'expo';
 const CAN_USE_NATIVE_GOOGLE = Platform.OS !== 'web' && !IS_EXPO_GO;
@@ -138,14 +144,18 @@ async function clearStoredAuthSession(): Promise<void> {
   try {
     await clearAuthTokenCache();
     await deleteItem('userData');
+    await clearEstadoProveedorCache();
   } catch {
     /* no crítico */
   }
 }
 
-/** Reintentos ante timeouts / 503 / red intermitente (Render lento). */
-async function obtenerEstadoProveedorWithRetries(): Promise<EstadoProveedor | null> {
-  const maxAttempts = 2;
+/**
+ * Reintentos ante timeouts / 503 / cold start de Render.
+ * 4 intentos con backoff creciente (hasta ~7s de espera acumulada).
+ */
+async function obtenerEstadoProveedorWithRetries(): Promise<EstadoProveedor> {
+  const maxAttempts = 4;
   let lastError: any;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -154,10 +164,38 @@ async function obtenerEstadoProveedorWithRetries(): Promise<EstadoProveedor | nu
       lastError = error;
       if (!isTransientEstadoProveedorError(error)) throw error;
       if (attempt === maxAttempts) throw error;
-      await new Promise<void>((resolve) => setTimeout(resolve, 700 * attempt));
+      await new Promise<void>((resolve) => setTimeout(resolve, 900 * attempt));
     }
   }
   throw lastError;
+}
+
+async function applyEstadoProveedor(
+  setEstadoProveedor: React.Dispatch<React.SetStateAction<EstadoProveedor | null>>,
+  estado: EstadoProveedor,
+): Promise<EstadoProveedor> {
+  setEstadoProveedor(estado);
+  await saveEstadoProveedorCache(estado);
+  return estado;
+}
+
+/** Si la API falla de forma transitoria, reutiliza el último estado bueno en disco. */
+async function resolveEstadoProveedorOrCache(
+  setEstadoProveedor: React.Dispatch<React.SetStateAction<EstadoProveedor | null>>,
+  error: any,
+): Promise<EstadoProveedor | null> {
+  if (isAuthSessionError(error)) return null;
+  if (error?.response?.status === 403 || error?.response?.status === 404) return null;
+
+  const cached = await loadEstadoProveedorCache();
+  if (isUsableEstadoProveedorCache(cached)) {
+    if (__DEV__) {
+      console.log('♻️ Usando estadoProveedor en caché tras fallo transitorio de API');
+    }
+    setEstadoProveedor(cached);
+    return cached;
+  }
+  return null;
 }
 
 // Provider del contexto
@@ -271,6 +309,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
           setUsuario(userData);
           setIsAuthenticated(true);
+
+          // Optimistic: último estado bueno en disco → no bloquear Hoy si la API tarda/falla
+          const cachedEstado = await loadEstadoProveedorCache();
+          if (isUsableEstadoProveedorCache(cachedEstado)) {
+            setEstadoProveedor(cachedEstado);
+          }
           
           // Intentar obtener datos actualizados del usuario (incluida foto de perfil)
           try {
@@ -339,7 +383,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               if (__DEV__) {
                 console.log('📊 Estado del proveedor obtenido:', estado);
               }
-              setEstadoProveedor(estado);
+              await applyEstadoProveedor(setEstadoProveedor, estado);
             }
           } catch (error: any) {
             // Si es 401, los tokens están expirados - limpiar todo inmediatamente
@@ -347,60 +391,61 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               if (__DEV__) {
                 console.log('🚨 Error 401 detectado - tokens expirados, limpiando todo');
               }
-              // Limpiar tokens si aún existen
               try {
-                await clearAuthTokenCache();
-                await deleteItem('userData');
+                await clearStoredAuthSession();
               } catch (cleanupError) {
                 if (__DEV__) {
                   console.error('Error limpiando tokens (detalles solo en desarrollo):', cleanupError);
                 }
               }
-              // Limpiar estado de autenticación
               setUsuario(null);
               setIsAuthenticated(false);
               setEstadoProveedor(null);
               if (__DEV__) {
                 console.log('✅ Estado limpiado, el usuario será redirigido al login');
               }
-              return; // El usuario irá automáticamente al login
-            } else {
+              return;
+            }
+
+            if (__DEV__) {
+              console.log('❌ Error obteniendo estado del proveedor:', error.response?.status);
+            }
+
+            if (error.response?.status === 404 || error.response?.status === 403) {
+              const sinPerfil = {
+                tiene_perfil: false,
+                estado_verificacion: 'pendiente' as const,
+                verificado: false,
+                onboarding_iniciado: false,
+                onboarding_completado: false,
+                activo: false,
+                necesita_onboarding: true,
+              } as EstadoProveedor;
               if (__DEV__) {
-                console.log('❌ Error obteniendo estado del proveedor:', error.response?.status);
+                console.log(
+                  error.response?.status === 404
+                    ? '👤 Usuario no tiene perfil de proveedor, estableciendo estado inicial'
+                    : '🚫 Usuario sin permisos de proveedor, evaluando si conservar estado previo',
+                );
               }
-              
-              if (error.response?.status === 404 || error.response?.status === 403) {
-                const sinPerfil = {
-                  tiene_perfil: false,
-                  estado_verificacion: 'pendiente' as const,
-                  verificado: false,
-                  onboarding_iniciado: false,
-                  onboarding_completado: false,
-                  activo: false,
-                  necesita_onboarding: true,
-                } as EstadoProveedor;
-                if (__DEV__) {
-                  console.log(
-                    error.response?.status === 404
-                      ? '👤 Usuario no tiene perfil de proveedor, estableciendo estado inicial'
-                      : '🚫 Usuario sin permisos de proveedor, evaluando si conservar estado previo',
-                  );
+              setEstadoProveedor((prev) => {
+                if (
+                  prev?.tiene_perfil
+                  && (prev.onboarding_completado
+                    || prev.necesita_onboarding === false
+                    || prev.estado_verificacion === 'aprobado')
+                ) {
+                  return prev;
                 }
-                setEstadoProveedor((prev) => {
-                  if (
-                    prev?.tiene_perfil
-                    && (prev.onboarding_completado
-                      || prev.necesita_onboarding === false
-                      || prev.estado_verificacion === 'aprobado')
-                  ) {
-                    return prev;
-                  }
-                  return sinPerfil;
-                });
-              } else {
-                // Otro tipo de error - mantener como null para mostrar error
+                return sinPerfil;
+              });
+              await saveEstadoProveedorCache(sinPerfil);
+            } else {
+              // Fallo transitorio: preferir caché antes de bloquear con "Error de Conectividad"
+              const fromCache = await resolveEstadoProveedorOrCache(setEstadoProveedor, error);
+              if (!fromCache) {
                 if (__DEV__) {
-                  console.log('❓ Error no es 401/404/403, manteniendo estadoProveedor como null');
+                  console.log('❓ Sin estado ni caché usable — Index mostrará reintento');
                 }
                 setEstadoProveedor(null);
               }
@@ -481,10 +526,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       let estadoProveedorActual: EstadoProveedor | null = null;
       try {
         const estado = await obtenerEstadoProveedorWithRetries();
-        setEstadoProveedor(estado);
-        estadoProveedorActual = estado;
+        estadoProveedorActual = await applyEstadoProveedor(setEstadoProveedor, estado);
       } catch (error: any) {
-        if (error.response?.status === 404) {
+        if (error.response?.status === 404 || error.response?.status === 403) {
           const estadoSinPerfil = {
             tiene_perfil: false,
             estado_verificacion: 'pendiente' as const,
@@ -492,11 +536,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             onboarding_iniciado: false,
             onboarding_completado: false,
             activo: false,
-          };
-          setEstadoProveedor(estadoSinPerfil);
-          estadoProveedorActual = estadoSinPerfil;
+            necesita_onboarding: true,
+          } as EstadoProveedor;
+          estadoProveedorActual = await applyEstadoProveedor(setEstadoProveedor, estadoSinPerfil);
         } else {
-          setEstadoProveedor(null);
+          estadoProveedorActual = await resolveEstadoProveedorOrCache(setEstadoProveedor, error);
         }
       }
 
@@ -565,38 +609,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (__DEV__) {
           console.log('Estado obtenido del API:', estado);
         }
-        setEstadoProveedor(estado);
-        estadoProveedorActual = estado;
+        estadoProveedorActual = await applyEstadoProveedor(setEstadoProveedor, estado);
         if (__DEV__) {
           console.log('✅ Estado del proveedor establecido correctamente');
         }
       } catch (error: any) {
-        // Log solo en desarrollo
         if (__DEV__) {
           console.log('Error obteniendo estado del proveedor tras login:', error.response?.status);
         }
-        if (error.response?.status === 404) {
-          // Usuario no tiene perfil de proveedor aún - esto es normal
-          const estadoSinPerfil = { 
+        if (error.response?.status === 404 || error.response?.status === 403) {
+          const estadoSinPerfil = {
             tiene_perfil: false,
             estado_verificacion: 'pendiente' as const,
             verificado: false,
             onboarding_iniciado: false,
             onboarding_completado: false,
-            activo: false
-          };
+            activo: false,
+            necesita_onboarding: true,
+          } as EstadoProveedor;
           if (__DEV__) {
             console.log('Estableciendo estado sin perfil:', estadoSinPerfil);
           }
-          setEstadoProveedor(estadoSinPerfil);
-          estadoProveedorActual = estadoSinPerfil;
+          estadoProveedorActual = await applyEstadoProveedor(setEstadoProveedor, estadoSinPerfil);
         } else {
-          // Otro tipo de error - mantener como null
-          if (__DEV__) {
-            console.log('Error no es 404, manteniendo estadoProveedor como null');
-          }
-          setEstadoProveedor(null);
-          estadoProveedorActual = null;
+          estadoProveedorActual = await resolveEstadoProveedorOrCache(setEstadoProveedor, error);
         }
       }
       
@@ -818,6 +854,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUsuario(null);
       setIsAuthenticated(false);
       setEstadoProveedor(null);
+      void clearEstadoProveedorCache();
       
       try {
         if (Platform.OS !== 'web' && !IS_EXPO_GO) {
@@ -881,7 +918,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       try {
         const estado = await obtenerEstadoProveedorWithRetries();
-        setEstadoProveedor(estado);
+        await applyEstadoProveedor(setEstadoProveedor, estado);
 
         try {
           const datosUsuario = await authAPI.obtenerDatosUsuario();
@@ -936,8 +973,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
             return sinPerfil;
           });
+          await saveEstadoProveedorCache(resolved);
           return resolved;
         }
+
+        // Fallo transitorio: devolver caché en vez de tumbar la UI
+        const fromCache = await resolveEstadoProveedorOrCache(setEstadoProveedor, error);
+        if (fromCache) return fromCache;
 
         if (__DEV__) {
           console.error('Error refrescando estado del proveedor (detalles solo en desarrollo):', error);
@@ -956,6 +998,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const limpiarStorage = async () => {
     await authAPI.clearStorage();
+    await clearEstadoProveedorCache();
     setUsuario(null);
     setIsAuthenticated(false);
     setEstadoProveedor(null);

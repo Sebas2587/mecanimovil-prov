@@ -687,6 +687,12 @@ export const authAPI = {
   clearStorage: async () => {
     await deleteItem('authToken');
     await deleteItem('userData');
+    try {
+      const { clearEstadoProveedorCache } = await import('@/utils/auth/estadoProveedorCache');
+      await clearEstadoProveedorCache();
+    } catch {
+      /* no crítico */
+    }
     console.log('✅ Storage limpiado completamente');
   },
 

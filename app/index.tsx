@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
@@ -15,77 +15,32 @@ export default function IndexScreen() {
   const { isAuthenticated, isLoading, usuario, estadoProveedor, refrescarEstadoProveedor } = useAuth();
   const router = useRouter();
   const [mostrarErrorConectividad, setMostrarErrorConectividad] = useState(false);
+  const [reintentando, setReintentando] = useState(false);
+  const autoRetryDone = useRef(false);
 
-  // Log solo en desarrollo (__DEV__), nunca en producción (APK)
   if (__DEV__) {
     console.log('🎬 IndexScreen montado/renderizado');
   }
 
   useEffect(() => {
-    // Log solo en desarrollo
     if (__DEV__) {
       console.log('🔍 Index useEffect - Estado actual:', {
         isLoading,
         isAuthenticated,
         hasUsuario: !!usuario,
-        estadoProveedor: estadoProveedor ? {
-          tiene_perfil: estadoProveedor.tiene_perfil,
-          tipo_proveedor: estadoProveedor.tipo_proveedor,
-          onboarding_iniciado: estadoProveedor.onboarding_iniciado,
-          onboarding_completado: estadoProveedor.onboarding_completado,
-          verificado: estadoProveedor.verificado
-        } : null
+        hasEstado: !!estadoProveedor,
       });
     }
 
-    if (!isLoading) {
-      // Log solo en desarrollo
-      if (__DEV__) {
-        console.log('📍 No está cargando, evaluando navegación...');
-      }
-      
-      // CASO 1: Usuario no autenticado - ir al login SIEMPRE
-      if (!isAuthenticated) {
-        if (__DEV__) {
-          console.log('📱 Usuario sin sesión - navegando a login');
-        }
-        router.replace('/(auth)/login');
-        return;
-      }
+    if (isLoading) return;
 
-      // CASO 2: Usuario autenticado pero sin datos de usuario - caso extraño
-      if (!usuario) {
-        if (__DEV__) {
-          console.log('❌ Está autenticado pero no hay usuario - navegando a login');
-        }
-        router.replace('/(auth)/login');
-        return;
-      }
+    if (!isAuthenticated || !usuario) {
+      router.replace('/(auth)/login');
+      return;
+    }
 
-      // A partir de aquí, el usuario SÍ está autenticado y tiene datos válidos
-      if (__DEV__) {
-        console.log('👤 Usuario autenticado existe, evaluando estado del proveedor...');
-        console.log('EstadoProveedor completo:', estadoProveedor);
-      }
-
-      if (estadoProveedor !== null) {
-        setMostrarErrorConectividad(false);
-      }
-
-      // CASO 3: EstadoProveedor es null (falló API tras reintentos o sin respuesta).
-      // Mostrar pantalla de conectividad en el mismo ciclo — no esperar SecureStore
-      // (si no, la UI se queda en el spinner "Cargando..." hasta que resuelve la promesa).
-      if (estadoProveedor === null) {
-        if (__DEV__) {
-          console.log('⚠️ EstadoProveedor es null — mostrando opción de reintentar / sesión');
-        }
-        setMostrarErrorConectividad(true);
-        getItem('authToken').then((token) => {
-          if (!token) router.replace('/(auth)/login');
-        }).catch(() => router.replace('/(auth)/login'));
-        return;
-      }
-
+    if (estadoProveedor !== null) {
+      setMostrarErrorConectividad(false);
       const route = resolveProveedorRoute(estadoProveedor, { authenticated: true });
       if (route.kind === 'href') {
         if (__DEV__) {
@@ -94,63 +49,71 @@ export default function IndexScreen() {
         applyProveedorRoute(router, route);
         return;
       }
-
-      // stay: onboarding completado pero en revisión — render EstadoRevisionScreen abajo
-      if (__DEV__) {
-        console.log('📋 Permaneciendo en index (revisión o edge case)');
-      }
+      // stay: revisión / edge
       return;
-    } else {
-      // Log solo en desarrollo
-      if (__DEV__) {
-        console.log('⏳ Todavía cargando, esperando...');
-      }
     }
-  }, [isAuthenticated, isLoading, usuario, estadoProveedor, router]);
 
-  // Función para reintentar la carga del estado
-  const handleRetry = async () => {
-    // Log solo en desarrollo
-    if (__DEV__) {
-      console.log('🔄 Reintentando obtener estado del proveedor...');
+    // Sin estado: un auto-reintento silencioso antes de mostrar error
+    if (!autoRetryDone.current) {
+      autoRetryDone.current = true;
+      setReintentando(true);
+      void (async () => {
+        try {
+          const refreshed = await refrescarEstadoProveedor();
+          if (!refreshed) {
+            const token = await getItem('authToken');
+            if (!token) {
+              router.replace('/(auth)/login');
+              return;
+            }
+            setMostrarErrorConectividad(true);
+          }
+        } catch {
+          const token = await getItem('authToken').catch(() => null);
+          if (!token) {
+            router.replace('/(auth)/login');
+            return;
+          }
+          setMostrarErrorConectividad(true);
+        } finally {
+          setReintentando(false);
+        }
+      })();
+      return;
     }
+
+    setMostrarErrorConectividad(true);
+  }, [isAuthenticated, isLoading, usuario, estadoProveedor, router, refrescarEstadoProveedor]);
+
+  const handleRetry = async () => {
     setMostrarErrorConectividad(false);
+    setReintentando(true);
     try {
-      await refrescarEstadoProveedor();
-    } catch (error) {
-      // Log solo en desarrollo
-      if (__DEV__) {
-        console.log('❌ Error al reintentar, mostrando pantalla de error nuevamente (detalles solo en desarrollo):', error);
-      }
+      const refreshed = await refrescarEstadoProveedor();
+      if (!refreshed) setMostrarErrorConectividad(true);
+    } catch {
       setMostrarErrorConectividad(true);
+    } finally {
+      setReintentando(false);
     }
   };
 
-  // Función para ir al login (cerrar sesión)
   const handleGoToLogin = () => {
-    // Log solo en desarrollo
-    if (__DEV__) {
-      console.log('🔑 Navegando a login por decisión del usuario');
-    }
     router.replace('/(auth)/login');
   };
 
-  // Función para ir al onboarding
   const handleGoToOnboarding = () => {
-    // Log solo en desarrollo
-    if (__DEV__) {
-      console.log('🚀 Navegando a onboarding por decisión del usuario');
-    }
     setMostrarErrorConectividad(false);
     router.replace('/(onboarding)/tipo-cuenta');
   };
 
-  // Mostrar loading mientras se determina el estado
-  if (isLoading) {
+  if (isLoading || reintentando) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={I.primary} />
-        <Text style={styles.loadingText}>Cargando...</Text>
+        <Text style={styles.loadingText}>
+          {reintentando ? 'Reconectando con el servidor…' : 'Cargando...'}
+        </Text>
       </View>
     );
   }
@@ -160,23 +123,22 @@ export default function IndexScreen() {
     return <EstadoRevisionScreen estadoProveedor={estadoProveedor} />;
   }
 
-  // Si está autenticado pero hay error de conectividad al obtener estado del proveedor
   if (isAuthenticated && usuario && mostrarErrorConectividad) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>Error de Conectividad</Text>
+        <Text style={styles.errorTitle}>No pudimos cargar tu taller</Text>
         <Text style={styles.errorMessage}>
-          No pudimos obtener tu información de proveedor. 
-          Esto puede deberse a un problema temporal del servidor.
+          El servidor no respondió a tiempo. Reintenta en unos segundos;
+          si persiste, cierra sesión e ingresa de nuevo.
         </Text>
-        
+
         <InstitutionalButton
           label="Reintentar"
           onPress={handleRetry}
           variant="secondary"
           style={styles.actionButton}
         />
-        
+
         <View style={styles.alternativeActions}>
           <Text style={styles.alternativeText}>¿Eres nuevo como proveedor?</Text>
           <InstitutionalButton
@@ -185,7 +147,7 @@ export default function IndexScreen() {
             variant="success"
             style={styles.actionButton}
           />
-          
+
           <InstitutionalButton
             label="Cerrar Sesión"
             onPress={handleGoToLogin}
@@ -197,7 +159,6 @@ export default function IndexScreen() {
     );
   }
 
-  // Loading por defecto (mientras se resuelve la navegación)
   return (
     <View style={styles.loadingContainer}>
       <ActivityIndicator size="large" color={I.primary} />
