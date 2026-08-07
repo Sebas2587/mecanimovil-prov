@@ -7,6 +7,7 @@ import {
   resolveAuthToken,
   waitForAuthHydration,
 } from '@/utils/authTokenCache';
+import { clearEstadoProveedorCache } from '@/utils/auth/estadoProveedorCache';
 import { fetchAllPaginated } from '@/utils/fetchPaginated';
 import ServerConfig from './serverConfig';
 
@@ -231,6 +232,7 @@ const setupInterceptors = (api: any) => {
         try {
           await clearAuthTokenCache();
           await deleteItem('userData');
+          await clearEstadoProveedorCache();
           if (__DEV__) {
             console.log('✅ Tokens limpiados correctamente');
           }

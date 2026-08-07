@@ -57,6 +57,7 @@ import { buildCatalogoOpcionesAgenda, filtrarMecanicosParaAgenda } from '@/utils
 import {
   obtenerDisponibilidadConDuracion,
   obtenerDiasDisponiblesAgenda,
+  parseDisponibilidadRangoAgenda,
 } from '@/services/disponibilidadProveedorService';
 import { resolveProveedorAgendaIds, type ProveedorAgendaIds } from '@/utils/resolveProveedorAgenda';
 import equipoTallerService, {
@@ -232,13 +233,12 @@ export function AgendarDesdeCanalModal({
   const [fechasDisponibles, setFechasDisponibles] = useState<string[] | null>(null);
   const [cargandoFechas, setCargandoFechas] = useState(false);
   const [mensajeSinFechas, setMensajeSinFechas] = useState<string | undefined>();
-  const [horasDisponibles, setHorasDisponibles] = useState<string[] | null>(null);
+  const [grillaHoraria, setGrillaHoraria] = useState<string[] | null>(null);
   const [cargandoHoras, setCargandoHoras] = useState(false);
   const [mensajeSinHoras, setMensajeSinHoras] = useState<string | undefined>();
   const [mecanicosAptos, setMecanicosAptos] = useState<MiembroTaller[]>([]);
   const [cargandoMecanicos, setCargandoMecanicos] = useState(false);
   const [miembroSeleccionado, setMiembroSeleccionado] = useState<number | null>(null);
-  const [slotsFinPorHora, setSlotsFinPorHora] = useState<Record<string, string>>({});
   const [descripcion, setDescripcion] = useState('');
   const [tipoServicio, setTipoServicio] = useState<'taller' | 'domicilio'>('taller');
   const [direccion, setDireccion] = useState('');
@@ -335,7 +335,7 @@ export function AgendarDesdeCanalModal({
     setCatalogoOpcionKey(null);
     setFechasDisponibles(null);
     setMensajeSinFechas(undefined);
-    setHorasDisponibles(null);
+    setGrillaHoraria(null);
     setMensajeSinHoras(undefined);
     setMecanicosAptos([]);
     setMiembroSeleccionado(null);
@@ -480,7 +480,7 @@ export function AgendarDesdeCanalModal({
   }, [modoServicio, selectedOfertaId, servicioManual]);
 
   useEffect(() => {
-    setHorasDisponibles([]);
+    setGrillaHoraria([]);
     setFechasDisponibles(null);
     setMensajeSinHoras(undefined);
     setMensajeSinFechas(undefined);
@@ -542,8 +542,7 @@ export function AgendarDesdeCanalModal({
   }, [visible, proveedorAgenda]);
 
   useEffect(() => {
-    setHorasDisponibles([]);
-    setSlotsFinPorHora({});
+    setGrillaHoraria([]);
     setFechaHora((prev) => ({ ...prev, hora: null, horaFin: null }));
   }, [miembroSeleccionado]);
 
@@ -610,19 +609,19 @@ export function AgendarDesdeCanalModal({
 
   useEffect(() => {
     if (!visible || !agendaParamsListos) {
-      setHorasDisponibles(null);
+      setGrillaHoraria(null);
       setCargandoHoras(false);
       return;
     }
 
     if (cargandoFechas || fechasDisponibles === null) {
-      setHorasDisponibles(null);
+      setGrillaHoraria(null);
       setCargandoHoras(false);
       return;
     }
 
     if (fechasDisponibles.length === 0) {
-      setHorasDisponibles([]);
+      setGrillaHoraria([]);
       setMensajeSinHoras('No hay horarios disponibles para esta fecha.');
       setCargandoHoras(false);
       return;
@@ -630,8 +629,8 @@ export function AgendarDesdeCanalModal({
 
     const fechaKey = formatDateApi(fechaHora.fecha);
     if (!fechasDisponibles.includes(fechaKey)) {
-        setHorasDisponibles([]);
-        setMensajeSinHoras('Selecciona una fecha disponible.');
+      setGrillaHoraria([]);
+      setMensajeSinHoras('Selecciona una fecha disponible.');
       setCargandoHoras(false);
       return;
     }
@@ -639,7 +638,7 @@ export function AgendarDesdeCanalModal({
     let cancelled = false;
     const fecha = formatDateApi(fechaHora.fecha);
 
-    setHorasDisponibles([]);
+    setGrillaHoraria(null);
     setMensajeSinHoras(undefined);
     setCargandoHoras(true);
     obtenerDisponibilidadConDuracion({
@@ -651,36 +650,22 @@ export function AgendarDesdeCanalModal({
     })
       .then((data) => {
         if (cancelled) return;
-        const finPorHora: Record<string, string> = {};
-        const horas = (data.slots_disponibles ?? [])
-          .map((slot) => {
-            if (slot.hora && slot.hora_fin_estimada) {
-              finPorHora[slot.hora] = slot.hora_fin_estimada;
-            }
-            return slot.hora;
-          })
-          .filter((h): h is string => Boolean(h));
-        setSlotsFinPorHora(finPorHora);
-        setHorasDisponibles(horas);
-        setMensajeSinHoras(
-          horas.length > 0 ? undefined : (data.mensaje || 'No hay horarios disponibles para esta fecha.'),
-        );
+        const { grillaHoraria: grilla, mensajeSinHoras: msg } = parseDisponibilidadRangoAgenda(data);
+        setGrillaHoraria(grilla);
+        setMensajeSinHoras(msg);
         setFechaHora((prev) => {
-          if (!prev.hora || horas.includes(prev.hora)) {
-            const finEstimada = prev.hora ? finPorHora[prev.hora] : null;
-            if (prev.hora && finEstimada && prev.horaFin !== finEstimada) {
-              return { ...prev, horaFin: finEstimada };
-            }
-            return prev;
+          const horaValida = prev.hora && grilla.includes(prev.hora) ? prev.hora : null;
+          const finValido =
+            horaValida && prev.horaFin && grilla.includes(prev.horaFin) ? prev.horaFin : null;
+          if (horaValida) {
+            return { ...prev, hora: horaValida, horaFin: finValido };
           }
-          const nextHora = horas[0] ?? null;
-          const nextFin = nextHora ? finPorHora[nextHora] ?? null : null;
-          return { ...prev, hora: nextHora, horaFin: nextFin };
+          return { ...prev, hora: null, horaFin: null };
         });
       })
       .catch(() => {
         if (cancelled) return;
-        setHorasDisponibles([]);
+        setGrillaHoraria([]);
         setMensajeSinHoras('No se pudieron cargar los horarios.');
       })
       .finally(() => {
@@ -700,14 +685,6 @@ export function AgendarDesdeCanalModal({
     cargandoFechas,
     miembroSeleccionado,
   ]);
-
-  useEffect(() => {
-    if (!fechaHora.hora) return;
-    const finEstimada = slotsFinPorHora[fechaHora.hora];
-    if (finEstimada && fechaHora.horaFin !== finEstimada) {
-      setFechaHora((prev) => ({ ...prev, horaFin: finEstimada }));
-    }
-  }, [fechaHora.hora, fechaHora.horaFin, slotsFinPorHora]);
 
   const resetVehiculoManual = useCallback(() => {
     const vacio = limpiarVehiculo();
@@ -1643,7 +1620,7 @@ export function AgendarDesdeCanalModal({
                     ? mensajeSinFechas
                     : 'Selecciona modalidad (En taller / A domicilio) y un servicio para ver fechas disponibles.'
                 }
-                horasDisponibles={agendaParamsListos ? (horasDisponibles ?? []) : null}
+                grillaHoraria={agendaParamsListos ? grillaHoraria : null}
                 cargandoHoras={agendaParamsListos && cargandoHoras}
                 mensajeSinHoras={mensajeSinHoras}
               />

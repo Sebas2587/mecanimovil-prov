@@ -13,6 +13,7 @@ import {
 import {
   obtenerDiasDisponiblesAgenda,
   obtenerDisponibilidadConDuracion,
+  parseDisponibilidadRangoAgenda,
 } from '@/services/disponibilidadProveedorService';
 import { agendaProveedorService, type CitaAgendaPersonal } from '@/services/agendaProveedorService';
 import { calcularDuracionMinutos } from '@/utils/citaPersonalHorario';
@@ -46,8 +47,7 @@ export function ConfirmarHorarioCitaSheet({
     resolveInitialPickerValue(),
   );
   const [fechasDisponibles, setFechasDisponibles] = useState<string[] | null>(null);
-  const [horasDisponibles, setHorasDisponibles] = useState<string[] | null>(null);
-  const [slotsFinPorHora, setSlotsFinPorHora] = useState<Record<string, string>>({});
+  const [grillaHoraria, setGrillaHoraria] = useState<string[] | null>(null);
   const [cargandoFechas, setCargandoFechas] = useState(false);
   const [cargandoHoras, setCargandoHoras] = useState(false);
   const [mensajeSinFechas, setMensajeSinFechas] = useState<string | undefined>();
@@ -64,8 +64,7 @@ export function ConfirmarHorarioCitaSheet({
       ),
     );
     setFechasDisponibles(null);
-    setHorasDisponibles(null);
-    setSlotsFinPorHora({});
+    setGrillaHoraria(null);
     setMensajeSinFechas(undefined);
     setMensajeSinHoras(undefined);
   }, [visible, cita?.id, miembroId]);
@@ -119,17 +118,17 @@ export function ConfirmarHorarioCitaSheet({
   useEffect(() => {
     if (!visible || !cita) return;
     if (cargandoFechas || fechasDisponibles === null) {
-      setHorasDisponibles(null);
+      setGrillaHoraria(null);
       return;
     }
     if (fechasDisponibles.length === 0) {
-      setHorasDisponibles([]);
+      setGrillaHoraria([]);
       setMensajeSinHoras('No hay horarios disponibles.');
       return;
     }
     const fechaKey = formatDateApi(fechaHora.fecha);
     if (!fechasDisponibles.includes(fechaKey)) {
-      setHorasDisponibles([]);
+      setGrillaHoraria([]);
       setMensajeSinHoras('Selecciona una fecha disponible.');
       return;
     }
@@ -146,38 +145,22 @@ export function ConfirmarHorarioCitaSheet({
     })
       .then((data) => {
         if (cancelled) return;
-        const finPorHora: Record<string, string> = {};
-        const horas = (data.slots_disponibles ?? [])
-          .map((slot) => {
-            if (slot.hora && slot.hora_fin_estimada) {
-              finPorHora[slot.hora] = slot.hora_fin_estimada;
-            }
-            return slot.hora;
-          })
-          .filter((h): h is string => Boolean(h));
-        setSlotsFinPorHora(finPorHora);
-        setHorasDisponibles(horas);
-        setMensajeSinHoras(
-          horas.length > 0
-            ? undefined
-            : (data.mensaje || 'No hay horarios disponibles para esta fecha.'),
-        );
+        const { grillaHoraria: grilla, mensajeSinHoras: msg } = parseDisponibilidadRangoAgenda(data);
+        setGrillaHoraria(grilla);
+        setMensajeSinHoras(msg);
         setFechaHora((prev) => {
-          if (prev.hora && horas.includes(prev.hora)) {
-            const fin = finPorHora[prev.hora];
-            return fin && prev.horaFin !== fin ? { ...prev, horaFin: fin } : prev;
+          const horaValida = prev.hora && grilla.includes(prev.hora) ? prev.hora : null;
+          const finValido =
+            horaValida && prev.horaFin && grilla.includes(prev.horaFin) ? prev.horaFin : null;
+          if (horaValida) {
+            return { ...prev, hora: horaValida, horaFin: finValido };
           }
-          const nextHora = horas[0] ?? null;
-          return {
-            ...prev,
-            hora: nextHora,
-            horaFin: nextHora ? finPorHora[nextHora] ?? null : null,
-          };
+          return { ...prev, hora: null, horaFin: null };
         });
       })
       .catch(() => {
         if (!cancelled) {
-          setHorasDisponibles([]);
+          setGrillaHoraria([]);
           setMensajeSinHoras('No se pudieron cargar los horarios.');
         }
       })
@@ -197,14 +180,6 @@ export function ConfirmarHorarioCitaSheet({
     ofertaId,
     miembroId,
   ]);
-
-  useEffect(() => {
-    if (!fechaHora.hora) return;
-    const fin = slotsFinPorHora[fechaHora.hora];
-    if (fin && fechaHora.horaFin !== fin) {
-      setFechaHora((prev) => ({ ...prev, horaFin: fin }));
-    }
-  }, [fechaHora.hora, fechaHora.horaFin, slotsFinPorHora]);
 
   const confirmar = useCallback(async () => {
     if (!cita) return;
@@ -276,7 +251,7 @@ export function ConfirmarHorarioCitaSheet({
             onChange={setFechaHora}
             modo="rango"
             fechasDisponibles={fechasDisponibles}
-            horasDisponibles={horasDisponibles}
+            grillaHoraria={grillaHoraria}
             cargandoFechas={cargandoFechas}
             cargandoHoras={cargandoHoras}
             mensajeSinFechas={mensajeSinFechas}

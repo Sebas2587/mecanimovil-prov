@@ -123,21 +123,36 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+function isAuthSessionError(error: any): boolean {
+  if (!error) return false;
+  if (error?.response?.status === 401) return true;
+  const code = error?.code as string | undefined;
+  if (code === 'ERR_NO_AUTH') return true;
+  const msg = typeof error.message === 'string' ? error.message : '';
+  const msgLower = msg.toLowerCase();
+  if (
+    msg === 'No autenticado'
+    || msg === 'Sin sesión activa'
+    || msgLower.includes('sin sesión')
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function isTransientEstadoProveedorError(error: any): boolean {
   if (!error) return false;
   if (isAuthSessionError(error)) return false;
   const status = error.response?.status;
   if (status === 401 || status === 403 || status === 404) return false;
   const code = error.code as string | undefined;
+  if (code === 'ERR_CANCELED' || code === 'ERR_NO_AUTH') return false;
   if (code === 'ECONNABORTED' || code === 'ERR_NETWORK' || code === 'ETIMEDOUT') return true;
   const msg = typeof error.message === 'string' ? error.message.toLowerCase() : '';
   if (msg.includes('timeout') || msg.includes('network')) return true;
+  // Sin response solo es transitorio si no es un cancel/auth local
   if (!error.response || (typeof status === 'number' && (status >= 500 || status === 429))) return true;
   return false;
-}
-
-function isAuthSessionError(error: any): boolean {
-  return error?.message === 'No autenticado' || error?.response?.status === 401;
 }
 
 async function clearStoredAuthSession(): Promise<void> {
@@ -335,61 +350,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               }
             }
           } catch (userError: any) {
-            // Si es 401, los tokens están expirados - limpiar todo
-            if (userError.response?.status === 401 || userError.message === 'No autenticado') {
+            if (isAuthSessionError(userError)) {
               if (__DEV__) {
-                console.log('🚨 Error 401 al obtener datos del usuario - tokens expirados');
-              }
-              // Limpiar tokens si aún existen
-              try {
-                await clearAuthTokenCache();
-                await deleteItem('userData');
-              } catch (cleanupError) {
-                if (__DEV__) {
-                  console.error('Error limpiando tokens (detalles solo en desarrollo):', cleanupError);
-                }
-              }
-              // Limpiar estado de autenticación
-              setUsuario(null);
-              setIsAuthenticated(false);
-              setEstadoProveedor(null);
-              completeAuthHydration(null);
-              if (__DEV__) {
-                console.log('✅ Estado limpiado por error 401 en obtenerDatosUsuario');
-              }
-              return; // Salir de la función para evitar más llamadas
-            } else {
-              if (__DEV__) {
-                console.log('No se pudieron obtener datos actualizados del usuario, usando datos del cache');
-              }
-            }
-          }
-          
-          // Obtener estado del proveedor si está autenticado
-          if (__DEV__) {
-            console.log('🔍 Obteniendo estado del proveedor...');
-          }
-          try {
-            // Verificar token antes de intentar obtener estado
-            const token = await getItem('authToken');
-            if (!token) {
-              if (__DEV__) {
-                console.log('⚠️ No hay token, no se puede obtener estado del proveedor');
-              }
-              setEstadoProveedor(null);
-              // Continuar con el flujo, no retornar de la función completa
-            } else {
-              const estado = await obtenerEstadoProveedorWithRetries();
-              if (__DEV__) {
-                console.log('📊 Estado del proveedor obtenido:', estado);
-              }
-              await applyEstadoProveedor(setEstadoProveedor, estado);
-            }
-          } catch (error: any) {
-            // Si es 401, los tokens están expirados - limpiar todo inmediatamente
-            if (error.response?.status === 401 || error.message === 'No autenticado') {
-              if (__DEV__) {
-                console.log('🚨 Error 401 detectado - tokens expirados, limpiando todo');
+                console.log('🚨 Sesión inválida al obtener datos del usuario — limpiando', {
+                  status: userError?.response?.status,
+                  code: userError?.code,
+                  message: userError?.message,
+                });
               }
               try {
                 await clearStoredAuthSession();
@@ -401,14 +368,64 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               setUsuario(null);
               setIsAuthenticated(false);
               setEstadoProveedor(null);
+              completeAuthHydration(null);
+              return;
+            }
+            if (__DEV__) {
+              console.log('No se pudieron obtener datos actualizados del usuario, usando datos del cache');
+            }
+          }
+          
+          // Obtener estado del proveedor si está autenticado
+          if (__DEV__) {
+            console.log('🔍 Obteniendo estado del proveedor...');
+          }
+          try {
+            // Verificar token antes de intentar obtener estado
+            const token = await getItem('authToken');
+            if (!token) {
+              // userData en caché sin token → sesión inconsistente; ir a login
               if (__DEV__) {
-                console.log('✅ Estado limpiado, el usuario será redirigido al login');
+                console.log('⚠️ userData sin authToken — limpiando sesión fantasma');
               }
+              await clearStoredAuthSession();
+              setUsuario(null);
+              setIsAuthenticated(false);
+              setEstadoProveedor(null);
+              completeAuthHydration(null);
+              return;
+            }
+            const estado = await obtenerEstadoProveedorWithRetries();
+            if (__DEV__) {
+              console.log('📊 Estado del proveedor obtenido:', estado);
+            }
+            await applyEstadoProveedor(setEstadoProveedor, estado);
+          } catch (error: any) {
+            // Sesión inválida / token limpio mid-bootstrap → login (no pantalla de taller)
+            if (isAuthSessionError(error)) {
+              if (__DEV__) {
+                console.log('🚨 Sesión inválida al obtener estado — limpiando y yendo a login', {
+                  status: error?.response?.status,
+                  code: error?.code,
+                  message: error?.message,
+                });
+              }
+              try {
+                await clearStoredAuthSession();
+              } catch (cleanupError) {
+                if (__DEV__) {
+                  console.error('Error limpiando tokens (detalles solo en desarrollo):', cleanupError);
+                }
+              }
+              setUsuario(null);
+              setIsAuthenticated(false);
+              setEstadoProveedor(null);
+              completeAuthHydration(null);
               return;
             }
 
             if (__DEV__) {
-              console.log('❌ Error obteniendo estado del proveedor:', error.response?.status);
+              console.log('❌ Error obteniendo estado del proveedor:', error.response?.status || error?.code);
             }
 
             if (error.response?.status === 404 || error.response?.status === 403) {
@@ -441,13 +458,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               });
               await saveEstadoProveedorCache(sinPerfil);
             } else {
-              // Fallo transitorio: preferir caché antes de bloquear con "Error de Conectividad"
+              // Fallo transitorio: preferir caché (disco o ya hidratado) antes de bloquear
               const fromCache = await resolveEstadoProveedorOrCache(setEstadoProveedor, error);
               if (!fromCache) {
                 if (__DEV__) {
                   console.log('❓ Sin estado ni caché usable — Index mostrará reintento');
                 }
-                setEstadoProveedor(null);
+                // No pisar un estado usable ya mostrado (optimistic hydrate)
+                setEstadoProveedor((prev) =>
+                  (isUsableEstadoProveedorCache(prev) ? prev : null),
+                );
               }
             }
           }
@@ -510,6 +530,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       const loginResponse = response as GoogleLoginProveedorResponse;
+      completeAuthHydration(loginResponse.token);
       setUsuario({
         id: loginResponse.user.id,
         username: loginResponse.user.username,
@@ -528,6 +549,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const estado = await obtenerEstadoProveedorWithRetries();
         estadoProveedorActual = await applyEstadoProveedor(setEstadoProveedor, estado);
       } catch (error: any) {
+        // Tras login fresco no tratar fallos de API como “sesión muerta” (limpiaría el token recién guardado)
         if (error.response?.status === 404 || error.response?.status === 403) {
           const estadoSinPerfil = {
             tiene_perfil: false,
@@ -549,8 +571,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return { success: true, estadoProveedor: estadoProveedorActual };
     } catch (error: any) {
       const status = error?.response?.status;
-      let errorMessage = 'No se pudo iniciar sesión con Google. Intenta nuevamente.';
-      if (status === 403) {
+      const code = error?.response?.data?.code;
+      let errorMessage = error?.message || 'No se pudo iniciar sesión con Google. Intenta nuevamente.';
+      if (status === 404 && code === 'USER_NOT_FOUND') {
+        return {
+          success: false,
+          code: 'USER_NOT_FOUND',
+          error: errorMessage,
+          profile: error?.response?.data?.profile,
+        };
+      }
+      if (status === 403 || code === 'CLIENT_ACCOUNT') {
         errorMessage =
           'Esta cuenta no es de proveedor. Utiliza la aplicación de usuarios.';
         return { success: false, error: errorMessage, code: 'CLIENT_ACCOUNT' };

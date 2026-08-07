@@ -45,6 +45,7 @@ import {
 import {
   obtenerDisponibilidadConDuracion,
   obtenerDiasDisponiblesAgenda,
+  parseDisponibilidadRangoAgenda,
 } from '@/services/disponibilidadProveedorService';
 import { resolveProveedorAgendaIds, type ProveedorAgendaIds } from '@/utils/resolveProveedorAgenda';
 import equipoTallerService, {
@@ -106,10 +107,9 @@ export default function AgendarCitaPersonalScreen() {
   const [fechasDisponibles, setFechasDisponibles] = useState<string[] | null>(null);
   const [cargandoFechas, setCargandoFechas] = useState(false);
   const [mensajeSinFechas, setMensajeSinFechas] = useState<string | undefined>();
-  const [horasDisponibles, setHorasDisponibles] = useState<string[] | null>(null);
+  const [grillaHoraria, setGrillaHoraria] = useState<string[] | null>(null);
   const [cargandoHoras, setCargandoHoras] = useState(false);
   const [mensajeSinHoras, setMensajeSinHoras] = useState<string | undefined>();
-  const [slotsFinPorHora, setSlotsFinPorHora] = useState<Record<string, string>>({});
 
   const puedeAgendar = !esSupervisor || puede('agenda');
 
@@ -211,7 +211,7 @@ export default function AgendarCitaPersonalScreen() {
   }, [estadoProveedor?.tipo_proveedor]);
 
   useEffect(() => {
-    setHorasDisponibles([]);
+    setGrillaHoraria([]);
     setFechasDisponibles(null);
     setMensajeSinHoras(undefined);
     setMensajeSinFechas(undefined);
@@ -220,8 +220,7 @@ export default function AgendarCitaPersonalScreen() {
   }, [selectedOfertaId, modalidadApi, modoServicio, catalogoGrupoKey, tipoServicio, servicioManual]);
 
   useEffect(() => {
-    setHorasDisponibles([]);
-    setSlotsFinPorHora({});
+    setGrillaHoraria([]);
     setFechaHora((prev) => ({ ...prev, hora: null, horaFin: null }));
   }, [miembroSeleccionado]);
 
@@ -284,19 +283,19 @@ export default function AgendarCitaPersonalScreen() {
 
   useEffect(() => {
     if (!agendaParamsListos) {
-      setHorasDisponibles(null);
+      setGrillaHoraria(null);
       setCargandoHoras(false);
       return;
     }
 
     if (cargandoFechas || fechasDisponibles === null) {
-      setHorasDisponibles(null);
+      setGrillaHoraria(null);
       setCargandoHoras(false);
       return;
     }
 
     if (fechasDisponibles.length === 0) {
-      setHorasDisponibles([]);
+      setGrillaHoraria([]);
       setMensajeSinHoras('No hay horarios disponibles para esta fecha.');
       setCargandoHoras(false);
       return;
@@ -304,7 +303,7 @@ export default function AgendarCitaPersonalScreen() {
 
     const fechaKey = formatDateApi(fechaHora.fecha);
     if (!fechasDisponibles.includes(fechaKey)) {
-      setHorasDisponibles([]);
+      setGrillaHoraria([]);
       setMensajeSinHoras('Selecciona una fecha disponible.');
       setCargandoHoras(false);
       return;
@@ -313,7 +312,7 @@ export default function AgendarCitaPersonalScreen() {
     let cancelled = false;
     const fecha = formatDateApi(fechaHora.fecha);
 
-    setHorasDisponibles([]);
+    setGrillaHoraria(null);
     setMensajeSinHoras(undefined);
     setCargandoHoras(true);
 
@@ -326,36 +325,22 @@ export default function AgendarCitaPersonalScreen() {
     })
       .then((data) => {
         if (cancelled) return;
-        const finPorHora: Record<string, string> = {};
-        const horas = (data.slots_disponibles ?? [])
-          .map((slot) => {
-            if (slot.hora && slot.hora_fin_estimada) {
-              finPorHora[slot.hora] = slot.hora_fin_estimada;
-            }
-            return slot.hora;
-          })
-          .filter((h): h is string => Boolean(h));
-        setSlotsFinPorHora(finPorHora);
-        setHorasDisponibles(horas);
-        setMensajeSinHoras(
-          horas.length > 0 ? undefined : (data.mensaje || 'No hay horarios disponibles para esta fecha.'),
-        );
+        const { grillaHoraria: grilla, mensajeSinHoras: msg } = parseDisponibilidadRangoAgenda(data);
+        setGrillaHoraria(grilla);
+        setMensajeSinHoras(msg);
         setFechaHora((prev) => {
-          if (!prev.hora || horas.includes(prev.hora)) {
-            const finEstimada = prev.hora ? finPorHora[prev.hora] : null;
-            if (prev.hora && finEstimada && prev.horaFin !== finEstimada) {
-              return { ...prev, horaFin: finEstimada };
-            }
-            return prev;
+          const horaValida = prev.hora && grilla.includes(prev.hora) ? prev.hora : null;
+          const finValido =
+            horaValida && prev.horaFin && grilla.includes(prev.horaFin) ? prev.horaFin : null;
+          if (horaValida) {
+            return { ...prev, hora: horaValida, horaFin: finValido };
           }
-          const nextHora = horas[0] ?? null;
-          const nextFin = nextHora ? finPorHora[nextHora] ?? null : null;
-          return { ...prev, hora: nextHora, horaFin: nextFin };
+          return { ...prev, hora: null, horaFin: null };
         });
       })
       .catch(() => {
         if (cancelled) return;
-        setHorasDisponibles([]);
+        setGrillaHoraria([]);
         setMensajeSinHoras('No se pudieron cargar los horarios.');
       })
       .finally(() => {
@@ -374,14 +359,6 @@ export default function AgendarCitaPersonalScreen() {
     cargandoFechas,
     miembroSeleccionado,
   ]);
-
-  useEffect(() => {
-    if (!fechaHora.hora) return;
-    const finEstimada = slotsFinPorHora[fechaHora.hora];
-    if (finEstimada && fechaHora.horaFin !== finEstimada) {
-      setFechaHora((prev) => ({ ...prev, horaFin: finEstimada }));
-    }
-  }, [fechaHora.hora, fechaHora.horaFin, slotsFinPorHora]);
 
   const validarFormulario = useCallback((): string | null => {
     if (!clienteNombre.trim()) return 'Ingresa el nombre del cliente.';
@@ -854,7 +831,7 @@ export default function AgendarCitaPersonalScreen() {
                   ? mensajeSinFechas
                   : 'Selecciona modalidad, servicio y mecánico (si aplica) para ver fechas disponibles.'
               }
-              horasDisponibles={agendaParamsListos ? (horasDisponibles ?? []) : null}
+              grillaHoraria={agendaParamsListos ? grillaHoraria : null}
               cargandoHoras={agendaParamsListos && cargandoHoras}
               mensajeSinHoras={mensajeSinHoras}
             />

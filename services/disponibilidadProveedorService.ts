@@ -1,4 +1,5 @@
 import { getAPI } from './api';
+import { buildGrillaEntre } from '@/utils/citaPersonalHorario';
 
 export type MiembroAptoAgenda = {
   id: number;
@@ -13,11 +14,21 @@ export type SlotDisponible = {
   hora_fin_estimada?: string;
 };
 
+export type VentanaLibreAgenda = {
+  hora_inicio: string;
+  hora_fin: string;
+};
+
 export type DisponibilidadConDuracion = {
   fecha?: string;
   proveedor_disponible?: boolean;
   mensaje?: string;
   slots_disponibles?: SlotDisponible[];
+  grilla_horaria?: string[];
+  ventanas_libres?: VentanaLibreAgenda[];
+  hora_jornada_inicio?: string;
+  hora_jornada_fin?: string;
+  tiene_capacidad_rango?: boolean;
 };
 
 export type DiasDisponiblesAgenda = {
@@ -135,4 +146,31 @@ export async function obtenerDiasDisponiblesAgenda(params: {
 
   const res = await api.get(path);
   return res.data ?? {};
+}
+
+/** Grilla de 15 min para elegir inicio/fin libremente (modo rango). */
+export function resolverGrillaHorariaAgenda(data: DisponibilidadConDuracion): string[] {
+  if (Array.isArray(data.grilla_horaria) && data.grilla_horaria.length > 0) {
+    return data.grilla_horaria;
+  }
+  if (data.hora_jornada_inicio && data.hora_jornada_fin) {
+    return buildGrillaEntre(data.hora_jornada_inicio, data.hora_jornada_fin);
+  }
+  return (data.slots_disponibles ?? [])
+    .map((slot) => slot.hora)
+    .filter((h): h is string => Boolean(h));
+}
+
+export function parseDisponibilidadRangoAgenda(data: DisponibilidadConDuracion): {
+  grillaHoraria: string[];
+  mensajeSinHoras?: string;
+} {
+  const grillaHoraria = resolverGrillaHorariaAgenda(data);
+  return {
+    grillaHoraria,
+    mensajeSinHoras:
+      grillaHoraria.length > 0
+        ? undefined
+        : (data.mensaje || 'No hay horarios disponibles para esta fecha.'),
+  };
 }

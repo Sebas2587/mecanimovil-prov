@@ -181,14 +181,16 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: I.paper,
+    backgroundColor: I.paper || COLORS.background.paper,
     borderRadius: BORDERS.radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: I.hairline,
     paddingVertical: SPACING.sm,
     paddingLeft: SPACING.sm,
     paddingRight: SPACING.xs,
-    ...SHADOWS.editorial,
+    overflow: 'hidden',
+    opacity: 1,
+    ...SHADOWS.md,
   },
   cardBody: {
     flex: 1,

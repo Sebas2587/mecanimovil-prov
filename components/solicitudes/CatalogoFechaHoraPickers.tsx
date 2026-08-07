@@ -20,6 +20,7 @@ import {
   calcularDuracionMinutos,
   esRangoHorarioValido,
   parseHoraMinutos,
+  slotsDespuesDe,
   sumarMinutosAHora,
 } from '@/utils/citaPersonalHorario';
 
@@ -104,6 +105,8 @@ type Props = {
   modo?: 'simple' | 'rango';
   /** Horas reales del proveedor; undefined = slots genéricos 7:00–20:00 */
   horasDisponibles?: string[] | null;
+  /** Grilla completa de la jornada (modo rango); prioridad sobre horasDisponibles */
+  grillaHoraria?: string[] | null;
   cargandoHoras?: boolean;
   mensajeSinHoras?: string;
   /** Fechas YYYY-MM-DD con agenda; null = aún no aplica filtro */
@@ -120,6 +123,7 @@ export function CatalogoFechaHoraPickers({
   minDate,
   modo = 'simple',
   horasDisponibles,
+  grillaHoraria = null,
   cargandoHoras = false,
   mensajeSinHoras,
   fechasDisponibles = null,
@@ -130,28 +134,50 @@ export function CatalogoFechaHoraPickers({
   const esRango = modo === 'rango';
   const dayScrollRef = useRef<ScrollView>(null);
   const timeScrollRef = useRef<ScrollView>(null);
+  const finScrollRef = useRef<ScrollView>(null);
   const dayOptions = useMemo(
     () => buildDayOptions(minDate, fechasDisponibles),
     [minDate, fechasDisponibles],
   );
   const timeSlots = useMemo(() => {
-    if (fechasDisponibles === null || horasDisponibles === null) {
+    if (fechasDisponibles === null || (horasDisponibles === null && grillaHoraria === null)) {
       return [];
     }
     const base = buildTimeSlots(!esRango);
+    if (esRango) {
+      if (grillaHoraria != null && grillaHoraria.length > 0) {
+        return grillaHoraria;
+      }
+      if (horasDisponibles != null && horasDisponibles.length > 0) {
+        return horasDisponibles;
+      }
+      if (horasDisponibles === undefined) {
+        return base.filter((s) => s !== SIN_HORA);
+      }
+      return [];
+    }
     if (horasDisponibles === undefined) {
       return base;
     }
-    if (esRango) {
-      return horasDisponibles;
-    }
     return [SIN_HORA, ...horasDisponibles];
-  }, [esRango, horasDisponibles, fechasDisponibles]);
+  }, [esRango, horasDisponibles, grillaHoraria, fechasDisponibles]);
   const horaInicioKey = value.hora ?? (esRango ? '' : SIN_HORA);
   const slotsRango = useMemo(
     () => timeSlots.filter((s) => s !== SIN_HORA),
     [timeSlots],
   );
+  const slotsFin = useMemo(() => {
+    if (!esRango || !value.hora) return [];
+    return slotsDespuesDe(value.hora, slotsRango);
+  }, [esRango, value.hora, slotsRango]);
+  const sinHorariosCargados = useMemo(() => {
+    if (esRango) {
+      if (grillaHoraria != null) return grillaHoraria.length === 0;
+      if (horasDisponibles != null) return horasDisponibles.length === 0;
+      return false;
+    }
+    return horasDisponibles !== undefined && horasDisponibles !== null && horasDisponibles.length === 0;
+  }, [esRango, grillaHoraria, horasDisponibles]);
   const duracionLabel = useMemo(() => {
     if (!esRango || !esRangoHorarioValido(value.hora, value.horaFin ?? null)) return null;
     const mins = calcularDuracionMinutos(value.hora!, value.horaFin!);
@@ -164,8 +190,8 @@ export function CatalogoFechaHoraPickers({
 
   const rangoHint = useMemo(() => {
     if (!esRango) return null;
-    if (!value.hora) return 'Toca la hora de inicio en la línea de tiempo.';
-    if (!value.horaFin) return 'Ahora toca la hora de término (misma línea).';
+    if (!value.hora) return 'Elige la hora de inicio.';
+    if (!value.horaFin) return 'Ahora elige la hora de término.';
     return `${value.hora} – ${value.horaFin}`;
   }, [esRango, value.hora, value.horaFin]);
 
@@ -184,7 +210,7 @@ export function CatalogoFechaHoraPickers({
   useEffect(() => {
     const slots = esRango ? slotsRango : timeSlots;
     const scrollKey = esRango
-      ? (value.hora ?? value.horaFin ?? slots[0])
+      ? (value.hora ?? slots[0])
       : horaInicioKey;
     const timeIdx = slots.indexOf(scrollKey);
     if (timeIdx >= 0 && timeScrollRef.current) {
@@ -195,49 +221,38 @@ export function CatalogoFechaHoraPickers({
         });
       });
     }
-  }, [timeSlots, slotsRango, horaInicioKey, esRango, value.hora, value.horaFin]);
+  }, [timeSlots, slotsRango, horaInicioKey, esRango, value.hora]);
+
+  useEffect(() => {
+    if (!esRango || !value.horaFin) return;
+    const finIdx = slotsFin.indexOf(value.horaFin);
+    if (finIdx >= 0 && finScrollRef.current) {
+      requestAnimationFrame(() => {
+        finScrollRef.current?.scrollTo({
+          x: Math.max(0, finIdx * (TIME_CHIP_W + SPACING.fixed.xs) - SPACING.fixed.md),
+          animated: false,
+        });
+      });
+    }
+  }, [esRango, value.horaFin, slotsFin]);
 
   const selectDay = (d: Date) => {
     onChange({ ...value, fecha: startOfDay(d) });
   };
 
-  const selectHoraRango = (slot: string) => {
-    const t = parseHoraMinutos(slot);
-    const inicio = value.hora ? parseHoraMinutos(value.hora) : null;
-
-    if (inicio === null) {
-      onChange({ ...value, hora: slot, horaFin: null });
-      return;
-    }
-
-    if (!value.horaFin) {
-      if (t <= inicio) {
-        onChange({ ...value, hora: slot, horaFin: null });
-        return;
-      }
-      if (t - inicio >= 15) {
-        onChange({ ...value, hora: value.hora, horaFin: slot });
-      }
-      return;
-    }
-
+  const selectInicioRango = (slot: string) => {
     onChange({ ...value, hora: slot, horaFin: null });
+  };
+
+  const selectFinRango = (slot: string) => {
+    if (!value.hora) return;
+    if (parseHoraMinutos(slot) - parseHoraMinutos(value.hora) >= 15) {
+      onChange({ ...value, horaFin: slot });
+    }
   };
 
   const selectHoraSimple = (slot: string) => {
     onChange({ ...value, hora: slot === SIN_HORA ? null : slot });
-  };
-
-  const chipRangoStyle = (slot: string) => {
-    if (!value.hora) return null;
-    const t = parseHoraMinutos(slot);
-    const ini = parseHoraMinutos(value.hora);
-    const fin = value.horaFin ? parseHoraMinutos(value.horaFin) : null;
-
-    if (slot === value.hora) return 'start';
-    if (value.horaFin && slot === value.horaFin) return 'end';
-    if (fin !== null && t > ini && t < fin) return 'between';
-    return null;
   };
 
   const horizontalBleed = horizontalInset > 0
@@ -327,12 +342,72 @@ export function CatalogoFechaHoraPickers({
           <ActivityIndicator color={I.primary} />
           <Text style={styles.horasLoadingText}>Cargando horarios…</Text>
         </View>
-      ) : horasDisponibles !== undefined && horasDisponibles !== null && horasDisponibles.length === 0 ? (
+      ) : sinHorariosCargados ? (
         <Text style={styles.sinHorasText}>
           {mensajeSinHoras || 'No hay horarios disponibles para esta fecha.'}
         </Text>
       ) : null}
-      {!cargandoHoras ? (
+      {!cargandoHoras && esRango ? (
+        <>
+          <Text style={styles.rangoSubLabel}>Inicio</Text>
+          <ScrollView
+            ref={timeScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={horizontalBleed}
+            contentContainerStyle={chipsRowStyle}
+            decelerationRate="fast"
+            snapToInterval={TIME_CHIP_W + SPACING.fixed.xs}
+          >
+            {slotsRango.map((slot) => {
+              const selected = slot === value.hora;
+              return (
+                <TouchableOpacity
+                  key={`inicio-${slot}`}
+                  style={[styles.timeChip, selected && styles.chipSelected]}
+                  onPress={() => selectInicioRango(slot)}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                >
+                  <Text style={[styles.timeChipText, selected && styles.chipTextOn]}>{slot}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          {value.hora ? (
+            <>
+              <Text style={styles.rangoSubLabel}>Término</Text>
+              <ScrollView
+                ref={finScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={horizontalBleed}
+                contentContainerStyle={chipsRowStyle}
+                decelerationRate="fast"
+                snapToInterval={TIME_CHIP_W + SPACING.fixed.xs}
+              >
+                {slotsFin.map((slot) => {
+                  const selected = slot === value.horaFin;
+                  return (
+                    <TouchableOpacity
+                      key={`fin-${slot}`}
+                      style={[styles.timeChip, selected && styles.chipSelected]}
+                      onPress={() => selectFinRango(slot)}
+                      activeOpacity={0.85}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                    >
+                      <Text style={[styles.timeChipText, selected && styles.chipTextOn]}>{slot}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </>
+          ) : null}
+        </>
+      ) : null}
+      {!cargandoHoras && !esRango ? (
       <ScrollView
         ref={timeScrollRef}
         horizontal
@@ -342,32 +417,19 @@ export function CatalogoFechaHoraPickers({
         decelerationRate="fast"
         snapToInterval={TIME_CHIP_W + SPACING.fixed.xs}
       >
-        {(esRango ? slotsRango : timeSlots).map((slot) => {
-          const rango = esRango ? chipRangoStyle(slot) : null;
-          const selected = esRango
-            ? rango === 'start' || rango === 'end'
-            : slot === horaInicioKey;
+        {timeSlots.map((slot) => {
+          const selected = slot === horaInicioKey;
           const label = slot === SIN_HORA ? 'Sin hora' : slot;
           return (
             <TouchableOpacity
               key={slot}
-              style={[
-                styles.timeChip,
-                rango === 'between' && styles.timeChipInRange,
-                selected && styles.chipSelected,
-              ]}
-              onPress={() => (esRango ? selectHoraRango(slot) : selectHoraSimple(slot))}
+              style={[styles.timeChip, selected && styles.chipSelected]}
+              onPress={() => selectHoraSimple(slot)}
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityState={{ selected }}
             >
-              <Text
-                style={[
-                  styles.timeChipText,
-                  rango === 'between' && styles.chipTextInRange,
-                  selected && styles.chipTextOn,
-                ]}
-              >
+              <Text style={[styles.timeChipText, selected && styles.chipTextOn]}>
                 {label}
               </Text>
             </TouchableOpacity>
@@ -381,7 +443,7 @@ export function CatalogoFechaHoraPickers({
           {duracionLabel ? (
             <Text style={styles.durationHint}>{duracionLabel}</Text>
           ) : value.hora && !value.horaFin ? (
-            <Text style={styles.durationWarn}>Selecciona la hora de término en la misma línea.</Text>
+            <Text style={styles.durationWarn}>Selecciona la hora de término.</Text>
           ) : value.hora && value.horaFin && !esRangoHorarioValido(value.hora, value.horaFin) ? (
             <Text style={styles.durationWarn}>La hora de término debe ser al menos 15 min después del inicio.</Text>
           ) : null}
@@ -451,6 +513,14 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansMedium,
     color: I.body,
     marginBottom: SPACING.fixed.xxs,
+  },
+  rangoSubLabel: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: FF.sansSemiBold,
+    color: I.muted,
+    marginTop: SPACING.fixed.xxs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   /** Selección Airbnb Calendar: disco ink, no magenta de selección. */
   chipSelected: {

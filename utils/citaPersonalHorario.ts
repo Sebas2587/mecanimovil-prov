@@ -29,3 +29,18 @@ export function slotsDespuesDe(horaInicio: string, slots: string[]): string[] {
   const minInicio = parseHoraMinutos(horaInicio) + SLOT_STEP;
   return slots.filter((slot) => parseHoraMinutos(slot) >= minInicio);
 }
+
+export function buildGrillaEntre(
+  horaInicio: string,
+  horaFin: string,
+  pasoMinutos: number = SLOT_STEP,
+): string[] {
+  const slots: string[] = [];
+  let cursor = parseHoraMinutos(horaInicio);
+  const fin = parseHoraMinutos(horaFin);
+  while (cursor <= fin) {
+    slots.push(minutosAHoraStr(cursor));
+    cursor += pasoMinutos;
+  }
+  return slots;
+}

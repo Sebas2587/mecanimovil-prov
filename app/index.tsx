@@ -12,7 +12,14 @@ const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 
 export default function IndexScreen() {
-  const { isAuthenticated, isLoading, usuario, estadoProveedor, refrescarEstadoProveedor } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading,
+    usuario,
+    estadoProveedor,
+    refrescarEstadoProveedor,
+    logout,
+  } = useAuth();
   const router = useRouter();
   const [mostrarErrorConectividad, setMostrarErrorConectividad] = useState(false);
   const [reintentando, setReintentando] = useState(false);
@@ -90,8 +97,20 @@ export default function IndexScreen() {
     setReintentando(true);
     try {
       const refreshed = await refrescarEstadoProveedor();
-      if (!refreshed) setMostrarErrorConectividad(true);
+      if (!refreshed) {
+        const token = await getItem('authToken').catch(() => null);
+        if (!token) {
+          router.replace('/(auth)/login');
+          return;
+        }
+        setMostrarErrorConectividad(true);
+      }
     } catch {
+      const token = await getItem('authToken').catch(() => null);
+      if (!token) {
+        router.replace('/(auth)/login');
+        return;
+      }
       setMostrarErrorConectividad(true);
     } finally {
       setReintentando(false);
@@ -99,7 +118,14 @@ export default function IndexScreen() {
   };
 
   const handleGoToLogin = () => {
-    router.replace('/(auth)/login');
+    void (async () => {
+      try {
+        await logout();
+      } catch {
+        /* igual vamos a login */
+      }
+      router.replace('/(auth)/login');
+    })();
   };
 
   const handleGoToOnboarding = () => {

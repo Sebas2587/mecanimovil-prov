@@ -1,4 +1,5 @@
 import { setItem } from '@/utils/authStorage';
+import { persistAuthToken } from '@/utils/authTokenCache';
 import ServerConfig from '../serverConfig';
 
 export interface GoogleLoginProveedorResponse {
@@ -75,7 +76,8 @@ export async function googleLoginProveedor(
     throw new Error('Respuesta inválida de Google login proveedor');
   }
 
-  await setItem('authToken', data.token);
+  // persistAuthToken actualiza storage + caché en memoria (resolveAuthToken / interceptor)
+  await persistAuthToken(data.token);
   await setItem('userData', JSON.stringify(data.user));
 
   return data as GoogleLoginProveedorResponse;

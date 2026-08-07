@@ -58,6 +58,8 @@ export const COLORS = {
   /** Aliases legacy — mapeados a paleta Hosts/Tinder */
   institutional: {
     canvas: CANVAS,
+    /** Paper sólido Host (#FFF) — toasts, cards, sheets */
+    paper: '#FFFFFF',
     surfaceSoft: TONAL,
     surfaceStrong: '#E8E8E8',
     surfaceDark: INK,
