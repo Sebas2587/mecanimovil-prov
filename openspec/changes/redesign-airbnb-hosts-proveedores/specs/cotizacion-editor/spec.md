@@ -21,27 +21,26 @@ When the channel provides no agendable name, Cotizar/Agendar SHALL show an edita
 
 ### Requirement: Repuesto JSON en cotización
 Each repuesto line MAY include:
-- `fuente_marketplace` (optional: `mercadolibre` | `catalogo` | `historial` | `estimado` | empty). MUST NOT default to Mercado Libre.
-- `marca_repuesto` (part brand, distinct from vehicle brand)
-- `proveedor_nombre` (human-readable channel/supplier: Catálogo del taller, historial, ML nickname)
-- `tienda_ml` (Mercado Libre seller; taller-only; only when obtained from a real ML listing; stripped from public cliente API; kept for ML compat)
+- `fuente_marketplace` (optional: `mercadolibre` | `catalogo` | `historial` | `estimado` | empty). MUST NOT default to Mercado Libre. `catalogo` means **the taller's published OfertaServicio only**.
+- `marca_repuesto` (part brand, distinct from vehicle brand; MUST NOT be placeholders like GENÉRICO / N/A)
+- `proveedor_nombre` (Catálogo del taller, Historial del taller, or ML nickname — NEVER "Catálogo Mecanimovil" from the global master)
+- `tienda_ml` (Mercado Libre seller; taller-only; only from a real ML listing; stripped from public cliente API)
+- `precio_estimado` (true when price is not from taller catalog/historial; UI shows "Precio estimado — revisar")
 - `precio_iva_incluido: true` (all quoted CLP amounts are IVA-inclusive)
 
-**Marca and its source MUST travel together, atomically, from the same hit.** The IA prompt (Gemini) MUST always leave `marca_repuesto` / `fuente_marketplace` / `tienda_ml` as `""` — the model MUST NOT guess or invent a "known market brand" for a part on its own. Only the backend enrichment pipeline is authorized to assign `marca_repuesto`, and only paired with the source it came from. This prevents disconnected/unsourced brand tags (e.g. showing "Marca: Bosch" with no Canal/Proveedor tag).
+**Trust rule:** never present unverified data as catalog. The global master `Repuesto` taxonomy MUST NOT be used as CatalogSource for quotes (it caused false "Catálogo Mecanimovil / GENÉRICO" tags when the taller had no published services). Master `Repuesto` MAY only fill name/marca when resolving an id already present on a taller oferta.
 
-After IA normalize, the backend SHALL run `enriquecer_repuestos_cotizacion` (failures MUST NOT 500 `generar-ia`; deliver IA content without enrich):
-1. **CatalogSource** — `OfertaServicio` with `disponible=True` + master `Repuesto` → marca/precio + `fuente_marketplace: catalogo` (highest confidence)
-2. **HistorialCotizacionSource** — prior taller cotizaciones `enviada|aceptada` (~6 months) → mediana precio / moda marca (medium confidence)
-3. **MercadoLibreSource** — best-effort OAuth for real `tienda_ml` + brand; on 403/unavailable, leave empty (never invent; never block)
-4. **KnowledgeBrandSource** — infer known part brands from the part name (e.g. Vimasa) ONLY when no CatalogSource/HistorialSource/MercadoLibreSource match exists for that line; MUST be tagged `fuente_marketplace: estimado` (never blank, never conflated with a verified source) so the UI can visually distinguish an inference from real data
+**Marca and its source MUST travel together.** Gemini MUST leave `marca_repuesto` / `fuente_marketplace` / `tienda_ml` as `""`. The model MUST NOT invent brands or stores.
 
-Merge rule: a "grounded" hit (`catalogo` | `historial` | `mercadolibre`) MAY overwrite an existing `marca_repuesto`/`fuente_marketplace`/`proveedor_nombre` only when the existing value is NOT already grounded (e.g. a stray/ungrounded value). A grounded value is never overwritten by another grounded or `estimado` hit. Prefer catalog/historial price when matched. Recalculate totals with `recalcular_totales`.
+After IA normalize, `enriquecer_repuestos_cotizacion` (failures MUST NOT 500 `generar-ia`):
+1. **CatalogSource** — only `OfertaServicio` with `disponible=True` for that taller (optionally filtered by vehicle marca) → `fuente_marketplace: catalogo`, `proveedor_nombre: Catálogo del taller`
+2. **HistorialCotizacionSource** — prior taller cotizaciones `enviada|aceptada` (~6 months)
+3. **MercadoLibreSource** — best-effort OAuth; 403/unavailable → no-op
+4. **KnowledgeBrandSource** — brand already present in the part *name* only; tagged `estimado`
 
-Provider effort: keep services with priced/branded repuestos (crear-servicio precarga `marca_repuesto` from master). No new catalog admin UI this phase.
+Lines without taller catalog/historial price SHALL set `precio_estimado: true` and cotización metadata `valores_estimativos: true`.
 
-Catalog desglose (`_desglose_oferta_catalogo`) SHALL forward `marca_repuesto` from oferta JSON.
-
-UI SHALL show Marca / Canal / Proveedor as read-only tags only when present (not force Mercado Libre). The Canal tag SHALL render with a distinct (warning) style when `fuente_marketplace: estimado`, versus verified sources (`catalogo`/`historial`/`mercadolibre`), so the taller can tell an inference apart from a real store/catalog match.
+UI SHALL show Marca / Canal / Proveedor only when present; "Precio estimado — revisar" when `precio_estimado` and not a verified canal; Canal warning style for `estimado`.
 
 ### Requirement: Repuestos por vehículo
 Cotización IA SHALL list parts compatible with marca/modelo/año/cilindrada/tipo_motor from context and inject relevant diagnostic knowledge when servicio/síntoma matches. Prefer fewer correct lines over generic unrelated parts (e.g. volante bimasa on applicable Fiat Bravo T-Jet clutch jobs).

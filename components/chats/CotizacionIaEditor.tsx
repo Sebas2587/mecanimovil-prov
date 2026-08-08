@@ -69,6 +69,17 @@ function proveedorLabel(rep: RepuestoCotizacion): string | null {
   return null;
 }
 
+/** Etiqueta de procedencia de tienda: ML → "Tienda", resto → "Proveedor". */
+function proveedorTagLabel(rep: RepuestoCotizacion): string | null {
+  const value = proveedorLabel(rep);
+  if (!value) return null;
+  const canal = (rep.fuente_marketplace || rep.fuente_repuesto || '').trim().toLowerCase();
+  if (canal === 'mercadolibre' || (rep.tienda_ml || '').trim()) {
+    return `Tienda: ${value}`;
+  }
+  return `Proveedor: ${value}`;
+}
+
 const ESTADO_VARIANT: Record<
   CotizacionCanal['estado'],
   'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
@@ -171,6 +182,9 @@ const RepuestoRow = React.memo(function RepuestoRow({
     setNombreDraft(rep.nombre);
   }, [rep.nombre, nombreFocused]);
 
+  const marcaPieza = (rep.marca_repuesto || '').trim();
+  const tiendaOProveedor = proveedorTagLabel(rep);
+
   return (
     <Card elevated padding="host" style={styles.repuestoCard}>
       <View style={styles.repuestoTopRow}>
@@ -190,6 +204,11 @@ const RepuestoRow = React.memo(function RepuestoRow({
             placeholder="Nombre del repuesto"
             editable={editable}
           />
+          {marcaPieza ? (
+            <InstitutionalText role="caption" color="muted" style={styles.marcaBajoNombre}>
+              Marca del repuesto: {marcaPieza}
+            </InstitutionalText>
+          ) : null}
         </View>
         {editable ? (
           <TouchableOpacity
@@ -204,11 +223,14 @@ const RepuestoRow = React.memo(function RepuestoRow({
         ) : null}
       </View>
 
-      {(fuenteMarketplaceLabel(rep) || (rep.marca_repuesto || '').trim() || proveedorLabel(rep)) ? (
+      {(fuenteMarketplaceLabel(rep)
+        || marcaPieza
+        || tiendaOProveedor
+        || rep.precio_estimado !== false) ? (
         <View style={styles.fuenteBadgeRow}>
-          {(rep.marca_repuesto || '').trim() ? (
+          {marcaPieza ? (
             <InstitutionalTag
-              label={`Marca: ${rep.marca_repuesto!.trim()}`}
+              label={`Marca: ${marcaPieza}`}
               variant="neutral"
               size="sm"
             />
@@ -220,10 +242,17 @@ const RepuestoRow = React.memo(function RepuestoRow({
               size="sm"
             />
           ) : null}
-          {proveedorLabel(rep) ? (
+          {tiendaOProveedor ? (
             <InstitutionalTag
-              label={`Proveedor: ${proveedorLabel(rep)}`}
+              label={tiendaOProveedor}
               variant="neutral"
+              size="sm"
+            />
+          ) : null}
+          {rep.precio_estimado !== false && !fuenteEsVerificada(rep) ? (
+            <InstitutionalTag
+              label="Precio estimado — revisar"
+              variant="warning"
               size="sm"
             />
           ) : null}
@@ -627,7 +656,7 @@ export function CotizacionIaEditor({
         <InstitutionalText role="caption" color="muted">
           Precio final al cliente (el IVA se desglosa en el resumen).
           {cotizacion.metadata?.valores_estimativos || cotizacion.metadata?.precio_parcial_catalogo
-            ? ' Valor estimativo precargado (catálogo / histórico / mercado): edítalo si hace falta.'
+            ? ' Valores estimados: confirma precios y marcas antes de enviar.'
             : ''}
         </InstitutionalText>
       </Card>
@@ -640,7 +669,9 @@ export function CotizacionIaEditor({
           onActionPress={editable ? agregarRepuesto : undefined}
         />
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
-          Los precios y marcas de tus servicios alimentan las cotizaciones IA.
+          Solo aparecen Marca/Canal/Proveedor si vienen de tus servicios publicados,
+          tu historial de cotizaciones o un listing real. Sin eso, el precio es estimado:
+          revísalo antes de enviar al cliente.
         </InstitutionalText>
 
         {repuestos.length === 0 ? (
@@ -862,7 +893,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: SPACING.fixed.xs,
   },
-  nombreField: { flex: 1, minWidth: 0 },
+  nombreField: { flex: 1, minWidth: 0, gap: SPACING.fixed.xs },
+  marcaBajoNombre: { marginTop: 2 },
   repuestoGrid: {
     flexDirection: 'row',
     alignItems: 'flex-end',
