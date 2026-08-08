@@ -51,7 +51,14 @@ function fuenteMarketplaceLabel(rep: RepuestoCotizacion): string | null {
   if (key === 'mercadolibre') return 'Mercado Libre';
   if (key === 'catalogo' || key === 'catálogo') return 'Catálogo';
   if (key === 'historial') return 'Historial';
+  if (key === 'estimado') return 'Estimado';
   return raw;
+}
+
+/** Fuentes verificables (catálogo/historial/ML); 'estimado' es solo una inferencia por nombre. */
+function fuenteEsVerificada(rep: RepuestoCotizacion): boolean {
+  const key = (rep.fuente_marketplace || rep.fuente_repuesto || '').trim().toLowerCase();
+  return key === 'mercadolibre' || key === 'catalogo' || key === 'catálogo' || key === 'historial';
 }
 
 function proveedorLabel(rep: RepuestoCotizacion): string | null {
@@ -209,7 +216,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
           {fuenteMarketplaceLabel(rep) ? (
             <InstitutionalTag
               label={`Canal: ${fuenteMarketplaceLabel(rep)}`}
-              variant="info"
+              variant={fuenteEsVerificada(rep) ? 'info' : 'warning'}
               size="sm"
             />
           ) : null}
