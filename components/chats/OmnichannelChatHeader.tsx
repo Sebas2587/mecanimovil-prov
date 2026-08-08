@@ -55,14 +55,16 @@ function OmnichannelChatHeaderComponent({
 }
 
 type ActionBarProps = {
-  onPress: () => void;
+  onPressCotizar: () => void;
+  onPressAgendar: () => void;
   onPressAgenteIa?: () => void;
   conversationId?: string | number | null;
   cotizacionAceptada?: boolean;
 };
 
 function OmnichannelChatActionBarComponent({
-  onPress,
+  onPressCotizar,
+  onPressAgendar,
   onPressAgenteIa,
   conversationId,
   cotizacionAceptada,
@@ -94,18 +96,35 @@ function OmnichannelChatActionBarComponent({
           style={styles.footerSecondary}
         />
       ) : null}
-      <InstitutionalButton
-        label={cotizacionAceptada ? 'Agendar cita' : 'Agendar o cotizar'}
-        variant="primary"
-        size="compact"
-        onPress={onPress}
-        accessibilityLabel={
-          cotizacionAceptada
-            ? 'Cotización aceptada, agendar cita'
-            : 'Agendar cita y cotizar con IA'
-        }
-        style={styles.footerPrimary}
-      />
+      {cotizacionAceptada ? (
+        <InstitutionalButton
+          label="Agendar cita"
+          variant="primary"
+          size="compact"
+          onPress={onPressAgendar}
+          accessibilityLabel="Cotización aceptada, agendar cita"
+          style={styles.footerPrimary}
+        />
+      ) : (
+        <>
+          <InstitutionalButton
+            label="Cotizar"
+            variant="outline"
+            size="compact"
+            onPress={onPressCotizar}
+            accessibilityLabel="Cotizar servicio al cliente"
+            style={styles.footerSecondaryAction}
+          />
+          <InstitutionalButton
+            label="Agendar"
+            variant="primary"
+            size="compact"
+            onPress={onPressAgendar}
+            accessibilityLabel="Agendar cita con el cliente"
+            style={styles.footerPrimary}
+          />
+        </>
+      )}
     </View>
   );
 }
@@ -159,7 +178,12 @@ const styles = StyleSheet.create({
   footerSecondary: {
     flexShrink: 0,
   },
+  footerSecondaryAction: {
+    flex: 1,
+    minWidth: 0,
+  },
   footerPrimary: {
     flex: 1,
+    minWidth: 0,
   },
 });

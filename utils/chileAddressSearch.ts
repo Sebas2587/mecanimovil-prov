@@ -206,6 +206,13 @@ export function extractRegionFromParts(address: ChileAddressParts): string {
   return (address.state || '').trim();
 }
 
+/** Comuna y región verificadas (sin exigir calle con número). */
+export function isStructuredChileAddressComunaComplete(address: ChileAddressParts): boolean {
+  const comuna = extractComunaFromParts(address);
+  const region = extractRegionFromParts(address);
+  return Boolean(comuna && region);
+}
+
 /** Dirección con comuna y región administrativa resueltas en Chile. */
 export function isStructuredChileAddressComplete(address: ChileAddressParts): boolean {
   const comuna = extractComunaFromParts(address);

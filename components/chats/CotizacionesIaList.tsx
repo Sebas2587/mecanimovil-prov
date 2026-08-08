@@ -32,6 +32,7 @@ import {
   useAgenteBorradoresPendientesQuery,
 } from '@/hooks/useAgenteIaQueries';
 import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
+import agendaProveedorService from '@/services/agendaProveedorService';
 import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
@@ -95,6 +96,7 @@ export function CotizacionesIaList({ enabled = true }: Props) {
   const [activa, setActiva] = useState<CotizacionCanal | null>(null);
   const [editDraft, setEditDraft] = useState<CotizacionCanal | null>(null);
   const [eliminando, setEliminando] = useState(false);
+  const [anulando, setAnulando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -228,10 +230,6 @@ export function CotizacionesIaList({ enabled = true }: Props) {
 
   const eliminarCotizacion = useCallback(() => {
     if (!activa?.id) return;
-    if (activa.estado === 'aceptada') {
-      showAlert('No se puede eliminar', 'Esta cotización ya fue aceptada por el cliente.');
-      return;
-    }
     const id = activa.id;
     showConfirm(
       'Eliminar cotización',
@@ -251,6 +249,42 @@ export function CotizacionesIaList({ enabled = true }: Props) {
             showAlert('Error', 'No se pudo eliminar la cotización.');
           } finally {
             setEliminando(false);
+          }
+        },
+      },
+    );
+  }, [activa, cerrarDetalle, invalidate, qc, refetch]);
+
+  const anularCotizacionAceptada = useCallback(() => {
+    if (!activa?.id) return;
+    const citaId = activa.cita_personal_id;
+    showConfirm(
+      'Anular cotización',
+      citaId
+        ? 'Se cancelará la cita vinculada y la cotización quedará anulada.'
+        : 'La cotización quedará marcada como perdida y no podrá agendarse.',
+      {
+        confirmText: 'Anular',
+        onConfirm: async () => {
+          setAnulando(true);
+          try {
+            if (citaId) {
+              const res = await agendaProveedorService.cancelarCita(citaId);
+              if (!res.success) {
+                throw new Error(res.message || 'No se pudo cancelar la cita.');
+              }
+            } else {
+              await cotizacionCanalService.marcarPerdida(activa.id);
+            }
+            cerrarDetalle();
+            await invalidate();
+            await refetch();
+            invalidateProveedorComercialQueries(qc);
+            showAlert('Cotización anulada', 'La aceptación quedó revertida.');
+          } catch {
+            showAlert('Error', 'No se pudo anular la cotización.');
+          } finally {
+            setAnulando(false);
           }
         },
       },
@@ -437,7 +471,16 @@ export function CotizacionesIaList({ enabled = true }: Props) {
             </ScrollView>
 
             <View style={styles.detalleFooter}>
-              {cotizacionDetalle.estado !== 'aceptada' ? (
+              {cotizacionDetalle.estado === 'aceptada' ? (
+                <TouchableOpacity
+                  style={styles.footerGhost}
+                  onPress={anularCotizacionAceptada}
+                  disabled={anulando}
+                >
+                  <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                  <Text style={styles.footerGhostLabel}>Anular cotización</Text>
+                </TouchableOpacity>
+              ) : (
                 <TouchableOpacity
                   style={styles.footerGhost}
                   onPress={eliminarCotizacion}
@@ -446,8 +489,6 @@ export function CotizacionesIaList({ enabled = true }: Props) {
                   <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
                   <Text style={styles.footerGhostLabel}>Eliminar</Text>
                 </TouchableOpacity>
-              ) : (
-                <View style={styles.footerGhost} />
               )}
               {esBorradorEditable ? (
                 <InstitutionalButton

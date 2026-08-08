@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { Sparkles, X } from 'lucide-react-native';
-import { router } from 'expo-router';
+import { X } from 'lucide-react-native';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { getChilePhoneError } from '@/components/forms/ChilePhoneField';
 import ChileAddressField from '@/components/forms/ChileAddressField';
@@ -21,6 +20,11 @@ import {
   type ClienteModo,
   type ContactoCanal,
 } from '@/components/chats/ClienteCanalPickerSection';
+import {
+  VehiculoPatenteSection,
+  type VehiculoPatenteState,
+  VEHICULO_PATENTE_VACIO,
+} from '@/components/chats/VehiculoPatenteSection';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
 import {
   CatalogoFechaHoraPickers,
@@ -33,11 +37,7 @@ import { InstitutionalScreenTabs } from '@/app/design-system/components/Institut
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import {
-  agendaProveedorService,
-  type CitaAgendaPersonalCreatePayload,
-} from '@/services/agendaProveedorService';
-import { consultarPatente } from '@/services/vehiculoService';
+import { agendaProveedorService, type CitaAgendaPersonalCreatePayload } from '@/services/agendaProveedorService';
 import {
   extraerNueveDigitosDesdeGuardado,
   normalizarTelefonoChileParaGuardar,
@@ -65,15 +65,7 @@ import equipoTallerService, {
   etiquetaModalidadMecanico,
 } from '@/services/equipoTallerService';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
-import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
-import { PlantillaCotizacionDetalleModal } from '@/components/chats/PlantillaCotizacionDetalleModal';
-import cotizacionCanalService, {
-  type CotizacionCanal,
-  type CotizacionPlantilla,
-} from '@/services/cotizacionCanalService';
-import { etiquetaVehiculoActual } from '@/utils/plantillasCotizacionVehiculo';
-import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
-import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
+import cotizacionCanalService from '@/services/cotizacionCanalService';
 import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
 import { obtenerMisOfertas } from '@/services/solicitudesService';
 import { fetchChatInboxQuery } from '@/hooks/useChatInboxQuery';
@@ -94,21 +86,10 @@ const TIPO_SERVICIO_TABS = [
 
 const MODO_SERVICIO_TABS = [
   { key: 'catalogo' as const, label: 'Mi catálogo' },
-  { key: 'manual' as const, label: 'Cotizar con IA' },
+  { key: 'manual' as const, label: 'Servicio libre' },
 ];
 
 type ModoServicio = 'catalogo' | 'manual';
-
-function VehiculoSpecItem({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.vehiculoGridItem}>
-      <Text style={styles.vehiculoGridItemLabel}>{label}</Text>
-      <Text style={styles.vehiculoGridItemValue} numberOfLines={2}>
-        {valorSpec(value)}
-      </Text>
-    </View>
-  );
-}
 
 type Props = {
   visible: boolean;
@@ -125,10 +106,6 @@ type Props = {
   conversationId?: string;
   /** Pre-cargar cotización aceptada para agendar */
   cotizacionAceptadaId?: number;
-  /** Motivo de desconexión del canal (WhatsApp/Messenger/IG) */
-  channelDisconnectedReason?: string | null;
-  /** Tras enviar cotización al chat (refrescar mensajes) */
-  onCotizacionEnviada?: () => void;
 };
 
 function suggestTelefono(channel: ChannelSlug | undefined, phone: string | null | undefined): string {
@@ -152,44 +129,8 @@ function subtitleDesdeFecha(fechaApi?: string): string | null {
   return `Cita para ${label}`;
 }
 
-function limpiarVehiculo(): {
-  marca: string;
-  modelo: string;
-  anio: string;
-  color: string;
-  vin: string;
-  cilindraje: string;
-} {
-  return {
-    marca: '',
-    modelo: '',
-    anio: '',
-    color: '',
-    vin: '',
-    cilindraje: '',
-  };
-}
-
-function valorSpec(text: string): string {
-  return text.trim() || 'N/A';
-}
-
-function extractApiError(error: unknown, fallback: string): string {
-  if (error && typeof error === 'object' && 'response' in error) {
-    const data = (error as { response?: { data?: Record<string, unknown> } }).response?.data;
-    if (data) {
-      const partes: string[] = [];
-      for (const value of Object.values(data)) {
-        if (Array.isArray(value)) {
-          partes.push(value.map(String).join(', '));
-        } else if (typeof value === 'string' && value.trim()) {
-          partes.push(value.trim());
-        }
-      }
-      if (partes.length) return partes.join(' ');
-    }
-  }
-  return fallback;
+function limpiarVehiculo(): VehiculoPatenteState {
+  return { ...VEHICULO_PATENTE_VACIO };
 }
 
 export function AgendarDesdeCanalModal({
@@ -202,28 +143,18 @@ export function AgendarDesdeCanalModal({
   subtitle,
   conversationId,
   cotizacionAceptadaId,
-  channelDisconnectedReason = null,
-  onCotizacionEnviada,
 }: Props) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { puede, esSupervisor, estadoProveedor } = useAuth();
   const puedeAgendar = !esSupervisor || puede('agenda');
-  const puedeCotizacionIa = !esSupervisor || puede('servicios');
   const esMecanico = estadoProveedor?.tipo_proveedor === 'mecanico';
 
   const [clienteModo, setClienteModo] = useState<ClienteModo>('mensajes');
   const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoCanal | null>(null);
   const [clienteNombre, setClienteNombre] = useState('');
   const [clienteTelefono, setClienteTelefono] = useState('');
-  const [vehiculoMarca, setVehiculoMarca] = useState('');
-  const [vehiculoModelo, setVehiculoModelo] = useState('');
-  const [vehiculoPatente, setVehiculoPatente] = useState('');
-  const [vehiculoAnio, setVehiculoAnio] = useState('');
-  const [vehiculoColor, setVehiculoColor] = useState('');
-  const [vehiculoVin, setVehiculoVin] = useState('');
-  const [vehiculoCilindraje, setVehiculoCilindraje] = useState('');
-  const [vehiculoDesdePatente, setVehiculoDesdePatente] = useState(false);
+  const [vehiculo, setVehiculo] = useState<VehiculoPatenteState>(VEHICULO_PATENTE_VACIO);
   const [servicioManual, setServicioManual] = useState('');
   const [modoServicio, setModoServicio] = useState<ModoServicio>('catalogo');
   const [serviciosCatalogo, setServiciosCatalogo] = useState<ServicioOferta[]>([]);
@@ -247,14 +178,8 @@ export function AgendarDesdeCanalModal({
   const [buscandoPatente, setBuscandoPatente] = useState(false);
   const [patenteHint, setPatenteHint] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
-  const [cotizacion, setCotizacion] = useState<CotizacionCanal | null>(null);
-  const [generandoIa, setGenerandoIa] = useState(false);
-  const [enviandoCotizacion, setEnviandoCotizacion] = useState(false);
-  const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
-  const [errorIa, setErrorIa] = useState<string | null>(null);
-  const [plantillas, setPlantillas] = useState<CotizacionPlantilla[]>([]);
-  const [cargandoPlantillas, setCargandoPlantillas] = useState(false);
-  const [plantillaDetalle, setPlantillaDetalle] = useState<CotizacionPlantilla | null>(null);
+  const [cotizacionOrigenId, setCotizacionOrigenId] = useState<number | null>(null);
+  const [cotizacionOrigenLabel, setCotizacionOrigenLabel] = useState<string | null>(null);
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const [upsellCuota, setUpsellCuota] = useState<{ visible: boolean; mensaje: string }>({
     visible: false,
@@ -319,17 +244,10 @@ export function AgendarDesdeCanalModal({
         setContactoSeleccionado(null);
       }
     } else {
-      setClienteModo('mensajes');
+      setClienteModo('manual');
       setContactoSeleccionado(null);
     }
-    setVehiculoMarca('');
-    setVehiculoModelo('');
-    setVehiculoPatente('');
-    setVehiculoAnio('');
-    setVehiculoColor('');
-    setVehiculoVin('');
-    setVehiculoCilindraje('');
-    setVehiculoDesdePatente(false);
+    setVehiculo(limpiarVehiculo());
     setServicioManual('');
     setModoServicio('catalogo');
     setCatalogoOpcionKey(null);
@@ -339,7 +257,6 @@ export function AgendarDesdeCanalModal({
     setMensajeSinHoras(undefined);
     setMecanicosAptos([]);
     setMiembroSeleccionado(null);
-    setSlotsFinPorHora({});
     setDescripcion('');
     setTipoServicio(esMecanico ? 'domicilio' : 'taller');
     setDireccion('');
@@ -348,12 +265,8 @@ export function AgendarDesdeCanalModal({
     setPatenteHint(null);
     setErrorForm(null);
     setGuardando(false);
-    setCotizacion(null);
-    setGenerandoIa(false);
-    setEnviandoCotizacion(false);
-    setGuardandoPlantilla(false);
-    setErrorIa(null);
-    setPlantillaDetalle(null);
+    setCotizacionOrigenId(null);
+    setCotizacionOrigenLabel(null);
   }, [visible, contactName, contactPhone, channel, conversationId, initialFecha, esMecanico]);
 
   const conversationIdEfectivo = useMemo(() => {
@@ -382,59 +295,27 @@ export function AgendarDesdeCanalModal({
     let mounted = true;
     void cotizacionCanalService.obtener(cotizacionAceptadaId).then((cot) => {
       if (!mounted || cot.estado !== 'aceptada') return;
-      setCotizacion(cot);
+      setCotizacionOrigenId(cot.id);
+      setCotizacionOrigenLabel(cot.servicio_nombre || 'Cotización aceptada');
       setModoServicio('manual');
       setServicioManual(cot.servicio_nombre || '');
       setDescripcion(cot.descripcion_problema || '');
       setTipoServicio(cot.modalidad === 'domicilio' ? 'domicilio' : 'taller');
-      if (cot.vehiculo_marca) setVehiculoMarca(cot.vehiculo_marca);
-      if (cot.vehiculo_modelo) setVehiculoModelo(cot.vehiculo_modelo);
-      if (cot.vehiculo_patente) setVehiculoPatente(cot.vehiculo_patente);
-      if (cot.vehiculo_anio) setVehiculoAnio(String(cot.vehiculo_anio));
-      if (cot.vehiculo_cilindraje) setVehiculoCilindraje(cot.vehiculo_cilindraje);
-      if (cot.vehiculo_vin) setVehiculoVin(cot.vehiculo_vin);
+      setVehiculo({
+        patente: cot.vehiculo_patente || '',
+        marca: cot.vehiculo_marca || '',
+        modelo: cot.vehiculo_modelo || '',
+        anio: cot.vehiculo_anio ? String(cot.vehiculo_anio) : '',
+        color: '',
+        vin: cot.vehiculo_vin || '',
+        cilindraje: cot.vehiculo_cilindraje || '',
+        desdePatente: Boolean(cot.vehiculo_patente && cot.vehiculo_marca),
+      });
     }).catch(() => {});
     return () => {
       mounted = false;
     };
   }, [visible, cotizacionAceptadaId]);
-
-  const vehiculoFiltroPlantillas = useMemo(
-    () => ({
-      marca: vehiculoMarca.trim(),
-      modelo: vehiculoModelo.trim(),
-      cilindraje: vehiculoCilindraje.trim(),
-    }),
-    [vehiculoMarca, vehiculoModelo, vehiculoCilindraje],
-  );
-
-  const vehiculoListoParaPlantillas =
-    vehiculoFiltroPlantillas.marca.length > 0 && vehiculoFiltroPlantillas.modelo.length > 0;
-
-  useEffect(() => {
-    if (!visible || !conversationIdEfectivo) return;
-    if (!vehiculoListoParaPlantillas) {
-      setPlantillas([]);
-      setCargandoPlantillas(false);
-      return;
-    }
-    let mounted = true;
-    setCargandoPlantillas(true);
-    void cotizacionCanalService
-      .listarPlantillas(vehiculoFiltroPlantillas)
-      .then((rows) => {
-        if (mounted) setPlantillas(rows);
-      })
-      .catch(() => {
-        if (mounted) setPlantillas([]);
-      })
-      .finally(() => {
-        if (mounted) setCargandoPlantillas(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [visible, conversationIdEfectivo, vehiculoMarca, vehiculoModelo, vehiculoCilindraje, vehiculoListoParaPlantillas]);
 
   useEffect(() => {
     if (!visible) return;
@@ -485,7 +366,6 @@ export function AgendarDesdeCanalModal({
     setMensajeSinHoras(undefined);
     setMensajeSinFechas(undefined);
     setMiembroSeleccionado(null);
-    setSlotsFinPorHora({});
     setFechaHora((prev) => ({ ...prev, hora: null, horaFin: null }));
   }, [selectedOfertaId, modalidadApi, modoServicio, catalogoOpcionKey, tipoServicio, servicioManual]);
 
@@ -686,68 +566,6 @@ export function AgendarDesdeCanalModal({
     miembroSeleccionado,
   ]);
 
-  const resetVehiculoManual = useCallback(() => {
-    const vacio = limpiarVehiculo();
-    setVehiculoMarca(vacio.marca);
-    setVehiculoModelo(vacio.modelo);
-    setVehiculoAnio(vacio.anio);
-    setVehiculoColor(vacio.color);
-    setVehiculoVin(vacio.vin);
-    setVehiculoCilindraje(vacio.cilindraje);
-    setVehiculoDesdePatente(false);
-    setPatenteHint(null);
-  }, []);
-
-  const handlePatenteChange = useCallback(
-    (text: string) => {
-      setVehiculoPatente(text.toUpperCase());
-      if (vehiculoDesdePatente) {
-        resetVehiculoManual();
-      } else {
-        setPatenteHint(null);
-      }
-    },
-    [vehiculoDesdePatente, resetVehiculoManual],
-  );
-
-  const handlePatenteBlur = useCallback(async () => {
-    const patente = vehiculoPatente.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (patente.length < 5) {
-      setPatenteHint(null);
-      return;
-    }
-    setBuscandoPatente(true);
-    setPatenteHint(null);
-    try {
-      const data = await consultarPatente(patente);
-      setVehiculoPatente(data.patente || patente);
-      setVehiculoMarca(data.marca_nombre?.trim() || '');
-      setVehiculoModelo(data.modelo_nombre?.trim() || '');
-      setVehiculoAnio(data.year ? String(data.year) : '');
-      setVehiculoColor(data.color?.trim() || '');
-      setVehiculoVin(data.vin?.trim() || '');
-      setVehiculoCilindraje(
-        cilindrajeEfectivo(data.cilindraje, data.marca_nombre, data.modelo_nombre),
-      );
-      setVehiculoDesdePatente(true);
-      setPatenteHint('Datos del vehículo cargados desde la patente.');
-    } catch (err) {
-      resetVehiculoManual();
-      if (esErrorCuota(err)) {
-        const mensaje = mensajeCuotaError(
-          err,
-          'Necesitás una suscripción activa para consultar patentes.',
-        );
-        setPatenteHint(mensaje);
-        setUpsellCuota({ visible: true, mensaje });
-      } else {
-        setPatenteHint('No se encontró la patente. Completa marca y modelo manualmente.');
-      }
-    } finally {
-      setBuscandoPatente(false);
-    }
-  }, [vehiculoPatente, resetVehiculoManual]);
-
   const validarFormulario = useCallback((): string | null => {
     if (!puedeAgendar) {
       return 'No tienes permiso para agendar citas.';
@@ -760,10 +578,10 @@ export function AgendarDesdeCanalModal({
       const telError = getChilePhoneError(extraerNueveDigitosDesdeGuardado(clienteTelefono), false);
       if (telError) return telError;
     }
-    if (!vehiculoMarca.trim()) return 'Ingresa la marca del vehículo.';
-    if (!vehiculoModelo.trim()) return 'Ingresa el modelo del vehículo.';
-    if (vehiculoAnio.trim()) {
-      const anio = parseInt(vehiculoAnio.trim(), 10);
+    if (!vehiculo.marca.trim()) return 'Ingresa la marca del vehículo.';
+    if (!vehiculo.modelo.trim()) return 'Ingresa el modelo del vehículo.';
+    if (vehiculo.anio.trim()) {
+      const anio = parseInt(vehiculo.anio.trim(), 10);
       const maxAnio = new Date().getFullYear() + 1;
       if (Number.isNaN(anio) || anio < 1950 || anio > maxAnio) {
         return `Ingresa un año válido (1950–${maxAnio}).`;
@@ -790,9 +608,7 @@ export function AgendarDesdeCanalModal({
     contactoSeleccionado,
     nombreClienteEfectivo,
     clienteTelefono,
-    vehiculoMarca,
-    vehiculoModelo,
-    vehiculoAnio,
+    vehiculo,
     modoServicio,
     catalogoOpcionKey,
     servicioManual,
@@ -808,8 +624,8 @@ export function AgendarDesdeCanalModal({
       cliente_telefono: telefonoClienteEfectivo
         ? normalizarTelefonoChileParaGuardar(telefonoClienteEfectivo)
         : '',
-      vehiculo_marca: vehiculoMarca.trim(),
-      vehiculo_modelo: vehiculoModelo.trim(),
+      vehiculo_marca: vehiculo.marca.trim(),
+      vehiculo_modelo: vehiculo.modelo.trim(),
     };
 
     if (modoServicio === 'catalogo' && catalogoOpcionSeleccionada) {
@@ -822,16 +638,16 @@ export function AgendarDesdeCanalModal({
       detalle.servicio_nombre = servicioManual.trim();
     }
 
-    if (vehiculoPatente.trim()) {
-      detalle.vehiculo_patente = vehiculoPatente.trim().toUpperCase();
+    if (vehiculo.patente.trim()) {
+      detalle.vehiculo_patente = vehiculo.patente.trim().toUpperCase();
     }
-    if (vehiculoAnio.trim()) {
-      const anio = parseInt(vehiculoAnio.trim(), 10);
+    if (vehiculo.anio.trim()) {
+      const anio = parseInt(vehiculo.anio.trim(), 10);
       if (!Number.isNaN(anio)) detalle.vehiculo_anio = anio;
     }
-    if (vehiculoColor.trim()) detalle.vehiculo_color = vehiculoColor.trim();
-    if (vehiculoCilindraje.trim()) detalle.vehiculo_cilindraje = vehiculoCilindraje.trim();
-    if (vehiculoVin.trim()) detalle.vehiculo_vin = vehiculoVin.trim().toUpperCase();
+    if (vehiculo.color.trim()) detalle.vehiculo_color = vehiculo.color.trim();
+    if (vehiculo.cilindraje.trim()) detalle.vehiculo_cilindraje = vehiculo.cilindraje.trim();
+    if (vehiculo.vin.trim()) detalle.vehiculo_vin = vehiculo.vin.trim().toUpperCase();
     if (tipoServicio === 'domicilio') {
       detalle.direccion = (direccionValidada?.line ?? direccion).trim();
     }
@@ -843,22 +659,16 @@ export function AgendarDesdeCanalModal({
       duracion_minutos: calcularDuracionMinutos(fechaHora.hora!, fechaHora.horaFin!),
       tipo_servicio: tipoServicio,
       miembro_taller: miembroSeleccionado,
-      // Trazabilidad: si la cita nace de un chat, queda enlazada a esa conversación.
       conversation_id: conversationIdEfectivo
         ? parseInt(conversationIdEfectivo, 10)
         : undefined,
+      cotizacion_canal_origen_id: cotizacionOrigenId ?? undefined,
       detalle,
     };
   }, [
     nombreClienteEfectivo,
     telefonoClienteEfectivo,
-    vehiculoMarca,
-    vehiculoModelo,
-    vehiculoPatente,
-    vehiculoAnio,
-    vehiculoColor,
-    vehiculoVin,
-    vehiculoCilindraje,
+    vehiculo,
     modoServicio,
     catalogoOpcionSeleccionada,
     serviciosCatalogoGrupos,
@@ -870,196 +680,8 @@ export function AgendarDesdeCanalModal({
     fechaHora,
     miembroSeleccionado,
     conversationIdEfectivo,
+    cotizacionOrigenId,
   ]);
-
-  const vehiculoPayload = useMemo(
-    () => ({
-      marca: vehiculoMarca.trim(),
-      modelo: vehiculoModelo.trim(),
-      patente: vehiculoPatente.trim().toUpperCase(),
-      anio: vehiculoAnio.trim() ? parseInt(vehiculoAnio.trim(), 10) : undefined,
-      cilindraje: vehiculoCilindraje.trim(),
-      vin: vehiculoVin.trim().toUpperCase(),
-    }),
-    [vehiculoMarca, vehiculoModelo, vehiculoPatente, vehiculoAnio, vehiculoCilindraje, vehiculoVin],
-  );
-
-  const handleGenerarCotizacionIa = useCallback(async () => {
-    if (!conversationIdEfectivo) return;
-    if (!vehiculoMarca.trim() || !vehiculoModelo.trim()) {
-      setErrorIa('Completa los datos del vehículo (patente o marca y modelo) antes de generar la cotización.');
-      return;
-    }
-    if (!servicioManual.trim()) {
-      setErrorIa('Ingresa el nombre del servicio antes de generar la cotización.');
-      return;
-    }
-    setErrorIa(null);
-    setGenerandoIa(true);
-    try {
-      const res = await cotizacionCanalService.generarIa({
-        conversation_id: parseInt(conversationIdEfectivo, 10),
-        servicio_nombre: servicioManual.trim(),
-        descripcion_problema: descripcion.trim(),
-        modalidad: tipoServicio === 'domicilio' ? 'domicilio' : 'taller',
-        vehiculo: vehiculoPayload,
-      });
-      if (!res.disponible || !res.cotizacion) {
-        setErrorIa(res.error || 'No se pudo generar la cotización con IA.');
-        return;
-      }
-      setCotizacion(res.cotizacion);
-    } catch (err) {
-      if (esErrorCuota(err)) {
-        setUpsellCuota({ visible: true, mensaje: mensajeCuotaError(err) });
-        return;
-      }
-      setErrorIa('Error al generar cotización. Intenta de nuevo.');
-    } finally {
-      setGenerandoIa(false);
-    }
-  }, [conversationIdEfectivo, vehiculoMarca, vehiculoModelo, servicioManual, descripcion, tipoServicio, vehiculoPayload]);
-
-  const handleAplicarPlantilla = useCallback(
-    async (plantillaId: number) => {
-      if (!conversationIdEfectivo) return;
-      setGenerandoIa(true);
-      setErrorIa(null);
-      try {
-        const res = await cotizacionCanalService.generarIa({
-          conversation_id: parseInt(conversationIdEfectivo, 10),
-          servicio_nombre: servicioManual.trim(),
-          descripcion_problema: descripcion.trim(),
-          modalidad: tipoServicio === 'domicilio' ? 'domicilio' : 'taller',
-          vehiculo: vehiculoPayload,
-          plantilla_id: plantillaId,
-        });
-        if (res.cotizacion) {
-          setCotizacion(res.cotizacion);
-          if (!servicioManual.trim() && res.cotizacion.servicio_nombre) {
-            setServicioManual(res.cotizacion.servicio_nombre);
-          }
-          if (res.cotizacion.descripcion_problema && !descripcion.trim()) {
-            setDescripcion(res.cotizacion.descripcion_problema);
-          }
-        } else setErrorIa(res.error || 'No se pudo aplicar la plantilla.');
-      } catch (err) {
-        setErrorIa(extractApiError(err, 'Error al aplicar plantilla.'));
-      } finally {
-        setGenerandoIa(false);
-      }
-    },
-    [conversationIdEfectivo, servicioManual, descripcion, tipoServicio, vehiculoPayload],
-  );
-
-  const persistSeqRef = useRef(0);
-  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const draftRef = useRef<CotizacionCanal | null>(null);
-
-  const payloadEdicion = useCallback((next: CotizacionCanal) => ({
-    repuestos: next.repuestos,
-    mano_obra_clp: next.mano_obra_clp,
-    servicio_nombre: next.servicio_nombre,
-    descripcion_problema: next.descripcion_problema,
-    duracion_minutos_estimada: next.duracion_minutos_estimada,
-    cliente_nombre: next.cliente_nombre,
-    cliente_telefono: next.cliente_telefono,
-    direccion_servicio: next.direccion_servicio,
-    notas_internas: next.notas_internas,
-  }), []);
-
-  const ejecutarPersist = useCallback(async (next: CotizacionCanal, seq: number) => {
-    if (next.estado !== 'borrador' || !next.id) return next;
-    try {
-      const saved = await cotizacionCanalService.actualizar(next.id, payloadEdicion(next));
-      if (seq === persistSeqRef.current) {
-        setCotizacion(saved);
-        return saved;
-      }
-      return next;
-    } catch {
-      return next;
-    }
-  }, [payloadEdicion]);
-
-  const persistirCotizacion = useCallback(async (next: CotizacionCanal, immediate = false) => {
-    setCotizacion(next);
-    draftRef.current = next;
-    if (next.estado !== 'borrador' || !next.id) return next;
-
-    const seq = ++persistSeqRef.current;
-    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
-
-    if (immediate) {
-      return ejecutarPersist(next, seq);
-    }
-
-    return new Promise<CotizacionCanal>((resolve) => {
-      persistTimerRef.current = setTimeout(async () => {
-        const result = await ejecutarPersist(draftRef.current || next, seq);
-        resolve(result);
-      }, 600);
-    });
-  }, [ejecutarPersist]);
-
-  const handleEnviarCotizacion = useCallback(async () => {
-    if (!cotizacion?.id) return;
-    setEnviandoCotizacion(true);
-    setErrorIa(null);
-    try {
-      const saved = await persistirCotizacion(cotizacion, true);
-      const res = await cotizacionCanalService.enviar(saved.id);
-      setCotizacion(res.cotizacion);
-      onCotizacionEnviada?.();
-
-      const canalExterno = channel && channel !== 'app';
-      if (canalExterno && channelDisconnectedReason) {
-        showAlert(
-          'Cotización en el chat',
-          'La cotización ya aparece en esta conversación. Para que el cliente la reciba por WhatsApp, Messenger o Instagram, conecta el canal en Configuración de canales.',
-        );
-      } else if (canalExterno) {
-        showAlert(
-          'Cotización enviada',
-          'Apareció en el chat y se enviará al cliente por el canal conectado.',
-        );
-      } else {
-        showAlert('Cotización enviada', 'La cotización apareció en el chat de la conversación.');
-      }
-    } catch (err) {
-      setErrorIa(extractApiError(err, 'No se pudo enviar la cotización.'));
-    } finally {
-      setEnviandoCotizacion(false);
-    }
-  }, [cotizacion, persistirCotizacion, channel, channelDisconnectedReason, onCotizacionEnviada]);
-
-  const handleGuardarPlantilla = useCallback(async () => {
-    if (!cotizacion?.id) return;
-    setGuardandoPlantilla(true);
-    try {
-      await persistirCotizacion(cotizacion, true);
-      await cotizacionCanalService.guardarPlantilla({
-        titulo: cotizacion.servicio_nombre || 'Plantilla cotización',
-        cotizacion_id: cotizacion.id,
-      });
-      showAlert('Plantilla guardada', 'Podrás reutilizarla en futuras cotizaciones.');
-    } catch {
-      setErrorIa('No se pudo guardar la plantilla.');
-    } finally {
-      setGuardandoPlantilla(false);
-    }
-  }, [cotizacion, persistirCotizacion]);
-
-  const handleMarcarAceptada = useCallback(async () => {
-    if (!cotizacion?.id) return;
-    try {
-      const updated = await cotizacionCanalService.marcarAceptada(cotizacion.id);
-      setCotizacion(updated);
-      showAlert('Cotización aceptada', 'Puedes continuar con el agendamiento.');
-    } catch {
-      setErrorIa('No se pudo marcar como aceptada.');
-    }
-  }, [cotizacion]);
 
   const ejecutarCreacionCita = useCallback(
     async (payload: CitaAgendaPersonalCreatePayload) => {
@@ -1184,6 +806,14 @@ export function AgendarDesdeCanalModal({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
+            {cotizacionOrigenLabel ? (
+              <View style={styles.cotizacionAceptadaBanner}>
+                <Text style={styles.cotizacionAceptadaText}>
+                  Cotización aceptada — {cotizacionOrigenLabel}. Confirma horario para agendar.
+                </Text>
+              </View>
+            ) : null}
+
             <InstitutionalSectionHeader title="Cliente" />
             <View style={styles.section}>
               <ClienteCanalPickerSection
@@ -1203,81 +833,22 @@ export function AgendarDesdeCanalModal({
                 onClienteTelefonoChange={setClienteTelefono}
                 telefonoHint="Opcional. Ingresa 9 dígitos comenzando en 9."
                 manualFooterHint="Agenda sin chat vinculado; el cliente queda solo en tu agenda personal."
+                contextoChat={Boolean(conversationId)}
               />
             </View>
 
             <InstitutionalSectionHeader title="Vehículo" />
             <View style={styles.section}>
-              <View>
-                <InstitutionalField
-                  label="Patente"
-                  hint="Consulta el registro al salir del campo. Si existe, autocompleta y bloquea los datos del vehículo."
-                  value={vehiculoPatente}
-                  onChangeText={handlePatenteChange}
-                  placeholder="ABCD12"
-                  autoCapitalize="characters"
-                  onBlur={handlePatenteBlur}
-                  editable={!buscandoPatente}
-                />
-                {buscandoPatente ? (
-                  <View style={styles.patenteLoading}>
-                    <ActivityIndicator size="small" color={I.primary} />
-                    <Text style={styles.patenteHint}>Consultando patente…</Text>
-                  </View>
-                ) : patenteHint ? (
-                  <Text style={styles.patenteHint}>{patenteHint}</Text>
-                ) : null}
-              </View>
-              {vehiculoDesdePatente ? (
-                <View style={styles.vehiculoResumen}>
-                  <View style={styles.vehiculoGrid}>
-                    <VehiculoSpecItem label="Marca" value={vehiculoMarca} />
-                    <VehiculoSpecItem label="Modelo" value={vehiculoModelo} />
-                  </View>
-                  <View style={styles.vehiculoGrid}>
-                    <VehiculoSpecItem label="Año" value={vehiculoAnio} />
-                    <VehiculoSpecItem label="Color" value={vehiculoColor} />
-                  </View>
-                  <View style={styles.vehiculoGrid}>
-                    <VehiculoSpecItem label="VIN" value={vehiculoVin} />
-                    <VehiculoSpecItem label="Cilindraje" value={vehiculoCilindraje} />
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.vehiculoManual}>
-                  <View style={styles.fieldRow}>
-                    <View style={styles.fieldHalf}>
-                      <InstitutionalField
-                        label="Marca *"
-                        value={vehiculoMarca}
-                        onChangeText={setVehiculoMarca}
-                        placeholder="Ej. Toyota"
-                      />
-                    </View>
-                    <View style={styles.fieldHalf}>
-                      <InstitutionalField
-                        label="Modelo *"
-                        value={vehiculoModelo}
-                        onChangeText={setVehiculoModelo}
-                        placeholder="Ej. Corolla"
-                      />
-                    </View>
-                  </View>
-                  <View style={styles.fieldRow}>
-                    <View style={styles.fieldHalf}>
-                      <InstitutionalField
-                        label="Año"
-                        value={vehiculoAnio}
-                        onChangeText={(text) => setVehiculoAnio(text.replace(/\D/g, '').slice(0, 4))}
-                        placeholder="2020"
-                        keyboardType="number-pad"
-                        maxLength={4}
-                      />
-                    </View>
-                    <View style={styles.fieldHalf} />
-                  </View>
-                </View>
-              )}
+              <VehiculoPatenteSection
+                value={vehiculo}
+                onChange={setVehiculo}
+                buscandoPatente={buscandoPatente}
+                onBuscandoPatenteChange={setBuscandoPatente}
+                patenteHint={patenteHint}
+                onPatenteHintChange={setPatenteHint}
+                onCuotaError={(mensaje) => setUpsellCuota({ visible: true, mensaje })}
+                resumenVariant="grid"
+              />
             </View>
 
             <InstitutionalSectionHeader title="Servicio" />
@@ -1323,7 +894,7 @@ export function AgendarDesdeCanalModal({
                   {esMecanico ? '1. Servicio a agendar' : '2. Servicio a agendar'}
                 </Text>
                 <Text style={styles.choiceHint}>
-                  Elige uno de tu catálogo o cotiza con IA si el servicio no está en la lista.
+                  Elige uno de tu catálogo o describe un servicio libre si no está en la lista.
                 </Text>
                 <InstitutionalScreenTabs
                   tabs={MODO_SERVICIO_TABS}
@@ -1336,7 +907,7 @@ export function AgendarDesdeCanalModal({
                     <ActivityIndicator color={I.primary} style={styles.loader} />
                   ) : serviciosCatalogoGrupos.length === 0 ? (
                     <Text style={styles.helperText}>
-                      No tienes servicios en catálogo. Cambia a «Cotizar con IA» o créalos en Mis servicios.
+                      No tienes servicios en catálogo. Usa «Servicio libre» o créalos en Mis servicios.
                     </Text>
                   ) : (
                     <View style={styles.catalogoList}>
@@ -1385,105 +956,6 @@ export function AgendarDesdeCanalModal({
                 multiline
                 textInputProps={{ scrollEnabled: true }}
               />
-
-              {modoServicio === 'manual' && conversationIdEfectivo && !esMecanico && puedeCotizacionIa ? (
-                <View style={styles.cotizacionIaBlock}>
-                  {vehiculoListoParaPlantillas ? (
-                    <View style={styles.plantillasVehiculoBox}>
-                      <Text style={styles.plantillasVehiculoTitle}>Plantillas para este vehículo</Text>
-                      <View style={styles.vehiculoGrid}>
-                        <VehiculoSpecItem label="Marca" value={vehiculoMarca} />
-                        <VehiculoSpecItem label="Modelo" value={vehiculoModelo} />
-                      </View>
-                      {vehiculoCilindraje.trim() ? (
-                        <View style={styles.vehiculoGrid}>
-                          <VehiculoSpecItem label="Cilindraje" value={vehiculoCilindraje} />
-                          <View style={styles.vehiculoGridItem} />
-                        </View>
-                      ) : null}
-
-                      {cargandoPlantillas ? (
-                        <ActivityIndicator color={I.primary} style={styles.loader} />
-                      ) : plantillas.length > 0 && !cotizacion ? (
-                        <ScrollView
-                          horizontal
-                          showsHorizontalScrollIndicator={false}
-                          style={styles.plantillasScroll}
-                        >
-                          {plantillas.map((p) => (
-                            <TouchableOpacity
-                              key={p.id}
-                              style={styles.plantillaChip}
-                              onPress={() => setPlantillaDetalle(p)}
-                              disabled={generandoIa}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Ver plantilla ${p.titulo}`}
-                            >
-                              <Text style={styles.plantillaChipText} numberOfLines={2}>
-                                {p.titulo}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </ScrollView>
-                      ) : !cotizacion ? (
-                        <Text style={styles.plantillasEmptyHint}>
-                          No hay plantillas guardadas para{' '}
-                          {etiquetaVehiculoActual(vehiculoFiltroPlantillas)}.
-                        </Text>
-                      ) : null}
-
-                      <TouchableOpacity
-                        style={styles.plantillasLink}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/cotizaciones-plantillas',
-                            params: {
-                              marca: vehiculoFiltroPlantillas.marca,
-                              modelo: vehiculoFiltroPlantillas.modelo,
-                              cilindraje: vehiculoFiltroPlantillas.cilindraje,
-                            },
-                          })
-                        }
-                      >
-                        <Text style={styles.plantillasLinkText}>Ver plantillas de este vehículo</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <Text style={styles.plantillasEmptyHint}>
-                      Completa patente o marca y modelo del vehículo para ver plantillas asociadas.
-                    </Text>
-                  )}
-                  {!cotizacion ? (
-                    <>
-                      <InstitutionalButton
-                        label={generandoIa ? 'Generando…' : 'Generar cotización con IA'}
-                        variant="primary"
-                        loading={generandoIa}
-                        disabled={generandoIa}
-                        onPress={() => void handleGenerarCotizacionIa()}
-                        leading={
-                          generandoIa ? undefined : (
-                            <Sparkles size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                          )
-                        }
-                      />
-                      {errorIa ? <Text style={styles.errorIaText}>{errorIa}</Text> : null}
-                    </>
-                  ) : (
-                    <CotizacionIaEditor
-                      cotizacion={cotizacion}
-                      onChange={(next) => {
-                        void persistirCotizacion(next);
-                      }}
-                      onEnviar={() => void handleEnviarCotizacion()}
-                      onGuardarPlantilla={() => void handleGuardarPlantilla()}
-                      onMarcarAceptada={() => void handleMarcarAceptada()}
-                      enviando={enviandoCotizacion}
-                      guardandoPlantilla={guardandoPlantilla}
-                    />
-                  )}
-                </View>
-              ) : null}
             </View>
 
             {proveedorAgenda?.tipoProveedor === 'taller' ? (
@@ -1655,19 +1127,6 @@ export function AgendarDesdeCanalModal({
       </View>
     </Modal>
 
-    <PlantillaCotizacionDetalleModal
-      visible={Boolean(plantillaDetalle)}
-      plantilla={plantillaDetalle}
-      onClose={() => setPlantillaDetalle(null)}
-      primaryLabel="Usar plantilla"
-      primaryLoading={generandoIa}
-      onPrimaryAction={() => {
-        if (!plantillaDetalle) return;
-        const id = plantillaDetalle.id;
-        setPlantillaDetalle(null);
-        void handleAplicarPlantilla(id);
-      }}
-    />
     <UpsellCuotaModal
       visible={upsellCuota.visible}
       mensaje={upsellCuota.mensaje}
@@ -1730,6 +1189,18 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.lg,
     paddingBottom: SPACING.xl,
     gap: SPACING.sm,
+  },
+  cotizacionAceptadaBanner: {
+    backgroundColor: COLORS.selection.background,
+    borderRadius: BORDERS.radius.lg,
+    padding: SPACING.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.selection.border,
+  },
+  cotizacionAceptadaText: {
+    ...SHEET_SUBTITLE,
+    color: COLORS.selection.text,
+    fontFamily: FF.sansMedium,
   },
   section: {
     gap: SPACING.md,
@@ -1923,59 +1394,5 @@ const styles = StyleSheet.create({
   footerBtnPrimary: {
     flex: 2,
     minWidth: 0,
-  },
-  cotizacionIaBlock: {
-    gap: SPACING.sm,
-    marginTop: SPACING.xs,
-  },
-  errorIaText: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.error.dark,
-  },
-  plantillasLink: { alignSelf: 'flex-start', marginTop: SPACING.xs },
-  plantillasLinkText: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.primary,
-    textDecorationLine: 'underline',
-  },
-  plantillasVehiculoBox: {
-    gap: SPACING.sm,
-    padding: SPACING.sm,
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    marginBottom: SPACING.sm,
-  },
-  plantillasVehiculoTitle: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
-  },
-  plantillasEmptyHint: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.muted,
-    lineHeight: 20,
-  },
-  plantillasScroll: { maxHeight: 56 },
-  plantillaChip: {
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.md,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    marginRight: SPACING.xs,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    maxWidth: 200,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  plantillaChipText: {
-    fontFamily: FF.sansMedium,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: I.ink,
   },
 });

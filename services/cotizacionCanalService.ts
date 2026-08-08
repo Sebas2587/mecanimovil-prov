@@ -6,7 +6,13 @@ export interface RepuestoCotizacion {
   cantidad: number;
   precio_unitario_clp: number;
   precio_referencia_ia?: number;
+  /** @deprecated usar fuente_marketplace */
   fuente_repuesto?: string;
+  fuente_marketplace?: string;
+  marca_repuesto?: string;
+  /** Solo visible en app taller; omitido en link público al cliente. */
+  tienda_ml?: string;
+  precio_iva_incluido?: boolean;
   comentario?: string;
 }
 
@@ -76,6 +82,10 @@ export interface CotizacionCanal {
     valores_estimativos?: boolean;
     cotizacion_original_id?: number;
     cita_personal_id?: number;
+    servicios_lineas?: Array<{
+      nombre?: string;
+      monto_clp?: number;
+    }>;
   };
   cotizacion_original_id?: number | null;
   es_cotizacion_adicional?: boolean;

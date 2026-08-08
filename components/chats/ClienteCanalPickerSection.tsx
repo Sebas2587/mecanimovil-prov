@@ -22,6 +22,7 @@ import type { InboxChatItem } from '@/services/omnichannelService';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { getChannelVisual, type ChannelSlug } from '@/utils/channelVisuals';
+import { nombreContactoAgendable } from '@/utils/nombreContactoAgendable';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -40,6 +41,11 @@ const CLIENTE_TABS = [
   { key: 'manual' as const, label: 'Cliente nuevo' },
 ];
 
+function labelContactoSinNombre(canal: ChannelSlug): string {
+  const label = getChannelVisual(canal).label;
+  return `${label} · sin nombre`;
+}
+
 export function contactosDesdeInbox(items: InboxChatItem[]): ContactoCanal[] {
   const seen = new Set<string>();
   const out: ContactoCanal[] = [];
@@ -48,11 +54,13 @@ export function contactosDesdeInbox(items: InboxChatItem[]): ContactoCanal[] {
     const key = String(item.conversation_id);
     if (seen.has(key)) continue;
     seen.add(key);
+    const canal = (item.channel || 'whatsapp') as ChannelSlug;
+    // Solo nombre agendable real; vacío si Meta/PSID. No persistir "Cliente".
     out.push({
       conversationId: Number(item.conversation_id),
-      nombre: item.otra_persona?.nombre?.trim() || 'Cliente',
+      nombre: nombreContactoAgendable(item.otra_persona?.nombre),
       telefono: item.otra_persona?.telefono ?? null,
-      canal: (item.channel || 'whatsapp') as ChannelSlug,
+      canal,
     });
   }
   return out;
@@ -72,6 +80,8 @@ type Props = {
   /** Hint bajo teléfono en modo manual. */
   telefonoHint?: string;
   manualFooterHint?: string;
+  /** Desde chat: chip fijo sin tabs de modo. */
+  contextoChat?: boolean;
 };
 
 /**
@@ -91,6 +101,7 @@ export function ClienteCanalPickerSection({
   onClienteTelefonoChange,
   telefonoHint = 'Opcional. Indicativo +56; ingresa 9 dígitos comenzando en 9.',
   manualFooterHint = 'Sin chat vinculado se genera un link público o agenda sin canal.',
+  contextoChat = false,
 }: Props) {
   const { data: inbox = [], isPending: inboxLoading } = useChatInboxQuery(enabled);
   const contactos = useMemo(() => contactosDesdeInbox(inbox), [inbox]);
@@ -139,14 +150,14 @@ export function ClienteCanalPickerSection({
         onPress={() => seleccionar(item)}
         activeOpacity={0.85}
         accessibilityRole="button"
-        accessibilityLabel={`Elegir ${item.nombre}`}
+        accessibilityLabel={`Elegir ${item.nombre || labelContactoSinNombre(item.canal)}`}
       >
         <View style={hostIconPlateStyle}>
           <UserRound size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
         </View>
         <View style={styles.contactoText}>
           <InstitutionalText role="h5" numberOfLines={1}>
-            {item.nombre}
+            {item.nombre || labelContactoSinNombre(item.canal)}
           </InstitutionalText>
           {item.telefono ? (
             <InstitutionalText role="caption" color="muted" numberOfLines={1}>
@@ -160,35 +171,39 @@ export function ClienteCanalPickerSection({
     [seleccionar],
   );
 
+  const mostrarTabsModo = !contextoChat;
+
   return (
     <>
-      <View style={styles.underlineTabs}>
-        {CLIENTE_TABS.map((tab) => {
-          const active = clienteModo === tab.key;
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              style={[styles.underlineTab, active && styles.underlineTabActive]}
-              onPress={() => {
-                onClienteModoChange(tab.key);
-                if (tab.key === 'manual') onLimpiarContacto();
-              }}
-              activeOpacity={0.75}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-            >
-              <InstitutionalText
-                role={active ? 'captionBold' : 'caption'}
-                color={active ? 'ink' : 'muted'}
+      {mostrarTabsModo ? (
+        <View style={styles.underlineTabs}>
+          {CLIENTE_TABS.map((tab) => {
+            const active = clienteModo === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.underlineTab, active && styles.underlineTabActive]}
+                onPress={() => {
+                  onClienteModoChange(tab.key);
+                  if (tab.key === 'manual') onLimpiarContacto();
+                }}
+                activeOpacity={0.75}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
               >
-                {tab.label}
-              </InstitutionalText>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+                <InstitutionalText
+                  role={active ? 'captionBold' : 'caption'}
+                  color={active ? 'ink' : 'muted'}
+                >
+                  {tab.label}
+                </InstitutionalText>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : null}
 
-      {clienteModo === 'mensajes' ? (
+      {contextoChat || clienteModo === 'mensajes' ? (
         <>
           {contactoSeleccionado ? (
             <Card elevated padding="host" style={styles.selectedContact}>
@@ -198,21 +213,29 @@ export function ClienteCanalPickerSection({
                 </View>
                 <View style={styles.selectedContactText}>
                   <InstitutionalText role="h5" numberOfLines={1}>
-                    {contactoSeleccionado.nombre}
+                    {nombreContactoAgendable(contactoSeleccionado.nombre)
+                      || labelContactoSinNombre(contactoSeleccionado.canal)}
                   </InstitutionalText>
                   {contactoSeleccionado.telefono ? (
                     <InstitutionalText role="caption" color="muted" numberOfLines={1}>
                       {contactoSeleccionado.telefono}
                     </InstitutionalText>
                   ) : null}
+                  {!nombreContactoAgendable(contactoSeleccionado.nombre) ? (
+                    <InstitutionalText role="caption" color="muted" numberOfLines={2}>
+                      {getChannelVisual(contactoSeleccionado.canal).label} no entregó nombre; complétalo abajo.
+                    </InstitutionalText>
+                  ) : null}
                 </View>
                 <ChannelBadge channel={contactoSeleccionado.canal} compact />
               </View>
-              <TouchableOpacity onPress={abrirPicker} hitSlop={8}>
-                <InstitutionalText role="captionBold" color="primary">
-                  Cambiar
-                </InstitutionalText>
-              </TouchableOpacity>
+              {!contextoChat ? (
+                <TouchableOpacity onPress={abrirPicker} hitSlop={8}>
+                  <InstitutionalText role="captionBold" color="primary">
+                    Cambiar
+                  </InstitutionalText>
+                </TouchableOpacity>
+              ) : null}
             </Card>
           ) : (
             <Card
@@ -243,6 +266,15 @@ export function ClienteCanalPickerSection({
             <InstitutionalText role="caption" color="muted">
               No hay contactos de canal. Usa “Cliente nuevo” o espera un mensaje.
             </InstitutionalText>
+          ) : null}
+          {contactoSeleccionado && !nombreContactoAgendable(contactoSeleccionado.nombre) ? (
+            <InstitutionalField
+              label="Nombre del cliente *"
+              hint="Obligatorio para generar la cotización. El canal no envió un nombre usable."
+              value={clienteNombre}
+              onChangeText={onClienteNombreChange}
+              placeholder="Nombre del cliente"
+            />
           ) : null}
         </>
       ) : (

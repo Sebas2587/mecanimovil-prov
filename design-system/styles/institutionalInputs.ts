@@ -24,7 +24,7 @@ export const institutionalInputStyles = StyleSheet.create({
     ...institutionalTextStyle('caption', I.muted),
     marginBottom: SPACING.fixed.xxs,
   } satisfies TextStyle,
-  /** Campo de texto estándar (altura ~52, radius 16, canvas). */
+  /** Campo de texto estándar (altura ~52, radius 16, paper sobre canvas del modal). */
   input: {
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
@@ -36,7 +36,7 @@ export const institutionalInputStyles = StyleSheet.create({
     lineHeight: Math.round(T.body.fontSize * T.body.lineHeight),
     fontFamily: FF.sansRegular,
     color: I.ink,
-    backgroundColor: I.canvas,
+    backgroundColor: COLORS.background.paper,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}),
   } satisfies TextStyle,
   inputCompact: {
@@ -72,7 +72,7 @@ export const institutionalInputStyles = StyleSheet.create({
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     borderRadius: BORDERS.radius.lg,
-    backgroundColor: I.canvas,
+    backgroundColor: COLORS.background.paper,
     paddingHorizontal: SPACING.fixed.md,
     minHeight: 52,
   } satisfies ViewStyle,

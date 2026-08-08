@@ -54,6 +54,8 @@ import {
 import omnichannelService, { type CanalSlug } from '@/services/omnichannelService';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
+import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
+import { BottomSheet } from '@/app/design-system/components/BottomSheet';
 import { InboxAttentionCard } from '@/components/chats/InboxAttentionCard';
 import { useCotizacionesCanalPendientesQuery } from '@/hooks/useCotizacionesCanalPendientesQuery';
 import { useAgenteBorradoresPendientesQuery } from '@/hooks/useAgenteIaQueries';
@@ -145,7 +147,8 @@ export default function ChatsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [chatFilter, setChatFilter] = useState<ChatInboxFilter>('todos');
   const [searchQuery, setSearchQuery] = useState('');
-  const [agendarContacto, setAgendarContacto] = useState<AgendarContactoState>(null);
+  const [contactoAccion, setContactoAccion] = useState<AgendarContactoState>(null);
+  const [jobModal, setJobModal] = useState<'chooser' | 'agendar' | 'cotizar' | null>(null);
   const [chatHighlighted, setChatHighlighted] = useState<string | null>(null);
   /** Row en proceso de borrado: `oferta:{id}` o `omni:{conversationId}`. */
   const [deletingRowKey, setDeletingRowKey] = useState<string | null>(null);
@@ -200,13 +203,14 @@ export default function ChatsScreen() {
           'inbox',
         )
       : null;
-    setAgendarContacto({
+    setContactoAccion({
       channel: channelSlug || undefined,
       contactName: item.otra_persona?.nombre,
       contactPhone: item.otra_persona?.telefono ?? null,
       conversationId: item.conversation_id ? String(item.conversation_id) : undefined,
       channelDisconnectedReason,
     });
+    setJobModal('chooser');
   }, [channelConnections, featureEnabled]);
 
   useEffect(() => {
@@ -671,15 +675,55 @@ export default function ChatsScreen() {
           />
         )}
 
+        <BottomSheet
+          visible={jobModal === 'chooser' && Boolean(contactoAccion)}
+          onClose={() => {
+            setJobModal(null);
+            setContactoAccion(null);
+          }}
+        >
+          <InstitutionalText role="h4">¿Qué quieres hacer?</InstitutionalText>
+          <InstitutionalText role="caption" color="muted" style={styles.jobChooserHint}>
+            Elige cotizar o agendar para este contacto.
+          </InstitutionalText>
+          <View style={styles.jobChooserActions}>
+            <InstitutionalButton
+              label="Cotizar"
+              variant="outline"
+              onPress={() => setJobModal('cotizar')}
+            />
+            <InstitutionalButton
+              label="Agendar cita"
+              variant="primary"
+              onPress={() => setJobModal('agendar')}
+            />
+          </View>
+        </BottomSheet>
+
         <AgendarDesdeCanalModal
-          visible={Boolean(agendarContacto)}
-          onClose={() => setAgendarContacto(null)}
-          channel={agendarContacto?.channel}
-          contactName={agendarContacto?.contactName}
-          contactPhone={agendarContacto?.contactPhone}
-          conversationId={agendarContacto?.conversationId}
-          channelDisconnectedReason={agendarContacto?.channelDisconnectedReason}
-          onCotizacionEnviada={() => {
+          visible={jobModal === 'agendar' && Boolean(contactoAccion)}
+          onClose={() => {
+            setJobModal(null);
+            setContactoAccion(null);
+          }}
+          channel={contactoAccion?.channel}
+          contactName={contactoAccion?.contactName}
+          contactPhone={contactoAccion?.contactPhone}
+          conversationId={contactoAccion?.conversationId}
+        />
+
+        <CotizacionLibreModal
+          visible={jobModal === 'cotizar' && Boolean(contactoAccion)}
+          onClose={() => {
+            setJobModal(null);
+            setContactoAccion(null);
+          }}
+          conversationId={contactoAccion?.conversationId}
+          channel={contactoAccion?.channel}
+          contactName={contactoAccion?.contactName}
+          contactPhone={contactoAccion?.contactPhone}
+          channelDisconnectedReason={contactoAccion?.channelDisconnectedReason}
+          onEnviada={() => {
             void refetch();
             invalidateProveedorComercialQueries(queryClient);
           }}
@@ -918,5 +962,12 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.text.primary,
     paddingVertical: 0,
+  },
+  jobChooserHint: {
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.md,
+  },
+  jobChooserActions: {
+    gap: SPACING.sm,
   },
 });

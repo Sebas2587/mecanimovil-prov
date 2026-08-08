@@ -26,8 +26,14 @@ import {
   type ClienteModo,
   type ContactoCanal,
 } from '@/components/chats/ClienteCanalPickerSection';
-import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
-import { consultarPatente } from '@/services/vehiculoService';
+import {
+  VehiculoPatenteSection,
+  type VehiculoPatenteState,
+  VEHICULO_PATENTE_VACIO,
+} from '@/components/chats/VehiculoPatenteSection';
+import { nombreContactoAgendable } from '@/utils/nombreContactoAgendable';
+import type { ChannelSlug } from '@/utils/channelVisuals';
+import { channelRespondLabel } from '@/components/chats/ChannelBadge';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert } from '@/utils/platformAlert';
@@ -36,9 +42,18 @@ import {
   extraerNueveDigitosDesdeGuardado,
   normalizarTelefonoChileParaGuardar,
 } from '@/utils/chilePhone';
+import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
+
+function suggestTelefono(channel: ChannelSlug | undefined, phone: string | null | undefined): string {
+  if (!phone?.trim()) return '';
+  if (channel === 'whatsapp') {
+    return extraerNueveDigitosDesdeGuardado(phone);
+  }
+  return '';
+}
 
 const MODALIDAD_TABS = [
   { key: 'taller' as const, label: 'En taller' },
@@ -66,9 +81,24 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onEnviada?: () => void;
+  /** Prefill desde chat omnicanal */
+  conversationId?: string;
+  channel?: ChannelSlug;
+  contactName?: string;
+  contactPhone?: string | null;
+  channelDisconnectedReason?: string | null;
 };
 
-export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
+export function CotizacionLibreModal({
+  visible,
+  onClose,
+  onEnviada,
+  conversationId: conversationIdProp,
+  channel,
+  contactName = '',
+  contactPhone = null,
+  channelDisconnectedReason = null,
+}: Props) {
   const insets = useSafeAreaInsets();
 
   const [clienteModo, setClienteModo] = useState<ClienteModo>('mensajes');
@@ -76,13 +106,7 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
   const [clienteNombre, setClienteNombre] = useState('');
   const [clienteTelefono, setClienteTelefono] = useState('');
 
-  const [vehiculoPatente, setVehiculoPatente] = useState('');
-  const [vehiculoMarca, setVehiculoMarca] = useState('');
-  const [vehiculoModelo, setVehiculoModelo] = useState('');
-  const [vehiculoAnio, setVehiculoAnio] = useState('');
-  const [vehiculoCilindraje, setVehiculoCilindraje] = useState('');
-  const [vehiculoVin, setVehiculoVin] = useState('');
-  const [vehiculoDesdePatente, setVehiculoDesdePatente] = useState(false);
+  const [vehiculo, setVehiculo] = useState<VehiculoPatenteState>(VEHICULO_PATENTE_VACIO);
   const [servicioNombre, setServicioNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [modalidad, setModalidad] = useState<'taller' | 'domicilio'>('taller');
@@ -100,33 +124,37 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
   const [cotizacion, setCotizacion] = useState<CotizacionCanal | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
 
-  const conversationId = contactoSeleccionado?.conversationId ?? null;
-  const esEnvioCanal = Boolean(conversationId);
+  const conversationId = contactoSeleccionado?.conversationId ?? (
+    conversationIdProp ? parseInt(conversationIdProp, 10) : null
+  );
+  const esEnvioCanal = Boolean(contactoSeleccionado?.conversationId ?? conversationIdProp);
+
+  const sheetSubtitle = useMemo(() => {
+    if (esEnvioCanal) {
+      const label = channel ? channelRespondLabel(channel) : 'mensajes';
+      return `Se enviará al cliente por ${label}`;
+    }
+    return 'Link público para compartir, o elige un cliente de tus mensajes';
+  }, [esEnvioCanal, channel]);
 
   const vehiculoPayload = useMemo(
     () => ({
-      marca: vehiculoMarca.trim(),
-      modelo: vehiculoModelo.trim(),
-      patente: vehiculoPatente.trim().toUpperCase(),
-      anio: vehiculoAnio.trim() ? parseInt(vehiculoAnio.trim(), 10) : undefined,
-      cilindraje: cilindrajeEfectivo(vehiculoCilindraje, vehiculoMarca, vehiculoModelo),
-      vin: vehiculoVin.trim().toUpperCase(),
+      marca: vehiculo.marca.trim(),
+      modelo: vehiculo.modelo.trim(),
+      patente: vehiculo.patente.trim().toUpperCase(),
+      anio: vehiculo.anio.trim() ? parseInt(vehiculo.anio.trim(), 10) : undefined,
+      cilindraje: cilindrajeEfectivo(vehiculo.cilindraje, vehiculo.marca, vehiculo.modelo),
+      vin: vehiculo.vin.trim().toUpperCase(),
     }),
-    [vehiculoMarca, vehiculoModelo, vehiculoPatente, vehiculoAnio, vehiculoCilindraje, vehiculoVin],
+    [vehiculo],
   );
 
   const resetForm = useCallback(() => {
-    setClienteModo('mensajes');
+    setClienteModo(conversationIdProp ? 'mensajes' : 'manual');
     setContactoSeleccionado(null);
     setClienteNombre('');
     setClienteTelefono('');
-    setVehiculoPatente('');
-    setVehiculoMarca('');
-    setVehiculoModelo('');
-    setVehiculoAnio('');
-    setVehiculoCilindraje('');
-    setVehiculoVin('');
-    setVehiculoDesdePatente(false);
+    setVehiculo(VEHICULO_PATENTE_VACIO);
     setServicioNombre('');
     setDescripcion('');
     setModalidad('taller');
@@ -136,11 +164,30 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
     setErrorIa(null);
     setCotizacion(null);
     setShareUrl(null);
-  }, []);
+  }, [conversationIdProp]);
 
   useEffect(() => {
-    if (!visible) resetForm();
-  }, [visible, resetForm]);
+    if (!visible) {
+      resetForm();
+      return;
+    }
+    const nombre = nombreContactoAgendable(contactName);
+    const telefono = suggestTelefono(channel, contactPhone);
+    setClienteNombre(nombre);
+    setClienteTelefono(telefono);
+    if (conversationIdProp) {
+      const id = parseInt(conversationIdProp, 10);
+      if (!Number.isNaN(id)) {
+        setClienteModo('mensajes');
+        setContactoSeleccionado({
+          conversationId: id,
+          nombre: nombre || '',
+          telefono: telefono || null,
+          canal: (channel || 'whatsapp') as ChannelSlug,
+        });
+      }
+    }
+  }, [visible, conversationIdProp, contactName, contactPhone, channel, resetForm]);
 
   const handleClose = useCallback(() => {
     resetForm();
@@ -149,7 +196,7 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
 
   const seleccionarContacto = useCallback((c: ContactoCanal) => {
     setContactoSeleccionado(c);
-    setClienteNombre(c.nombre);
+    setClienteNombre(nombreContactoAgendable(c.nombre));
     setClienteTelefono(c.telefono || '');
     setErrorIa(null);
   }, []);
@@ -158,65 +205,13 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
     setContactoSeleccionado(null);
   }, []);
 
-  const handlePatenteChange = useCallback((text: string) => {
-    const next = text.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    setVehiculoPatente(next);
-    if (vehiculoDesdePatente) {
-      setVehiculoDesdePatente(false);
-      setVehiculoMarca('');
-      setVehiculoModelo('');
-      setVehiculoAnio('');
-      setVehiculoCilindraje('');
-      setVehiculoVin('');
-      setPatenteHint(null);
-    }
-  }, [vehiculoDesdePatente]);
-
-  const handlePatenteBlur = useCallback(async () => {
-    const patente = vehiculoPatente.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (patente.length < 5) {
-      setPatenteHint(null);
-      return;
-    }
-    setBuscandoPatente(true);
-    setPatenteHint(null);
-    try {
-      const data = await consultarPatente(patente);
-      setVehiculoPatente(data.patente || patente);
-      setVehiculoMarca(data.marca_nombre?.trim() || '');
-      setVehiculoModelo(data.modelo_nombre?.trim() || '');
-      setVehiculoAnio(data.year ? String(data.year) : '');
-      setVehiculoVin(data.vin?.trim() || '');
-      setVehiculoCilindraje(
-        cilindrajeEfectivo(
-          data.cilindraje,
-          data.marca_nombre,
-          data.modelo_nombre,
-        ),
-      );
-      setVehiculoDesdePatente(true);
-      setPatenteHint('Datos del vehículo cargados desde la patente.');
-    } catch (err) {
-      setVehiculoDesdePatente(false);
-      if (esErrorCuota(err)) {
-        setPatenteHint(mensajeCuotaError(err, 'Necesitás una suscripción activa para consultar patentes.'));
-        setUpsellCuota({
-          visible: true,
-          mensaje: mensajeCuotaError(err, 'Necesitás una suscripción activa para consultar patentes.'),
-        });
-      } else {
-        setPatenteHint('No se encontró la patente. Completa marca y modelo manualmente.');
-      }
-    } finally {
-      setBuscandoPatente(false);
-    }
-  }, [vehiculoPatente]);
-
   const nombreClienteEfectivo = useMemo(() => {
     if (clienteModo === 'mensajes' && contactoSeleccionado) {
-      return contactoSeleccionado.nombre;
+      const fromContact = nombreContactoAgendable(contactoSeleccionado.nombre);
+      const manual = clienteNombre.trim();
+      return nombreContactoAgendable(fromContact || manual);
     }
-    return clienteNombre.trim();
+    return nombreContactoAgendable(clienteNombre);
   }, [clienteModo, contactoSeleccionado, clienteNombre]);
 
   const telefonoClienteEfectivo = useMemo(() => {
@@ -240,7 +235,7 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
       );
       if (telErr) return telErr;
     }
-    if (!vehiculoMarca.trim() || !vehiculoModelo.trim()) {
+    if (!vehiculo.marca.trim() || !vehiculo.modelo.trim()) {
       return 'Completa los datos del vehículo (patente o marca y modelo).';
     }
     if (!servicioNombre.trim()) return 'Ingresa el nombre del servicio.';
@@ -256,8 +251,7 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
     contactoSeleccionado,
     nombreClienteEfectivo,
     clienteTelefono,
-    vehiculoMarca,
-    vehiculoModelo,
+    vehiculo,
     servicioNombre,
     modalidad,
     direccion,
@@ -390,10 +384,18 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
       setShareUrl(url);
       onEnviada?.();
       if (res.cotizacion.conversation || res.message_id) {
-        showAlert(
-          'Cotización enviada',
-          'El cliente la recibió en su canal y puede aceptarla o rechazarla desde la pantalla de cotización.',
-        );
+        const canalExterno = channel && channel !== 'app';
+        if (canalExterno && channelDisconnectedReason) {
+          showAlert(
+            'Cotización en el chat',
+            'La cotización ya aparece en esta conversación. Para que el cliente la reciba por WhatsApp, Messenger o Instagram, conecta el canal en Configuración de canales.',
+          );
+        } else {
+          showAlert(
+            'Cotización enviada',
+            'El cliente la recibió en su canal y puede aceptarla o rechazarla desde la pantalla de cotización.',
+          );
+        }
       } else if (url) {
         await compartirLink(url);
       } else {
@@ -404,7 +406,7 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
     } finally {
       setEnviando(false);
     }
-  }, [cotizacion, persistirCotizacion, compartirLink, onEnviada]);
+  }, [cotizacion, persistirCotizacion, compartirLink, onEnviada, channel, channelDisconnectedReason]);
 
   const enviarLabel = esEnvioCanal || Boolean(cotizacion?.conversation)
     ? 'Enviar al cliente'
@@ -437,11 +439,7 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
           <View style={styles.header}>
             <View style={styles.headerText}>
               <Text style={styles.title}>Nueva cotización</Text>
-              <Text style={styles.subtitle}>
-                {esEnvioCanal
-                  ? 'Se enviará al cliente por su canal de mensajes'
-                  : 'Link público para compartir, o elige un cliente de tus mensajes'}
-              </Text>
+              <Text style={styles.subtitle}>{sheetSubtitle}</Text>
             </View>
             <TouchableOpacity
               onPress={handleClose}
@@ -479,62 +477,23 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
                     clienteTelefono={clienteTelefono}
                     onClienteTelefonoChange={setClienteTelefono}
                     manualFooterHint="Sin chat vinculado se genera un link público para compartir."
+                    contextoChat={Boolean(conversationIdProp)}
                   />
                 </View>
 
                 <InstitutionalSectionHeader title="Vehículo" />
                 <View style={styles.section}>
-                  <InstitutionalField
-                    label="Patente"
-                    hint="Consulta el registro al salir del campo. Si existe, autocompleta y bloquea los datos del vehículo."
-                    value={vehiculoPatente}
-                    onChangeText={handlePatenteChange}
-                    placeholder="ABCD12"
-                    autoCapitalize="characters"
-                    onBlur={() => void handlePatenteBlur()}
-                    editable={!buscandoPatente}
+                  <VehiculoPatenteSection
+                    value={vehiculo}
+                    onChange={setVehiculo}
+                    buscandoPatente={buscandoPatente}
+                    onBuscandoPatenteChange={setBuscandoPatente}
+                    patenteHint={patenteHint}
+                    onPatenteHintChange={setPatenteHint}
+                    onCuotaError={(mensaje) => setUpsellCuota({ visible: true, mensaje })}
+                    resumenVariant="compact"
+                    stripNonAlphanumeric
                   />
-                  {buscandoPatente ? (
-                    <View style={styles.patenteLoading}>
-                      <ActivityIndicator size="small" color={I.primary} />
-                      <Text style={styles.patenteHint}>Consultando patente…</Text>
-                    </View>
-                  ) : patenteHint ? (
-                    <Text style={styles.patenteHint}>{patenteHint}</Text>
-                  ) : null}
-
-                  {vehiculoDesdePatente ? (
-                    <View style={styles.vehiculoResumen}>
-                      <InstitutionalText role="h5">
-                        {[vehiculoMarca, vehiculoModelo].filter(Boolean).join(' ')}
-                        {vehiculoAnio ? ` · ${vehiculoAnio}` : ''}
-                      </InstitutionalText>
-                      {vehiculoCilindraje || vehiculoVin ? (
-                        <InstitutionalText role="caption" color="muted">
-                          {[vehiculoCilindraje, vehiculoVin].filter(Boolean).join(' · ')}
-                        </InstitutionalText>
-                      ) : null}
-                    </View>
-                  ) : (
-                    <View style={styles.fieldRow}>
-                      <View style={styles.fieldHalf}>
-                        <InstitutionalField
-                          label="Marca *"
-                          value={vehiculoMarca}
-                          onChangeText={setVehiculoMarca}
-                          placeholder="Ej. Toyota"
-                        />
-                      </View>
-                      <View style={styles.fieldHalf}>
-                        <InstitutionalField
-                          label="Modelo *"
-                          value={vehiculoModelo}
-                          onChangeText={setVehiculoModelo}
-                          placeholder="Ej. Corolla"
-                        />
-                      </View>
-                    </View>
-                  )}
                 </View>
 
                 <InstitutionalSectionHeader title="Servicio" />
@@ -576,13 +535,14 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
                     </View>
                     {modalidad === 'domicilio' ? (
                       <ChileAddressField
-                        label="Dirección del cliente *"
-                        hint="Busca una dirección real en Chile y elige un resultado."
+                        label="Comuna o dirección del cliente *"
+                        hint="Para cotizar basta con comuna verificada; puedes usar dirección completa si la tienes."
+                        acceptLevel="comuna"
                         value={direccion}
                         validated={direccionValidada}
                         onChangeText={setDireccion}
                         onValidatedChange={setDireccionValidada}
-                        placeholder="Ej: Av. Providencia 1200, Providencia"
+                        placeholder="Ej: Providencia o Av. Providencia 1200, Providencia"
                       />
                     ) : null}
                   </View>
@@ -614,10 +574,9 @@ export function CotizacionLibreModal({ visible, onClose, onEnviada }: Props) {
                 <CotizacionIaEditor
                   cotizacion={cotizacion}
                   onChange={(next) => void persistirCotizacion(next)}
-                  onEnviar={() => void handleEnviar()}
-                  enviarLabel={enviarLabel}
-                  enviando={enviando}
+                  hideSendActions
                   readonly={cotizacion.estado !== 'borrador'}
+                  compactHeader
                 />
 
                 {shareUrl ? (

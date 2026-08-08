@@ -19,6 +19,7 @@ import {
   formatHitForSuggestion,
   isPlausibleChileAddressQuery,
   isStructuredChileAddressComplete,
+  isStructuredChileAddressComunaComplete,
   searchChileAddressesDetailed,
   type ChileAddressHitDetailed,
   type ChileFormattedAddress,
@@ -43,6 +44,8 @@ type Props = {
   validated: ChileFormattedAddress | null;
   onChangeText: (text: string) => void;
   onValidatedChange: (address: ChileFormattedAddress | null) => void;
+  /** full = calle+comuna+región; comuna = solo comuna y región (cotización domicilio). */
+  acceptLevel?: 'full' | 'comuna';
   inputStyle?: TextStyle | TextStyle[];
   placeholder?: string;
   editable?: boolean;
@@ -56,6 +59,7 @@ export default function ChileAddressField({
   validated,
   onChangeText,
   onValidatedChange,
+  acceptLevel = 'full',
   inputStyle,
   placeholder = 'Ej: Los Leones 1200, Providencia',
   editable = true,
@@ -74,9 +78,17 @@ export default function ChileAddressField({
     return null;
   })();
 
+  const isAddressComplete = useCallback(
+    (address: ChileAddressHitDetailed['address']) =>
+      acceptLevel === 'comuna'
+        ? isStructuredChileAddressComunaComplete(address)
+        : isStructuredChileAddressComplete(address),
+    [acceptLevel],
+  );
+
   const onSelectHit = useCallback(
     (hit: ChileAddressHitDetailed) => {
-      if (!isStructuredChileAddressComplete(hit.address)) {
+      if (!isAddressComplete(hit.address)) {
         setStatus('invalid');
         onValidatedChange(null);
         return;
@@ -88,7 +100,7 @@ export default function ChileAddressField({
       setSuggestions([]);
       setStatus('valid');
     },
-    [onChangeText, onValidatedChange, value]
+    [onChangeText, onValidatedChange, value, isAddressComplete]
   );
 
   useEffect(() => {
@@ -158,21 +170,31 @@ export default function ChileAddressField({
   const feedback = (() => {
     switch (status) {
       case 'too_short':
-        return `Escribe al menos ${CHILE_ADDRESS_MIN_QUERY} caracteres e incluye el número de calle.`;
+        return acceptLevel === 'comuna'
+          ? `Escribe al menos ${CHILE_ADDRESS_MIN_QUERY} caracteres (comuna o dirección).`
+          : `Escribe al menos ${CHILE_ADDRESS_MIN_QUERY} caracteres e incluye el número de calle.`;
       case 'searching':
         return 'Buscando direcciones en Chile…';
       case 'pick_suggestion':
-        return 'Elige una dirección de la lista (comuna y región verificadas).';
+        return acceptLevel === 'comuna'
+          ? 'Elige una comuna o dirección de la lista (comuna y región verificadas).'
+          : 'Elige una dirección de la lista (comuna y región verificadas).';
       case 'valid':
         return validated
           ? `Ubicación confirmada: ${validated.comuna}${validated.region ? `, ${validated.region}` : ''}`
           : 'Dirección confirmada.';
       case 'invalid':
-        return 'No encontramos esa dirección en Chile. Revisa calle, número, comuna y región.';
+        return acceptLevel === 'comuna'
+          ? 'No encontramos esa comuna en Chile. Revisa el nombre e intenta de nuevo.'
+          : 'No encontramos esa dirección en Chile. Revisa calle, número, comuna y región.';
       case 'error':
         return 'No pudimos consultar el mapa. Revisa tu conexión.';
       default:
-        return hint ?? 'Usa calle con número, comuna y región (ej. Av. Providencia 1200, Providencia).';
+        return hint ?? (
+          acceptLevel === 'comuna'
+            ? 'Busca comuna o dirección (ej. Providencia, Las Condes).'
+            : 'Usa calle con número, comuna y región (ej. Av. Providencia 1200, Providencia).'
+        );
     }
   })();
 

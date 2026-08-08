@@ -99,6 +99,8 @@ export interface CitaAgendaPersonalCreatePayload {
   miembro_taller?: number | null;
   /** Trazabilidad: conversación de canal desde la que se creó la cita, si aplica. */
   conversation_id?: number;
+  /** Cotización aceptada que originó la cita, si aplica. */
+  cotizacion_canal_origen_id?: number;
   detalle: Partial<CitaAgendaPersonalDetalle> & {
     cliente_nombre: string;
     cliente_telefono: string;

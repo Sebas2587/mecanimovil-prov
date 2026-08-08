@@ -20,6 +20,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import chatService from '@/services/chatService';
 import { OmnichannelChatHeader, OmnichannelChatActionBar } from '@/components/chats/OmnichannelChatHeader';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
+import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
 import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
 import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
 import type { CanalSlug } from '@/services/omnichannelService';
@@ -124,6 +125,7 @@ export default function ChatOmnicanalScreen() {
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [agendarVisible, setAgendarVisible] = useState(false);
+  const [cotizarVisible, setCotizarVisible] = useState(false);
   const [agenteIaVisible, setAgenteIaVisible] = useState(false);
   const [cotizacionAceptadaId, setCotizacionAceptadaId] = useState<number | undefined>();
   const [attachments, setAttachments] = useState<AttachmentState[]>([]);
@@ -405,8 +407,17 @@ export default function ChatOmnicanalScreen() {
           contactPhone={conversationMeta.contactPhone}
           conversationId={convId}
           cotizacionAceptadaId={cotizacionAceptadaId}
+        />
+
+        <CotizacionLibreModal
+          visible={cotizarVisible}
+          onClose={() => setCotizarVisible(false)}
+          conversationId={convId}
+          channel={conversationMeta.channel || undefined}
+          contactName={conversationMeta.nombreAgendable}
+          contactPhone={conversationMeta.contactPhone}
           channelDisconnectedReason={channelDisconnectedReason}
-          onCotizacionEnviada={() => {
+          onEnviada={() => {
             void cargar();
           }}
         />
@@ -587,7 +598,8 @@ export default function ChatOmnicanalScreen() {
               <OmnichannelChatActionBar
                 cotizacionAceptada={Boolean(cotizacionAceptadaId)}
                 conversationId={convId}
-                onPress={() => setAgendarVisible(true)}
+                onPressCotizar={() => setCotizarVisible(true)}
+                onPressAgendar={() => setAgendarVisible(true)}
                 onPressAgenteIa={() => setAgenteIaVisible(true)}
               />
             }

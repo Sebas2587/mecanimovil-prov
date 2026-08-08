@@ -37,6 +37,22 @@ function subtotalRepuesto(rep: RepuestoCotizacion): number {
   return redondearCLP(redondearCLP(rep.cantidad || 1) * redondearCLP(rep.precio_unitario_clp));
 }
 
+function desgloseIvaDesdeTotal(totalIvaIncl: number): { neto: number; iva: number; total: number } {
+  const total = redondearCLP(totalIvaIncl);
+  const neto = Math.round(total / 1.19);
+  const iva = total - neto;
+  return { neto, iva, total };
+}
+
+function fuenteMarketplaceLabel(rep: RepuestoCotizacion): string | null {
+  const raw = (rep.fuente_marketplace || rep.fuente_repuesto || '').trim();
+  if (!raw) return null;
+  const key = raw.toLowerCase();
+  if (key === 'mercadolibre') return 'Mercado Libre';
+  if (key === 'catalogo' || key === 'catálogo') return 'Catálogo';
+  return raw;
+}
+
 const ESTADO_VARIANT: Record<
   CotizacionCanal['estado'],
   'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
@@ -172,13 +188,29 @@ const RepuestoRow = React.memo(function RepuestoRow({
         ) : null}
       </View>
 
-      {rep.fuente_repuesto ? (
+      {(fuenteMarketplaceLabel(rep) || (rep.marca_repuesto || '').trim() || (rep.tienda_ml || '').trim()) ? (
         <View style={styles.fuenteBadgeRow}>
-          <InstitutionalTag
-            label={`Origen: ${rep.fuente_repuesto}`}
-            variant="info"
-            size="sm"
-          />
+          {(rep.marca_repuesto || '').trim() ? (
+            <InstitutionalTag
+              label={`Marca: ${rep.marca_repuesto!.trim()}`}
+              variant="neutral"
+              size="sm"
+            />
+          ) : null}
+          {fuenteMarketplaceLabel(rep) ? (
+            <InstitutionalTag
+              label={`Canal: ${fuenteMarketplaceLabel(rep)}`}
+              variant="info"
+              size="sm"
+            />
+          ) : null}
+          {(rep.tienda_ml || '').trim() ? (
+            <InstitutionalTag
+              label={`Tienda: ${rep.tienda_ml!.trim()}`}
+              variant="neutral"
+              size="sm"
+            />
+          ) : null}
         </View>
       ) : null}
 
@@ -234,6 +266,8 @@ interface CotizacionIaEditorProps {
   enviarLabel?: string;
   enviando?: boolean;
   guardandoPlantilla?: boolean;
+  /** Oculta botones de envío (el host modal usa footer propio). */
+  hideSendActions?: boolean;
   readonly?: boolean;
   /** Oculta título/servicio cuando el host (modal) ya los muestra. */
   compactHeader?: boolean;
@@ -248,6 +282,7 @@ export function CotizacionIaEditor({
   enviarLabel = 'Enviar cotización al cliente',
   enviando = false,
   guardandoPlantilla = false,
+  hideSendActions = false,
   readonly = false,
   compactHeader = false,
 }: CotizacionIaEditorProps) {
@@ -266,6 +301,22 @@ export function CotizacionIaEditor({
     () => totalRepuestos + manoObra,
     [totalRepuestos, manoObra],
   );
+
+  const desgloseTotal = useMemo(
+    () => desgloseIvaDesdeTotal(totalCalculado),
+    [totalCalculado],
+  );
+
+  const serviciosLineas = useMemo(() => {
+    const raw = cotizacion.metadata?.servicios_lineas;
+    if (!Array.isArray(raw) || raw.length <= 1) return [];
+    return raw
+      .map((line) => ({
+        nombre: String(line?.nombre || '').trim(),
+        monto: redondearCLP(Number(line?.monto_clp) || 0),
+      }))
+      .filter((line) => line.nombre || line.monto > 0);
+  }, [cotizacion.metadata?.servicios_lineas]);
 
   const actualizarRepuesto = useCallback(
     (index: number, patch: Partial<RepuestoCotizacion>) => {
@@ -534,15 +585,31 @@ export function CotizacionIaEditor({
         </Card>
       ) : null}
 
+      {serviciosLineas.length > 0 ? (
+        <Card elevated padding="host" style={styles.sectionCard}>
+          <InstitutionalSectionHeader title="Desglose por servicio" />
+          {serviciosLineas.map((line, idx) => (
+            <View key={`svc-line-${idx}`} style={styles.summaryRow}>
+              <InstitutionalText role="caption" color="muted" numberOfLines={2} style={styles.servicioLineaNombre}>
+                {line.nombre || `Servicio ${idx + 1}`}
+              </InstitutionalText>
+              <InstitutionalText role="captionBold" color="ink">
+                {formatearMontoCLP(line.monto)}
+              </InstitutionalText>
+            </View>
+          ))}
+        </Card>
+      ) : null}
+
       <Card elevated padding="host" style={styles.sectionCard}>
-        <InstitutionalSectionHeader title="Mano de obra (IVA incl.)" />
+        <InstitutionalSectionHeader title="Mano de obra" />
         <ClpMoneyInput
           value={manoObra}
           editable={editable}
           onChangeValue={(next) => onChange({ ...cotizacion, mano_obra_clp: next })}
         />
         <InstitutionalText role="caption" color="muted">
-          Monto final al cliente con IVA 19% incluido.
+          Precio final al cliente (el IVA se desglosa en el resumen).
           {cotizacion.metadata?.valores_estimativos || cotizacion.metadata?.precio_parcial_catalogo
             ? ' Valor estimativo precargado (catálogo / histórico / mercado): edítalo si hace falta.'
             : ''}
@@ -551,7 +618,7 @@ export function CotizacionIaEditor({
 
       <View style={styles.section}>
         <InstitutionalSectionHeader
-          title="Repuestos (IVA incl.)"
+          title="Repuestos"
           count={repuestos.length > 0 ? repuestos.length : undefined}
           actionLabel={editable ? 'Agregar' : undefined}
           onActionPress={editable ? agregarRepuesto : undefined}
@@ -595,7 +662,7 @@ export function CotizacionIaEditor({
       <Card elevated padding="host" style={styles.summaryBox}>
         <View style={styles.summaryRow}>
           <InstitutionalText role="caption" color="muted">
-            Repuestos (IVA incl.)
+            Repuestos
           </InstitutionalText>
           <InstitutionalText role="captionBold" color="ink">
             {formatearMontoCLP(totalRepuestos)}
@@ -603,7 +670,7 @@ export function CotizacionIaEditor({
         </View>
         <View style={styles.summaryRow}>
           <InstitutionalText role="caption" color="muted">
-            Mano de obra (IVA incl.)
+            Mano de obra
           </InstitutionalText>
           <InstitutionalText role="captionBold" color="ink">
             {formatearMontoCLP(manoObra)}
@@ -611,15 +678,32 @@ export function CotizacionIaEditor({
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryRow}>
+          <InstitutionalText role="caption" color="muted">
+            Neto
+          </InstitutionalText>
+          <InstitutionalText role="captionBold" color="ink">
+            {formatearMontoCLP(desgloseTotal.neto)}
+          </InstitutionalText>
+        </View>
+        <View style={styles.summaryRow}>
+          <InstitutionalText role="caption" color="muted">
+            IVA 19%
+          </InstitutionalText>
+          <InstitutionalText role="captionBold" color="ink">
+            {formatearMontoCLP(desgloseTotal.iva)}
+          </InstitutionalText>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryRow}>
           <InstitutionalText role="h5" color="ink">
-            Total estimado (IVA incluido)
+            Total a pagar
           </InstitutionalText>
           <InstitutionalText role="numberDisplay" color="ink" style={styles.totalValue}>
-            {formatearMontoCLP(totalCalculado)}
+            {formatearMontoCLP(desgloseTotal.total)}
           </InstitutionalText>
         </View>
         <InstitutionalText role="caption" color="muted">
-          No se suma IVA adicional: los montos ya son finales al cliente.
+          Los precios de línea ya incluyen IVA. El desglose neto/IVA es informativo.
         </InstitutionalText>
       </Card>
 
@@ -635,7 +719,8 @@ export function CotizacionIaEditor({
         />
       </Card>
 
-      {cotizacion.estado === 'borrador' ? (
+      {cotizacion.estado === 'borrador'
+        && (cotizacion.listo_para_enviar || (cotizacion.pendientes_revision?.length ?? 0) > 0) ? (
         <Card elevated padding="host" style={styles.readinessCard}>
           {cotizacion.listo_para_enviar ? (
             <InstitutionalText role="captionBold" color="ink">
@@ -669,8 +754,9 @@ export function CotizacionIaEditor({
         </Card>
       ) : null}
 
-      {(editable && (onEnviar || onGuardarPlantilla))
-        || (cotizacion.estado === 'enviada' && onMarcarAceptada) ? (
+      {!hideSendActions
+        && ((editable && (onEnviar || onGuardarPlantilla))
+          || (cotizacion.estado === 'enviada' && onMarcarAceptada)) ? (
         <View style={styles.actionsFooter}>
           {editable && onEnviar ? (
             <InstitutionalButton
@@ -875,8 +961,15 @@ const styles = StyleSheet.create({
     marginTop: SPACING.fixed.xs,
   },
   fuenteBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.xs,
     marginBottom: SPACING.fixed.xs,
-    alignSelf: 'flex-start',
+  },
+  servicioLineaNombre: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: SPACING.fixed.sm,
   },
   actionsFooter: {
     gap: SPACING.fixed.sm,

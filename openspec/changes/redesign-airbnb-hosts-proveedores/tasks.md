@@ -26,3 +26,13 @@
 
 ## Fase 5 — Gate
 - [x] Spec canónica design-system + dashboard-home
+
+## Fase 6 — Split Cotizar vs Agendar
+- [x] specs/cotizar-vs-agendar/spec.md
+- [x] ClienteCanalPickerSection: PSID fix + contextoChat
+- [x] VehiculoPatenteSection compartido
+- [x] Backend: cotizacion_canal_origen_id en create cita
+- [x] AgendarDesdeCanalModal: slim (sin IA/plantillas/editor)
+- [x] CotizacionLibreModal: prefill desde chat
+- [x] OmnichannelChatActionBar: Cotizar | Agendar
+- [x] Entradas chat/chats/hoy/calendario + redirect agendar-cita-personal
