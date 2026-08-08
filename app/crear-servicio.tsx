@@ -1303,7 +1303,14 @@ const CrearServicioScreen = () => {
         nuevosPrecios.set(repuestoId, '');
       }
       if (!nuevasConfigs.has(repuestoId)) {
-        nuevasConfigs.set(repuestoId, repuestoConfigVacio());
+        const maestro = repuestos.find((r) => r.id === repuestoId);
+        const marcaMaestro = (maestro?.marca || '').trim();
+        nuevasConfigs.set(
+          repuestoId,
+          marcaMaestro
+            ? { ...repuestoConfigVacio(), marcaRepuesto: marcaMaestro }
+            : repuestoConfigVacio(),
+        );
       }
     }
     setRepuestosSeleccionados(nuevosSeleccionados);
@@ -3118,6 +3125,9 @@ const CrearServicioScreen = () => {
       <>
         <HostSectionKicker label="Repuestos a incluir" />
         <HostPaperSection style={styles.sectionContainer}>
+        <Text style={styles.marcaHint}>
+          Los precios y marcas de tus servicios alimentan las cotizaciones IA.
+        </Text>
         {loadingRepuestos ? (
           <ActivityIndicator style={styles.loader} />
         ) : repuestos.length > 0 ? (

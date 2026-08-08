@@ -21,26 +21,33 @@ When the channel provides no agendable name, Cotizar/Agendar SHALL show an edita
 
 ### Requirement: Repuesto JSON en cotización
 Each repuesto line MAY include:
-- `fuente_marketplace` (optional: `mercadolibre` | `catalogo` | empty). MUST NOT default to Mercado Libre.
+- `fuente_marketplace` (optional: `mercadolibre` | `catalogo` | `historial` | empty). MUST NOT default to Mercado Libre.
 - `marca_repuesto` (part brand, distinct from vehicle brand)
-- `tienda_ml` (Mercado Libre seller; taller-only; only when obtained from a real ML listing; stripped from public cliente API)
+- `proveedor_nombre` (human-readable channel/supplier: Catálogo del taller, historial, ML nickname)
+- `tienda_ml` (Mercado Libre seller; taller-only; only when obtained from a real ML listing; stripped from public cliente API; kept for ML compat)
 - `precio_iva_incluido: true` (all quoted CLP amounts are IVA-inclusive)
 
-After IA normalize, the backend SHALL run `enriquecer_repuestos_cotizacion`:
-1. Match taller catalog / master `Repuesto` → `marca_repuesto` + `fuente_marketplace: catalogo`
-2. Infer known part brands from the part name (e.g. Vimasa) without inventing a store
-3. Best-effort ML OAuth search for real `tienda_ml` + brand; on 403/unavailable, leave tienda empty (never invent)
+After IA normalize, the backend SHALL run `enriquecer_repuestos_cotizacion` (failures MUST NOT 500 `generar-ia`; deliver IA content without enrich):
+1. **CatalogSource** — `OfertaServicio` with `disponible=True` + master `Repuesto` → marca/precio + `fuente_marketplace: catalogo` (highest confidence)
+2. **HistorialCotizacionSource** — prior taller cotizaciones `enviada|aceptada` (~6 months) → mediana precio / moda marca (medium confidence)
+3. **KnowledgeBrandSource** — infer known part brands from the part name (e.g. Vimasa) without inventing a store
+4. **MercadoLibreSource** — best-effort OAuth for real `tienda_ml` + brand; on 403/unavailable, leave empty (never invent; never block)
+
+Merge by confidence; prefer catalog/historial price when matched. Recalculate totals with `recalcular_totales`.
+
+Provider effort: keep services with priced/branded repuestos (crear-servicio precarga `marca_repuesto` from master). No new catalog admin UI this phase.
 
 Catalog desglose (`_desglose_oferta_catalogo`) SHALL forward `marca_repuesto` from oferta JSON.
 
-UI SHALL show marca/tienda/canal as read-only tags only when present.
+UI SHALL show Marca / Canal / Proveedor as read-only tags only when present (not force Mercado Libre).
 
 ### Requirement: Repuestos por vehículo
 Cotización IA SHALL list parts compatible with marca/modelo/año/cilindrada/tipo_motor from context and inject relevant diagnostic knowledge when servicio/síntoma matches. Prefer fewer correct lines over generic unrelated parts (e.g. volante bimasa on applicable Fiat Bravo T-Jet clutch jobs).
 
 ### Requirement: Editor de cotización IA
 `CotizacionIaEditor` SHALL:
-- Show repuesto marca / canal / tienda as tags only when JSON values exist
+- Show repuesto Marca / Canal / Proveedor as tags only when JSON values exist
+- Short hint: prices and brands from published services feed IA quotes
 - Show `metadata.servicios_lineas` breakdown when more than one service line exists
 - Show summary: Repuestos, Mano de obra, Neto, IVA 19%, **Total a pagar** (derived from IVA-inclusive amounts)
 - NOT label intermediate rows as “(IVA incl.)” when the Neto/IVA desglose is shown

@@ -50,7 +50,16 @@ function fuenteMarketplaceLabel(rep: RepuestoCotizacion): string | null {
   const key = raw.toLowerCase();
   if (key === 'mercadolibre') return 'Mercado Libre';
   if (key === 'catalogo' || key === 'catálogo') return 'Catálogo';
+  if (key === 'historial') return 'Historial';
   return raw;
+}
+
+function proveedorLabel(rep: RepuestoCotizacion): string | null {
+  const nombre = (rep.proveedor_nombre || '').trim();
+  if (nombre) return nombre;
+  const tienda = (rep.tienda_ml || '').trim();
+  if (tienda) return tienda;
+  return null;
 }
 
 const ESTADO_VARIANT: Record<
@@ -188,7 +197,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
         ) : null}
       </View>
 
-      {(fuenteMarketplaceLabel(rep) || (rep.marca_repuesto || '').trim() || (rep.tienda_ml || '').trim()) ? (
+      {(fuenteMarketplaceLabel(rep) || (rep.marca_repuesto || '').trim() || proveedorLabel(rep)) ? (
         <View style={styles.fuenteBadgeRow}>
           {(rep.marca_repuesto || '').trim() ? (
             <InstitutionalTag
@@ -204,9 +213,9 @@ const RepuestoRow = React.memo(function RepuestoRow({
               size="sm"
             />
           ) : null}
-          {(rep.tienda_ml || '').trim() ? (
+          {proveedorLabel(rep) ? (
             <InstitutionalTag
-              label={`Tienda: ${rep.tienda_ml!.trim()}`}
+              label={`Proveedor: ${proveedorLabel(rep)}`}
               variant="neutral"
               size="sm"
             />
@@ -623,6 +632,9 @@ export function CotizacionIaEditor({
           actionLabel={editable ? 'Agregar' : undefined}
           onActionPress={editable ? agregarRepuesto : undefined}
         />
+        <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
+          Los precios y marcas de tus servicios alimentan las cotizaciones IA.
+        </InstitutionalText>
 
         {repuestos.length === 0 ? (
           <Card
@@ -817,6 +829,7 @@ const styles = StyleSheet.create({
   },
   warningText: { flex: 1 },
   section: { gap: SPACING.fixed.sm },
+  repuestosHint: { marginTop: -SPACING.fixed.xs },
   sectionCard: { gap: SPACING.fixed.sm },
   moneyRowCompact: {
     minHeight: 44,

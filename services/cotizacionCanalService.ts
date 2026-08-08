@@ -12,6 +12,8 @@ export interface RepuestoCotizacion {
   marca_repuesto?: string;
   /** Solo visible en app taller; omitido en link público al cliente. */
   tienda_ml?: string;
+  /** Proveedor/canal legible (Catálogo, historial, nickname ML). */
+  proveedor_nombre?: string;
   precio_iva_incluido?: boolean;
   comentario?: string;
 }
