@@ -40,6 +40,8 @@ After IA normalize, `enriquecer_repuestos_cotizacion` (failures MUST NOT 500 `ge
 
 Lines without taller catalog/historial price SHALL set `precio_estimado: true` and cotización metadata `valores_estimativos: true`.
 
+**Taller OfertaServicio by marca/modelo SHALL feed quotes** (chat agent and Cotizar `generar-ia`): when `buscar_oferta_exacta` matches published `disponible` oferta for servicio + vehicle marca/modelo, labor and `repuestos_seleccionados` (with `marca_repuesto`, prices, `fuente_marketplace: catalogo`, `proveedor_nombre: Catálogo del taller`) MUST replace IA estimates. Enrich filters candidates by modelo (skip other-model ofertas). Prompt MAY include a short catalog block for that vehicle.
+
 UI SHALL show Marca / Canal / Proveedor only when present; "Precio estimado — revisar" when `precio_estimado` and not a verified canal; Canal warning style for `estimado`.
 
 ### Requirement: Repuestos por vehículo
