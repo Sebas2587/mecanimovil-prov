@@ -43,7 +43,9 @@ After IA normalize, `enriquecer_repuestos_cotizacion` (failures MUST NOT 500 `ge
 
 Price priority: catalogo → historial → web → mercadolibre (ML only if IA price is 0). Lines without taller catalog/historial price SHALL set `precio_estimado: true` and cotización metadata `valores_estimativos: true`.
 
-When `BUSQUEDA_WEB_REPUESTOS_ENABLED`, creating a borrador (generar-ia / agente chat / cotización adicional) SHALL set `metadata.busqueda_web_estado=pendiente` and enqueue the Celery task. The editor MAY poll detalle until `ok` | `sin_resultados` | `error` (or ~60s) and show “Buscando precios y tiendas reales…”.
+When `BUSQUEDA_WEB_REPUESTOS_ENABLED` (default ON), creating a borrador (generar-ia / agente chat / cotización adicional) SHALL set `metadata.busqueda_web_estado=pendiente` and enqueue the Celery task. The task MUST skip Gemini when `PrecioRepuestoWeb` already has vigente hits for those lines (cache-first). The editor MAY poll detalle until `ok` | `sin_resultados` | `error` (or ~60s) and show “Buscando precios y tiendas reales…”.
+
+**Learning on send:** when a cotización is sent (`enviada`), the backend SHALL register learning for that taller + vehicle marca/modelo: upsert an auto plantilla (`Auto: {marca} {modelo} — {servicio}`) and index parts into `PrecioRepuestoWeb` (`dominio=historial-taller`). Future IA/agent quotes for the same marca/modelo and similar servicio MUST reuse that historial in the Gemini prompt and in enrich (`fuente_marketplace: historial`, 1 sample enough when modelo matches).
 
 **Taller OfertaServicio by marca/modelo SHALL feed quotes** (chat agent and Cotizar `generar-ia`): when `buscar_oferta_exacta` matches published `disponible` oferta for servicio + vehicle marca/modelo, labor and `repuestos_seleccionados` (with `marca_repuesto`, prices, `fuente_marketplace: catalogo`, `proveedor_nombre: Catálogo del taller`) MUST replace IA estimates. Enrich filters candidates by modelo (skip other-model ofertas). Prompt MAY include a short catalog block for that vehicle.
 
