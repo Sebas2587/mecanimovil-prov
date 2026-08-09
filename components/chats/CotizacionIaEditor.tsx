@@ -47,18 +47,6 @@ function desgloseIvaDesdeTotal(totalIvaIncl: number): { neto: number; iva: numbe
   return { neto, iva, total };
 }
 
-function fuenteMarketplaceLabel(rep: RepuestoCotizacion): string | null {
-  const raw = (rep.fuente_marketplace || rep.fuente_repuesto || '').trim();
-  if (!raw) return null;
-  const key = raw.toLowerCase();
-  if (key === 'mercadolibre') return 'Mercado Libre';
-  if (key === 'catalogo' || key === 'catálogo') return 'Catálogo';
-  if (key === 'historial') return 'Historial';
-  if (key === 'web') return 'Búsqueda web';
-  if (key === 'estimado') return 'Estimado';
-  return raw;
-}
-
 /** Fuentes verificables (catálogo/historial/web/ML); 'estimado' es solo una inferencia por nombre. */
 function fuenteEsVerificada(rep: RepuestoCotizacion): boolean {
   const key = (rep.fuente_marketplace || rep.fuente_repuesto || '').trim().toLowerCase();
@@ -79,15 +67,19 @@ function proveedorLabel(rep: RepuestoCotizacion): string | null {
   return null;
 }
 
-/** Etiqueta de procedencia: ML/web → "Tienda", resto → "Proveedor". */
-function proveedorTagLabel(rep: RepuestoCotizacion): string | null {
-  const value = proveedorLabel(rep);
-  if (!value) return null;
-  const canal = (rep.fuente_marketplace || rep.fuente_repuesto || '').trim().toLowerCase();
-  if (canal === 'mercadolibre' || canal === 'web' || (rep.tienda_ml || '').trim()) {
-    return `Tienda: ${value}`;
-  }
-  return `Proveedor: ${value}`;
+/** Una sola etiqueta de origen (tienda o proveedor). Sin prefijo "Canal:" / "Tienda:". */
+function origenTagLabel(rep: RepuestoCotizacion): string | null {
+  return proveedorLabel(rep);
+}
+
+/** Incluye la marca en el nombre visible al cliente si aún no está. */
+function nombreConMarca(nombre: string, marca: string): string {
+  const base = (nombre || '').trim();
+  const m = (marca || '').trim();
+  if (!base) return m;
+  if (!m) return base;
+  if (base.toLowerCase().includes(m.toLowerCase())) return base;
+  return `${base} ${m}`.trim();
 }
 
 const ESTADO_VARIANT: Record<
@@ -184,16 +176,29 @@ const RepuestoRow = React.memo(function RepuestoRow({
   onDelete: (index: number) => void;
 }) {
   const subtotal = subtotalRepuesto(rep);
+  const marcaPieza = (rep.marca_repuesto || '').trim();
+  const origenLabel = origenTagLabel(rep);
+  const urlProducto = (rep.url_producto || '').trim();
+  const mostrarEstimado = rep.precio_estimado !== false
+    && !fuenteEsVerificada(rep)
+    && !rep.precio_referencia_mercado;
+  // Nombre al cliente = pieza + marca (si hay). Evita tags "Marca:" redundantes.
+  const nombreVisible = nombreConMarca(rep.nombre, marcaPieza);
+
   const [nombreFocused, setNombreFocused] = useState(false);
-  const [nombreDraft, setNombreDraft] = useState(rep.nombre);
+  const [nombreDraft, setNombreDraft] = useState(nombreVisible);
 
   useEffect(() => {
     if (nombreFocused) return;
-    setNombreDraft(rep.nombre);
-  }, [rep.nombre, nombreFocused]);
+    setNombreDraft(nombreVisible);
+  }, [nombreVisible, nombreFocused]);
 
-  const marcaPieza = (rep.marca_repuesto || '').trim();
-  const tiendaOProveedor = proveedorTagLabel(rep);
+  // Si llega marca_repuesto y el nombre aún no la incluye, persístela en el ítem.
+  useEffect(() => {
+    if (!editable || !marcaPieza) return;
+    if (nombreConMarca(rep.nombre, marcaPieza) === (rep.nombre || '').trim()) return;
+    onUpdate(index, { nombre: nombreConMarca(rep.nombre, marcaPieza) });
+  }, [editable, index, marcaPieza, onUpdate, rep.nombre]);
 
   return (
     <Card elevated padding="host" style={styles.repuestoCard}>
@@ -209,16 +214,12 @@ const RepuestoRow = React.memo(function RepuestoRow({
             onFocus={() => setNombreFocused(true)}
             onBlur={() => {
               setNombreFocused(false);
-              onUpdate(index, { nombre: nombreDraft.trim() || rep.nombre });
+              const next = nombreDraft.trim() || rep.nombre;
+              onUpdate(index, { nombre: nombreConMarca(next, marcaPieza) });
             }}
             placeholder="Nombre del repuesto"
             editable={editable}
           />
-          {marcaPieza ? (
-            <InstitutionalText role="caption" color="muted" style={styles.marcaBajoNombre}>
-              Marca del repuesto: {marcaPieza}
-            </InstitutionalText>
-          ) : null}
         </View>
         {editable ? (
           <TouchableOpacity
@@ -233,59 +234,32 @@ const RepuestoRow = React.memo(function RepuestoRow({
         ) : null}
       </View>
 
-      {(fuenteMarketplaceLabel(rep)
-        || marcaPieza
-        || tiendaOProveedor
-        || rep.precio_estimado !== false) ? (
+      {(origenLabel || mostrarEstimado) ? (
         <View style={styles.fuenteBadgeRow}>
-          {marcaPieza ? (
-            <InstitutionalTag
-              label={`Marca: ${marcaPieza}`}
-              variant="neutral"
-              size="sm"
-            />
-          ) : null}
-          {fuenteMarketplaceLabel(rep) ? (
-            <InstitutionalTag
-              label={`Canal: ${fuenteMarketplaceLabel(rep)}`}
-              variant={fuenteEsVerificada(rep) ? 'info' : 'warning'}
-              size="sm"
-            />
-          ) : null}
-          {tiendaOProveedor ? (
-            (rep.url_producto || '').trim() ? (
+          {origenLabel ? (
+            urlProducto ? (
               <TouchableOpacity
                 onPress={() => {
-                  const url = (rep.url_producto || '').trim();
-                  if (url) Linking.openURL(url).catch(() => undefined);
+                  Linking.openURL(urlProducto).catch(() => undefined);
                 }}
                 accessibilityRole="link"
-                accessibilityLabel={`Abrir ${tiendaOProveedor}`}
+                accessibilityLabel={`Abrir ${origenLabel}`}
               >
                 <InstitutionalTag
-                  label={tiendaOProveedor}
+                  label={origenLabel}
                   variant="info"
                   size="sm"
                 />
               </TouchableOpacity>
             ) : (
               <InstitutionalTag
-                label={tiendaOProveedor}
+                label={origenLabel}
                 variant="neutral"
                 size="sm"
               />
             )
           ) : null}
-          {rep.precio_referencia_mercado ? (
-            <InstitutionalTag
-              label="Precio de mercado — referencia"
-              variant="info"
-              size="sm"
-            />
-          ) : null}
-          {rep.precio_estimado !== false
-            && !fuenteEsVerificada(rep)
-            && !rep.precio_referencia_mercado ? (
+          {mostrarEstimado ? (
             <InstitutionalTag
               label="Precio estimado — revisar"
               variant="warning"
@@ -387,9 +361,14 @@ export function CotizacionIaEditor({
     const stamp = `${detalleRefrescado.id}:${detalleRefrescado.actualizado_en || estado}`;
     if (appliedWebRef.current === stamp) return;
     appliedWebRef.current = stamp;
+    const repsIn = detalleRefrescado.repuestos ?? cotizacion.repuestos ?? [];
+    const reps = repsIn.map((r) => ({
+      ...r,
+      nombre: nombreConMarca(r.nombre || '', (r.marca_repuesto || '').trim()),
+    }));
     onChange({
       ...cotizacion,
-      repuestos: detalleRefrescado.repuestos ?? cotizacion.repuestos,
+      repuestos: reps,
       mano_obra_clp: detalleRefrescado.mano_obra_clp ?? cotizacion.mano_obra_clp,
       costo_repuestos_clp: detalleRefrescado.costo_repuestos_clp ?? cotizacion.costo_repuestos_clp,
       total_clp: detalleRefrescado.total_clp ?? cotizacion.total_clp,
@@ -400,6 +379,7 @@ export function CotizacionIaEditor({
       actualizado_en: detalleRefrescado.actualizado_en || cotizacion.actualizado_en,
     });
   }, [busquedaPendiente, cotizacion, detalleRefrescado, onChange]);
+
 
   const totalRepuestos = useMemo(
     () => repuestos.reduce((acc, r) => acc + subtotalRepuesto(r), 0),
@@ -977,7 +957,6 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.xs,
   },
   nombreField: { flex: 1, minWidth: 0, gap: SPACING.fixed.xs },
-  marcaBajoNombre: { marginTop: 2 },
   repuestoGrid: {
     flexDirection: 'row',
     alignItems: 'flex-end',
