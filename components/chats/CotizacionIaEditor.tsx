@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   TextInput,
   useWindowDimensions,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { AlertTriangle, Car, MapPin, Phone, Plus, Trash2, UserRound } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
@@ -29,6 +31,7 @@ import {
   parseMontoDecimal,
 } from '@/utils/parseMontoDecimal';
 import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
+import { useCotizacionCanalDetalleQuery } from '@/hooks/useCotizacionCanalDetalleQuery';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
@@ -51,14 +54,21 @@ function fuenteMarketplaceLabel(rep: RepuestoCotizacion): string | null {
   if (key === 'mercadolibre') return 'Mercado Libre';
   if (key === 'catalogo' || key === 'catálogo') return 'Catálogo';
   if (key === 'historial') return 'Historial';
+  if (key === 'web') return 'Búsqueda web';
   if (key === 'estimado') return 'Estimado';
   return raw;
 }
 
-/** Fuentes verificables (catálogo/historial/ML); 'estimado' es solo una inferencia por nombre. */
+/** Fuentes verificables (catálogo/historial/web/ML); 'estimado' es solo una inferencia por nombre. */
 function fuenteEsVerificada(rep: RepuestoCotizacion): boolean {
   const key = (rep.fuente_marketplace || rep.fuente_repuesto || '').trim().toLowerCase();
-  return key === 'mercadolibre' || key === 'catalogo' || key === 'catálogo' || key === 'historial';
+  return (
+    key === 'mercadolibre'
+    || key === 'catalogo'
+    || key === 'catálogo'
+    || key === 'historial'
+    || key === 'web'
+  );
 }
 
 function proveedorLabel(rep: RepuestoCotizacion): string | null {
@@ -69,12 +79,12 @@ function proveedorLabel(rep: RepuestoCotizacion): string | null {
   return null;
 }
 
-/** Etiqueta de procedencia de tienda: ML → "Tienda", resto → "Proveedor". */
+/** Etiqueta de procedencia: ML/web → "Tienda", resto → "Proveedor". */
 function proveedorTagLabel(rep: RepuestoCotizacion): string | null {
   const value = proveedorLabel(rep);
   if (!value) return null;
   const canal = (rep.fuente_marketplace || rep.fuente_repuesto || '').trim().toLowerCase();
-  if (canal === 'mercadolibre' || (rep.tienda_ml || '').trim()) {
+  if (canal === 'mercadolibre' || canal === 'web' || (rep.tienda_ml || '').trim()) {
     return `Tienda: ${value}`;
   }
   return `Proveedor: ${value}`;
@@ -243,13 +253,39 @@ const RepuestoRow = React.memo(function RepuestoRow({
             />
           ) : null}
           {tiendaOProveedor ? (
+            (rep.url_producto || '').trim() ? (
+              <TouchableOpacity
+                onPress={() => {
+                  const url = (rep.url_producto || '').trim();
+                  if (url) Linking.openURL(url).catch(() => undefined);
+                }}
+                accessibilityRole="link"
+                accessibilityLabel={`Abrir ${tiendaOProveedor}`}
+              >
+                <InstitutionalTag
+                  label={tiendaOProveedor}
+                  variant="info"
+                  size="sm"
+                />
+              </TouchableOpacity>
+            ) : (
+              <InstitutionalTag
+                label={tiendaOProveedor}
+                variant="neutral"
+                size="sm"
+              />
+            )
+          ) : null}
+          {rep.precio_referencia_mercado ? (
             <InstitutionalTag
-              label={tiendaOProveedor}
-              variant="neutral"
+              label="Precio de mercado — referencia"
+              variant="info"
               size="sm"
             />
           ) : null}
-          {rep.precio_estimado !== false && !fuenteEsVerificada(rep) ? (
+          {rep.precio_estimado !== false
+            && !fuenteEsVerificada(rep)
+            && !rep.precio_referencia_mercado ? (
             <InstitutionalTag
               label="Precio estimado — revisar"
               variant="warning"
@@ -336,6 +372,34 @@ export function CotizacionIaEditor({
   const repuestos = cotizacion.repuestos ?? [];
   const editable = !readonly && cotizacion.estado === 'borrador';
   const manoObra = redondearCLP(cotizacion.mano_obra_clp);
+  const busquedaPendiente = cotizacion.metadata?.busqueda_web_estado === 'pendiente';
+  const appliedWebRef = useRef<string | null>(null);
+
+  const { data: detalleRefrescado } = useCotizacionCanalDetalleQuery(
+    cotizacion.id,
+    Boolean(busquedaPendiente && cotizacion.id),
+  );
+
+  useEffect(() => {
+    if (!detalleRefrescado || !busquedaPendiente) return;
+    const estado = detalleRefrescado.metadata?.busqueda_web_estado;
+    if (!estado || estado === 'pendiente') return;
+    const stamp = `${detalleRefrescado.id}:${detalleRefrescado.actualizado_en || estado}`;
+    if (appliedWebRef.current === stamp) return;
+    appliedWebRef.current = stamp;
+    onChange({
+      ...cotizacion,
+      repuestos: detalleRefrescado.repuestos ?? cotizacion.repuestos,
+      mano_obra_clp: detalleRefrescado.mano_obra_clp ?? cotizacion.mano_obra_clp,
+      costo_repuestos_clp: detalleRefrescado.costo_repuestos_clp ?? cotizacion.costo_repuestos_clp,
+      total_clp: detalleRefrescado.total_clp ?? cotizacion.total_clp,
+      metadata: {
+        ...(cotizacion.metadata || {}),
+        ...(detalleRefrescado.metadata || {}),
+      },
+      actualizado_en: detalleRefrescado.actualizado_en || cotizacion.actualizado_en,
+    });
+  }, [busquedaPendiente, cotizacion, detalleRefrescado, onChange]);
 
   const totalRepuestos = useMemo(
     () => repuestos.reduce((acc, r) => acc + subtotalRepuesto(r), 0),
@@ -668,10 +732,18 @@ export function CotizacionIaEditor({
           actionLabel={editable ? 'Agregar' : undefined}
           onActionPress={editable ? agregarRepuesto : undefined}
         />
+        {busquedaPendiente ? (
+          <View style={styles.busquedaWebChip}>
+            <ActivityIndicator size="small" color={I.muted} />
+            <InstitutionalText role="caption" color="muted" style={styles.busquedaWebChipText}>
+              Buscando precios y tiendas reales…
+            </InstitutionalText>
+          </View>
+        ) : null}
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
           Solo aparecen Marca/Canal/Proveedor si vienen de tus servicios publicados,
-          tu historial de cotizaciones o un listing real. Sin eso, el precio es estimado:
-          revísalo antes de enviar al cliente.
+          tu historial, una búsqueda web verificada o un listing real. Sin eso, el precio
+          es estimado: revísalo antes de enviar al cliente.
         </InstitutionalText>
 
         {repuestos.length === 0 ? (
@@ -868,6 +940,17 @@ const styles = StyleSheet.create({
   warningText: { flex: 1 },
   section: { gap: SPACING.fixed.sm },
   repuestosHint: { marginTop: -SPACING.fixed.xs },
+  busquedaWebChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xs,
+    paddingHorizontal: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: withOpacity(I.ink, 0.04),
+  },
+  busquedaWebChipText: { flex: 1 },
   sectionCard: { gap: SPACING.fixed.sm },
   moneyRowCompact: {
     minHeight: 44,

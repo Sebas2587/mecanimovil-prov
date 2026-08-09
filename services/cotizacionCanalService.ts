@@ -12,10 +12,14 @@ export interface RepuestoCotizacion {
   marca_repuesto?: string;
   /** Solo visible en app taller; omitido en link público al cliente. */
   tienda_ml?: string;
-  /** Proveedor/canal legible (Catálogo del taller, historial, nickname ML). */
+  /** Proveedor/canal legible (Catálogo del taller, historial, nickname ML, tienda web). */
   proveedor_nombre?: string;
+  /** Link al producto/listado web (solo taller; omitido en vista pública). */
+  url_producto?: string;
   /** true si el precio no viene del catálogo/historial del taller (revisar antes de enviar). */
   precio_estimado?: boolean;
+  /** true si el precio viene de búsqueda web (referencia de mercado, no del taller). */
+  precio_referencia_mercado?: boolean;
   precio_iva_incluido?: boolean;
   comentario?: string;
 }
@@ -84,6 +88,9 @@ export interface CotizacionCanal {
     precio_desde_catalogo?: boolean;
     precio_parcial_catalogo?: boolean;
     valores_estimativos?: boolean;
+    /** pendiente | ok | sin_resultados | error — búsqueda web Gemini URL Context */
+    busqueda_web_estado?: 'pendiente' | 'ok' | 'sin_resultados' | 'error' | string;
+    busqueda_web_en?: string;
     cotizacion_original_id?: number;
     cita_personal_id?: number;
     servicios_lineas?: Array<{
