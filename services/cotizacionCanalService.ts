@@ -110,6 +110,9 @@ export interface CotizacionPlantilla {
   vehiculo_marca?: string;
   vehiculo_modelo?: string;
   vehiculo_cilindraje?: string;
+  /** true si la plantilla la generó el aprendizaje del agente al enviar. */
+  aprendizaje_auto?: boolean;
+  servicio_nombre?: string;
   uso_count: number;
   creado_en: string;
   actualizado_en: string;

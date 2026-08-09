@@ -139,7 +139,7 @@ export default function CotizacionesPlantillasScreen() {
                   <View style={styles.cardHeader}>
                     <FileText size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                     <Text style={styles.cardTitle} numberOfLines={2}>
-                      {p.titulo}
+                      {(p.servicio_nombre || p.titulo || '').replace(/^Auto:\s*/i, '') || p.titulo}
                     </Text>
                     <TouchableOpacity
                       onPress={() => eliminar(p)}
@@ -152,6 +152,7 @@ export default function CotizacionesPlantillasScreen() {
                   {vehiculoResumen ? (
                     <Text style={styles.cardVehiculo} numberOfLines={2}>
                       {vehiculoResumen}
+                      {p.aprendizaje_auto ? ' · Del agente' : ''}
                     </Text>
                   ) : null}
                   <View style={styles.cardFooter}>

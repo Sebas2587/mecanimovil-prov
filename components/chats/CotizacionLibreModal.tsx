@@ -42,10 +42,15 @@ import {
   extraerNueveDigitosDesdeGuardado,
   normalizarTelefonoChileParaGuardar,
 } from '@/utils/chilePhone';
-import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
+import cotizacionCanalService, {
+  type CotizacionCanal,
+  type CotizacionPlantilla,
+} from '@/services/cotizacionCanalService';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
+import { useCotizacionPlantillasQuery } from '@/hooks/useCotizacionPlantillasQuery';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 
 function suggestTelefono(channel: ChannelSlug | undefined, phone: string | null | undefined): string {
   if (!phone?.trim()) return '';
@@ -148,6 +153,47 @@ export function CotizacionLibreModal({
     }),
     [vehiculo],
   );
+
+  const filtroPlantillas = useMemo(() => {
+    if (!vehiculoPayload.marca || !vehiculoPayload.modelo) return null;
+    return {
+      marca: vehiculoPayload.marca,
+      modelo: vehiculoPayload.modelo,
+      cilindraje: vehiculoPayload.cilindraje || undefined,
+    };
+  }, [vehiculoPayload.marca, vehiculoPayload.modelo, vehiculoPayload.cilindraje]);
+
+  const { plantillas: plantillasVehiculo } = useCotizacionPlantillasQuery(
+    filtroPlantillas,
+    Boolean(visible && filtroPlantillas && !cotizacion),
+  );
+
+  const plantillasSugeridas = useMemo(() => {
+    if (!plantillasVehiculo.length) return [] as CotizacionPlantilla[];
+    const servTokens = new Set(
+      servicioNombre
+        .toLowerCase()
+        .split(/[^a-záéíóúñ0-9]+/i)
+        .filter((t) => t.length > 2),
+    );
+    const scored = plantillasVehiculo.map((p) => {
+      const nombre = (p.servicio_nombre || p.titulo || '').toLowerCase();
+      let score = 0;
+      if (servTokens.size) {
+        for (const t of servTokens) {
+          if (nombre.includes(t)) score += 1;
+        }
+      }
+      if (p.aprendizaje_auto) score += 0.25;
+      return { p, score };
+    });
+    scored.sort((a, b) => b.score - a.score || b.p.uso_count - a.p.uso_count);
+    // Si hay servicio escrito, prioriza matches; si no, muestra las del auto.
+    const filtradas = servTokens.size
+      ? scored.filter((s) => s.score >= 1).map((s) => s.p)
+      : scored.map((s) => s.p);
+    return (filtradas.length ? filtradas : scored.map((s) => s.p)).slice(0, 4);
+  }, [plantillasVehiculo, servicioNombre]);
 
   const resetForm = useCallback(() => {
     setClienteModo(conversationIdProp ? 'mensajes' : 'manual');
@@ -258,7 +304,7 @@ export function CotizacionLibreModal({
     direccionValidada,
   ]);
 
-  const handleGenerarIa = useCallback(async () => {
+  const handleGenerarIa = useCallback(async (plantillaId?: number) => {
     const err = validarAntesGenerar();
     if (err) {
       setErrorIa(err);
@@ -280,18 +326,26 @@ export function CotizacionLibreModal({
             ? (direccionValidada?.line ?? direccion).trim()
             : '',
         vehiculo: vehiculoPayload,
+        ...(plantillaId ? { plantilla_id: plantillaId } : {}),
       });
       if (!res.disponible || !res.cotizacion) {
         setErrorIa(res.error || 'No se pudo generar la cotización con IA.');
         return;
       }
       setCotizacion(res.cotizacion);
+      if (res.desde_plantilla && res.cotizacion.servicio_nombre) {
+        setServicioNombre(res.cotizacion.servicio_nombre);
+      }
     } catch (err) {
       if (esErrorCuota(err)) {
         setUpsellCuota({ visible: true, mensaje: mensajeCuotaError(err) });
         return;
       }
-      setErrorIa('Error al generar cotización. Intenta de nuevo.');
+      setErrorIa(
+        plantillaId
+          ? 'Error al aplicar la plantilla. Intenta de nuevo.'
+          : 'Error al generar cotización. Intenta de nuevo.',
+      );
     } finally {
       setGenerandoIa(false);
     }
@@ -308,6 +362,17 @@ export function CotizacionLibreModal({
     direccionValidada,
     vehiculoPayload,
   ]);
+
+  const handleUsarPlantilla = useCallback(
+    (plantilla: CotizacionPlantilla) => {
+      const serv = (plantilla.servicio_nombre || '').trim();
+      if (serv && !servicioNombre.trim()) {
+        setServicioNombre(serv);
+      }
+      void handleGenerarIa(plantilla.id);
+    },
+    [handleGenerarIa, servicioNombre],
+  );
 
   const persistSeqRef = useRef(0);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -564,6 +629,52 @@ export function CotizacionLibreModal({
                       placeholder="Opcional"
                       multiline
                     />
+                    {plantillasSugeridas.length > 0 ? (
+                      <View style={styles.plantillasBox}>
+                        <InstitutionalText role="captionBold" color="ink">
+                          Plantillas para este vehículo
+                        </InstitutionalText>
+                        <InstitutionalText role="caption" color="muted">
+                          Incluye las generadas por el agente al enviar. Úsalas para no
+                          regenerar desde cero.
+                        </InstitutionalText>
+                        {plantillasSugeridas.map((p) => {
+                          const label = (p.servicio_nombre || p.titulo || 'Plantilla').replace(
+                            /^Auto:\s*/i,
+                            '',
+                          );
+                          return (
+                            <TouchableOpacity
+                              key={p.id}
+                              style={styles.plantillaRow}
+                              onPress={() => handleUsarPlantilla(p)}
+                              disabled={generandoIa}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Usar plantilla ${label}`}
+                            >
+                              <View style={styles.plantillaRowText}>
+                                <InstitutionalText role="body" color="ink" numberOfLines={2}>
+                                  {label}
+                                </InstitutionalText>
+                                <View style={styles.plantillaTags}>
+                                  {p.aprendizaje_auto ? (
+                                    <InstitutionalTag label="Del agente" variant="info" size="sm" />
+                                  ) : (
+                                    <InstitutionalTag label="Manual" variant="neutral" size="sm" />
+                                  )}
+                                  <InstitutionalText role="caption" color="muted">
+                                    Usada {p.uso_count} veces
+                                  </InstitutionalText>
+                                </View>
+                              </View>
+                              <InstitutionalText role="captionBold" color="primary">
+                                Usar
+                              </InstitutionalText>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    ) : null}
                   </View>
                 </View>
 
@@ -741,6 +852,37 @@ const styles = StyleSheet.create({
   },
   underlineTabActive: {
     borderBottomColor: I.ink,
+  },
+  plantillasBox: {
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+    padding: SPACING.md,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: I.surfaceSoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+  },
+  plantillaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: BORDERS.radius.md,
+    backgroundColor: COLORS.background.paper,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+  },
+  plantillaRowText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  plantillaTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: SPACING.xs,
   },
   errorBanner: {
     ...TYPOGRAPHY.styles.caption,
