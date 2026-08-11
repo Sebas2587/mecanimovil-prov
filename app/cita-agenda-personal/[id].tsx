@@ -70,6 +70,7 @@ import { ChecklistCompletedView } from '@/components/checklist/ChecklistComplete
 import { ChecklistSignatureModal } from '@/components/checklist/ChecklistSignatureModal';
 import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBottomSheet';
 import { ConfirmarHorarioCitaSheet } from '@/components/agenda/ConfirmarHorarioCitaSheet';
+import { CitaResumenEconomicoCard } from '@/components/agenda/CitaResumenEconomicoCard';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import { InstitutionalTag } from '@/design-system/components/InstitutionalTag';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
@@ -989,37 +990,50 @@ export default function CitaAgendaPersonalDetalleScreen() {
                 ) : null}
               </HostPaperSection>
 
-              <HostSectionKicker label="Servicios solicitados" />
-              <HostPaperSection style={styles.section}>
-                <Text style={styles.servicioDetalleNombre} numberOfLines={3}>
-                  {nombreServicio}
-                </Text>
-                {precio ? <Text style={styles.ofertaPrecio}>{precio}</Text> : null}
+              {cita.resumen_economico ? (
+                <CitaResumenEconomicoCard
+                  resumen={cita.resumen_economico}
+                  servicioNombre={nombreServicio}
+                  descripcion={det.descripcion}
+                  precioReferencia={det.precio_referencia}
+                />
+              ) : (
+                <>
+                  <HostSectionKicker label="Servicios solicitados" />
+                  <HostPaperSection style={styles.section}>
+                    <Text style={styles.servicioDetalleNombre} numberOfLines={3}>
+                      {nombreServicio}
+                    </Text>
+                    {precio ? <Text style={styles.ofertaPrecio}>{precio}</Text> : null}
 
-                {det.descripcion ? (
-                  <View style={styles.descripcionBlock}>
-                    <Text style={styles.descripcionBlockLabel}>Notas del servicio</Text>
-                    <Text style={styles.descriptionText}>{det.descripcion}</Text>
-                  </View>
-                ) : null}
+                    {det.descripcion ? (
+                      <View style={styles.descripcionBlock}>
+                        <Text style={styles.descripcionBlockLabel}>Notas del servicio</Text>
+                        <Text style={styles.descriptionText}>{det.descripcion}</Text>
+                      </View>
+                    ) : null}
+                  </HostPaperSection>
+                </>
+              )}
 
-                {esActiva && puedeUsarAsistenteIa ? (
+              {esActiva && puedeUsarAsistenteIa ? (
+                <HostPaperSection style={styles.section}>
                   <View style={styles.asistenteIaWrap}>
                     <AsistenteDiagnosticoCard origen="cita" entityId={cita.id} habilitado />
                   </View>
-                ) : null}
+                </HostPaperSection>
+              ) : null}
 
-                {!cita.tiene_checklist && permitirAgregarServicio ? (
-                  <View style={styles.checklistActions}>
-                    <InstitutionalButton
-                      label="Agregar otro servicio"
-                      variant="outline"
-                      onPress={() => router.push(`/agregar-servicio-adicional/${cita.id}`)}
-                      disabled={procesando}
-                    />
-                  </View>
-                ) : null}
-              </HostPaperSection>
+              {!cita.tiene_checklist && permitirAgregarServicio ? (
+                <View style={styles.checklistActions}>
+                  <InstitutionalButton
+                    label="Agregar otro servicio"
+                    variant="outline"
+                    onPress={() => router.push(`/agregar-servicio-adicional/${cita.id}`)}
+                    disabled={procesando}
+                  />
+                </View>
+              ) : null}
 
               <HostSectionKicker label="Técnico asignado" />
               <HostPaperSection style={styles.section}>

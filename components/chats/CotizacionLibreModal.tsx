@@ -50,7 +50,7 @@ import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
 import { useCotizacionPlantillasQuery } from '@/hooks/useCotizacionPlantillasQuery';
-import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
+import { PlantillaCotizacionRow } from '@/components/chats/PlantillaCotizacionRow';
 
 function suggestTelefono(channel: ChannelSlug | undefined, phone: string | null | undefined): string {
   if (!phone?.trim()) return '';
@@ -638,41 +638,17 @@ export function CotizacionLibreModal({
                           Incluye las generadas por el agente al enviar. Úsalas para no
                           regenerar desde cero.
                         </InstitutionalText>
-                        {plantillasSugeridas.map((p) => {
-                          const label = (p.servicio_nombre || p.titulo || 'Plantilla').replace(
-                            /^Auto:\s*/i,
-                            '',
-                          );
-                          return (
-                            <TouchableOpacity
+                        <View style={styles.plantillasPaper}>
+                          {plantillasSugeridas.map((p, idx) => (
+                            <PlantillaCotizacionRow
                               key={p.id}
-                              style={styles.plantillaRow}
-                              onPress={() => handleUsarPlantilla(p)}
+                              plantilla={p}
+                              onPress={handleUsarPlantilla}
+                              last={idx === plantillasSugeridas.length - 1}
                               disabled={generandoIa}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Usar plantilla ${label}`}
-                            >
-                              <View style={styles.plantillaRowText}>
-                                <InstitutionalText role="body" color="ink" numberOfLines={2}>
-                                  {label}
-                                </InstitutionalText>
-                                <View style={styles.plantillaTags}>
-                                  {p.aprendizaje_auto ? (
-                                    <InstitutionalTag label="Del agente" variant="info" size="sm" />
-                                  ) : (
-                                    <InstitutionalTag label="Manual" variant="neutral" size="sm" />
-                                  )}
-                                  <InstitutionalText role="caption" color="muted">
-                                    Usada {p.uso_count} veces
-                                  </InstitutionalText>
-                                </View>
-                              </View>
-                              <InstitutionalText role="captionBold" color="primary">
-                                Usar
-                              </InstitutionalText>
-                            </TouchableOpacity>
-                          );
-                        })}
+                            />
+                          ))}
+                        </View>
                       </View>
                     ) : null}
                   </View>
@@ -856,33 +832,14 @@ const styles = StyleSheet.create({
   plantillasBox: {
     gap: SPACING.sm,
     marginTop: SPACING.xs,
-    padding: SPACING.md,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.surfaceSoft,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
   },
-  plantillaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: BORDERS.radius.md,
+  plantillasPaper: {
     backgroundColor: COLORS.background.paper,
+    borderRadius: BORDERS.radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: I.hairline,
-  },
-  plantillaRowText: {
-    flex: 1,
-    minWidth: 0,
-    gap: 4,
-  },
-  plantillaTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: SPACING.xs,
+    paddingHorizontal: SPACING.fixed.md,
+    overflow: 'hidden',
   },
   errorBanner: {
     ...TYPOGRAPHY.styles.caption,

@@ -410,7 +410,12 @@ export function CotizacionesIaList({ enabled = true }: Props) {
         }}
       />
 
-      <BottomSheet visible={Boolean(activa)} onClose={cerrarDetalle} style={styles.detalleSheet}>
+      <BottomSheet
+        visible={Boolean(activa)}
+        onClose={cerrarDetalle}
+        stickyFooter
+        style={styles.detalleSheet}
+      >
         {cotizacionDetalle ? (
           <View style={styles.detalleRoot}>
             <View style={styles.detalleHeader}>
@@ -607,16 +612,17 @@ const styles = StyleSheet.create({
     maxHeight: '94%',
   },
   detalleRoot: {
-    flexGrow: 1,
+    flex: 1,
+    minHeight: 0,
     maxHeight: '100%',
   },
   detalleScroll: {
-    flexGrow: 1,
-    maxHeight: '70%',
+    flex: 1,
+    minHeight: 0,
   },
   detalleScrollContent: {
     gap: SPACING.md,
-    paddingBottom: SPACING.md,
+    paddingBottom: SPACING.sm,
   },
   detalleHeader: {
     flexDirection: 'row',
@@ -638,6 +644,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
     paddingTop: SPACING.sm,
+    paddingBottom: 0,
+    flexShrink: 0,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
   },

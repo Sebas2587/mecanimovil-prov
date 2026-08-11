@@ -24,6 +24,34 @@ export interface CitaAgendaPersonalDetalle {
   precio_referencia?: string | number | null;
 }
 
+export interface CitaResumenEconomicoRepuesto {
+  nombre: string;
+  cantidad: number;
+  precio_unitario_clp: number;
+  subtotal_clp: number;
+  marca_repuesto?: string;
+  proveedor_nombre?: string;
+}
+
+export interface CitaResumenEconomico {
+  fuente: 'cotizacion' | 'oferta' | 'referencia' | 'manual';
+  cotizacion_id?: number;
+  oferta_servicio_id?: number;
+  servicio_nombre: string;
+  descripcion_problema?: string;
+  mano_obra_clp: number;
+  mano_obra_sin_iva_clp?: number;
+  costo_repuestos_clp: number;
+  costo_repuestos_sin_iva_clp?: number;
+  total_clp: number;
+  neto_clp: number;
+  iva_clp: number;
+  precios_iva_incluido: boolean;
+  repuestos: CitaResumenEconomicoRepuesto[];
+  servicios_lineas: Array<{ nombre: string; monto_clp: number }>;
+  notas_internas?: string;
+}
+
 export interface CitaAgendaPersonal {
   id: number;
   fecha_servicio: string;
@@ -61,6 +89,7 @@ export interface CitaAgendaPersonal {
   miembro_taller?: number | null;
   conversation_id?: number | null;
   cotizacion_canal_origen_id?: number | null;
+  resumen_economico?: CitaResumenEconomico | null;
   permite_cotizacion_adicional?: boolean;
 }
 

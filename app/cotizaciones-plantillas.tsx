@@ -1,27 +1,33 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  TextInput,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { ChevronRight, FileText, Trash2 } from 'lucide-react-native';
+import { FileText } from 'lucide-react-native';
 import Header from '@/components/Header';
-import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
 import {
   Card,
+  HostEmptyState,
   HostSectionKicker,
+  InstitutionalText,
   hostScreenStyles,
 } from '@/app/design-system/components';
-import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { institutionalInputPlaceholder, institutionalInputStyles } from '@/app/design-system/styles/institutionalInputs';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import cotizacionCanalService, { type CotizacionPlantilla } from '@/services/cotizacionCanalService';
-import { etiquetaVehiculoActual, resumenVehiculoPlantilla } from '@/utils/plantillasCotizacionVehiculo';
+import { etiquetaVehiculoActual } from '@/utils/plantillasCotizacionVehiculo';
+import {
+  tituloServicioPlantilla,
+  vehiculoLineaPlantilla,
+} from '@/utils/plantillaCotizacionPreview';
 import { PlantillaCotizacionDetalleModal } from '@/components/chats/PlantillaCotizacionDetalleModal';
+import { PlantillaCotizacionRow } from '@/components/chats/PlantillaCotizacionRow';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   invalidateCotizacionPlantillasQueries,
@@ -29,6 +35,10 @@ import {
 } from '@/hooks/useCotizacionPlantillasQuery';
 
 const I = COLORS.institutional;
+
+function normalizarBusqueda(s: string): string {
+  return s.trim().toLowerCase();
+}
 
 export default function CotizacionesPlantillasScreen() {
   const queryClient = useQueryClient();
@@ -61,9 +71,28 @@ export default function CotizacionesPlantillasScreen() {
   );
 
   const [detallePlantilla, setDetallePlantilla] = useState<CotizacionPlantilla | null>(null);
+  const [busqueda, setBusqueda] = useState('');
 
-  const eliminar = (plantilla: CotizacionPlantilla) => {
-    showConfirm('Eliminar plantilla', `¿Eliminar "${plantilla.titulo}"?`, {
+  const plantillasFiltradas = useMemo(() => {
+    const q = normalizarBusqueda(busqueda);
+    if (!q) return plantillas;
+    return plantillas.filter((p) => {
+      const snap = p.snapshot ?? {};
+      const haystack = [
+        p.titulo,
+        tituloServicioPlantilla(p),
+        vehiculoLineaPlantilla(p),
+        String(snap.vehiculo_patente || ''),
+        String(snap.descripcion_problema || ''),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [plantillas, busqueda]);
+
+  const eliminar = useCallback((plantilla: CotizacionPlantilla) => {
+    showConfirm('Eliminar plantilla', `¿Eliminar "${tituloServicioPlantilla(plantilla)}"?`, {
       confirmText: 'Eliminar',
       onConfirm: async () => {
         try {
@@ -76,7 +105,7 @@ export default function CotizacionesPlantillasScreen() {
         }
       },
     });
-  };
+  }, [detallePlantilla?.id, queryClient, refresh]);
 
   const onRefresh = useCallback(() => {
     void refresh();
@@ -105,66 +134,67 @@ export default function CotizacionesPlantillasScreen() {
           {filtrandoPorVehiculo ? (
             <>
               <HostSectionKicker label="Vehículo seleccionado" />
-              <Card elevated padding="host" style={styles.cardGap}>
-                <Text style={styles.vehiculoBoxValue}>{etiquetaVehiculoActual(filtroVehiculo)}</Text>
-                <Text style={styles.vehiculoBoxHint}>
+              <Card elevated padding="host" style={styles.blockGap}>
+                <InstitutionalText role="bodyBold" color="primary">
+                  {etiquetaVehiculoActual(filtroVehiculo)}
+                </InstitutionalText>
+                <InstitutionalText role="caption" color="muted">
                   Solo se muestran plantillas guardadas para este vehículo.
-                </Text>
+                </InstitutionalText>
               </Card>
             </>
           ) : null}
 
-          <HostSectionKicker label="Plantillas" />
+          <HostSectionKicker label="Plantillas guardadas" />
+
+          {plantillas.length > 0 ? (
+            <View style={styles.searchWrap}>
+              <TextInput
+                style={styles.searchInput}
+                value={busqueda}
+                onChangeText={setBusqueda}
+                placeholder="Buscar servicio, vehículo o patente"
+                placeholderTextColor={institutionalInputPlaceholder}
+                autoCapitalize="none"
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+              />
+            </View>
+          ) : null}
+
           {plantillas.length === 0 ? (
-            <Text style={styles.empty}>
-              {filtrandoPorVehiculo
-                ? `No hay plantillas para ${etiquetaVehiculoActual(filtroVehiculo)}.`
-                : 'No tienes plantillas guardadas.'}
-            </Text>
+            <HostEmptyState
+              icon={FileText}
+              title="Sin plantillas"
+              description={
+                filtrandoPorVehiculo
+                  ? `No hay plantillas para ${etiquetaVehiculoActual(filtroVehiculo)}. Al enviar una cotización para este modelo, el sistema puede guardar una automáticamente.`
+                  : 'Guarda una cotización como plantilla o envía cotizaciones: el agente aprende y crea plantillas reutilizables.'
+              }
+            />
+          ) : plantillasFiltradas.length === 0 ? (
+            <InstitutionalText role="caption" color="muted" style={styles.emptySearch}>
+              Sin resultados para «{busqueda.trim()}».
+            </InstitutionalText>
           ) : (
-            plantillas.map((p) => {
-              const vehiculoResumen =
-                resumenVehiculoPlantilla(p.snapshot) ||
-                [p.vehiculo_marca, p.vehiculo_modelo, p.vehiculo_cilindraje]
-                  .filter(Boolean)
-                  .join(' · ');
-              return (
-                <Card
+            <View style={styles.paperList}>
+              {plantillasFiltradas.map((p, idx) => (
+                <View
                   key={p.id}
-                  elevated
-                  padding="host"
-                  onPress={() => setDetallePlantilla(p)}
-                  style={styles.cardGap}
+                  style={[
+                    styles.paperListItem,
+                    idx === 0 && styles.paperListFirst,
+                    idx === plantillasFiltradas.length - 1 && styles.paperListLast,
+                  ]}
                 >
-                  <View style={styles.cardHeader}>
-                    <FileText size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.cardTitle} numberOfLines={2}>
-                      {(p.servicio_nombre || p.titulo || '').replace(/^Auto:\s*/i, '') || p.titulo}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => eliminar(p)}
-                      accessibilityLabel="Eliminar"
-                      hitSlop={8}
-                    >
-                      <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                    </TouchableOpacity>
-                  </View>
-                  {vehiculoResumen ? (
-                    <Text style={styles.cardVehiculo} numberOfLines={2}>
-                      {vehiculoResumen}
-                      {p.aprendizaje_auto ? ' · Del agente' : ''}
-                    </Text>
-                  ) : null}
-                  <View style={styles.cardFooter}>
-                    <Text style={styles.cardMeta}>
-                      Usada {p.uso_count} veces ·{' '}
-                      {new Date(p.actualizado_en).toLocaleDateString('es-CL')}
-                    </Text>
-                    <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-                  </View>
-                </Card>
-              );
-            })
+                  <PlantillaCotizacionRow
+                    plantilla={p}
+                    onPress={setDetallePlantilla}
+                    last={idx === plantillasFiltradas.length - 1}
+                  />
+                </View>
+              ))}
+            </View>
           )}
         </ScrollView>
       )}
@@ -173,6 +203,7 @@ export default function CotizacionesPlantillasScreen() {
         visible={Boolean(detallePlantilla)}
         plantilla={detallePlantilla}
         onClose={() => setDetallePlantilla(null)}
+        onEliminar={eliminar}
       />
     </View>
   );
@@ -185,50 +216,42 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xl,
     gap: SPACING.sm,
   },
-  cardGap: {
+  blockGap: {
     gap: SPACING.xs,
   },
-  vehiculoBoxValue: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.primary,
+  searchWrap: {
+    marginBottom: SPACING.xs,
   },
-  vehiculoBoxHint: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: I.muted,
-    lineHeight: 18,
+  searchInput: {
+    ...institutionalInputStyles.input,
+    backgroundColor: COLORS.background.paper,
+    minHeight: 48,
   },
-  empty: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.muted,
+  emptySearch: {
     textAlign: 'center',
-    marginTop: SPACING.xl,
+    marginTop: SPACING.lg,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  cardTitle: {
-    flex: 1,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
+  paperList: {
+    marginBottom: SPACING.sm,
   },
-  cardVehiculo: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: I.body,
+  paperListItem: {
+    backgroundColor: COLORS.background.paper,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+    paddingHorizontal: SPACING.fixed.md,
   },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: SPACING.sm,
-    marginTop: 2,
+  paperListFirst: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopLeftRadius: BORDERS.radius.lg,
+    borderTopRightRadius: BORDERS.radius.lg,
+    overflow: 'hidden',
   },
-  cardMeta: {
-    flex: 1,
-    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: I.muted,
+  paperListLast: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomLeftRadius: BORDERS.radius.lg,
+    borderBottomRightRadius: BORDERS.radius.lg,
+    overflow: 'hidden',
+    ...SHADOWS.editorial,
   },
 });

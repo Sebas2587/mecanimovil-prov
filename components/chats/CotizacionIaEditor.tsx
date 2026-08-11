@@ -326,6 +326,8 @@ interface CotizacionIaEditorProps {
   readonly?: boolean;
   /** Oculta título/servicio cuando el host (modal) ya los muestra. */
   compactHeader?: boolean;
+  /** Oculta la fila de encabezado (p. ej. plantilla en BottomSheet con header propio). */
+  sinHeader?: boolean;
 }
 
 export function CotizacionIaEditor({
@@ -340,6 +342,7 @@ export function CotizacionIaEditor({
   hideSendActions = false,
   readonly = false,
   compactHeader = false,
+  sinHeader = false,
 }: CotizacionIaEditorProps) {
   const { width } = useWindowDimensions();
   const stackedFacts = width < 520;
@@ -351,7 +354,7 @@ export function CotizacionIaEditor({
 
   const { data: detalleRefrescado } = useCotizacionCanalDetalleQuery(
     cotizacion.id,
-    Boolean(busquedaPendiente && cotizacion.id),
+    Boolean(busquedaPendiente && cotizacion.id > 0),
   );
 
   useEffect(() => {
@@ -493,6 +496,7 @@ export function CotizacionIaEditor({
 
   return (
     <View style={styles.root}>
+      {!sinHeader ? (
       <View style={styles.headerRow}>
         {compactHeader ? (
           <View style={styles.headerTags}>
@@ -540,6 +544,7 @@ export function CotizacionIaEditor({
           </>
         )}
       </View>
+      ) : null}
 
       {(showVehiculoCard || showClienteCard) ? (
         <View style={[styles.factsColumns, stackedFacts && styles.factsColumnsStacked]}>

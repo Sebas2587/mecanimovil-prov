@@ -10,11 +10,22 @@ export type BottomSheetProps = {
   onClose: () => void;
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** Menos padding inferior cuando el sheet incluye footer sticky (botonera). */
+  stickyFooter?: boolean;
 };
 
 /** Sheet modal estilo Airbnb Hosts (radius top 24). */
-export function BottomSheet({ visible, onClose, children, style }: BottomSheetProps) {
+export function BottomSheet({
+  visible,
+  onClose,
+  children,
+  style,
+  stickyFooter = false,
+}: BottomSheetProps) {
   const insets = useSafeAreaInsets();
+  const bottomPad = stickyFooter
+    ? Math.max(insets.bottom, SPACING.fixed.xxs)
+    : Math.max(insets.bottom, SPACING.fixed.md);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -23,7 +34,8 @@ export function BottomSheet({ visible, onClose, children, style }: BottomSheetPr
         <View
           style={[
             styles.sheet,
-            { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) },
+            stickyFooter && styles.sheetSticky,
+            { paddingBottom: bottomPad },
             style,
           ]}
         >
@@ -51,6 +63,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.fixed.lg,
     paddingTop: SPACING.fixed.sm,
     maxHeight: '92%',
+    width: '100%',
+  },
+  /** Sheet con footer fijo: ocupa hasta maxHeight y reparte scroll + botonera. */
+  sheetSticky: {
+    flexGrow: 1,
+    flexShrink: 1,
   },
   handle: {
     alignSelf: 'center',
