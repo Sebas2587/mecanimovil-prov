@@ -1,5 +1,6 @@
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { router } from 'expo-router';
 import { Sparkles } from 'lucide-react-native';
 import {
   HostPaperSection,
@@ -12,7 +13,6 @@ import { COLORS, SPACING } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { CotizacionCanal } from '@/services/cotizacionCanalService';
 import { CotizacionPendienteRow } from './CotizacionPendienteRow';
-import { HomeCotizacionRevisionModal } from './HomeCotizacionRevisionModal';
 
 const I = COLORS.institutional;
 
@@ -25,17 +25,15 @@ export type HomePendientesRevisionListProps = {
 function HomePendientesRevisionListInner({
   cotizaciones,
   loading = false,
-  onRefresh,
 }: HomePendientesRevisionListProps) {
-  const [activa, setActiva] = useState<CotizacionCanal | null>(null);
-
   const borradores = useMemo(
     () => cotizaciones.filter((c) => c.estado === 'borrador' && Boolean(c.id)),
     [cotizaciones],
   );
 
-  const open = useCallback((item: CotizacionCanal) => setActiva(item), []);
-  const close = useCallback(() => setActiva(null), []);
+  const open = useCallback((item: CotizacionCanal) => {
+    if (item.id) router.push(`/cotizacion-canal/${item.id}`);
+  }, []);
 
   if (loading && borradores.length === 0) {
     return (
@@ -85,13 +83,6 @@ function HomePendientesRevisionListInner({
           ))}
         </HostPaperSection>
       )}
-
-      <HomeCotizacionRevisionModal
-        visible={Boolean(activa)}
-        cotizacion={activa}
-        onClose={close}
-        onSuccess={onRefresh}
-      />
     </View>
   );
 }
@@ -100,27 +91,26 @@ export const HomePendientesRevisionList = memo(HomePendientesRevisionListInner);
 
 const styles = StyleSheet.create({
   section: {
-    gap: SPACING.xs,
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: SPACING.fixed.sm,
   },
   loadingBox: {
-    paddingVertical: SPACING.lg,
+    paddingVertical: SPACING.fixed.lg,
     alignItems: 'center',
   },
   emptyWrap: {
     flexDirection: 'row',
+    gap: SPACING.fixed.md,
     alignItems: 'flex-start',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.sm,
   },
   emptyCopy: {
     flex: 1,
-    gap: 4,
+    gap: SPACING.fixed.xs,
   },
 });
-
-export default HomePendientesRevisionList;

@@ -202,6 +202,11 @@ class CotizacionCanalService {
     return response.data as CotizacionCanal;
   }
 
+  async reabrir(id: number): Promise<CotizacionCanal> {
+    const response = await api.post(`/ordenes/cotizaciones-canal/${id}/reabrir/`);
+    return response.data as CotizacionCanal;
+  }
+
   async enviar(id: number): Promise<{
     cotizacion: CotizacionCanal;
     message_id: number | null;

@@ -117,13 +117,14 @@ export default function AgregarServicioAdicionalScreen() {
 
     try {
       setEnviando(true);
+      let created: { cotizacion: { id: number } };
       if (modo === 'ia') {
         const nombre = servicioIa.trim();
         if (!nombre) {
           showAlert('Servicio requerido', 'Indica qué servicio adicional quieres cotizar.');
           return;
         }
-        await cotizacionCanalService.crearAdicional({
+        created = await cotizacionCanalService.crearAdicional({
           ...payloadBase,
           modo: 'ia',
           servicio_nombre: nombre,
@@ -135,7 +136,7 @@ export default function AgregarServicioAdicionalScreen() {
           showAlert('Catálogo', 'Selecciona al menos un servicio del catálogo.');
           return;
         }
-        await cotizacionCanalService.crearAdicional({
+        created = await cotizacionCanalService.crearAdicional({
           ...payloadBase,
           modo: 'catalogo',
           servicios_catalogo: ids.map((id) => ({
@@ -148,12 +149,19 @@ export default function AgregarServicioAdicionalScreen() {
         ejecucion === 'nueva_fecha'
           ? formatFechaHoraPropuesta(formatDateApi(fechaHora.fecha), fechaHora.hora)
           : '';
+      const cotId = created?.cotizacion?.id;
       showAlertButtons(
         'Borrador creado',
         ejecucion === 'nueva_fecha'
-          ? `Quedó ligado a este trabajo. Fecha propuesta: ${slotTxt}. Revísalo y envíalo al cliente desde Cotizar con IA.`
-          : 'Quedó ligado a este trabajo en curso. Revísalo y envíalo al cliente desde Cotizar con IA.',
-        [{ text: 'Ir a Cotizar con IA', onPress: () => router.replace('/cotizar-ia') }],
+          ? `Quedó ligado a este trabajo. Fecha propuesta: ${slotTxt}. Revísalo y envíalo al cliente.`
+          : 'Quedó ligado a este trabajo en curso. Revísalo y envíalo al cliente.',
+        [{
+          text: 'Revisar y enviar',
+          onPress: () => {
+            if (cotId) router.replace(`/cotizacion-canal/${cotId}`);
+            else router.replace('/cotizar-ia');
+          },
+        }],
       );
     } catch (err: unknown) {
       const msg =
@@ -214,7 +222,7 @@ export default function AgregarServicioAdicionalScreen() {
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <Header title="Agregar otro servicio" showBack onBackPress={() => router.back()} />
+      <Header title="Agregar hallazgo" showBack onBackPress={() => router.back()} />
 
       <KeyboardAvoidingView
         style={styles.flex}

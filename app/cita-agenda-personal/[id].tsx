@@ -282,12 +282,31 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const esCancelada = cita?.estado === 'cancelada';
   const horarioPorConfirmar = Boolean(cita?.horario_por_confirmar);
   const citaAgendada = esActiva && !horarioPorConfirmar;
-  const permitirAgregarServicio = Boolean(
-    cita?.permite_cotizacion_adicional && cita?.cotizacion_canal_origen_id,
-  );
-
   const checklistEstado = cita?.checklist_estado ?? null;
   const checklistIniciado = !!checklistEstado && checklistEstado !== 'PENDIENTE';
+  const checklistEnEjecucion =
+    checklistEstado === 'EN_PROGRESO' || checklistEstado === 'PAUSADO';
+  const adicionalPendienteId = cita?.cotizacion_adicional_pendiente_id ?? null;
+  const permitirAgregarHallazgo = Boolean(
+    cita?.permite_cotizacion_adicional && cita?.cotizacion_canal_origen_id && checklistEnEjecucion,
+  );
+  const puedeActualizarCotizacion = Boolean(
+    esActiva
+    && cita?.cotizacion_canal_origen_id
+    && !checklistIniciado
+    && !horarioPorConfirmar,
+  );
+  const esDiaServicio = Boolean(
+    cita?.puede_iniciar_servicio_hoy
+    ?? (cita?.fecha_servicio && (() => {
+      const f = parseFechaLocal(cita.fecha_servicio);
+      if (!f) return false;
+      const hoy = new Date();
+      return f.getFullYear() === hoy.getFullYear()
+        && f.getMonth() === hoy.getMonth()
+        && f.getDate() === hoy.getDate();
+    })()),
+  );
   const checklistEnCurso =
     checklistEstado === 'EN_PROGRESO'
     || checklistEstado === 'PAUSADO'
@@ -355,6 +374,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     && puedeOperarChecklist
     && !cita.checklist_id
     && citaAgendada
+    && esDiaServicio
     && !editando,
   );
   const puedeContinuarChecklistSticky = Boolean(
@@ -709,6 +729,15 @@ export default function CitaAgendaPersonalDetalleScreen() {
       abrirConfirmarHorario();
       return;
     }
+    if (!esDiaServicio) {
+      showAlert(
+        'Fuera de fecha',
+        cita?.fecha_servicio
+          ? `Solo puedes iniciar el servicio el día de la cita (${formatearFecha(cita.fecha_servicio)}).`
+          : 'Solo puedes iniciar el servicio el día de la cita.',
+      );
+      return;
+    }
     setIniciandoChecklist(true);
     try {
       const res = await agendaProveedorService.iniciarServicio(citaId);
@@ -733,7 +762,15 @@ export default function CitaAgendaPersonalDetalleScreen() {
     } finally {
       setIniciandoChecklist(false);
     }
-  }, [abrirConfirmarHorario, citaId, queryClient, recargarCita, horarioPorConfirmar]);
+  }, [
+    abrirConfirmarHorario,
+    cita?.fecha_servicio,
+    citaId,
+    esDiaServicio,
+    queryClient,
+    recargarCita,
+    horarioPorConfirmar,
+  ]);
 
   if (showInitialLoader) {
     return (
@@ -1075,13 +1112,26 @@ export default function CitaAgendaPersonalDetalleScreen() {
                 </HostPaperSection>
               ) : null}
 
-              {!cita.tiene_checklist && permitirAgregarServicio ? (
+              {puedeActualizarCotizacion ? (
                 <View style={styles.checklistActions}>
                   <InstitutionalButton
-                    label="Agregar otro servicio"
+                    label="Actualizar cotización"
                     variant="outline"
-                    onPress={() => router.push(`/agregar-servicio-adicional/${cita.id}`)}
+                    onPress={() => router.push(`/cotizacion-canal/${cita.cotizacion_canal_origen_id}`)}
                     disabled={procesando}
+                  />
+                  <Text style={styles.addressDetailsText}>
+                    Si el cliente pidió cambios antes de iniciar, edita la misma cotización (mismo enlace).
+                  </Text>
+                </View>
+              ) : null}
+
+              {adicionalPendienteId && !checklistEnEjecucion ? (
+                <View style={styles.checklistActions}>
+                  <InstitutionalButton
+                    label="Ver trabajo adicional pendiente"
+                    variant="outline"
+                    onPress={() => router.push(`/cotizacion-canal/${adicionalPendienteId}`)}
                   />
                 </View>
               ) : null}
@@ -1196,18 +1246,26 @@ export default function CitaAgendaPersonalDetalleScreen() {
                         {puedeOperarChecklist
                           ? horarioPorConfirmar
                             ? 'Confirma el horario arriba antes de iniciar el servicio.'
-                            : 'Usa «Iniciar servicio» abajo para generar y completar el checklist.'
+                            : !esDiaServicio
+                              ? `Se inicia el ${formatearFecha(cita.fecha_servicio)}. No se puede adelantar el checklist.`
+                              : 'Usa «Iniciar servicio» abajo para generar y completar el checklist.'
                           : 'El técnico asignado debe iniciar el servicio para comenzar el checklist.'}
                       </Text>
                     )}
 
                     <View style={styles.checklistActions}>
-                      {permitirAgregarServicio ? (
+                      {permitirAgregarHallazgo ? (
                         <InstitutionalButton
-                          label="Agregar otro servicio"
+                          label="Agregar hallazgo"
                           variant="outline"
                           onPress={() => router.push(`/agregar-servicio-adicional/${cita.id}`)}
                           disabled={procesando}
+                        />
+                      ) : adicionalPendienteId ? (
+                        <InstitutionalButton
+                          label="Trabajo adicional pendiente"
+                          variant="outline"
+                          onPress={() => router.push(`/cotizacion-canal/${adicionalPendienteId}`)}
                         />
                       ) : null}
 

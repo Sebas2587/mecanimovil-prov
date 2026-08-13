@@ -122,6 +122,8 @@ export interface CitaAgendaPersonal {
   cotizacion_canal_origen_id?: number | null;
   resumen_economico?: CitaResumenEconomico | null;
   permite_cotizacion_adicional?: boolean;
+  cotizacion_adicional_pendiente_id?: number | null;
+  puede_iniciar_servicio_hoy?: boolean;
   cotizaciones_adicionales?: CitaCotizacionAdicional[];
 }
 

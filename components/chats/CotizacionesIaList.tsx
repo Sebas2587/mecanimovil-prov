@@ -1,27 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   StyleSheet,
   FlatList,
-  ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Platform,
-  Share,
 } from 'react-native';
 import { router } from 'expo-router';
-import {
-  Link2,
-  MessageCircle,
-  Sparkles,
-  Trash2,
-  X,
-} from 'lucide-react-native';
+import { Sparkles } from 'lucide-react-native';
 import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
-import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
 import { CotizacionPendienteRow } from '@/components/home/CotizacionPendienteRow';
 import {
   useCotizacionesCanalTallerQuery,
@@ -31,16 +20,8 @@ import {
   AGENTE_IA_BORRADORES_KEY,
   useAgenteBorradoresPendientesQuery,
 } from '@/hooks/useAgenteIaQueries';
-import cotizacionCanalService, {
-  adicionalRequiereFecha,
-  payloadEdicionCotizacion,
-  type CotizacionCanal,
-} from '@/services/cotizacionCanalService';
-import agendaProveedorService from '@/services/agendaProveedorService';
-import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
-import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
+import { type CotizacionCanal } from '@/services/cotizacionCanalService';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
-import { BottomSheet } from '@/app/design-system/components/BottomSheet';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import {
   HostSectionKicker,
@@ -49,7 +30,6 @@ import {
 import { BORDERS, COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { institutionalInputStyles, institutionalInputPlaceholder } from '@/app/design-system/styles/institutionalInputs';
-import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { useQueryClient } from '@tanstack/react-query';
 
 const I = COLORS.institutional;
@@ -57,21 +37,6 @@ const FF = TYPOGRAPHY.fontFamily;
 
 function esBorradorPorRevisar(cot: CotizacionCanal): boolean {
   return cot.estado === 'borrador';
-}
-
-function cotizacionEditableSnapshot(c: CotizacionCanal): string {
-  return JSON.stringify({
-    servicio_nombre: c.servicio_nombre,
-    descripcion_problema: c.descripcion_problema,
-    modalidad: c.modalidad,
-    direccion_servicio: c.direccion_servicio,
-    cliente_nombre: c.cliente_nombre,
-    cliente_telefono: c.cliente_telefono,
-    repuestos: c.repuestos,
-    mano_obra_clp: c.mano_obra_clp,
-    notas_internas: c.notas_internas,
-    duracion_minutos_estimada: c.duracion_minutos_estimada,
-  });
 }
 
 function clienteLabel(cot: CotizacionCanal): string {
@@ -89,6 +54,7 @@ type Props = {
 
 /**
  * Cotizar con IA (`/cotizar-ia`): solo borradores por revisar/enviar + crear.
+ * El detalle se abre en pantalla full-screen `/cotizacion-canal/[id]`.
  * Enviadas, vistas y aceptadas viven en Bandeja; agendadas en Agenda.
  */
 export function CotizacionesIaList({ enabled = true }: Props) {
@@ -97,12 +63,6 @@ export function CotizacionesIaList({ enabled = true }: Props) {
   const { data: borradoresAgente } = useAgenteBorradoresPendientesQuery(enabled);
   const invalidate = useInvalidateCotizacionesCanalTaller();
   const [libreVisible, setLibreVisible] = useState(false);
-  const [activa, setActiva] = useState<CotizacionCanal | null>(null);
-  const [editDraft, setEditDraft] = useState<CotizacionCanal | null>(null);
-  const [eliminando, setEliminando] = useState(false);
-  const [anulando, setAnulando] = useState(false);
-  const [enviando, setEnviando] = useState(false);
-  const [guardando, setGuardando] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const borradoresPorRevisar = useMemo(
@@ -127,164 +87,22 @@ export function CotizacionesIaList({ enabled = true }: Props) {
       const marca = (item.vehiculo_marca || '').toLowerCase();
       const modelo = (item.vehiculo_modelo || '').toLowerCase();
       return (
-        cliente.includes(q) ||
-        servicio.includes(q) ||
-        patente.includes(q) ||
-        marca.includes(q) ||
-        modelo.includes(q)
+        cliente.includes(q)
+        || servicio.includes(q)
+        || patente.includes(q)
+        || marca.includes(q)
+        || modelo.includes(q)
       );
     });
   }, [borradoresPorRevisar, searchQuery]);
 
   const abrirDetalle = useCallback((item: CotizacionCanal) => {
-    setActiva(item);
-    setEditDraft(esBorradorPorRevisar(item) ? { ...item } : null);
+    if (item.id) router.push(`/cotizacion-canal/${item.id}`);
   }, []);
 
   const irABandeja = useCallback(() => {
     router.push('/(tabs)/bandeja');
   }, []);
-
-  const cerrarDetalle = useCallback(() => {
-    setActiva(null);
-    setEditDraft(null);
-  }, []);
-
-  // Rehidrata al abrir/cambiar cotización. No depende de `data`: un refetch
-  // no debe pisar lo que el taller está tipando (mano de obra, etc.).
-  useEffect(() => {
-    if (!activa || !esBorradorPorRevisar(activa)) return;
-    setEditDraft({ ...activa });
-  }, [activa?.id]);
-
-  const compartirLink = useCallback(async (url: string) => {
-    try {
-      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-        showAlert('Link copiado', 'Pégalo en WhatsApp u otro canal.');
-        return;
-      }
-      await Share.share({ message: url, url });
-    } catch {
-      showAlert('Link de cotización', url);
-    }
-  }, []);
-
-  const guardarBorrador = useCallback(async () => {
-    if (!editDraft?.id) return;
-    setGuardando(true);
-    try {
-      const actualizada = await cotizacionCanalService.actualizar(
-        editDraft.id,
-        payloadEdicionCotizacion(editDraft),
-      );
-      setActiva(actualizada);
-      setEditDraft({ ...actualizada });
-      await invalidate();
-      await refetch();
-    } catch {
-      showAlert('Error', 'No se pudo guardar los cambios.');
-    } finally {
-      setGuardando(false);
-    }
-  }, [editDraft, invalidate, refetch]);
-
-  const enviarCotizacion = useCallback(async () => {
-    if (!editDraft?.id) return;
-    if (adicionalRequiereFecha(editDraft)) {
-      showAlert(
-        'Fecha requerida',
-        'Indica día y hora acordados con el cliente antes de enviar.',
-      );
-      return;
-    }
-    setEnviando(true);
-    try {
-      if (editDraft !== activa) {
-        await cotizacionCanalService.actualizar(
-          editDraft.id,
-          payloadEdicionCotizacion(editDraft),
-        );
-      }
-      await cotizacionCanalService.enviar(editDraft.id);
-      cerrarDetalle();
-      await invalidate();
-      await refetch();
-      qc.invalidateQueries({ queryKey: AGENTE_IA_BORRADORES_KEY });
-      invalidateProveedorComercialQueries(qc);
-      showAlert(
-        'Cotización enviada',
-        'Ya está en tu Bandeja para seguimiento. El cliente recibirá el enlace para aceptar o rechazar.',
-      );
-    } catch {
-      showAlert('Error', 'No se pudo enviar la cotización.');
-    } finally {
-      setEnviando(false);
-    }
-  }, [activa, cerrarDetalle, editDraft, invalidate, qc, refetch]);
-
-  const eliminarCotizacion = useCallback(() => {
-    if (!activa?.id) return;
-    const id = activa.id;
-    showConfirm(
-      'Eliminar cotización',
-      'Se cancelará y dejará de aparecer en esta lista. El cliente no podrá aceptarla.',
-      {
-        confirmText: 'Eliminar',
-        onConfirm: async () => {
-          setEliminando(true);
-          try {
-            await cotizacionCanalService.cancelar(id);
-            cerrarDetalle();
-            await invalidate();
-            await refetch();
-            qc.invalidateQueries({ queryKey: AGENTE_IA_BORRADORES_KEY });
-            showAlert('Cotización eliminada', 'Quedó cancelada y fuera del listado.');
-          } catch {
-            showAlert('Error', 'No se pudo eliminar la cotización.');
-          } finally {
-            setEliminando(false);
-          }
-        },
-      },
-    );
-  }, [activa, cerrarDetalle, invalidate, qc, refetch]);
-
-  const anularCotizacionAceptada = useCallback(() => {
-    if (!activa?.id) return;
-    const citaId = activa.cita_personal_id;
-    showConfirm(
-      'Anular cotización',
-      citaId
-        ? 'Se cancelará la cita vinculada y la cotización quedará anulada.'
-        : 'La cotización quedará marcada como perdida y no podrá agendarse.',
-      {
-        confirmText: 'Anular',
-        onConfirm: async () => {
-          setAnulando(true);
-          try {
-            if (citaId) {
-              const res = await agendaProveedorService.cancelarCita(citaId);
-              if (!res.success) {
-                throw new Error(res.message || 'No se pudo cancelar la cita.');
-              }
-            } else {
-              await cotizacionCanalService.marcarPerdida(activa.id);
-            }
-            cerrarDetalle();
-            await invalidate();
-            await refetch();
-            invalidateProveedorComercialQueries(qc);
-            showAlert('Cotización anulada', 'La aceptación quedó revertida.');
-          } catch {
-            showAlert('Error', 'No se pudo anular la cotización.');
-          } finally {
-            setAnulando(false);
-          }
-        },
-      },
-    );
-  }, [activa, cerrarDetalle, invalidate, qc, refetch]);
 
   const borradoresCount = borradoresAgente?.count ?? borradoresPorRevisar.length;
 
@@ -327,17 +145,6 @@ export function CotizacionesIaList({ enabled = true }: Props) {
     },
     [abrirDetalle, borradoresFiltrados.length],
   );
-
-  const cotizacionDetalle = editDraft && esBorradorPorRevisar(editDraft) ? editDraft : activa;
-  const esBorradorEditable = Boolean(cotizacionDetalle && esBorradorPorRevisar(cotizacionDetalle));
-  const hayCambiosSinGuardar = useMemo(() => {
-    if (!editDraft || !activa || !esBorradorEditable) return false;
-    return cotizacionEditableSnapshot(editDraft) !== cotizacionEditableSnapshot(activa);
-  }, [editDraft, activa, esBorradorEditable]);
-
-  const vehiculoActiva = cotizacionDetalle
-    ? [cotizacionDetalle.vehiculo_marca, cotizacionDetalle.vehiculo_modelo].filter(Boolean).join(' ')
-    : '';
 
   if (isPending && borradoresPorRevisar.length === 0) {
     return (
@@ -383,7 +190,6 @@ export function CotizacionesIaList({ enabled = true }: Props) {
         }
       />
 
-      {/* Sticky inferior Host: crear cotización */}
       <View style={styles.stickyCrear}>
         <InstitutionalButton
           label="Nueva cotización"
@@ -404,129 +210,6 @@ export function CotizacionesIaList({ enabled = true }: Props) {
           void refetch();
         }}
       />
-
-      <BottomSheet
-        visible={Boolean(activa)}
-        onClose={cerrarDetalle}
-        stickyFooter
-        style={styles.detalleSheet}
-      >
-        {cotizacionDetalle ? (
-          <View style={styles.detalleRoot}>
-            <View style={styles.detalleHeader}>
-              <View style={styles.detalleHeaderText}>
-                <InstitutionalText role="h4">{clienteLabel(cotizacionDetalle)}</InstitutionalText>
-                <InstitutionalText role="caption" color="muted">
-                  {vehiculoActiva || 'Vehículo'}
-                  {cotizacionDetalle.vehiculo_patente ? ` · ${cotizacionDetalle.vehiculo_patente}` : ''}
-                </InstitutionalText>
-              </View>
-              {cotizacionDetalle.conversation ? (
-                <TouchableOpacity
-                  style={styles.headerIconBtn}
-                  onPress={() => {
-                    const id = cotizacionDetalle.conversation;
-                    cerrarDetalle();
-                    if (id) router.push(`/chat-omnicanal?conversationId=${id}`);
-                  }}
-                  accessibilityLabel="Abrir chat"
-                >
-                  <MessageCircle size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity
-                onPress={cerrarDetalle}
-                accessibilityRole="button"
-                accessibilityLabel="Cerrar"
-                hitSlop={8}
-              >
-                <X size={22} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={styles.detalleScroll}
-              contentContainerStyle={styles.detalleScrollContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              <CotizacionIaEditor
-                cotizacion={cotizacionDetalle}
-                readonly={!esBorradorEditable}
-                onChange={esBorradorEditable ? setEditDraft : () => undefined}
-              />
-              {(cotizacionDetalle.share_url || cotizacionDetalle.url_publica) ? (
-                <InstitutionalButton
-                  label="Compartir link"
-                  variant="outline"
-                  leading={
-                    <Link2 size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  }
-                  onPress={() => {
-                    const url = cotizacionDetalle.share_url || cotizacionDetalle.url_publica;
-                    if (url) void compartirLink(url);
-                  }}
-                />
-              ) : null}
-            </ScrollView>
-
-            <View style={styles.detalleFooter}>
-              {cotizacionDetalle.estado === 'aceptada' ? (
-                <TouchableOpacity
-                  style={styles.footerGhost}
-                  onPress={anularCotizacionAceptada}
-                  disabled={anulando}
-                >
-                  <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.footerGhostLabel}>Anular cotización</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.footerGhost}
-                  onPress={eliminarCotizacion}
-                  disabled={eliminando}
-                >
-                  <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.footerGhostLabel}>Eliminar</Text>
-                </TouchableOpacity>
-              )}
-              {esBorradorEditable ? (
-                <InstitutionalButton
-                  label="Guardar"
-                  variant="outline"
-                  size="compact"
-                  loading={guardando}
-                  disabled={!hayCambiosSinGuardar || guardando}
-                  style={styles.footerMid}
-                  onPress={() => void guardarBorrador()}
-                />
-              ) : null}
-              {esBorradorEditable ? (
-                <InstitutionalButton
-                  label="Aprobar y enviar"
-                  variant="primary"
-                  size="compact"
-                  loading={enviando}
-                  style={styles.footerPrimary}
-                  onPress={() => void enviarCotizacion()}
-                />
-              ) : cotizacionDetalle.estado === 'aceptada' && cotizacionDetalle.cita_personal_id ? (
-                <InstitutionalButton
-                  label="Confirmar horario"
-                  variant="primary"
-                  size="compact"
-                  style={styles.footerPrimary}
-                  onPress={() => {
-                    const citaId = cotizacionDetalle.cita_personal_id;
-                    cerrarDetalle();
-                    if (citaId) router.push(`/cita-agenda-personal/${citaId}?agendar=1`);
-                  }}
-                />
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-      </BottomSheet>
     </View>
   );
 }
@@ -544,119 +227,64 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   searchWrap: {
-    marginTop: SPACING.xs,
+    backgroundColor: I.surface,
+    borderRadius: BORDERS.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.border,
+    ...SHADOWS.sm,
   },
   searchInput: {
     ...institutionalInputStyles.input,
-    backgroundColor: COLORS.background.paper,
-    minHeight: 48,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    fontFamily: FF.regular,
   },
-  /** Un solo paper Host para toda la lista (no una card por fila). */
   paperListItem: {
-    backgroundColor: COLORS.background.paper,
+    backgroundColor: I.surface,
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    paddingHorizontal: SPACING.fixed.md,
+    borderColor: I.border,
   },
   paperListFirst: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopLeftRadius: BORDERS.radius.lg,
-    borderTopRightRadius: BORDERS.radius.lg,
+    borderTopLeftRadius: BORDERS.radius.md,
+    borderTopRightRadius: BORDERS.radius.md,
     overflow: 'hidden',
   },
   paperListLast: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomLeftRadius: BORDERS.radius.lg,
-    borderBottomRightRadius: BORDERS.radius.lg,
+    borderBottomLeftRadius: BORDERS.radius.md,
+    borderBottomRightRadius: BORDERS.radius.md,
     overflow: 'hidden',
-    marginBottom: SPACING.sm,
-    ...SHADOWS.editorial,
+    marginBottom: SPACING.md,
   },
-  stickyCrear: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.md,
-    gap: 4,
-    ...SHADOWS.editorial,
+  empty: {
+    paddingVertical: SPACING.xl,
+    gap: SPACING.sm,
+    alignItems: 'flex-start',
   },
-  stickyHint: {
-    textAlign: 'center',
-  },
+  emptySub: { marginBottom: SPACING.sm },
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
+    backgroundColor: I.canvas,
   },
   loadingText: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: FF.regular,
     color: I.muted,
   },
-  empty: {
-    paddingVertical: SPACING.xl,
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  emptySub: { textAlign: 'center', paddingHorizontal: SPACING.lg },
-  detalleSheet: {
-    maxHeight: '94%',
-  },
-  detalleRoot: {
-    flex: 1,
-    minHeight: 0,
-    maxHeight: '100%',
-  },
-  detalleScroll: {
-    flex: 1,
-    minHeight: 0,
-  },
-  detalleScrollContent: {
-    gap: SPACING.md,
-    paddingBottom: SPACING.sm,
-  },
-  detalleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  detalleHeaderText: { flex: 1, minWidth: 0, gap: 2 },
-  headerIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: I.surfaceSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detalleFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
+  stickyCrear: {
+    paddingHorizontal: SPACING.md,
     paddingTop: SPACING.sm,
-    paddingBottom: 0,
-    flexShrink: 0,
+    paddingBottom: SPACING.md,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: I.hairline,
+    borderTopColor: I.border,
+    backgroundColor: I.surface,
+    gap: SPACING.xs,
   },
-  footerGhost: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    minWidth: 56,
-  },
-  footerGhostLabel: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: I.semanticDown,
-  },
-  footerMid: { flex: 1 },
-  footerPrimary: { flex: 1.35 },
+  stickyHint: { textAlign: 'center' },
 });
 
 export default CotizacionesIaList;

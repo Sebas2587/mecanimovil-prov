@@ -36,7 +36,6 @@ import {
 } from '@/services/pipelineComercialService';
 import { usePipelineComercialQuery } from '@/hooks/usePipelineComercialQuery';
 import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
-import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
@@ -758,25 +757,15 @@ export function PipelineSeguimientoSection({
             </View>
 
             {leadActivo.cotizacion_id ? (
-              cotizacionDetalleLoading && !cotizacionDetalle ? (
-                <View style={styles.cotizacionLoading}>
-                  <ActivityIndicator color={I.ink} />
-                  <InstitutionalText role="caption" color="muted">
-                    Cargando cotización…
-                  </InstitutionalText>
-                </View>
-              ) : cotizacionDetalle ? (
-                <CotizacionIaEditor
-                  cotizacion={cotizacionDetalle}
-                  readonly
-                  compactHeader
-                  onChange={() => undefined}
-                />
-              ) : (
-                <InstitutionalText role="caption" color="muted">
-                  No se pudo cargar el resumen de la cotización.
-                </InstitutionalText>
-              )
+              <InstitutionalButton
+                label="Abrir cotización"
+                variant="outline"
+                onPress={() => {
+                  const cotId = leadActivo.cotizacion_id;
+                  setLeadActivo(null);
+                  if (cotId) router.push(`/cotizacion-canal/${cotId}`);
+                }}
+              />
             ) : null}
 
             <View style={styles.leadActions}>
