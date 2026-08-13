@@ -800,6 +800,17 @@ export function PipelineSeguimientoSection({
                   onPress={() => abrirAsignarDesdeLead(leadActivo, { luegoAgendar: true })}
                 />
               ) : null}
+              {leadActivo.es_cotizacion_adicional && leadActivo.cita_id ? (
+                <InstitutionalButton
+                  label="Ver servicio principal"
+                  variant="outline"
+                  onPress={() => {
+                    const citaId = leadActivo.cita_id;
+                    setLeadActivo(null);
+                    if (citaId) router.push(`/cita-agenda-personal/${citaId}`);
+                  }}
+                />
+              ) : null}
               {leadActivo.solicitud_id || leadActivo.cita_id || leadActivo.orden_id ? (
                 <InstitutionalButton
                   label="Ver detalle"

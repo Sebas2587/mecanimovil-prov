@@ -31,7 +31,11 @@ import {
   AGENTE_IA_BORRADORES_KEY,
   useAgenteBorradoresPendientesQuery,
 } from '@/hooks/useAgenteIaQueries';
-import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
+import cotizacionCanalService, {
+  adicionalRequiereFecha,
+  payloadEdicionCotizacion,
+  type CotizacionCanal,
+} from '@/services/cotizacionCanalService';
 import agendaProveedorService from '@/services/agendaProveedorService';
 import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
@@ -170,18 +174,10 @@ export function CotizacionesIaList({ enabled = true }: Props) {
     if (!editDraft?.id) return;
     setGuardando(true);
     try {
-      const actualizada = await cotizacionCanalService.actualizar(editDraft.id, {
-        servicio_nombre: editDraft.servicio_nombre,
-        descripcion_problema: editDraft.descripcion_problema,
-        modalidad: editDraft.modalidad,
-        direccion_servicio: editDraft.direccion_servicio,
-        cliente_nombre: editDraft.cliente_nombre,
-        cliente_telefono: editDraft.cliente_telefono,
-        repuestos: editDraft.repuestos,
-        mano_obra_clp: editDraft.mano_obra_clp,
-        notas_internas: editDraft.notas_internas,
-        duracion_minutos_estimada: editDraft.duracion_minutos_estimada,
-      });
+      const actualizada = await cotizacionCanalService.actualizar(
+        editDraft.id,
+        payloadEdicionCotizacion(editDraft),
+      );
       setActiva(actualizada);
       setEditDraft({ ...actualizada });
       await invalidate();
@@ -195,21 +191,20 @@ export function CotizacionesIaList({ enabled = true }: Props) {
 
   const enviarCotizacion = useCallback(async () => {
     if (!editDraft?.id) return;
+    if (adicionalRequiereFecha(editDraft)) {
+      showAlert(
+        'Fecha requerida',
+        'Indica día y hora acordados con el cliente antes de enviar.',
+      );
+      return;
+    }
     setEnviando(true);
     try {
       if (editDraft !== activa) {
-        await cotizacionCanalService.actualizar(editDraft.id, {
-          servicio_nombre: editDraft.servicio_nombre,
-          descripcion_problema: editDraft.descripcion_problema,
-          modalidad: editDraft.modalidad,
-          direccion_servicio: editDraft.direccion_servicio,
-          cliente_nombre: editDraft.cliente_nombre,
-          cliente_telefono: editDraft.cliente_telefono,
-          repuestos: editDraft.repuestos,
-          mano_obra_clp: editDraft.mano_obra_clp,
-          notas_internas: editDraft.notas_internas,
-          duracion_minutos_estimada: editDraft.duracion_minutos_estimada,
-        });
+        await cotizacionCanalService.actualizar(
+          editDraft.id,
+          payloadEdicionCotizacion(editDraft),
+        );
       }
       await cotizacionCanalService.enviar(editDraft.id);
       cerrarDetalle();

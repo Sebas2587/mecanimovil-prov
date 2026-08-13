@@ -33,6 +33,19 @@ export interface CitaResumenEconomicoRepuesto {
   proveedor_nombre?: string;
 }
 
+export interface CitaResumenEconomicoSecundario {
+  cotizacion_id: number;
+  servicio_nombre: string;
+  motivo?: string;
+  estado: string;
+  mano_obra_clp: number;
+  costo_repuestos_clp: number;
+  total_clp: number;
+  ejecucion_adicional?: 'misma_visita' | 'nueva_fecha';
+  fecha_propuesta?: string | null;
+  hora_propuesta?: string | null;
+}
+
 export interface CitaResumenEconomico {
   fuente: 'cotizacion' | 'oferta' | 'referencia' | 'manual';
   cotizacion_id?: number;
@@ -50,6 +63,24 @@ export interface CitaResumenEconomico {
   repuestos: CitaResumenEconomicoRepuesto[];
   servicios_lineas: Array<{ nombre: string; monto_clp: number }>;
   notas_internas?: string;
+  servicios_secundarios?: CitaResumenEconomicoSecundario[];
+  total_visita_clp?: number;
+  neto_visita_clp?: number;
+  iva_visita_clp?: number;
+}
+
+export interface CitaCotizacionAdicional {
+  id: number;
+  estado: string;
+  servicio_nombre: string;
+  motivo_servicio_adicional?: string;
+  total_clp: number;
+  ejecucion_adicional?: 'misma_visita' | 'nueva_fecha';
+  fecha_propuesta?: string | null;
+  hora_propuesta?: string | null;
+  cita_hija_id?: number | null;
+  enviada_en?: string | null;
+  aceptada_en?: string | null;
 }
 
 export interface CitaAgendaPersonal {
@@ -91,6 +122,7 @@ export interface CitaAgendaPersonal {
   cotizacion_canal_origen_id?: number | null;
   resumen_economico?: CitaResumenEconomico | null;
   permite_cotizacion_adicional?: boolean;
+  cotizaciones_adicionales?: CitaCotizacionAdicional[];
 }
 
 export interface EventoAgendaUnificado {

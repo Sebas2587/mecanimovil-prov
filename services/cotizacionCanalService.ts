@@ -40,8 +40,9 @@ export interface CotizacionCanal {
   cliente_telefono?: string;
   cliente_display?: string;
   canal?: CanalCotizacion;
-  /** Cita creada al aceptar (libre); puede tener horario_por_confirmar. */
+  /** Cita creada al aceptar (libre); en adicionales apunta a la cita principal. */
   cita_personal_id?: number | null;
+  cita_origen_id?: number | null;
   token?: string | null;
   url_publica?: string | null;
   share_url?: string | null;
@@ -101,6 +102,10 @@ export interface CotizacionCanal {
   cotizacion_original_id?: number | null;
   es_cotizacion_adicional?: boolean;
   motivo_servicio_adicional?: string;
+  servicio_principal_nombre?: string | null;
+  ejecucion_adicional?: 'misma_visita' | 'nueva_fecha' | null;
+  fecha_propuesta?: string | null;
+  hora_propuesta?: string | null;
 }
 
 export interface CotizacionPlantilla {
@@ -138,6 +143,9 @@ export interface CrearCotizacionAdicionalPayload {
   servicios_catalogo?: Array<{ oferta_servicio_id: number; cantidad?: number }>;
   servicio_nombre?: string;
   descripcion_problema?: string;
+  ejecucion_adicional?: 'misma_visita' | 'nueva_fecha';
+  fecha_propuesta?: string | null;
+  hora_propuesta?: string | null;
 }
 
 export interface GenerarCotizacionIaResponse {
@@ -146,6 +154,36 @@ export interface GenerarCotizacionIaResponse {
   error?: string | null;
   latencia_ms?: number;
   desde_plantilla?: boolean;
+}
+
+export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<CotizacionCanal> {
+  const patch: Partial<CotizacionCanal> = {
+    servicio_nombre: c.servicio_nombre,
+    descripcion_problema: c.descripcion_problema,
+    modalidad: c.modalidad,
+    direccion_servicio: c.direccion_servicio,
+    cliente_nombre: c.cliente_nombre,
+    cliente_telefono: c.cliente_telefono,
+    repuestos: c.repuestos,
+    mano_obra_clp: c.mano_obra_clp,
+    notas_internas: c.notas_internas,
+    duracion_minutos_estimada: c.duracion_minutos_estimada,
+  };
+  if (c.es_cotizacion_adicional) {
+    const modo = c.ejecucion_adicional || 'misma_visita';
+    patch.ejecucion_adicional = modo;
+    patch.fecha_propuesta = modo === 'nueva_fecha' ? (c.fecha_propuesta || null) : null;
+    patch.hora_propuesta = modo === 'nueva_fecha' ? (c.hora_propuesta || null) : null;
+  }
+  return patch;
+}
+
+export function adicionalRequiereFecha(c: CotizacionCanal): boolean {
+  return Boolean(
+    c.es_cotizacion_adicional
+    && c.ejecucion_adicional === 'nueva_fecha'
+    && (!c.fecha_propuesta || !c.hora_propuesta)
+  );
 }
 
 class CotizacionCanalService {

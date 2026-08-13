@@ -52,6 +52,8 @@ export function CitaResumenEconomicoCard({
       : precioReferencia
         ? Number(precioReferencia) || 0
         : 0;
+  const totalVisita = Number(resumen.total_visita_clp) || 0;
+  const tieneVisita = totalVisita > total;
 
   return (
     <>
@@ -141,8 +143,15 @@ export function CitaResumenEconomicoCard({
             ) : null}
             {total > 0 ? (
               <HostMetricRow
-                label="Total a pagar"
+                label={tieneVisita ? 'Total servicio principal' : 'Total a pagar'}
                 value={formatearMontoCLP(total)}
+                last={!tieneVisita}
+              />
+            ) : null}
+            {tieneVisita ? (
+              <HostMetricRow
+                label="Total de la visita"
+                value={formatearMontoCLP(totalVisita)}
                 last
               />
             ) : null}

@@ -43,6 +43,7 @@ import {
   normalizarTelefonoChileParaGuardar,
 } from '@/utils/chilePhone';
 import cotizacionCanalService, {
+  payloadEdicionCotizacion,
   type CotizacionCanal,
   type CotizacionPlantilla,
 } from '@/services/cotizacionCanalService';
@@ -378,17 +379,7 @@ export function CotizacionLibreModal({
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef<CotizacionCanal | null>(null);
 
-  const payloadEdicion = useCallback((next: CotizacionCanal) => ({
-    repuestos: next.repuestos,
-    mano_obra_clp: next.mano_obra_clp,
-    servicio_nombre: next.servicio_nombre,
-    descripcion_problema: next.descripcion_problema,
-    duracion_minutos_estimada: next.duracion_minutos_estimada,
-    cliente_nombre: next.cliente_nombre,
-    cliente_telefono: next.cliente_telefono,
-    direccion_servicio: next.direccion_servicio,
-    notas_internas: next.notas_internas,
-  }), []);
+  const payloadEdicion = useCallback((next: CotizacionCanal) => payloadEdicionCotizacion(next), []);
 
   const ejecutarPersist = useCallback(async (next: CotizacionCanal, seq: number) => {
     if (next.estado !== 'borrador' || !next.id) return next;

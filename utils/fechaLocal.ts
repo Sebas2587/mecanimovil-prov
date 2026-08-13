@@ -51,3 +51,29 @@ export function parseReferenciaDate(fecha?: string, hora?: string | null): Date 
   }
   return base;
 }
+
+export function fechasProximosDias(cantidad = 21): string[] {
+  const hoy = startOfDay(new Date());
+  const out: string[] = [];
+  for (let i = 0; i < cantidad; i += 1) {
+    const d = new Date(hoy);
+    d.setDate(hoy.getDate() + i);
+    out.push(formatDateApi(d));
+  }
+  return out;
+}
+
+export function formatFechaHoraPropuesta(
+  fecha?: string | null,
+  hora?: string | null,
+): string {
+  const parsed = parseFechaLocal(fecha);
+  if (!parsed) return '';
+  const fechaTxt = parsed.toLocaleDateString('es-CL', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  const horaTxt = (hora || '').substring(0, 5);
+  return horaTxt ? `${fechaTxt} a las ${horaTxt}` : fechaTxt;
+}

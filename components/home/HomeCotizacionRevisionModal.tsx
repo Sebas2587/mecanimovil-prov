@@ -16,7 +16,11 @@ import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
 import { InstitutionalButton, InstitutionalText } from '@/app/design-system/components';
 import { COLORS, SPACING, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
+import cotizacionCanalService, {
+  adicionalRequiereFecha,
+  payloadEdicionCotizacion,
+  type CotizacionCanal,
+} from '@/services/cotizacionCanalService';
 import { AGENTE_IA_BORRADORES_KEY } from '@/hooks/useAgenteIaQueries';
 import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
@@ -43,6 +47,9 @@ function snapshot(c: CotizacionCanal): string {
     mano_obra_clp: c.mano_obra_clp,
     notas_internas: c.notas_internas,
     duracion_minutos_estimada: c.duracion_minutos_estimada,
+    ejecucion_adicional: c.ejecucion_adicional,
+    fecha_propuesta: c.fecha_propuesta,
+    hora_propuesta: c.hora_propuesta,
   });
 }
 
@@ -83,18 +90,10 @@ export function HomeCotizacionRevisionModal({
     if (!draft?.id) return;
     setGuardando(true);
     try {
-      const actualizada = await cotizacionCanalService.actualizar(draft.id, {
-        servicio_nombre: draft.servicio_nombre,
-        descripcion_problema: draft.descripcion_problema,
-        modalidad: draft.modalidad,
-        direccion_servicio: draft.direccion_servicio,
-        cliente_nombre: draft.cliente_nombre,
-        cliente_telefono: draft.cliente_telefono,
-        repuestos: draft.repuestos,
-        mano_obra_clp: draft.mano_obra_clp,
-        notas_internas: draft.notas_internas,
-        duracion_minutos_estimada: draft.duracion_minutos_estimada,
-      });
+      const actualizada = await cotizacionCanalService.actualizar(
+        draft.id,
+        payloadEdicionCotizacion(draft),
+      );
       setDraft({ ...actualizada });
       onSuccess();
     } catch {
@@ -106,21 +105,17 @@ export function HomeCotizacionRevisionModal({
 
   const enviar = useCallback(async () => {
     if (!draft?.id) return;
+    if (adicionalRequiereFecha(draft)) {
+      showAlert(
+        'Fecha requerida',
+        'Indica día y hora acordados con el cliente antes de enviar.',
+      );
+      return;
+    }
     setEnviando(true);
     try {
       if (hayCambios) {
-        await cotizacionCanalService.actualizar(draft.id, {
-          servicio_nombre: draft.servicio_nombre,
-          descripcion_problema: draft.descripcion_problema,
-          modalidad: draft.modalidad,
-          direccion_servicio: draft.direccion_servicio,
-          cliente_nombre: draft.cliente_nombre,
-          cliente_telefono: draft.cliente_telefono,
-          repuestos: draft.repuestos,
-          mano_obra_clp: draft.mano_obra_clp,
-          notas_internas: draft.notas_internas,
-          duracion_minutos_estimada: draft.duracion_minutos_estimada,
-        });
+        await cotizacionCanalService.actualizar(draft.id, payloadEdicionCotizacion(draft));
       }
       await cotizacionCanalService.enviar(draft.id);
       qc.invalidateQueries({ queryKey: AGENTE_IA_BORRADORES_KEY });

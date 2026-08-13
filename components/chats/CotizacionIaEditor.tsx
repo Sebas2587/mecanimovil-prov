@@ -22,6 +22,7 @@ import {
   institutionalInputStyles,
 } from '@/app/design-system/styles/institutionalInputs';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
+import { router } from 'expo-router';
 import {
   formatearMontoCLP,
   redondearCLP,
@@ -32,6 +33,14 @@ import {
 } from '@/utils/parseMontoDecimal';
 import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import { useCotizacionCanalDetalleQuery } from '@/hooks/useCotizacionCanalDetalleQuery';
+import {
+  EjecucionAdicionalCampos,
+  pickerDesdePropuesta,
+  type EjecucionAdicional,
+} from '@/components/cotizaciones/EjecucionAdicionalCampos';
+import { formatDateApi } from '@/utils/fechaLocal';
+import { showAlert } from '@/utils/platformAlert';
+import type { CatalogoFechaHoraValue } from '@/components/solicitudes/CatalogoFechaHoraPickers';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
@@ -503,6 +512,9 @@ export function CotizacionIaEditor({
             {cotizacion.metadata?.origen === 'agente_ia' ? (
               <InstitutionalTag label="IA" variant="warning" size="sm" />
             ) : null}
+            {cotizacion.es_cotizacion_adicional ? (
+              <InstitutionalTag label="Adicional" variant="info" size="sm" />
+            ) : null}
             <InstitutionalTag
               label={cotizacion.estado}
               variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
@@ -520,10 +532,21 @@ export function CotizacionIaEditor({
         ) : (
           <>
             <View style={styles.headerText}>
-              <InstitutionalText role="h4">Cotización</InstitutionalText>
-              {cotizacion.servicio_nombre ? (
+              <InstitutionalText role="h4">
+                {cotizacion.es_cotizacion_adicional ? 'Trabajo adicional' : 'Cotización'}
+              </InstitutionalText>
+              {cotizacion.es_cotizacion_adicional && cotizacion.servicio_principal_nombre ? (
+                <InstitutionalText role="caption" color="muted" numberOfLines={2}>
+                  Desde: {cotizacion.servicio_principal_nombre}
+                </InstitutionalText>
+              ) : cotizacion.servicio_nombre ? (
                 <InstitutionalText role="caption" color="muted" numberOfLines={2}>
                   {cotizacion.servicio_nombre}
+                </InstitutionalText>
+              ) : null}
+              {cotizacion.es_cotizacion_adicional && cotizacion.motivo_servicio_adicional ? (
+                <InstitutionalText role="caption" color="muted" numberOfLines={3}>
+                  Motivo: {cotizacion.motivo_servicio_adicional}
                 </InstitutionalText>
               ) : null}
             </View>
@@ -535,6 +558,9 @@ export function CotizacionIaEditor({
                   size="sm"
                 />
               ) : null}
+              {cotizacion.es_cotizacion_adicional ? (
+                <InstitutionalTag label="Adicional" variant="info" size="sm" />
+              ) : null}
               <InstitutionalTag
                 label={cotizacion.estado}
                 variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
@@ -544,6 +570,64 @@ export function CotizacionIaEditor({
           </>
         )}
       </View>
+      ) : null}
+
+      {cotizacion.es_cotizacion_adicional && (cotizacion.cita_origen_id || cotizacion.cita_personal_id) ? (
+        <InstitutionalButton
+          label="Ver trabajo en curso"
+          variant="outline"
+          onPress={() => {
+            const citaId = cotizacion.cita_origen_id || cotizacion.cita_personal_id;
+            if (citaId) router.push(`/cita-agenda-personal/${citaId}`);
+          }}
+        />
+      ) : null}
+
+      {cotizacion.es_cotizacion_adicional ? (
+        <Card elevated padding="host" style={styles.sectionCard}>
+          <InstitutionalSectionHeader title="¿Cuándo se hace?" />
+          <EjecucionAdicionalCampos
+            ejecucion={(cotizacion.ejecucion_adicional || 'misma_visita') as EjecucionAdicional}
+            onEjecucionChange={(next) => {
+              if (!editable) return;
+              if (next === 'misma_visita') {
+                onChange({
+                  ...cotizacion,
+                  ejecucion_adicional: 'misma_visita',
+                  fecha_propuesta: null,
+                  hora_propuesta: null,
+                });
+                return;
+              }
+              const slot = pickerDesdePropuesta(
+                cotizacion.fecha_propuesta,
+                cotizacion.hora_propuesta,
+              );
+              onChange({
+                ...cotizacion,
+                ejecucion_adicional: 'nueva_fecha',
+                fecha_propuesta: formatDateApi(slot.fecha),
+                hora_propuesta: slot.hora,
+              });
+            }}
+            fechaHora={pickerDesdePropuesta(
+              cotizacion.fecha_propuesta,
+              cotizacion.hora_propuesta,
+            )}
+            onFechaHoraChange={(next: CatalogoFechaHoraValue) => {
+              if (!editable) return;
+              onChange({
+                ...cotizacion,
+                ejecucion_adicional: 'nueva_fecha',
+                fecha_propuesta: formatDateApi(next.fecha),
+                hora_propuesta: next.hora,
+              });
+            }}
+            editable={editable}
+            fechaPropuesta={cotizacion.fecha_propuesta}
+            horaPropuesta={cotizacion.hora_propuesta}
+          />
+        </Card>
       ) : null}
 
       {(showVehiculoCard || showClienteCard) ? (
@@ -868,7 +952,20 @@ export function CotizacionIaEditor({
           {editable && onEnviar ? (
             <InstitutionalButton
               label={enviarLabel}
-              onPress={onEnviar}
+              onPress={() => {
+                if (
+                  cotizacion.es_cotizacion_adicional
+                  && cotizacion.ejecucion_adicional === 'nueva_fecha'
+                  && (!cotizacion.fecha_propuesta || !cotizacion.hora_propuesta)
+                ) {
+                  showAlert(
+                    'Fecha requerida',
+                    'Indica día y hora acordados con el cliente antes de enviar.',
+                  );
+                  return;
+                }
+                onEnviar();
+              }}
               loading={enviando}
               disabled={enviando}
             />

@@ -105,9 +105,19 @@ function CotizacionPendienteRowInner({ item, onPress, last }: CotizacionPendient
         </View>
 
         <View style={styles.line2}>
+          {item.es_cotizacion_adicional ? (
+            <InstitutionalTag label="Adicional" variant="info" size="sm" uppercase />
+          ) : null}
           <InstitutionalTag label={canal} variant={canalVariant} size="sm" uppercase />
           {fecha ? <Text style={styles.fecha}>{fecha}</Text> : null}
         </View>
+
+        {item.es_cotizacion_adicional && item.servicio_principal_nombre ? (
+          <Text style={styles.meta} numberOfLines={1}>
+            Desde: {item.servicio_principal_nombre}
+            {item.ejecucion_adicional === 'nueva_fecha' ? ' · Nueva fecha' : ''}
+          </Text>
+        ) : null}
 
         <Text style={styles.meta} numberOfLines={1}>
           {cliente}

@@ -31,6 +31,13 @@ import { useMisServiciosQuery } from '@/hooks/useMisServiciosQuery';
 import cotizacionCanalService from '@/services/cotizacionCanalService';
 import type { ServicioOfertaRow } from '@/hooks/useMisServiciosQuery';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+import {
+  EjecucionAdicionalCampos,
+  pickerDesdePropuesta,
+  type EjecucionAdicional,
+} from '@/components/cotizaciones/EjecucionAdicionalCampos';
+import { formatDateApi, formatFechaHoraPropuesta } from '@/utils/fechaLocal';
+import type { CatalogoFechaHoraValue } from '@/components/solicitudes/CatalogoFechaHoraPickers';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -59,6 +66,8 @@ export default function AgregarServicioAdicionalScreen() {
   const [descripcionIa, setDescripcionIa] = useState('');
   const [seleccionados, setSeleccionados] = useState<Record<number, number>>({});
   const [enviando, setEnviando] = useState(false);
+  const [ejecucion, setEjecucion] = useState<EjecucionAdicional>('misma_visita');
+  const [fechaHora, setFechaHora] = useState<CatalogoFechaHoraValue>(() => pickerDesdePropuesta());
 
   const serviciosDisponibles = useMemo(() => {
     const rows = catalogo?.servicios ?? [];
@@ -92,7 +101,19 @@ export default function AgregarServicioAdicionalScreen() {
       cita_id: cita.id,
       cotizacion_original_id: cita.cotizacion_canal_origen_id,
       motivo_servicio_adicional: motivoTrim,
+      ejecucion_adicional: ejecucion,
+      ...(ejecucion === 'nueva_fecha'
+        ? {
+            fecha_propuesta: formatDateApi(fechaHora.fecha),
+            hora_propuesta: fechaHora.hora,
+          }
+        : {}),
     };
+
+    if (ejecucion === 'nueva_fecha' && !fechaHora.hora) {
+      showAlert('Hora requerida', 'Indica el día y la hora acordados con el cliente.');
+      return;
+    }
 
     try {
       setEnviando(true);
@@ -123,9 +144,15 @@ export default function AgregarServicioAdicionalScreen() {
           })),
         });
       }
+      const slotTxt =
+        ejecucion === 'nueva_fecha'
+          ? formatFechaHoraPropuesta(formatDateApi(fechaHora.fecha), fechaHora.hora)
+          : '';
       showAlertButtons(
         'Borrador creado',
-        'La cotización adicional quedó en Cotizar con IA para que la revises y envíes.',
+        ejecucion === 'nueva_fecha'
+          ? `Quedó ligado a este trabajo. Fecha propuesta: ${slotTxt}. Revísalo y envíalo al cliente desde Cotizar con IA.`
+          : 'Quedó ligado a este trabajo en curso. Revísalo y envíalo al cliente desde Cotizar con IA.',
         [{ text: 'Ir a Cotizar con IA', onPress: () => router.replace('/cotizar-ia') }],
       );
     } catch (err: unknown) {
@@ -138,7 +165,7 @@ export default function AgregarServicioAdicionalScreen() {
     } finally {
       setEnviando(false);
     }
-  }, [cita, descripcionIa, modo, motivo, seleccionados, servicioIa]);
+  }, [cita, descripcionIa, ejecucion, fechaHora, modo, motivo, seleccionados, servicioIa]);
 
   if (citaLoading || !Number.isFinite(parsedId)) {
     return (
@@ -223,6 +250,16 @@ export default function AgregarServicioAdicionalScreen() {
               placeholder="Ej.: Al revisar el vehículo se detectó filtro de aceite obstruido"
               value={motivo}
               onChangeText={setMotivo}
+            />
+          </HostPaperSection>
+
+          <HostSectionKicker label="¿Cuándo se hace?" />
+          <HostPaperSection style={styles.section}>
+            <EjecucionAdicionalCampos
+              ejecucion={ejecucion}
+              onEjecucionChange={setEjecucion}
+              fechaHora={fechaHora}
+              onFechaHoraChange={setFechaHora}
             />
           </HostPaperSection>
 

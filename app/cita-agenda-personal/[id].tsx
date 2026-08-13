@@ -55,7 +55,7 @@ import ChileAddressField from '@/components/forms/ChileAddressField';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
 import { extraerNueveDigitosDesdeGuardado, normalizarTelefonoChileParaGuardar } from '@/utils/chilePhone';
 import { calcularDuracionMinutos, esRangoHorarioValido, sumarMinutosAHora } from '@/utils/citaPersonalHorario';
-import { parseFechaLocal } from '@/utils/fechaLocal';
+import { parseFechaLocal, formatFechaHoraPropuesta } from '@/utils/fechaLocal';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { consultarPatente } from '@/services/vehiculoService';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
@@ -1015,6 +1015,57 @@ export default function CitaAgendaPersonalDetalleScreen() {
                   </HostPaperSection>
                 </>
               )}
+
+              {(cita.cotizaciones_adicionales?.length ?? 0) > 0 ? (
+                <>
+                  <HostSectionKicker label="Trabajos adicionales" />
+                  <HostPaperSection style={styles.section}>
+                    {(cita.cotizaciones_adicionales ?? []).map((ad, idx, arr) => {
+                      const slot = formatFechaHoraPropuesta(ad.fecha_propuesta, ad.hora_propuesta);
+                      const meta =
+                        ad.ejecucion_adicional === 'nueva_fecha'
+                          ? (ad.estado === 'aceptada' && slot
+                            ? `Agendado para ${slot}`
+                            : slot
+                              ? `Fecha propuesta: ${slot}`
+                              : 'Nueva fecha')
+                          : 'Misma visita';
+                      const row = (
+                        <HostMetricRow
+                          label={ad.servicio_nombre || 'Trabajo adicional'}
+                          meta={meta}
+                          value={
+                            ad.estado === 'aceptada'
+                              ? formatearMontoCLP(ad.total_clp)
+                              : ad.estado === 'enviada'
+                                ? 'Enviada'
+                                : ad.estado === 'borrador'
+                                  ? 'Borrador'
+                                  : ad.estado === 'rechazada'
+                                    ? 'Rechazada'
+                                    : ad.estado
+                          }
+                          last={idx === arr.length - 1}
+                        />
+                      );
+                      if (ad.cita_hija_id) {
+                        return (
+                          <Pressable
+                            key={ad.id}
+                            onPress={() => router.push(`/cita-agenda-personal/${ad.cita_hija_id}`)}
+                          >
+                            {row}
+                          </Pressable>
+                        );
+                      }
+                      return <View key={ad.id}>{row}</View>;
+                    })}
+                    <Text style={styles.addressDetailsText}>
+                      El cliente paga directo al taller. Misma visita suma a este trabajo; nueva fecha queda agendada aparte.
+                    </Text>
+                  </HostPaperSection>
+                </>
+              ) : null}
 
               {esActiva && puedeUsarAsistenteIa ? (
                 <HostPaperSection style={styles.section}>
