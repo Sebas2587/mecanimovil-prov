@@ -288,7 +288,10 @@ export default function CitaAgendaPersonalDetalleScreen() {
     checklistEstado === 'EN_PROGRESO' || checklistEstado === 'PAUSADO';
   const adicionalPendienteId = cita?.cotizacion_adicional_pendiente_id ?? null;
   const permitirAgregarHallazgo = Boolean(
-    cita?.permite_cotizacion_adicional && cita?.cotizacion_canal_origen_id && checklistEnEjecucion,
+    cita?.permite_cotizacion_adicional
+    && cita?.cotizacion_canal_origen_id
+    && checklistEnEjecucion
+    && !adicionalPendienteId,
   );
   const puedeActualizarCotizacion = Boolean(
     esActiva
@@ -1059,29 +1062,33 @@ export default function CitaAgendaPersonalDetalleScreen() {
                   <HostPaperSection style={styles.section}>
                     {(cita.cotizaciones_adicionales ?? []).map((ad, idx, arr) => {
                       const slot = formatFechaHoraPropuesta(ad.fecha_propuesta, ad.hora_propuesta);
-                      const meta =
+                      const motivo = (ad.motivo_servicio_adicional || '').trim();
+                      const metaParts = [
                         ad.ejecucion_adicional === 'nueva_fecha'
                           ? (ad.estado === 'aceptada' && slot
                             ? `Agendado para ${slot}`
                             : slot
                               ? `Fecha propuesta: ${slot}`
                               : 'Nueva fecha')
-                          : 'Misma visita';
+                          : 'Misma visita',
+                        motivo || null,
+                      ].filter(Boolean);
+                      const esPendiente = ad.estado === 'borrador' || ad.estado === 'enviada';
+                      const esRechazada = ad.estado === 'rechazada';
+                      const valueNode = esRechazada
+                        ? 'Rechazada'
+                        : ad.estado === 'aceptada'
+                          ? formatearMontoCLP(ad.total_clp)
+                          : ad.estado === 'enviada'
+                            ? (ad.total_clp > 0 ? formatearMontoCLP(ad.total_clp) : 'Enviada')
+                            : ad.estado === 'borrador'
+                              ? (ad.total_clp > 0 ? formatearMontoCLP(ad.total_clp) : 'Borrador')
+                              : ad.estado;
                       const row = (
                         <HostMetricRow
                           label={ad.servicio_nombre || 'Trabajo adicional'}
-                          meta={meta}
-                          value={
-                            ad.estado === 'aceptada'
-                              ? formatearMontoCLP(ad.total_clp)
-                              : ad.estado === 'enviada'
-                                ? 'Enviada'
-                                : ad.estado === 'borrador'
-                                  ? 'Borrador'
-                                  : ad.estado === 'rechazada'
-                                    ? 'Rechazada'
-                                    : ad.estado
-                          }
+                          meta={metaParts.join(' · ')}
+                          value={valueNode}
                           last={idx === arr.length - 1}
                         />
                       );
@@ -1090,6 +1097,16 @@ export default function CitaAgendaPersonalDetalleScreen() {
                           <Pressable
                             key={ad.id}
                             onPress={() => router.push(`/cita-agenda-personal/${ad.cita_hija_id}`)}
+                          >
+                            {row}
+                          </Pressable>
+                        );
+                      }
+                      if (esPendiente) {
+                        return (
+                          <Pressable
+                            key={ad.id}
+                            onPress={() => router.push(`/cotizacion-canal/${ad.id}`)}
                           >
                             {row}
                           </Pressable>
@@ -1112,27 +1129,33 @@ export default function CitaAgendaPersonalDetalleScreen() {
                 </HostPaperSection>
               ) : null}
 
-              {puedeActualizarCotizacion ? (
+              {(puedeActualizarCotizacion || adicionalPendienteId || (citaAgendada && !checklistIniciado && !esDiaServicio && cita.tiene_checklist)) ? (
                 <View style={styles.checklistActions}>
-                  <InstitutionalButton
-                    label="Actualizar cotización"
-                    variant="outline"
-                    onPress={() => router.push(`/cotizacion-canal/${cita.cotizacion_canal_origen_id}`)}
-                    disabled={procesando}
-                  />
-                  <Text style={styles.addressDetailsText}>
-                    Si el cliente pidió cambios antes de iniciar, edita la misma cotización (mismo enlace).
-                  </Text>
-                </View>
-              ) : null}
-
-              {adicionalPendienteId && !checklistEnEjecucion ? (
-                <View style={styles.checklistActions}>
-                  <InstitutionalButton
-                    label="Ver trabajo adicional pendiente"
-                    variant="outline"
-                    onPress={() => router.push(`/cotizacion-canal/${adicionalPendienteId}`)}
-                  />
+                  {citaAgendada && !checklistIniciado && !esDiaServicio && cita.tiene_checklist ? (
+                    <Text style={styles.addressDetailsText}>
+                      Se inicia el {formatearFecha(cita.fecha_servicio)}. No se puede adelantar el checklist.
+                    </Text>
+                  ) : null}
+                  {puedeActualizarCotizacion ? (
+                    <>
+                      <InstitutionalButton
+                        label="Actualizar cotización"
+                        variant="outline"
+                        onPress={() => router.push(`/cotizacion-canal/${cita.cotizacion_canal_origen_id}`)}
+                        disabled={procesando}
+                      />
+                      <Text style={styles.addressDetailsText}>
+                        Si el cliente pidió cambios antes de iniciar, edita la misma cotización (mismo enlace).
+                      </Text>
+                    </>
+                  ) : null}
+                  {adicionalPendienteId && !checklistEnEjecucion ? (
+                    <InstitutionalButton
+                      label="Esperando al cliente"
+                      variant="outline"
+                      onPress={() => router.push(`/cotizacion-canal/${adicionalPendienteId}`)}
+                    />
+                  ) : null}
                 </View>
               ) : null}
 
@@ -1263,7 +1286,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                         />
                       ) : adicionalPendienteId ? (
                         <InstitutionalButton
-                          label="Trabajo adicional pendiente"
+                          label="Esperando al cliente"
                           variant="outline"
                           onPress={() => router.push(`/cotizacion-canal/${adicionalPendienteId}`)}
                         />

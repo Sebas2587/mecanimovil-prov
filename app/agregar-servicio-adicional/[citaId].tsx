@@ -164,11 +164,23 @@ export default function AgregarServicioAdicionalScreen() {
         }],
       );
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { detail?: string; non_field_errors?: string[] } } })
-          ?.response?.data?.detail
-        || (err as Error)?.message
-        || 'No se pudo crear la cotización adicional.';
+      const data = (err as { response?: { data?: { detail?: string; codigo?: string; cotizacion_id?: number } } })
+        ?.response?.data;
+      const msg = data?.detail || (err as Error)?.message || 'No se pudo crear el hallazgo.';
+      const pendienteId =
+        cita.cotizacion_adicional_pendiente_id
+        || (typeof data?.cotizacion_id === 'number' ? data.cotizacion_id : null);
+      if (pendienteId && String(msg).toLowerCase().includes('pendiente')) {
+        showAlertButtons(
+          'Hay un hallazgo pendiente',
+          'Revisa o espera la respuesta del cliente antes de agregar otro.',
+          [{
+            text: 'Abrir cotización',
+            onPress: () => router.replace(`/cotizacion-canal/${pendienteId}`),
+          }],
+        );
+        return;
+      }
       showAlert('Error', String(msg));
     } finally {
       setEnviando(false);
@@ -190,7 +202,7 @@ export default function AgregarServicioAdicionalScreen() {
     return (
       <View style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Header title="Servicio adicional" showBack onBackPress={() => router.back()} />
+        <Header title="Agregar hallazgo" showBack onBackPress={() => router.back()} />
         <View style={styles.center}>
           <Text style={styles.errorText}>No encontramos esta cita.</Text>
         </View>
@@ -202,12 +214,21 @@ export default function AgregarServicioAdicionalScreen() {
     return (
       <View style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Header title="Servicio adicional" showBack onBackPress={() => router.back()} />
+        <Header title="Agregar hallazgo" showBack onBackPress={() => router.back()} />
         <View style={[styles.center, hostScreenStyles.gutterX]}>
           <Text style={styles.errorText}>
-            Este trabajo aún no permite cotizaciones adicionales. Confirma el horario o inicia el
-            servicio primero.
+            {cita.cotizacion_adicional_pendiente_id
+              ? 'Ya hay un trabajo adicional pendiente. Revísalo o espera la respuesta del cliente.'
+              : 'Este trabajo aún no permite agregar hallazgos. Confirma el horario e inicia el servicio primero.'}
           </Text>
+          {cita.cotizacion_adicional_pendiente_id ? (
+            <InstitutionalButton
+              label="Abrir cotización pendiente"
+              variant="outline"
+              onPress={() => router.replace(`/cotizacion-canal/${cita.cotizacion_adicional_pendiente_id}`)}
+              style={{ marginTop: SPACING.md }}
+            />
+          ) : null}
         </View>
       </View>
     );
@@ -253,7 +274,7 @@ export default function AgregarServicioAdicionalScreen() {
           <HostSectionKicker label="Motivo" />
           <HostPaperSection style={styles.section}>
             <InstitutionalField
-              label="Motivo del servicio adicional"
+              label="Motivo"
               multiline
               placeholder="Ej.: Al revisar el vehículo se detectó filtro de aceite obstruido"
               value={motivo}

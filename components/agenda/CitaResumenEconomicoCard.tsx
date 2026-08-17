@@ -54,6 +54,9 @@ export function CitaResumenEconomicoCard({
         : 0;
   const totalVisita = Number(resumen.total_visita_clp) || 0;
   const tieneVisita = totalVisita > total;
+  const secundariosMismaVisita = (resumen.servicios_secundarios ?? []).filter(
+    (s) => s.estado === 'aceptada' && s.ejecucion_adicional !== 'nueva_fecha',
+  );
 
   return (
     <>
@@ -143,11 +146,20 @@ export function CitaResumenEconomicoCard({
             ) : null}
             {total > 0 ? (
               <HostMetricRow
-                label={tieneVisita ? 'Total servicio principal' : 'Total a pagar'}
+                label={tieneVisita || secundariosMismaVisita.length > 0 ? 'Total servicio principal' : 'Total a pagar'}
                 value={formatearMontoCLP(total)}
-                last={!tieneVisita}
+                last={!tieneVisita && secundariosMismaVisita.length === 0}
               />
             ) : null}
+            {secundariosMismaVisita.map((sec, idx) => (
+              <HostMetricRow
+                key={`sec-${sec.cotizacion_id}`}
+                label={sec.servicio_nombre || 'Trabajo adicional'}
+                meta={(sec.motivo || '').trim() || 'Misma visita'}
+                value={formatearMontoCLP(sec.total_clp)}
+                last={!tieneVisita && idx === secundariosMismaVisita.length - 1}
+              />
+            ))}
             {tieneVisita ? (
               <HostMetricRow
                 label="Total de la visita"

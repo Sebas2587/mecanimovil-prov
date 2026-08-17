@@ -381,8 +381,8 @@ export function PipelineSeguimientoSection({
   const loading = isPending && rawResults.length === 0;
 
   const handlePress = useCallback((item: PipelineComercialItem) => {
-    if (item.tipo_entidad === 'cotizacion_canal') {
-      setLeadActivo(item);
+    if (item.tipo_entidad === 'cotizacion_canal' && item.cotizacion_id) {
+      router.push(`/cotizacion-canal/${item.cotizacion_id}`);
       return;
     }
     if (item.cita_id || item.orden_id || item.oferta_id) {

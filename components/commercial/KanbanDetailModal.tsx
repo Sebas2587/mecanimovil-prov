@@ -30,6 +30,7 @@ import {
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import { router } from 'expo-router';
 import { COLORS, SPACING, BORDERS, TYPOGRAPHY } from '@/app/design-system/tokens';
 import {
   Card,
@@ -43,7 +44,6 @@ import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import type { PipelineComercialItem } from '@/services/pipelineComercialService';
 import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
 import agenteIaService from '@/services/agenteIaService';
-import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
 import { ChatMessageComposer } from '@/components/chats/ChatMessageComposer';
 import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
 import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
@@ -78,18 +78,23 @@ export function KanbanDetailModal({
   const [enviandoCliente, setEnviandoCliente] = useState(false);
   const [iaActiva, setIaActiva] = useState(true);
   const [togglingIa, setTogglingIa] = useState(false);
-  const [modoEdicion, setModoEdicion] = useState(false);
 
   // Chat composer states
   const [nuevoMensaje, setNuevoMensaje] = useState('');
   const [enviandoMensaje, setEnviandoMensaje] = useState(false);
   const [stagedAttachment, setStagedAttachment] = useState<StagedAttachment | null>(null);
 
+  const abrirCotizacionFullScreen = useCallback(() => {
+    const id = leadItem?.cotizacion_id || cotizacionDetalle?.id;
+    if (!id) return;
+    onClose();
+    router.push(`/cotizacion-canal/${id}`);
+  }, [cotizacionDetalle?.id, leadItem?.cotizacion_id, onClose]);
+
   // Load detailed quotation data when leadItem changes
   useEffect(() => {
     if (!visible || !leadItem?.cotizacion_id) {
       setCotizacionDetalle(null);
-      setModoEdicion(false);
       return;
     }
     let isMounted = true;
@@ -346,7 +351,7 @@ export function KanbanDetailModal({
                   <CotizacionCanalBubble
                     cotizacion={cotizacionDetalle}
                     esTaller={true}
-                    onVerDetalle={() => setModoEdicion(true)}
+                    onVerDetalle={abrirCotizacionFullScreen}
                   />
                 ) : null}
               </ScrollView>
@@ -371,33 +376,10 @@ export function KanbanDetailModal({
             </View>
           ) : null}
 
-          {/* RIGHT PANEL: Vehicle Ficha & CotizacionIaEditor */}
+          {/* RIGHT PANEL: Vehicle ficha y resumen de cotización */}
           {(isDesktop || activeTabMobile === 'datos') ? (
             <View style={[styles.colDatos, !isDesktop && styles.colFull]}>
               <ScrollView contentContainerStyle={styles.datosScroll}>
-                {modoEdicion && cotizacionDetalle ? (
-                  <View style={styles.editorContainer}>
-                    <View style={styles.editorHeaderRow}>
-                      <HostSectionKicker label="EDITAR COTIZACIÓN BORRADOR" />
-                      <TouchableOpacity onPress={() => setModoEdicion(false)} hitSlop={8}>
-                        <X size={16} color={I.primary} />
-                      </TouchableOpacity>
-                    </View>
-                    <CotizacionIaEditor
-                      cotizacion={cotizacionDetalle}
-                      onGuardar={(cotActualizada) => {
-                        setCotizacionDetalle(cotActualizada);
-                        setModoEdicion(false);
-                        showAlert('Cotización Actualizada', 'Los precios y repuestos fueron guardados.');
-                      }}
-                      onEnviar={() => {
-                        setModoEdicion(false);
-                        handleAprobarYEnviar();
-                      }}
-                      onCerrar={() => setModoEdicion(false)}
-                    />
-                  </View>
-                ) : (
                   <>
                     <HostSectionKicker label="FICHA DEL VEHÍCULO Y CLIENTE" />
 
@@ -428,10 +410,10 @@ export function KanbanDetailModal({
                       {cotizacionDetalle ? (
                         <TouchableOpacity
                           style={styles.editQuoteBtn}
-                          onPress={() => setModoEdicion(true)}
+                          onPress={abrirCotizacionFullScreen}
                         >
                           <Edit3 size={14} color={I.primary} />
-                          <Text style={styles.editQuoteBtnText}>Editar precios</Text>
+                          <Text style={styles.editQuoteBtnText}>Abrir cotización</Text>
                         </TouchableOpacity>
                       ) : null}
                     </View>
@@ -469,10 +451,10 @@ export function KanbanDetailModal({
                         </View>
 
                         <InstitutionalButton
-                          label="✏️ Editar Precios y Repuestos"
+                          label="Abrir cotización"
                           variant="outline"
                           size="compact"
-                          onPress={() => setModoEdicion(true)}
+                          onPress={abrirCotizacionFullScreen}
                           style={{ marginTop: 8 }}
                         />
                       </Card>
@@ -482,7 +464,6 @@ export function KanbanDetailModal({
                       </InstitutionalText>
                     )}
                   </>
-                )}
               </ScrollView>
             </View>
           ) : null}
