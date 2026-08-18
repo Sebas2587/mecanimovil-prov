@@ -16,10 +16,26 @@ Proveedor SHALL acceder desde Perfil → Canales de mensajería.
 ### Requirement: Conectar canal
 Patrón OAuth igual a Mercado Pago.
 
-#### Scenario: Conectar WhatsApp
-- GIVEN canal sin configurar
-- WHEN toca Conectar y completa Embedded Signup
-- THEN estado muestra Conectado con identificador (teléfono)
+### Requirement: Validadores WhatsApp al conectar
+La conexión de WhatsApp SHALL validar Facebook administrador y WhatsApp Business, con mensajes claros en web y nativo.
+
+#### Scenario: Precheck antes de Facebook
+- GIVEN el proveedor toca Conectar WhatsApp
+- WHEN aún no abrió Facebook
+- THEN ve un diálogo que exige Facebook administrador del taller y WhatsApp Business (no personal)
+- AND puede cancelar o continuar
+
+#### Scenario: Facebook personal o sin negocio
+- GIVEN completa el login de Meta
+- WHEN esa cuenta no administra un Business Manager
+- THEN el estado del canal es error
+- AND ve la alerta "Facebook incorrecto"
+
+#### Scenario: Sin WhatsApp Business
+- GIVEN entra con un Facebook de negocio
+- WHEN no hay WhatsApp Business asociado
+- THEN ve la alerta "Falta WhatsApp Business" indicando que un número personal no sirve
+
 
 ### Requirement: Toggle habilitar
 Proveedor SHALL activar/desactivar recepción por canal.

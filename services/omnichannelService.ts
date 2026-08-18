@@ -64,6 +64,7 @@ export interface CompletarConexionResponse {
   needs_phone_number_id?: boolean;
   waba_id?: string;
   channel?: CanalSlug;
+  error_code?: string;
   connection?: ConexionCanal;
 }
 

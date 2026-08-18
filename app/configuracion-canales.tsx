@@ -45,6 +45,7 @@ import {
 } from '@/hooks/useCreditosQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
+import { showWhatsAppConnectAlert } from '@/utils/whatsappConnectGuards';
 
 const I = COLORS.institutional;
 
@@ -52,7 +53,7 @@ const CANALES: { slug: CanalSlug; title: string; hint: string }[] = [
   {
     slug: 'whatsapp',
     title: 'WhatsApp',
-    hint: 'Conecta tu WhatsApp Business en pocos pasos con Meta.',
+    hint: 'Requiere WhatsApp Business vinculado al Facebook administrador del taller. El WhatsApp personal no sirve.',
   },
   {
     slug: 'messenger',
@@ -117,6 +118,7 @@ export default function ConfiguracionCanalesScreen() {
     mensaje: '',
   });
   const oauthInProgress = useRef(false);
+  const oauthChannelRef = useRef<CanalSlug | null>(null);
 
   const {
     data: canalesData,
@@ -165,8 +167,17 @@ export default function ConfiguracionCanalesScreen() {
       if (!originOk) return;
       const data = event.data;
       if (!data || data.type !== 'mecanimovil:meta-oauth') return;
+      const slug = oauthChannelRef.current;
       oauthInProgress.current = false;
+      oauthChannelRef.current = null;
       recargarCanales();
+      if (data.success === false && slug === 'whatsapp') {
+        showWhatsAppConnectAlert(
+          typeof data.error_code === 'string' ? data.error_code : undefined,
+          typeof data.message === 'string' ? data.message : undefined,
+          typeof data.instruction === 'string' ? data.instruction : undefined,
+        );
+      }
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
@@ -175,27 +186,44 @@ export default function ConfiguracionCanalesScreen() {
   React.useEffect(() => {
     const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
       if (state === 'active' && oauthInProgress.current) {
+        const slug = oauthChannelRef.current;
         oauthInProgress.current = false;
-        recargarCanales();
+        oauthChannelRef.current = null;
+        void (async () => {
+          const refreshed = await refetchCanales();
+          void refreshUso();
+          if (slug !== 'whatsapp') return;
+          const conn = (refreshed.data?.connections || []).find(
+            (item) => item.channel_slug === 'whatsapp',
+          );
+          if (conn?.status === 'error' && conn.mensaje_estado) {
+            showWhatsAppConnectAlert(undefined, conn.mensaje_estado);
+          }
+        })();
       }
     });
     return () => sub.remove();
-  }, [recargarCanales]);
+  }, [refetchCanales, refreshUso]);
 
   const handleConectar = async (slug: CanalSlug) => {
     try {
       setConectando(slug);
       oauthInProgress.current = true;
+      oauthChannelRef.current = slug;
       const result = await conectarCanalMeta(slug);
       if (result === 'cuota') {
         oauthInProgress.current = false;
+        oauthChannelRef.current = null;
         setUpsellCuota({
           visible: true,
           mensaje:
             'Tu plan no permite conectar más canales de mensajería. Sube de plan en Suscripción & Créditos.',
         });
-      } else if (result !== 'ok') {
+      } else if (result === 'ok') {
+        // Nativo: el usuario sigue en el navegador de Meta.
+      } else {
         oauthInProgress.current = false;
+        oauthChannelRef.current = null;
       }
     } finally {
       setConectando(null);
@@ -335,8 +363,8 @@ export default function ConfiguracionCanalesScreen() {
           ) : null}
 
           <InstitutionalText role="body" color="body" style={styles.intro}>
-            Conecta WhatsApp, Facebook e Instagram de tu taller. Los mensajes llegarán al tab Chats con
-            identificador de canal. Tu WhatsApp personal no se ve afectado.
+            Conecta WhatsApp Business, Facebook e Instagram de tu taller. Los mensajes llegarán al tab Chats.
+            WhatsApp personal no se puede conectar: usa el Facebook administrador y un número Business.
           </InstitutionalText>
           {maxCanales != null && maxCanales > 0 ? (
             <InstitutionalText role="caption" color="muted" style={styles.intro}>

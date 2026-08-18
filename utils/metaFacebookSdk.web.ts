@@ -28,7 +28,14 @@ export type MetaEmbeddedSession = {
   waba_id?: string;
   business_id?: string;
   waba_ids?: string[];
+  error_code?: string | number;
+  error_message?: string;
 };
+
+export type EmbeddedSignupEvent =
+  | { kind: 'session'; data: MetaEmbeddedSession }
+  | { kind: 'cancel' }
+  | { kind: 'error'; data: MetaEmbeddedSession };
 
 let sdkPromise: Promise<void> | null = null;
 
@@ -77,7 +84,7 @@ export function loadFacebookSdk(appId: string, graphVersion: string): Promise<vo
 }
 
 export function listenEmbeddedSignupSession(
-  onSession: (session: MetaEmbeddedSession) => void,
+  onEvent: (event: EmbeddedSignupEvent) => void,
 ): () => void {
   const handler = (event: MessageEvent) => {
     if (event.origin !== 'https://www.facebook.com' && event.origin !== 'https://web.facebook.com') {
@@ -92,11 +99,20 @@ export function listenEmbeddedSignupSession(
     if (payload?.type !== 'WA_EMBEDDED_SIGNUP') {
       return;
     }
-    if (payload.event && !['FINISH', 'FINISH_ONLY_WABA', 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'].includes(payload.event)) {
+    const name = (payload.event || '').toUpperCase();
+    if (name === 'CANCEL') {
+      onEvent({ kind: 'cancel' });
+      return;
+    }
+    if (name === 'ERROR') {
+      onEvent({ kind: 'error', data: payload.data || {} });
+      return;
+    }
+    if (name && !['FINISH', 'FINISH_ONLY_WABA', 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'].includes(name)) {
       return;
     }
     if (payload.data) {
-      onSession(payload.data);
+      onEvent({ kind: 'session', data: payload.data });
     }
   };
 
@@ -133,7 +149,7 @@ export function launchEmbeddedSignup(config: {
           reject(new Error('cancelled'));
           return;
         }
-        reject(new Error('Meta no devolvió código de autorización'));
+        reject(new Error('facebook_sin_codigo'));
       },
       {
         config_id: config.configId,
@@ -145,7 +161,12 @@ export function launchEmbeddedSignup(config: {
   });
 }
 
-export function openOAuthPopup(authUrl: string): Promise<{ success: boolean; message?: string }> {
+export function openOAuthPopup(authUrl: string): Promise<{
+  success: boolean;
+  message?: string;
+  error_code?: string;
+  instruction?: string;
+}> {
   return new Promise((resolve, reject) => {
     const apiOrigin = (() => {
       try {
@@ -169,7 +190,12 @@ export function openOAuthPopup(authUrl: string): Promise<{ success: boolean; mes
     }
 
     let settled = false;
-    const finish = (result: { success: boolean; message?: string }) => {
+    const finish = (result: {
+      success: boolean;
+      message?: string;
+      error_code?: string;
+      instruction?: string;
+    }) => {
       if (settled) return;
       settled = true;
       cleanup();
@@ -183,6 +209,8 @@ export function openOAuthPopup(authUrl: string): Promise<{ success: boolean; mes
       finish({
         success: data.success !== false,
         message: typeof data.message === 'string' ? data.message : undefined,
+        error_code: typeof data.error_code === 'string' ? data.error_code : undefined,
+        instruction: typeof data.instruction === 'string' ? data.instruction : undefined,
       });
     };
 

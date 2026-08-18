@@ -1,9 +1,15 @@
 import { useCallback, useRef } from 'react';
-import { Alert, Linking } from 'react-native';
+import { Linking } from 'react-native';
 import omnichannelService, { type CanalSlug } from '@/services/omnichannelService';
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
+import { showAlert } from '@/utils/platformAlert';
+import {
+  confirmChannelConnectGuards,
+  extraerErrorWhatsAppDeApi,
+  showWhatsAppConnectAlert,
+} from '@/utils/whatsappConnectGuards';
 
-export type MetaConnectResult = 'ok' | 'fail' | 'cuota';
+export type MetaConnectResult = 'ok' | 'fail' | 'cuota' | 'cancelled';
 
 function extractApiError(error: unknown, fallback: string): string {
   if (esErrorCuota(error)) return mensajeCuotaError(error, fallback);
@@ -21,6 +27,9 @@ export function useMetaChannelConnect(_onComplete: () => void) {
   const connect = useCallback(async (slug: CanalSlug): Promise<MetaConnectResult> => {
     try {
       connectingRef.current = slug;
+      const allowed = await confirmChannelConnectGuards(slug);
+      if (!allowed) return 'cancelled';
+
       const result = await omnichannelService.iniciarConexion(slug);
       if (!result.auth_url) {
         throw new Error('No se recibió URL de autorización');
@@ -30,10 +39,10 @@ export function useMetaChannelConnect(_onComplete: () => void) {
         throw new Error('No se pudo abrir el navegador');
       }
       await Linking.openURL(result.auth_url);
-      Alert.alert(
-        'Conectar canal',
+      showAlert(
+        slug === 'whatsapp' ? 'Continúa en Facebook' : 'Conectar canal',
         slug === 'whatsapp'
-          ? 'Completa el proceso en Meta con tu cuenta WhatsApp Business y vuelve a la app.'
+          ? 'Entra con el Facebook administrador del taller y elige WhatsApp Business. Al volver, te diremos si faltó algo.'
           : 'Completa el proceso en Meta y vuelve a la app. El estado se actualizará automáticamente.',
       );
       return 'ok';
@@ -41,7 +50,16 @@ export function useMetaChannelConnect(_onComplete: () => void) {
       if (esErrorCuota(error)) {
         return 'cuota';
       }
-      Alert.alert('Error', extractApiError(error, 'No se pudo iniciar la conexión.'));
+      if (slug === 'whatsapp') {
+        const parsed = extraerErrorWhatsAppDeApi(error);
+        showWhatsAppConnectAlert(
+          parsed.error_code,
+          parsed.message || extractApiError(error, 'No se pudo iniciar la conexión.'),
+          parsed.instruction,
+        );
+      } else {
+        showAlert('Error', extractApiError(error, 'No se pudo iniciar la conexión.'));
+      }
       return 'fail';
     } finally {
       connectingRef.current = null;
