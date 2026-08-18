@@ -44,6 +44,7 @@ export interface CotizacionCanal {
   cita_personal_id?: number | null;
   cita_origen_id?: number | null;
   token?: string | null;
+  numero_publico?: string | null;
   url_publica?: string | null;
   share_url?: string | null;
   visto_en?: string | null;

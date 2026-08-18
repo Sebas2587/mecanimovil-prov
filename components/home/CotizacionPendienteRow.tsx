@@ -120,6 +120,7 @@ function CotizacionPendienteRowInner({ item, onPress, last }: CotizacionPendient
         ) : null}
 
         <Text style={styles.meta} numberOfLines={1}>
+          {item.numero_publico ? `#${item.numero_publico} · ` : ''}
           {cliente}
           {vehiculo ? ` · ${vehiculo}` : ''}
           {item.vehiculo_patente ? ` · ${item.vehiculo_patente}` : ''}

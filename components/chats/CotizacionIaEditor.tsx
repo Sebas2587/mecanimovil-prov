@@ -515,6 +515,13 @@ export function CotizacionIaEditor({
             {cotizacion.es_cotizacion_adicional ? (
               <InstitutionalTag label="Adicional" variant="info" size="sm" />
             ) : null}
+            {cotizacion.numero_publico ? (
+              <InstitutionalTag
+                label={`#${cotizacion.numero_publico}`}
+                variant="neutral"
+                size="sm"
+              />
+            ) : null}
             <InstitutionalTag
               label={cotizacion.estado}
               variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
@@ -534,6 +541,7 @@ export function CotizacionIaEditor({
             <View style={styles.headerText}>
               <InstitutionalText role="h4">
                 {cotizacion.es_cotizacion_adicional ? 'Trabajo adicional' : 'Cotización'}
+                {cotizacion.numero_publico ? `  #${cotizacion.numero_publico}` : ''}
               </InstitutionalText>
               {cotizacion.es_cotizacion_adicional && cotizacion.servicio_principal_nombre ? (
                 <InstitutionalText role="caption" color="muted" numberOfLines={2}>
@@ -901,7 +909,7 @@ export function CotizacionIaEditor({
       <Card elevated padding="host" style={styles.sectionCard}>
         <InstitutionalSectionHeader title="Notas de cotización" />
         <InstitutionalField
-          label="Las genera el agente según el servicio; puedes editarlas"
+          label="El cliente verá estas notas en el enlace y en el PDF. El agente las sugiere según el servicio; puedes editarlas"
           value={cotizacion.notas_internas || ''}
           onChangeText={(t) => onChange({ ...cotizacion, notas_internas: t })}
           placeholder={'1. Síntoma…\n2. Servicio propuesto…\n3. Consideraciones…'}
