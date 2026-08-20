@@ -69,6 +69,7 @@ export default function CotizacionCanalDetalleScreen() {
   const [enviando, setEnviando] = useState(false);
   const [reabriendo, setReabriendo] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  const [accionLead, setAccionLead] = useState(false);
 
   useEffect(() => {
     if (data) setDraft({ ...data });
@@ -198,6 +199,40 @@ export default function CotizacionCanalDetalleScreen() {
     }
   }, [draft]);
 
+  const marcarAceptada = useCallback(async () => {
+    if (!draft?.id) return;
+    setAccionLead(true);
+    try {
+      const actualizada = await cotizacionCanalService.marcarAceptada(draft.id);
+      setDraft({ ...actualizada });
+      await invalidateAll();
+      showAlert('Cotización aceptada', 'El caso quedó marcado como aceptado. Confirma el horario en Bandeja.');
+    } catch {
+      showAlert('Error', 'Solo cotizaciones enviadas pueden marcarse como aceptadas.');
+    } finally {
+      setAccionLead(false);
+    }
+  }, [draft?.id, invalidateAll]);
+
+  const cerrarCaso = useCallback(() => {
+    if (!draft?.id) return;
+    showConfirm('Cerrar caso', 'El lead pasará a Perdidos. Podrás seguir viéndolo en ese filtro.', {
+      confirmText: 'Cerrar caso',
+      onConfirm: async () => {
+        setAccionLead(true);
+        try {
+          await cotizacionCanalService.marcarPerdida(draft.id);
+          await invalidateAll();
+          router.back();
+        } catch {
+          showAlert('Error', 'No se pudo cerrar el caso.');
+        } finally {
+          setAccionLead(false);
+        }
+      },
+    });
+  }, [draft?.id, invalidateAll]);
+
   if (!Number.isFinite(parsedId) || isPending) {
     return (
       <View style={styles.screen}>
@@ -246,6 +281,12 @@ export default function CotizacionCanalDetalleScreen() {
           hideSendActions
         />
 
+        {draft.estado === 'enviada' ? (
+          <InstitutionalText role="caption" color="body">
+            Si el cliente no respondió, escribe o cierra el caso. Si aceptó por teléfono, márcala aceptada.
+          </InstitutionalText>
+        ) : null}
+
         {(draft.share_url || draft.url_publica) ? (
           <InstitutionalButton
             label="Compartir link"
@@ -257,9 +298,15 @@ export default function CotizacionCanalDetalleScreen() {
 
         {draft.conversation ? (
           <InstitutionalButton
-            label="Abrir chat"
-            variant="outline"
-            leading={<MessageCircle size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
+            label="Ver conversación"
+            variant={draft.estado === 'enviada' ? 'primary' : 'outline'}
+            leading={
+              <MessageCircle
+                size={18}
+                color={draft.estado === 'enviada' ? I.onPrimary : I.primary}
+                strokeWidth={ICON_STROKE_WIDTH}
+              />
+            }
             onPress={() => router.push(omnichannelChatHref(draft.conversation as number))}
           />
         ) : null}
@@ -267,12 +314,33 @@ export default function CotizacionCanalDetalleScreen() {
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) }]}>
         {draft.estado === 'enviada' ? (
-          <InstitutionalButton
-            label={reabriendo ? 'Reabriendo…' : 'Actualizar cotización'}
-            variant="primary"
-            loading={reabriendo}
-            onPress={() => void reabrir()}
-          />
+          <View style={styles.footerEnviada}>
+            <View style={styles.footerRow}>
+              <InstitutionalButton
+                label="Cerrar caso"
+                variant="destructiveOutline"
+                size="compact"
+                loading={accionLead}
+                style={styles.footerFlex}
+                onPress={cerrarCaso}
+              />
+              <InstitutionalButton
+                label="Marcar aceptada"
+                variant="success"
+                size="compact"
+                loading={accionLead}
+                style={styles.footerFlexGrow}
+                onPress={() => void marcarAceptada()}
+              />
+            </View>
+            <InstitutionalButton
+              label={reabriendo ? 'Reabriendo…' : 'Actualizar cotización'}
+              variant="tertiary"
+              size="compact"
+              loading={reabriendo}
+              onPress={() => void reabrir()}
+            />
+          </View>
         ) : null}
 
         {draft.estado === 'borrador' ? (
@@ -348,6 +416,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.fixed.sm,
   },
+  footerEnviada: {
+    gap: SPACING.fixed.xs,
+  },
+  footerFlex: { flex: 1 },
+  footerFlexGrow: { flex: 1.2 },
   footerGhost: {
     width: 48,
     height: 48,

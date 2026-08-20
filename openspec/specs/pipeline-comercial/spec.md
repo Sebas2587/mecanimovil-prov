@@ -25,5 +25,28 @@ La Bandeja SHALL exponer el filtro `por_agendar` (deep link `/(tabs)/bandeja?fil
 #### Scenario: Cliente aceptó y falta horario
 - GIVEN una cita con `horario_por_confirmar=true`
 - WHEN el taller abre Bandeja → Por agendar
-- THEN ve la fila con tag Por agendar y CTA Confirmar horario
-- AND si hay `conversation_id` ve “IA coordinando horario”; si no, “Confirma día y hora”
+- THEN ve una sola etiqueta de estado: “Confirmar horario”
+- AND no muestra “IA coordinando horario” ni “Listo agendar”
+- AND el CTA del detalle sigue siendo Confirmar horario
+
+### Requirement: Cotización enviada sin respuesta
+Bandeja SHALL mostrar una sola etiqueta operativa “Sin respuesta” (o “Sin respuesta +48h”). SHALL hide “Curioso”. If the lead later upgrades to interesado/listo_agendar, SHALL show that category next to Sin respuesta.
+Tapping the row SHALL open the action sheet (Ver conversación, Cerrar caso, Marcar aceptada) instead of the quote editor. Quote editor remains a secondary action.
+
+#### Scenario: Curioso que no respondió
+- GIVEN cotización `enviada` ≥24h and lead `curioso`
+- WHEN the taller opens Bandeja Esperando
+- THEN the row says Sin respuesta and “pregunta qué pasó o cierra el caso”
+- AND primary actions are Ver conversación and Cerrar caso
+
+#### Scenario: Lead que subió de intención
+- GIVEN the same conversation later classified as `interesado_calificado`
+- WHEN the row is shown
+- THEN it may show Calificado plus Sin respuesta
+- AND copy indicates that the client already showed interest
+
+#### Scenario: Tap en cotización enviada
+- GIVEN a `cotizacion_canal` in Esperando
+- WHEN the taller taps the row
+- THEN the sheet offers Ver conversación (primary), Marcar aceptada and Cerrar caso
+- AND Abrir cotización is secondary

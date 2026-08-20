@@ -21,19 +21,23 @@ import {
   MessageCircle,
   MessagesSquare,
   SlidersHorizontal,
-  UserRound,
-  XCircle,
 } from 'lucide-react-native';
 import {
+  LEAD_CATEGORIA_VARIANT,
+  ESTADO_PIPELINE_LABELS,
+  ORIGEN_PIPELINE_LABELS,
   type PipelineComercialItem,
   type EstadoPipelineNormalizado,
   type OrigenPipeline,
-  type LeadCategoria,
-  ESTADO_PIPELINE_LABELS,
-  ORIGEN_PIPELINE_LABELS,
-  LEAD_CATEGORIA_LABELS,
-  LEAD_CATEGORIA_VARIANT,
 } from '@/services/pipelineComercialService';
+import {
+  leadCategoriaLabel,
+  leadCategoriaOf,
+  leadMetaHint,
+  leadOperativoTag,
+  leadSheetHint,
+  shouldShowLeadCategoria,
+} from '@/utils/leadBandejaPresentation';
 import { usePipelineComercialQuery } from '@/hooks/usePipelineComercialQuery';
 import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
@@ -57,6 +61,7 @@ import { COLORS, SPACING, BORDERS, TYPOGRAPHY, SHADOWS } from '@/app/design-syst
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
+import { omnichannelChatHref } from '@/utils/chatRoutes';
 import {
   agendaProveedorService,
   type CitaAgendaPersonal,
@@ -189,8 +194,14 @@ const LeadCard = React.memo(function LeadCard({
     horarioPorConfirmar: item.horario_por_confirmar,
   });
   const vehiculo = item.vehiculo_resumen?.trim();
-  const leadCat = (item.lead_categoria || 'sin_calificar') as LeadCategoria;
-  const showLeadTag = leadCat !== 'sin_calificar';
+  const leadCat = leadCategoriaOf(item);
+  const showLeadTag = shouldShowLeadCategoria(item);
+  const operativoTag = leadOperativoTag(
+    item,
+    ESTADO_OPERATIVO_LABELS[estadoOperativo],
+    ESTADO_OPERATIVO_VARIANT[estadoOperativo],
+  );
+  const metaHint = leadMetaHint(item);
 
   return (
     <TouchableOpacity
@@ -216,28 +227,11 @@ const LeadCard = React.memo(function LeadCard({
 
         <View style={styles.leadTags}>
           <InstitutionalTag label={origenLabel} variant={origenVariant} size="sm" uppercase />
-          {item.horario_por_confirmar ? (
-            <>
-              <InstitutionalTag label="Por agendar" variant="warning" size="sm" />
-              <InstitutionalTag
-                label={item.conversation_id ? 'IA coordinando horario' : 'Confirma día y hora'}
-                variant={item.conversation_id ? 'info' : 'warning'}
-                size="sm"
-              />
-            </>
-          ) : item.esperando_respuesta_24h ? (
-            <InstitutionalTag label="+24h" variant="warning" size="sm" />
-          ) : item.demorado_48h ? (
-            <InstitutionalTag label="+48h" variant="warning" size="sm" />
-          ) : item.visto_sin_respuesta ? (
-            <InstitutionalTag label="Visto" variant="warning" size="sm" />
-          ) : (
-            <InstitutionalTag
-              label={ESTADO_OPERATIVO_LABELS[estadoOperativo]}
-              variant={ESTADO_OPERATIVO_VARIANT[estadoOperativo]}
-              size="sm"
-            />
-          )}
+          <InstitutionalTag
+            label={operativoTag.label}
+            variant={operativoTag.variant}
+            size="sm"
+          />
           {item.template_generado_por_ia ? (
             <InstitutionalTag label="Checklist IA" variant="info" size="sm" />
           ) : null}
@@ -246,7 +240,7 @@ const LeadCard = React.memo(function LeadCard({
           ) : null}
           {showLeadTag ? (
             <InstitutionalTag
-              label={LEAD_CATEGORIA_LABELS[leadCat] || leadCat}
+              label={leadCategoriaLabel(item)}
               variant={LEAD_CATEGORIA_VARIANT[leadCat] || 'neutral'}
               size="sm"
             />
@@ -257,8 +251,43 @@ const LeadCard = React.memo(function LeadCard({
         <Text style={styles.leadMeta} numberOfLines={1}>
           {item.cliente_nombre || 'Cliente'}
           {vehiculo ? ` · ${vehiculo}` : ''}
+          {metaHint ? ` · ${metaHint}` : ''}
         </Text>
       </View>
+    </TouchableOpacity>
+  );
+});
+
+type LeadQuietAction = {
+  id: string;
+  label: string;
+  destructive?: boolean;
+  onPress: () => void;
+};
+
+const LeadQuietRow = React.memo(function LeadQuietRow({
+  action,
+  last,
+}: {
+  action: LeadQuietAction;
+  last: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.quietRow, !last && styles.quietRowBorder]}
+      onPress={action.onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+    >
+      <InstitutionalText
+        role="body"
+        color={action.destructive ? 'semanticDown' : 'ink'}
+      >
+        {action.label}
+      </InstitutionalText>
+      {action.destructive ? null : (
+        <ChevronRight size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+      )}
     </TouchableOpacity>
   );
 });
@@ -413,7 +442,7 @@ export function PipelineSeguimientoSection({
 
   const handlePress = useCallback((item: PipelineComercialItem) => {
     if (item.tipo_entidad === 'cotizacion_canal' && item.cotizacion_id) {
-      router.push(`/cotizacion-canal/${item.cotizacion_id}`);
+      setLeadActivo(item);
       return;
     }
     if (item.cita_id || item.orden_id || item.oferta_id) {
@@ -530,12 +559,137 @@ export function PipelineSeguimientoSection({
     && leadActivo.estado_raw === 'enviada';
   const leadPuedeChat = !!leadActivo?.conversation_id;
   const leadHorarioPendiente = !!(leadActivo?.cita_id && leadActivo.horario_por_confirmar);
+  const leadSheetHintText = leadActivo ? leadSheetHint(leadActivo) : null;
   /** Con horario pendiente, asignar va dentro de «Confirmar horario» (técnico → calendario). */
   const leadPuedeAsignar = !!(
     leadActivo
     && !leadHorarioPendiente
     && (leadActivo.cita_id || leadActivo.orden_id || leadActivo.oferta_id)
   );
+
+  const irLeadConversacion = useCallback(() => {
+    const id = leadActivo?.conversation_id;
+    setLeadActivo(null);
+    if (id) router.push(omnichannelChatHref(id));
+  }, [leadActivo?.conversation_id]);
+
+  const irLeadCotizacion = useCallback(() => {
+    const cotId = leadActivo?.cotizacion_id;
+    setLeadActivo(null);
+    if (cotId) router.push(`/cotizacion-canal/${cotId}`);
+  }, [leadActivo?.cotizacion_id]);
+
+  const irLeadDetalle = useCallback(() => {
+    const item = leadActivo;
+    setLeadActivo(null);
+    if (item) navegarDetalleDirecto(item);
+  }, [leadActivo]);
+
+  const irLeadCitaPrincipal = useCallback(() => {
+    const citaId = leadActivo?.cita_id;
+    setLeadActivo(null);
+    if (citaId) router.push(`/cita-agenda-personal/${citaId}`);
+  }, [leadActivo?.cita_id]);
+
+  const leadSheetModel = useMemo(() => {
+    if (!leadActivo) return null;
+
+    let primary: {
+      id: string;
+      label: string;
+      onPress: () => void;
+      loading?: boolean;
+    } | null = null;
+
+    if (leadHorarioPendiente) {
+      primary = {
+        id: 'horario',
+        label: 'Confirmar horario',
+        loading: accionLoading,
+        onPress: () => abrirAsignarDesdeLead(leadActivo, { luegoAgendar: true }),
+      };
+    } else if (leadPuedeChat) {
+      primary = {
+        id: 'chat',
+        label: 'Ver conversación',
+        onPress: irLeadConversacion,
+      };
+    } else if (leadActivo.cotizacion_id) {
+      primary = {
+        id: 'cotizacion',
+        label: 'Abrir cotización',
+        onPress: irLeadCotizacion,
+      };
+    } else {
+      primary = {
+        id: 'detalle',
+        label: 'Ver detalle',
+        onPress: irLeadDetalle,
+      };
+    }
+
+    const quiet: LeadQuietAction[] = [];
+    if (leadPuedeChat && primary.id !== 'chat') {
+      quiet.push({ id: 'chat', label: 'Ver conversación', onPress: irLeadConversacion });
+    }
+    if (leadActivo.cotizacion_id && primary.id !== 'cotizacion') {
+      quiet.push({ id: 'cotizacion', label: 'Ver cotización', onPress: irLeadCotizacion });
+    }
+    if (leadActivo.es_cotizacion_adicional && leadActivo.cita_id) {
+      quiet.push({
+        id: 'principal',
+        label: 'Ver servicio principal',
+        onPress: irLeadCitaPrincipal,
+      });
+    }
+    const mostrarDetalle =
+      !leadHorarioPendiente
+      && primary.id !== 'detalle'
+      && !leadActivo.cotizacion_id
+      && !!(leadActivo.solicitud_id || leadActivo.cita_id || leadActivo.orden_id);
+    if (mostrarDetalle) {
+      quiet.push({ id: 'detalle', label: 'Ver detalle', onPress: irLeadDetalle });
+    }
+    if (leadPuedeAsignar) {
+      quiet.push({
+        id: 'asignar',
+        label: 'Asignar técnico',
+        onPress: () => abrirAsignarDesdeLead(leadActivo),
+      });
+    }
+    if (leadPuedeAceptar) {
+      quiet.push({
+        id: 'aceptar',
+        label: 'Marcar aceptada',
+        onPress: () => void marcarAceptadaLead(),
+      });
+    }
+    if (leadPuedeCerrar) {
+      quiet.push({
+        id: 'cerrar',
+        label: 'Cerrar caso',
+        destructive: true,
+        onPress: cerrarLeadCotizacion,
+      });
+    }
+
+    return { primary, quiet };
+  }, [
+    leadActivo,
+    leadHorarioPendiente,
+    leadPuedeChat,
+    leadPuedeAsignar,
+    leadPuedeAceptar,
+    leadPuedeCerrar,
+    accionLoading,
+    abrirAsignarDesdeLead,
+    irLeadConversacion,
+    irLeadCotizacion,
+    irLeadDetalle,
+    irLeadCitaPrincipal,
+    marcarAceptadaLead,
+    cerrarLeadCotizacion,
+  ]);
 
   const keyExtractor = useCallback(
     (item: PipelineComercialItem) => `${item.tipo_entidad}-${item.entidad_id}`,
@@ -586,7 +740,7 @@ export function PipelineSeguimientoSection({
           <View style={styles.titleBlock}>
             <HostSectionKicker label="Bandeja" />
             <InstitutionalText role="caption" color="muted">
-              El cliente aceptó. Falta horario. Las visitas confirmadas están en Agenda y Servicios.
+              Cotizaciones y leads. Las visitas con horario están en Agenda y Servicios.
             </InstitutionalText>
           </View>
           {compact ? (
@@ -606,7 +760,12 @@ export function PipelineSeguimientoSection({
 
       {filtroEsperando24h ? (
         <View style={styles.filterHint}>
-          <HostSectionKicker label="Sin respuesta +24h" />
+          <View style={styles.filterHintCopy}>
+            <HostSectionKicker label="Sin respuesta +24h" />
+            <InstitutionalText role="caption" color="muted">
+              Escribe o cierra el caso. Si aceptó por teléfono, márcala aceptada.
+            </InstitutionalText>
+          </View>
           <TouchableOpacity onPress={() => router.replace('/(tabs)/bandeja')} hitSlop={8}>
             <InstitutionalText role="captionBold" color="primary">
               Ver todas
@@ -707,7 +866,11 @@ export function PipelineSeguimientoSection({
             <InstitutionalText role="caption" color="muted" style={styles.emptySub}>
               {vista === 'por_agendar'
                 ? 'No hay cotizaciones aceptadas esperando horario.'
-                : 'No hay elementos en esta vista.'}
+                : filtroEsperando24h
+                  ? 'No hay cotizaciones sin respuesta. Cuando un cliente no contesta, aparece aquí para escribir o cerrar el caso.'
+                  : vista === 'cotizacion_enviada'
+                    ? 'No hay cotizaciones esperando respuesta del cliente.'
+                    : 'No hay elementos en esta vista.'}
             </InstitutionalText>
           </View>
         }
@@ -756,15 +919,9 @@ export function PipelineSeguimientoSection({
       <BottomSheet
         visible={Boolean(leadActivo)}
         onClose={() => setLeadActivo(null)}
-        style={styles.leadSheet}
       >
-        {leadActivo ? (
-          <ScrollView
-            style={styles.leadScroll}
-            contentContainerStyle={styles.leadScrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
+        {leadActivo && leadSheetModel ? (
+          <View style={styles.leadSheetBody}>
             <View style={styles.sheetHeaderRow}>
               <View style={styles.sheetHeaderCopy}>
                 <InstitutionalText role="h4" style={styles.sheetTitle} numberOfLines={2}>
@@ -774,9 +931,15 @@ export function PipelineSeguimientoSection({
                     || 'Caso comercial'
                   ).slice(0, 120)}
                 </InstitutionalText>
-                <InstitutionalText role="caption" color="muted" style={styles.sheetSubtitle}>
+                <InstitutionalText role="caption" color="muted" numberOfLines={1}>
                   {ORIGEN_PIPELINE_LABELS[leadActivo.origen] || leadActivo.origen}
+                  {leadActivo.cliente_nombre ? ` · ${leadActivo.cliente_nombre}` : ''}
                 </InstitutionalText>
+                {leadSheetHintText ? (
+                  <InstitutionalText role="caption" color="body" numberOfLines={2}>
+                    {leadSheetHintText}
+                  </InstitutionalText>
+                ) : null}
               </View>
               {(cotizacionDetalle?.share_url || cotizacionDetalle?.url_publica) ? (
                 <TouchableOpacity
@@ -790,95 +953,39 @@ export function PipelineSeguimientoSection({
                   hitSlop={8}
                 >
                   <Link2 size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                  <InstitutionalText role="captionBold" color="primary">
-                    Link
-                  </InstitutionalText>
                 </TouchableOpacity>
               ) : null}
             </View>
 
-            {leadActivo.cotizacion_id ? (
-              <InstitutionalButton
-                label="Abrir cotización"
-                variant="outline"
-                onPress={() => {
-                  const cotId = leadActivo.cotizacion_id;
-                  setLeadActivo(null);
-                  if (cotId) router.push(`/cotizacion-canal/${cotId}`);
-                }}
-              />
-            ) : null}
+            <InstitutionalButton
+              label={leadSheetModel.primary.label}
+              variant="primary"
+              size="compact"
+              loading={leadSheetModel.primary.loading}
+              leading={
+                leadSheetModel.primary.id === 'chat' ? (
+                  <MessageCircle
+                    size={18}
+                    color={I.onPrimary}
+                    strokeWidth={ICON_STROKE_WIDTH}
+                  />
+                ) : undefined
+              }
+              onPress={leadSheetModel.primary.onPress}
+            />
 
-            <View style={styles.leadActions}>
-              {leadPuedeChat ? (
-                <InstitutionalButton
-                  label="Ver conversación"
-                  variant="outline"
-                  leading={<MessageCircle size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
-                  onPress={() => {
-                    const id = leadActivo.conversation_id;
-                    setLeadActivo(null);
-                    if (id) router.push(`/chat-omnicanal?conversationId=${id}`);
-                  }}
-                />
-              ) : null}
-              {leadHorarioPendiente ? (
-                <InstitutionalButton
-                  label="Confirmar horario"
-                  variant="primary"
-                  loading={accionLoading}
-                  onPress={() => abrirAsignarDesdeLead(leadActivo, { luegoAgendar: true })}
-                />
-              ) : null}
-              {leadActivo.es_cotizacion_adicional && leadActivo.cita_id ? (
-                <InstitutionalButton
-                  label="Ver servicio principal"
-                  variant="outline"
-                  onPress={() => {
-                    const citaId = leadActivo.cita_id;
-                    setLeadActivo(null);
-                    if (citaId) router.push(`/cita-agenda-personal/${citaId}`);
-                  }}
-                />
-              ) : null}
-              {leadActivo.solicitud_id || leadActivo.cita_id || leadActivo.orden_id ? (
-                <InstitutionalButton
-                  label="Ver detalle"
-                  variant="outline"
-                  leading={<UserRound size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
-                  onPress={() => {
-                    const item = leadActivo;
-                    setLeadActivo(null);
-                    navegarDetalleDirecto(item);
-                  }}
-                />
-              ) : null}
-              {leadPuedeAsignar ? (
-                <InstitutionalButton
-                  label="Asignar técnico"
-                  variant="secondary"
-                  onPress={() => abrirAsignarDesdeLead(leadActivo)}
-                />
-              ) : null}
-              {leadPuedeAceptar ? (
-                <InstitutionalButton
-                  label="Marcar aceptada"
-                  variant="success"
-                  loading={accionLoading}
-                  onPress={() => void marcarAceptadaLead()}
-                />
-              ) : null}
-              {leadPuedeCerrar ? (
-                <InstitutionalButton
-                  label="Cerrar caso"
-                  variant="destructiveOutline"
-                  loading={accionLoading}
-                  leading={<XCircle size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />}
-                  onPress={cerrarLeadCotizacion}
-                />
-              ) : null}
-            </View>
-          </ScrollView>
+            {leadSheetModel.quiet.length > 0 ? (
+              <View style={styles.quietList}>
+                {leadSheetModel.quiet.map((action, index) => (
+                  <LeadQuietRow
+                    key={action.id}
+                    action={action}
+                    last={index === leadSheetModel.quiet.length - 1}
+                  />
+                ))}
+              </View>
+            ) : null}
+          </View>
         ) : null}
       </BottomSheet>
 
@@ -941,10 +1048,15 @@ const styles = StyleSheet.create({
   },
   filterHint: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: SPACING.fixed.sm,
     marginBottom: SPACING.fixed.xs,
+  },
+  filterHintCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   filterBar: {
     flexDirection: 'row',
@@ -1020,7 +1132,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: SPACING.fixed.sm,
-    marginBottom: SPACING.fixed.sm,
   },
   sheetHeaderCopy: {
     flex: 1,
@@ -1061,25 +1172,25 @@ const styles = StyleSheet.create({
   sheetRowActive: {
     backgroundColor: I.surfaceSoft,
   },
-  leadSheet: {
-    maxHeight: '94%',
-  },
-  leadScroll: {
-    maxHeight: '100%',
-  },
-  leadScrollContent: {
-    gap: SPACING.fixed.md,
+  leadSheetBody: {
+    gap: SPACING.fixed.sm,
     paddingBottom: SPACING.fixed.sm,
   },
-  cotizacionLoading: {
+  quietList: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+    marginTop: SPACING.fixed.xxs,
+  },
+  quietRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.fixed.sm,
-    paddingVertical: SPACING.fixed.lg,
+    justifyContent: 'space-between',
+    minHeight: 44,
+    paddingVertical: SPACING.fixed.sm,
   },
-  leadActions: {
-    gap: SPACING.fixed.sm,
-    paddingBottom: SPACING.fixed.sm,
+  quietRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
   },
   listContentPad: {
     paddingBottom: SPACING.fixed['2xl'],
