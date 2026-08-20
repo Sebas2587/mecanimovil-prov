@@ -124,7 +124,7 @@ export function WebPushSettingsRow({ showTopBorder = false }: Props) {
   );
 }
 
-/** @deprecated Usar WebPushSettingsRow integrado en la lista de Gestión. */
+/** @deprecated Usar WebPushSettingsRow integrado en la sección Cuenta del menú. */
 export function WebPushPermissionBanner() {
   return null;
 }

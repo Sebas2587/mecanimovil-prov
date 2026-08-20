@@ -445,12 +445,6 @@ export default function PerfilScreen() {
         onPress: () => router.push('/cotizaciones-plantillas' as never),
       });
     }
-    rows.push({
-      Icon: Headphones,
-      title: 'Soporte',
-      subtitle: 'Ayuda por WhatsApp',
-      onPress: handleContactarSoporte,
-    });
     return rows;
   }, [esSupervisor, esMecanicoEquipo]);
 
@@ -641,14 +635,7 @@ export default function PerfilScreen() {
                   </>
                 ) : null}
 
-                {menuSections.map((section) =>
-                  renderMenuGroup(
-                    section,
-                    section.kicker === 'Herramientas' ? (
-                      <WebPushSettingsRow showTopBorder={section.rows.length > 0} />
-                    ) : undefined,
-                  ),
-                )}
+                {menuSections.map((section) => renderMenuGroup(section))}
               </>
             ) : (
               <>
@@ -691,8 +678,9 @@ export default function PerfilScreen() {
                   onPress: handleContactarSoporte,
                 },
                 false,
-                'soporte-footer',
+                'contactar-soporte',
               )}
+              <WebPushSettingsRow showTopBorder />
             </Card>
 
             <TouchableOpacity
