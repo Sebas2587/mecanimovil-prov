@@ -387,9 +387,14 @@ export function useOrdenesUnificadas(enabled: boolean): UseOrdenesUnificadasResu
     ],
   );
 
+  const citasActivasConfirmadas = useMemo(
+    () => citasActivas.filter((cita) => !cita.horario_por_confirmar),
+    [citasActivas],
+  );
+
   const activas = useMemo(
-    () => mergeOrdenesPorGrupo(activasMarketplace, citasActivas),
-    [activasMarketplace, citasActivas],
+    () => mergeOrdenesPorGrupo(activasMarketplace, citasActivasConfirmadas),
+    [activasMarketplace, citasActivasConfirmadas],
   );
 
   const completadas = useMemo(

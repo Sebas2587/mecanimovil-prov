@@ -47,10 +47,10 @@ function mapEvent(event: AgenteIaEvent): FloatingLeadAlert | null {
       return {
         id: `aceptada-${event.cotizacion_id || Date.now()}`,
         title: 'Cliente aceptó cotización',
-        message: 'Aparece en Bandeja para agendar.',
+        message: 'El cliente aceptó. Confirma el horario en Bandeja.',
         href: event.cita_id
           ? `/cita-agenda-personal/${event.cita_id}`
-          : '/(tabs)/bandeja?filtro=aceptado_agendado',
+          : '/(tabs)/bandeja?filtro=por_agendar',
       };
     case 'agente_ia_cotizacion_rechazada':
       return {

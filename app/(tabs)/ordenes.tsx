@@ -213,8 +213,9 @@ export default function OrdenesScreen() {
             <View style={styles.cardMeta}>
               <Clock size={13} color={I.muted} />
               <Text style={styles.cardMetaText}>
-                {formatearFecha(cita.fecha_servicio)}
-                {cita.hora_servicio && ` · ${cita.hora_servicio.substring(0, 5)}`}
+                {cita.horario_por_confirmar
+                  ? 'Horario pendiente'
+                  : `${formatearFecha(cita.fecha_servicio)}${cita.hora_servicio ? ` · ${cita.hora_servicio.substring(0, 5)}` : ''}`}
               </Text>
               <InstitutionalTag
                 label={cita.tipo_servicio === 'domicilio' ? 'Domicilio' : 'Taller'}
@@ -527,7 +528,7 @@ export default function OrdenesScreen() {
                   </Text>
                   <Text style={styles.emptySubtitle}>
                     {tabActivo === 'activas'
-                      ? 'No hay servicios programados. Las solicitudes Mecanimovil aparecerán aquí; también puedes agendar citas desde Calendario.'
+                      ? 'Cuando confirmes el horario, el trabajo aparece aquí.'
                       : tabActivo === 'completadas'
                         ? filtroCompletadasActivo
                           ? 'No hay servicios completados que coincidan con este filtro. Prueba quitar el filtro o revisa otro canal.'

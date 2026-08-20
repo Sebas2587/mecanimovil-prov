@@ -9,6 +9,7 @@ import websocketService from '@/app/services/websocketService';
 import { SPACING } from '@/app/design-system/tokens';
 import { HomePrimaryActions } from './HomePrimaryActions';
 import { HomePendientesRevisionList } from './HomePendientesRevisionList';
+import { NeedsAttentionList } from './NeedsAttentionList';
 
 const ESTADOS_BANDEJA = new Set(['nuevo', 'cotizacion_enviada', 'en_negociacion']);
 
@@ -96,6 +97,8 @@ export function HomeAttentionFeed({
         borradoresCount={borradoresCount}
         bandejaCount={bandejaCount}
       />
+
+      <NeedsAttentionList pipelineItems={pipelineQuery.data?.results} />
 
       <HomePendientesRevisionList
         cotizaciones={cotizaciones}

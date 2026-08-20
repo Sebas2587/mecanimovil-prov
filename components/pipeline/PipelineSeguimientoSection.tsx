@@ -72,17 +72,21 @@ const FF = TYPOGRAPHY.fontFamily;
  */
 /**
  * Filtros reales del embudo (sin redundancias):
- * - Abiertos = nuevo + enviada + negociación (+ ejecución)
- * - Esperando / Negociando / Agendados / Perdidos = estados normalizados 1:1
- * Se eliminó "Nuevos": era subconjunto de Abiertos y confundía el flujo.
+ * - Abiertos = nuevo + enviada + negociación (+ ejecución, incluye por agendar)
+ * - Por agendar = aceptado sin día/hora (`horario_por_confirmar`)
+ * - Negociando = negociación real (excluye por agendar)
+ * - Esperando / Agendados / Perdidos = estados normalizados 1:1
  */
+type VistaBandeja = EstadoPipelineNormalizado | 'abiertos' | 'por_agendar';
+
 const VISTAS_BANDEJA: Array<{
-  key: EstadoPipelineNormalizado | 'abiertos';
+  key: VistaBandeja;
   label: string;
 }> = [
   { key: 'abiertos', label: 'Abiertos' },
   { key: 'cotizacion_enviada', label: 'Esperando' },
   { key: 'en_negociacion', label: 'Negociando' },
+  { key: 'por_agendar', label: 'Por agendar' },
   { key: 'aceptado_agendado', label: 'Agendados' },
   { key: 'rechazado_perdido', label: 'Perdidos' },
 ];
@@ -212,7 +216,16 @@ const LeadCard = React.memo(function LeadCard({
 
         <View style={styles.leadTags}>
           <InstitutionalTag label={origenLabel} variant={origenVariant} size="sm" uppercase />
-          {item.esperando_respuesta_24h ? (
+          {item.horario_por_confirmar ? (
+            <>
+              <InstitutionalTag label="Por agendar" variant="warning" size="sm" />
+              <InstitutionalTag
+                label={item.conversation_id ? 'IA coordinando horario' : 'Confirma día y hora'}
+                variant={item.conversation_id ? 'info' : 'warning'}
+                size="sm"
+              />
+            </>
+          ) : item.esperando_respuesta_24h ? (
             <InstitutionalTag label="+24h" variant="warning" size="sm" />
           ) : item.demorado_48h ? (
             <InstitutionalTag label="+48h" variant="warning" size="sm" />
@@ -254,6 +267,7 @@ interface Props {
   compact?: boolean;
   limite?: number;
   filtroEsperando24h?: boolean;
+  filtroPorAgendar?: boolean;
   filtroOrigen?: OrigenPipeline;
   filtroEstadoInicial?: EstadoPipelineNormalizado;
   /** @deprecated Usar invalidación TanStack Query; se mantiene por compatibilidad. */
@@ -266,13 +280,14 @@ export function PipelineSeguimientoSection({
   compact = false,
   limite = compact ? 5 : 50,
   filtroEsperando24h = false,
+  filtroPorAgendar = false,
   filtroOrigen,
   filtroEstadoInicial,
   refreshKey = 0,
   hideTitle = false,
   listRefreshControl,
 }: Props) {
-  const [vista, setVista] = useState<EstadoPipelineNormalizado | 'abiertos'>('abiertos');
+  const [vista, setVista] = useState<VistaBandeja>('abiertos');
   const [origen, setOrigen] = useState<OrigenPipeline | 'todos'>(filtroOrigen ?? 'todos');
   const [origenSheetVisible, setOrigenSheetVisible] = useState(false);
   const [asignarTarget, setAsignarTarget] = useState<AsignarTecnicoTarget | null>(null);
@@ -331,6 +346,10 @@ export function PipelineSeguimientoSection({
   }, [filtroEsperando24h]);
 
   useEffect(() => {
+    if (filtroPorAgendar) setVista('por_agendar');
+  }, [filtroPorAgendar]);
+
+  useEffect(() => {
     if (filtroEstadoInicial) setVista(filtroEstadoInicial);
   }, [filtroEstadoInicial]);
 
@@ -357,8 +376,16 @@ export function PipelineSeguimientoSection({
 
   const items = useMemo(() => {
     if (filtroEsperando24h) return rawResults;
+    if (vista === 'por_agendar') {
+      return rawResults.filter((row) => row.horario_por_confirmar);
+    }
     if (vista === 'abiertos') {
       return rawResults.filter((row) => ESTADOS_ABIERTOS.includes(row.estado_normalizado));
+    }
+    if (vista === 'en_negociacion') {
+      return rawResults.filter(
+        (row) => row.estado_normalizado === 'en_negociacion' && !row.horario_por_confirmar,
+      );
     }
     return rawResults.filter((row) => row.estado_normalizado === vista);
   }, [rawResults, vista, filtroEsperando24h]);
@@ -370,6 +397,10 @@ export function PipelineSeguimientoSection({
     }
     for (const row of rawResults) {
       if (ESTADOS_ABIERTOS.includes(row.estado_normalizado)) counts.abiertos += 1;
+      if (row.horario_por_confirmar) {
+        counts.por_agendar += 1;
+        continue;
+      }
       if (row.estado_normalizado in counts) {
         counts[row.estado_normalizado] += 1;
       }
@@ -555,7 +586,7 @@ export function PipelineSeguimientoSection({
           <View style={styles.titleBlock}>
             <HostSectionKicker label="Bandeja" />
             <InstitutionalText role="caption" color="muted">
-              Enviadas y por agendar aquí · citas confirmadas en Agenda
+              El cliente aceptó. Falta horario. Las visitas confirmadas están en Agenda y Servicios.
             </InstitutionalText>
           </View>
           {compact ? (
@@ -641,6 +672,14 @@ export function PipelineSeguimientoSection({
           ) : null}
         </View>
       ) : null}
+
+      {hideTitle && !filtroEsperando24h && vista === 'por_agendar' ? (
+        <View style={styles.filterHint}>
+          <InstitutionalText role="caption" color="muted">
+            El cliente aceptó. Falta horario. Las visitas confirmadas están en Agenda y Servicios.
+          </InstitutionalText>
+        </View>
+      ) : null}
     </View>
   );
 
@@ -666,7 +705,9 @@ export function PipelineSeguimientoSection({
           <View style={styles.emptyWrap}>
             <InstitutionalText role="bodyBold">Nada aquí</InstitutionalText>
             <InstitutionalText role="caption" color="muted" style={styles.emptySub}>
-              No hay elementos en esta vista.
+              {vista === 'por_agendar'
+                ? 'No hay cotizaciones aceptadas esperando horario.'
+                : 'No hay elementos en esta vista.'}
             </InstitutionalText>
           </View>
         }

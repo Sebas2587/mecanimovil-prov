@@ -11,7 +11,6 @@ Componentes existentes en el repo que **no están montados** en la navegación a
 | `components/dashboard/OportunidadesCarousel.tsx` | Radar B2C; no en feed Hoy |
 | `components/home/IaActivityStrip.tsx` | Reemplazado por alerta inline + subtítulo en fila Cotizar |
 | `components/home/FollowUpStrip.tsx` | Seguimiento vive en Bandeja |
-| `components/home/NeedsAttentionList.tsx` | Atención vive en Bandeja / cotizar-ia |
 | `components/home/HomeQuickActions.tsx` | Reemplazado por `HomeHubMenu` |
 | `components/push/WebPushHomeBanner.tsx` | Reemplazado por `HomeInlineAlert` en feed |
 | `components/home/CotizacionesEnviadasWidget.tsx` | Seguimiento vive en Bandeja |

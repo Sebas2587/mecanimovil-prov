@@ -26,13 +26,14 @@ export default function BandejaTabScreen() {
   const filtroParam = Array.isArray(params.filtro) ? params.filtro[0] : params.filtro;
   const origenParam = Array.isArray(params.origen) ? params.origen[0] : params.origen;
   const filtroEsperando24h = filtroParam === 'esperando_24h';
+  const filtroPorAgendar = filtroParam === 'por_agendar';
 
   const filtroEstadoInicial = useMemo((): EstadoPipelineNormalizado | undefined => {
-    if (!filtroParam || filtroEsperando24h) return undefined;
+    if (!filtroParam || filtroEsperando24h || filtroPorAgendar) return undefined;
     return ESTADOS_FILTRO_URL.includes(filtroParam as EstadoPipelineNormalizado)
       ? (filtroParam as EstadoPipelineNormalizado)
       : undefined;
-  }, [filtroParam, filtroEsperando24h]);
+  }, [filtroParam, filtroEsperando24h, filtroPorAgendar]);
 
   const filtroOrigen = useMemo((): OrigenPipeline | undefined => {
     if (!origenParam) return undefined;
@@ -61,6 +62,7 @@ export default function BandejaTabScreen() {
             limite={100}
             hideTitle
             filtroEsperando24h={filtroEsperando24h}
+            filtroPorAgendar={filtroPorAgendar}
             filtroEstadoInicial={filtroEstadoInicial}
             filtroOrigen={filtroOrigen}
           />

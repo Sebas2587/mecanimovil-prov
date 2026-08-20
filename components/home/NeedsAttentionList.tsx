@@ -1,9 +1,9 @@
 import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { AlertTriangle, CalendarClock, ChevronRight, MessageCircle } from 'lucide-react-native';
+import { CalendarClock, ChevronRight } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING } from '@/app/design-system/tokens';
 import {
   HostPaperSection,
   HostSectionKicker,
@@ -14,44 +14,45 @@ import {
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { PipelineComercialItem } from '@/services/pipelineComercialService';
 import { openCitaPersonalDetalle } from '@/utils/navigateProveedorDetalle';
-import { omnichannelChatHref } from '@/utils/chatRoutes';
 
 const I = COLORS.institutional;
+const MAX_ITEMS = 5;
 
 interface NeedsAttentionListProps {
   pipelineItems?: PipelineComercialItem[];
 }
 
+function copyHorarioPendiente(row: PipelineComercialItem): string {
+  const cliente = row.cliente_nombre?.trim() || 'El cliente';
+  const servicio = row.servicio_resumen?.trim() || 'el servicio';
+  if (row.conversation_id) {
+    return `${cliente} aceptó ${servicio}. La IA está coordinando el horario.`;
+  }
+  return `${cliente} aceptó ${servicio}. Confirma día y hora.`;
+}
+
 export function NeedsAttentionList({ pipelineItems = [] }: NeedsAttentionListProps) {
   const queryClient = useQueryClient();
 
-  const items = useMemo(() => {
-    return pipelineItems.filter(
-      (row) =>
-        row.horario_por_confirmar
-        || (row.estado_normalizado === 'nuevo' && row.listo_para_enviar)
-        || (row.pendientes_revision && row.pendientes_revision.length > 0),
-    ).slice(0, 5);
-  }, [pipelineItems]);
+  const items = useMemo(
+    () => pipelineItems.filter((row) => row.horario_por_confirmar).slice(0, MAX_ITEMS),
+    [pipelineItems],
+  );
 
   const handlePress = useCallback(
     (row: PipelineComercialItem) => {
-      if (row.horario_por_confirmar && row.cita_id) {
+      if (row.cita_id) {
         openCitaPersonalDetalle(router, queryClient, row.cita_id);
         return;
       }
-      if (row.conversation_id) {
-        router.push(omnichannelChatHref(row.conversation_id));
-        return;
-      }
-      if (row.cotizacion_id) {
-        router.push('/cotizar-ia');
-        return;
-      }
-      router.push('/(tabs)/bandeja');
+      router.push('/(tabs)/bandeja?filtro=por_agendar');
     },
     [queryClient],
   );
+
+  const goBandejaPorAgendar = useCallback(() => {
+    router.push('/(tabs)/bandeja?filtro=por_agendar');
+  }, []);
 
   if (items.length === 0) {
     return null;
@@ -59,14 +60,19 @@ export function NeedsAttentionList({ pipelineItems = [] }: NeedsAttentionListPro
 
   return (
     <View style={styles.container}>
-      <HostSectionKicker label="Requiere tu atención" />
+      <View style={styles.header}>
+        <HostSectionKicker label="Por agendar" style={styles.kicker} />
+        <TouchableOpacity onPress={goBandejaPorAgendar} hitSlop={8} accessibilityRole="button">
+          <InstitutionalText role="captionBold" color="primary">
+            Ver todas
+          </InstitutionalText>
+        </TouchableOpacity>
+      </View>
       <HostPaperSection style={styles.paper}>
         {items.map((row, index) => {
           const esUltimo = index === items.length - 1;
           const titulo = row.cliente_nombre || 'Cliente';
-          const subtitulo = row.servicio_resumen || row.vehiculo_resumen || 'Caso comercial';
-          const esHorario = Boolean(row.horario_por_confirmar);
-          const esEscalamiento = Boolean(row.pendientes_revision?.length);
+          const conIa = Boolean(row.conversation_id);
 
           return (
             <TouchableOpacity
@@ -74,33 +80,22 @@ export function NeedsAttentionList({ pipelineItems = [] }: NeedsAttentionListPro
               style={[styles.row, !esUltimo && styles.rowBorder]}
               onPress={() => handlePress(row)}
               activeOpacity={0.75}
+              accessibilityRole="button"
             >
               <View style={hostIconPlateStyle}>
-                {esHorario ? (
-                  <CalendarClock size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                ) : esEscalamiento ? (
-                  <AlertTriangle size={16} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
-                ) : (
-                  <MessageCircle size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                )}
+                <CalendarClock size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
               </View>
               <View style={styles.copy}>
                 <InstitutionalText role="bodyBold" numberOfLines={1}>
                   {titulo}
                 </InstitutionalText>
-                <InstitutionalText role="caption" color="body" numberOfLines={1}>
-                  {subtitulo}
+                <InstitutionalText role="caption" color="body" numberOfLines={2}>
+                  {copyHorarioPendiente(row)}
                 </InstitutionalText>
               </View>
               <InstitutionalTag
-                label={
-                  esHorario
-                    ? 'Confirmar horario'
-                    : esEscalamiento
-                      ? 'Revisar'
-                      : 'Acción'
-                }
-                variant={esHorario ? 'warning' : 'primary'}
+                label={conIa ? 'IA coordinando' : 'Confirmar horario'}
+                variant="warning"
                 size="sm"
               />
               <ChevronRight size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
@@ -115,6 +110,16 @@ export function NeedsAttentionList({ pipelineItems = [] }: NeedsAttentionListPro
 const styles = StyleSheet.create({
   container: {
     marginBottom: SPACING.fixed.lg,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.fixed.xs,
+  },
+  kicker: {
+    marginTop: 0,
+    marginBottom: 0,
   },
   paper: {
     paddingVertical: 0,

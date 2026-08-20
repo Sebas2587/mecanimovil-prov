@@ -14,6 +14,12 @@ El proveedor MUST ver sus órdenes activas e históricas.
 - CUANDO abre la sección de órdenes
 - THEN ve las órdenes activas con estado, nombre del usuario y vehículo
 
+#### Scenario: Cita aceptada sin horario no es servicio activo
+- GIVEN una cita personal activa con `horario_por_confirmar=true`
+- WHEN el taller abre Servicios → Activas
+- THEN esa cita no aparece en la lista
+- AND aparece cuando el horario está confirmado
+
 #### Scenario: Historial de órdenes completadas
 - GIVEN un proveedor con órdenes completadas
 - CUANDO cambia al filtro "Historial"
