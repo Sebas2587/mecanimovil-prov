@@ -342,10 +342,23 @@ export function CotizacionLibreModal({
         setUpsellCuota({ visible: true, mensaje: mensajeCuotaError(err) });
         return;
       }
+      const ax = err as {
+        code?: string;
+        message?: string;
+        response?: { status?: number; data?: { error?: string; detail?: string } };
+      };
+      const timedOut =
+        ax?.code === 'ECONNABORTED'
+        || (typeof ax?.message === 'string' && ax.message.toLowerCase().includes('timeout'));
+      const serverMsg = ax?.response?.data?.error || ax?.response?.data?.detail;
       setErrorIa(
-        plantillaId
-          ? 'Error al aplicar la plantilla. Intenta de nuevo.'
-          : 'Error al generar cotización. Intenta de nuevo.',
+        timedOut
+          ? 'La generación tardó demasiado. Espera unos segundos y vuelve a intentar; no pulses varias veces seguidas.'
+          : (typeof serverMsg === 'string' && serverMsg.trim())
+            ? serverMsg
+            : plantillaId
+              ? 'Error al aplicar la plantilla. Intenta de nuevo.'
+              : 'Error al generar cotización. Intenta de nuevo.',
       );
     } finally {
       setGenerandoIa(false);

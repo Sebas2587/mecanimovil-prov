@@ -189,7 +189,9 @@ export function adicionalRequiereFecha(c: CotizacionCanal): boolean {
 
 class CotizacionCanalService {
   async generarIa(payload: GenerarCotizacionIaPayload): Promise<GenerarCotizacionIaResponse> {
-    const response = await api.post('/ordenes/cotizaciones-canal/generar-ia/', payload);
+    const response = await api.post('/ordenes/cotizaciones-canal/generar-ia/', payload, {
+      timeout: 60000,
+    });
     return response.data as GenerarCotizacionIaResponse;
   }
 
