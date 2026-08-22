@@ -72,8 +72,13 @@ export default function CotizacionCanalDetalleScreen() {
   const [accionLead, setAccionLead] = useState(false);
 
   useEffect(() => {
-    if (data) setDraft({ ...data });
-  }, [data?.id, data?.actualizado_en, data?.estado]);
+    if (!data) return;
+    setDraft((prev) => {
+      if (!prev || prev.id !== data.id) return { ...data };
+      if (prev.estado !== data.estado) return { ...data };
+      return prev;
+    });
+  }, [data]);
 
   const editable = draft?.estado === 'borrador' || draft?.estado === 'aceptada';
   const hayCambios = useMemo(() => {
@@ -150,7 +155,28 @@ export default function CotizacionCanalDetalleScreen() {
         }
       }
       if (draft.estado === 'borrador' || data?.estado === 'borrador') {
-        await cotizacionCanalService.enviar(draft.id);
+        const res = await cotizacionCanalService.enviar(draft.id);
+        const url = res.share_url || res.cotizacion.share_url || res.cotizacion.url_publica;
+        const entrega = res.entrega_via || res.cotizacion.metadata?.entrega_canal;
+        await invalidateAll();
+        await refetch();
+        if (entrega === 'link_publico') {
+          showAlert(
+            'Cotización lista para compartir',
+            res.entrega_mensaje
+              || 'El canal no permite enviarla en el chat (ventana de 24 h). Comparte el link con el cliente.',
+          );
+          if (url) {
+            setDraft({ ...res.cotizacion });
+          }
+          return;
+        }
+        showAlert(
+          'Cotización enviada',
+          res.entrega_mensaje
+            || 'El cliente puede ver el mismo enlace y aceptar o rechazar.',
+        );
+        return;
       }
       await invalidateAll();
       await refetch();

@@ -25,16 +25,14 @@ interface NeedsAttentionListProps {
 }
 
 function copyAtencion(row: PipelineComercialItem): string {
-  const cliente = row.cliente_nombre?.trim() || 'El cliente';
-  const servicio = row.servicio_resumen?.trim() || 'el servicio';
   if (row.horario_por_confirmar) {
-    return `${cliente} aceptó ${servicio}. Elige día y hora.`;
+    return 'Aceptó el servicio. Elige día y hora.';
   }
   const alta = ['interesado_calificado', 'listo_agendar'].includes(leadCategoriaOf(row));
   if (alta) {
-    return `${cliente} no respondió ${servicio}. Ya mostró interés: escribe o cierra el caso.`;
+    return 'No respondió. Ya mostró interés: escribe o cierra el caso.';
   }
-  return `${cliente} no respondió ${servicio}. Pregunta qué pasó o cierra el caso.`;
+  return 'No respondió. Pregunta qué pasó o cierra el caso.';
 }
 
 const AttentionRow = React.memo(function AttentionRow({
@@ -48,6 +46,7 @@ const AttentionRow = React.memo(function AttentionRow({
 }) {
   const handlePress = useCallback(() => onPress(row), [onPress, row]);
   const titulo = row.cliente_nombre || 'Cliente';
+  const vehiculo = row.vehiculo_resumen?.trim();
   const tag = leadOperativoTag(row, 'Acción', 'warning');
   const esHorario = Boolean(row.horario_por_confirmar);
 
@@ -69,6 +68,9 @@ const AttentionRow = React.memo(function AttentionRow({
         <InstitutionalText role="bodyBold" numberOfLines={1}>
           {titulo}
         </InstitutionalText>
+        {vehiculo ? (
+          <InstitutionalTag label={vehiculo} variant="neutral" size="sm" />
+        ) : null}
         <InstitutionalText role="caption" color="body" numberOfLines={2}>
           {copyAtencion(row)}
         </InstitutionalText>

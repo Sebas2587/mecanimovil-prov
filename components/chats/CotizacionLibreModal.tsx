@@ -43,6 +43,7 @@ import {
   normalizarTelefonoChileParaGuardar,
 } from '@/utils/chilePhone';
 import cotizacionCanalService, {
+  fusionarRepuestosEnviados,
   payloadEdicionCotizacion,
   type CotizacionCanal,
   type CotizacionPlantilla,
@@ -93,6 +94,8 @@ type Props = {
   contactName?: string;
   contactPhone?: string | null;
   channelDisconnectedReason?: string | null;
+  /** Ventana de 24 h cerrada (WhatsApp / IG / Messenger). No bloquea cotizar. */
+  channelWindowClosedReason?: string | null;
 };
 
 export function CotizacionLibreModal({
@@ -104,6 +107,7 @@ export function CotizacionLibreModal({
   contactName = '',
   contactPhone = null,
   channelDisconnectedReason = null,
+  channelWindowClosedReason = null,
 }: Props) {
   const insets = useSafeAreaInsets();
 
@@ -398,9 +402,13 @@ export function CotizacionLibreModal({
     if (next.estado !== 'borrador' || !next.id) return next;
     try {
       const saved = await cotizacionCanalService.actualizar(next.id, payloadEdicion(next));
+      const merged = {
+        ...saved,
+        repuestos: fusionarRepuestosEnviados(next.repuestos, saved.repuestos),
+      };
       if (seq === persistSeqRef.current) {
-        setCotizacion(saved);
-        return saved;
+        setCotizacion(merged);
+        return merged;
       }
       return next;
     } catch {
@@ -452,13 +460,29 @@ export function CotizacionLibreModal({
       setCotizacion(res.cotizacion);
       setShareUrl(url);
       onEnviada?.();
-      if (res.cotizacion.conversation || res.message_id) {
+      const entrega = res.entrega_via || res.cotizacion.metadata?.entrega_canal;
+      if (entrega === 'whatsapp_template') {
+        showAlert(
+          'Cotización enviada',
+          res.entrega_mensaje
+            || 'La ventana de 24 h estaba cerrada: se envió una plantilla de WhatsApp. Conserva el link por si el cliente no la ve.',
+        );
+        if (url) setShareUrl(url);
+      } else if (entrega === 'link_publico' || channelWindowClosedReason) {
+        showAlert(
+          'Cotización lista para compartir',
+          res.entrega_mensaje
+            || 'El chat lleva más de 24 h sin mensaje del cliente y el canal no permite enviarla ahí. Comparte este link para que revise, acepte o rechace.',
+        );
+        if (url) await compartirLink(url);
+      } else if (res.cotizacion.conversation || res.message_id) {
         const canalExterno = channel && channel !== 'app';
         if (canalExterno && channelDisconnectedReason) {
           showAlert(
             'Cotización en el chat',
             'La cotización ya aparece en esta conversación. Para que el cliente la reciba por WhatsApp, Messenger o Instagram, conecta el canal en Configuración de canales.',
           );
+          if (url) await compartirLink(url);
         } else {
           showAlert(
             'Cotización enviada',
@@ -475,7 +499,7 @@ export function CotizacionLibreModal({
     } finally {
       setEnviando(false);
     }
-  }, [cotizacion, persistirCotizacion, compartirLink, onEnviada, channel, channelDisconnectedReason]);
+  }, [cotizacion, persistirCotizacion, compartirLink, onEnviada, channel, channelDisconnectedReason, channelWindowClosedReason]);
 
   const enviarLabel = esEnvioCanal || Boolean(cotizacion?.conversation)
     ? 'Enviar al cliente'

@@ -27,7 +27,7 @@ import type { CanalSlug } from '@/services/omnichannelService';
 import { useOmnichannelConversationMeta } from '@/hooks/useOmnichannelConversationMeta';
 import { useOmnichannelConnectionMap } from '@/hooks/useOmnichannelConnections';
 import { getChannelDisconnectedReason } from '@/utils/omnichannelConnection';
-import { getWhatsAppReplyBlockReason } from '@/utils/whatsappMessagingWindow';
+import { getMetaReplyBlockReason } from '@/utils/whatsappMessagingWindow';
 import { OmnichannelChatRestrictionBanner } from '@/components/chats/OmnichannelChatRestrictionBanner';
 import { AgenteIaChatBanner } from '@/components/chats/AgenteIaChatBanner';
 import { AgenteIaChatToggleModal } from '@/components/chats/AgenteIaChatToggleModal';
@@ -147,13 +147,14 @@ export default function ChatOmnicanalScreen() {
     [channelConnections, channelSlug, conversationMeta.hasKnownChannel, featureEnabled],
   );
 
-  const whatsappWindowBlockReason = useMemo(() => {
-    if (channelSlug !== 'whatsapp' || channelDisconnectedReason) return null;
-    return getWhatsAppReplyBlockReason(mensajes);
+  const channelWindowBlockReason = useMemo(() => {
+    if (channelDisconnectedReason) return null;
+    return getMetaReplyBlockReason(channelSlug, mensajes);
   }, [channelDisconnectedReason, channelSlug, mensajes]);
 
-  const canSendMessages = !channelDisconnectedReason && !whatsappWindowBlockReason;
-  const inputRestrictionMessage = channelDisconnectedReason || whatsappWindowBlockReason;
+  const canSendMessages = !channelDisconnectedReason && !channelWindowBlockReason;
+  const inputRestrictionMessage = channelDisconnectedReason || channelWindowBlockReason;
+  const [enviandoAviso, setEnviandoAviso] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -214,6 +215,23 @@ export default function ChatOmnicanalScreen() {
       setLoading(false);
     }
   }, [convId, mapApiMessage]);
+
+  const handleEnviarAviso = useCallback(async () => {
+    if (!convId || enviandoAviso) return;
+    setEnviandoAviso(true);
+    try {
+      await chatService.enviarAviso(convId);
+      await cargar();
+      Alert.alert(
+        'Aviso enviado',
+        'Se envió una plantilla de WhatsApp. Cuando el cliente responda, el chat se reabre.',
+      );
+    } catch (error) {
+      Alert.alert('No se pudo enviar el aviso', extractSendMessageError(error));
+    } finally {
+      setEnviandoAviso(false);
+    }
+  }, [cargar, convId, enviandoAviso]);
 
   useFocusEffect(
     useCallback(() => {
@@ -417,6 +435,7 @@ export default function ChatOmnicanalScreen() {
           contactName={conversationMeta.nombreAgendable}
           contactPhone={conversationMeta.contactPhone}
           channelDisconnectedReason={channelDisconnectedReason}
+          channelWindowClosedReason={channelWindowBlockReason}
           onEnviada={() => {
             void cargar();
           }}
@@ -564,11 +583,19 @@ export default function ChatOmnicanalScreen() {
           {inputRestrictionMessage ? (
             <OmnichannelChatRestrictionBanner
               message={inputRestrictionMessage}
-              actionLabel={channelDisconnectedReason ? 'Conectar' : undefined}
+              actionLabel={
+                channelDisconnectedReason
+                  ? 'Conectar'
+                  : channelSlug === 'whatsapp' && channelWindowBlockReason && !enviandoAviso
+                    ? 'Enviar aviso'
+                    : undefined
+              }
               onActionPress={
                 channelDisconnectedReason
                   ? () => router.push('/configuracion-canales' as never)
-                  : undefined
+                  : channelSlug === 'whatsapp' && channelWindowBlockReason
+                    ? () => { void handleEnviarAviso(); }
+                    : undefined
               }
               variant="strip"
             />

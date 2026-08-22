@@ -42,6 +42,14 @@ class ChatService {
     await post(`/chat/conversations/${conversationId}/mark_read/`);
   }
 
+  async enviarAviso(conversationId: string): Promise<{
+    message_id: number;
+    template_kind?: string;
+  }> {
+    const response = await post(`/chat/conversations/${conversationId}/enviar-aviso/`);
+    return response.data as { message_id: number; template_kind?: string };
+  }
+
   async sendMessageHTTP(
     conversationId: string,
     content: { content?: string; attachment?: { uri: string; name: string; type: string } | null },

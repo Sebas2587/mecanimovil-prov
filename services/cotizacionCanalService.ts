@@ -95,6 +95,8 @@ export interface CotizacionCanal {
     busqueda_web_en?: string;
     cotizacion_original_id?: number;
     cita_personal_id?: number;
+    entrega_canal?: 'app' | 'sesion_meta' | 'whatsapp_template' | 'link_publico' | string;
+    entrega_canal_motivo?: string;
     servicios_lineas?: Array<{
       nombre?: string;
       monto_clp?: number;
@@ -179,6 +181,23 @@ export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<Cotizacion
   return patch;
 }
 
+/** Conserva nombres enviados al taller si la respuesta del PATCH llega desfasada. */
+export function fusionarRepuestosEnviados(
+  enviados: RepuestoCotizacion[] | undefined,
+  guardados: RepuestoCotizacion[] | undefined,
+): RepuestoCotizacion[] {
+  const sent = enviados ?? [];
+  const saved = guardados ?? [];
+  return saved.map((r, i) => {
+    const src = r.id ? sent.find((x) => x.id === r.id) : sent[i];
+    const nombreEnviado = (src?.nombre || '').trim();
+    if (nombreEnviado && nombreEnviado !== (r.nombre || '').trim()) {
+      return { ...r, nombre: nombreEnviado };
+    }
+    return r;
+  });
+}
+
 export function adicionalRequiereFecha(c: CotizacionCanal): boolean {
   return Boolean(
     c.es_cotizacion_adicional
@@ -214,12 +233,16 @@ class CotizacionCanalService {
     cotizacion: CotizacionCanal;
     message_id: number | null;
     share_url?: string | null;
+    entrega_via?: 'app' | 'sesion_meta' | 'whatsapp_template' | 'link_publico' | string;
+    entrega_mensaje?: string | null;
   }> {
     const response = await api.post(`/ordenes/cotizaciones-canal/${id}/enviar/`);
     return response.data as {
       cotizacion: CotizacionCanal;
       message_id: number | null;
       share_url?: string | null;
+      entrega_via?: 'app' | 'sesion_meta' | 'whatsapp_template' | 'link_publico' | string;
+      entrega_mensaje?: string | null;
     };
   }
 

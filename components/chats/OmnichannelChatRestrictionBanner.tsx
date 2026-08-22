@@ -34,7 +34,7 @@ function OmnichannelChatRestrictionBannerComponent({
 
   return (
     <View style={styles.strip}>
-      <Text style={styles.stripMessage} numberOfLines={1}>
+        <Text style={styles.stripMessage} numberOfLines={2}>
         {message}
       </Text>
       {actionLabel && onActionPress ? (
