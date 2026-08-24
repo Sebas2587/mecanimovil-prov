@@ -35,7 +35,7 @@ import type { ChannelSlug } from '@/utils/channelVisuals';
 import { channelRespondLabel } from '@/components/chats/ChannelBadge';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { showAlert, showAlertButtons } from '@/utils/platformAlert';
+import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
 import { withWebLineHeight } from '@/utils/webTypography';
 import {
   extraerNueveDigitosDesdeGuardado,
@@ -129,6 +129,7 @@ export function CotizacionLibreModal({
   const [patenteHint, setPatenteHint] = useState<string | null>(null);
   const [generandoIa, setGenerandoIa] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [descartando, setDescartando] = useState(false);
   const [upsellCuota, setUpsellCuota] = useState<{ visible: boolean; mensaje: string }>({
     visible: false,
     mensaje: '',
@@ -136,6 +137,9 @@ export function CotizacionLibreModal({
   const [errorIa, setErrorIa] = useState<string | null>(null);
   const [cotizacion, setCotizacion] = useState<CotizacionCanal | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const persistSeqRef = useRef(0);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftRef = useRef<CotizacionCanal | null>(null);
 
   const conversationId = contactoSeleccionado?.conversationId ?? (
     conversationIdProp ? parseInt(conversationIdProp, 10) : null
@@ -243,10 +247,54 @@ export function CotizacionLibreModal({
     }
   }, [visible, conversationIdProp, contactName, contactPhone, channel, resetForm]);
 
-  const handleClose = useCallback(() => {
+  const cerrarModal = useCallback(() => {
     resetForm();
     onClose();
   }, [onClose, resetForm]);
+
+  const descartarBorrador = useCallback(async (id: number) => {
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+    persistSeqRef.current += 1;
+    setDescartando(true);
+    try {
+      await cotizacionCanalService.cancelar(id);
+    } catch {
+      showAlert(
+        'No se pudo descartar',
+        'El borrador puede seguir en Por revisar. Ábrelo y elimínalo desde el detalle.',
+      );
+    } finally {
+      setDescartando(false);
+    }
+    onEnviada?.();
+  }, [onEnviada]);
+
+  const handleClose = useCallback(() => {
+    const actual = draftRef.current || cotizacion;
+    if (actual?.id && actual.estado === 'borrador') {
+      showConfirm(
+        '¿Descartar este borrador?',
+        'Todavía no se envió al cliente. Si lo descartas, sale de Por revisar. Si lo dejas, puedes terminarlo después.',
+        {
+          confirmText: 'Descartar',
+          cancelText: 'Dejar para revisar',
+          onConfirm: async () => {
+            await descartarBorrador(actual.id);
+            cerrarModal();
+          },
+          onCancel: () => {
+            onEnviada?.();
+            cerrarModal();
+          },
+        },
+      );
+      return;
+    }
+    cerrarModal();
+  }, [cerrarModal, cotizacion, descartarBorrador, onEnviada]);
 
   const seleccionarContacto = useCallback((c: ContactoCanal) => {
     setContactoSeleccionado(c);
@@ -394,10 +442,6 @@ export function CotizacionLibreModal({
     },
     [handleGenerarIa, servicioNombre],
   );
-
-  const persistSeqRef = useRef(0);
-  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const draftRef = useRef<CotizacionCanal | null>(null);
 
   const payloadEdicion = useCallback((next: CotizacionCanal) => payloadEdicionCotizacion(next), []);
 
@@ -567,6 +611,7 @@ export function CotizacionLibreModal({
             </View>
             <TouchableOpacity
               onPress={handleClose}
+              disabled={generandoIa || enviando || descartando}
               style={styles.closeBtn}
               hitSlop={12}
               accessibilityRole="button"
@@ -749,11 +794,12 @@ export function CotizacionLibreModal({
 
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
             <InstitutionalButton
-              label="Cancelar"
-              variant="outline"
+              label={cotizacion?.estado === 'borrador' ? 'Descartar borrador' : 'Cancelar'}
+              variant={cotizacion?.estado === 'borrador' ? 'destructiveOutline' : 'outline'}
               size="default"
               onPress={handleClose}
-              disabled={generandoIa || enviando}
+              disabled={generandoIa || enviando || descartando}
+              loading={descartando}
               style={styles.footerBtnSecondary}
             />
             <InstitutionalButton
@@ -761,7 +807,7 @@ export function CotizacionLibreModal({
               variant="primary"
               size="default"
               onPress={footerPrimaryAction}
-              disabled={generandoIa || enviando}
+              disabled={generandoIa || enviando || descartando}
               loading={generandoIa || enviando}
               leading={
                 !cotizacion ? (

@@ -66,7 +66,9 @@ export function PlatformAlertHost() {
                 onPress={() => close(false)}
                 activeOpacity={0.88}
               >
-                <Text style={styles.btnSecondaryText}>Cancelar</Text>
+                <Text style={styles.btnSecondaryText}>
+                  {request.kind === 'confirm' ? (request.cancelText ?? 'Cancelar') : 'Cancelar'}
+                </Text>
               </TouchableOpacity>
             ) : null}
             {buttons.map((btn, index) => {

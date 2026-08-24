@@ -6,6 +6,8 @@ import { CotizacionesIaList } from '@/components/chats/CotizacionesIaList';
 import { useAuth } from '@/context/AuthContext';
 import { COLORS } from '@/app/design-system/tokens';
 
+const I = COLORS.institutional;
+
 export default function CotizarIaScreen() {
   const { estadoProveedor } = useAuth();
   const cuentaAprobada = estadoProveedor ? estadoProveedor.estado_verificacion === 'aprobado' : true;
@@ -25,7 +27,7 @@ export default function CotizarIaScreen() {
           headerShown: false,
         }}
       />
-      <Header title="Cotizar con IA" showBack onBackPress={handleClose} />
+      <Header title="Cotizar con IA" showBack onBackPress={handleClose} backgroundColor={I.canvas} titleColor={I.ink} />
       <CotizacionesIaList enabled={cuentaAprobada} />
     </View>
   );
@@ -34,6 +36,6 @@ export default function CotizarIaScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: COLORS.background.default,
+    backgroundColor: I.canvas,
   },
 });

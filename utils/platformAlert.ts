@@ -18,6 +18,7 @@ export type PlatformAlertRequest =
       title: string;
       message: string;
       confirmText?: string;
+      cancelText?: string;
       onConfirm?: () => void | Promise<void>;
       onCancel?: () => void;
     }
@@ -62,6 +63,7 @@ type ShowConfirmOptions = {
   onConfirm?: () => void | Promise<void>;
   onCancel?: () => void;
   confirmText?: string;
+  cancelText?: string;
 };
 
 /**
@@ -71,7 +73,12 @@ type ShowConfirmOptions = {
 export function showConfirm(
   title: string,
   message: string,
-  { onConfirm, onCancel, confirmText = 'Aceptar' }: ShowConfirmOptions = {},
+  {
+    onConfirm,
+    onCancel,
+    confirmText = 'Aceptar',
+    cancelText = 'Cancelar',
+  }: ShowConfirmOptions = {},
 ) {
   const t = title ?? '';
   const m = message ?? '';
@@ -81,6 +88,7 @@ export function showConfirm(
       title: t,
       message: m,
       confirmText,
+      cancelText,
       onConfirm,
       onCancel,
     })
@@ -99,7 +107,7 @@ export function showConfirm(
     return;
   }
   Alert.alert(t, m, [
-    { text: 'Cancelar', style: 'cancel', onPress: onCancel },
+    { text: cancelText, style: 'cancel', onPress: onCancel },
     {
       text: confirmText,
       style: 'destructive',

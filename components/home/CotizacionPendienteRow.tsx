@@ -1,5 +1,5 @@
 import React, { memo, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import {
   ChevronRight,
   Instagram,
@@ -7,7 +7,7 @@ import {
   MessageCircle,
   MessagesSquare,
 } from 'lucide-react-native';
-import { InstitutionalTag } from '@/app/design-system/components';
+import { InstitutionalTag, InstitutionalText } from '@/app/design-system/components';
 import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -15,7 +15,6 @@ import type { CotizacionCanal } from '@/services/cotizacionCanalService';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 
 const I = COLORS.institutional;
-const FF = TYPOGRAPHY.fontFamily;
 
 const CANAL_LABELS: Record<string, string> = {
   whatsapp: 'WhatsApp',
@@ -23,14 +22,6 @@ const CANAL_LABELS: Record<string, string> = {
   messenger: 'Messenger',
   directo: 'Link libre',
   canal: 'Canal',
-};
-
-const CANAL_VARIANT: Record<string, 'primary' | 'info' | 'neutral' | 'warning'> = {
-  whatsapp: 'primary',
-  instagram: 'info',
-  messenger: 'info',
-  directo: 'neutral',
-  canal: 'neutral',
 };
 
 function fechaCorta(iso?: string | null): string {
@@ -63,20 +54,22 @@ export type CotizacionPendienteRowProps = {
 };
 
 /**
- * Fila Host dentro de un único paper (HostPaperSection).
- * Prioridad: servicio → canal → cliente/vehículo · precio + chevron juntos.
+ * Fila Host Listing: título + monto, vehículo, meta quieta. Un paper padre, no card anidada.
  */
 function CotizacionPendienteRowInner({ item, onPress, last }: CotizacionPendienteRowProps) {
   const handlePress = useCallback(() => onPress(item), [item, onPress]);
   const canalKey = (item.canal || '').toLowerCase();
   const canal = CANAL_LABELS[canalKey] || (item.es_libre ? 'Link libre' : 'Canal');
-  const canalVariant = CANAL_VARIANT[canalKey] || 'neutral';
-  const cliente = item.cliente_nombre || item.cliente_display || 'Cliente';
-  const vehiculo = [item.vehiculo_marca, item.vehiculo_modelo]
-    .filter(Boolean)
-    .join(' ');
+  const cliente = (item.cliente_nombre || item.cliente_display || '').trim();
+  const vehiculo = [item.vehiculo_marca, item.vehiculo_modelo].filter(Boolean).join(' ');
+  const patente = (item.vehiculo_patente || '').trim();
   const total = Number(item.total_clp) || 0;
   const fecha = fechaCorta(item.creado_en);
+  const metaBits = [
+    canal,
+    fecha,
+    item.numero_publico ? `#${item.numero_publico}` : '',
+  ].filter(Boolean);
 
   return (
     <TouchableOpacity
@@ -91,12 +84,14 @@ function CotizacionPendienteRowInner({ item, onPress, last }: CotizacionPendient
 
       <View style={styles.body}>
         <View style={styles.line1}>
-          <Text style={styles.servicio} numberOfLines={2}>
+          <InstitutionalText role="h4" numberOfLines={2} style={styles.servicio}>
             {item.servicio_nombre || 'Servicio por cotizar'}
-          </Text>
+          </InstitutionalText>
           <View style={styles.priceChevron}>
             {total > 0 ? (
-              <Text style={styles.precio}>{formatearMontoCLP(total)}</Text>
+              <InstitutionalText role="numberDisplay" style={styles.precio}>
+                {formatearMontoCLP(total)}
+              </InstitutionalText>
             ) : (
               <InstitutionalTag label="Sin precio" variant="warning" size="sm" />
             )}
@@ -104,27 +99,35 @@ function CotizacionPendienteRowInner({ item, onPress, last }: CotizacionPendient
           </View>
         </View>
 
-        <View style={styles.line2}>
-          {item.es_cotizacion_adicional ? (
-            <InstitutionalTag label="Adicional" variant="info" size="sm" uppercase />
-          ) : null}
-          <InstitutionalTag label={canal} variant={canalVariant} size="sm" uppercase />
-          {fecha ? <Text style={styles.fecha}>{fecha}</Text> : null}
-        </View>
-
-        {item.es_cotizacion_adicional && item.servicio_principal_nombre ? (
-          <Text style={styles.meta} numberOfLines={1}>
-            Desde: {item.servicio_principal_nombre}
-            {item.ejecucion_adicional === 'nueva_fecha' ? ' · Nueva fecha' : ''}
-          </Text>
+        {vehiculo || patente ? (
+          <InstitutionalText role="caption" color="ink" numberOfLines={1}>
+            {[vehiculo, patente ? patente.toUpperCase() : ''].filter(Boolean).join(' · ')}
+          </InstitutionalText>
         ) : null}
 
-        <Text style={styles.meta} numberOfLines={1}>
-          {item.numero_publico ? `#${item.numero_publico} · ` : ''}
-          {cliente}
-          {vehiculo ? ` · ${vehiculo}` : ''}
-          {item.vehiculo_patente ? ` · ${item.vehiculo_patente}` : ''}
-        </Text>
+        {cliente ? (
+          <InstitutionalText role="caption" color="muted" numberOfLines={1}>
+            {cliente}
+          </InstitutionalText>
+        ) : null}
+
+        {item.es_cotizacion_adicional ? (
+          <View style={styles.tags}>
+            <InstitutionalTag label="Adicional" variant="info" size="sm" />
+            {item.servicio_principal_nombre ? (
+              <InstitutionalText role="small" color="muted" numberOfLines={1} style={styles.tagMeta}>
+                Desde {item.servicio_principal_nombre}
+                {item.ejecucion_adicional === 'nueva_fecha' ? ' · Nueva fecha' : ''}
+              </InstitutionalText>
+            ) : null}
+          </View>
+        ) : null}
+
+        {metaBits.length > 0 ? (
+          <InstitutionalText role="small" color="muted" numberOfLines={1}>
+            {metaBits.join(' · ')}
+          </InstitutionalText>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
@@ -136,7 +139,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: SPACING.sm,
+    gap: SPACING.fixed.sm,
     paddingVertical: 14,
     backgroundColor: 'transparent',
   },
@@ -147,20 +150,16 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     minWidth: 0,
-    gap: 6,
+    gap: SPACING.fixed.xxs,
   },
   line1: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: SPACING.sm,
+    gap: SPACING.fixed.sm,
   },
   servicio: {
     flex: 1,
     minWidth: 0,
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.styles.h4.fontSize,
-    lineHeight: Math.round(TYPOGRAPHY.styles.h4.fontSize * 1.25),
-    color: I.ink,
   },
   priceChevron: {
     flexDirection: 'row',
@@ -170,24 +169,17 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   precio: {
-    fontFamily: FF.sansSemiBold,
     fontSize: TYPOGRAPHY.styles.body.fontSize,
-    color: I.ink,
   },
-  line2: {
+  tags: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    gap: SPACING.fixed.xs,
+    flexWrap: 'wrap',
   },
-  fecha: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.styles.caption.fontSize,
-    color: I.muted,
-  },
-  meta: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.styles.caption.fontSize,
-    color: I.muted,
+  tagMeta: {
+    flex: 1,
+    minWidth: 0,
   },
 });
 
