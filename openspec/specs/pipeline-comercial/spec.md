@@ -31,6 +31,12 @@ El sistema SHALL exponer `GET /api/ordenes/pipeline-comercial/` con filas normal
 - WHEN el taller busca `MM-000098` o `98` (`?q=`)
 - THEN el pipeline devuelve esa fila aunque no esté entre las más recientes
 
+#### Scenario: Orden cronológico en Bandeja
+- GIVEN varias filas con distinta `fecha_referencia`
+- WHEN el taller abre Bandeja
+- THEN las filas aparecen de **más reciente a más antigua** (`fecha_referencia` desc)
+- AND `listo_para_enviar` / `lead_score` solo desempatan la misma fecha
+
 #### Scenario: Búsqueda por patente
 - GIVEN una cotización con patente `KGGR-22`
 - WHEN el taller busca `KGGR22`, `kggr-22` o `kggr 22`
