@@ -16,7 +16,8 @@ El sistema SHALL exponer `GET /api/ordenes/pipeline-comercial/` con filas normal
 - GIVEN dos `CotizacionCanal` enviadas en la misma conversación
 - WHEN el taller abre Bandeja
 - THEN ve **dos** filas, cada una con su `numero_publico`
-- AND una cita del mismo chat NO reemplaza esas filas
+- AND una cita ligada a esa cotización se fusiona en la misma fila (folio MM + `cita_id` + `horario_por_confirmar` si aplica)
+- AND una cita manual sin cotización sigue siendo una fila propia
 
 #### Scenario: Reabierta para editar
 - GIVEN una cotización enviada con folio `MM-000098`
@@ -28,6 +29,12 @@ El sistema SHALL exponer `GET /api/ordenes/pipeline-comercial/` con filas normal
 - GIVEN existe `MM-000098`
 - WHEN el taller busca `MM-000098` o `98` (`?q=`)
 - THEN el pipeline devuelve esa fila aunque no esté entre las más recientes
+
+#### Scenario: Búsqueda por patente
+- GIVEN una cotización con patente `KGGR-22`
+- WHEN el taller busca `KGGR22`, `kggr-22` o `kggr 22`
+- THEN el pipeline devuelve esa fila
+- AND no interpreta los dígitos de la patente como id de cotización
 
 #### Scenario: Chat inactivo o link público
 - GIVEN una cotización `es_libre` o entregada por `link_publico` (ventana 24 h cerrada)
