@@ -219,6 +219,8 @@ export default function RootLayout() {
                   <Stack.Screen name="gestionar-taller" options={{ headerShown: false }} />
                   <Stack.Screen name="gestion-equipo" options={{ headerShown: false }} />
                   <Stack.Screen name="pipeline-seguimiento" options={{ headerShown: false }} />
+                  <Stack.Screen name="cliente-comercial/[clienteKey]" options={{ headerShown: false }} />
+                  <Stack.Screen name="historial-patente" options={{ headerShown: false }} />
                   <Stack.Screen name="rendimiento-kpis" options={{ headerShown: false }} />
                   <Stack.Screen name="guias-reparacion" options={{ headerShown: false }} />
                   <Stack.Screen name="actualizar-ubicacion" options={{ headerShown: false }} />

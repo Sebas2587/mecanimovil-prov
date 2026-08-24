@@ -4,6 +4,7 @@ import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { Card } from '@/app/design-system/components';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { consultarPatente } from '@/services/vehiculoService';
+import { VerHistorialPatenteLink } from '@/components/vehiculos/VerHistorialPatenteLink';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
@@ -160,6 +161,8 @@ export function VehiculoPatenteSection({
       ) : patenteHint ? (
         <Text style={styles.patenteHint}>{patenteHint}</Text>
       ) : null}
+
+      <VerHistorialPatenteLink patente={value.patente} />
 
       {value.desdePatente ? (
         resumenVariant === 'grid' ? (

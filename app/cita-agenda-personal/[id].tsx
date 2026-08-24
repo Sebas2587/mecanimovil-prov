@@ -58,6 +58,7 @@ import { calcularDuracionMinutos, esRangoHorarioValido, sumarMinutosAHora } from
 import { parseFechaLocal, formatFechaHoraPropuesta } from '@/utils/fechaLocal';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { consultarPatente } from '@/services/vehiculoService';
+import { VerHistorialPatenteLink } from '@/components/vehiculos/VerHistorialPatenteLink';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
 import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
@@ -927,6 +928,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                 {buscandoPatente ? (
                   <ActivityIndicator color={I.primary} style={{ marginVertical: SPACING.xs }} />
                 ) : null}
+                <VerHistorialPatenteLink patente={vehiculoPatente} />
                 {vehiculoVin ? (
                   <InstitutionalField label="VIN" value={vehiculoVin} onChangeText={setVehiculoVin} editable={false} />
                 ) : null}
@@ -980,7 +982,10 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     {[det.vehiculo_marca, det.vehiculo_modelo].filter(Boolean).join(' ')}
                   </Text>
                   {det.vehiculo_patente ? (
-                    <Text style={styles.vehiclePatente}>{det.vehiculo_patente}</Text>
+                    <>
+                      <Text style={styles.vehiclePatente}>{det.vehiculo_patente}</Text>
+                      <VerHistorialPatenteLink patente={det.vehiculo_patente} />
+                    </>
                   ) : null}
                 </View>
 

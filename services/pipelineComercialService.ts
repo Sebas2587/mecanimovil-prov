@@ -100,11 +100,81 @@ export interface PipelineComercialResponse {
   borradores_pendientes_count?: number;
 }
 
+export type PrioridadClientePipeline = 'todos' | 'con_accion' | 'cerrados';
+
+export interface PipelineClienteVehiculo {
+  key: string;
+  resumen: string;
+  patente: string;
+}
+
+export interface PipelineClienteCaso {
+  tipo_entidad: PipelineComercialItem['tipo_entidad'];
+  entidad_id: string;
+  numero_publico?: string | null;
+  servicio_resumen: string;
+  monto_clp: number | null;
+  estado_normalizado: EstadoPipelineNormalizado;
+  estado_raw: string;
+  origen: OrigenPipeline | string;
+  fecha_referencia: string | null;
+  cotizacion_id: number | null;
+  cita_id: number | null;
+  oferta_id: string | null;
+  solicitud_id: string | null;
+  orden_id: number | null;
+  conversation_id: number | null;
+  horario_por_confirmar?: boolean;
+  en_edicion?: boolean;
+  vehiculo_resumen?: string;
+  vehiculo_patente?: string;
+}
+
+export interface PipelineClienteVehiculoFicha extends PipelineClienteVehiculo {
+  casos: PipelineClienteCaso[];
+}
+
+export interface PipelineClienteItem {
+  cliente_key: string;
+  cliente_nombre: string;
+  cliente_telefono: string;
+  origenes: string[];
+  vehiculos: PipelineClienteVehiculo[];
+  casos_count: number;
+  enviadas: number;
+  aceptadas: number;
+  rechazadas: number;
+  abiertas: number;
+  ultima_actividad: string | null;
+  conversation_id?: number | null;
+}
+
+export interface PipelineClienteFicha extends Omit<PipelineClienteItem, 'vehiculos'> {
+  vehiculos: PipelineClienteVehiculoFicha[];
+}
+
+export interface PipelineClientesResponse {
+  count: number;
+  results: PipelineClienteItem[];
+  resumen: {
+    todos: number;
+    con_accion: number;
+    cerrados: number;
+  };
+}
+
 export interface PipelineComercialParams {
   estado_normalizado?: EstadoPipelineNormalizado;
   origen?: OrigenPipeline;
   esperando_24h?: boolean;
   miembro_taller?: number;
+  limite?: number;
+  q?: string;
+}
+
+export interface PipelineClientesParams {
+  origen?: OrigenPipeline;
+  prioridad?: PrioridadClientePipeline;
   limite?: number;
   q?: string;
 }
@@ -125,10 +195,35 @@ function buildQuery(params?: PipelineComercialParams): string {
   return q ? `?${q}` : '';
 }
 
+function buildClientesQuery(params?: PipelineClientesParams): string {
+  if (!params) return '';
+  const search = new URLSearchParams();
+  if (params.origen) search.append('origen', params.origen);
+  if (params.prioridad && params.prioridad !== 'todos') {
+    search.append('prioridad', params.prioridad);
+  }
+  if (params.limite != null) search.append('limite', String(params.limite));
+  const trimmed = params.q?.trim();
+  if (trimmed) search.append('q', trimmed);
+  const q = search.toString();
+  return q ? `?${q}` : '';
+}
+
 const pipelineComercialService = {
   async listar(params?: PipelineComercialParams): Promise<PipelineComercialResponse> {
     const api = await getAPI();
     const response = await api.get(`${BASE}${buildQuery(params)}`);
+    return response.data;
+  },
+  async listarClientes(params?: PipelineClientesParams): Promise<PipelineClientesResponse> {
+    const api = await getAPI();
+    const response = await api.get(`${BASE}clientes/${buildClientesQuery(params)}`);
+    return response.data;
+  },
+  async obtenerCliente(clienteKey: string): Promise<PipelineClienteFicha> {
+    const api = await getAPI();
+    const encoded = encodeURIComponent(clienteKey);
+    const response = await api.get(`${BASE}clientes/${encoded}/`);
     return response.data;
   },
 };

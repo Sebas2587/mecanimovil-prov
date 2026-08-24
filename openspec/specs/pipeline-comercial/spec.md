@@ -1,7 +1,10 @@
 # pipeline-comercial Specification
 
 ## Purpose
-Vista unificada de seguimiento comercial multi-origen para el taller: marketplace, catálogo, canales omnicanal y citas personales. En Bandeja, cada **cotización de canal es un caso** identificable por folio `MM-…`, no un hilo de chat.
+Vista unificada de seguimiento comercial multi-origen para el taller: marketplace, catálogo, canales omnicanal y citas personales.
+
+- **Bandeja** (`/(tabs)/bandeja`) lista **personas** (`GET /api/ordenes/pipeline-comercial/clientes/`). Tap abre la ficha `/cliente-comercial/{clienteKey}` con casos agrupados por vehículo.
+- **Hoy / Necesita atención** siguen leyendo **folios** (`GET /api/ordenes/pipeline-comercial/`: una fila por caso, folio `MM-…`).
 
 ## Requirements
 
@@ -14,7 +17,7 @@ El sistema SHALL exponer `GET /api/ordenes/pipeline-comercial/` con filas normal
 
 #### Scenario: Una fila por folio
 - GIVEN dos `CotizacionCanal` enviadas en la misma conversación
-- WHEN el taller abre Bandeja
+- WHEN el taller consulta `GET /pipeline-comercial/`
 - THEN ve **dos** filas, cada una con su `numero_publico`
 - AND una cita ligada a esa cotización se fusiona en la misma fila (folio MM + `cita_id` + `horario_por_confirmar` si aplica)
 - AND una cita manual sin cotización sigue siendo una fila propia
@@ -22,70 +25,83 @@ El sistema SHALL exponer `GET /api/ordenes/pipeline-comercial/` con filas normal
 #### Scenario: Reabierta para editar
 - GIVEN una cotización enviada con folio `MM-000098`
 - WHEN el taller pulsa “Actualizar cotización” (`enviada` → `borrador`, mismo token)
-- THEN la fila sigue en Bandeja (Abiertos) con `en_edicion=true` y el mismo folio
+- THEN la fila de folio sigue visible con `en_edicion=true` y el mismo folio
 - AND un borrador de IA **sin** folio no aparece en esa lista
 - AND al reenviar (`borrador` → `enviada`) `en_edicion` pasa a false y el tag operativo vuelve al estado real (Esperando / Confirmar horario / etc.)
 
 #### Scenario: Búsqueda por código
 - GIVEN existe `MM-000098`
 - WHEN el taller busca `MM-000098` o `98` (`?q=`)
-- THEN el pipeline devuelve esa fila aunque no esté entre las más recientes
+- THEN el pipeline de folios y el de clientes devuelven ese caso / cliente aunque no esté entre los más recientes
 
-#### Scenario: Orden cronológico en Bandeja
-- GIVEN varias filas con distinta `fecha_referencia`
-- WHEN el taller abre Bandeja
-- THEN las filas aparecen de **más reciente a más antigua** (`fecha_referencia` desc)
-- AND `listo_para_enviar` / `lead_score` solo desempatan la misma fecha
+#### Scenario: Orden cronológico
+- GIVEN varias filas o clientes con distinta fecha
+- WHEN el taller abre Bandeja o Hoy
+- THEN aparecen de **más reciente a más antigua**
+- AND `listo_para_enviar` / `lead_score` solo desempatan la misma fecha (folios)
 
 #### Scenario: Búsqueda por patente
 - GIVEN una cotización con patente `KGGR-22`
 - WHEN el taller busca `KGGR22`, `kggr-22` o `kggr 22`
-- THEN el pipeline devuelve esa fila
+- THEN el pipeline de folios y el de clientes devuelven esa fila / cliente
 - AND no interpreta los dígitos de la patente como id de cotización
 
 #### Scenario: Chat inactivo o link público
 - GIVEN una cotización `es_libre` o entregada por `link_publico` (ventana 24 h cerrada)
 - WHEN el taller abre Bandeja
-- THEN la fila aparece con folio y origen `directo` o el canal
+- THEN el cliente aparece con folio y origen `directo` o el canal
 - AND no depende de que el chat esté abierto
+
+### Requirement: Bandeja por cliente
+Bandeja SHALL listar **un cliente por fila** (`GET /api/ordenes/pipeline-comercial/clientes/`). Agrupa por teléfono normalizado, si no `conversation_id`, si no `cliente_user_id`. Homónimos sin teléfono no se fusionan.
+
+La fila SHALL mostrar nombre, tiempo relativo, N cotizaciones, tags de aceptadas/rechazadas y chips de vehículo (máx. 2 + “+k”). Tap SHALL abrir `/cliente-comercial/{clienteKey}`, no el detalle de un folio.
+
+Filtros de lista: búsqueda + `Todos` / `Con acción` / `Cerrados` + origen. Los tabs Abiertos/Esperando/Negociando/Por agendar/Agendados/Perdidos no viven en esta lista.
+
+#### Scenario: Dos cotizaciones misma persona
+- GIVEN Jennifer con dos `CotizacionCanal` (Kicks `KGGR22` y Sail)
+- WHEN el taller abre Bandeja
+- THEN ve **una** fila Jennifer con 2 cotizaciones y chips de ambos vehículos
+- AND al entrar, la ficha agrupa los casos por patente
+
+#### Scenario: Homónimos
+- GIVEN dos cotizaciones `es_libre` a nombre “Juan” sin teléfono ni conversación
+- WHEN el taller abre Bandeja
+- THEN ve dos filas distintas (`caso-…`)
+
+### Requirement: Ficha de cliente
+`GET /api/ordenes/pipeline-comercial/clientes/{cliente_key}/` SHALL devolver métricas y `vehiculos[].casos[]`. Tap en un caso SHALL abrir el detalle existente (`/cotizacion-canal/{id}`, cita, solicitud u orden).
+
+#### Scenario: Tap en caso de cotización
+- GIVEN un caso `cotizacion_canal` en la ficha
+- WHEN the taller taps the row
+- THEN abre el detalle de la cotización (mismo folio)
+- AND si `horario_por_confirmar` y hay `cita_id`, abre la cita para confirmar horario
 
 ### Requirement: Sección en Hoy
 La pestaña Hoy SHALL mostrar un bloque "Seguimiento comercial" con alertas +5 ítems y enlace a pantalla completa.
 
 #### Scenario: Ver todo
 - **WHEN** el usuario pulsa "Ver todo"
-- **THEN** navega a `app/pipeline-seguimiento.tsx`
+- **THEN** navega a `app/pipeline-seguimiento.tsx` (redirige a Bandeja)
 
 ### Requirement: Vista Por agendar
-La Bandeja SHALL exponer el filtro `por_agendar` (deep link `/(tabs)/bandeja?filtro=por_agendar`) con filas `horario_por_confirmar`. Negociando SHALL excluir esas filas. Abiertos las incluye.
+La Bandeja SHALL honrar el deep link `/(tabs)/bandeja?filtro=por_agendar` abriendo la lista de clientes en **Con acción**, con hint de horario pendiente. `esperando_24h` hace lo mismo con hint de sin respuesta.
 
 #### Scenario: Cliente aceptó y falta horario
 - GIVEN una cita con `horario_por_confirmar=true`
-- WHEN el taller abre Bandeja → Por agendar
-- THEN ve una sola etiqueta de estado: “Confirmar horario”
-- AND no muestra “IA coordinando horario” ni “Listo agendar”
+- WHEN the taller abre Bandeja con `?filtro=por_agendar`
+- THEN ve al cliente en Con acción
+- AND en la ficha el caso muestra “Confirmar horario”
 - AND el CTA del detalle sigue siendo Confirmar horario
 
 ### Requirement: Cotización enviada sin respuesta
-Bandeja SHALL mostrar una sola etiqueta operativa “Sin respuesta” (o “Sin respuesta +48h”). SHALL hide “Curioso”. If the lead later upgrades to interesado/listo_agendar, SHALL show that category next to Sin respuesta.
-
-La fila de `cotizacion_canal` SHALL mostrar **nombre del cliente**, tag de folio `MM-…` y tag de vehículo. Tap SHALL abrir `/cotizacion-canal/{id}`. “Ver conversación” es secundario y solo si hay `conversation_id`.
-
-#### Scenario: Curioso que no respondió
-- GIVEN cotización `enviada` ≥24h and lead `curioso`
-- WHEN the taller opens Bandeja Esperando
-- THEN the row says Sin respuesta and copy invita a abrir la cotización o cerrar el caso
-- AND the folio MM is visible on the row
-
-#### Scenario: Lead que subió de intención
-- GIVEN the same conversation later classified as `interesado_calificado`
-- WHEN the row is shown
-- THEN it may show Calificado plus Sin respuesta
-- AND copy indicates that the client already showed interest
+En la ficha, un caso `cotizacion_canal` enviado sin respuesta SHALL mostrar la etiqueta operativa “Sin respuesta” (o “Sin respuesta +48h”) al abrir el detalle. La lista de clientes no usa tabs Esperando.
 
 #### Scenario: Tap en cotización enviada
-- GIVEN a `cotizacion_canal` in Esperando
-- WHEN the taller taps the row
+- GIVEN un cliente con `cotizacion_canal` enviada
+- WHEN the taller taps the client then the case
 - THEN abre el detalle de la cotización (mismo folio)
 - AND puede actualizarla, compartir el link o cerrar el caso
 - AND Ver conversación no es el destino primario

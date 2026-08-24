@@ -22,6 +22,7 @@ import {
   institutionalInputStyles,
 } from '@/app/design-system/styles/institutionalInputs';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
+import { VerHistorialPatenteLink } from '@/components/vehiculos/VerHistorialPatenteLink';
 import { router } from 'expo-router';
 import {
   formatearMontoCLP,
@@ -687,6 +688,7 @@ export function CotizacionIaEditor({
                   ))}
                 </View>
               ) : null}
+              <VerHistorialPatenteLink patente={cotizacion.vehiculo_patente || ''} />
             </Card>
           ) : null}
 
