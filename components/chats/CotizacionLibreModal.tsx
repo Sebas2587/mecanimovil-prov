@@ -404,10 +404,19 @@ export function CotizacionLibreModal({
   const ejecutarPersist = useCallback(async (next: CotizacionCanal, seq: number) => {
     if (next.estado !== 'borrador' || !next.id) return next;
     try {
-      const saved = await cotizacionCanalService.actualizar(next.id, payloadEdicion(next));
+      const patch = payloadEdicion(next);
+      // El endpoint cotizar-items ya persistió las líneas; un PATCH con el
+      // snapshot local pisa precios/fuentes que la búsqueda web acaba de llenar.
+      if (next.metadata?.busqueda_web_estado === 'pendiente') {
+        delete patch.repuestos;
+      }
+      const saved = await cotizacionCanalService.actualizar(next.id, patch);
       const merged = {
         ...saved,
-        repuestos: fusionarRepuestosEnviados(next.repuestos, saved.repuestos),
+        repuestos: fusionarRepuestosEnviados(
+          next.repuestos,
+          saved.repuestos,
+        ),
       };
       if (seq === persistSeqRef.current) {
         setCotizacion(merged);

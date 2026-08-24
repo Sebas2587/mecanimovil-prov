@@ -11,8 +11,9 @@ const POLL_MS = 5_000;
 const MAX_POLL_MS = 60_000;
 
 /**
- * Detalle de cotización con poll mientras `metadata.busqueda_web_estado === 'pendiente'`.
- * Al terminar (ok/sin_resultados/error) o a los ~60s, deja de refrescar e invalida el listado.
+ * Detalle de cotización con poll mientras `enabled` (búsqueda web pendiente en el editor).
+ * No se apoya solo en el cache: un segundo cotizar-ítems deja el cache en `ok` y
+ * tiene que volver a consultar. Al terminar o a los ~60s, deja de refrescar.
  */
 export function useCotizacionCanalDetalleQuery(
   id: number | null | undefined,
@@ -25,11 +26,10 @@ export function useCotizacionCanalDetalleQuery(
     queryKey: [COTIZACION_CANAL_DETALLE_QUERY_KEY, id],
     queryFn: () => cotizacionCanalService.obtener(Number(id)),
     enabled: Boolean(enabled && id),
-    staleTime: 2_000,
-    refetchInterval: (q) => {
-      const data = q.state.data as CotizacionCanal | undefined;
-      const pendiente = data?.metadata?.busqueda_web_estado === 'pendiente';
-      if (!pendiente) return false;
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchInterval: () => {
+      if (!enabled) return false;
       if (startedAt.current == null) startedAt.current = Date.now();
       if (Date.now() - startedAt.current > MAX_POLL_MS) return false;
       return POLL_MS;
@@ -42,10 +42,12 @@ export function useCotizacionCanalDetalleQuery(
       startedAt.current = null;
       return;
     }
+    if (startedAt.current == null) {
+      startedAt.current = Date.now();
+    }
     const estado = query.data?.metadata?.busqueda_web_estado;
     if (estado && estado !== 'pendiente') {
       queryClient.invalidateQueries({ queryKey: [COTIZACIONES_CANAL_QUERY_KEY] });
-      startedAt.current = null;
     }
   }, [enabled, id, query.data?.metadata?.busqueda_web_estado, queryClient]);
 

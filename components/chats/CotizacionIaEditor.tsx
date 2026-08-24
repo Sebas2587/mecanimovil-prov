@@ -35,7 +35,11 @@ import {
 import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import cotizacionCanalService from '@/services/cotizacionCanalService';
 import { CotizarItemsIaModal } from '@/components/chats/CotizarItemsIaModal';
-import { useCotizacionCanalDetalleQuery } from '@/hooks/useCotizacionCanalDetalleQuery';
+import {
+  COTIZACION_CANAL_DETALLE_QUERY_KEY,
+  useCotizacionCanalDetalleQuery,
+} from '@/hooks/useCotizacionCanalDetalleQuery';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   EjecucionAdicionalCampos,
   pickerDesdePropuesta,
@@ -105,21 +109,31 @@ function mergeRepuestosPreservandoEdicion(
   remoto: RepuestoCotizacion[],
 ): RepuestoCotizacion[] {
   if (!remoto.length) return local;
-  return remoto.map((rRem, idx) => {
+  const remoteIds = new Set(remoto.map((r) => r.id).filter(Boolean));
+  const merged = remoto.map((rRem, idx) => {
     const rLoc = rRem.id
       ? local.find((l) => l.id === rRem.id)
       : local[idx];
     if (!rLoc) return rRem;
     const nombreLocal = (rLoc.nombre || '').trim();
+    const localCero = !rLoc.precio_unitario_clp;
+    const remoteMejor = fuenteEsVerificada(rRem)
+      || ((rRem.precio_unitario_clp || 0) > 0 && localCero);
     return {
       ...rRem,
       nombre: nombreLocal || rRem.nombre,
       cantidad: rLoc.cantidad ?? rRem.cantidad,
-      precio_unitario_clp: fuenteEsVerificada(rRem)
+      precio_unitario_clp: remoteMejor
         ? rRem.precio_unitario_clp
         : (rLoc.precio_unitario_clp ?? rRem.precio_unitario_clp),
     };
   });
+  const extras = local.filter((l) => {
+    const nombre = (l.nombre || '').trim();
+    if (!nombre || nombre.toLowerCase() === 'repuesto') return false;
+    return Boolean(l.id && !remoteIds.has(l.id));
+  });
+  return extras.length ? [...merged, ...extras] : merged;
 }
 
 const ESTADO_VARIANT: Record<
@@ -385,12 +399,14 @@ export function CotizacionIaEditor({
   sinHeader = false,
 }: CotizacionIaEditorProps) {
   const { width } = useWindowDimensions();
+  const queryClient = useQueryClient();
   const stackedFacts = width < 520;
   const repuestos = cotizacion.repuestos ?? [];
   const editable = !readonly && cotizacion.estado === 'borrador';
   const manoObra = redondearCLP(cotizacion.mano_obra_clp);
   const busquedaPendiente = cotizacion.metadata?.busqueda_web_estado === 'pendiente';
   const appliedWebRef = useRef<string | null>(null);
+  const pendientePrevRef = useRef(false);
   const cotizacionRef = useRef(cotizacion);
   cotizacionRef.current = cotizacion;
 
@@ -407,9 +423,22 @@ export function CotizacionIaEditor({
   );
 
   useEffect(() => {
+    if (busquedaPendiente && !pendientePrevRef.current) {
+      appliedWebRef.current = null;
+    }
+    pendientePrevRef.current = busquedaPendiente;
+  }, [busquedaPendiente]);
+
+  useEffect(() => {
     if (!detalleRefrescado || !busquedaPendiente) return;
     const estado = detalleRefrescado.metadata?.busqueda_web_estado;
     if (!estado || estado === 'pendiente') return;
+    const remoteCount = (detalleRefrescado.repuestos ?? []).length;
+    const localCount = (cotizacion.repuestos ?? []).length;
+    const remotoEn = detalleRefrescado.actualizado_en || '';
+    const localEn = cotizacion.actualizado_en || '';
+    if (remoteCount < localCount) return;
+    if (remotoEn && localEn && remotoEn < localEn) return;
     const stamp = `${detalleRefrescado.id}:${detalleRefrescado.actualizado_en || estado}`;
     if (appliedWebRef.current === stamp) return;
     appliedWebRef.current = stamp;
@@ -509,6 +538,9 @@ export function CotizacionIaEditor({
           ...(resultado.cotizacion.metadata || {}),
         },
       });
+      await queryClient.invalidateQueries({
+        queryKey: [COTIZACION_CANAL_DETALLE_QUERY_KEY, current.id],
+      });
       setModalItemsIa(false);
     } catch (err: unknown) {
       const data = (err as {
@@ -523,7 +555,7 @@ export function CotizacionIaEditor({
     } finally {
       setCotizandoItems(false);
     }
-  }, [onChange]);
+  }, [onChange, queryClient]);
 
   const kmMeta = cotizacion.metadata?.vehiculo_kilometraje_actual;
   const vehiculoTitulo = [
