@@ -52,6 +52,13 @@ const EventoPaper = React.memo(function EventoPaper({ evento }: { evento: Histor
     evento.taller_es_propio && evento.monto_clp != null
       ? formatearMontoCLP(evento.monto_clp)
       : null;
+  const rango =
+    !evento.taller_es_propio
+    && evento.rango_mercado_clp
+    && evento.rango_mercado_clp.min != null
+    && evento.rango_mercado_clp.max != null
+      ? `En la red: ${formatearMontoCLP(evento.rango_mercado_clp.min)} – ${formatearMontoCLP(evento.rango_mercado_clp.max)}`
+      : null;
 
   return (
     <HostPaperSection>
@@ -69,6 +76,7 @@ const EventoPaper = React.memo(function EventoPaper({ evento }: { evento: Histor
         {[formatearFechaEvento(evento.fecha), km].filter(Boolean).join(' · ')}
       </Text>
       {monto ? <Text style={styles.monto}>{monto}</Text> : null}
+      {rango ? <Text style={styles.rango}>{rango}</Text> : null}
     </HostPaperSection>
   );
 });
@@ -200,5 +208,10 @@ const styles = StyleSheet.create({
     fontSize: T.body.fontSize,
     color: I.ink,
     alignSelf: 'flex-end',
+  },
+  rango: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.muted,
   },
 });

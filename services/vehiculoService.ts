@@ -14,6 +14,12 @@ export type ConsultaPatenteResponse = {
 
 export type HistorialRedFuente = 'orden_plataforma' | 'informe' | 'cita_personal';
 
+export type HistorialRedRangoMercado = {
+  min: number;
+  max: number;
+  muestras: number;
+};
+
 export type HistorialRedEvento = {
   fecha: string | null;
   taller_nombre: string;
@@ -21,6 +27,7 @@ export type HistorialRedEvento = {
   servicio_nombre: string;
   kilometraje: number | null;
   monto_clp: number | null;
+  rango_mercado_clp: HistorialRedRangoMercado | null;
   fuente: HistorialRedFuente;
   evento_id: string;
 };
