@@ -19,12 +19,18 @@ export function leadCategoriaOf(item: PipelineComercialItem): LeadCategoria {
 }
 
 /** Etiqueta de acción/estado. Una sola; no duplicar con calificación de lead. */
+export function cotizacionEstaEnEdicion(item: PipelineComercialItem): boolean {
+  if (item.tipo_entidad !== 'cotizacion_canal') return false;
+  if (item.estado_raw !== 'borrador') return false;
+  return Boolean(item.en_edicion || item.numero_publico);
+}
+
 export function leadOperativoTag(
   item: PipelineComercialItem,
   estadoLabel: string,
   estadoVariant: LeadOperativoTag['variant'],
 ): LeadOperativoTag {
-  if (item.en_edicion || (item.tipo_entidad === 'cotizacion_canal' && item.estado_raw === 'borrador' && item.numero_publico)) {
+  if (cotizacionEstaEnEdicion(item)) {
     return { label: 'En edición', variant: 'primary' };
   }
   if (item.horario_por_confirmar) {
@@ -59,6 +65,7 @@ export function leadCategoriaLabel(item: PipelineComercialItem): string {
 }
 
 export function leadMetaHint(item: PipelineComercialItem): string {
+  if (cotizacionEstaEnEdicion(item)) return 'guarda y envía para actualizar el link';
   if (item.horario_por_confirmar) return 'elige día y hora';
   if (item.esperando_respuesta_24h || item.demorado_48h) {
     const cat = leadCategoriaOf(item);

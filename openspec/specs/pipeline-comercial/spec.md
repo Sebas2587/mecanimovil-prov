@@ -24,6 +24,7 @@ El sistema SHALL exponer `GET /api/ordenes/pipeline-comercial/` con filas normal
 - WHEN el taller pulsa “Actualizar cotización” (`enviada` → `borrador`, mismo token)
 - THEN la fila sigue en Bandeja (Abiertos) con `en_edicion=true` y el mismo folio
 - AND un borrador de IA **sin** folio no aparece en esa lista
+- AND al reenviar (`borrador` → `enviada`) `en_edicion` pasa a false y el tag operativo vuelve al estado real (Esperando / Confirmar horario / etc.)
 
 #### Scenario: Búsqueda por código
 - GIVEN existe `MM-000098`

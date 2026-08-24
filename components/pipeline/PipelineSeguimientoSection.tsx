@@ -12,6 +12,7 @@ import {
   type RefreshControlProps,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   Check,
   ChevronDown,
@@ -231,7 +232,7 @@ const LeadCard = React.memo(function LeadCard({
             {titulo}
           </Text>
           <View style={styles.leadPriceChevron}>
-            {monto ? <Text style={styles.leadPrice}>{monto}</Text> : null}
+            {tiempo ? <Text style={styles.leadTime}>{tiempo}</Text> : null}
             <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
         </View>
@@ -267,18 +268,20 @@ const LeadCard = React.memo(function LeadCard({
               size="sm"
             />
           ) : null}
-          {tiempo ? <Text style={styles.leadTime}>{tiempo}</Text> : null}
         </View>
 
-        <Text style={styles.leadMeta} numberOfLines={1}>
-          {esCotizacion
-            ? [servicio, metaHint].filter(Boolean).join(' · ')
-            : [
-                item.cliente_nombre || 'Cliente',
-                vehiculo,
-                metaHint,
-              ].filter(Boolean).join(' · ')}
-        </Text>
+        <View style={styles.leadFooter}>
+          <Text style={styles.leadMeta} numberOfLines={1}>
+            {esCotizacion
+              ? [servicio, metaHint].filter(Boolean).join(' · ')
+              : [
+                  item.cliente_nombre || 'Cliente',
+                  vehiculo,
+                  metaHint,
+                ].filter(Boolean).join(' · ')}
+          </Text>
+          {monto ? <Text style={styles.leadPrice}>{monto}</Text> : null}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -437,6 +440,12 @@ export function PipelineSeguimientoSection({
   );
 
   const { data, isPending, isFetching, refetch } = usePipelineComercialQuery(queryParams);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
 
   useEffect(() => {
     if (refreshKey > 0) {
@@ -1328,10 +1337,10 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     paddingTop: 2,
   },
-  leadPrice: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
+  leadTime: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.muted,
   },
   leadTags: {
     flexDirection: 'row',
@@ -1339,13 +1348,20 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: SPACING.fixed.xs,
   },
-  leadTime: {
-    marginLeft: 'auto',
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: I.muted,
+  leadFooter: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: SPACING.fixed.sm,
+  },
+  leadPrice: {
+    flexShrink: 0,
+    fontFamily: FF.sansSemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.ink,
   },
   leadMeta: {
+    flex: 1,
+    minWidth: 0,
     fontFamily: FF.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.xs,
     color: I.muted,

@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   ScrollView,
-  Share,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -31,8 +29,12 @@ import cotizacionCanalService, {
   type CotizacionCanal,
 } from '@/services/cotizacionCanalService';
 import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
-import { showAlert, showConfirm } from '@/utils/platformAlert';
+import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
+import {
+  abrirWhatsAppCotizacion,
+  mensajeCotizacionParaCliente,
+} from '@/utils/compartirCotizacionCliente';
 
 const I = COLORS.institutional;
 
@@ -138,18 +140,52 @@ export default function CotizacionCanalDetalleScreen() {
     }
   }, [draft?.id, invalidateAll]);
 
-  const compartirUrl = useCallback(async (url: string) => {
-    try {
-      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-        showAlert('Link copiado', 'Pégalo en WhatsApp, Instagram u otro canal.');
-        return;
-      }
-      await Share.share({ message: url, url });
-    } catch {
-      showAlert('Link de cotización', url);
+  const compartirConCliente = useCallback(async (
+    url: string,
+    cot: CotizacionCanal,
+    opts?: { actualizada?: boolean; silencioso?: boolean },
+  ) => {
+    const mensaje = mensajeCotizacionParaCliente({
+      clienteNombre: cot.cliente_nombre,
+      numeroPublico: cot.numero_publico,
+      servicio: cot.servicio_nombre,
+      totalClp: cot.total_clp,
+      url,
+      actualizada: Boolean(opts?.actualizada ?? cot.numero_publico),
+    });
+    const via = await abrirWhatsAppCotizacion({
+      telefono: cot.cliente_telefono,
+      mensaje,
+      url,
+    });
+    if (opts?.silencioso) return via;
+    if (via === 'clipboard') {
+      showAlert('Mensaje copiado', 'Pégalo en WhatsApp del cliente. El chat conectado no puede enviarlo.');
     }
+    return via;
   }, []);
+
+  const ofrecerEnvioWhatsAppPersonal = useCallback((
+    url: string,
+    cot: CotizacionCanal,
+    entregaMensaje?: string,
+  ) => {
+    const tieneTel = Boolean(cot.cliente_telefono?.trim());
+    showAlertButtons(
+      'El chat conectado no puede enviarla',
+      entregaMensaje
+        || 'Pasaron más de 24 h y WhatsApp bloquea el canal. Ábrelo con el link actualizado para que el cliente lo reciba.',
+      [
+        { text: 'Ahora no', style: 'cancel' },
+        {
+          text: tieneTel ? 'Abrir WhatsApp' : 'Copiar mensaje',
+          onPress: () => {
+            void compartirConCliente(url, cot, { actualizada: true });
+          },
+        },
+      ],
+    );
+  }, [compartirConCliente]);
 
   const enviar = useCallback(async () => {
     if (!draft?.id) return;
@@ -169,26 +205,24 @@ export default function CotizacionCanalDetalleScreen() {
       }
       if (draft.estado === 'borrador' || data?.estado === 'borrador') {
         const res = await cotizacionCanalService.enviar(draft.id);
-        const url = res.share_url || res.cotizacion.share_url || res.cotizacion.url_publica;
-        const entrega = res.entrega_via || res.cotizacion.metadata?.entrega_canal;
+        const cotEnviada = res.cotizacion;
+        const url = res.share_url || cotEnviada.share_url || cotEnviada.url_publica;
+        const entrega = res.entrega_via || cotEnviada.metadata?.entrega_canal;
+        setDraft({ ...cotEnviada });
         await invalidateAll();
         await refetch();
+        if (!url) {
+          showAlert('Cotización lista', 'Se guardó, pero no hay link para compartir.');
+          return;
+        }
         if (entrega === 'link_publico' || entrega === 'whatsapp_template') {
-          showAlert(
-            'Cotización lista para compartir',
-            res.entrega_mensaje
-              || 'Comparte el link por el canal que prefieras para que el cliente revise, acepte o rechace.',
-          );
-          if (url) {
-            setDraft({ ...res.cotizacion });
-            await compartirUrl(url);
-          }
+          ofrecerEnvioWhatsAppPersonal(url, cotEnviada, res.entrega_mensaje);
           return;
         }
         showAlert(
           'Cotización enviada',
           res.entrega_mensaje
-            || 'El cliente puede ver el mismo enlace y aceptar o rechazar.',
+            || 'El cliente la recibió en el chat y puede aceptar o rechazar.',
         );
         return;
       }
@@ -203,7 +237,7 @@ export default function CotizacionCanalDetalleScreen() {
     } finally {
       setEnviando(false);
     }
-  }, [compartirUrl, data?.estado, draft, hayCambios, invalidateAll, refetch]);
+  }, [data?.estado, draft, hayCambios, invalidateAll, ofrecerEnvioWhatsAppPersonal, refetch]);
 
   const eliminar = useCallback(() => {
     if (!draft?.id) return;
@@ -226,9 +260,9 @@ export default function CotizacionCanalDetalleScreen() {
 
   const compartir = useCallback(async () => {
     const url = draft?.share_url || draft?.url_publica;
-    if (!url) return;
-    await compartirUrl(url);
-  }, [compartirUrl, draft]);
+    if (!url || !draft) return;
+    await compartirConCliente(url, draft, { actualizada: draft.estado !== 'borrador' });
+  }, [compartirConCliente, draft]);
 
   const marcarAceptada = useCallback(async () => {
     if (!draft?.id) return;
@@ -375,7 +409,13 @@ export default function CotizacionCanalDetalleScreen() {
         ) : null}
 
         {draft.estado === 'borrador' ? (
-          <View style={styles.footerRow}>
+          <View style={styles.footerBorrador}>
+            {draft.numero_publico ? (
+              <InstitutionalText role="caption" color="muted">
+                Si pasaron más de 24 h, el chat conectado no puede enviarla. Al enviar se abre WhatsApp con el link actualizado.
+              </InstitutionalText>
+            ) : null}
+            <View style={styles.footerRow}>
             <TouchableOpacity
               style={styles.footerGhost}
               onPress={eliminar}
@@ -393,12 +433,13 @@ export default function CotizacionCanalDetalleScreen() {
               onPress={() => void guardar()}
             />
             <InstitutionalButton
-              label="Aprobar y enviar"
+              label={draft.numero_publico ? 'Enviar al cliente' : 'Aprobar y enviar'}
               variant="primary"
               style={styles.footerPrimary}
               loading={enviando}
               onPress={() => void enviar()}
             />
+            </View>
           </View>
         ) : null}
 
@@ -448,6 +489,9 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.sm,
   },
   footerEnviada: {
+    gap: SPACING.fixed.xs,
+  },
+  footerBorrador: {
     gap: SPACING.fixed.xs,
   },
   footerFlex: { flex: 1 },

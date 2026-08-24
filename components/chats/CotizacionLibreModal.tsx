@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Share,
 } from 'react-native';
 import { Link2, Sparkles, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,7 +35,7 @@ import type { ChannelSlug } from '@/utils/channelVisuals';
 import { channelRespondLabel } from '@/components/chats/ChannelBadge';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { showAlert } from '@/utils/platformAlert';
+import { showAlert, showAlertButtons } from '@/utils/platformAlert';
 import { withWebLineHeight } from '@/utils/webTypography';
 import {
   extraerNueveDigitosDesdeGuardado,
@@ -49,6 +48,10 @@ import cotizacionCanalService, {
   type CotizacionPlantilla,
 } from '@/services/cotizacionCanalService';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
+import {
+  abrirWhatsAppCotizacion,
+  mensajeCotizacionParaCliente,
+} from '@/utils/compartirCotizacionCliente';
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
 import { useCotizacionPlantillasQuery } from '@/hooks/useCotizacionPlantillasQuery';
@@ -436,18 +439,29 @@ export function CotizacionLibreModal({
     });
   }, [ejecutarPersist]);
 
-  const compartirLink = useCallback(async (url: string) => {
-    try {
-      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-        showAlert('Link copiado', 'Pégalo en WhatsApp, Instagram u otro canal para el cliente.');
-        return;
-      }
-      await Share.share({ message: url, url });
-    } catch {
+  const compartirLink = useCallback(async (url: string, cot?: CotizacionCanal | null) => {
+    const fuente = cot || cotizacion;
+    if (!fuente) {
       showAlert('Link de cotización', url);
+      return;
     }
-  }, []);
+    const mensaje = mensajeCotizacionParaCliente({
+      clienteNombre: fuente.cliente_nombre,
+      numeroPublico: fuente.numero_publico,
+      servicio: fuente.servicio_nombre,
+      totalClp: fuente.total_clp,
+      url,
+      actualizada: Boolean(fuente.numero_publico),
+    });
+    const via = await abrirWhatsAppCotizacion({
+      telefono: fuente.cliente_telefono,
+      mensaje,
+      url,
+    });
+    if (via === 'clipboard') {
+      showAlert('Mensaje copiado', 'Pégalo en WhatsApp del cliente.');
+    }
+  }, [cotizacion]);
 
   const handleEnviar = useCallback(async () => {
     if (!cotizacion?.id) return;
@@ -461,20 +475,28 @@ export function CotizacionLibreModal({
       setShareUrl(url);
       onEnviada?.();
       const entrega = res.entrega_via || res.cotizacion.metadata?.entrega_canal;
-      if (entrega === 'whatsapp_template') {
-        showAlert(
-          'Cotización lista para compartir',
+      const cotEnviada = res.cotizacion;
+      const requiereWhatsAppPersonal = (
+        entrega === 'link_publico'
+        || entrega === 'whatsapp_template'
+        || Boolean(channelWindowClosedReason)
+      );
+      if (requiereWhatsAppPersonal && url) {
+        const tieneTel = Boolean(cotEnviada.cliente_telefono?.trim());
+        showAlertButtons(
+          'El chat conectado no puede enviarla',
           res.entrega_mensaje
-            || 'Comparte este link por el canal que prefieras para que el cliente revise, acepte o rechace.',
+            || 'Pasaron más de 24 h y WhatsApp bloquea el canal. Ábrelo con el link para que el cliente lo reciba.',
+          [
+            { text: 'Ahora no', style: 'cancel' },
+            {
+              text: tieneTel ? 'Abrir WhatsApp' : 'Copiar mensaje',
+              onPress: () => {
+                void compartirLink(url, cotEnviada);
+              },
+            },
+          ],
         );
-        if (url) await compartirLink(url);
-      } else if (entrega === 'link_publico' || channelWindowClosedReason) {
-        showAlert(
-          'Cotización lista para compartir',
-          res.entrega_mensaje
-            || 'El chat no permite enviarla ahora. Comparte este link por el canal que prefieras para que el cliente revise, acepte o rechace.',
-        );
-        if (url) await compartirLink(url);
       } else if (res.cotizacion.conversation || res.message_id) {
         const canalExterno = channel && channel !== 'app';
         if (canalExterno && channelDisconnectedReason) {
