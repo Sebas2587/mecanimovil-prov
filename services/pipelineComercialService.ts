@@ -128,6 +128,11 @@ export interface PipelineClienteCaso {
   en_edicion?: boolean;
   vehiculo_resumen?: string;
   vehiculo_patente?: string;
+  es_cotizacion_adicional?: boolean;
+  servicio_principal_nombre?: string | null;
+  folio_principal?: string | null;
+  cotizacion_original_id?: number | null;
+  ejecucion_adicional?: 'misma_visita' | 'nueva_fecha' | string | null;
 }
 
 export interface PipelineClienteVehiculoFicha extends PipelineClienteVehiculo {

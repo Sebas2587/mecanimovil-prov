@@ -1,21 +1,22 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight, MessageCircle } from 'lucide-react-native';
+import { ChevronRight, FileText, MessageCircle } from 'lucide-react-native';
 import Header from '@/components/Header';
 import {
-  HostMetricRow,
+  HostEmptyState,
   HostPaperSection,
-  HostSectionKicker,
+  HOST_GUTTER,
   hostScreenStyles,
 } from '@/app/design-system/components';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
@@ -26,8 +27,10 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { usePipelineClienteDetalleQuery } from '@/hooks/usePipelineClientesQuery';
 import {
   ESTADO_PIPELINE_LABELS,
+  ORIGEN_PIPELINE_LABELS,
   type EstadoPipelineNormalizado,
   type PipelineClienteCaso,
+  type PipelineClienteVehiculoFicha,
 } from '@/services/pipelineComercialService';
 import {
   ESTADO_OPERATIVO_LABELS,
@@ -35,12 +38,14 @@ import {
   mapPipelineEstadoToOperativo,
 } from '@/utils/estadoOperativo';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
-import { extraerNueveDigitosDesdeGuardado } from '@/utils/chilePhone';
+import { omnichannelChatHref } from '@/utils/chatRoutes';
 import { navegarCasoPipeline } from '@/utils/navegarCasoPipeline';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 const T = TYPOGRAPHY.styles;
+const GRID_GAP = SPACING.fixed.sm;
+const TWO_COL_MIN = 560;
 
 type FiltroCaso = 'todos' | 'en_edicion' | 'por_agendar' | EstadoPipelineNormalizado;
 
@@ -70,46 +75,86 @@ function tagCaso(caso: PipelineClienteCaso): {
   };
 }
 
-const CasoRow = React.memo(function CasoRow({
+function fechaCorta(iso: string | null): string {
+  if (!iso) return '';
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function tituloVehiculo(veh: PipelineClienteVehiculoFicha): { titulo: string; subtitulo: string | null } {
+  const patente = (veh.patente || '').trim();
+  const resumen = (veh.resumen || '').trim();
+  if (patente) {
+    const escaped = patente.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const resto = resumen.replace(new RegExp(`^${escaped}\\s*[·•|]\\s*`, 'i'), '').trim();
+    return { titulo: patente, subtitulo: resto || null };
+  }
+  return { titulo: resumen || 'Sin vehículo', subtitulo: null };
+}
+
+function referenciaPrincipal(caso: PipelineClienteCaso): string | null {
+  if (!caso.es_cotizacion_adicional) return null;
+  const folio = (caso.folio_principal || '').trim();
+  const servicio = (caso.servicio_principal_nombre || '').trim();
+  const desde = [folio, servicio].filter(Boolean).join(' · ');
+  if (!desde) return 'Trabajo adicional';
+  const extra = caso.ejecucion_adicional === 'nueva_fecha' ? ' · Nueva fecha' : '';
+  return `Desde: ${desde}${extra}`;
+}
+
+const CasoCard = React.memo(function CasoCard({
   caso,
-  last,
+  width,
   onPress,
 }: {
   caso: PipelineClienteCaso;
-  last?: boolean;
+  width: number;
   onPress: (caso: PipelineClienteCaso) => void;
 }) {
   const handlePress = useCallback(() => onPress(caso), [caso, onPress]);
   const folio = caso.numero_publico?.trim();
   const monto = caso.monto_clp != null ? formatearMontoCLP(caso.monto_clp) : null;
   const operativo = tagCaso(caso);
+  const origen = ORIGEN_PIPELINE_LABELS[caso.origen] || '';
+  const fecha = fechaCorta(caso.fecha_referencia);
+  const meta = [origen, fecha].filter(Boolean).join(' · ');
+  const adicional = Boolean(caso.es_cotizacion_adicional);
+  const desde = referenciaPrincipal(caso);
 
   return (
-    <TouchableOpacity
-      style={[styles.casoRow, !last && styles.casoRowBorder]}
-      onPress={handlePress}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-    >
-      <View style={styles.casoBody}>
-        <View style={styles.casoLine1}>
+    <View style={{ width }}>
+      <HostPaperSection onPress={handlePress}>
+        <View style={styles.casoTop}>
           <Text style={styles.casoServicio} numberOfLines={2}>
             {caso.servicio_resumen || ESTADO_PIPELINE_LABELS[caso.estado_normalizado]}
           </Text>
           <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
         </View>
         <View style={styles.casoTags}>
+          {adicional ? <InstitutionalTag label="Adicional" variant="info" size="sm" /> : null}
           {folio ? <InstitutionalTag label={folio} variant="neutral" size="sm" /> : null}
           <InstitutionalTag label={operativo.label} variant={operativo.variant} size="sm" />
         </View>
-        {monto ? (
+        {desde ? (
+          <Text style={styles.casoDesde} numberOfLines={2}>
+            {desde}
+          </Text>
+        ) : null}
+        {meta || monto ? (
           <View style={styles.casoFooter}>
-            <View style={styles.flex} />
-            <Text style={styles.casoPrecio}>{monto}</Text>
+            {meta ? (
+              <Text style={styles.casoMeta} numberOfLines={1}>
+                {meta}
+              </Text>
+            ) : (
+              <View style={styles.flex} />
+            )}
+            {monto ? <Text style={styles.casoPrecio}>{monto}</Text> : null}
           </View>
         ) : null}
-      </View>
-    </TouchableOpacity>
+      </HostPaperSection>
+    </View>
   );
 });
 
@@ -117,10 +162,17 @@ export default function ClienteComercialScreen() {
   const rawKey = useLocalSearchParams<{ clienteKey?: string | string[] }>().clienteKey;
   const clienteKey = decodeURIComponent(Array.isArray(rawKey) ? rawKey[0] : rawKey || '');
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const [gridWidth, setGridWidth] = useState(() => Math.max(0, windowWidth - HOST_GUTTER * 2));
   const { data, isPending, isError, refetch } = usePipelineClienteDetalleQuery(
     clienteKey || undefined,
   );
   const [filtro, setFiltro] = useState<FiltroCaso>('todos');
+
+  const twoCols = gridWidth >= TWO_COL_MIN;
+  const cardWidth = twoCols
+    ? Math.floor((gridWidth - GRID_GAP) / 2)
+    : gridWidth;
 
   const filtrosDisponibles = useMemo(() => {
     const keys: FiltroCaso[] = ['todos'];
@@ -148,12 +200,6 @@ export default function ClienteComercialScreen() {
       .filter((veh) => veh.casos.length > 0);
   }, [data, filtro]);
 
-  const abrirWhatsApp = useCallback(() => {
-    const nacional = extraerNueveDigitosDesdeGuardado(data?.cliente_telefono);
-    if (!nacional) return;
-    void Linking.openURL(`https://wa.me/56${nacional}`);
-  }, [data?.cliente_telefono]);
-
   const handleCaso = useCallback((caso: PipelineClienteCaso) => {
     navegarCasoPipeline(caso);
   }, []);
@@ -169,6 +215,21 @@ export default function ClienteComercialScreen() {
     return ESTADO_PIPELINE_LABELS[key];
   }, []);
 
+  const abrirChat = useCallback(() => {
+    if (!data?.conversation_id) return;
+    router.push(
+      omnichannelChatHref(data.conversation_id, {
+        name: data.cliente_nombre,
+        phone: data.cliente_telefono,
+      }),
+    );
+  }, [data?.cliente_nombre, data?.cliente_telefono, data?.conversation_id]);
+
+  const onGridLayout = useCallback((event: LayoutChangeEvent) => {
+    const next = Math.round(event.nativeEvent.layout.width);
+    setGridWidth((prev) => (prev === next ? prev : next));
+  }, []);
+
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -178,6 +239,18 @@ export default function ClienteComercialScreen() {
         titleColor={I.ink}
         showBack
         onBackPress={() => router.back()}
+        rightComponent={
+          data?.conversation_id ? (
+            <TouchableOpacity
+              onPress={abrirChat}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir chat"
+            >
+              <MessageCircle size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            </TouchableOpacity>
+          ) : null
+        }
       />
       {isPending && !data ? (
         <View style={styles.centered}>
@@ -203,30 +276,6 @@ export default function ClienteComercialScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {data.cliente_telefono ? (
-            <InstitutionalText role="caption" color="muted" style={styles.telefono}>
-              {data.cliente_telefono}
-            </InstitutionalText>
-          ) : null}
-
-          <HostPaperSection>
-            <HostMetricRow label="Enviadas" value={String(data.enviadas)} />
-            <HostMetricRow label="Aceptadas" value={String(data.aceptadas)} />
-            <HostMetricRow label="Rechazadas" value={String(data.rechazadas)} last />
-          </HostPaperSection>
-
-          {extraerNueveDigitosDesdeGuardado(data.cliente_telefono) ? (
-            <InstitutionalButton
-              label="WhatsApp"
-              variant="outline"
-              size="compact"
-              leading={
-                <MessageCircle size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-              }
-              onPress={abrirWhatsApp}
-            />
-          ) : null}
-
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -243,21 +292,48 @@ export default function ClienteComercialScreen() {
             ))}
           </ScrollView>
 
-          {vehiculosFiltrados.map((veh) => (
-            <View key={veh.key} style={styles.vehiculoBlock}>
-              <HostSectionKicker label={veh.resumen || 'Sin vehículo'} />
-              <HostPaperSection>
-                {veh.casos.map((caso, index) => (
-                  <CasoRow
-                    key={`${caso.tipo_entidad}-${caso.entidad_id}`}
-                    caso={caso}
-                    last={index === veh.casos.length - 1}
-                    onPress={handleCaso}
-                  />
-                ))}
-              </HostPaperSection>
-            </View>
-          ))}
+          <View style={styles.measure} onLayout={onGridLayout} />
+
+          {vehiculosFiltrados.length === 0 ? (
+            <HostEmptyState
+              icon={FileText}
+              title="Sin cotizaciones"
+              description={
+                filtro === 'todos'
+                  ? 'Este cliente todavía no tiene cotizaciones en el taller.'
+                  : 'Ninguna cotización coincide con este filtro.'
+              }
+            />
+          ) : (
+            vehiculosFiltrados.map((veh, index) => {
+              const { titulo, subtitulo } = tituloVehiculo(veh);
+              return (
+                <View
+                  key={veh.key}
+                  style={[styles.vehiculoBlock, index > 0 && styles.vehiculoBlockNext]}
+                >
+                  <View style={styles.vehiculoHeader}>
+                    <Text style={styles.vehiculoTitulo}>{titulo}</Text>
+                    {subtitulo ? (
+                      <Text style={styles.vehiculoSub} numberOfLines={2}>
+                        {subtitulo}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.grid}>
+                    {veh.casos.map((caso) => (
+                      <CasoCard
+                        key={`${caso.tipo_entidad}-${caso.entidad_id}`}
+                        caso={caso}
+                        width={cardWidth}
+                        onPress={handleCaso}
+                      />
+                    ))}
+                  </View>
+                </View>
+              );
+            })
+          )}
         </ScrollView>
       )}
     </View>
@@ -301,7 +377,6 @@ const styles = StyleSheet.create({
   scrollInner: {
     gap: SPACING.fixed.md,
   },
-  telefono: { marginTop: -SPACING.fixed.xs },
   filtrosTrack: {
     gap: SPACING.fixed.xs,
     paddingVertical: SPACING.fixed.xxs,
@@ -309,7 +384,7 @@ const styles = StyleSheet.create({
   filtroChip: {
     paddingHorizontal: SPACING.fixed.sm,
     paddingVertical: SPACING.fixed.xs,
-    borderRadius: BORDERS.radius.pill,
+    borderRadius: BORDERS.radius.sm,
     backgroundColor: I.surfaceSoft,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: I.hairline,
@@ -327,16 +402,40 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansSemiBold,
     color: I.ink,
   },
-  vehiculoBlock: { gap: SPACING.fixed.xs },
-  casoRow: {
-    paddingVertical: SPACING.fixed.sm,
+  measure: {
+    alignSelf: 'stretch',
+    width: '100%',
+    height: 0,
   },
-  casoRowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: I.hairline,
+  vehiculoBlock: {
+    gap: SPACING.fixed.sm,
   },
-  casoBody: { gap: 6 },
-  casoLine1: {
+  vehiculoBlockNext: {
+    marginTop: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+  },
+  vehiculoHeader: {
+    gap: 2,
+  },
+  vehiculoTitulo: {
+    fontFamily: FF.sansSemiBold,
+    fontSize: T.h4.fontSize,
+    lineHeight: Math.round(T.h4.fontSize * 1.25),
+    color: I.ink,
+  },
+  vehiculoSub: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.muted,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: GRID_GAP,
+  },
+  casoTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: SPACING.fixed.sm,
@@ -353,15 +452,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: SPACING.fixed.xs,
+    marginTop: SPACING.fixed.xs,
+  },
+  casoDesde: {
+    marginTop: SPACING.fixed.xs,
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.muted,
   },
   casoFooter: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    gap: SPACING.fixed.sm,
+    marginTop: SPACING.fixed.xs,
   },
   flex: { flex: 1 },
-  casoPrecio: {
-    fontFamily: FF.sansSemiBold,
+  casoMeta: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: FF.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.muted,
+  },
+  casoPrecio: {
+    fontFamily: FF.monoMedium,
+    fontSize: T.body.fontSize,
     color: I.ink,
   },
 });
