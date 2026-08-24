@@ -1,22 +1,22 @@
 export const WHATSAPP_REPLY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export const WHATSAPP_WINDOW_CLOSED_MESSAGE =
-  'Ventana de 24 h cerrada. WhatsApp no permite escribir en el chat. Envía la cotización: el cliente abre un link.';
+  'Ventana de 24 h cerrada. WhatsApp no permite escribir en el chat. Cotiza y comparte el link por el canal que prefieras.';
 
 export const WHATSAPP_NO_INBOUND_MESSAGE =
-  'El cliente aún no ha escrito por WhatsApp. Envía la cotización con un link.';
+  'El cliente aún no ha escrito por WhatsApp. Cotiza y comparte el link por el canal que prefieras.';
 
 export const MESSENGER_WINDOW_CLOSED_MESSAGE =
-  'Ventana de 24 h cerrada. Messenger no permite escribir en el chat. Envía la cotización con un link.';
+  'Ventana de 24 h cerrada. Messenger no permite escribir en el chat. Cotiza y comparte el link por el canal que prefieras.';
 
 export const MESSENGER_NO_INBOUND_MESSAGE =
-  'El cliente aún no ha escrito por Messenger. Envía la cotización con un link.';
+  'El cliente aún no ha escrito por Messenger. Cotiza y comparte el link por el canal que prefieras.';
 
 export const INSTAGRAM_WINDOW_CLOSED_MESSAGE =
-  'Ventana de 24 h cerrada. Instagram no permite escribir en el chat. Envía la cotización con un link.';
+  'Ventana de 24 h cerrada. Instagram no permite escribir en el chat. Cotiza y comparte el link por el canal que prefieras.';
 
 export const INSTAGRAM_NO_INBOUND_MESSAGE =
-  'El cliente aún no ha escrito por Instagram. Envía la cotización con un link.';
+  'El cliente aún no ha escrito por Instagram. Cotiza y comparte el link por el canal que prefieras.';
 
 type ReplyWindowMessage = {
   es_proveedor: boolean;

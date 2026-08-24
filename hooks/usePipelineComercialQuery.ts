@@ -20,6 +20,7 @@ export function pipelineQueryKey(params: PipelineQueryParams) {
     params.miembro_taller ?? null,
     params.fetchAllEstados ?? false,
     params.estado_normalizado ?? null,
+    params.q?.trim() || null,
   ] as const;
 }
 

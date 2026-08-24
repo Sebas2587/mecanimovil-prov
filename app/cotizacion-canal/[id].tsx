@@ -138,6 +138,19 @@ export default function CotizacionCanalDetalleScreen() {
     }
   }, [draft?.id, invalidateAll]);
 
+  const compartirUrl = useCallback(async (url: string) => {
+    try {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        showAlert('Link copiado', 'Pégalo en WhatsApp, Instagram u otro canal.');
+        return;
+      }
+      await Share.share({ message: url, url });
+    } catch {
+      showAlert('Link de cotización', url);
+    }
+  }, []);
+
   const enviar = useCallback(async () => {
     if (!draft?.id) return;
     if (adicionalRequiereFecha(draft)) {
@@ -160,14 +173,15 @@ export default function CotizacionCanalDetalleScreen() {
         const entrega = res.entrega_via || res.cotizacion.metadata?.entrega_canal;
         await invalidateAll();
         await refetch();
-        if (entrega === 'link_publico') {
+        if (entrega === 'link_publico' || entrega === 'whatsapp_template') {
           showAlert(
             'Cotización lista para compartir',
             res.entrega_mensaje
-              || 'El canal no permite enviarla en el chat (ventana de 24 h). Comparte el link con el cliente.',
+              || 'Comparte el link por el canal que prefieras para que el cliente revise, acepte o rechace.',
           );
           if (url) {
             setDraft({ ...res.cotizacion });
+            await compartirUrl(url);
           }
           return;
         }
@@ -189,7 +203,7 @@ export default function CotizacionCanalDetalleScreen() {
     } finally {
       setEnviando(false);
     }
-  }, [data?.estado, draft, hayCambios, invalidateAll, refetch]);
+  }, [compartirUrl, data?.estado, draft, hayCambios, invalidateAll, refetch]);
 
   const eliminar = useCallback(() => {
     if (!draft?.id) return;
@@ -213,17 +227,8 @@ export default function CotizacionCanalDetalleScreen() {
   const compartir = useCallback(async () => {
     const url = draft?.share_url || draft?.url_publica;
     if (!url) return;
-    try {
-      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-        showAlert('Link copiado', 'Pégalo en WhatsApp u otro canal.');
-        return;
-      }
-      await Share.share({ message: url, url });
-    } catch {
-      showAlert('Link de cotización', url);
-    }
-  }, [draft]);
+    await compartirUrl(url);
+  }, [compartirUrl, draft]);
 
   const marcarAceptada = useCallback(async () => {
     if (!draft?.id) return;

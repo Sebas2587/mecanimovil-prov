@@ -154,7 +154,6 @@ export default function ChatOmnicanalScreen() {
 
   const canSendMessages = !channelDisconnectedReason && !channelWindowBlockReason;
   const inputRestrictionMessage = channelDisconnectedReason || channelWindowBlockReason;
-  const [enviandoAviso, setEnviandoAviso] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -215,23 +214,6 @@ export default function ChatOmnicanalScreen() {
       setLoading(false);
     }
   }, [convId, mapApiMessage]);
-
-  const handleEnviarAviso = useCallback(async () => {
-    if (!convId || enviandoAviso) return;
-    setEnviandoAviso(true);
-    try {
-      await chatService.enviarAviso(convId);
-      await cargar();
-      Alert.alert(
-        'Aviso enviado',
-        'Se envió una plantilla de WhatsApp. Cuando el cliente responda, el chat se reabre.',
-      );
-    } catch (error) {
-      Alert.alert('No se pudo enviar el aviso', extractSendMessageError(error));
-    } finally {
-      setEnviandoAviso(false);
-    }
-  }, [cargar, convId, enviandoAviso]);
 
   useFocusEffect(
     useCallback(() => {
@@ -583,19 +565,11 @@ export default function ChatOmnicanalScreen() {
           {inputRestrictionMessage ? (
             <OmnichannelChatRestrictionBanner
               message={inputRestrictionMessage}
-              actionLabel={
-                channelDisconnectedReason
-                  ? 'Conectar'
-                  : channelSlug === 'whatsapp' && channelWindowBlockReason && !enviandoAviso
-                    ? 'Enviar aviso'
-                    : undefined
-              }
+              actionLabel={channelDisconnectedReason ? 'Conectar' : undefined}
               onActionPress={
                 channelDisconnectedReason
                   ? () => router.push('/configuracion-canales' as never)
-                  : channelSlug === 'whatsapp' && channelWindowBlockReason
-                    ? () => { void handleEnviarAviso(); }
-                    : undefined
+                  : undefined
               }
               variant="strip"
             />

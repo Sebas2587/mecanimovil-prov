@@ -24,6 +24,9 @@ export function leadOperativoTag(
   estadoLabel: string,
   estadoVariant: LeadOperativoTag['variant'],
 ): LeadOperativoTag {
+  if (item.en_edicion || (item.tipo_entidad === 'cotizacion_canal' && item.estado_raw === 'borrador' && item.numero_publico)) {
+    return { label: 'En edición', variant: 'primary' };
+  }
   if (item.horario_por_confirmar) {
     return { label: 'Confirmar horario', variant: 'warning' };
   }
@@ -60,9 +63,9 @@ export function leadMetaHint(item: PipelineComercialItem): string {
   if (item.esperando_respuesta_24h || item.demorado_48h) {
     const cat = leadCategoriaOf(item);
     if (LEAD_ALTA_INTENCION.has(cat)) {
-      return 'mostró interés · escribe o cierra el caso';
+      return 'mostró interés · abre la cotización o cierra el caso';
     }
-    return 'pregunta qué pasó o cierra el caso';
+    return 'abre la cotización o cierra el caso';
   }
   return '';
 }
@@ -74,9 +77,9 @@ export function leadSheetHint(item: PipelineComercialItem): string | null {
   if (item.esperando_respuesta_24h || item.demorado_48h) {
     const cat = leadCategoriaOf(item);
     if (LEAD_ALTA_INTENCION.has(cat)) {
-      return 'Mostró interés. Escribe o cierra el caso.';
+      return 'Mostró interés. Abre la cotización o cierra el caso.';
     }
-    return 'Pregunta qué pasó o cierra el caso.';
+    return 'Abre la cotización o cierra el caso.';
   }
   return null;
 }

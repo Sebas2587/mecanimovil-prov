@@ -8,6 +8,7 @@ import {
   FlatList,
   ScrollView,
   RefreshControl,
+  TextInput,
   type RefreshControlProps,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -15,6 +16,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  FileText,
   Inbox,
   Instagram,
   Link2,
@@ -50,6 +52,7 @@ import {
   hostScreenStyles,
 } from '@/app/design-system/components';
 import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
+import { institutionalInputPlaceholder, institutionalInputStyles } from '@/app/design-system/styles/institutionalInputs';
 import { AsignarTecnicoBottomSheet, type AsignarTecnicoTarget } from '@/components/equipo/AsignarTecnicoBottomSheet';
 import { ConfirmarHorarioCitaSheet } from '@/components/agenda/ConfirmarHorarioCitaSheet';
 import {
@@ -153,8 +156,11 @@ const ORIGEN_TAG_VARIANT: Partial<Record<string, 'primary' | 'info' | 'neutral' 
   app: 'neutral',
 };
 
-function OrigenIcon({ origen }: { origen: string }) {
+function OrigenIcon({ origen, tipo }: { origen: string; tipo?: string }) {
   const props = { size: 18, color: I.ink, strokeWidth: ICON_STROKE_WIDTH } as const;
+  if (tipo === 'cotizacion_canal') {
+    return origen === 'directo' ? <Link2 {...props} /> : <FileText {...props} />;
+  }
   switch (origen) {
     case 'whatsapp':
       return <MessageCircle {...props} />;
@@ -183,6 +189,8 @@ const LeadCard = React.memo(function LeadCard({
   last?: boolean;
 }) {
   const handlePress = useCallback(() => onPress(item), [onPress, item]);
+  const esCotizacion = item.tipo_entidad === 'cotizacion_canal';
+  const folio = item.numero_publico?.trim();
   const monto = item.monto_clp != null ? formatearMontoCLP(item.monto_clp) : null;
   const servicio =
     item.servicio_resumen?.trim()
@@ -202,6 +210,9 @@ const LeadCard = React.memo(function LeadCard({
     ESTADO_OPERATIVO_VARIANT[estadoOperativo],
   );
   const metaHint = leadMetaHint(item);
+  const titulo = esCotizacion
+    ? (item.cliente_nombre || 'Cliente')
+    : servicio;
 
   return (
     <TouchableOpacity
@@ -211,19 +222,30 @@ const LeadCard = React.memo(function LeadCard({
       accessibilityRole="button"
     >
       <View style={hostIconPlateStyle}>
-        <OrigenIcon origen={item.origen} />
+        <OrigenIcon origen={item.origen} tipo={item.tipo_entidad} />
       </View>
 
       <View style={styles.leadBody}>
         <View style={styles.leadLine1}>
           <Text style={styles.leadServicio} numberOfLines={2}>
-            {servicio}
+            {titulo}
           </Text>
           <View style={styles.leadPriceChevron}>
             {monto ? <Text style={styles.leadPrice}>{monto}</Text> : null}
             <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
         </View>
+
+        {(folio || vehiculo) && esCotizacion ? (
+          <View style={styles.leadTags}>
+            {folio ? (
+              <InstitutionalTag label={folio} variant="neutral" size="sm" />
+            ) : null}
+            {vehiculo ? (
+              <InstitutionalTag label={vehiculo} variant="neutral" size="sm" />
+            ) : null}
+          </View>
+        ) : null}
 
         <View style={styles.leadTags}>
           <InstitutionalTag label={origenLabel} variant={origenVariant} size="sm" uppercase />
@@ -249,9 +271,13 @@ const LeadCard = React.memo(function LeadCard({
         </View>
 
         <Text style={styles.leadMeta} numberOfLines={1}>
-          {item.cliente_nombre || 'Cliente'}
-          {vehiculo ? ` · ${vehiculo}` : ''}
-          {metaHint ? ` · ${metaHint}` : ''}
+          {esCotizacion
+            ? [servicio, metaHint].filter(Boolean).join(' · ')
+            : [
+                item.cliente_nombre || 'Cliente',
+                vehiculo,
+                metaHint,
+              ].filter(Boolean).join(' · ')}
         </Text>
       </View>
     </TouchableOpacity>
@@ -299,6 +325,8 @@ interface Props {
   filtroPorAgendar?: boolean;
   filtroOrigen?: OrigenPipeline;
   filtroEstadoInicial?: EstadoPipelineNormalizado;
+  /** Busqueda inicial (deep link `?q=MM-000098`). */
+  busquedaInicial?: string;
   /** @deprecated Usar invalidación TanStack Query; se mantiene por compatibilidad. */
   refreshKey?: number;
   hideTitle?: boolean;
@@ -312,6 +340,7 @@ export function PipelineSeguimientoSection({
   filtroPorAgendar = false,
   filtroOrigen,
   filtroEstadoInicial,
+  busquedaInicial = '',
   refreshKey = 0,
   hideTitle = false,
   listRefreshControl,
@@ -327,6 +356,8 @@ export function PipelineSeguimientoSection({
   const [miembroParaHorario, setMiembroParaHorario] = useState<number | null>(null);
   const [confirmarHorarioVisible, setConfirmarHorarioVisible] = useState(false);
   const [leadActivo, setLeadActivo] = useState<PipelineComercialItem | null>(null);
+  const [busqueda, setBusqueda] = useState(busquedaInicial);
+  const [qDebounced, setQDebounced] = useState(busquedaInicial.trim());
   const [cotizacionDetalle, setCotizacionDetalle] = useState<CotizacionCanal | null>(null);
   const [cotizacionDetalleLoading, setCotizacionDetalleLoading] = useState(false);
   const cotizacionCacheRef = useRef<Map<number, CotizacionCanal>>(new Map());
@@ -382,6 +413,17 @@ export function PipelineSeguimientoSection({
     if (filtroEstadoInicial) setVista(filtroEstadoInicial);
   }, [filtroEstadoInicial]);
 
+  useEffect(() => {
+    const next = busquedaInicial.trim();
+    setBusqueda(next);
+    setQDebounced(next);
+  }, [busquedaInicial]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setQDebounced(busqueda.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [busqueda]);
+
   const queryParams = useMemo(
     () => ({
       limite,
@@ -389,8 +431,9 @@ export function PipelineSeguimientoSection({
       esperando_24h: filtroEsperando24h || undefined,
       estado_normalizado: filtroEsperando24h ? ('cotizacion_enviada' as EstadoPipelineNormalizado) : undefined,
       fetchAllEstados: !filtroEsperando24h,
+      q: qDebounced || undefined,
     }),
-    [limite, origen, filtroEsperando24h],
+    [limite, origen, filtroEsperando24h, qDebounced],
   );
 
   const { data, isPending, isFetching, refetch } = usePipelineComercialQuery(queryParams);
@@ -442,7 +485,7 @@ export function PipelineSeguimientoSection({
 
   const handlePress = useCallback((item: PipelineComercialItem) => {
     if (item.tipo_entidad === 'cotizacion_canal' && item.cotizacion_id) {
-      setLeadActivo(item);
+      router.push(`/cotizacion-canal/${item.cotizacion_id}`);
       return;
     }
     if (item.cita_id || item.orden_id || item.oferta_id) {
@@ -608,17 +651,19 @@ export function PipelineSeguimientoSection({
         loading: accionLoading,
         onPress: () => abrirAsignarDesdeLead(leadActivo, { luegoAgendar: true }),
       };
+    } else if (leadActivo.tipo_entidad === 'cotizacion_canal' && leadActivo.cotizacion_id) {
+      primary = {
+        id: 'cotizacion',
+        label: leadActivo.numero_publico
+          ? `Abrir cotización ${leadActivo.numero_publico}`
+          : 'Abrir cotización',
+        onPress: irLeadCotizacion,
+      };
     } else if (leadPuedeChat) {
       primary = {
         id: 'chat',
         label: 'Ver conversación',
         onPress: irLeadConversacion,
-      };
-    } else if (leadActivo.cotizacion_id) {
-      primary = {
-        id: 'cotizacion',
-        label: 'Abrir cotización',
-        onPress: irLeadCotizacion,
       };
     } else {
       primary = {
@@ -740,7 +785,7 @@ export function PipelineSeguimientoSection({
           <View style={styles.titleBlock}>
             <HostSectionKicker label="Bandeja" />
             <InstitutionalText role="caption" color="muted">
-              Cotizaciones y leads. Las visitas con horario están en Agenda y Servicios.
+              Cada cotización es un caso con folio MM. Ábrela para editarla; el chat es secundario.
             </InstitutionalText>
           </View>
           {compact ? (
@@ -763,7 +808,7 @@ export function PipelineSeguimientoSection({
           <View style={styles.filterHintCopy}>
             <HostSectionKicker label="Sin respuesta +24h" />
             <InstitutionalText role="caption" color="muted">
-              Escribe o cierra el caso. Si aceptó por teléfono, márcala aceptada.
+              Abre la cotización (folio MM) o cierra el caso. Si aceptó por teléfono, márcala aceptada.
             </InstitutionalText>
           </View>
           <TouchableOpacity onPress={() => router.replace('/(tabs)/bandeja')} hitSlop={8}>
@@ -839,6 +884,22 @@ export function PipelineSeguimientoSection({
           </InstitutionalText>
         </View>
       ) : null}
+
+      {!compact ? (
+        <View style={styles.searchWrap}>
+          <TextInput
+            style={institutionalInputStyles.input}
+            value={busqueda}
+            onChangeText={setBusqueda}
+            placeholder="MM-000098, cliente o patente"
+            placeholderTextColor={institutionalInputPlaceholder}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+            returnKeyType="search"
+          />
+        </View>
+      ) : null}
     </View>
   );
 
@@ -867,9 +928,11 @@ export function PipelineSeguimientoSection({
               {vista === 'por_agendar'
                 ? 'No hay cotizaciones aceptadas esperando horario.'
                 : filtroEsperando24h
-                  ? 'No hay cotizaciones sin respuesta. Cuando un cliente no contesta, aparece aquí para escribir o cerrar el caso.'
+                  ? 'No hay cotizaciones sin respuesta. Cuando un cliente no contesta, aparece aquí para abrir el folio o cerrar el caso.'
                   : vista === 'cotizacion_enviada'
-                    ? 'No hay cotizaciones esperando respuesta del cliente.'
+                    ? 'No hay cotizaciones esperando respuesta. Busca por folio MM si no la ves en Abiertos.'
+                    : qDebounced
+                      ? `Sin resultados para «${qDebounced}».`
                     : 'No hay elementos en esta vista.'}
             </InstitutionalText>
           </View>
@@ -1033,6 +1096,9 @@ const styles = StyleSheet.create({
   section: { gap: SPACING.fixed.sm },
   sectionFill: { flex: 1 },
   headerBlock: { gap: SPACING.fixed.sm, marginBottom: SPACING.fixed.sm },
+  searchWrap: {
+    marginTop: SPACING.fixed.xs,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',

@@ -51,6 +51,10 @@ export interface PipelineComercialItem {
   es_cotizacion_adicional?: boolean;
   lead_categoria?: LeadCategoria;
   lead_score?: number;
+  numero_publico?: string | null;
+  es_libre?: boolean;
+  entrega_via?: string | null;
+  en_edicion?: boolean;
 }
 
 export type LeadCategoria =
@@ -102,6 +106,7 @@ export interface PipelineComercialParams {
   esperando_24h?: boolean;
   miembro_taller?: number;
   limite?: number;
+  q?: string;
 }
 
 const BASE = '/ordenes/pipeline-comercial/';
@@ -114,6 +119,8 @@ function buildQuery(params?: PipelineComercialParams): string {
   if (params.esperando_24h) search.append('esperando_24h', 'true');
   if (params.miembro_taller != null) search.append('miembro_taller', String(params.miembro_taller));
   if (params.limite != null) search.append('limite', String(params.limite));
+  const trimmed = params.q?.trim();
+  if (trimmed) search.append('q', trimmed);
   const q = search.toString();
   return q ? `?${q}` : '';
 }

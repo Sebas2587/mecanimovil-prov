@@ -21,10 +21,15 @@ const ESTADOS_FILTRO_URL: EstadoPipelineNormalizado[] = [
 ];
 
 export default function BandejaTabScreen() {
-  const params = useLocalSearchParams<{ filtro?: string | string[]; origen?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    filtro?: string | string[];
+    origen?: string | string[];
+    q?: string | string[];
+  }>();
 
   const filtroParam = Array.isArray(params.filtro) ? params.filtro[0] : params.filtro;
   const origenParam = Array.isArray(params.origen) ? params.origen[0] : params.origen;
+  const qParam = Array.isArray(params.q) ? params.q[0] : params.q;
   const filtroEsperando24h = filtroParam === 'esperando_24h';
   const filtroPorAgendar = filtroParam === 'por_agendar';
 
@@ -65,6 +70,7 @@ export default function BandejaTabScreen() {
             filtroPorAgendar={filtroPorAgendar}
             filtroEstadoInicial={filtroEstadoInicial}
             filtroOrigen={filtroOrigen}
+            busquedaInicial={qParam?.trim() || ''}
           />
         </View>
       </View>

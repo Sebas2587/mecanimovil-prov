@@ -440,7 +440,7 @@ export function CotizacionLibreModal({
     try {
       if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
-        showAlert('Link copiado', 'Pégalo en WhatsApp u otro canal para el cliente.');
+        showAlert('Link copiado', 'Pégalo en WhatsApp, Instagram u otro canal para el cliente.');
         return;
       }
       await Share.share({ message: url, url });
@@ -463,16 +463,16 @@ export function CotizacionLibreModal({
       const entrega = res.entrega_via || res.cotizacion.metadata?.entrega_canal;
       if (entrega === 'whatsapp_template') {
         showAlert(
-          'Cotización enviada',
+          'Cotización lista para compartir',
           res.entrega_mensaje
-            || 'La ventana de 24 h estaba cerrada: se envió una plantilla de WhatsApp. Conserva el link por si el cliente no la ve.',
+            || 'Comparte este link por el canal que prefieras para que el cliente revise, acepte o rechace.',
         );
-        if (url) setShareUrl(url);
+        if (url) await compartirLink(url);
       } else if (entrega === 'link_publico' || channelWindowClosedReason) {
         showAlert(
           'Cotización lista para compartir',
           res.entrega_mensaje
-            || 'El chat lleva más de 24 h sin mensaje del cliente y el canal no permite enviarla ahí. Comparte este link para que revise, acepte o rechace.',
+            || 'El chat no permite enviarla ahora. Comparte este link por el canal que prefieras para que el cliente revise, acepte o rechace.',
         );
         if (url) await compartirLink(url);
       } else if (res.cotizacion.conversation || res.message_id) {
