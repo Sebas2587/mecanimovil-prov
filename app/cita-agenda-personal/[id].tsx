@@ -15,6 +15,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { Pencil } from 'lucide-react-native';
+import Header from '@/components/Header';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -26,7 +28,6 @@ import {
   BORDERS,
   withOpacity,
   platformShadow,
-  noShadow,
 } from '@/app/design-system/tokens';
 import {
   HostSectionKicker,
@@ -110,16 +111,7 @@ function formatDuracion(min?: number): string | null {
 }
 
 const stackOptions = {
-  title: 'Cita personal',
-  headerBackTitle: '',
-  headerBackTitleVisible: false as const,
-  headerShadowVisible: false,
-  headerStyle: {
-    backgroundColor: I.canvas,
-    borderBottomWidth: 0,
-    ...noShadow,
-  },
-  headerTintColor: I.ink,
+  headerShown: false,
 };
 
 export default function CitaAgendaPersonalDetalleScreen() {
@@ -776,10 +768,22 @@ export default function CitaAgendaPersonalDetalleScreen() {
     horarioPorConfirmar,
   ]);
 
+  const handleEditarCita = useCallback(() => {
+    setFeedbackAccion(null);
+    setEditando(true);
+  }, []);
+
   if (showInitialLoader) {
     return (
       <View style={styles.container}>
         <Stack.Screen options={stackOptions} />
+        <Header
+          title="Trabajo en curso"
+          showBack
+          onBackPress={() => router.back()}
+          backgroundColor={I.canvas}
+          titleColor={I.ink}
+        />
         <View style={styles.screenRoot}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={I.primary} />
@@ -860,30 +864,33 @@ export default function CitaAgendaPersonalDetalleScreen() {
     puedeServicios: !esSupervisor || puede('servicios'),
   });
 
+  const tituloCita =
+    nombreServicio && nombreServicio !== 'Servicio' ? nombreServicio : 'Trabajo en curso';
+
   const mostrarEditarHeader =
     esActiva && permitirEditarCita && !editando && !checklistEnCurso;
 
   return (
     <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          ...stackOptions,
-          headerRight: () =>
-            mostrarEditarHeader ? (
-              <Pressable
-                onPress={() => {
-                  setFeedbackAccion(null);
-                  setEditando(true);
-                }}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel="Editar cita"
-                style={styles.headerEditPressable}
-              >
-                <Text style={styles.headerEditLabel}>Editar</Text>
-              </Pressable>
-            ) : null,
-        }}
+      <Stack.Screen options={stackOptions} />
+      <Header
+        title={tituloCita}
+        showBack
+        onBackPress={() => router.back()}
+        backgroundColor={I.canvas}
+        titleColor={I.ink}
+        rightComponent={
+          mostrarEditarHeader ? (
+            <TouchableOpacity
+              onPress={handleEditarCita}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Editar cita"
+            >
+              <Pencil size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            </TouchableOpacity>
+          ) : null
+        }
       />
 
       <KeyboardAvoidingView style={styles.screenRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

@@ -45,7 +45,7 @@ export function usePipelineClienteDetalleQuery(clienteKey: string | undefined) {
     queryKey: pipelineClienteDetalleQueryKey(key),
     queryFn: () => pipelineComercialService.obtenerCliente(key),
     enabled: Boolean(key),
-    staleTime: 15_000,
+    staleTime: 0,
     refetchOnWindowFocus: true,
   });
 }

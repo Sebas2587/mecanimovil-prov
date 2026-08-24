@@ -82,34 +82,92 @@ function fechaCorta(iso: string | null): string {
   return parsed.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function tituloVehiculo(veh: PipelineClienteVehiculoFicha): { titulo: string; subtitulo: string | null } {
+function tituloVehiculo(veh: PipelineClienteVehiculoFicha): {
+  vehiculo: string;
+  patente: string | null;
+} {
   const patente = (veh.patente || '').trim();
   const resumen = (veh.resumen || '').trim();
   if (patente) {
     const escaped = patente.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const resto = resumen.replace(new RegExp(`^${escaped}\\s*[·•|]\\s*`, 'i'), '').trim();
-    return { titulo: patente, subtitulo: resto || null };
+    const vehiculo = resumen.replace(new RegExp(`^${escaped}\\s*[·•|]\\s*`, 'i'), '').trim();
+    return {
+      vehiculo: vehiculo || resumen || 'Sin vehículo',
+      patente,
+    };
   }
-  return { titulo: resumen || 'Sin vehículo', subtitulo: null };
+  return { vehiculo: resumen || 'Sin vehículo', patente: null };
+}
+
+function casoId(caso: PipelineClienteCaso): string {
+  return `${caso.tipo_entidad}-${caso.entidad_id}`;
+}
+
+function esTrabajoAdicional(caso: PipelineClienteCaso): boolean {
+  const folioPrincipal = (caso.folio_principal || '').trim();
+  const folioPropio = (caso.numero_publico || '').trim();
+  return Boolean(
+    caso.es_cotizacion_adicional
+    || caso.cotizacion_original_id
+    || (caso.servicio_principal_nombre || '').trim()
+    || (folioPrincipal && folioPrincipal !== folioPropio),
+  );
+}
+
+function adicionalDe(principal: PipelineClienteCaso, adicional: PipelineClienteCaso): boolean {
+  if (
+    principal.cotizacion_id
+    && adicional.cotizacion_original_id
+    && adicional.cotizacion_original_id === principal.cotizacion_id
+  ) {
+    return true;
+  }
+  const folioP = (principal.numero_publico || '').trim();
+  const folioA = (adicional.folio_principal || '').trim();
+  return Boolean(folioP && folioA && folioP === folioA);
 }
 
 function referenciaPrincipal(caso: PipelineClienteCaso): string | null {
-  if (!caso.es_cotizacion_adicional) return null;
+  if (!esTrabajoAdicional(caso)) return null;
   const folio = (caso.folio_principal || '').trim();
   const servicio = (caso.servicio_principal_nombre || '').trim();
   const desde = [folio, servicio].filter(Boolean).join(' · ');
-  if (!desde) return 'Trabajo adicional';
   const extra = caso.ejecucion_adicional === 'nueva_fecha' ? ' · Nueva fecha' : '';
+  if (!desde) return extra ? `Del trabajo en curso${extra}` : 'Del trabajo en curso';
   return `Desde: ${desde}${extra}`;
 }
 
-const CasoCard = React.memo(function CasoCard({
+type CasoCluster = {
+  principal: PipelineClienteCaso | null;
+  adicionales: PipelineClienteCaso[];
+};
+
+function agruparCasosPorPrincipal(casos: PipelineClienteCaso[]): CasoCluster[] {
+  const adicionales = casos.filter(esTrabajoAdicional);
+  const principales = casos.filter((caso) => !esTrabajoAdicional(caso));
+  const usados = new Set<string>();
+  const clusters: CasoCluster[] = [];
+
+  for (const principal of principales) {
+    const hijos = adicionales.filter((adicional) => adicionalDe(principal, adicional));
+    hijos.forEach((hijo) => usados.add(casoId(hijo)));
+    clusters.push({ principal, adicionales: hijos });
+  }
+  for (const adicional of adicionales) {
+    if (!usados.has(casoId(adicional))) {
+      clusters.push({ principal: null, adicionales: [adicional] });
+    }
+  }
+  return clusters;
+}
+
+const CasoListing = React.memo(function CasoListing({
   caso,
-  width,
+  adicionalHuerfano,
   onPress,
 }: {
   caso: PipelineClienteCaso;
-  width: number;
+  adicionalHuerfano?: boolean;
   onPress: (caso: PipelineClienteCaso) => void;
 }) {
   const handlePress = useCallback(() => onPress(caso), [caso, onPress]);
@@ -119,38 +177,112 @@ const CasoCard = React.memo(function CasoCard({
   const origen = ORIGEN_PIPELINE_LABELS[caso.origen] || '';
   const fecha = fechaCorta(caso.fecha_referencia);
   const meta = [origen, fecha].filter(Boolean).join(' · ');
-  const adicional = Boolean(caso.es_cotizacion_adicional);
-  const desde = referenciaPrincipal(caso);
+  const desde = adicionalHuerfano ? referenciaPrincipal(caso) : null;
+
+  return (
+    <TouchableOpacity
+      onPress={handlePress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+    >
+      <View style={styles.casoTop}>
+        <Text style={styles.casoServicio} numberOfLines={2}>
+          {caso.servicio_resumen || ESTADO_PIPELINE_LABELS[caso.estado_normalizado]}
+        </Text>
+        <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+      </View>
+      <View style={styles.casoTags}>
+        {adicionalHuerfano ? <InstitutionalTag label="Adicional" variant="info" size="sm" /> : null}
+        {folio ? <InstitutionalTag label={folio} variant="neutral" size="sm" /> : null}
+        <InstitutionalTag label={operativo.label} variant={operativo.variant} size="sm" />
+      </View>
+      {desde ? (
+        <Text style={styles.casoDesde} numberOfLines={1}>
+          {desde}
+        </Text>
+      ) : null}
+      {meta || monto ? (
+        <View style={styles.casoFooter}>
+          {meta ? (
+            <Text style={styles.casoMeta} numberOfLines={1}>
+              {meta}
+            </Text>
+          ) : (
+            <View style={styles.flex} />
+          )}
+          {monto ? <Text style={styles.casoPrecio}>{monto}</Text> : null}
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+});
+
+const AdicionalCompact = React.memo(function AdicionalCompact({
+  caso,
+  last,
+  onPress,
+}: {
+  caso: PipelineClienteCaso;
+  last?: boolean;
+  onPress: (caso: PipelineClienteCaso) => void;
+}) {
+  const handlePress = useCallback(() => onPress(caso), [caso, onPress]);
+  const folio = caso.numero_publico?.trim();
+  const operativo = tagCaso(caso);
+  const monto = caso.monto_clp != null ? formatearMontoCLP(caso.monto_clp) : null;
+  const meta = [folio, operativo.label].filter(Boolean).join(' · ');
+
+  return (
+    <TouchableOpacity
+      style={[styles.adicionalRow, !last && styles.adicionalRowBorder]}
+      onPress={handlePress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`Adicional, ${caso.servicio_resumen || 'servicio'}`}
+    >
+      <View style={styles.adicionalBody}>
+        <Text style={styles.adicionalLabel}>Adicional</Text>
+        <Text style={styles.adicionalServicio} numberOfLines={1}>
+          {caso.servicio_resumen || ESTADO_PIPELINE_LABELS[caso.estado_normalizado]}
+        </Text>
+        {meta ? (
+          <Text style={styles.adicionalMeta} numberOfLines={1}>
+            {meta}
+          </Text>
+        ) : null}
+      </View>
+      {monto ? <Text style={styles.adicionalPrecio}>{monto}</Text> : null}
+    </TouchableOpacity>
+  );
+});
+
+const CasoClusterPaper = React.memo(function CasoClusterPaper({
+  cluster,
+  width,
+  onPress,
+}: {
+  cluster: CasoCluster;
+  width: number;
+  onPress: (caso: PipelineClienteCaso) => void;
+}) {
+  const listing = cluster.principal ?? cluster.adicionales[0];
+  const extras = cluster.principal ? cluster.adicionales : [];
+  const huerfano = !cluster.principal;
 
   return (
     <View style={{ width }}>
-      <HostPaperSection onPress={handlePress}>
-        <View style={styles.casoTop}>
-          <Text style={styles.casoServicio} numberOfLines={2}>
-            {caso.servicio_resumen || ESTADO_PIPELINE_LABELS[caso.estado_normalizado]}
-          </Text>
-          <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-        </View>
-        <View style={styles.casoTags}>
-          {adicional ? <InstitutionalTag label="Adicional" variant="info" size="sm" /> : null}
-          {folio ? <InstitutionalTag label={folio} variant="neutral" size="sm" /> : null}
-          <InstitutionalTag label={operativo.label} variant={operativo.variant} size="sm" />
-        </View>
-        {desde ? (
-          <Text style={styles.casoDesde} numberOfLines={2}>
-            {desde}
-          </Text>
-        ) : null}
-        {meta || monto ? (
-          <View style={styles.casoFooter}>
-            {meta ? (
-              <Text style={styles.casoMeta} numberOfLines={1}>
-                {meta}
-              </Text>
-            ) : (
-              <View style={styles.flex} />
-            )}
-            {monto ? <Text style={styles.casoPrecio}>{monto}</Text> : null}
+      <HostPaperSection style={styles.paperClip}>
+        <CasoListing caso={listing} adicionalHuerfano={huerfano} onPress={onPress} />
+        {extras.length > 0 ? (
+          <View style={styles.adicionalStrip}>
+            {extras.map((caso, index) => (
+              <AdicionalCompact
+                key={casoId(caso)}
+                caso={caso}
+                last={index === extras.length - 1}
+                onPress={onPress}
+              />
+            ))}
           </View>
         ) : null}
       </HostPaperSection>
@@ -306,29 +438,34 @@ export default function ClienteComercialScreen() {
             />
           ) : (
             vehiculosFiltrados.map((veh, index) => {
-              const { titulo, subtitulo } = tituloVehiculo(veh);
+              const { vehiculo, patente } = tituloVehiculo(veh);
               return (
                 <View
                   key={veh.key}
                   style={[styles.vehiculoBlock, index > 0 && styles.vehiculoBlockNext]}
                 >
                   <View style={styles.vehiculoHeader}>
-                    <Text style={styles.vehiculoTitulo}>{titulo}</Text>
-                    {subtitulo ? (
-                      <Text style={styles.vehiculoSub} numberOfLines={2}>
-                        {subtitulo}
-                      </Text>
+                    <Text style={styles.vehiculoTitulo} numberOfLines={2}>
+                      {vehiculo}
+                    </Text>
+                    {patente ? (
+                      <Text style={styles.vehiculoPatente}>{patente}</Text>
                     ) : null}
                   </View>
                   <View style={styles.grid}>
-                    {veh.casos.map((caso) => (
-                      <CasoCard
-                        key={`${caso.tipo_entidad}-${caso.entidad_id}`}
-                        caso={caso}
-                        width={cardWidth}
-                        onPress={handleCaso}
-                      />
-                    ))}
+                    {agruparCasosPorPrincipal(veh.casos).map((cluster) => {
+                      const clusterKey = cluster.principal
+                        ? casoId(cluster.principal)
+                        : casoId(cluster.adicionales[0]);
+                      return (
+                        <CasoClusterPaper
+                          key={clusterKey}
+                          cluster={cluster}
+                          width={cardWidth}
+                          onPress={handleCaso}
+                        />
+                      );
+                    })}
                   </View>
                 </View>
               );
@@ -417,7 +554,7 @@ const styles = StyleSheet.create({
     borderTopColor: I.hairline,
   },
   vehiculoHeader: {
-    gap: 2,
+    gap: SPACING.fixed.xxs,
   },
   vehiculoTitulo: {
     fontFamily: FF.sansSemiBold,
@@ -425,15 +562,21 @@ const styles = StyleSheet.create({
     lineHeight: Math.round(T.h4.fontSize * 1.25),
     color: I.ink,
   },
-  vehiculoSub: {
-    fontFamily: FF.sansRegular,
+  vehiculoPatente: {
+    fontFamily: FF.sansMedium,
     fontSize: TYPOGRAPHY.fontSize.sm,
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
     color: I.muted,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: GRID_GAP,
+    alignItems: 'flex-start',
+  },
+  paperClip: {
+    overflow: 'hidden',
   },
   casoTop: {
     flexDirection: 'row',
@@ -478,5 +621,53 @@ const styles = StyleSheet.create({
     fontFamily: FF.monoMedium,
     fontSize: T.body.fontSize,
     color: I.ink,
+  },
+  adicionalStrip: {
+    marginTop: SPACING.fixed.sm,
+    marginHorizontal: -SPACING.fixed.md,
+    marginBottom: -SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.sm,
+    backgroundColor: I.surfaceSoft,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+  },
+  adicionalRow: {
+    paddingVertical: SPACING.fixed.xs,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.fixed.sm,
+  },
+  adicionalRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+  },
+  adicionalBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  adicionalLabel: {
+    fontFamily: FF.sansMedium,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
+    textTransform: 'uppercase',
+    color: I.muted,
+  },
+  adicionalServicio: {
+    fontFamily: FF.sansMedium,
+    fontSize: T.body.fontSize,
+    color: I.ink,
+  },
+  adicionalMeta: {
+    fontFamily: FF.sansRegular,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: I.muted,
+  },
+  adicionalPrecio: {
+    fontFamily: FF.monoMedium,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: I.ink,
+    paddingTop: 2,
   },
 });

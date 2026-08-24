@@ -219,6 +219,20 @@ class CotizacionCanalService {
     return response.data as { cotizacion: CotizacionCanal };
   }
 
+  async cotizarItems(
+    id: number,
+    payload: { nombres?: string[]; repuestos?: RepuestoCotizacion[] },
+  ): Promise<{ cotizacion: CotizacionCanal; agregados: string[]; busqueda_web: boolean }> {
+    const response = await api.post(`/ordenes/cotizaciones-canal/${id}/cotizar-items/`, payload, {
+      timeout: 45000,
+    });
+    return response.data as {
+      cotizacion: CotizacionCanal;
+      agregados: string[];
+      busqueda_web: boolean;
+    };
+  }
+
   async actualizar(id: number, patch: Partial<CotizacionCanal>): Promise<CotizacionCanal> {
     const response = await api.patch(`/ordenes/cotizaciones-canal/${id}/`, patch);
     return response.data as CotizacionCanal;

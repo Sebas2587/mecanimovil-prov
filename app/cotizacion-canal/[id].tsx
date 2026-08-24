@@ -322,7 +322,9 @@ export default function CotizacionCanalDetalleScreen() {
     );
   }
 
-  const titulo = draft.es_cotizacion_adicional ? 'Trabajo adicional' : 'Cotización';
+  const titulo =
+    (draft.servicio_nombre || '').trim()
+    || (draft.es_cotizacion_adicional ? 'Trabajo adicional' : 'Cotización');
 
   return (
     <View style={styles.screen}>
@@ -344,6 +346,7 @@ export default function CotizacionCanalDetalleScreen() {
           onChange={setDraft}
           readonly={!editable}
           hideSendActions
+          compactHeader
         />
 
         {draft.estado === 'enviada' ? (

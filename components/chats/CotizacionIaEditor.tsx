@@ -8,7 +8,7 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
-import { AlertTriangle, Car, MapPin, Phone, Plus, Trash2, UserRound } from 'lucide-react-native';
+import { AlertTriangle, Car, MapPin, Phone, Plus, Sparkles, Trash2, UserRound } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
@@ -33,6 +33,8 @@ import {
   parseMontoDecimal,
 } from '@/utils/parseMontoDecimal';
 import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
+import cotizacionCanalService from '@/services/cotizacionCanalService';
+import { CotizarItemsIaModal } from '@/components/chats/CotizarItemsIaModal';
 import { useCotizacionCanalDetalleQuery } from '@/hooks/useCotizacionCanalDetalleQuery';
 import {
   EjecucionAdicionalCampos,
@@ -77,9 +79,24 @@ function proveedorLabel(rep: RepuestoCotizacion): string | null {
   return null;
 }
 
-/** Una sola etiqueta de origen (tienda o proveedor). Sin prefijo "Canal:" / "Tienda:". */
+/** Una sola etiqueta de origen (tienda, proveedor o canal). */
 function origenTagLabel(rep: RepuestoCotizacion): string | null {
-  return proveedorLabel(rep);
+  const nombre = proveedorLabel(rep);
+  if (nombre) return nombre;
+  const key = (rep.fuente_marketplace || rep.fuente_repuesto || '').trim().toLowerCase();
+  if (key === 'web') return 'Búsqueda web';
+  if (key === 'catalogo' || key === 'catálogo') return 'Catálogo del taller';
+  if (key === 'historial') return 'Historial del taller';
+  if (key === 'mercadolibre') return 'Mercado Libre';
+  return null;
+}
+
+function lineaSinPrecioParaIa(rep: RepuestoCotizacion): boolean {
+  const nombre = (rep.nombre || '').trim().toLowerCase();
+  if (!nombre || nombre === 'repuesto') return false;
+  const key = (rep.fuente_marketplace || '').trim().toLowerCase();
+  if (key === 'catalogo' || key === 'catálogo' || key === 'historial') return false;
+  return !rep.precio_unitario_clp || rep.precio_unitario_clp <= 0;
 }
 
 /** Fusiona repuestos enriquecidos por web sin pisar nombres editados localmente. */
@@ -377,6 +394,13 @@ export function CotizacionIaEditor({
   const cotizacionRef = useRef(cotizacion);
   cotizacionRef.current = cotizacion;
 
+  const [modalItemsIa, setModalItemsIa] = useState(false);
+  const [cotizandoItems, setCotizandoItems] = useState(false);
+  const lineasSinPrecio = useMemo(
+    () => repuestos.filter(lineaSinPrecioParaIa).length,
+    [repuestos],
+  );
+
   const { data: detalleRefrescado } = useCotizacionCanalDetalleQuery(
     cotizacion.id,
     Boolean(busquedaPendiente && cotizacion.id > 0),
@@ -468,6 +492,39 @@ export function CotizacionIaEditor({
     });
   }, [onChange]);
 
+  const cotizarItemsConIa = useCallback(async (nombres: string[]) => {
+    const current = cotizacionRef.current;
+    if (!current.id || current.estado !== 'borrador') return;
+    setCotizandoItems(true);
+    try {
+      const resultado = await cotizacionCanalService.cotizarItems(current.id, {
+        nombres,
+        repuestos: current.repuestos ?? [],
+      });
+      onChange({
+        ...current,
+        ...resultado.cotizacion,
+        metadata: {
+          ...(current.metadata || {}),
+          ...(resultado.cotizacion.metadata || {}),
+        },
+      });
+      setModalItemsIa(false);
+    } catch (err: unknown) {
+      const data = (err as {
+        response?: { data?: Record<string, string | string[] | undefined> };
+      })?.response?.data;
+      const first = data?.nombres ?? data?.estado ?? data?.detail ?? data?.non_field_errors;
+      const msg = Array.isArray(first) ? first[0] : first;
+      showAlert(
+        'No se pudo cotizar',
+        (typeof msg === 'string' && msg) || 'Revisa los nombres e inténtalo de nuevo.',
+      );
+    } finally {
+      setCotizandoItems(false);
+    }
+  }, [onChange]);
+
   const kmMeta = cotizacion.metadata?.vehiculo_kilometraje_actual;
   const vehiculoTitulo = [
     cotizacion.vehiculo_marca,
@@ -527,48 +584,60 @@ export function CotizacionIaEditor({
       {!sinHeader ? (
       <View style={styles.headerRow}>
         {compactHeader ? (
-          <View style={styles.headerTags}>
-            {cotizacion.metadata?.origen === 'agente_ia' ? (
-              <InstitutionalTag label="IA" variant="warning" size="sm" />
-            ) : null}
-            {cotizacion.es_cotizacion_adicional ? (
-              <InstitutionalTag label="Adicional" variant="info" size="sm" />
-            ) : null}
-            {cotizacion.numero_publico ? (
+          <View style={styles.headerTagsCol}>
+            <View style={styles.headerTags}>
+              {cotizacion.metadata?.origen === 'agente_ia' ? (
+                <InstitutionalTag label="IA" variant="warning" size="sm" />
+              ) : null}
+              {cotizacion.es_cotizacion_adicional ? (
+                <InstitutionalTag label="Adicional" variant="info" size="sm" />
+              ) : null}
+              {cotizacion.numero_publico ? (
+                <InstitutionalTag
+                  label={`#${cotizacion.numero_publico}`}
+                  variant="neutral"
+                  size="sm"
+                />
+              ) : null}
               <InstitutionalTag
-                label={`#${cotizacion.numero_publico}`}
-                variant="neutral"
+                label={cotizacion.estado}
+                variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
                 size="sm"
+                uppercase
               />
+              {cotizacion.modalidad ? (
+                <InstitutionalTag
+                  label={cotizacion.modalidad === 'domicilio' ? 'Domicilio' : 'Taller'}
+                  variant="neutral"
+                  size="sm"
+                />
+              ) : null}
+            </View>
+            {cotizacion.es_cotizacion_adicional && cotizacion.servicio_principal_nombre ? (
+              <InstitutionalText role="caption" color="muted" numberOfLines={2}>
+                Desde: {cotizacion.servicio_principal_nombre}
+              </InstitutionalText>
             ) : null}
-            <InstitutionalTag
-              label={cotizacion.estado}
-              variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
-              size="sm"
-              uppercase
-            />
-            {cotizacion.modalidad ? (
-              <InstitutionalTag
-                label={cotizacion.modalidad === 'domicilio' ? 'Domicilio' : 'Taller'}
-                variant="neutral"
-                size="sm"
-              />
+            {cotizacion.es_cotizacion_adicional && cotizacion.motivo_servicio_adicional ? (
+              <InstitutionalText role="caption" color="muted" numberOfLines={3}>
+                Motivo: {cotizacion.motivo_servicio_adicional}
+              </InstitutionalText>
             ) : null}
           </View>
         ) : (
           <>
             <View style={styles.headerText}>
               <InstitutionalText role="h4">
-                {cotizacion.es_cotizacion_adicional ? 'Trabajo adicional' : 'Cotización'}
-                {cotizacion.numero_publico ? `  #${cotizacion.numero_publico}` : ''}
+                {(cotizacion.servicio_nombre || '').trim()
+                  || (cotizacion.es_cotizacion_adicional ? 'Trabajo adicional' : 'Cotización')}
               </InstitutionalText>
               {cotizacion.es_cotizacion_adicional && cotizacion.servicio_principal_nombre ? (
                 <InstitutionalText role="caption" color="muted" numberOfLines={2}>
                   Desde: {cotizacion.servicio_principal_nombre}
                 </InstitutionalText>
-              ) : cotizacion.servicio_nombre ? (
-                <InstitutionalText role="caption" color="muted" numberOfLines={2}>
-                  {cotizacion.servicio_nombre}
+              ) : cotizacion.numero_publico ? (
+                <InstitutionalText role="caption" color="muted" numberOfLines={1}>
+                  #{cotizacion.numero_publico}
                 </InstitutionalText>
               ) : null}
               {cotizacion.es_cotizacion_adicional && cotizacion.motivo_servicio_adicional ? (
@@ -601,7 +670,11 @@ export function CotizacionIaEditor({
 
       {cotizacion.es_cotizacion_adicional && (cotizacion.cita_origen_id || cotizacion.cita_personal_id) ? (
         <InstitutionalButton
-          label="Ver trabajo en curso"
+          label={
+            cotizacion.servicio_principal_nombre
+              ? 'Ver trabajo principal'
+              : 'Ver trabajo en curso'
+          }
           variant="outline"
           onPress={() => {
             const citaId = cotizacion.cita_origen_id || cotizacion.cita_personal_id;
@@ -842,6 +915,16 @@ export function CotizacionIaEditor({
           tu historial, una búsqueda web verificada o un listing real. Sin eso, el precio
           es estimado: revísalo antes de enviar al cliente.
         </InstitutionalText>
+        {editable ? (
+          <InstitutionalButton
+            label="Cotizar ítems con IA"
+            variant="outline"
+            size="compact"
+            disabled={busquedaPendiente || cotizandoItems}
+            onPress={() => setModalItemsIa(true)}
+            leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+          />
+        ) : null}
 
         {repuestos.length === 0 ? (
           <Card
@@ -1016,6 +1099,18 @@ export function CotizacionIaEditor({
           ) : null}
         </View>
       ) : null}
+
+      {editable ? (
+        <CotizarItemsIaModal
+          visible={modalItemsIa}
+          onClose={() => {
+            if (!cotizandoItems) setModalItemsIa(false);
+          }}
+          onConfirm={cotizarItemsConIa}
+          loading={cotizandoItems}
+          lineasSinPrecio={lineasSinPrecio}
+        />
+      ) : null}
     </View>
   );
 }
@@ -1031,6 +1126,7 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.sm,
   },
   headerText: { flex: 1, minWidth: 0, gap: 2 },
+  headerTagsCol: { flex: 1, minWidth: 0, gap: SPACING.xs },
   headerTags: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, alignItems: 'center' },
   motorCard: { gap: SPACING.fixed.sm },
   motorHeader: {
