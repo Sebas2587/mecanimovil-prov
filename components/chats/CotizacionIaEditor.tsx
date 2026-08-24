@@ -81,14 +81,27 @@ function origenTagLabel(rep: RepuestoCotizacion): string | null {
   return proveedorLabel(rep);
 }
 
-/** Incluye la marca en el nombre visible al cliente si aún no está. */
-function nombreConMarca(nombre: string, marca: string): string {
-  const base = (nombre || '').trim();
-  const m = (marca || '').trim();
-  if (!base) return m;
-  if (!m) return base;
-  if (base.toLowerCase().includes(m.toLowerCase())) return base;
-  return `${base} ${m}`.trim();
+/** Fusiona repuestos enriquecidos por web sin pisar nombres editados localmente. */
+function mergeRepuestosPreservandoEdicion(
+  local: RepuestoCotizacion[],
+  remoto: RepuestoCotizacion[],
+): RepuestoCotizacion[] {
+  if (!remoto.length) return local;
+  return remoto.map((rRem, idx) => {
+    const rLoc = rRem.id
+      ? local.find((l) => l.id === rRem.id)
+      : local[idx];
+    if (!rLoc) return rRem;
+    const nombreLocal = (rLoc.nombre || '').trim();
+    return {
+      ...rRem,
+      nombre: nombreLocal || rRem.nombre,
+      cantidad: rLoc.cantidad ?? rRem.cantidad,
+      precio_unitario_clp: fuenteEsVerificada(rRem)
+        ? rRem.precio_unitario_clp
+        : (rLoc.precio_unitario_clp ?? rRem.precio_unitario_clp),
+    };
+  });
 }
 
 const ESTADO_VARIANT: Record<
@@ -191,23 +204,15 @@ const RepuestoRow = React.memo(function RepuestoRow({
   const mostrarEstimado = rep.precio_estimado !== false
     && !fuenteEsVerificada(rep)
     && !rep.precio_referencia_mercado;
-  // Nombre al cliente = pieza + marca (si hay). Evita tags "Marca:" redundantes.
-  const nombreVisible = nombreConMarca(rep.nombre, marcaPieza);
+  const nombreGuardado = (rep.nombre || '').trim();
 
   const [nombreFocused, setNombreFocused] = useState(false);
-  const [nombreDraft, setNombreDraft] = useState(nombreVisible);
+  const [nombreDraft, setNombreDraft] = useState(nombreGuardado);
 
   useEffect(() => {
     if (nombreFocused) return;
-    setNombreDraft(nombreVisible);
-  }, [nombreVisible, nombreFocused]);
-
-  // Si llega marca_repuesto y el nombre aún no la incluye, persístela en el ítem.
-  useEffect(() => {
-    if (!editable || !marcaPieza) return;
-    if (nombreConMarca(rep.nombre, marcaPieza) === (rep.nombre || '').trim()) return;
-    onUpdate(index, { nombre: nombreConMarca(rep.nombre, marcaPieza) });
-  }, [editable, index, marcaPieza, onUpdate, rep.nombre]);
+    setNombreDraft(nombreGuardado);
+  }, [nombreGuardado, nombreFocused]);
 
   return (
     <Card elevated padding="host" style={styles.repuestoCard}>
@@ -222,9 +227,10 @@ const RepuestoRow = React.memo(function RepuestoRow({
             }}
             onFocus={() => setNombreFocused(true)}
             onBlur={() => {
+              const next = nombreDraft.trim();
+              onUpdate(index, { nombre: next });
+              setNombreDraft(next);
               setNombreFocused(false);
-              const next = nombreDraft.trim() || rep.nombre;
-              onUpdate(index, { nombre: nombreConMarca(next, marcaPieza) });
             }}
             placeholder="Nombre del repuesto"
             editable={editable}
@@ -243,8 +249,15 @@ const RepuestoRow = React.memo(function RepuestoRow({
         ) : null}
       </View>
 
-      {(origenLabel || mostrarEstimado) ? (
+      {(marcaPieza || origenLabel || mostrarEstimado) ? (
         <View style={styles.fuenteBadgeRow}>
+          {marcaPieza ? (
+            <InstitutionalTag
+              label={`Marca ${marcaPieza}`}
+              variant="neutral"
+              size="sm"
+            />
+          ) : null}
           {origenLabel ? (
             urlProducto ? (
               <TouchableOpacity
@@ -360,6 +373,8 @@ export function CotizacionIaEditor({
   const manoObra = redondearCLP(cotizacion.mano_obra_clp);
   const busquedaPendiente = cotizacion.metadata?.busqueda_web_estado === 'pendiente';
   const appliedWebRef = useRef<string | null>(null);
+  const cotizacionRef = useRef(cotizacion);
+  cotizacionRef.current = cotizacion;
 
   const { data: detalleRefrescado } = useCotizacionCanalDetalleQuery(
     cotizacion.id,
@@ -374,10 +389,7 @@ export function CotizacionIaEditor({
     if (appliedWebRef.current === stamp) return;
     appliedWebRef.current = stamp;
     const repsIn = detalleRefrescado.repuestos ?? cotizacion.repuestos ?? [];
-    const reps = repsIn.map((r) => ({
-      ...r,
-      nombre: nombreConMarca(r.nombre || '', (r.marca_repuesto || '').trim()),
-    }));
+    const reps = mergeRepuestosPreservandoEdicion(cotizacion.repuestos ?? [], repsIn);
     onChange({
       ...cotizacion,
       repuestos: reps,
@@ -421,24 +433,30 @@ export function CotizacionIaEditor({
 
   const actualizarRepuesto = useCallback(
     (index: number, patch: Partial<RepuestoCotizacion>) => {
-      const next = repuestos.map((r, i) => (i === index ? { ...r, ...patch } : r));
-      onChange({ ...cotizacion, repuestos: next });
+      const current = cotizacionRef.current;
+      const reps = current.repuestos ?? [];
+      const next = reps.map((r, i) => (i === index ? { ...r, ...patch } : r));
+      onChange({ ...current, repuestos: next });
     },
-    [cotizacion, onChange, repuestos],
+    [onChange],
   );
 
   const eliminarRepuesto = useCallback(
     (index: number) => {
-      onChange({ ...cotizacion, repuestos: repuestos.filter((_, i) => i !== index) });
+      const current = cotizacionRef.current;
+      const reps = current.repuestos ?? [];
+      onChange({ ...current, repuestos: reps.filter((_, i) => i !== index) });
     },
-    [cotizacion, onChange, repuestos],
+    [onChange],
   );
 
   const agregarRepuesto = useCallback(() => {
+    const current = cotizacionRef.current;
+    const reps = current.repuestos ?? [];
     onChange({
-      ...cotizacion,
+      ...current,
       repuestos: [
-        ...repuestos,
+        ...reps,
         {
           id: `rep-${Date.now()}`,
           nombre: 'Repuesto',
@@ -447,7 +465,7 @@ export function CotizacionIaEditor({
         },
       ],
     });
-  }, [cotizacion, onChange, repuestos]);
+  }, [onChange]);
 
   const kmMeta = cotizacion.metadata?.vehiculo_kilometraje_actual;
   const vehiculoTitulo = [
