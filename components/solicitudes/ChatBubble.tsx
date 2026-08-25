@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { CheckCheck, Check, FileText } from 'lucide-react-native';
 import { MensajeChat } from '@/services/solicitudesService';
@@ -12,6 +12,13 @@ import {
   getMessageAttachmentMeta,
   normalizeMessageText,
 } from '@/utils/chatAttachmentMedia';
+import {
+  extractChatUrls,
+  isUrlOnlyMessage,
+  openChatUrl,
+  splitTextWithUrls,
+} from '@/utils/chatMessageLinks';
+import { ChatLinkPreview } from '@/components/chats/ChatLinkPreview';
 import { AudioMessageBubble } from '@/components/chats/AudioMessageBubble';
 import { VideoMessageBubble } from '@/components/chats/VideoMessageBubble';
 import { HostAvatar } from '@/app/design-system/components';
@@ -82,6 +89,13 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   const showAudio = !!attachmentRaw && !showImage && !showVideo && isChatAttachmentAudio(attachmentRaw, mime, name);
   const showFileLink = !!attachmentRaw && !showImage && !showVideo && !showAudio && !!imageUri;
   const messageText = normalizeMessageText(mensaje.mensaje);
+  const linkUrls = useMemo(() => extractChatUrls(messageText), [messageText]);
+  const urlOnly = useMemo(() => isUrlOnlyMessage(messageText), [messageText]);
+  const textParts = useMemo(() => splitTextWithUrls(messageText), [messageText]);
+  const previewUrl = linkUrls[0];
+  const openPartUrl = useCallback((url: string) => {
+    void openChatUrl(url);
+  }, []);
   const timeLabel = formatTime(mensaje.fecha_envio);
   const rawSender = mensaje.nombre_remitente || mensaje.enviado_por_nombre;
   const senderLabel = peerName || (!isUglySenderLabel(rawSender) ? rawSender : null);
@@ -164,7 +178,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
         </View>
       ) : null}
 
-      {messageText ? (
+      {messageText && !urlOnly ? (
         <>
           <Text
             style={[
@@ -177,7 +191,22 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
             ]}
             numberOfLines={textNeedsExpand && !textExpanded ? TEXT_COLLAPSE_LINES : undefined}
           >
-            {messageText}
+            {textParts.map((part, index) => (
+              part.type === 'url' ? (
+                <Text
+                  key={`u-${index}`}
+                  onPress={() => openPartUrl(part.value)}
+                  style={[
+                    styles.inlineLink,
+                    esPropio ? styles.inlineLinkOwn : styles.inlineLinkOther,
+                  ]}
+                >
+                  {part.value}
+                </Text>
+              ) : (
+                <Text key={`t-${index}`}>{part.value}</Text>
+              )
+            ))}
           </Text>
           {textNeedsExpand ? (
             <TouchableOpacity
@@ -201,6 +230,10 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
             </TouchableOpacity>
           ) : null}
         </>
+      ) : null}
+
+      {previewUrl ? (
+        <ChatLinkPreview url={previewUrl} esPropio={esPropio} host={host} />
       ) : null}
 
       {!host ? (
@@ -357,6 +390,15 @@ const styles = StyleSheet.create({
   },
   textOtro: {
     color: I.ink,
+  },
+  inlineLink: {
+    textDecorationLine: 'underline',
+  },
+  inlineLinkOwn: {
+    color: I.onPrimary,
+  },
+  inlineLinkOther: {
+    color: I.primary,
   },
   imageWrap: {
     borderRadius: BORDERS.radius.md,

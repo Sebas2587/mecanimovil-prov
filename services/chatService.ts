@@ -5,6 +5,15 @@ import { appendChatFileToFormData } from '@/utils/chatAttachmentMedia';
 
 type WsPayload = Record<string, unknown>;
 
+export type ChatLinkPreviewPayload = {
+  url: string;
+  final_url?: string;
+  title: string;
+  description: string;
+  image: string;
+  site_name: string;
+};
+
 class ChatService {
   private socket: WebSocket | null = null;
 
@@ -40,6 +49,11 @@ class ChatService {
 
   async markRead(conversationId: string) {
     await post(`/chat/conversations/${conversationId}/mark_read/`);
+  }
+
+  async getLinkPreview(url: string): Promise<ChatLinkPreviewPayload> {
+    const response = await get('/chat/link-preview/', { params: { url } });
+    return response.data as ChatLinkPreviewPayload;
   }
 
   async enviarAviso(conversationId: string): Promise<{
