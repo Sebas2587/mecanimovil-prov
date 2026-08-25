@@ -1,7 +1,6 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Stack, router } from 'expo-router';
-import Header from '@/components/Header';
 import { CotizacionesIaList } from '@/components/chats/CotizacionesIaList';
 import { useAuth } from '@/context/AuthContext';
 import { COLORS } from '@/app/design-system/tokens';
@@ -27,8 +26,7 @@ export default function CotizarIaScreen() {
           headerShown: false,
         }}
       />
-      <Header title="Cotizar con IA" showBack onBackPress={handleClose} backgroundColor={I.canvas} titleColor={I.ink} />
-      <CotizacionesIaList enabled={cuentaAprobada} />
+      <CotizacionesIaList enabled={cuentaAprobada} onBack={handleClose} />
     </View>
   );
 }

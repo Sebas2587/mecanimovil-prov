@@ -6,10 +6,12 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
 import { FileText, Search, Sparkles } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Header from '@/components/Header';
 import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
 import { CotizacionPendienteRow } from '@/components/home/CotizacionPendienteRow';
 import {
@@ -21,7 +23,6 @@ import {
   useAgenteBorradoresPendientesQuery,
 } from '@/hooks/useAgenteIaQueries';
 import { type CotizacionCanal } from '@/services/cotizacionCanalService';
-import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import {
   HostEmptyState,
@@ -55,23 +56,25 @@ function clienteLabel(cot: CotizacionCanal): string {
 
 type Props = {
   enabled?: boolean;
+  onBack: () => void;
 };
 
 /**
  * Listing Host (`/cotizar-ia`): borradores por revisar/enviar + crear.
  * Detalle en `/cotizacion-canal/[id]`. Enviadas en Bandeja; agendadas en Agenda.
+ * Un solo CTA a la vez: empty state, o Sparkles en el header si hay lista.
  */
-export function CotizacionesIaList({ enabled = true }: Props) {
+export function CotizacionesIaList({ enabled = true, onBack }: Props) {
   const qc = useQueryClient();
   const insets = useSafeAreaInsets();
   const { data = [], isPending, isFetching, refetch } = useCotizacionesCanalTallerQuery(enabled);
   const { data: borradoresAgente } = useAgenteBorradoresPendientesQuery(enabled);
   const invalidate = useInvalidateCotizacionesCanalTaller();
-  const [libreVisible, setLibreVisible] = useState(false);
+  const [crearVisible, setCrearVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const abrirCrear = useCallback(() => setLibreVisible(true), []);
-  const cerrarCrear = useCallback(() => setLibreVisible(false), []);
+  const abrirCrear = useCallback(() => setCrearVisible(true), []);
+  const cerrarCrear = useCallback(() => setCrearVisible(false), []);
 
   const borradoresPorRevisar = useMemo(
     () =>
@@ -172,9 +175,34 @@ export function CotizacionesIaList({ enabled = true }: Props) {
     [abrirDetalle, borradoresFiltrados.length],
   );
 
+  const hayLista = borradoresPorRevisar.length > 0;
+  const crearEnHeader = isPending || hayLista || Boolean(searchQuery.trim());
+  const headerCrear = crearEnHeader ? (
+    <TouchableOpacity
+      onPress={abrirCrear}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      accessibilityRole="button"
+      accessibilityLabel="Nueva cotización"
+    >
+      <Sparkles size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+    </TouchableOpacity>
+  ) : null;
+
+  const screenHeader = (
+    <Header
+      title="Cotizar con IA"
+      showBack
+      onBackPress={onBack}
+      backgroundColor={I.canvas}
+      titleColor={I.ink}
+      rightComponent={headerCrear}
+    />
+  );
+
   if (isPending && borradoresPorRevisar.length === 0) {
     return (
       <View style={styles.root}>
+        {screenHeader}
         <View style={[hostScreenStyles.gutterX, styles.loadingPad]}>
           <HostPaperSection>
             <View style={styles.loadingBox}>
@@ -185,12 +213,18 @@ export function CotizacionesIaList({ enabled = true }: Props) {
             </View>
           </HostPaperSection>
         </View>
+        <CotizacionLibreModal
+          visible={crearVisible}
+          onClose={cerrarCrear}
+          onEnviada={onEnviada}
+        />
       </View>
     );
   }
 
   return (
     <View style={styles.root}>
+      {screenHeader}
       <FlatList
         data={borradoresFiltrados}
         keyExtractor={(item) => String(item.id)}
@@ -198,7 +232,10 @@ export function CotizacionesIaList({ enabled = true }: Props) {
         ListHeaderComponent={header}
         contentContainerStyle={[
           styles.list,
-          { paddingHorizontal: HOST_GUTTER },
+          {
+            paddingHorizontal: HOST_GUTTER,
+            paddingBottom: Math.max(insets.bottom, SPACING.fixed.lg),
+          },
           borradoresFiltrados.length === 0 && styles.listEmpty,
         ]}
         style={hostScreenStyles.scroll}
@@ -234,25 +271,8 @@ export function CotizacionesIaList({ enabled = true }: Props) {
         }
       />
 
-      <View
-        style={[
-          styles.stickyCrear,
-          { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) },
-        ]}
-      >
-        <InstitutionalButton
-          label="Nueva cotización"
-          variant="primary"
-          leading={<Sparkles size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
-          onPress={abrirCrear}
-        />
-        <InstitutionalText role="caption" color="muted" style={styles.stickyHint}>
-          Desde Mensajes o con un link público
-        </InstitutionalText>
-      </View>
-
       <CotizacionLibreModal
-        visible={libreVisible}
+        visible={crearVisible}
         onClose={cerrarCrear}
         onEnviada={onEnviada}
       />
@@ -264,7 +284,6 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: I.canvas },
   list: {
     paddingTop: SPACING.fixed.sm,
-    paddingBottom: SPACING.fixed.sm,
     gap: 0,
   },
   listEmpty: {
@@ -306,15 +325,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.fixed.sm,
   },
-  stickyCrear: {
-    paddingHorizontal: HOST_GUTTER,
-    paddingTop: SPACING.fixed.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: I.hairline,
-    backgroundColor: I.canvas,
-    gap: SPACING.fixed.xs,
-  },
-  stickyHint: { textAlign: 'center' },
 });
 
 export default CotizacionesIaList;
