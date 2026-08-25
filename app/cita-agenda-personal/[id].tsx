@@ -283,14 +283,13 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const permitirAgregarHallazgo = Boolean(
     cita?.permite_cotizacion_adicional
     && cita?.cotizacion_canal_origen_id
-    && checklistEnEjecucion
     && !adicionalPendienteId,
   );
   const puedeActualizarCotizacion = Boolean(
     esActiva
     && cita?.cotizacion_canal_origen_id
     && !checklistIniciado
-    && !horarioPorConfirmar,
+    && horarioPorConfirmar,
   );
   const esDiaServicio = Boolean(
     cita?.puede_iniciar_servicio_hoy
@@ -1157,7 +1156,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                         disabled={procesando}
                       />
                       <Text style={styles.addressDetailsText}>
-                        Si el cliente pidió cambios antes de iniciar, edita la misma cotización (mismo enlace).
+                        El horario aún no está confirmado. Edita la misma cotización (mismo enlace) y reenvíala al cliente.
                       </Text>
                     </>
                   ) : null}
@@ -1291,7 +1290,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     <View style={styles.checklistActions}>
                       {permitirAgregarHallazgo ? (
                         <InstitutionalButton
-                          label="Agregar hallazgo"
+                          label={checklistEnEjecucion ? 'Agregar hallazgo' : 'Agregar ítems o servicio adicional'}
                           variant="outline"
                           onPress={() => router.push(`/agregar-servicio-adicional/${cita.id}`)}
                           disabled={procesando}

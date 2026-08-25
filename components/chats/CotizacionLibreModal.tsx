@@ -42,6 +42,7 @@ import {
   normalizarTelefonoChileParaGuardar,
 } from '@/utils/chilePhone';
 import cotizacionCanalService, {
+  cotizacionPermiteEdicionCompleta,
   fusionarRepuestosEnviados,
   payloadEdicionCotizacion,
   type CotizacionCanal,
@@ -446,7 +447,7 @@ export function CotizacionLibreModal({
   const payloadEdicion = useCallback((next: CotizacionCanal) => payloadEdicionCotizacion(next), []);
 
   const ejecutarPersist = useCallback(async (next: CotizacionCanal, seq: number) => {
-    if (next.estado !== 'borrador' || !next.id) return next;
+    if (!cotizacionPermiteEdicionCompleta(next) || !next.id) return next;
     try {
       const patch = payloadEdicion(next);
       // El endpoint cotizar-items ya persistió las líneas; un PATCH con el
@@ -475,7 +476,7 @@ export function CotizacionLibreModal({
   const persistirCotizacion = useCallback(async (next: CotizacionCanal, immediate = false) => {
     setCotizacion(next);
     draftRef.current = next;
-    if (next.estado !== 'borrador' || !next.id) return next;
+    if (!cotizacionPermiteEdicionCompleta(next) || !next.id) return next;
 
     const seq = ++persistSeqRef.current;
     if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
@@ -580,15 +581,21 @@ export function CotizacionLibreModal({
     ? 'Enviar al cliente'
     : 'Generar link y compartir';
 
+  const puedeReenviar = Boolean(
+    cotizacion
+    && cotizacionPermiteEdicionCompleta(cotizacion)
+    && (cotizacion.estado === 'borrador' || cotizacion.estado === 'enviada'),
+  );
+
   const footerPrimaryLabel = !cotizacion
     ? (generandoIa ? 'Generando…' : 'Generar cotización con IA')
-    : cotizacion.estado === 'borrador'
+    : puedeReenviar
       ? (enviando ? 'Enviando…' : enviarLabel)
       : 'Listo';
 
   const footerPrimaryAction = !cotizacion
     ? () => void handleGenerarIa()
-    : cotizacion.estado === 'borrador'
+    : puedeReenviar
       ? () => void handleEnviar()
       : handleClose;
 
@@ -766,7 +773,7 @@ export function CotizacionLibreModal({
                   cotizacion={cotizacion}
                   onChange={(next) => void persistirCotizacion(next)}
                   hideSendActions
-                  readonly={cotizacion.estado !== 'borrador'}
+                  readonly={!cotizacionPermiteEdicionCompleta(cotizacion)}
                   compactHeader
                 />
 

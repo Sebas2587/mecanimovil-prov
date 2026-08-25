@@ -25,6 +25,7 @@ import { AGENTE_IA_BORRADORES_KEY } from '@/hooks/useAgenteIaQueries';
 import { COTIZACIONES_CANAL_QUERY_KEY } from '@/hooks/useCotizacionesCanalTallerQuery';
 import cotizacionCanalService, {
   adicionalRequiereFecha,
+  cotizacionPermiteEdicionCompleta,
   payloadEdicionCotizacion,
   type CotizacionCanal,
 } from '@/services/cotizacionCanalService';
@@ -70,7 +71,6 @@ export default function CotizacionCanalDetalleScreen() {
   const [draft, setDraft] = useState<CotizacionCanal | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [enviando, setEnviando] = useState(false);
-  const [reabriendo, setReabriendo] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [accionLead, setAccionLead] = useState(false);
 
@@ -83,7 +83,8 @@ export default function CotizacionCanalDetalleScreen() {
     });
   }, [data]);
 
-  const editable = draft?.estado === 'borrador' || draft?.estado === 'aceptada';
+  const editable = Boolean(draft && cotizacionPermiteEdicionCompleta(draft));
+  const tieneHorarioAgendado = Boolean(draft?.tiene_horario_agendado);
   const hayCambios = useMemo(() => {
     if (!draft || !data) return false;
     return snapshot(draft) !== snapshot(data);
@@ -111,6 +112,11 @@ export default function CotizacionCanalDetalleScreen() {
           'Cotización actualizada',
           'El total subió: el cliente debe confirmar el nuevo monto en el mismo enlace.',
         );
+      } else if (data?.estado === 'enviada' && actualizada.estado === 'borrador') {
+        showAlert(
+          'Listo para reenviar',
+          'El cliente deja de poder aceptar hasta que envíes de nuevo esta cotización.',
+        );
       } else {
         showAlert('Guardado', 'Cambios guardados.');
       }
@@ -125,21 +131,7 @@ export default function CotizacionCanalDetalleScreen() {
     } finally {
       setGuardando(false);
     }
-  }, [draft, invalidateAll]);
-
-  const reabrir = useCallback(async () => {
-    if (!draft?.id) return;
-    setReabriendo(true);
-    try {
-      const actualizada = await cotizacionCanalService.reabrir(draft.id);
-      setDraft({ ...actualizada });
-      await invalidateAll();
-    } catch (err: unknown) {
-      showAlert('Error', (err as Error)?.message || 'No se pudo reabrir la cotización.');
-    } finally {
-      setReabriendo(false);
-    }
-  }, [draft?.id, invalidateAll]);
+  }, [data?.estado, draft, invalidateAll]);
 
   const compartirConCliente = useCallback(async (
     url: string,
@@ -199,12 +191,20 @@ export default function CotizacionCanalDetalleScreen() {
     }
     setEnviando(true);
     try {
-      if (hayCambios || draft.estado === 'borrador') {
-        if (hayCambios) {
-          await cotizacionCanalService.actualizar(draft.id, payloadEdicionCotizacion(draft));
-        }
+      let estadoActual = draft.estado;
+      if (hayCambios) {
+        const actualizada = await cotizacionCanalService.actualizar(
+          draft.id,
+          payloadEdicionCotizacion(draft),
+        );
+        setDraft({ ...actualizada });
+        estadoActual = actualizada.estado;
+      } else if (draft.estado === 'enviada') {
+        const actualizada = await cotizacionCanalService.reabrir(draft.id);
+        setDraft({ ...actualizada });
+        estadoActual = actualizada.estado;
       }
-      if (draft.estado === 'borrador' || data?.estado === 'borrador') {
+      if (estadoActual === 'borrador') {
         const res = await cotizacionCanalService.enviar(draft.id);
         const cotEnviada = res.cotizacion;
         const url = res.share_url || cotEnviada.share_url || cotEnviada.url_publica;
@@ -350,7 +350,14 @@ export default function CotizacionCanalDetalleScreen() {
           compactHeader
         />
 
-        {draft.estado === 'enviada' ? (
+        {tieneHorarioAgendado ? (
+          <InstitutionalText role="caption" color="body">
+            Esta cotización ya tiene un horario agendado. Los ítems extra van en un trabajo
+            adicional: puede ser un servicio nuevo o solo repuestos, sin mano de obra.
+          </InstitutionalText>
+        ) : null}
+
+        {draft.estado === 'enviada' && editable ? (
           <InstitutionalText role="caption" color="body">
             Si el cliente no respondió, escribe o cierra el caso. Si aceptó por teléfono, márcala aceptada.
           </InstitutionalText>
@@ -368,11 +375,11 @@ export default function CotizacionCanalDetalleScreen() {
         {draft.conversation ? (
           <InstitutionalButton
             label="Ver conversación"
-            variant={draft.estado === 'enviada' ? 'primary' : 'outline'}
+            variant="outline"
             leading={
               <MessageCircle
                 size={18}
-                color={draft.estado === 'enviada' ? I.onPrimary : I.primary}
+                color={I.primary}
                 strokeWidth={ICON_STROKE_WIDTH}
               />
             }
@@ -382,37 +389,15 @@ export default function CotizacionCanalDetalleScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) }]}>
-        {draft.estado === 'enviada' ? (
-          <View style={styles.footerEnviada}>
-            <View style={styles.footerRow}>
-              <InstitutionalButton
-                label="Cerrar caso"
-                variant="destructiveOutline"
-                size="compact"
-                loading={accionLead}
-                style={styles.footerFlex}
-                onPress={cerrarCaso}
-              />
-              <InstitutionalButton
-                label="Marcar aceptada"
-                variant="success"
-                size="compact"
-                loading={accionLead}
-                style={styles.footerFlexGrow}
-                onPress={() => void marcarAceptada()}
-              />
-            </View>
-            <InstitutionalButton
-              label={reabriendo ? 'Reabriendo…' : 'Actualizar cotización'}
-              variant="tertiary"
-              size="compact"
-              loading={reabriendo}
-              onPress={() => void reabrir()}
-            />
-          </View>
+        {tieneHorarioAgendado && draft.cita_personal_id ? (
+          <InstitutionalButton
+            label="Agregar ítems o servicio adicional"
+            variant="primary"
+            onPress={() => router.push(`/agregar-servicio-adicional/${draft.cita_personal_id}`)}
+          />
         ) : null}
 
-        {draft.estado === 'borrador' ? (
+        {editable && (draft.estado === 'borrador' || draft.estado === 'enviada') ? (
           <View style={styles.footerBorrador}>
             {draft.numero_publico ? (
               <InstitutionalText role="caption" color="muted">
@@ -420,14 +405,16 @@ export default function CotizacionCanalDetalleScreen() {
               </InstitutionalText>
             ) : null}
             <View style={styles.footerRow}>
-            <TouchableOpacity
-              style={styles.footerGhost}
-              onPress={eliminar}
-              disabled={eliminando}
-              accessibilityLabel="Eliminar"
-            >
-              <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-            </TouchableOpacity>
+            {draft.estado === 'borrador' ? (
+              <TouchableOpacity
+                style={styles.footerGhost}
+                onPress={eliminar}
+                disabled={eliminando}
+                accessibilityLabel="Eliminar"
+              >
+                <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+              </TouchableOpacity>
+            ) : null}
             <InstitutionalButton
               label="Guardar"
               variant="outline"
@@ -444,10 +431,30 @@ export default function CotizacionCanalDetalleScreen() {
               onPress={() => void enviar()}
             />
             </View>
+            {draft.estado === 'enviada' ? (
+              <View style={styles.footerRow}>
+                <InstitutionalButton
+                  label="Cerrar caso"
+                  variant="destructiveOutline"
+                  size="compact"
+                  loading={accionLead}
+                  style={styles.footerFlex}
+                  onPress={cerrarCaso}
+                />
+                <InstitutionalButton
+                  label="Marcar aceptada"
+                  variant="success"
+                  size="compact"
+                  loading={accionLead}
+                  style={styles.footerFlexGrow}
+                  onPress={() => void marcarAceptada()}
+                />
+              </View>
+            ) : null}
           </View>
         ) : null}
 
-        {draft.estado === 'aceptada' ? (
+        {editable && draft.estado === 'aceptada' ? (
           <View style={styles.footerRow}>
             <InstitutionalButton
               label="Guardar cambios"
@@ -491,9 +498,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.fixed.sm,
-  },
-  footerEnviada: {
-    gap: SPACING.fixed.xs,
   },
   footerBorrador: {
     gap: SPACING.fixed.xs,

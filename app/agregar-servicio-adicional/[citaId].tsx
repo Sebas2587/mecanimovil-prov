@@ -219,7 +219,9 @@ export default function AgregarServicioAdicionalScreen() {
           <Text style={styles.errorText}>
             {cita.cotizacion_adicional_pendiente_id
               ? 'Ya hay un trabajo adicional pendiente. Revísalo o espera la respuesta del cliente.'
-              : 'Este trabajo aún no permite agregar hallazgos. Confirma el horario e inicia el servicio primero.'}
+              : cita.horario_por_confirmar
+                ? 'Confirma el horario primero. Mientras tanto puedes editar la cotización original.'
+                : 'Este trabajo aún no permite agregar un servicio adicional.'}
           </Text>
           {cita.cotizacion_adicional_pendiente_id ? (
             <InstitutionalButton

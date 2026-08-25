@@ -22,7 +22,11 @@ import { OmnichannelChatHeader, OmnichannelChatActionBar } from '@/components/ch
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
 import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
-import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizacionCanalService';
+import cotizacionCanalService, {
+  cotizacionPermiteEdicionCompleta,
+  payloadEdicionCotizacion,
+  type CotizacionCanal,
+} from '@/services/cotizacionCanalService';
 import type { CanalSlug } from '@/services/omnichannelService';
 import { useOmnichannelConversationMeta } from '@/hooks/useOmnichannelConversationMeta';
 import { useOmnichannelConnectionMap } from '@/hooks/useOmnichannelConnections';
@@ -587,14 +591,24 @@ export default function ChatOmnicanalScreen() {
               cotizacion={editingCotizacion}
               onChange={(updated) => setEditingCotizacion(updated)}
               onEnviar={async () => {
-                if (editingCotizacion.id) {
-                  try {
-                    await cotizacionCanalService.enviar(editingCotizacion.id);
-                    setEditingCotizacion(null);
-                    void refetchSilent();
-                  } catch (e) {
-                    Alert.alert('Error', 'No se pudo enviar la cotización');
+                if (!editingCotizacion.id) return;
+                try {
+                  let estado = editingCotizacion.estado;
+                  if (cotizacionPermiteEdicionCompleta(editingCotizacion)) {
+                    const saved = await cotizacionCanalService.actualizar(
+                      editingCotizacion.id,
+                      payloadEdicionCotizacion(editingCotizacion),
+                    );
+                    setEditingCotizacion(saved);
+                    estado = saved.estado;
                   }
+                  if (estado === 'borrador') {
+                    await cotizacionCanalService.enviar(editingCotizacion.id);
+                  }
+                  setEditingCotizacion(null);
+                  void refetchSilent();
+                } catch (e) {
+                  Alert.alert('Error', 'No se pudo enviar la cotización');
                 }
               }}
               onGuardarPlantilla={async () => {
@@ -618,7 +632,7 @@ export default function ChatOmnicanalScreen() {
                   }
                 }
               }}
-              readonly={editingCotizacion.estado !== 'borrador'}
+              readonly={!cotizacionPermiteEdicionCompleta(editingCotizacion)}
             />
           )}
         </InstitutionalModal>

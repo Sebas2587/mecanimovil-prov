@@ -43,6 +43,10 @@ export interface CotizacionCanal {
   /** Cita creada al aceptar (libre); en adicionales apunta a la cita principal. */
   cita_personal_id?: number | null;
   cita_origen_id?: number | null;
+  /** Cita activa con día y hora confirmados. */
+  tiene_horario_agendado?: boolean;
+  /** Se puede editar ítems (IA o manual) y reenviar; false si ya hay horario. */
+  permite_edicion_completa?: boolean;
   token?: string | null;
   numero_publico?: string | null;
   url_publica?: string | null;
@@ -158,6 +162,13 @@ export interface GenerarCotizacionIaResponse {
   error?: string | null;
   latencia_ms?: number;
   desde_plantilla?: boolean;
+}
+
+export function cotizacionPermiteEdicionCompleta(c: CotizacionCanal): boolean {
+  if (typeof c.permite_edicion_completa === 'boolean') return c.permite_edicion_completa;
+  if (c.es_cotizacion_adicional) return c.estado === 'borrador';
+  if (c.tiene_horario_agendado) return false;
+  return c.estado === 'borrador' || c.estado === 'enviada' || c.estado === 'aceptada';
 }
 
 export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<CotizacionCanal> {

@@ -33,7 +33,9 @@ import {
   parseMontoDecimal,
 } from '@/utils/parseMontoDecimal';
 import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
-import cotizacionCanalService from '@/services/cotizacionCanalService';
+import cotizacionCanalService, {
+  cotizacionPermiteEdicionCompleta,
+} from '@/services/cotizacionCanalService';
 import { CotizarItemsIaModal } from '@/components/chats/CotizarItemsIaModal';
 import {
   COTIZACION_CANAL_DETALLE_QUERY_KEY,
@@ -402,7 +404,7 @@ export function CotizacionIaEditor({
   const queryClient = useQueryClient();
   const stackedFacts = width < 520;
   const repuestos = cotizacion.repuestos ?? [];
-  const editable = !readonly && cotizacion.estado === 'borrador';
+  const editable = !readonly;
   const manoObra = redondearCLP(cotizacion.mano_obra_clp);
   const busquedaPendiente = cotizacion.metadata?.busqueda_web_estado === 'pendiente';
   const appliedWebRef = useRef<string | null>(null);
@@ -523,7 +525,7 @@ export function CotizacionIaEditor({
 
   const cotizarItemsConIa = useCallback(async (nombres: string[]) => {
     const current = cotizacionRef.current;
-    if (!current.id || current.estado !== 'borrador') return;
+    if (!current.id || !cotizacionPermiteEdicionCompleta(current)) return;
     setCotizandoItems(true);
     try {
       const resultado = await cotizacionCanalService.cotizarItems(current.id, {
@@ -698,6 +700,12 @@ export function CotizacionIaEditor({
           </>
         )}
       </View>
+      ) : null}
+
+      {editable && (cotizacion.estado === 'enviada' || cotizacion.estado === 'aceptada') ? (
+        <InstitutionalText role="caption" color="muted">
+          Puedes agregar ítems con IA o con el valor que definas, y volver a enviar esta misma cotización al cliente.
+        </InstitutionalText>
       ) : null}
 
       {cotizacion.es_cotizacion_adicional && (cotizacion.cita_origen_id || cotizacion.cita_personal_id) ? (
