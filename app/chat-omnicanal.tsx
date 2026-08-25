@@ -26,6 +26,12 @@ import cotizacionCanalService, { type CotizacionCanal } from '@/services/cotizac
 import type { CanalSlug } from '@/services/omnichannelService';
 import { useOmnichannelConversationMeta } from '@/hooks/useOmnichannelConversationMeta';
 import { useOmnichannelConnectionMap } from '@/hooks/useOmnichannelConnections';
+import {
+  mergeChatThreadRow,
+  useChatMessagesQuery,
+  useChatThreadCache,
+  type ChatThreadRow,
+} from '@/hooks/useChatMessagesQuery';
 import { getChannelDisconnectedReason } from '@/utils/omnichannelConnection';
 import { getMetaReplyBlockReason } from '@/utils/whatsappMessagingWindow';
 import { OmnichannelChatRestrictionBanner } from '@/components/chats/OmnichannelChatRestrictionBanner';
@@ -41,7 +47,6 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens
 import { hostScreenStyles, HOST_GUTTER } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import {
-  isChatAttachmentImage,
   normalizeChatMessage,
   normalizeMessageText,
 } from '@/utils/chatAttachmentMedia';
@@ -55,17 +60,7 @@ const K = COLORS.kanban;
 
 type AttachmentState = StagedAttachment & { mime: string };
 
-type ChatRow = {
-  id: string;
-  mensaje: string;
-  es_proveedor: boolean;
-  fecha_envio: string;
-  enviado_por_nombre: string;
-  archivo_adjunto: string | null;
-  attachment_mime?: string | null;
-  attachment_name?: string | null;
-  channel_metadata?: Record<string, unknown>;
-};
+type ChatRow = ChatThreadRow;
 
 function resolveConversationId(params: Record<string, string | string[] | undefined>): string {
   const raw = params.conversationId || params.conversation_id || params.conversation || params.id;
@@ -92,27 +87,6 @@ function extractSendMessageError(error: unknown): string {
   return 'No se pudo enviar el mensaje.';
 }
 
-function mergeChatRow(prev: ChatRow[], row: ChatRow): ChatRow[] {
-  const idx = prev.findIndex((m) => String(m.id) === String(row.id));
-  if (idx >= 0) {
-    // Media inbound llega en 2 eventos (sin adjunto → con adjunto). Nunca pisar
-    // un archivo_adjunto válido con null del primer broadcast.
-    return prev.map((m, i) => {
-      if (i !== idx) return m;
-      const merged: ChatRow = { ...m, ...row };
-      if (!row.archivo_adjunto && m.archivo_adjunto) {
-        merged.archivo_adjunto = m.archivo_adjunto;
-        merged.attachment_mime = row.attachment_mime || m.attachment_mime;
-        merged.attachment_name = row.attachment_name || m.attachment_name;
-      }
-      if (!row.channel_metadata && m.channel_metadata) {
-        merged.channel_metadata = m.channel_metadata;
-      }
-      return merged;
-    });
-  }
-  return [...prev, row];
-}
 
 export default function ChatOmnicanalScreen() {
   const params = useLocalSearchParams<{ conversationId?: string | string[] }>();
@@ -120,14 +94,11 @@ export default function ChatOmnicanalScreen() {
   const insets = useSafeAreaInsets();
   const convId = resolveConversationId(params);
 
-  const [mensajes, setMensajes] = useState<ChatRow[]>([]);
   const [texto, setTexto] = useState('');
-  const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [agendarVisible, setAgendarVisible] = useState(false);
   const [cotizarVisible, setCotizarVisible] = useState(false);
   const [agenteIaVisible, setAgenteIaVisible] = useState(false);
-  const [cotizacionAceptadaId, setCotizacionAceptadaId] = useState<number | undefined>();
   const [attachments, setAttachments] = useState<AttachmentState[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [editingCotizacion, setEditingCotizacion] = useState<CotizacionCanal | null>(null);
@@ -146,14 +117,6 @@ export default function ChatOmnicanalScreen() {
       : null),
     [channelConnections, channelSlug, conversationMeta.hasKnownChannel, featureEnabled],
   );
-
-  const channelWindowBlockReason = useMemo(() => {
-    if (channelDisconnectedReason) return null;
-    return getMetaReplyBlockReason(channelSlug, mensajes);
-  }, [channelDisconnectedReason, channelSlug, mensajes]);
-
-  const canSendMessages = !channelDisconnectedReason && !channelWindowBlockReason;
-  const inputRestrictionMessage = channelDisconnectedReason || channelWindowBlockReason;
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -192,28 +155,19 @@ export default function ChatOmnicanalScreen() {
     };
   }, [conversationMeta.contactName]);
 
-  const cargar = useCallback(async () => {
-    if (!convId) return;
-    try {
-      setLoading(true);
-      const rows = await chatService.getMessages(convId);
-      const mapped = (rows as Record<string, unknown>[]).map(mapApiMessage);
-      setMensajes(mapped);
-      await chatService.markRead(convId);
-      try {
-        const cotizaciones = await cotizacionCanalService.listarPorConversacion(parseInt(convId, 10));
-        const aceptada = cotizaciones.find((c) => c.estado === 'aceptada');
-        setCotizacionAceptadaId(aceptada?.id);
-      } catch {
-        setCotizacionAceptadaId(undefined);
-      }
-    } catch (e) {
-      console.error('[chat-omnicanal]', e);
-      Alert.alert('Error', 'No se pudo cargar la conversación.');
-    } finally {
-      setLoading(false);
-    }
-  }, [convId, mapApiMessage]);
+  const threadQuery = useChatMessagesQuery(convId, mapApiMessage);
+  const { upsertRow, replaceMensajes, refetchSilent } = useChatThreadCache(convId);
+  const mensajes = threadQuery.data?.mensajes ?? [];
+  const cotizacionAceptadaId = threadQuery.data?.cotizacionAceptadaId;
+  const loading = threadQuery.isPending && mensajes.length === 0;
+
+  const channelWindowBlockReason = useMemo(() => {
+    if (channelDisconnectedReason) return null;
+    return getMetaReplyBlockReason(channelSlug, mensajes);
+  }, [channelDisconnectedReason, channelSlug, mensajes]);
+
+  const canSendMessages = !channelDisconnectedReason && !channelWindowBlockReason;
+  const inputRestrictionMessage = channelDisconnectedReason || channelWindowBlockReason;
 
   useFocusEffect(
     useCallback(() => {
@@ -223,9 +177,15 @@ export default function ChatOmnicanalScreen() {
         ]);
         return;
       }
-      cargar();
-    }, [cargar, convId]),
+      void chatService.markRead(convId);
+    }, [convId]),
   );
+
+  useEffect(() => {
+    if (threadQuery.isError) {
+      Alert.alert('Error', 'No se pudo cargar la conversación.');
+    }
+  }, [threadQuery.isError]);
 
   useEffect(() => {
     if (!convId) return;
@@ -239,20 +199,18 @@ export default function ChatOmnicanalScreen() {
       ) {
         return;
       }
-      const msg = mapWsEvent(raw);
-      setMensajes((prev) => mergeChatRow(prev, msg));
+      upsertRow(mapWsEvent(raw));
     });
     return () => chatService.disconnect();
-  }, [convId, mapWsEvent]);
+  }, [convId, mapWsEvent, upsertRow]);
 
   useEffect(() => {
     const unsub = websocketService.onNuevoMensajeChat((event: NuevoMensajeChatEvent) => {
       if (event.conversation_id !== convId) return;
-      const msg = mapWsEvent(event);
-      setMensajes((prev) => mergeChatRow(prev, msg));
+      upsertRow(mapWsEvent(event));
     });
     return unsub;
-  }, [convId, mapWsEvent]);
+  }, [convId, mapWsEvent, upsertRow]);
 
   const handlePickMedia = async () => {
     try {
@@ -339,7 +297,7 @@ export default function ChatOmnicanalScreen() {
       : [{ attachment: null as AttachmentState | null, content: trimmed }];
 
     const tempIds = payloads.map((_, i) => `temp-${Date.now()}-${i}`);
-    setMensajes((prev) => [
+    replaceMensajes((prev) => [
       ...prev,
       ...payloads.map((p, i) => ({
         id: tempIds[i],
@@ -370,14 +328,14 @@ export default function ChatOmnicanalScreen() {
           Boolean(payloads[i].attachment),
         );
         const mapped = mapApiMessage(sent as Record<string, unknown>);
-        setMensajes((prev) => {
+        replaceMensajes((prev) => {
           const withoutTemp = prev.filter((m) => m.id !== tempIds[i]);
-          return mergeChatRow(withoutTemp, mapped);
+          return mergeChatThreadRow(withoutTemp, mapped);
         });
       }
     } catch (error) {
       Alert.alert('No se puede enviar', extractSendMessageError(error));
-      setMensajes((prev) => prev.filter((m) => !tempIds.includes(m.id)));
+      replaceMensajes((prev) => prev.filter((m) => !tempIds.includes(m.id)));
       setTexto(trimmed);
       if (!audioAttachment) setAttachments(queueSnapshot);
     } finally {
@@ -419,7 +377,7 @@ export default function ChatOmnicanalScreen() {
           channelDisconnectedReason={channelDisconnectedReason}
           channelWindowClosedReason={channelWindowBlockReason}
           onEnviada={() => {
-            void cargar();
+            void refetchSilent();
           }}
         />
 
@@ -612,9 +570,9 @@ export default function ChatOmnicanalScreen() {
             <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedImage(null)}>
               <X size={28} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
-            {selectedImage && isChatAttachmentImage(selectedImage) && (
+            {selectedImage ? (
               <Image source={{ uri: selectedImage }} style={styles.modalImage} resizeMode="contain" />
-            )}
+            ) : null}
           </View>
         </Modal>
 
@@ -633,7 +591,7 @@ export default function ChatOmnicanalScreen() {
                   try {
                     await cotizacionCanalService.enviar(editingCotizacion.id);
                     setEditingCotizacion(null);
-                    void cargar();
+                    void refetchSilent();
                   } catch (e) {
                     Alert.alert('Error', 'No se pudo enviar la cotización');
                   }
@@ -654,7 +612,7 @@ export default function ChatOmnicanalScreen() {
                   try {
                     await cotizacionCanalService.marcarAceptada(editingCotizacion.id);
                     setEditingCotizacion(null);
-                    void cargar();
+                    void refetchSilent();
                   } catch (e) {
                     Alert.alert('Error', 'No se pudo marcar como aceptada');
                   }

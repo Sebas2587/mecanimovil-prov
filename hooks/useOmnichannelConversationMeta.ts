@@ -47,7 +47,7 @@ export function useOmnichannelConversationMeta(conversationId: string): Omnichan
 
   const { data: inbox, isPending, isFetching } = useChatInboxQuery(Boolean(conversationId));
 
-  return useMemo(() => {
+  const meta = useMemo(() => {
     const fromInbox = findInboxItemByConversationId(inbox, conversationId);
     const channel = (urlChannel || fromInbox?.channel || '') as ChannelSlug;
     const contactName = urlName || fromInbox?.otra_persona?.nombre || 'Contacto';
@@ -64,16 +64,18 @@ export function useOmnichannelConversationMeta(conversationId: string): Omnichan
       displayName: formatDisplayName(contactName),
       nombreAgendable,
       hasKnownChannel,
-      isMetaPending: (isPending || isFetching) && !hasKnownChannel && !urlName,
     };
   }, [
     conversationId,
     inbox,
-    isPending,
-    isFetching,
     urlChannel,
     urlName,
     urlPhone,
     urlSolicitudId,
   ]);
+
+  return {
+    ...meta,
+    isMetaPending: (isPending || isFetching) && !meta.hasKnownChannel && !urlName,
+  };
 }
