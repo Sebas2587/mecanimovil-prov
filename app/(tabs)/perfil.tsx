@@ -495,9 +495,18 @@ export default function PerfilScreen() {
   const renderTallerIdentityCard = (showFotoEdit = false) => {
     const tagEstado = getEstadoTag();
     const showGestionarPerfil = !esSupervisor && !esMecanicoEquipo;
+    const showEstadoMandante = rolTaller === 'mandante';
     return (
     <Card elevated padding="host" style={styles.surfaceCard}>
-      <View style={styles.profileIdentityRow}>
+      {showEstadoMandante ? (
+        <InstitutionalTag
+          label={tagEstado.label}
+          variant={tagEstado.variant}
+          size="sm"
+          style={styles.identityStatusTag}
+        />
+      ) : null}
+      <View style={[styles.profileIdentityRow, showEstadoMandante && styles.profileIdentityRowWithStatus]}>
         <View style={styles.avatarWrap}>
           {fotoProveedor ? (
             <Image source={{ uri: fotoProveedor }} style={[styles.avatar, { borderColor: I.hairline }]} />
@@ -533,12 +542,9 @@ export default function PerfilScreen() {
         </View>
       </View>
 
-      {(rolTaller === 'mandante' || etiquetasPerfil.length > 0 || showGestionarPerfil) ? (
+      {(etiquetasPerfil.length > 0 || showGestionarPerfil) ? (
         <View style={styles.identityMetaRow}>
           <View style={styles.identityTagsRow}>
-            {rolTaller === 'mandante' ? (
-              <InstitutionalTag label={tagEstado.label} variant={tagEstado.variant} size="sm" />
-            ) : null}
             {etiquetasPerfil.map((badge) => (
               <InstitutionalTag
                 key={badge.label}
@@ -715,6 +721,17 @@ const styles = StyleSheet.create({
   surfaceCard: {
     marginBottom: SPACING.sm,
     overflow: 'hidden',
+    position: 'relative',
+  },
+  identityStatusTag: {
+    position: 'absolute',
+    top: SPACING.fixed.sm,
+    right: SPACING.fixed.md,
+    zIndex: 1,
+    maxWidth: '46%',
+  },
+  profileIdentityRowWithStatus: {
+    paddingRight: SPACING.xl,
   },
   insightsStack: {
     gap: SPACING.md,
