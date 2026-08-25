@@ -92,6 +92,7 @@ interface AuthContextType {
     telefono: string;
     email: string;
     descripcion: string;
+    politicas_cotizacion: string;
     direccion: string;
   };
   /** Rol del usuario dentro del taller. 'mandante' por defecto. */
@@ -266,6 +267,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         telefono: estadoProveedor?.datos_proveedor?.telefono || usuario?.telefono || '',
         email: usuario?.email || '',
         descripcion: estadoProveedor?.datos_proveedor?.descripcion || '',
+        politicas_cotizacion: estadoProveedor?.datos_proveedor?.politicas_cotizacion || '',
         direccion:
           estadoProveedor?.datos_proveedor?.direccion?.trim() ||
           usuario?.direccion?.trim() ||
@@ -282,6 +284,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         telefono: '',
         email: '',
         descripcion: '',
+        politicas_cotizacion: '',
         direccion: '',
       };
     }

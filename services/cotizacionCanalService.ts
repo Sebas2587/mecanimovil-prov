@@ -70,6 +70,7 @@ export interface CotizacionCanal {
   duracion_minutos_estimada?: number | null;
   advertencias?: string[];
   notas_internas?: string;
+  politicas_cotizacion?: string;
   listo_para_enviar?: boolean;
   pendientes_revision?: string[];
   message_envio?: number | null;
@@ -170,6 +171,7 @@ export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<Cotizacion
     repuestos: c.repuestos,
     mano_obra_clp: c.mano_obra_clp,
     notas_internas: c.notas_internas,
+    politicas_cotizacion: c.politicas_cotizacion,
     duracion_minutos_estimada: c.duracion_minutos_estimada,
   };
   if (c.es_cotizacion_adicional) {

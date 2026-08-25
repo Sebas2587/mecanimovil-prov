@@ -49,6 +49,7 @@ function snapshot(c: CotizacionCanal): string {
     repuestos: c.repuestos,
     mano_obra_clp: c.mano_obra_clp,
     notas_internas: c.notas_internas,
+    politicas_cotizacion: c.politicas_cotizacion,
     duracion_minutos_estimada: c.duracion_minutos_estimada,
     ejecucion_adicional: c.ejecucion_adicional,
     fecha_propuesta: c.fecha_propuesta,

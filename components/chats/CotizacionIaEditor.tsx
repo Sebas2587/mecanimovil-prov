@@ -1053,6 +1053,18 @@ export function CotizacionIaEditor({
         />
       </Card>
 
+      <Card elevated padding="host" style={styles.sectionCard}>
+        <InstitutionalSectionHeader title="Validez y políticas" />
+        <InstitutionalField
+          label="El cliente las ve en el recuadro Validez. Se copian de tu perfil; puedes cambiarlas solo en esta cotización"
+          value={cotizacion.politicas_cotizacion || ''}
+          onChangeText={(t) => onChange({ ...cotizacion, politicas_cotizacion: t })}
+          placeholder="Los precios de repuestos pueden variar si cambia disponibilidad o marca."
+          editable={editable}
+          multiline
+        />
+      </Card>
+
       {cotizacion.estado === 'borrador'
         && (cotizacion.listo_para_enviar || (cotizacion.pendientes_revision?.length ?? 0) > 0) ? (
         <Card elevated padding="host" style={styles.readinessCard}>

@@ -144,6 +144,7 @@ export default function ConfiguracionPerfilScreen() {
     telefono: '',
     email: '',
     descripcion: '',
+    politicas_cotizacion: '',
     direccion: '',
   });
 
@@ -167,6 +168,7 @@ export default function ConfiguracionPerfilScreen() {
       telefono: datosCompletos.telefono,
       email: datosCompletos.email,
       descripcion: datosCompletos.descripcion,
+      politicas_cotizacion: datosCompletos.politicas_cotizacion || '',
       direccion: datosCompletos.direccion,
     });
 
@@ -427,6 +429,7 @@ export default function ConfiguracionPerfilScreen() {
         ...(datosPersonales.nombre && { nombre: datosPersonales.nombre }),
         ...(datosPersonales.telefono && { telefono: datosPersonales.telefono }),
         ...(datosPersonales.descripcion && { descripcion: datosPersonales.descripcion }),
+        politicas_cotizacion: datosPersonales.politicas_cotizacion,
         // Solo incluir dirección para mecánicos a domicilio
         ...(estadoProveedor?.tipo_proveedor === 'mecanico' && datosPersonales.direccion && { direccion: datosPersonales.direccion }),
       };
@@ -769,6 +772,25 @@ export default function ConfiguracionPerfilScreen() {
                   numberOfLines={4}
                   placeholderTextColor={textTertiary}
                 />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Políticas de cotización</Text>
+                <TextInput
+                  style={[styles.formInput, styles.formInputMultiline]}
+                  value={datosPersonales.politicas_cotizacion}
+                  onChangeText={(value) => {
+                    setDatosPersonales(prev => ({ ...prev, politicas_cotizacion: value }));
+                    setHasChanges(true);
+                  }}
+                  placeholder="Los precios de repuestos pueden variar si cambia disponibilidad o marca."
+                  multiline
+                  numberOfLines={4}
+                  placeholderTextColor={textTertiary}
+                />
+                <Text style={[styles.formHint, { color: textTertiary }]}>
+                  Se copian a cada cotización que envíes. Puedes ajustarlas por cotización antes de mandarla.
+                </Text>
               </View>
 
               {/* Campo de dirección solo para mecánicos a domicilio */}
