@@ -26,6 +26,7 @@ import { COTIZACIONES_CANAL_QUERY_KEY } from '@/hooks/useCotizacionesCanalTaller
 import cotizacionCanalService, {
   adicionalRequiereFecha,
   cotizacionPermiteEdicionCompleta,
+  cotizacionPermiteEnviar,
   payloadEdicionCotizacion,
   type CotizacionCanal,
 } from '@/services/cotizacionCanalService';
@@ -49,6 +50,9 @@ function snapshot(c: CotizacionCanal): string {
     cliente_telefono: c.cliente_telefono,
     repuestos: c.repuestos,
     mano_obra_clp: c.mano_obra_clp,
+    descuento_tipo: c.descuento_tipo || '',
+    descuento_alcance: c.descuento_alcance || 'mano_obra',
+    descuento_valor: c.descuento_valor ?? 0,
     notas_internas: c.notas_internas,
     politicas_cotizacion: c.politicas_cotizacion,
     duracion_minutos_estimada: c.duracion_minutos_estimada,
@@ -197,10 +201,6 @@ export default function CotizacionCanalDetalleScreen() {
           draft.id,
           payloadEdicionCotizacion(draft),
         );
-        setDraft({ ...actualizada });
-        estadoActual = actualizada.estado;
-      } else if (draft.estado === 'enviada') {
-        const actualizada = await cotizacionCanalService.reabrir(draft.id);
         setDraft({ ...actualizada });
         estadoActual = actualizada.estado;
       }
@@ -397,7 +397,7 @@ export default function CotizacionCanalDetalleScreen() {
           />
         ) : null}
 
-        {editable && (draft.estado === 'borrador' || draft.estado === 'enviada') ? (
+        {editable && draft.estado === 'borrador' ? (
           <View style={styles.footerBorrador}>
             {draft.numero_publico ? (
               <InstitutionalText role="caption" color="muted">
@@ -405,7 +405,6 @@ export default function CotizacionCanalDetalleScreen() {
               </InstitutionalText>
             ) : null}
             <View style={styles.footerRow}>
-            {draft.estado === 'borrador' ? (
               <TouchableOpacity
                 style={styles.footerGhost}
                 onPress={eliminar}
@@ -414,43 +413,69 @@ export default function CotizacionCanalDetalleScreen() {
               >
                 <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
-            ) : null}
-            <InstitutionalButton
-              label="Guardar"
-              variant="outline"
-              style={styles.footerMid}
-              loading={guardando}
-              disabled={!hayCambios || guardando}
-              onPress={() => void guardar()}
-            />
-            <InstitutionalButton
-              label={draft.numero_publico ? 'Enviar al cliente' : 'Aprobar y enviar'}
-              variant="primary"
-              style={styles.footerPrimary}
-              loading={enviando}
-              onPress={() => void enviar()}
-            />
+              <InstitutionalButton
+                label="Guardar"
+                variant="outline"
+                style={styles.footerMid}
+                loading={guardando}
+                disabled={!hayCambios || guardando}
+                onPress={() => void guardar()}
+              />
+              <InstitutionalButton
+                label={draft.numero_publico ? 'Enviar al cliente' : 'Aprobar y enviar'}
+                variant="primary"
+                style={styles.footerPrimary}
+                loading={enviando}
+                disabled={!cotizacionPermiteEnviar(draft) || enviando}
+                onPress={() => void enviar()}
+              />
             </View>
-            {draft.estado === 'enviada' ? (
-              <View style={styles.footerRow}>
-                <InstitutionalButton
-                  label="Cerrar caso"
-                  variant="destructiveOutline"
-                  size="compact"
-                  loading={accionLead}
-                  style={styles.footerFlex}
-                  onPress={cerrarCaso}
-                />
-                <InstitutionalButton
-                  label="Marcar aceptada"
-                  variant="success"
-                  size="compact"
-                  loading={accionLead}
-                  style={styles.footerFlexGrow}
-                  onPress={() => void marcarAceptada()}
-                />
-              </View>
+          </View>
+        ) : null}
+
+        {editable && draft.estado === 'enviada' ? (
+          <View style={styles.footerBorrador}>
+            {draft.numero_publico ? (
+              <InstitutionalText role="caption" color="muted">
+                Si pasaron más de 24 h, el chat conectado no puede enviarla. Al enviar se abre WhatsApp con el link actualizado.
+              </InstitutionalText>
             ) : null}
+            <View style={styles.footerRow}>
+              <InstitutionalButton
+                label="Guardar"
+                variant="outline"
+                style={styles.footerMid}
+                loading={guardando}
+                disabled={!hayCambios || guardando}
+                onPress={() => void guardar()}
+              />
+              <InstitutionalButton
+                label="Reenviar al cliente"
+                variant="primary"
+                style={styles.footerPrimary}
+                loading={enviando}
+                disabled={!hayCambios || enviando}
+                onPress={() => void enviar()}
+              />
+            </View>
+            <View style={styles.footerRow}>
+              <InstitutionalButton
+                label="Cerrar caso"
+                variant="destructiveOutline"
+                size="compact"
+                loading={accionLead}
+                style={styles.footerFlex}
+                onPress={cerrarCaso}
+              />
+              <InstitutionalButton
+                label="Marcar aceptada"
+                variant="success"
+                size="compact"
+                loading={accionLead}
+                style={styles.footerFlexGrow}
+                onPress={() => void marcarAceptada()}
+              />
+            </View>
           </View>
         ) : null}
 

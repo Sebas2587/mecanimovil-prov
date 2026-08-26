@@ -6,7 +6,6 @@ import {
   Modal,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -43,10 +42,12 @@ import {
 } from '@/utils/chilePhone';
 import cotizacionCanalService, {
   cotizacionPermiteEdicionCompleta,
+  cotizacionPermiteEnviar,
   fusionarRepuestosEnviados,
   payloadEdicionCotizacion,
   type CotizacionCanal,
   type CotizacionPlantilla,
+  type GenerarCotizacionIaPayload,
 } from '@/services/cotizacionCanalService';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 import {
@@ -129,6 +130,7 @@ export function CotizacionLibreModal({
   const [buscandoPatente, setBuscandoPatente] = useState(false);
   const [patenteHint, setPatenteHint] = useState<string | null>(null);
   const [generandoIa, setGenerandoIa] = useState(false);
+  const [creandoManual, setCreandoManual] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [descartando, setDescartando] = useState(false);
   const [upsellCuota, setUpsellCuota] = useState<{ visible: boolean; mensaje: string }>({
@@ -221,6 +223,8 @@ export function CotizacionLibreModal({
     setDireccionValidada(null);
     setPatenteHint(null);
     setErrorIa(null);
+    setGenerandoIa(false);
+    setCreandoManual(false);
     setCotizacion(null);
     setShareUrl(null);
   }, [conversationIdProp]);
@@ -361,6 +365,54 @@ export function CotizacionLibreModal({
     direccionValidada,
   ]);
 
+  const payloadIntake = useCallback((): GenerarCotizacionIaPayload => ({
+    conversation_id:
+      clienteModo === 'mensajes' && conversationId != null ? conversationId : null,
+    cliente_nombre: nombreClienteEfectivo,
+    cliente_telefono: telefonoClienteEfectivo,
+    servicio_nombre: servicioNombre.trim(),
+    descripcion_problema: descripcion.trim(),
+    modalidad,
+    direccion_servicio:
+      modalidad === 'domicilio'
+        ? (direccionValidada?.line ?? direccion).trim()
+        : '',
+    vehiculo: vehiculoPayload,
+  }), [
+    clienteModo,
+    conversationId,
+    nombreClienteEfectivo,
+    telefonoClienteEfectivo,
+    servicioNombre,
+    descripcion,
+    modalidad,
+    direccion,
+    direccionValidada,
+    vehiculoPayload,
+  ]);
+
+  const handleCrearBorrador = useCallback(async () => {
+    const err = validarAntesGenerar();
+    if (err) {
+      setErrorIa(err);
+      return;
+    }
+    setErrorIa(null);
+    setCreandoManual(true);
+    try {
+      const res = await cotizacionCanalService.crearBorrador(payloadIntake());
+      if (!res.cotizacion) {
+        setErrorIa('No se pudo crear la cotización.');
+        return;
+      }
+      setCotizacion(res.cotizacion);
+    } catch (err) {
+      setErrorIa(extractApiError(err, 'Error al crear la cotización. Intenta de nuevo.'));
+    } finally {
+      setCreandoManual(false);
+    }
+  }, [validarAntesGenerar, payloadIntake]);
+
   const handleGenerarIa = useCallback(async (plantillaId?: number) => {
     const err = validarAntesGenerar();
     if (err) {
@@ -371,18 +423,7 @@ export function CotizacionLibreModal({
     setGenerandoIa(true);
     try {
       const res = await cotizacionCanalService.generarIa({
-        conversation_id:
-          clienteModo === 'mensajes' && conversationId != null ? conversationId : null,
-        cliente_nombre: nombreClienteEfectivo,
-        cliente_telefono: telefonoClienteEfectivo,
-        servicio_nombre: servicioNombre.trim(),
-        descripcion_problema: descripcion.trim(),
-        modalidad,
-        direccion_servicio:
-          modalidad === 'domicilio'
-            ? (direccionValidada?.line ?? direccion).trim()
-            : '',
-        vehiculo: vehiculoPayload,
+        ...payloadIntake(),
         ...(plantillaId ? { plantilla_id: plantillaId } : {}),
       });
       if (!res.disponible || !res.cotizacion) {
@@ -419,19 +460,7 @@ export function CotizacionLibreModal({
     } finally {
       setGenerandoIa(false);
     }
-  }, [
-    validarAntesGenerar,
-    clienteModo,
-    conversationId,
-    nombreClienteEfectivo,
-    telefonoClienteEfectivo,
-    servicioNombre,
-    descripcion,
-    modalidad,
-    direccion,
-    direccionValidada,
-    vehiculoPayload,
-  ]);
+  }, [validarAntesGenerar, payloadIntake]);
 
   const handleUsarPlantilla = useCallback(
     (plantilla: CotizacionPlantilla) => {
@@ -518,7 +547,7 @@ export function CotizacionLibreModal({
   }, [cotizacion]);
 
   const handleEnviar = useCallback(async () => {
-    if (!cotizacion?.id) return;
+    if (!cotizacion?.id || !cotizacionPermiteEnviar(cotizacion)) return;
     setEnviando(true);
     setErrorIa(null);
     try {
@@ -577,27 +606,24 @@ export function CotizacionLibreModal({
     }
   }, [cotizacion, persistirCotizacion, compartirLink, onEnviada, channel, channelDisconnectedReason, channelWindowClosedReason]);
 
+  const ocupado = generandoIa || creandoManual || enviando || descartando;
+
   const enviarLabel = esEnvioCanal || Boolean(cotizacion?.conversation)
     ? 'Enviar al cliente'
     : 'Generar link y compartir';
 
-  const puedeReenviar = Boolean(
+  const puedeEnviar = Boolean(
     cotizacion
-    && cotizacionPermiteEdicionCompleta(cotizacion)
-    && (cotizacion.estado === 'borrador' || cotizacion.estado === 'enviada'),
+    && cotizacionPermiteEnviar(cotizacion),
   );
 
-  const footerPrimaryLabel = !cotizacion
-    ? (generandoIa ? 'Generando…' : 'Generar cotización con IA')
-    : puedeReenviar
-      ? (enviando ? 'Enviando…' : enviarLabel)
-      : 'Listo';
+  const footerPrimaryLabel = puedeEnviar
+    ? (enviando ? 'Enviando…' : enviarLabel)
+    : 'Listo';
 
-  const footerPrimaryAction = !cotizacion
-    ? () => void handleGenerarIa()
-    : puedeReenviar
-      ? () => void handleEnviar()
-      : handleClose;
+  const footerPrimaryAction = puedeEnviar
+    ? () => void handleEnviar()
+    : handleClose;
 
   return (
     <Modal
@@ -618,7 +644,7 @@ export function CotizacionLibreModal({
             </View>
             <TouchableOpacity
               onPress={handleClose}
-              disabled={generandoIa || enviando || descartando}
+              disabled={ocupado}
               style={styles.closeBtn}
               hitSlop={12}
               accessibilityRole="button"
@@ -756,7 +782,7 @@ export function CotizacionLibreModal({
                               plantilla={p}
                               onPress={handleUsarPlantilla}
                               last={idx === plantillasSugeridas.length - 1}
-                              disabled={generandoIa}
+                              disabled={ocupado}
                             />
                           ))}
                         </View>
@@ -800,29 +826,61 @@ export function CotizacionLibreModal({
           </ScrollView>
 
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
-            <InstitutionalButton
-              label={cotizacion?.estado === 'borrador' ? 'Descartar borrador' : 'Cancelar'}
-              variant={cotizacion?.estado === 'borrador' ? 'destructiveOutline' : 'outline'}
-              size="default"
-              onPress={handleClose}
-              disabled={generandoIa || enviando || descartando}
-              loading={descartando}
-              style={styles.footerBtnSecondary}
-            />
-            <InstitutionalButton
-              label={footerPrimaryLabel}
-              variant="primary"
-              size="default"
-              onPress={footerPrimaryAction}
-              disabled={generandoIa || enviando || descartando}
-              loading={generandoIa || enviando}
-              leading={
-                !cotizacion ? (
-                  <Sparkles size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                ) : undefined
-              }
-              style={styles.footerBtnPrimary}
-            />
+            {!cotizacion ? (
+              <>
+                <InstitutionalButton
+                  label={generandoIa ? 'Generando…' : 'Generar con IA'}
+                  variant="outline"
+                  size="default"
+                  onPress={() => void handleGenerarIa()}
+                  disabled={ocupado}
+                  loading={generandoIa}
+                  leading={(
+                    <Sparkles size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                  )}
+                  style={styles.footerBtnPair}
+                />
+                <InstitutionalButton
+                  label={creandoManual ? 'Creando…' : 'Crear en blanco'}
+                  variant="primary"
+                  size="default"
+                  onPress={() => void handleCrearBorrador()}
+                  disabled={ocupado}
+                  loading={creandoManual}
+                  style={styles.footerBtnPair}
+                />
+              </>
+            ) : puedeEnviar ? (
+              <>
+                <InstitutionalButton
+                  label="Descartar"
+                  variant="destructiveOutline"
+                  size="default"
+                  onPress={handleClose}
+                  disabled={ocupado}
+                  loading={descartando}
+                  style={styles.footerBtnSecondary}
+                />
+                <InstitutionalButton
+                  label={footerPrimaryLabel}
+                  variant="primary"
+                  size="default"
+                  onPress={footerPrimaryAction}
+                  disabled={ocupado}
+                  loading={enviando}
+                  style={styles.footerBtnPrimary}
+                />
+              </>
+            ) : (
+              <InstitutionalButton
+                label="Listo"
+                variant="primary"
+                size="default"
+                onPress={handleClose}
+                disabled={ocupado}
+                style={styles.footerBtnGrow}
+              />
+            )}
           </View>
         </KeyboardAvoidingView>
       </View>
@@ -984,8 +1042,22 @@ const styles = StyleSheet.create({
     borderTopColor: I.hairline,
     backgroundColor: COLORS.background.paper,
   },
-  footerBtnSecondary: { flex: 1 },
-  footerBtnPrimary: { flex: 1.4 },
+  footerBtnPair: {
+    flex: 1,
+    minWidth: 0,
+  },
+  footerBtnSecondary: {
+    flex: 1,
+    minWidth: 0,
+  },
+  footerBtnPrimary: {
+    flex: 2,
+    minWidth: 0,
+  },
+  footerBtnGrow: {
+    flex: 1,
+    minWidth: 0,
+  },
 });
 
 export default CotizacionLibreModal;

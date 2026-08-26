@@ -3,6 +3,8 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
+  Text,
   TextInput,
   useWindowDimensions,
   Linking,
@@ -34,6 +36,7 @@ import {
 } from '@/utils/parseMontoDecimal';
 import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import cotizacionCanalService, {
+  calcularDescuentoCotizacion,
   cotizacionPermiteEdicionCompleta,
 } from '@/services/cotizacionCanalService';
 import { CotizarItemsIaModal } from '@/components/chats/CotizarItemsIaModal';
@@ -466,10 +469,24 @@ export function CotizacionIaEditor({
     [repuestos],
   );
 
-  const totalCalculado = useMemo(
-    () => totalRepuestos + manoObra,
-    [totalRepuestos, manoObra],
+  const descuentoLive = useMemo(
+    () => calcularDescuentoCotizacion({
+      costoRepuestos: totalRepuestos,
+      manoObra,
+      tipo: cotizacion.descuento_tipo,
+      alcance: cotizacion.descuento_alcance,
+      valor: cotizacion.descuento_valor,
+    }),
+    [
+      totalRepuestos,
+      manoObra,
+      cotizacion.descuento_tipo,
+      cotizacion.descuento_alcance,
+      cotizacion.descuento_valor,
+    ],
   );
+
+  const totalCalculado = descuentoLive.total;
 
   const desgloseTotal = useMemo(
     () => desgloseIvaDesdeTotal(totalCalculado),
@@ -1001,6 +1018,91 @@ export function CotizacionIaEditor({
         )}
       </View>
 
+      <Card elevated padding="host" style={styles.sectionCard}>
+        <InstitutionalSectionHeader title="Descuento" />
+        <InstitutionalText role="caption" color="muted">
+          Opcional. Se aplica antes del desglose de IVA.
+        </InstitutionalText>
+        <View style={styles.chipRow}>
+          {([
+            { key: 'mano_obra' as const, label: 'Mano de obra' },
+            { key: 'total' as const, label: 'Total' },
+          ]).map((opt) => {
+            const active = (cotizacion.descuento_alcance || 'mano_obra') === opt.key;
+            return (
+              <Pressable
+                key={opt.key}
+                style={[styles.chip, active && styles.chipActive]}
+                disabled={!editable}
+                onPress={() => onChange({
+                  ...cotizacion,
+                  descuento_alcance: opt.key,
+                  descuento_tipo: cotizacion.descuento_tipo || 'porcentaje',
+                })}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <View style={styles.chipRow}>
+          {([
+            { key: '' as const, label: 'Sin descuento' },
+            { key: 'porcentaje' as const, label: '%' },
+            { key: 'monto' as const, label: '$' },
+          ]).map((opt) => {
+            const active = (cotizacion.descuento_tipo || '') === opt.key;
+            return (
+              <Pressable
+                key={opt.key || 'none'}
+                style={[styles.chip, active && styles.chipActive]}
+                disabled={!editable}
+                onPress={() => onChange({
+                  ...cotizacion,
+                  descuento_tipo: opt.key,
+                  descuento_valor: opt.key ? (cotizacion.descuento_valor || 0) : 0,
+                })}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {cotizacion.descuento_tipo === 'porcentaje' ? (
+          <InstitutionalField
+            label="Porcentaje"
+            value={
+              cotizacion.descuento_valor
+                ? String(cotizacion.descuento_valor)
+                : ''
+            }
+            onChangeText={(t) => {
+              const digits = t.replace(/[^\d.,]/g, '').replace(',', '.');
+              const n = Math.min(100, Math.max(0, Number(digits) || 0));
+              onChange({ ...cotizacion, descuento_tipo: 'porcentaje', descuento_valor: n });
+            }}
+            placeholder="0"
+            keyboardType="decimal-pad"
+            editable={editable}
+          />
+        ) : null}
+        {cotizacion.descuento_tipo === 'monto' ? (
+          <ClpMoneyInput
+            value={redondearCLP(cotizacion.descuento_valor || 0)}
+            editable={editable}
+            onChangeValue={(next) => onChange({
+              ...cotizacion,
+              descuento_tipo: 'monto',
+              descuento_valor: next,
+            })}
+          />
+        ) : null}
+      </Card>
+
       <Card elevated padding="host" style={styles.summaryBox}>
         <View style={styles.summaryRow}>
           <InstitutionalText role="caption" color="muted">
@@ -1018,6 +1120,16 @@ export function CotizacionIaEditor({
             {formatearMontoCLP(manoObra)}
           </InstitutionalText>
         </View>
+        {descuentoLive.descuentoClp > 0 ? (
+          <View style={styles.summaryRow}>
+            <InstitutionalText role="caption" color="muted" style={styles.descuentoLabel}>
+              {descuentoLive.etiqueta}
+            </InstitutionalText>
+            <InstitutionalText role="captionBold" color="primary">
+              −{formatearMontoCLP(descuentoLive.descuentoClp)}
+            </InstitutionalText>
+          </View>
+        ) : null}
         <View style={styles.summaryDivider} />
         <View style={styles.summaryRow}>
           <InstitutionalText role="caption" color="muted">
@@ -1112,7 +1224,7 @@ export function CotizacionIaEditor({
         && ((editable && (onEnviar || onGuardarPlantilla))
           || (cotizacion.estado === 'enviada' && onMarcarAceptada)) ? (
         <View style={styles.actionsFooter}>
-          {editable && onEnviar ? (
+          {editable && onEnviar && cotizacion.estado === 'borrador' ? (
             <InstitutionalButton
               label={enviarLabel}
               onPress={() => {
@@ -1290,6 +1402,35 @@ const styles = StyleSheet.create({
   summaryDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: I.hairline,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.xs,
+  },
+  chip: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.pill,
+    paddingVertical: SPACING.fixed.xs,
+    paddingHorizontal: SPACING.fixed.md,
+    backgroundColor: COLORS.background.paper,
+  },
+  chipActive: {
+    borderColor: I.primary,
+    backgroundColor: withOpacity(I.primary, 0.08),
+  },
+  chipText: {
+    ...T.caption,
+    color: I.muted,
+  },
+  chipTextActive: {
+    ...T.captionBold,
+    color: I.ink,
+  },
+  descuentoLabel: {
+    flex: 1,
+    paddingRight: SPACING.fixed.sm,
   },
   totalValue: {
     fontSize: T.h3.fontSize,

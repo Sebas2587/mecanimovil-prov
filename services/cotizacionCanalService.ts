@@ -70,6 +70,11 @@ export interface CotizacionCanal {
   repuestos: RepuestoCotizacion[];
   mano_obra_clp: number;
   costo_repuestos_clp: number;
+  descuento_tipo?: '' | 'monto' | 'porcentaje' | null;
+  descuento_alcance?: 'mano_obra' | 'total' | null;
+  descuento_valor?: number | null;
+  descuento_clp?: number;
+  descuento_etiqueta?: string;
   total_clp: number;
   duracion_minutos_estimada?: number | null;
   advertencias?: string[];
@@ -171,6 +176,42 @@ export function cotizacionPermiteEdicionCompleta(c: CotizacionCanal): boolean {
   return c.estado === 'borrador' || c.estado === 'enviada' || c.estado === 'aceptada';
 }
 
+/** Primer envío: solo borrador. No reutilizar edición completa para mostrar el CTA. */
+export function cotizacionPermiteEnviar(c: CotizacionCanal): boolean {
+  return c.estado === 'borrador';
+}
+
+export function calcularDescuentoCotizacion(opts: {
+  costoRepuestos: number;
+  manoObra: number;
+  tipo?: CotizacionCanal['descuento_tipo'];
+  alcance?: CotizacionCanal['descuento_alcance'];
+  valor?: number | null;
+}): { descuentoClp: number; total: number; etiqueta: string } {
+  const costoRep = Math.max(0, Math.round(opts.costoRepuestos || 0));
+  const mo = Math.max(0, Math.round(opts.manoObra || 0));
+  const bruto = costoRep + mo;
+  const tipo = (opts.tipo || '').trim();
+  if (tipo !== 'monto' && tipo !== 'porcentaje') {
+    return { descuentoClp: 0, total: bruto, etiqueta: '' };
+  }
+  const alcance = opts.alcance === 'total' ? 'total' : 'mano_obra';
+  const base = alcance === 'mano_obra' ? mo : bruto;
+  let desc = 0;
+  if (tipo === 'porcentaje') {
+    const pct = Math.min(100, Math.max(0, Number(opts.valor) || 0));
+    desc = Math.round(base * pct / 100);
+  } else {
+    desc = Math.max(0, Math.round(Number(opts.valor) || 0));
+  }
+  desc = Math.min(desc, base);
+  const alcanceTxt = alcance === 'total' ? 'total' : 'mano de obra';
+  const etiqueta = tipo === 'porcentaje'
+    ? `Descuento ${Number(opts.valor) || 0}% sobre ${alcanceTxt}`
+    : `Descuento $${desc.toLocaleString('es-CL')} sobre ${alcanceTxt}`;
+  return { descuentoClp: desc, total: Math.max(0, bruto - desc), etiqueta };
+}
+
 export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<CotizacionCanal> {
   const patch: Partial<CotizacionCanal> = {
     servicio_nombre: c.servicio_nombre,
@@ -181,6 +222,9 @@ export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<Cotizacion
     cliente_telefono: c.cliente_telefono,
     repuestos: c.repuestos,
     mano_obra_clp: c.mano_obra_clp,
+    descuento_tipo: c.descuento_tipo || '',
+    descuento_alcance: c.descuento_alcance || 'mano_obra',
+    descuento_valor: c.descuento_valor ?? 0,
     notas_internas: c.notas_internas,
     politicas_cotizacion: c.politicas_cotizacion,
     duracion_minutos_estimada: c.duracion_minutos_estimada,
@@ -225,6 +269,11 @@ class CotizacionCanalService {
       timeout: 60000,
     });
     return response.data as GenerarCotizacionIaResponse;
+  }
+
+  async crearBorrador(payload: GenerarCotizacionIaPayload): Promise<{ cotizacion: CotizacionCanal }> {
+    const response = await api.post('/ordenes/cotizaciones-canal/crear-borrador/', payload);
+    return response.data as { cotizacion: CotizacionCanal };
   }
 
   async crearAdicional(payload: CrearCotizacionAdicionalPayload): Promise<{ cotizacion: CotizacionCanal }> {

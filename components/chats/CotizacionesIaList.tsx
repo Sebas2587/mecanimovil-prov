@@ -190,7 +190,7 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
 
   const screenHeader = (
     <Header
-      title="Cotizar con IA"
+      title="Cotizar"
       showBack
       onBackPress={onBack}
       backgroundColor={I.canvas}
@@ -259,7 +259,7 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
             description={
               searchQuery.trim()
                 ? `Nada coincide con «${searchQuery.trim()}».`
-                : 'Crea una cotización o espera un borrador de la IA. Lo ya enviado está en Bandeja.'
+                : 'Crea una cotización en blanco o con IA. Lo ya enviado está en Bandeja.'
             }
             primaryAction={
               searchQuery.trim()

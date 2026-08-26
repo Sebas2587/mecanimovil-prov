@@ -591,19 +591,14 @@ export default function ChatOmnicanalScreen() {
               cotizacion={editingCotizacion}
               onChange={(updated) => setEditingCotizacion(updated)}
               onEnviar={async () => {
-                if (!editingCotizacion.id) return;
+                if (!editingCotizacion.id || editingCotizacion.estado !== 'borrador') return;
                 try {
-                  let estado = editingCotizacion.estado;
-                  if (cotizacionPermiteEdicionCompleta(editingCotizacion)) {
-                    const saved = await cotizacionCanalService.actualizar(
-                      editingCotizacion.id,
-                      payloadEdicionCotizacion(editingCotizacion),
-                    );
-                    setEditingCotizacion(saved);
-                    estado = saved.estado;
-                  }
-                  if (estado === 'borrador') {
-                    await cotizacionCanalService.enviar(editingCotizacion.id);
+                  const saved = await cotizacionCanalService.actualizar(
+                    editingCotizacion.id,
+                    payloadEdicionCotizacion(editingCotizacion),
+                  );
+                  if (saved.estado === 'borrador') {
+                    await cotizacionCanalService.enviar(saved.id);
                   }
                   setEditingCotizacion(null);
                   void refetchSilent();
