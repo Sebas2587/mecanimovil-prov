@@ -365,6 +365,7 @@ export interface EstadoProveedor {
   datos_proveedor?: {
     descripcion?: string;
     politicas_cotizacion?: string;
+    dias_validez_cotizacion?: number;
     telefono?: string;
     direccion?: string;
     ubicacion_lat?: number;
@@ -1335,6 +1336,7 @@ export interface ActualizarPerfilRequest {
   telefono?: string;
   descripcion?: string;
   politicas_cotizacion?: string;
+  dias_validez_cotizacion?: number;
   direccion?: string;
   rut?: string;
   dni?: string;

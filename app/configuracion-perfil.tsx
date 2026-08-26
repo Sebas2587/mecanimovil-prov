@@ -145,6 +145,7 @@ export default function ConfiguracionPerfilScreen() {
     email: '',
     descripcion: '',
     politicas_cotizacion: '',
+    dias_validez_cotizacion: 30,
     direccion: '',
   });
 
@@ -169,6 +170,7 @@ export default function ConfiguracionPerfilScreen() {
       email: datosCompletos.email,
       descripcion: datosCompletos.descripcion,
       politicas_cotizacion: datosCompletos.politicas_cotizacion || '',
+      dias_validez_cotizacion: datosCompletos.dias_validez_cotizacion || 30,
       direccion: datosCompletos.direccion,
     });
 
@@ -430,6 +432,10 @@ export default function ConfiguracionPerfilScreen() {
         ...(datosPersonales.telefono && { telefono: datosPersonales.telefono }),
         ...(datosPersonales.descripcion && { descripcion: datosPersonales.descripcion }),
         politicas_cotizacion: datosPersonales.politicas_cotizacion,
+        dias_validez_cotizacion: Math.min(
+          90,
+          Math.max(1, Math.round(Number(datosPersonales.dias_validez_cotizacion) || 30)),
+        ),
         // Solo incluir dirección para mecánicos a domicilio
         ...(estadoProveedor?.tipo_proveedor === 'mecanico' && datosPersonales.direccion && { direccion: datosPersonales.direccion }),
       };
@@ -790,6 +796,29 @@ export default function ConfiguracionPerfilScreen() {
                 />
                 <Text style={[styles.formHint, { color: textTertiary }]}>
                   Se copian a cada cotización que envíes. Puedes ajustarlas por cotización antes de mandarla.
+                </Text>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Vigencia de cotizaciones (días)</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={String(datosPersonales.dias_validez_cotizacion || 30)}
+                  onChangeText={(value) => {
+                    const digits = value.replace(/\D/g, '');
+                    const n = digits
+                      ? Math.min(90, Math.max(1, parseInt(digits, 10)))
+                      : 30;
+                    setDatosPersonales(prev => ({ ...prev, dias_validez_cotizacion: n }));
+                    setHasChanges(true);
+                  }}
+                  placeholder="30"
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  placeholderTextColor={textTertiary}
+                />
+                <Text style={[styles.formHint, { color: textTertiary }]}>
+                  Default 30 días (máximo 90). Se copia a cada cotización; puedes cambiarla antes de enviarla.
                 </Text>
               </View>
 

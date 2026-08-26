@@ -93,6 +93,7 @@ interface AuthContextType {
     email: string;
     descripcion: string;
     politicas_cotizacion: string;
+    dias_validez_cotizacion: number;
     direccion: string;
   };
   /** Rol del usuario dentro del taller. 'mandante' por defecto. */
@@ -268,6 +269,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         email: usuario?.email || '',
         descripcion: estadoProveedor?.datos_proveedor?.descripcion || '',
         politicas_cotizacion: estadoProveedor?.datos_proveedor?.politicas_cotizacion || '',
+        dias_validez_cotizacion: Number(
+          estadoProveedor?.datos_proveedor?.dias_validez_cotizacion,
+        ) > 0
+          ? Math.min(90, Math.max(1, Math.round(Number(
+            estadoProveedor?.datos_proveedor?.dias_validez_cotizacion,
+          ))))
+          : 30,
         direccion:
           estadoProveedor?.datos_proveedor?.direccion?.trim() ||
           usuario?.direccion?.trim() ||
@@ -285,6 +293,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         email: '',
         descripcion: '',
         politicas_cotizacion: '',
+        dias_validez_cotizacion: 30,
         direccion: '',
       };
     }

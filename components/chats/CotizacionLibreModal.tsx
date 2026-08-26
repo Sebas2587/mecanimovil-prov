@@ -547,11 +547,12 @@ export function CotizacionLibreModal({
   }, [cotizacion]);
 
   const handleEnviar = useCallback(async () => {
-    if (!cotizacion?.id || !cotizacionPermiteEnviar(cotizacion)) return;
+    const fuente = draftRef.current || cotizacion;
+    if (!fuente?.id || !cotizacionPermiteEnviar(fuente)) return;
     setEnviando(true);
     setErrorIa(null);
     try {
-      const saved = await persistirCotizacion(cotizacion, true);
+      const saved = await persistirCotizacion(fuente, true);
       const res = await cotizacionCanalService.enviar(saved.id);
       const url = res.share_url || res.cotizacion.share_url || res.cotizacion.url_publica || null;
       setCotizacion(res.cotizacion);
@@ -639,7 +640,9 @@ export function CotizacionLibreModal({
         >
           <View style={styles.header}>
             <View style={styles.headerText}>
-              <Text style={styles.title}>Nueva cotización</Text>
+              <Text style={styles.title} numberOfLines={2}>
+                {(cotizacion?.servicio_nombre || '').trim() || 'Nueva cotización'}
+              </Text>
               <Text style={styles.subtitle}>{sheetSubtitle}</Text>
             </View>
             <TouchableOpacity

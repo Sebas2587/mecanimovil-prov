@@ -55,6 +55,7 @@ function snapshot(c: CotizacionCanal): string {
     descuento_valor: c.descuento_valor ?? 0,
     notas_internas: c.notas_internas,
     politicas_cotizacion: c.politicas_cotizacion,
+    dias_validez: c.dias_validez ?? 30,
     duracion_minutos_estimada: c.duracion_minutos_estimada,
     ejecucion_adicional: c.ejecucion_adicional,
     fecha_propuesta: c.fecha_propuesta,

@@ -3,8 +3,6 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Pressable,
-  Text,
   TextInput,
   useWindowDimensions,
   Linking,
@@ -17,6 +15,7 @@ import { InstitutionalText } from '@/app/design-system/components/InstitutionalT
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { Card } from '@/app/design-system/components';
 import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
 import {
@@ -37,6 +36,7 @@ import {
 import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import cotizacionCanalService, {
   calcularDescuentoCotizacion,
+  clampDiasValidez,
   cotizacionPermiteEdicionCompleta,
 } from '@/services/cotizacionCanalService';
 import { CotizarItemsIaModal } from '@/components/chats/CotizarItemsIaModal';
@@ -371,6 +371,17 @@ const RepuestoRow = React.memo(function RepuestoRow({
   );
 });
 
+const DESCUENTO_TIPO_TABS = [
+  { key: 'none' as const, label: 'Ninguno' },
+  { key: 'porcentaje' as const, label: '%' },
+  { key: 'monto' as const, label: '$' },
+];
+
+const DESCUENTO_ALCANCE_TABS = [
+  { key: 'mano_obra' as const, label: 'Mano de obra' },
+  { key: 'total' as const, label: 'Total' },
+];
+
 interface CotizacionIaEditorProps {
   cotizacion: CotizacionCanal;
   onChange: (next: CotizacionCanal) => void;
@@ -383,7 +394,7 @@ interface CotizacionIaEditorProps {
   /** Oculta botones de envío (el host modal usa footer propio). */
   hideSendActions?: boolean;
   readonly?: boolean;
-  /** Oculta título/servicio cuando el host (modal) ya los muestra. */
+  /** Encabezado compacto (tags + título de servicio) para modal y detalle. */
   compactHeader?: boolean;
   /** Oculta la fila de encabezado (p. ej. plantilla en BottomSheet con header propio). */
   sinHeader?: boolean;
@@ -636,6 +647,10 @@ export function CotizacionIaEditor({
       <View style={styles.headerRow}>
         {compactHeader ? (
           <View style={styles.headerTagsCol}>
+            <InstitutionalText role="h4" numberOfLines={2}>
+              {(cotizacion.servicio_nombre || '').trim()
+                || (cotizacion.es_cotizacion_adicional ? 'Trabajo adicional' : 'Cotización')}
+            </InstitutionalText>
             <View style={styles.headerTags}>
               {cotizacion.metadata?.origen === 'agente_ia' ? (
                 <InstitutionalTag label="IA" variant="warning" size="sm" />
@@ -898,28 +913,47 @@ export function CotizacionIaEditor({
         </View>
       ) : null}
 
-      {cotizacion.descripcion_problema || cotizacion.aviso_motor ? (
-        <Card elevated padding="host" style={styles.factsColCard}>
-          {cotizacion.descripcion_problema ? (
-            <View style={styles.problemaBox}>
-              <InstitutionalText role="label" color="muted">
-                PROBLEMA / SERVICIO
-              </InstitutionalText>
+      <Card elevated padding="host" style={styles.sectionCard}>
+        <InstitutionalSectionHeader title="Servicio" />
+        {editable ? (
+          <View style={styles.contactBlock}>
+            <InstitutionalField
+              label="Nombre del servicio"
+              value={cotizacion.servicio_nombre || ''}
+              onChangeText={(t) => onChange({ ...cotizacion, servicio_nombre: t })}
+              placeholder="Ej. Cambio de aceite y filtros"
+              editable={editable}
+            />
+            <InstitutionalField
+              label="Detalle del problema"
+              value={cotizacion.descripcion_problema || ''}
+              onChangeText={(t) => onChange({ ...cotizacion, descripcion_problema: t })}
+              placeholder="Opcional. Lo ve el cliente en el enlace y el PDF."
+              editable={editable}
+              multiline
+            />
+          </View>
+        ) : (
+          <View style={styles.problemaBox}>
+            <InstitutionalText role="h5" color="ink">
+              {(cotizacion.servicio_nombre || '').trim() || 'Sin servicio'}
+            </InstitutionalText>
+            {cotizacion.descripcion_problema ? (
               <InstitutionalText role="caption" color="body">
                 {cotizacion.descripcion_problema}
               </InstitutionalText>
-            </View>
-          ) : null}
-          {cotizacion.aviso_motor ? (
-            <View style={[styles.warningBox, cotizacion.descripcion_problema ? styles.warningAfterProblema : null]}>
-              <AlertTriangle size={16} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
-              <InstitutionalText role="caption" color="body" style={styles.warningText}>
-                {cotizacion.aviso_motor}
-              </InstitutionalText>
-            </View>
-          ) : null}
-        </Card>
-      ) : null}
+            ) : null}
+          </View>
+        )}
+        {cotizacion.aviso_motor ? (
+          <View style={[styles.warningBox, styles.warningAfterProblema]}>
+            <AlertTriangle size={16} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalText role="caption" color="body" style={styles.warningText}>
+              {cotizacion.aviso_motor}
+            </InstitutionalText>
+          </View>
+        ) : null}
+      </Card>
 
       {serviciosLineas.length > 0 ? (
         <Card elevated padding="host" style={styles.sectionCard}>
@@ -1021,85 +1055,76 @@ export function CotizacionIaEditor({
       <Card elevated padding="host" style={styles.sectionCard}>
         <InstitutionalSectionHeader title="Descuento" />
         <InstitutionalText role="caption" color="muted">
-          Opcional. Se aplica antes del desglose de IVA.
+          Opcional. Se resta del precio con IVA incluido; Neto/IVA se desglosan después sobre el total a pagar.
         </InstitutionalText>
-        <View style={styles.chipRow}>
-          {([
-            { key: 'mano_obra' as const, label: 'Mano de obra' },
-            { key: 'total' as const, label: 'Total' },
-          ]).map((opt) => {
-            const active = (cotizacion.descuento_alcance || 'mano_obra') === opt.key;
-            return (
-              <Pressable
-                key={opt.key}
-                style={[styles.chip, active && styles.chipActive]}
-                disabled={!editable}
-                onPress={() => onChange({
-                  ...cotizacion,
-                  descuento_alcance: opt.key,
-                  descuento_tipo: cotizacion.descuento_tipo || 'porcentaje',
-                })}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {opt.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <View style={styles.chipRow}>
-          {([
-            { key: '' as const, label: 'Sin descuento' },
-            { key: 'porcentaje' as const, label: '%' },
-            { key: 'monto' as const, label: '$' },
-          ]).map((opt) => {
-            const active = (cotizacion.descuento_tipo || '') === opt.key;
-            return (
-              <Pressable
-                key={opt.key || 'none'}
-                style={[styles.chip, active && styles.chipActive]}
-                disabled={!editable}
-                onPress={() => onChange({
-                  ...cotizacion,
-                  descuento_tipo: opt.key,
-                  descuento_valor: opt.key ? (cotizacion.descuento_valor || 0) : 0,
-                })}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {opt.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        {cotizacion.descuento_tipo === 'porcentaje' ? (
-          <InstitutionalField
-            label="Porcentaje"
-            value={
-              cotizacion.descuento_valor
-                ? String(cotizacion.descuento_valor)
-                : ''
-            }
-            onChangeText={(t) => {
-              const digits = t.replace(/[^\d.,]/g, '').replace(',', '.');
-              const n = Math.min(100, Math.max(0, Number(digits) || 0));
-              onChange({ ...cotizacion, descuento_tipo: 'porcentaje', descuento_valor: n });
+        <View style={styles.descuentoBlock} pointerEvents={editable ? 'auto' : 'none'}>
+          <InstitutionalText role="label" color="muted">
+            TIPO
+          </InstitutionalText>
+          <InstitutionalScreenTabs
+            tabs={DESCUENTO_TIPO_TABS}
+            activeKey={(cotizacion.descuento_tipo === 'porcentaje' || cotizacion.descuento_tipo === 'monto')
+              ? cotizacion.descuento_tipo
+              : 'none'}
+            onChange={(key) => {
+              if (!editable) return;
+              if (key === 'none') {
+                onChange({ ...cotizacion, descuento_tipo: '', descuento_valor: 0 });
+                return;
+              }
+              onChange({
+                ...cotizacion,
+                descuento_tipo: key,
+                descuento_alcance: cotizacion.descuento_alcance || 'mano_obra',
+                descuento_valor: cotizacion.descuento_valor || 0,
+              });
             }}
-            placeholder="0"
-            keyboardType="decimal-pad"
-            editable={editable}
           />
-        ) : null}
-        {cotizacion.descuento_tipo === 'monto' ? (
-          <ClpMoneyInput
-            value={redondearCLP(cotizacion.descuento_valor || 0)}
-            editable={editable}
-            onChangeValue={(next) => onChange({
-              ...cotizacion,
-              descuento_tipo: 'monto',
-              descuento_valor: next,
-            })}
-          />
+        </View>
+        {cotizacion.descuento_tipo === 'porcentaje' || cotizacion.descuento_tipo === 'monto' ? (
+          <>
+            <View style={styles.descuentoBlock} pointerEvents={editable ? 'auto' : 'none'}>
+              <InstitutionalText role="label" color="muted">
+                APLICAR SOBRE
+              </InstitutionalText>
+              <InstitutionalScreenTabs
+                tabs={DESCUENTO_ALCANCE_TABS}
+                activeKey={cotizacion.descuento_alcance === 'total' ? 'total' : 'mano_obra'}
+                onChange={(key) => {
+                  if (!editable) return;
+                  onChange({ ...cotizacion, descuento_alcance: key });
+                }}
+              />
+            </View>
+            {cotizacion.descuento_tipo === 'porcentaje' ? (
+              <InstitutionalField
+                label="Porcentaje (0–100)"
+                value={
+                  cotizacion.descuento_valor
+                    ? String(cotizacion.descuento_valor)
+                    : ''
+                }
+                onChangeText={(t) => {
+                  const digits = t.replace(/[^\d.,]/g, '').replace(',', '.');
+                  const n = Math.min(100, Math.max(0, Number(digits) || 0));
+                  onChange({ ...cotizacion, descuento_tipo: 'porcentaje', descuento_valor: n });
+                }}
+                placeholder="10"
+                keyboardType="decimal-pad"
+                editable={editable}
+              />
+            ) : (
+              <ClpMoneyInput
+                value={redondearCLP(cotizacion.descuento_valor || 0)}
+                editable={editable}
+                onChangeValue={(next) => onChange({
+                  ...cotizacion,
+                  descuento_tipo: 'monto',
+                  descuento_valor: next,
+                })}
+              />
+            )}
+          </>
         ) : null}
       </Card>
 
@@ -1175,6 +1200,22 @@ export function CotizacionIaEditor({
 
       <Card elevated padding="host" style={styles.sectionCard}>
         <InstitutionalSectionHeader title="Validez y políticas" />
+        <InstitutionalField
+          label="Vigencia (días)"
+          hint="Default 30. El cliente verá “válida hasta” esa cantidad de días después de enviarla."
+          value={String(cotizacion.dias_validez ?? 30)}
+          onChangeText={(t) => {
+            const digits = t.replace(/\D/g, '');
+            onChange({
+              ...cotizacion,
+              dias_validez: digits ? clampDiasValidez(digits) : 30,
+            });
+          }}
+          placeholder="30"
+          keyboardType="number-pad"
+          maxLength={2}
+          editable={editable}
+        />
         <InstitutionalField
           label="El cliente las ve en el recuadro Validez. Se copian de tu perfil; puedes cambiarlas solo en esta cotización"
           value={cotizacion.politicas_cotizacion || ''}
@@ -1403,30 +1444,8 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: I.hairline,
   },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  descuentoBlock: {
     gap: SPACING.fixed.xs,
-  },
-  chip: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    borderRadius: BORDERS.radius.pill,
-    paddingVertical: SPACING.fixed.xs,
-    paddingHorizontal: SPACING.fixed.md,
-    backgroundColor: COLORS.background.paper,
-  },
-  chipActive: {
-    borderColor: I.primary,
-    backgroundColor: withOpacity(I.primary, 0.08),
-  },
-  chipText: {
-    ...T.caption,
-    color: I.muted,
-  },
-  chipTextActive: {
-    ...T.captionBold,
-    color: I.ink,
   },
   descuentoLabel: {
     flex: 1,

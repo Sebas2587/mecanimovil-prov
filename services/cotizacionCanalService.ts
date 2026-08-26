@@ -75,6 +75,7 @@ export interface CotizacionCanal {
   descuento_valor?: number | null;
   descuento_clp?: number;
   descuento_etiqueta?: string;
+  dias_validez?: number;
   total_clp: number;
   duracion_minutos_estimada?: number | null;
   advertencias?: string[];
@@ -212,6 +213,12 @@ export function calcularDescuentoCotizacion(opts: {
   return { descuentoClp: desc, total: Math.max(0, bruto - desc), etiqueta };
 }
 
+export function clampDiasValidez(value?: number | string | null): number {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return 30;
+  return Math.min(90, Math.max(1, n));
+}
+
 export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<CotizacionCanal> {
   const patch: Partial<CotizacionCanal> = {
     servicio_nombre: c.servicio_nombre,
@@ -227,6 +234,7 @@ export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<Cotizacion
     descuento_valor: c.descuento_valor ?? 0,
     notas_internas: c.notas_internas,
     politicas_cotizacion: c.politicas_cotizacion,
+    dias_validez: clampDiasValidez(c.dias_validez),
     duracion_minutos_estimada: c.duracion_minutos_estimada,
   };
   if (c.es_cotizacion_adicional) {
