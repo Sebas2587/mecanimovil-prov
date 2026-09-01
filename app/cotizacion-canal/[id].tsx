@@ -23,8 +23,10 @@ import {
 } from '@/hooks/useCotizacionCanalDetalleQuery';
 import { AGENTE_IA_BORRADORES_KEY } from '@/hooks/useAgenteIaQueries';
 import { COTIZACIONES_CANAL_QUERY_KEY } from '@/hooks/useCotizacionesCanalTallerQuery';
+import { VistaPreviaCotizacionClienteModal } from '@/components/chats/VistaPreviaCotizacionClienteModal';
 import cotizacionCanalService, {
   adicionalRequiereFecha,
+  cotizacionEsActualizacion,
   cotizacionPermiteEdicionCompleta,
   cotizacionPermiteEnviar,
   payloadEdicionCotizacion,
@@ -86,6 +88,7 @@ export default function CotizacionCanalDetalleScreen() {
   const [enviando, setEnviando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [accionLead, setAccionLead] = useState(false);
+  const [previewVisible, setPreviewVisible] = useState(false);
 
   useEffect(() => {
     if (!data) return;
@@ -120,19 +123,11 @@ export default function CotizacionCanalDetalleScreen() {
       );
       setDraft({ ...actualizada });
       await invalidateAll();
-      if (actualizada.estado === 'enviada') {
-        showAlert(
-          'Cotización actualizada',
-          'El total subió: el cliente debe confirmar el nuevo monto en el mismo enlace.',
-        );
-      } else if (data?.estado === 'enviada' && actualizada.estado === 'borrador') {
-        showAlert(
-          'Listo para reenviar',
-          'El cliente deja de poder aceptar hasta que envíes de nuevo esta cotización.',
-        );
-      } else {
-        showAlert('Guardado', 'Cambios guardados.');
+      if (actualizada.numero_publico) {
+        setPreviewVisible(true);
+        return;
       }
+      showAlert('Guardado', 'Cambios guardados.');
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { estado?: string[]; detail?: string } } })?.response?.data
@@ -179,11 +174,12 @@ export default function CotizacionCanalDetalleScreen() {
   ) => {
     const tieneTel = Boolean(cot.cliente_telefono?.trim());
     showAlertButtons(
-      tituloEnvioExitoso(cot.numero_publico),
+      tituloEnvioExitoso(cot.numero_publico, { actualizada: Boolean(cot.numero_publico) }),
       entregaMensaje
         || cuerpoEnvioExitoso({
           entregaVia: 'link_publico',
           numeroPublico: cot.numero_publico,
+          actualizada: Boolean(cot.numero_publico),
         }),
       [
         { text: 'Ahora no', style: 'cancel' },
@@ -197,6 +193,43 @@ export default function CotizacionCanalDetalleScreen() {
     );
   }, [compartirConCliente]);
 
+  const persistirSiHayCambios = useCallback(async () => {
+    if (!draft?.id) return draft;
+    if (!hayCambios) return draft;
+    const actualizada = await cotizacionCanalService.actualizar(
+      draft.id,
+      payloadEdicionCotizacion(draft),
+    );
+    setDraft({ ...actualizada });
+    await invalidateAll();
+    return actualizada;
+  }, [draft, hayCambios, invalidateAll]);
+
+  const abrirVistaPrevia = useCallback(async () => {
+    if (!draft?.id) return;
+    if (adicionalRequiereFecha(draft)) {
+      showAlert(
+        'Fecha requerida',
+        'Indica día y hora acordados con el cliente antes de enviar.',
+      );
+      return;
+    }
+    setGuardando(true);
+    try {
+      await persistirSiHayCambios();
+      setPreviewVisible(true);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { estado?: string[]; detail?: string } } })?.response?.data;
+      const texto = Array.isArray(msg?.estado)
+        ? msg.estado[0]
+        : msg?.detail || (err as Error)?.message || 'No se pudo guardar.';
+      showAlert('Error', String(texto));
+    } finally {
+      setGuardando(false);
+    }
+  }, [draft, persistirSiHayCambios]);
+
   const enviar = useCallback(async () => {
     if (!draft?.id) return;
     if (adicionalRequiereFecha(draft)) {
@@ -208,59 +241,46 @@ export default function CotizacionCanalDetalleScreen() {
     }
     setEnviando(true);
     try {
-      let estadoActual = draft.estado;
-      if (hayCambios) {
-        const actualizada = await cotizacionCanalService.actualizar(
-          draft.id,
-          payloadEdicionCotizacion(draft),
-        );
-        setDraft({ ...actualizada });
-        estadoActual = actualizada.estado;
+      const persistida = await persistirSiHayCambios();
+      const eraUpdate = Boolean(persistida?.numero_publico || draft.numero_publico);
+      const res = await cotizacionCanalService.enviar(persistida?.id || draft.id);
+      const cotEnviada = res.cotizacion;
+      const url = res.share_url || cotEnviada.share_url || cotEnviada.url_publica;
+      const entrega = res.entrega_via || cotEnviada.metadata?.entrega_canal;
+      setDraft({ ...cotEnviada });
+      setPreviewVisible(false);
+      await invalidateAll();
+      await refetch();
+      if (!url) {
+        showAlert('Cotización lista', 'Se guardó, pero no hay link para compartir.');
+        return;
       }
-      if (estadoActual === 'borrador') {
-        const res = await cotizacionCanalService.enviar(draft.id);
-        const cotEnviada = res.cotizacion;
-        const url = res.share_url || cotEnviada.share_url || cotEnviada.url_publica;
-        const entrega = res.entrega_via || cotEnviada.metadata?.entrega_canal;
-        setDraft({ ...cotEnviada });
-        await invalidateAll();
-        await refetch();
-        if (!url) {
-          showAlert('Cotización lista', 'Se guardó, pero no hay link para compartir.');
-          return;
-        }
-        if (requiereCompartirWhatsApp(entrega)) {
-          ofrecerEnvioWhatsAppPersonal(
-            url,
-            cotEnviada,
-            cuerpoEnvioExitoso({
-              entregaVia: entrega,
-              numeroPublico: cotEnviada.numero_publico,
-            }),
-          );
-          return;
-        }
-        showAlert(
-          tituloEnvioExitoso(cotEnviada.numero_publico),
+      if (requiereCompartirWhatsApp(entrega)) {
+        ofrecerEnvioWhatsAppPersonal(
+          url,
+          cotEnviada,
           cuerpoEnvioExitoso({
             entregaVia: entrega,
             numeroPublico: cotEnviada.numero_publico,
+            actualizada: eraUpdate,
           }),
         );
         return;
       }
-      await invalidateAll();
-      await refetch();
       showAlert(
-        tituloEnvioExitoso(draft.numero_publico),
-        'El cliente puede ver el mismo enlace y aceptar o rechazar.',
+        tituloEnvioExitoso(cotEnviada.numero_publico, { actualizada: eraUpdate }),
+        cuerpoEnvioExitoso({
+          entregaVia: entrega,
+          numeroPublico: cotEnviada.numero_publico,
+          actualizada: eraUpdate,
+        }),
       );
     } catch {
       showAlert('Error', 'No se pudo enviar la cotización.');
     } finally {
       setEnviando(false);
     }
-  }, [data?.estado, draft, hayCambios, invalidateAll, ofrecerEnvioWhatsAppPersonal, refetch]);
+  }, [draft, invalidateAll, ofrecerEnvioWhatsAppPersonal, persistirSiHayCambios, refetch]);
 
   const eliminar = useCallback(() => {
     if (!draft?.id) return;
@@ -394,6 +414,14 @@ export default function CotizacionCanalDetalleScreen() {
           />
         ) : null}
 
+        {draft.id && (draft.numero_publico || draft.estado !== 'borrador' || draft.emision_pendiente) ? (
+          <InstitutionalButton
+            label="Ver como el cliente"
+            variant="outline"
+            onPress={() => void abrirVistaPrevia()}
+          />
+        ) : null}
+
         {draft.conversation ? (
           <InstitutionalButton
             label="Ver conversación"
@@ -421,7 +449,11 @@ export default function CotizacionCanalDetalleScreen() {
 
         {editable && draft.estado === 'borrador' ? (
           <View style={styles.footerBorrador}>
-            {draft.entrega_pendiente_compartir ? (
+            {draft.emision_pendiente || (draft.numero_publico && draft.estado === 'borrador') ? (
+              <InstitutionalText role="caption" color="muted">
+                El cliente sigue viendo la versión anterior hasta que envíes esta actualización.
+              </InstitutionalText>
+            ) : draft.entrega_pendiente_compartir ? (
               <InstitutionalText role="caption" color="muted">
                 Pendiente de compartir: el documento ya existe. Usa Compartir link para que el cliente lo reciba.
               </InstitutionalText>
@@ -448,12 +480,12 @@ export default function CotizacionCanalDetalleScreen() {
                 onPress={() => void guardar()}
               />
               <InstitutionalButton
-                label={draft.numero_publico ? 'Enviar al cliente' : 'Aprobar y enviar'}
+                label={draft.numero_publico ? 'Revisar y enviar' : 'Aprobar y enviar'}
                 variant="primary"
                 style={styles.footerPrimary}
-                loading={enviando}
-                disabled={!cotizacionPermiteEnviar(draft) || enviando}
-                onPress={() => void enviar()}
+                loading={enviando || guardando}
+                disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
+                onPress={() => void abrirVistaPrevia()}
               />
             </View>
           </View>
@@ -461,7 +493,11 @@ export default function CotizacionCanalDetalleScreen() {
 
         {editable && draft.estado === 'enviada' ? (
           <View style={styles.footerBorrador}>
-            {draft.entrega_pendiente_compartir ? (
+            {draft.emision_pendiente ? (
+              <InstitutionalText role="caption" color="muted">
+                El cliente sigue viendo la versión anterior hasta que envíes esta actualización.
+              </InstitutionalText>
+            ) : draft.entrega_pendiente_compartir ? (
               <InstitutionalText role="caption" color="muted">
                 El cliente aún no la recibió por el chat. Usa Compartir link.
               </InstitutionalText>
@@ -480,12 +516,12 @@ export default function CotizacionCanalDetalleScreen() {
                 onPress={() => void guardar()}
               />
               <InstitutionalButton
-                label="Reenviar al cliente"
+                label="Revisar y enviar"
                 variant="primary"
                 style={styles.footerPrimary}
-                loading={enviando}
-                disabled={!hayCambios || enviando}
-                onPress={() => void enviar()}
+                loading={enviando || guardando}
+                disabled={(!hayCambios && !draft.emision_pendiente) || enviando || guardando}
+                onPress={() => void abrirVistaPrevia()}
               />
             </View>
             <View style={styles.footerRow}>
@@ -510,18 +546,45 @@ export default function CotizacionCanalDetalleScreen() {
         ) : null}
 
         {editable && draft.estado === 'aceptada' ? (
-          <View style={styles.footerRow}>
-            <InstitutionalButton
-              label="Guardar cambios"
-              variant="primary"
-              style={{ flex: 1 }}
-              loading={guardando}
-              disabled={!hayCambios || guardando}
-              onPress={() => void guardar()}
-            />
+          <View style={styles.footerBorrador}>
+            {draft.emision_pendiente ? (
+              <InstitutionalText role="caption" color="muted">
+                El cliente sigue viendo la versión anterior hasta que envíes esta actualización.
+              </InstitutionalText>
+            ) : null}
+            <View style={styles.footerRow}>
+              <InstitutionalButton
+                label="Guardar cambios"
+                variant={draft.emision_pendiente && !hayCambios ? 'outline' : 'primary'}
+                style={styles.footerMid}
+                loading={guardando}
+                disabled={!hayCambios || guardando}
+                onPress={() => void guardar()}
+              />
+              {draft.emision_pendiente ? (
+                <InstitutionalButton
+                  label="Revisar y enviar"
+                  variant="primary"
+                  style={styles.footerPrimary}
+                  loading={enviando || guardando}
+                  disabled={enviando || guardando}
+                  onPress={() => void abrirVistaPrevia()}
+                />
+              ) : null}
+            </View>
           </View>
         ) : null}
       </View>
+
+      <VistaPreviaCotizacionClienteModal
+        visible={previewVisible}
+        cotizacionId={draft.id}
+        esActualizacion={cotizacionEsActualizacion(draft)}
+        puedeEnviar={cotizacionPermiteEnviar(draft) || Boolean(draft.emision_pendiente)}
+        enviando={enviando}
+        onClose={() => setPreviewVisible(false)}
+        onEnviar={() => void enviar()}
+      />
     </View>
   );
 }

@@ -19,6 +19,7 @@ import { getChilePhoneError } from '@/components/forms/ChilePhoneField';
 import ChileAddressField from '@/components/forms/ChileAddressField';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
 import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
+import { VistaPreviaCotizacionClienteModal } from '@/components/chats/VistaPreviaCotizacionClienteModal';
 import {
   ClienteCanalPickerSection,
   type ClienteModo,
@@ -41,6 +42,7 @@ import {
   normalizarTelefonoChileParaGuardar,
 } from '@/utils/chilePhone';
 import cotizacionCanalService, {
+  cotizacionEsActualizacion,
   cotizacionPermiteEdicionCompleta,
   cotizacionPermiteEnviar,
   fusionarRepuestosEnviados,
@@ -147,6 +149,7 @@ export function CotizacionLibreModal({
   const [errorIa, setErrorIa] = useState<string | null>(null);
   const [cotizacion, setCotizacion] = useState<CotizacionCanal | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
   const persistSeqRef = useRef(0);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef<CotizacionCanal | null>(null);
@@ -234,6 +237,7 @@ export function CotizacionLibreModal({
     setCreandoManual(false);
     setCotizacion(null);
     setShareUrl(null);
+    setPreviewVisible(false);
   }, [conversationIdProp]);
 
   useEffect(() => {
@@ -554,17 +558,31 @@ export function CotizacionLibreModal({
     }
   }, [cotizacion]);
 
+  const abrirVistaPrevia = useCallback(async () => {
+    const fuente = draftRef.current || cotizacion;
+    if (!fuente?.id || !cotizacionPermiteEnviar(fuente)) return;
+    setErrorIa(null);
+    try {
+      await persistirCotizacion(fuente, true);
+      setPreviewVisible(true);
+    } catch (err) {
+      setErrorIa(extractApiError(err, 'No se pudo armar la vista previa.'));
+    }
+  }, [cotizacion, persistirCotizacion]);
+
   const handleEnviar = useCallback(async () => {
     const fuente = draftRef.current || cotizacion;
     if (!fuente?.id || !cotizacionPermiteEnviar(fuente)) return;
     setEnviando(true);
     setErrorIa(null);
     try {
+      const eraUpdate = Boolean(fuente.numero_publico);
       const saved = await persistirCotizacion(fuente, true);
       const res = await cotizacionCanalService.enviar(saved.id);
       const url = res.share_url || res.cotizacion.share_url || res.cotizacion.url_publica || null;
       setCotizacion(res.cotizacion);
       setShareUrl(url);
+      setPreviewVisible(false);
       onEnviada?.();
       const entrega = res.entrega_via || res.cotizacion.metadata?.entrega_canal;
       const cotEnviada = res.cotizacion;
@@ -576,11 +594,12 @@ export function CotizacionLibreModal({
       if (requiereWhatsAppPersonal && url) {
         const tieneTel = Boolean(cotEnviada.cliente_telefono?.trim());
         showAlertButtons(
-          tituloEnvioExitoso(folio),
+          tituloEnvioExitoso(folio, { actualizada: eraUpdate }),
           cuerpoEnvioExitoso({
             entregaVia: entrega || 'link_publico',
             numeroPublico: folio,
             channelDisconnected: Boolean(channelDisconnectedReason),
+            actualizada: eraUpdate,
           }),
           [
             { text: 'Ahora no', style: 'cancel' },
@@ -596,35 +615,41 @@ export function CotizacionLibreModal({
         const canalExterno = channel && channel !== 'app';
         if (canalExterno && channelDisconnectedReason) {
           showAlert(
-            tituloEnvioExitoso(folio),
+            tituloEnvioExitoso(folio, { actualizada: eraUpdate }),
             cuerpoEnvioExitoso({
               entregaVia: entrega,
               numeroPublico: folio,
               channelDisconnected: true,
+              actualizada: eraUpdate,
             }),
           );
           if (url) await compartirLink(url);
         } else {
           showAlert(
-            tituloEnvioExitoso(folio),
+            tituloEnvioExitoso(folio, { actualizada: eraUpdate }),
             cuerpoEnvioExitoso({
               entregaVia: entrega || 'sesion_meta',
               numeroPublico: folio,
+              actualizada: eraUpdate,
             }),
           );
         }
       } else if (url) {
         showAlert(
-          tituloEnvioExitoso(folio),
+          tituloEnvioExitoso(folio, { actualizada: eraUpdate }),
           cuerpoEnvioExitoso({
             entregaVia: entrega,
             numeroPublico: folio,
             esLibre: true,
+            actualizada: eraUpdate,
           }),
         );
         await compartirLink(url);
       } else {
-        showAlert(tituloEnvioExitoso(folio), cuerpoEnvioExitoso({ numeroPublico: folio, esLibre: true }));
+        showAlert(
+          tituloEnvioExitoso(folio, { actualizada: eraUpdate }),
+          cuerpoEnvioExitoso({ numeroPublico: folio, esLibre: true, actualizada: eraUpdate }),
+        );
       }
     } catch (err) {
       setErrorIa(extractApiError(err, 'No se pudo enviar la cotización.'));
@@ -645,11 +670,13 @@ export function CotizacionLibreModal({
   );
 
   const footerPrimaryLabel = puedeEnviar
-    ? (enviando ? 'Enviando…' : enviarLabel)
+    ? (enviando
+      ? 'Enviando…'
+      : (cotizacionEsActualizacion(cotizacion) ? 'Revisar y enviar' : enviarLabel))
     : 'Listo';
 
   const footerPrimaryAction = puedeEnviar
-    ? () => void handleEnviar()
+    ? () => void abrirVistaPrevia()
     : handleClose;
 
   return (
@@ -913,6 +940,15 @@ export function CotizacionLibreModal({
           </View>
         </KeyboardAvoidingView>
       </View>
+      <VistaPreviaCotizacionClienteModal
+        visible={previewVisible}
+        cotizacionId={cotizacion?.id}
+        esActualizacion={cotizacionEsActualizacion(cotizacion)}
+        puedeEnviar={puedeEnviar}
+        enviando={enviando}
+        onClose={() => setPreviewVisible(false)}
+        onEnviar={() => void handleEnviar()}
+      />
       <UpsellCuotaModal
         visible={upsellCuota.visible}
         mensaje={upsellCuota.mensaje}

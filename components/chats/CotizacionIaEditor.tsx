@@ -1399,7 +1399,7 @@ export function CotizacionIaEditor({
         && ((editable && (onEnviar || onGuardarPlantilla))
           || (cotizacion.estado === 'enviada' && onMarcarAceptada)) ? (
         <View style={styles.actionsFooter}>
-          {editable && onEnviar && cotizacion.estado === 'borrador' ? (
+          {editable && onEnviar && (cotizacion.estado === 'borrador' || cotizacion.emision_pendiente) ? (
             <InstitutionalButton
               label={enviarLabel}
               onPress={() => {

@@ -123,6 +123,8 @@ export interface CotizacionCanal {
   mano_obra_clp: number;
   entrega_via?: 'app' | 'sesion_meta' | 'whatsapp_template' | 'link_publico' | string | null;
   entrega_pendiente_compartir?: boolean;
+  /** Guardó cambios sobre un folio ya emitido; el cliente aún ve la versión anterior. */
+  emision_pendiente?: boolean;
   costo_repuestos_clp: number;
   descuento_tipo?: '' | 'monto' | 'porcentaje' | null;
   descuento_alcance?: 'mano_obra' | 'total' | null;
@@ -237,8 +239,41 @@ export function cotizacionPermiteEdicionCompleta(c: CotizacionCanal): boolean {
 
 /** Primer envío: solo borrador. No reutilizar edición completa para mostrar el CTA. */
 export function cotizacionPermiteEnviar(c: CotizacionCanal): boolean {
-  return c.estado === 'borrador';
+  return c.estado === 'borrador' || Boolean(c.emision_pendiente);
 }
+
+export function cotizacionEsActualizacion(c: Pick<CotizacionCanal, 'numero_publico' | 'emision_pendiente'> | null | undefined): boolean {
+  return Boolean(c?.numero_publico || c?.emision_pendiente);
+}
+
+export type VistaPreviaPublica = {
+  numero_publico?: string | null;
+  servicio_nombre?: string;
+  descripcion_problema?: string;
+  notas_cotizacion?: string;
+  politicas_cotizacion?: string;
+  fecha_expiracion_publica?: string | null;
+  cliente?: { nombre?: string; telefono?: string; direccion?: string } | null;
+  cliente_nombre?: string;
+  taller?: { nombre?: string; telefono?: string; direccion?: string } | null;
+  vehiculo_marca?: string;
+  vehiculo_modelo?: string;
+  vehiculo_anio?: number | string | null;
+  vehiculo_patente?: string;
+  modalidad?: string;
+  mano_obra_lineas?: Array<{ id?: string; nombre?: string; monto_clp?: number }>;
+  mano_obra_clp?: number;
+  repuestos?: Array<{
+    nombre?: string;
+    cantidad?: number;
+    precio_unitario_clp?: number;
+  }>;
+  costo_repuestos_clp?: number;
+  descuento_clp?: number;
+  descuento_etiqueta?: string;
+  total_clp?: number;
+  es_trabajo_adicional?: boolean;
+};
 
 export function calcularDescuentoCotizacion(opts: {
   costoRepuestos: number;
@@ -366,6 +401,11 @@ class CotizacionCanalService {
   async actualizar(id: number, patch: Partial<CotizacionCanal>): Promise<CotizacionCanal> {
     const response = await api.patch(`/ordenes/cotizaciones-canal/${id}/`, patch);
     return response.data as CotizacionCanal;
+  }
+
+  async vistaPrevia(id: number): Promise<VistaPreviaPublica> {
+    const response = await api.get(`/ordenes/cotizaciones-canal/${id}/vista-previa/`);
+    return response.data as VistaPreviaPublica;
   }
 
   async reabrir(id: number): Promise<CotizacionCanal> {

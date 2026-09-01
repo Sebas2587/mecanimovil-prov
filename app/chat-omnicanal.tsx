@@ -23,7 +23,9 @@ import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModa
 import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
 import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
 import cotizacionCanalService, {
+  cotizacionEsActualizacion,
   cotizacionPermiteEdicionCompleta,
+  cotizacionPermiteEnviar,
   payloadEdicionCotizacion,
   type CotizacionCanal,
 } from '@/services/cotizacionCanalService';
@@ -56,6 +58,7 @@ import {
 } from '@/utils/chatAttachmentMedia';
 import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
 import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
+import { VistaPreviaCotizacionClienteModal } from '@/components/chats/VistaPreviaCotizacionClienteModal';
 import { InstitutionalButton, InstitutionalText, Card, HostSectionKicker } from '@/app/design-system/components';
 import { InstitutionalModal } from '@/design-system/components/InstitutionalModal';
 import { showAlert } from '@/utils/platformAlert';
@@ -108,6 +111,8 @@ export default function ChatOmnicanalScreen() {
   const [attachments, setAttachments] = useState<AttachmentState[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [editingCotizacion, setEditingCotizacion] = useState<CotizacionCanal | null>(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewEnviando, setPreviewEnviando] = useState(false);
 
   const conversationMeta = useOmnichannelConversationMeta(convId);
   const { map: channelConnections, featureEnabled } = useOmnichannelConnectionMap(Boolean(convId));
@@ -605,36 +610,16 @@ export default function ChatOmnicanalScreen() {
               cotizacion={editingCotizacion}
               onChange={(updated) => setEditingCotizacion(updated)}
               onEnviar={async () => {
-                if (!editingCotizacion.id || editingCotizacion.estado !== 'borrador') return;
+                if (!editingCotizacion.id || !cotizacionPermiteEnviar(editingCotizacion)) return;
                 try {
                   const saved = await cotizacionCanalService.actualizar(
                     editingCotizacion.id,
                     payloadEdicionCotizacion(editingCotizacion),
                   );
-                  let enviada = saved;
-                  if (saved.estado === 'borrador') {
-                    const res = await cotizacionCanalService.enviar(saved.id);
-                    enviada = res.cotizacion;
-                    showAlert(
-                      tituloEnvioExitoso(enviada.numero_publico),
-                      cuerpoEnvioExitoso({
-                        entregaVia: res.entrega_via || enviada.entrega_via,
-                        numeroPublico: enviada.numero_publico,
-                      }),
-                    );
-                  } else {
-                    showAlert(
-                      tituloEnvioExitoso(enviada.numero_publico),
-                      cuerpoEnvioExitoso({
-                        entregaVia: enviada.entrega_via,
-                        numeroPublico: enviada.numero_publico,
-                      }),
-                    );
-                  }
-                  setEditingCotizacion(null);
-                  void refetchSilent();
+                  setEditingCotizacion(saved);
+                  setPreviewVisible(true);
                 } catch (e) {
-                  Alert.alert('Error', 'No se pudo enviar la cotización');
+                  Alert.alert('Error', 'No se pudo guardar la cotización');
                 }
               }}
               onGuardarPlantilla={async () => {
@@ -662,6 +647,39 @@ export default function ChatOmnicanalScreen() {
             />
           )}
         </InstitutionalModal>
+
+        <VistaPreviaCotizacionClienteModal
+          visible={previewVisible}
+          cotizacionId={editingCotizacion?.id}
+          esActualizacion={cotizacionEsActualizacion(editingCotizacion)}
+          puedeEnviar={Boolean(editingCotizacion && cotizacionPermiteEnviar(editingCotizacion))}
+          enviando={previewEnviando}
+          onClose={() => setPreviewVisible(false)}
+          onEnviar={async () => {
+            if (!editingCotizacion?.id) return;
+            setPreviewEnviando(true);
+            try {
+              const eraUpdate = cotizacionEsActualizacion(editingCotizacion);
+              const res = await cotizacionCanalService.enviar(editingCotizacion.id);
+              const enviada = res.cotizacion;
+              showAlert(
+                tituloEnvioExitoso(enviada.numero_publico, { actualizada: eraUpdate }),
+                cuerpoEnvioExitoso({
+                  entregaVia: res.entrega_via || enviada.entrega_via,
+                  numeroPublico: enviada.numero_publico,
+                  actualizada: eraUpdate,
+                }),
+              );
+              setPreviewVisible(false);
+              setEditingCotizacion(null);
+              void refetchSilent();
+            } catch {
+              Alert.alert('Error', 'No se pudo enviar la cotización');
+            } finally {
+              setPreviewEnviando(false);
+            }
+          }}
+        />
       </SafeAreaView>
     </View>
   );
