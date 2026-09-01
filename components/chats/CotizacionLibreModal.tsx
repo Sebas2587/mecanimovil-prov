@@ -53,6 +53,7 @@ import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 import {
   abrirWhatsAppCotizacion,
   mensajeCotizacionParaCliente,
+  nombresTrabajosCotizacion,
 } from '@/utils/compartirCotizacionCliente';
 import {
   CLIPBOARD_MENSAJE_COPIADO,
@@ -541,6 +542,7 @@ export function CotizacionLibreModal({
       totalClp: fuente.total_clp,
       url,
       actualizada: Boolean(fuente.numero_publico),
+      trabajos: nombresTrabajosCotizacion(fuente),
     });
     const via = await abrirWhatsAppCotizacion({
       telefono: fuente.cliente_telefono,

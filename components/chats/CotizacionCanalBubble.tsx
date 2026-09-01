@@ -16,11 +16,17 @@ const ESTADO_LABEL: Record<string, string> = {
 /** Líneas / ítems que fuerzan “Ver más” en colapsado. */
 const DESC_COLLAPSE_LINES = 2;
 const REPUESTOS_COLLAPSE = 2;
+const MANO_OBRA_COLLAPSE = 2;
 
 export interface RepuestoCotizacionBubble {
   nombre: string;
   cantidad: number;
   precio_unitario_clp: number;
+}
+
+export interface ManoObraLineaBubble {
+  nombre: string;
+  monto_clp: number;
 }
 
 export interface HorarioSugeridoSlot {
@@ -49,6 +55,7 @@ export interface CotizacionCanalBubbleProps {
   descripcionProblema?: string;
   duracionMinutos?: number | null;
   repuestos?: RepuestoCotizacionBubble[];
+  manoObraLineas?: ManoObraLineaBubble[];
   advertencias?: string[];
   fallbackDetalle?: string;
   horariosSugeridos?: HorarioSugeridoSlot[];
@@ -89,6 +96,7 @@ export function CotizacionCanalBubble(props: CotizacionCanalBubbleProps) {
     descripcionProblema = cotizacion?.descripcion_problema,
     duracionMinutos = cotizacion?.duracion_minutos,
     repuestos = (cotizacion?.repuestos as RepuestoCotizacionBubble[]) || [],
+    manoObraLineas = (cotizacion?.mano_obra_lineas as ManoObraLineaBubble[]) || [],
     advertencias = [],
     fallbackDetalle,
     horariosSugeridos = [],
@@ -119,7 +127,8 @@ export function CotizacionCanalBubble(props: CotizacionCanalBubbleProps) {
   const hasDetalleExtra = useMemo(() => {
     if (desc.length > 90 || desc.split(/\n/).length > DESC_COLLAPSE_LINES) return true;
     if (repuestos.length > REPUESTOS_COLLAPSE) return true;
-    if (manoObraClp > 0 || duracionMinutos || advertencias.length > 0) return true;
+    if (manoObraLineas.length > MANO_OBRA_COLLAPSE) return true;
+    if (manoObraClp > 0 || manoObraLineas.length > 0 || duracionMinutos || advertencias.length > 0) return true;
     if (!vehiculoEtiqueta && !repuestos.length && fallback.length > 120) return true;
     return Boolean(costoRepuestosClp > 0 && repuestos.length > 0);
   }, [
@@ -129,12 +138,15 @@ export function CotizacionCanalBubble(props: CotizacionCanalBubbleProps) {
     duracionMinutos,
     fallback.length,
     manoObraClp,
+    manoObraLineas.length,
     repuestos.length,
     vehiculoEtiqueta,
   ]);
 
   const showExpand = hasDetalleExtra;
   const repuestosVisible = expanded ? repuestos : repuestos.slice(0, REPUESTOS_COLLAPSE);
+  const moConMonto = manoObraLineas.filter((lin) => Number(lin.monto_clp) > 0 && String(lin.nombre || '').trim());
+  const moVisible = expanded ? moConMonto : moConMonto.slice(0, MANO_OBRA_COLLAPSE);
 
   return (
     <View style={[styles.card, esPropio ? styles.cardOwn : styles.cardOther]}>
@@ -178,6 +190,21 @@ export function CotizacionCanalBubble(props: CotizacionCanalBubbleProps) {
         </View>
       ) : null}
 
+      {(expanded || moConMonto.length > 0) && moVisible.length > 0 ? (
+        <View style={styles.block}>
+          {moVisible.map((lin, idx) => (
+            <Text key={`mo-${idx}`} style={[styles.line, t.line]} numberOfLines={expanded ? 2 : 1}>
+              {lin.nombre} · {formatearMontoCLP(lin.monto_clp)}
+            </Text>
+          ))}
+          {!expanded && moConMonto.length > MANO_OBRA_COLLAPSE ? (
+            <Text style={[styles.lineMuted, t.lineMuted]}>
+              +{moConMonto.length - MANO_OBRA_COLLAPSE} trabajos más
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
       {expanded ? (
         <>
           {costoRepuestosClp > 0 ? (
@@ -185,7 +212,7 @@ export function CotizacionCanalBubble(props: CotizacionCanalBubbleProps) {
               Repuestos {formatearMontoCLP(costoRepuestosClp)}
             </Text>
           ) : null}
-          {manoObraClp > 0 ? (
+          {!moConMonto.length && manoObraClp > 0 ? (
             <Text style={[styles.line, t.line]}>
               Mano de obra {formatearMontoCLP(manoObraClp)}
             </Text>

@@ -429,12 +429,23 @@ export default function ChatOmnicanalScreen() {
                   const advertencias = Array.isArray(advertenciasRaw)
                     ? advertenciasRaw.map((a) => String(a))
                     : [];
+                  const manoObraLineasRaw = meta.mano_obra_lineas;
+                  const manoObraLineas = Array.isArray(manoObraLineasRaw)
+                    ? manoObraLineasRaw.map((lin) => {
+                        const row = lin as Record<string, unknown>;
+                        return {
+                          nombre: String(row.nombre || 'Mano de obra'),
+                          monto_clp: Number(row.monto_clp || 0),
+                        };
+                      })
+                    : [];
                   return (
                     <View style={item.es_proveedor ? styles.bubbleWrapOwn : styles.bubbleWrapOther}>
                       <CotizacionCanalBubble
                         servicioNombre={String(meta.servicio_nombre || 'Servicio')}
                         totalClp={Number(meta.total_clp || 0)}
                         manoObraClp={Number(meta.mano_obra_clp || 0)}
+                        manoObraLineas={manoObraLineas}
                         costoRepuestosClp={Number(meta.costo_repuestos_clp || 0)}
                         estado={String(meta.estado || 'enviada')}
                         esPropio={item.es_proveedor}
@@ -461,6 +472,7 @@ export default function ChatOmnicanalScreen() {
                             servicio_nombre: String(meta.servicio_nombre || 'Servicio'),
                             total_clp: Number(meta.total_clp || 0),
                             mano_obra_clp: Number(meta.mano_obra_clp || 0),
+                            mano_obra_lineas: manoObraLineas,
                             costo_repuestos_clp: Number(meta.costo_repuestos_clp || 0),
                             estado: String(meta.estado || 'enviada'),
                             vehiculo_marca: String(meta.vehiculo_marca || ''),

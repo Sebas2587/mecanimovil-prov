@@ -42,6 +42,7 @@ import { omnichannelChatHref } from '@/utils/chatRoutes';
 import {
   abrirWhatsAppCotizacion,
   mensajeCotizacionParaCliente,
+  nombresTrabajosCotizacion,
 } from '@/utils/compartirCotizacionCliente';
 
 const I = COLORS.institutional;
@@ -157,6 +158,7 @@ export default function CotizacionCanalDetalleScreen() {
       totalClp: cot.total_clp,
       url,
       actualizada: Boolean(opts?.actualizada ?? cot.numero_publico),
+      trabajos: nombresTrabajosCotizacion(cot),
     });
     const via = await abrirWhatsAppCotizacion({
       telefono: cot.cliente_telefono,

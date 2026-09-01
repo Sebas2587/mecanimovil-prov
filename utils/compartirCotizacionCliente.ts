@@ -4,6 +4,18 @@ import {
   telefonoMovilChileValido,
 } from '@/utils/chilePhone';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import {
+  resolverManoObraLineas,
+  type CotizacionCanal,
+} from '@/services/cotizacionCanalService';
+
+export function nombresTrabajosCotizacion(
+  cot: Pick<CotizacionCanal, 'mano_obra_lineas' | 'mano_obra_clp' | 'servicio_nombre' | 'metadata'>,
+): string[] {
+  return resolverManoObraLineas(cot)
+    .filter((lin) => lin.monto_clp > 0 && lin.nombre.trim())
+    .map((lin) => lin.nombre.trim());
+}
 
 export function mensajeCotizacionParaCliente(opts: {
   clienteNombre?: string | null;
@@ -12,6 +24,7 @@ export function mensajeCotizacionParaCliente(opts: {
   totalClp?: number | null;
   url: string;
   actualizada?: boolean;
+  trabajos?: string[] | null;
 }): string {
   const rawName = (opts.clienteNombre || '').trim();
   const first = rawName.split(/\s+/)[0] || '';
@@ -29,6 +42,12 @@ export function mensajeCotizacionParaCliente(opts: {
   const detalle = [servicio, monto].filter(Boolean).join(' por ');
   const lineas = [cabeza];
   if (detalle) lineas.push(`${detalle}.`);
+  const trabajos = (opts.trabajos || [])
+    .map((t) => t.trim())
+    .filter((t) => t && t.toLowerCase() !== servicio.toLowerCase());
+  if (trabajos.length) {
+    lineas.push(`Incluye: ${trabajos.join(', ')}.`);
+  }
   lineas.push(`Revísala y acéptala aquí: ${opts.url}`);
   return lineas.join(' ');
 }
