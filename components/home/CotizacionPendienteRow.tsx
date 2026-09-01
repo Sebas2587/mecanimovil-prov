@@ -69,6 +69,7 @@ function CotizacionPendienteRowInner({ item, onPress, last }: CotizacionPendient
     canal,
     fecha,
     item.numero_publico ? `#${item.numero_publico}` : '',
+    item.estado === 'enviada' && item.entrega_pendiente_compartir ? 'Por compartir' : '',
   ].filter(Boolean);
 
   return (

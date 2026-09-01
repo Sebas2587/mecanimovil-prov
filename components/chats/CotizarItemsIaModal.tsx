@@ -67,11 +67,11 @@ export function CotizarItemsIaModal({
       visible={visible}
       onRequestClose={handleClose}
       onClose={handleClose}
-      title="Cotizar ítems con IA"
+      title="Buscar precios de repuestos"
       footer={
         <View style={styles.footer}>
           <InstitutionalButton
-            label={loading ? 'Buscando precios…' : 'Cotizar con IA'}
+            label={loading ? 'Buscando precios…' : 'Buscar precios'}
             variant="primary"
             loading={loading}
             disabled={!puedeEnviar}
@@ -93,14 +93,13 @@ export function CotizarItemsIaModal({
     >
       <View style={styles.body}>
         <InstitutionalText role="caption" color="muted">
-          Escribe lo que falta, un ítem por línea. La IA busca el precio y la fuente
-          (tu catálogo, historial del taller o tiendas web). No cambia líneas que ya
-          tienen precio.
+          Escribe un repuesto por línea. Buscamos precio en tu catálogo, historial
+          o tiendas web. No cambia la mano de obra ni las líneas que ya tienen precio.
         </InstitutionalText>
         {lineasSinPrecio > 0 ? (
           <InstitutionalText role="caption" color="ink">
             También cotizaremos {lineasSinPrecio}{' '}
-            {lineasSinPrecio === 1 ? 'línea' : 'líneas'} que ya agregaste sin monto.
+            {lineasSinPrecio === 1 ? 'pieza' : 'piezas'} que ya agregaste sin precio.
           </InstitutionalText>
         ) : null}
         <Card elevated padding="host" style={styles.inputCard}>
@@ -117,7 +116,7 @@ export function CotizarItemsIaModal({
           />
         </Card>
         <InstitutionalText role="small" color="muted">
-          {nombres.length}/{MAX_ITEMS} ítems nuevos
+          {nombres.length}/{MAX_ITEMS} repuestos nuevos
         </InstitutionalText>
       </View>
     </InstitutionalModal>

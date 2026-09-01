@@ -77,7 +77,11 @@ export function CotizacionesEnviadasWidget({ cotizaciones }: CotizacionesEnviada
                     {item.servicio_nombre} ({formatearMontoCLP(item.total_clp)})
                   </InstitutionalText>
                 </View>
-                <InstitutionalTag label="Enviada" variant="info" size="sm" />
+                <InstitutionalTag
+                  label={item.entrega_pendiente_compartir ? 'Por compartir' : 'Enviada'}
+                  variant={item.entrega_pendiente_compartir ? 'warning' : 'info'}
+                  size="sm"
+                />
               </View>
             ))}
           </View>

@@ -58,6 +58,8 @@ import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats
 import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
 import { InstitutionalButton, InstitutionalText, Card, HostSectionKicker } from '@/app/design-system/components';
 import { InstitutionalModal } from '@/design-system/components/InstitutionalModal';
+import { showAlert } from '@/utils/platformAlert';
+import { cuerpoEnvioExitoso, tituloEnvioExitoso } from '@/utils/entregaCotizacionCopy';
 
 const I = COLORS.institutional;
 const K = COLORS.kanban;
@@ -597,8 +599,25 @@ export default function ChatOmnicanalScreen() {
                     editingCotizacion.id,
                     payloadEdicionCotizacion(editingCotizacion),
                   );
+                  let enviada = saved;
                   if (saved.estado === 'borrador') {
-                    await cotizacionCanalService.enviar(saved.id);
+                    const res = await cotizacionCanalService.enviar(saved.id);
+                    enviada = res.cotizacion;
+                    showAlert(
+                      tituloEnvioExitoso(enviada.numero_publico),
+                      cuerpoEnvioExitoso({
+                        entregaVia: res.entrega_via || enviada.entrega_via,
+                        numeroPublico: enviada.numero_publico,
+                      }),
+                    );
+                  } else {
+                    showAlert(
+                      tituloEnvioExitoso(enviada.numero_publico),
+                      cuerpoEnvioExitoso({
+                        entregaVia: enviada.entrega_via,
+                        numeroPublico: enviada.numero_publico,
+                      }),
+                    );
                   }
                   setEditingCotizacion(null);
                   void refetchSilent();

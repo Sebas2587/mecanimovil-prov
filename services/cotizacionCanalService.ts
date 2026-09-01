@@ -1,5 +1,56 @@
 import api from './api';
 
+export interface ManoObraLinea {
+  id?: string;
+  nombre: string;
+  monto_clp: number;
+}
+
+export const MAX_MANO_OBRA_LINEAS = 20;
+
+function montoLineaMo(raw: Record<string, unknown> | ManoObraLinea | null | undefined): number {
+  if (!raw) return 0;
+  const row = raw as Record<string, unknown>;
+  for (const key of ['monto_clp', 'precio_mano_obra_clp', 'precio_clp', 'precio_catalogo_clp']) {
+    if (row[key] == null || row[key] === '') continue;
+    const n = Math.round(Number(row[key]) || 0);
+    if (Number.isFinite(n)) return Math.max(0, n);
+  }
+  return 0;
+}
+
+export function resolverManoObraLineas(c: Pick<CotizacionCanal, 'mano_obra_lineas' | 'mano_obra_clp' | 'servicio_nombre' | 'metadata'>): ManoObraLinea[] {
+  const raw = (
+    Array.isArray(c.mano_obra_lineas) && c.mano_obra_lineas.length
+      ? c.mano_obra_lineas
+      : c.metadata?.servicios_lineas
+  ) || [];
+  const out: ManoObraLinea[] = [];
+  if (Array.isArray(raw)) {
+    raw.forEach((lin, idx) => {
+      if (!lin || typeof lin !== 'object') return;
+      const row = lin as Record<string, unknown>;
+      const nombre = String(row.nombre || '').trim();
+      const monto = montoLineaMo(row);
+      if (!nombre && monto <= 0 && !row.id) return;
+      out.push({
+        id: String(row.id || `mo-${idx + 1}`),
+        nombre: nombre || 'Mano de obra',
+        monto_clp: monto,
+      });
+    });
+  }
+  if (out.length) return out.slice(0, MAX_MANO_OBRA_LINEAS);
+  const mo = Math.max(0, Math.round(Number(c.mano_obra_clp) || 0));
+  if (mo <= 0) return [];
+  const titulo = (c.servicio_nombre || '').trim() || 'Mano de obra';
+  return [{ id: 'mo-1', nombre: titulo, monto_clp: mo }];
+}
+
+export function sumaManoObraLineas(lineas: ManoObraLinea[]): number {
+  return lineas.reduce((acc, lin) => acc + Math.max(0, Math.round(Number(lin.monto_clp) || 0)), 0);
+}
+
 export interface RepuestoCotizacion {
   id?: string;
   nombre: string;
@@ -68,7 +119,10 @@ export interface CotizacionCanal {
   servicio_nombre: string;
   descripcion_problema: string;
   repuestos: RepuestoCotizacion[];
+  mano_obra_lineas?: ManoObraLinea[];
   mano_obra_clp: number;
+  entrega_via?: 'app' | 'sesion_meta' | 'whatsapp_template' | 'link_publico' | string | null;
+  entrega_pendiente_compartir?: boolean;
   costo_repuestos_clp: number;
   descuento_tipo?: '' | 'monto' | 'porcentaje' | null;
   descuento_alcance?: 'mano_obra' | 'total' | null;
@@ -109,8 +163,12 @@ export interface CotizacionCanal {
     entrega_canal?: 'app' | 'sesion_meta' | 'whatsapp_template' | 'link_publico' | string;
     entrega_canal_motivo?: string;
     servicios_lineas?: Array<{
+      id?: string;
       nombre?: string;
       monto_clp?: number;
+      precio_mano_obra_clp?: number;
+      precio_clp?: number;
+      precio_catalogo_clp?: number;
     }>;
   };
   cotizacion_original_id?: number | null;
@@ -220,6 +278,7 @@ export function clampDiasValidez(value?: number | string | null): number {
 }
 
 export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<CotizacionCanal> {
+  const lineasMo = resolverManoObraLineas(c);
   const patch: Partial<CotizacionCanal> = {
     servicio_nombre: c.servicio_nombre,
     descripcion_problema: c.descripcion_problema,
@@ -228,7 +287,8 @@ export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<Cotizacion
     cliente_nombre: c.cliente_nombre,
     cliente_telefono: c.cliente_telefono,
     repuestos: c.repuestos,
-    mano_obra_clp: c.mano_obra_clp,
+    mano_obra_lineas: lineasMo,
+    mano_obra_clp: sumaManoObraLineas(lineasMo),
     descuento_tipo: c.descuento_tipo || '',
     descuento_alcance: c.descuento_alcance || 'mano_obra',
     descuento_valor: c.descuento_valor ?? 0,

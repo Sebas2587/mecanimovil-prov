@@ -32,6 +32,12 @@ import cotizacionCanalService, {
 } from '@/services/cotizacionCanalService';
 import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
+import {
+  CLIPBOARD_MENSAJE_COPIADO,
+  cuerpoEnvioExitoso,
+  requiereCompartirWhatsApp,
+  tituloEnvioExitoso,
+} from '@/utils/entregaCotizacionCopy';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
 import {
   abrirWhatsAppCotizacion,
@@ -49,6 +55,7 @@ function snapshot(c: CotizacionCanal): string {
     cliente_nombre: c.cliente_nombre,
     cliente_telefono: c.cliente_telefono,
     repuestos: c.repuestos,
+    mano_obra_lineas: c.mano_obra_lineas ?? c.metadata?.servicios_lineas ?? [],
     mano_obra_clp: c.mano_obra_clp,
     descuento_tipo: c.descuento_tipo || '',
     descuento_alcance: c.descuento_alcance || 'mano_obra',
@@ -158,7 +165,7 @@ export default function CotizacionCanalDetalleScreen() {
     });
     if (opts?.silencioso) return via;
     if (via === 'clipboard') {
-      showAlert('Mensaje copiado', 'Pégalo en WhatsApp del cliente. El chat conectado no puede enviarlo.');
+      showAlert('Mensaje copiado', CLIPBOARD_MENSAJE_COPIADO);
     }
     return via;
   }, []);
@@ -170,9 +177,12 @@ export default function CotizacionCanalDetalleScreen() {
   ) => {
     const tieneTel = Boolean(cot.cliente_telefono?.trim());
     showAlertButtons(
-      'El chat conectado no puede enviarla',
+      tituloEnvioExitoso(cot.numero_publico),
       entregaMensaje
-        || 'Pasaron más de 24 h y WhatsApp bloquea el canal. Ábrelo con el link actualizado para que el cliente lo reciba.',
+        || cuerpoEnvioExitoso({
+          entregaVia: 'link_publico',
+          numeroPublico: cot.numero_publico,
+        }),
       [
         { text: 'Ahora no', style: 'cancel' },
         {
@@ -217,21 +227,30 @@ export default function CotizacionCanalDetalleScreen() {
           showAlert('Cotización lista', 'Se guardó, pero no hay link para compartir.');
           return;
         }
-        if (entrega === 'link_publico' || entrega === 'whatsapp_template') {
-          ofrecerEnvioWhatsAppPersonal(url, cotEnviada, res.entrega_mensaje);
+        if (requiereCompartirWhatsApp(entrega)) {
+          ofrecerEnvioWhatsAppPersonal(
+            url,
+            cotEnviada,
+            cuerpoEnvioExitoso({
+              entregaVia: entrega,
+              numeroPublico: cotEnviada.numero_publico,
+            }),
+          );
           return;
         }
         showAlert(
-          'Cotización enviada',
-          res.entrega_mensaje
-            || 'El cliente la recibió en el chat y puede aceptar o rechazar.',
+          tituloEnvioExitoso(cotEnviada.numero_publico),
+          cuerpoEnvioExitoso({
+            entregaVia: entrega,
+            numeroPublico: cotEnviada.numero_publico,
+          }),
         );
         return;
       }
       await invalidateAll();
       await refetch();
       showAlert(
-        'Cotización enviada',
+        tituloEnvioExitoso(draft.numero_publico),
         'El cliente puede ver el mismo enlace y aceptar o rechazar.',
       );
     } catch {
@@ -400,9 +419,13 @@ export default function CotizacionCanalDetalleScreen() {
 
         {editable && draft.estado === 'borrador' ? (
           <View style={styles.footerBorrador}>
-            {draft.numero_publico ? (
+            {draft.entrega_pendiente_compartir ? (
               <InstitutionalText role="caption" color="muted">
-                Si pasaron más de 24 h, el chat conectado no puede enviarla. Al enviar se abre WhatsApp con el link actualizado.
+                Pendiente de compartir: el documento ya existe. Usa Compartir link para que el cliente lo reciba.
+              </InstitutionalText>
+            ) : draft.visto_en ? (
+              <InstitutionalText role="caption" color="muted">
+                El cliente abrió el enlace.
               </InstitutionalText>
             ) : null}
             <View style={styles.footerRow}>
@@ -436,9 +459,13 @@ export default function CotizacionCanalDetalleScreen() {
 
         {editable && draft.estado === 'enviada' ? (
           <View style={styles.footerBorrador}>
-            {draft.numero_publico ? (
+            {draft.entrega_pendiente_compartir ? (
               <InstitutionalText role="caption" color="muted">
-                Si pasaron más de 24 h, el chat conectado no puede enviarla. Al enviar se abre WhatsApp con el link actualizado.
+                El cliente aún no la recibió por el chat. Usa Compartir link.
+              </InstitutionalText>
+            ) : draft.visto_en ? (
+              <InstitutionalText role="caption" color="muted">
+                El cliente abrió el enlace.
               </InstitutionalText>
             ) : null}
             <View style={styles.footerRow}>

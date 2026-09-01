@@ -33,11 +33,14 @@ import {
   formatMontoInputLocalized,
   parseMontoDecimal,
 } from '@/utils/parseMontoDecimal';
-import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
+import type { CotizacionCanal, ManoObraLinea, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import cotizacionCanalService, {
+  MAX_MANO_OBRA_LINEAS,
   calcularDescuentoCotizacion,
   clampDiasValidez,
   cotizacionPermiteEdicionCompleta,
+  resolverManoObraLineas,
+  sumaManoObraLineas,
 } from '@/services/cotizacionCanalService';
 import { CotizarItemsIaModal } from '@/components/chats/CotizarItemsIaModal';
 import {
@@ -371,6 +374,76 @@ const RepuestoRow = React.memo(function RepuestoRow({
   );
 });
 
+const ManoObraLineaRow = React.memo(function ManoObraLineaRow({
+  line,
+  index,
+  editable,
+  onUpdate,
+  onDelete,
+}: {
+  line: ManoObraLinea;
+  index: number;
+  editable: boolean;
+  onUpdate: (index: number, patch: Partial<ManoObraLinea>) => void;
+  onDelete: (index: number) => void;
+}) {
+  const nombreGuardado = (line.nombre || '').trim();
+  const [nombreFocused, setNombreFocused] = useState(false);
+  const [nombreDraft, setNombreDraft] = useState(nombreGuardado);
+
+  useEffect(() => {
+    if (nombreFocused) return;
+    setNombreDraft(nombreGuardado);
+  }, [nombreGuardado, nombreFocused]);
+
+  return (
+    <Card elevated padding="host" style={styles.repuestoCard}>
+      <View style={styles.repuestoTopRow}>
+        <View style={styles.nombreField}>
+          <InstitutionalField
+            label="Trabajo"
+            value={nombreDraft}
+            onChangeText={(t) => {
+              setNombreDraft(t);
+              onUpdate(index, { nombre: t });
+            }}
+            onFocus={() => setNombreFocused(true)}
+            onBlur={() => {
+              const next = nombreDraft.trim();
+              onUpdate(index, { nombre: next });
+              setNombreDraft(next);
+              setNombreFocused(false);
+            }}
+            placeholder="Ej. Diagnóstico, cambio de pastillas"
+            editable={editable}
+          />
+        </View>
+        {editable ? (
+          <TouchableOpacity
+            style={styles.deleteBtn}
+            onPress={() => onDelete(index)}
+            accessibilityRole="button"
+            accessibilityLabel="Eliminar mano de obra"
+            hitSlop={8}
+          >
+            <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+      <View>
+        <InstitutionalText role="label" color="muted" style={styles.colLabel}>
+          Precio
+        </InstitutionalText>
+        <ClpMoneyInput
+          value={redondearCLP(line.monto_clp)}
+          editable={editable}
+          onChangeValue={(next) => onUpdate(index, { monto_clp: next })}
+        />
+      </View>
+    </Card>
+  );
+});
+
 const DESCUENTO_TIPO_TABS = [
   { key: 'none' as const, label: 'Ninguno' },
   { key: 'porcentaje' as const, label: '%' },
@@ -419,7 +492,8 @@ export function CotizacionIaEditor({
   const stackedFacts = width < 520;
   const repuestos = cotizacion.repuestos ?? [];
   const editable = !readonly;
-  const manoObra = redondearCLP(cotizacion.mano_obra_clp);
+  const lineasMo = useMemo(() => resolverManoObraLineas(cotizacion), [cotizacion]);
+  const manoObra = sumaManoObraLineas(lineasMo);
   const busquedaPendiente = cotizacion.metadata?.busqueda_web_estado === 'pendiente';
   const appliedWebRef = useRef<string | null>(null);
   const pendientePrevRef = useRef(false);
@@ -504,16 +578,47 @@ export function CotizacionIaEditor({
     [totalCalculado],
   );
 
-  const serviciosLineas = useMemo(() => {
-    const raw = cotizacion.metadata?.servicios_lineas;
-    if (!Array.isArray(raw) || raw.length <= 1) return [];
-    return raw
-      .map((line) => ({
-        nombre: String(line?.nombre || '').trim(),
-        monto: redondearCLP(Number(line?.monto_clp) || 0),
-      }))
-      .filter((line) => line.nombre || line.monto > 0);
-  }, [cotizacion.metadata?.servicios_lineas]);
+  const aplicarLineasMo = useCallback((next: ManoObraLinea[]) => {
+    const current = cotizacionRef.current;
+    onChange({
+      ...current,
+      mano_obra_lineas: next,
+      mano_obra_clp: sumaManoObraLineas(next),
+      metadata: {
+        ...(current.metadata || {}),
+        servicios_lineas: next,
+      },
+    });
+  }, [onChange]);
+
+  const actualizarManoObraLinea = useCallback(
+    (index: number, patch: Partial<ManoObraLinea>) => {
+      const current = resolverManoObraLineas(cotizacionRef.current);
+      aplicarLineasMo(current.map((lin, i) => (i === index ? { ...lin, ...patch } : lin)));
+    },
+    [aplicarLineasMo],
+  );
+
+  const eliminarManoObraLinea = useCallback(
+    (index: number) => {
+      const current = resolverManoObraLineas(cotizacionRef.current);
+      aplicarLineasMo(current.filter((_, i) => i !== index));
+    },
+    [aplicarLineasMo],
+  );
+
+  const agregarManoObraLinea = useCallback(() => {
+    const current = resolverManoObraLineas(cotizacionRef.current);
+    if (current.length >= MAX_MANO_OBRA_LINEAS) return;
+    aplicarLineasMo([
+      ...current,
+      {
+        id: `mo-${Date.now()}`,
+        nombre: '',
+        monto_clp: 0,
+      },
+    ]);
+  }, [aplicarLineasMo]);
 
   const actualizarRepuesto = useCallback(
     (index: number, patch: Partial<RepuestoCotizacion>) => {
@@ -919,6 +1024,7 @@ export function CotizacionIaEditor({
           <View style={styles.contactBlock}>
             <InstitutionalField
               label="Nombre del servicio"
+              hint="Título del presupuesto. El desglose de trabajos va abajo, en Mano de obra."
               value={cotizacion.servicio_nombre || ''}
               onChangeText={(t) => onChange({ ...cotizacion, servicio_nombre: t })}
               placeholder="Ej. Cambio de aceite y filtros"
@@ -955,36 +1061,58 @@ export function CotizacionIaEditor({
         ) : null}
       </Card>
 
-      {serviciosLineas.length > 0 ? (
-        <Card elevated padding="host" style={styles.sectionCard}>
-          <InstitutionalSectionHeader title="Desglose por servicio" />
-          {serviciosLineas.map((line, idx) => (
-            <View key={`svc-line-${idx}`} style={styles.summaryRow}>
-              <InstitutionalText role="caption" color="muted" numberOfLines={2} style={styles.servicioLineaNombre}>
-                {line.nombre || `Servicio ${idx + 1}`}
-              </InstitutionalText>
-              <InstitutionalText role="captionBold" color="ink">
-                {formatearMontoCLP(line.monto)}
-              </InstitutionalText>
-            </View>
-          ))}
-        </Card>
-      ) : null}
-
-      <Card elevated padding="host" style={styles.sectionCard}>
-        <InstitutionalSectionHeader title="Mano de obra" />
-        <ClpMoneyInput
-          value={manoObra}
-          editable={editable}
-          onChangeValue={(next) => onChange({ ...cotizacion, mano_obra_clp: next })}
+      <View style={styles.section}>
+        <InstitutionalSectionHeader
+          title="Mano de obra"
+          count={lineasMo.length > 0 ? lineasMo.length : undefined}
+          actionLabel={editable && lineasMo.length < MAX_MANO_OBRA_LINEAS ? 'Agregar' : undefined}
+          onActionPress={editable ? agregarManoObraLinea : undefined}
         />
-        <InstitutionalText role="caption" color="muted">
+        <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
           Precio final al cliente (el IVA se desglosa en el resumen).
           {cotizacion.metadata?.valores_estimativos || cotizacion.metadata?.precio_parcial_catalogo
             ? ' Valores estimados: confirma precios y marcas antes de enviar.'
             : ''}
         </InstitutionalText>
-      </Card>
+        {lineasMo.length >= MAX_MANO_OBRA_LINEAS ? (
+          <InstitutionalText role="small" color="muted">
+            Máximo {MAX_MANO_OBRA_LINEAS} líneas de mano de obra.
+          </InstitutionalText>
+        ) : null}
+        {lineasMo.length === 0 ? (
+          <Card
+            elevated
+            padding="host"
+            style={styles.emptyRepuestos}
+            onPress={editable ? agregarManoObraLinea : undefined}
+          >
+            <InstitutionalText role="caption" color="muted">
+              Sin líneas de trabajo
+            </InstitutionalText>
+            {editable ? (
+              <View style={styles.emptyAdd}>
+                <Plus size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalText role="captionBold" color="primary">
+                  Agregar mano de obra
+                </InstitutionalText>
+              </View>
+            ) : null}
+          </Card>
+        ) : (
+          <View style={styles.repuestosList}>
+            {lineasMo.map((line, idx) => (
+              <ManoObraLineaRow
+                key={line.id ?? `mo-${idx}`}
+                line={line}
+                index={idx}
+                editable={editable}
+                onUpdate={actualizarManoObraLinea}
+                onDelete={eliminarManoObraLinea}
+              />
+            ))}
+          </View>
+        )}
+      </View>
 
       <View style={styles.section}>
         <InstitutionalSectionHeader
@@ -1007,14 +1135,20 @@ export function CotizacionIaEditor({
           es estimado: revísalo antes de enviar al cliente.
         </InstitutionalText>
         {editable ? (
-          <InstitutionalButton
-            label="Cotizar ítems con IA"
-            variant="outline"
-            size="compact"
-            disabled={busquedaPendiente || cotizandoItems}
-            onPress={() => setModalItemsIa(true)}
-            leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
-          />
+          <View style={styles.iaRepuestosBlock}>
+            <InstitutionalButton
+              label="Buscar precios de repuestos"
+              variant="outline"
+              size="compact"
+              disabled={busquedaPendiente || cotizandoItems}
+              onPress={() => setModalItemsIa(true)}
+              leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+            />
+            <InstitutionalText role="caption" color="muted">
+              La IA completa precios de piezas. No cambia la mano de obra ni las líneas
+              que ya tienen precio.
+            </InstitutionalText>
+          </View>
         ) : null}
 
         {repuestos.length === 0 ? (
@@ -1351,6 +1485,7 @@ const styles = StyleSheet.create({
   warningText: { flex: 1 },
   section: { gap: SPACING.fixed.sm },
   repuestosHint: { marginTop: -SPACING.fixed.xs },
+  iaRepuestosBlock: { gap: SPACING.fixed.xs },
   busquedaWebChip: {
     flexDirection: 'row',
     alignItems: 'center',

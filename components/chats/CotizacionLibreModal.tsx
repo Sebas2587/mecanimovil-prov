@@ -54,6 +54,12 @@ import {
   abrirWhatsAppCotizacion,
   mensajeCotizacionParaCliente,
 } from '@/utils/compartirCotizacionCliente';
+import {
+  CLIPBOARD_MENSAJE_COPIADO,
+  cuerpoEnvioExitoso,
+  requiereCompartirWhatsApp,
+  tituloEnvioExitoso,
+} from '@/utils/entregaCotizacionCopy';
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
 import { useCotizacionPlantillasQuery } from '@/hooks/useCotizacionPlantillasQuery';
@@ -542,7 +548,7 @@ export function CotizacionLibreModal({
       url,
     });
     if (via === 'clipboard') {
-      showAlert('Mensaje copiado', 'Pégalo en WhatsApp del cliente.');
+      showAlert('Mensaje copiado', CLIPBOARD_MENSAJE_COPIADO);
     }
   }, [cotizacion]);
 
@@ -560,17 +566,20 @@ export function CotizacionLibreModal({
       onEnviada?.();
       const entrega = res.entrega_via || res.cotizacion.metadata?.entrega_canal;
       const cotEnviada = res.cotizacion;
+      const folio = cotEnviada.numero_publico;
       const requiereWhatsAppPersonal = (
-        entrega === 'link_publico'
-        || entrega === 'whatsapp_template'
+        requiereCompartirWhatsApp(entrega)
         || Boolean(channelWindowClosedReason)
       );
       if (requiereWhatsAppPersonal && url) {
         const tieneTel = Boolean(cotEnviada.cliente_telefono?.trim());
         showAlertButtons(
-          'El chat conectado no puede enviarla',
-          res.entrega_mensaje
-            || 'Pasaron más de 24 h y WhatsApp bloquea el canal. Ábrelo con el link para que el cliente lo reciba.',
+          tituloEnvioExitoso(folio),
+          cuerpoEnvioExitoso({
+            entregaVia: entrega || 'link_publico',
+            numeroPublico: folio,
+            channelDisconnected: Boolean(channelDisconnectedReason),
+          }),
           [
             { text: 'Ahora no', style: 'cancel' },
             {
@@ -585,20 +594,35 @@ export function CotizacionLibreModal({
         const canalExterno = channel && channel !== 'app';
         if (canalExterno && channelDisconnectedReason) {
           showAlert(
-            'Cotización en el chat',
-            'La cotización ya aparece en esta conversación. Para que el cliente la reciba por WhatsApp, Messenger o Instagram, conecta el canal en Configuración de canales.',
+            tituloEnvioExitoso(folio),
+            cuerpoEnvioExitoso({
+              entregaVia: entrega,
+              numeroPublico: folio,
+              channelDisconnected: true,
+            }),
           );
           if (url) await compartirLink(url);
         } else {
           showAlert(
-            'Cotización enviada',
-            'El cliente la recibió en su canal y puede aceptarla o rechazarla desde la pantalla de cotización.',
+            tituloEnvioExitoso(folio),
+            cuerpoEnvioExitoso({
+              entregaVia: entrega || 'sesion_meta',
+              numeroPublico: folio,
+            }),
           );
         }
       } else if (url) {
+        showAlert(
+          tituloEnvioExitoso(folio),
+          cuerpoEnvioExitoso({
+            entregaVia: entrega,
+            numeroPublico: folio,
+            esLibre: true,
+          }),
+        );
         await compartirLink(url);
       } else {
-        showAlert('Cotización enviada', 'Se generó la cotización.');
+        showAlert(tituloEnvioExitoso(folio), cuerpoEnvioExitoso({ numeroPublico: folio, esLibre: true }));
       }
     } catch (err) {
       setErrorIa(extractApiError(err, 'No se pudo enviar la cotización.'));

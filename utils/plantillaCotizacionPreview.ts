@@ -1,8 +1,10 @@
 import type {
   CotizacionCanal,
   CotizacionPlantilla,
+  ManoObraLinea,
   RepuestoCotizacion,
 } from '@/services/cotizacionCanalService';
+import { resolverManoObraLineas, sumaManoObraLineas } from '@/services/cotizacionCanalService';
 import { redondearCLP } from '@/utils/formatearMontoCLP';
 import { resumenVehiculoPlantilla } from '@/utils/plantillasCotizacionVehiculo';
 
@@ -66,7 +68,15 @@ export function plantillaToCotizacionPreview(plantilla: CotizacionPlantilla): Co
     anio = Number.isFinite(n) ? n : null;
   }
   const modalidad = snapStr(snap, 'modalidad') === 'domicilio' ? 'domicilio' : 'taller';
-  const serviciosLineas = Array.isArray(snap.servicios_lineas) ? snap.servicios_lineas : undefined;
+  const serviciosLineas = Array.isArray(snap.servicios_lineas)
+    ? (snap.servicios_lineas as ManoObraLinea[])
+    : undefined;
+  const manoObraLineas = resolverManoObraLineas({
+    mano_obra_lineas: serviciosLineas,
+    mano_obra_clp: snapNum(snap, 'mano_obra_clp'),
+    servicio_nombre: tituloServicioPlantilla(plantilla),
+    metadata: serviciosLineas ? { servicios_lineas: serviciosLineas } : undefined,
+  });
 
   return {
     id: -plantilla.id,
@@ -85,7 +95,8 @@ export function plantillaToCotizacionPreview(plantilla: CotizacionPlantilla): Co
     servicio_nombre: tituloServicioPlantilla(plantilla),
     descripcion_problema: snapStr(snap, 'descripcion_problema'),
     repuestos,
-    mano_obra_clp: snapNum(snap, 'mano_obra_clp'),
+    mano_obra_lineas: manoObraLineas,
+    mano_obra_clp: sumaManoObraLineas(manoObraLineas) || snapNum(snap, 'mano_obra_clp'),
     costo_repuestos_clp: snapNum(snap, 'costo_repuestos_clp'),
     total_clp: snapNum(snap, 'total_clp') || totalPlantilla(plantilla),
     duracion_minutos_estimada: snap.duracion_minutos_estimada
@@ -101,9 +112,7 @@ export function plantillaToCotizacionPreview(plantilla: CotizacionPlantilla): Co
     metadata: {
       origen: plantilla.aprendizaje_auto ? 'plantilla_auto' : 'plantilla',
       plantilla_id: plantilla.id,
-      servicios_lineas: serviciosLineas as CotizacionCanal['metadata'] extends { servicios_lineas?: infer S }
-        ? S
-        : never,
+      servicios_lineas: serviciosLineas,
       valores_estimativos: Boolean(snap.valores_estimativos),
       precio_desde_catalogo: Boolean(snap.precio_desde_catalogo),
     },
