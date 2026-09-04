@@ -19,8 +19,8 @@ import { Card } from '@/app/design-system/components';
 import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { ClpMoneyInput } from '@/components/forms/ClpMoneyInput';
-import { ConfianzaPresupuestoCard } from '@/components/cotizacion/ConfianzaPresupuestoCard';
 import { ConfirmarPreciosSheet } from '@/components/cotizacion/ConfirmarPreciosSheet';
+import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { RepuestoPrecioSheet } from '@/components/cotizacion/RepuestoPrecioSheet';
 import {
   certezaDe,
@@ -555,6 +555,9 @@ export function CotizacionIaEditor({
   );
 
   const totalCalculado = descuentoLive.total;
+
+  const descuentoActivo = cotizacion.descuento_tipo === 'porcentaje'
+    || cotizacion.descuento_tipo === 'monto';
 
   const desgloseTotal = useMemo(
     () => desgloseIvaDesdeTotal(totalCalculado),
@@ -1192,11 +1195,6 @@ export function CotizacionIaEditor({
           actionLabel={editable ? 'Agregar' : undefined}
           onActionPress={editable ? agregarRepuesto : undefined}
         />
-        <ConfianzaPresupuestoCard
-          repuestos={repuestos}
-          editable={editable}
-          onConfirmar={() => setConfirmarPreciosVisible(true)}
-        />
         {busquedaPendiente ? (
           <View style={styles.busquedaWebChip}>
             <ActivityIndicator size="small" color={I.muted} />
@@ -1263,82 +1261,6 @@ export function CotizacionIaEditor({
         )}
       </View>
 
-      <Card elevated padding="host" style={styles.sectionCard}>
-        <InstitutionalSectionHeader title="Descuento" />
-        <InstitutionalText role="caption" color="muted">
-          Opcional. Se resta del precio con IVA incluido; Neto/IVA se desglosan después sobre el total a pagar.
-        </InstitutionalText>
-        <View style={styles.descuentoBlock} pointerEvents={editable ? 'auto' : 'none'}>
-          <InstitutionalText role="label" color="muted">
-            TIPO
-          </InstitutionalText>
-          <InstitutionalScreenTabs
-            tabs={DESCUENTO_TIPO_TABS}
-            activeKey={(cotizacion.descuento_tipo === 'porcentaje' || cotizacion.descuento_tipo === 'monto')
-              ? cotizacion.descuento_tipo
-              : 'none'}
-            onChange={(key) => {
-              if (!editable) return;
-              if (key === 'none') {
-                onChange({ ...cotizacion, descuento_tipo: '', descuento_valor: 0 });
-                return;
-              }
-              onChange({
-                ...cotizacion,
-                descuento_tipo: key,
-                descuento_alcance: cotizacion.descuento_alcance || 'mano_obra',
-                descuento_valor: cotizacion.descuento_valor || 0,
-              });
-            }}
-          />
-        </View>
-        {cotizacion.descuento_tipo === 'porcentaje' || cotizacion.descuento_tipo === 'monto' ? (
-          <>
-            <View style={styles.descuentoBlock} pointerEvents={editable ? 'auto' : 'none'}>
-              <InstitutionalText role="label" color="muted">
-                APLICAR SOBRE
-              </InstitutionalText>
-              <InstitutionalScreenTabs
-                tabs={DESCUENTO_ALCANCE_TABS}
-                activeKey={cotizacion.descuento_alcance === 'total' ? 'total' : 'mano_obra'}
-                onChange={(key) => {
-                  if (!editable) return;
-                  onChange({ ...cotizacion, descuento_alcance: key });
-                }}
-              />
-            </View>
-            {cotizacion.descuento_tipo === 'porcentaje' ? (
-              <InstitutionalField
-                label="Porcentaje (0–100)"
-                value={
-                  cotizacion.descuento_valor
-                    ? String(cotizacion.descuento_valor)
-                    : ''
-                }
-                onChangeText={(t) => {
-                  const digits = t.replace(/[^\d.,]/g, '').replace(',', '.');
-                  const n = Math.min(100, Math.max(0, Number(digits) || 0));
-                  onChange({ ...cotizacion, descuento_tipo: 'porcentaje', descuento_valor: n });
-                }}
-                placeholder="10"
-                keyboardType="decimal-pad"
-                editable={editable}
-              />
-            ) : (
-              <ClpMoneyInput
-                value={redondearCLP(cotizacion.descuento_valor || 0)}
-                editable={editable}
-                onChangeValue={(next) => onChange({
-                  ...cotizacion,
-                  descuento_tipo: 'monto',
-                  descuento_valor: next,
-                })}
-              />
-            )}
-          </>
-        ) : null}
-      </Card>
-
       <Card elevated padding="host" style={styles.summaryBox}>
         <View style={styles.summaryRow}>
           <InstitutionalText role="caption" color="muted">
@@ -1397,45 +1319,127 @@ export function CotizacionIaEditor({
         </InstitutionalText>
       </Card>
 
-      <Card elevated padding="host" style={styles.sectionCard}>
-        <InstitutionalSectionHeader title="Notas de cotización" />
-        <InstitutionalField
-          label="El cliente verá estas notas en el enlace y en el PDF. El agente las sugiere según el servicio; puedes editarlas"
-          value={cotizacion.notas_internas || ''}
-          onChangeText={(t) => onChange({ ...cotizacion, notas_internas: t })}
-          placeholder={'1. Síntoma…\n2. Servicio propuesto…\n3. Consideraciones…'}
-          editable={editable}
-          multiline
-        />
-      </Card>
+      <SeccionOpcional
+        title="Ajustes opcionales"
+        hint="Descuento, notas para el cliente y vigencia"
+        defaultOpen={descuentoActivo}
+      >
+        <Card elevated padding="host" style={styles.sectionCard}>
+          <InstitutionalSectionHeader title="Descuento" />
+          <InstitutionalText role="caption" color="muted">
+            Opcional. Se resta del precio con IVA incluido; Neto/IVA se desglosan después sobre el total a pagar.
+          </InstitutionalText>
+          <View style={styles.descuentoBlock} pointerEvents={editable ? 'auto' : 'none'}>
+            <InstitutionalText role="label" color="muted">
+              TIPO
+            </InstitutionalText>
+            <InstitutionalScreenTabs
+              tabs={DESCUENTO_TIPO_TABS}
+              activeKey={(cotizacion.descuento_tipo === 'porcentaje' || cotizacion.descuento_tipo === 'monto')
+                ? cotizacion.descuento_tipo
+                : 'none'}
+              onChange={(key) => {
+                if (!editable) return;
+                if (key === 'none') {
+                  onChange({ ...cotizacion, descuento_tipo: '', descuento_valor: 0 });
+                  return;
+                }
+                onChange({
+                  ...cotizacion,
+                  descuento_tipo: key,
+                  descuento_alcance: cotizacion.descuento_alcance || 'mano_obra',
+                  descuento_valor: cotizacion.descuento_valor || 0,
+                });
+              }}
+            />
+          </View>
+          {cotizacion.descuento_tipo === 'porcentaje' || cotizacion.descuento_tipo === 'monto' ? (
+            <>
+              <View style={styles.descuentoBlock} pointerEvents={editable ? 'auto' : 'none'}>
+                <InstitutionalText role="label" color="muted">
+                  APLICAR SOBRE
+                </InstitutionalText>
+                <InstitutionalScreenTabs
+                  tabs={DESCUENTO_ALCANCE_TABS}
+                  activeKey={cotizacion.descuento_alcance === 'total' ? 'total' : 'mano_obra'}
+                  onChange={(key) => {
+                    if (!editable) return;
+                    onChange({ ...cotizacion, descuento_alcance: key });
+                  }}
+                />
+              </View>
+              {cotizacion.descuento_tipo === 'porcentaje' ? (
+                <InstitutionalField
+                  label="Porcentaje (0–100)"
+                  value={
+                    cotizacion.descuento_valor
+                      ? String(cotizacion.descuento_valor)
+                      : ''
+                  }
+                  onChangeText={(t) => {
+                    const digits = t.replace(/[^\d.,]/g, '').replace(',', '.');
+                    const n = Math.min(100, Math.max(0, Number(digits) || 0));
+                    onChange({ ...cotizacion, descuento_tipo: 'porcentaje', descuento_valor: n });
+                  }}
+                  placeholder="10"
+                  keyboardType="decimal-pad"
+                  editable={editable}
+                />
+              ) : (
+                <ClpMoneyInput
+                  value={redondearCLP(cotizacion.descuento_valor || 0)}
+                  editable={editable}
+                  onChangeValue={(next) => onChange({
+                    ...cotizacion,
+                    descuento_tipo: 'monto',
+                    descuento_valor: next,
+                  })}
+                />
+              )}
+            </>
+          ) : null}
+        </Card>
 
-      <Card elevated padding="host" style={styles.sectionCard}>
-        <InstitutionalSectionHeader title="Validez y políticas" />
-        <InstitutionalField
-          label="Vigencia (días)"
-          hint="Default 30. El cliente verá “válida hasta” esa cantidad de días después de enviarla."
-          value={String(cotizacion.dias_validez ?? 30)}
-          onChangeText={(t) => {
-            const digits = t.replace(/\D/g, '');
-            onChange({
-              ...cotizacion,
-              dias_validez: digits ? clampDiasValidez(digits) : 30,
-            });
-          }}
-          placeholder="30"
-          keyboardType="number-pad"
-          maxLength={2}
-          editable={editable}
-        />
-        <InstitutionalField
-          label="El cliente las ve en el recuadro Validez. Se copian de tu perfil; puedes cambiarlas solo en esta cotización"
-          value={cotizacion.politicas_cotizacion || ''}
-          onChangeText={(t) => onChange({ ...cotizacion, politicas_cotizacion: t })}
-          placeholder="Los precios de repuestos pueden variar si cambia disponibilidad o marca."
-          editable={editable}
-          multiline
-        />
-      </Card>
+        <Card elevated padding="host" style={styles.sectionCard}>
+          <InstitutionalSectionHeader title="Notas de cotización" />
+          <InstitutionalField
+            label="El cliente verá estas notas en el enlace y en el PDF. El agente las sugiere según el servicio; puedes editarlas"
+            value={cotizacion.notas_internas || ''}
+            onChangeText={(t) => onChange({ ...cotizacion, notas_internas: t })}
+            placeholder={'1. Síntoma…\n2. Servicio propuesto…\n3. Consideraciones…'}
+            editable={editable}
+            multiline
+          />
+        </Card>
+
+        <Card elevated padding="host" style={styles.sectionCard}>
+          <InstitutionalSectionHeader title="Validez y políticas" />
+          <InstitutionalField
+            label="Vigencia (días)"
+            hint="Default 30. El cliente verá “válida hasta” esa cantidad de días después de enviarla."
+            value={String(cotizacion.dias_validez ?? 30)}
+            onChangeText={(t) => {
+              const digits = t.replace(/\D/g, '');
+              onChange({
+                ...cotizacion,
+                dias_validez: digits ? clampDiasValidez(digits) : 30,
+              });
+            }}
+            placeholder="30"
+            keyboardType="number-pad"
+            maxLength={2}
+            editable={editable}
+          />
+          <InstitutionalField
+            label="El cliente las ve en el recuadro Validez. Se copian de tu perfil; puedes cambiarlas solo en esta cotización"
+            value={cotizacion.politicas_cotizacion || ''}
+            onChangeText={(t) => onChange({ ...cotizacion, politicas_cotizacion: t })}
+            placeholder="Los precios de repuestos pueden variar si cambia disponibilidad o marca."
+            editable={editable}
+            multiline
+          />
+        </Card>
+      </SeccionOpcional>
 
       {cotizacion.estado === 'borrador'
         && (cotizacion.listo_para_enviar || (cotizacion.pendientes_revision?.length ?? 0) > 0) ? (

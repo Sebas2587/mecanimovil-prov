@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  FlatList,
+  useWindowDimensions,
 } from 'react-native';
 import { Link2, Sparkles, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -70,7 +72,7 @@ import {
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
 import { useCotizacionPlantillasQuery } from '@/hooks/useCotizacionPlantillasQuery';
-import { PlantillaCotizacionRow } from '@/components/chats/PlantillaCotizacionRow';
+import { PlantillaCotizacionCard } from '@/components/chats/PlantillaCotizacionCard';
 
 function suggestTelefono(channel: ChannelSlug | undefined, phone: string | null | undefined): string {
   if (!phone?.trim()) return '';
@@ -128,6 +130,7 @@ export function CotizacionLibreModal({
   channelWindowClosedReason = null,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
 
   const [clienteModo, setClienteModo] = useState<ClienteModo>('mensajes');
   const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoCanal | null>(null);
@@ -224,8 +227,15 @@ export function CotizacionLibreModal({
     const filtradas = servTokens.size
       ? scored.filter((s) => s.score >= 1).map((s) => s.p)
       : scored.map((s) => s.p);
-    return (filtradas.length ? filtradas : scored.map((s) => s.p)).slice(0, 4);
+    return (filtradas.length ? filtradas : scored.map((s) => s.p)).slice(0, 6);
   }, [plantillasVehiculo, servicioNombre]);
+
+  const plantillasCarrusel = useMemo(() => {
+    const usable = Math.max(280, windowWidth - SPACING.container.horizontal * 2);
+    const itemGap = SPACING.fixed.sm;
+    const itemWidth = Math.round((usable - itemGap) / 2);
+    return { itemGap, itemWidth, snapInterval: itemWidth + itemGap };
+  }, [windowWidth]);
 
   const resetForm = useCallback(() => {
     setClienteModo(conversationIdProp ? 'mensajes' : 'manual');
@@ -798,6 +808,41 @@ export function CotizacionLibreModal({
                   />
                 </View>
 
+                {plantillasSugeridas.length > 0 ? (
+                  <>
+                    <InstitutionalSectionHeader
+                      title="Cotizaciones de este modelo"
+                      count={plantillasSugeridas.length}
+                    />
+                    <View style={styles.plantillasBox}>
+                      <InstitutionalText role="caption" color="muted">
+                        Toca una para partir desde ella en vez de generar de cero.
+                      </InstitutionalText>
+                      <FlatList
+                        data={plantillasSugeridas}
+                        keyExtractor={(p) => String(p.id)}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        snapToInterval={plantillasCarrusel.snapInterval}
+                        snapToAlignment="start"
+                        decelerationRate="fast"
+                        contentContainerStyle={styles.plantillasCarrusel}
+                        ItemSeparatorComponent={() => (
+                          <View style={{ width: plantillasCarrusel.itemGap }} />
+                        )}
+                        renderItem={({ item }) => (
+                          <PlantillaCotizacionCard
+                            plantilla={item}
+                            onPress={handleUsarPlantilla}
+                            width={plantillasCarrusel.itemWidth}
+                            disabled={ocupado}
+                          />
+                        )}
+                      />
+                    </View>
+                  </>
+                ) : null}
+
                 <InstitutionalSectionHeader title="Servicio" />
                 <View style={styles.section}>
                   <View style={styles.choiceBlock}>
@@ -866,28 +911,6 @@ export function CotizacionLibreModal({
                       placeholder="Opcional"
                       multiline
                     />
-                    {plantillasSugeridas.length > 0 ? (
-                      <View style={styles.plantillasBox}>
-                        <InstitutionalText role="captionBold" color="ink">
-                          Plantillas para este vehículo
-                        </InstitutionalText>
-                        <InstitutionalText role="caption" color="muted">
-                          Incluye las generadas por el agente al enviar. Úsalas para no
-                          regenerar desde cero.
-                        </InstitutionalText>
-                        <View style={styles.plantillasPaper}>
-                          {plantillasSugeridas.map((p, idx) => (
-                            <PlantillaCotizacionRow
-                              key={p.id}
-                              plantilla={p}
-                              onPress={handleUsarPlantilla}
-                              last={idx === plantillasSugeridas.length - 1}
-                              disabled={ocupado}
-                            />
-                          ))}
-                        </View>
-                      </View>
-                    ) : null}
                   </View>
                 </View>
 
@@ -954,7 +977,9 @@ export function CotizacionLibreModal({
               <View style={styles.footerCol}>
                 {pendientesPrecio > 0 ? (
                   <InstitutionalText role="caption" color="muted">
-                    Faltan {pendientesPrecio} precios por confirmar
+                    {pendientesPrecio === 1
+                      ? 'Falta 1 precio por confirmar'
+                      : `Faltan ${pendientesPrecio} precios por confirmar`}
                   </InstitutionalText>
                 ) : null}
                 <InstitutionalButton
@@ -965,27 +990,15 @@ export function CotizacionLibreModal({
                   disabled={ocupado}
                   loading={enviando}
                 />
-                <View style={styles.footerColRow}>
+                {!puedeEnviarFirme ? (
                   <InstitutionalButton
-                    label="Descartar"
-                    variant="destructiveOutline"
+                    label="Enviar como estimación con rangos"
+                    variant="tertiary"
                     size="compact"
-                    onPress={handleClose}
+                    onPress={() => void abrirVistaPrevia('estimacion')}
                     disabled={ocupado}
-                    loading={descartando}
-                    style={styles.footerBtnSecondary}
                   />
-                  {!puedeEnviarFirme ? (
-                    <InstitutionalButton
-                      label="Enviar como estimación"
-                      variant="tertiary"
-                      size="compact"
-                      onPress={() => void abrirVistaPrevia('estimacion')}
-                      disabled={ocupado}
-                      style={styles.footerBtnSecondary}
-                    />
-                  ) : null}
-                </View>
+                ) : null}
               </View>
             ) : (
               <InstitutionalButton
@@ -1162,15 +1175,9 @@ const styles = StyleSheet.create({
   },
   plantillasBox: {
     gap: SPACING.sm,
-    marginTop: SPACING.xs,
   },
-  plantillasPaper: {
-    backgroundColor: COLORS.background.paper,
-    borderRadius: BORDERS.radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    paddingHorizontal: SPACING.fixed.md,
-    overflow: 'hidden',
+  plantillasCarrusel: {
+    paddingRight: SPACING.fixed.sm,
   },
   errorBanner: {
     ...TYPOGRAPHY.styles.caption,
@@ -1211,18 +1218,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: SPACING.fixed.sm,
-  },
-  footerColRow: {
-    flexDirection: 'row',
-    gap: SPACING.fixed.sm,
-  },
-  footerBtnSecondary: {
-    flex: 1,
-    minWidth: 0,
-  },
-  footerBtnPrimary: {
-    flex: 2,
-    minWidth: 0,
   },
   footerBtnGrow: {
     flex: 1,

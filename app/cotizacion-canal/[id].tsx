@@ -510,54 +510,58 @@ export default function CotizacionCanalDetalleScreen() {
             ) : null}
             {pendientesPrecio > 0 ? (
               <InstitutionalText role="caption" color="muted">
-                Faltan {pendientesPrecio} precios por confirmar
+                {pendientesPrecio === 1
+                  ? 'Falta 1 precio por confirmar'
+                  : `Faltan ${pendientesPrecio} precios por confirmar`}
               </InstitutionalText>
             ) : null}
+            {puedeEnviarFirme ? (
+              <InstitutionalButton
+                label="Enviar cotización firme"
+                variant="primary"
+                loading={enviando || guardando}
+                disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
+                onPress={() => void abrirVistaPrevia('cotizacion')}
+              />
+            ) : (
+              <InstitutionalButton
+                label="Confirmar precios"
+                variant="primary"
+                loading={enviando || guardando}
+                disabled={enviando || guardando}
+                onPress={() => setConfirmarPreciosVisible(true)}
+              />
+            )}
+            {!puedeEnviarFirme ? (
+              <InstitutionalButton
+                label="Enviar como estimación con rangos"
+                variant="tertiary"
+                size="compact"
+                disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
+                onPress={() => void abrirVistaPrevia('estimacion')}
+              />
+            ) : null}
             <View style={styles.footerRow}>
+              {hayCambios ? (
+                <InstitutionalButton
+                  label="Guardar cambios"
+                  variant="outline"
+                  size="compact"
+                  style={styles.footerMid}
+                  loading={guardando}
+                  disabled={guardando}
+                  onPress={() => void guardar()}
+                />
+              ) : null}
               <TouchableOpacity
-                style={styles.footerGhost}
+                style={[styles.footerGhost, !hayCambios && styles.footerGhostSolo]}
                 onPress={eliminar}
                 disabled={eliminando}
                 accessibilityLabel="Eliminar"
               >
                 <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
               </TouchableOpacity>
-              <InstitutionalButton
-                label="Guardar"
-                variant="outline"
-                style={styles.footerMid}
-                loading={guardando}
-                disabled={!hayCambios || guardando}
-                onPress={() => void guardar()}
-              />
-              {puedeEnviarFirme ? (
-                <InstitutionalButton
-                  label="Enviar cotización firme"
-                  variant="primary"
-                  style={styles.footerPrimary}
-                  loading={enviando || guardando}
-                  disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
-                  onPress={() => void abrirVistaPrevia('cotizacion')}
-                />
-              ) : (
-                <InstitutionalButton
-                  label="Confirmar precios"
-                  variant="primary"
-                  style={styles.footerPrimary}
-                  loading={enviando || guardando}
-                  disabled={enviando || guardando}
-                  onPress={() => setConfirmarPreciosVisible(true)}
-                />
-              )}
             </View>
-            {!puedeEnviarFirme ? (
-              <InstitutionalButton
-                label="Enviar como estimación"
-                variant="tertiary"
-                disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
-                onPress={() => void abrirVistaPrevia('estimacion')}
-              />
-            ) : null}
           </View>
         ) : null}
 
@@ -737,6 +741,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  footerGhostSolo: { marginLeft: 'auto' },
   footerMid: { flex: 1 },
   footerPrimary: { flex: 1.4 },
 });
