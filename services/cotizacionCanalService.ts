@@ -53,6 +53,29 @@ export function sumaManoObraLineas(lineas: ManoObraLinea[]): number {
 
 export type CertezaPrecio = 'confirmado' | 'asumido' | 'referencial' | 'sin_precio';
 export type CompatibilidadPieza = 'verificada' | 'probable' | 'no_verificada';
+export type CalidadRepuesto = 'original' | 'oem' | 'alternativo';
+
+export interface OpcionRepuesto {
+  id: string;
+  nombre: string;
+  marca_repuesto?: string;
+  especificacion?: string;
+  calidad?: CalidadRepuesto | string;
+  precio_clp?: number;
+  precio_min_clp?: number;
+  precio_max_clp?: number;
+  fuente?: string;
+  tienda?: string;
+  dominio?: string;
+  url?: string;
+  es_proveedor_taller?: boolean;
+  proveedor_id?: number | null;
+  imagen_url?: string;
+  certeza?: CertezaPrecio | string;
+  compatibilidad?: CompatibilidadPieza | string;
+  confianza?: number;
+  posicion_relativa?: string;
+}
 
 export interface AlternativaRepuesto {
   etiqueta?: 'economica' | 'equivalente' | 'premium';
@@ -123,6 +146,12 @@ export interface RepuestoCotizacion {
   alternativas?: AlternativaRepuesto[];
   /** Tiendas/precios que sostienen la banda. Nunca viaja al link público. */
   fuentes_detalle?: FuenteRepuesto[];
+  calidad?: CalidadRepuesto | string;
+  calidad_pendiente?: boolean;
+  seleccion_cliente?: boolean;
+  seleccion_cliente_en?: string;
+  imagen_url?: string;
+  opciones?: OpcionRepuesto[];
 }
 
 export type CanalCotizacion =
@@ -391,6 +420,7 @@ function sanitizarRepuestoEdicion(rep: RepuestoCotizacion): RepuestoCotizacion {
   const {
     precio_estimado: _estimado,
     precio_referencia_mercado: _mercado,
+    opciones: _opciones,
     ...rest
   } = rep;
   return rest;
@@ -535,6 +565,49 @@ class CotizacionCanalService {
       payload,
     );
     return response.data as { cotizacion: CotizacionCanal };
+  }
+
+  async opcionesRepuesto(
+    id: number,
+    repuestoId: string,
+  ): Promise<{ opciones: OpcionRepuesto[]; calidad_cliente?: string }> {
+    const response = await api.get(`/ordenes/cotizaciones-canal/${id}/opciones-repuesto/`, {
+      params: { repuesto_id: repuestoId },
+    });
+    return response.data as { opciones: OpcionRepuesto[]; calidad_cliente?: string };
+  }
+
+  async usarOpcionRepuesto(
+    id: number,
+    payload: { repuesto_id: string; opcion_id: string; guardar_en_mis_precios?: boolean },
+  ): Promise<{ cotizacion: CotizacionCanal }> {
+    const response = await api.post(
+      `/ordenes/cotizaciones-canal/${id}/usar-opcion-repuesto/`,
+      payload,
+    );
+    return response.data as { cotizacion: CotizacionCanal };
+  }
+
+  async definirCalidad(
+    id: number,
+    payload: { repuesto_id: string; calidad: CalidadRepuesto },
+  ): Promise<{ cotizacion: CotizacionCanal }> {
+    const response = await api.post(
+      `/ordenes/cotizaciones-canal/${id}/definir-calidad/`,
+      payload,
+    );
+    return response.data as { cotizacion: CotizacionCanal };
+  }
+
+  async enviarVitrina(
+    id: number,
+    payload?: { repuesto_ids?: string[] },
+  ): Promise<{ ok?: boolean; url?: string }> {
+    const response = await api.post(
+      `/ordenes/cotizaciones-canal/${id}/enviar-vitrina/`,
+      payload || {},
+    );
+    return response.data as { ok?: boolean; url?: string };
   }
 
   async registrarCompraRepuestos(

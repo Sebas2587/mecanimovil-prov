@@ -2,11 +2,13 @@ import React, { useCallback, useMemo } from 'react';
 import { Linking, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
 import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import type { ProveedorRepuestos } from '@/services/proveedorRepuestosService';
 import {
+  calidadLabel,
   formatRangoClp,
   fuentesDe,
   lineaPendientePrecio,
@@ -82,6 +84,21 @@ export function ConfirmarPreciosSheet({
                 <InstitutionalText role="body">{rep.nombre}</InstitutionalText>
                 {rep.especificacion ? (
                   <InstitutionalText role="caption" color="muted">{rep.especificacion}</InstitutionalText>
+                ) : null}
+                {rep.seleccion_cliente && calidadLabel(rep) ? (
+                  <InstitutionalTag
+                    label={`Elegido por el cliente · ${calidadLabel(rep)}`}
+                    variant="success"
+                    size="sm"
+                    uppercase={false}
+                  />
+                ) : calidadLabel(rep) ? (
+                  <InstitutionalTag
+                    label={calidadLabel(rep)}
+                    variant="neutral"
+                    size="sm"
+                    uppercase={false}
+                  />
                 ) : null}
                 <InstitutionalText role="caption" color="muted">
                   {[

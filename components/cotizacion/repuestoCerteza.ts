@@ -1,6 +1,8 @@
 import type {
+  AlternativaRepuesto,
   CertezaPrecio,
   FuenteRepuesto,
+  OpcionRepuesto,
   RepuestoCotizacion,
 } from '@/services/cotizacionCanalService';
 
@@ -101,24 +103,30 @@ export function nombreFuente(f: FuenteRepuesto): string {
   return `${tienda} · ${dominio}`;
 }
 
-/** Una línea de meta: variante, tienda y antigüedad, sin repetir el estado. */
-export function metaLinea(rep: RepuestoCotizacion): string {
+/** Nombre de la casa / tienda para chip; null si no hay fuente trazable. */
+export function casaRepuestosLabel(rep: RepuestoCotizacion): string | null {
   const fuentes = fuentesDe(rep);
+  if (!fuentes.length) return null;
+  return fuentes.length > 1
+    ? `${nombreFuente(fuentes[0])} +${fuentes.length - 1}`
+    : nombreFuente(fuentes[0]);
+}
+
+/** Meta sin la casa: variante, marca y antigüedad. */
+export function metaLineaTexto(rep: RepuestoCotizacion): string {
   const partes: string[] = [];
   const spec = (rep.especificacion || '').trim();
   if (spec) partes.push(spec);
-  if (fuentes.length) {
-    partes.push(
-      fuentes.length > 1
-        ? `${nombreFuente(fuentes[0])} +${fuentes.length - 1}`
-        : nombreFuente(fuentes[0]),
-    );
-  }
   const marca = (rep.marca_repuesto || '').trim();
   if (marca) partes.push(marca);
   const edad = antigüedadLabel(rep.precio_capturado_en);
   if (edad) partes.push(edad);
   return partes.join(' · ');
+}
+
+/** Una línea de meta: variante, tienda y antigüedad, sin repetir el estado. */
+export function metaLinea(rep: RepuestoCotizacion): string {
+  return [metaLineaTexto(rep), casaRepuestosLabel(rep)].filter(Boolean).join(' · ');
 }
 
 /** Qué le falta a la línea para tener precio (y qué hacer). */
@@ -153,6 +161,46 @@ export function estadoLinea(
 /** Cómo se llama la banda según de dónde viene. */
 export function etiquetaBanda(rep: RepuestoCotizacion): string {
   return certezaDe(rep) === 'sin_precio' ? 'Referencia de mercado' : 'Rango real';
+}
+
+const CALIDAD_LABEL: Record<string, string> = {
+  original: 'Original',
+  oem: 'Equivalente OEM',
+  alternativo: 'Alternativo',
+};
+
+export function calidadLabel(rep: RepuestoCotizacion | { calidad?: string } | null): string {
+  const key = String(rep?.calidad || '').trim().toLowerCase();
+  return CALIDAD_LABEL[key] || '';
+}
+
+export function origenOpcionLabel(op: OpcionRepuesto): string {
+  if (op.es_proveedor_taller || op.fuente === 'proveedor') return 'mi casa';
+  if (op.fuente === 'catalogo' || op.fuente === 'historial') return 'mis precios';
+  return 'referencia web';
+}
+
+export function opcionesDe(rep: RepuestoCotizacion): OpcionRepuesto[] {
+  if (Array.isArray(rep.opciones) && rep.opciones.length) {
+    return rep.opciones.filter((o) => o && o.id);
+  }
+  const alts = (rep.alternativas || []) as AlternativaRepuesto[];
+  const mapa: Record<string, string> = {
+    economica: 'alternativo',
+    equivalente: 'oem',
+    premium: 'original',
+  };
+  return alts.map((alt, idx) => ({
+    id: `alt-${idx}`,
+    nombre: alt.nombre || rep.nombre,
+    marca_repuesto: alt.marca_repuesto,
+    especificacion: alt.especificacion,
+    calidad: mapa[String(alt.etiqueta || '')] || '',
+    precio_clp: alt.precio_clp,
+    fuente: 'web',
+    tienda: alt.proveedor_nombre,
+    url: alt.url_producto,
+  }));
 }
 
 export function antigüedadLabel(iso?: string): string | null {

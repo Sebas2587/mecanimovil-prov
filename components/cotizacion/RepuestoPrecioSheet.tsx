@@ -1,24 +1,30 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image } from 'expo-image';
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
-import { COLORS, SPACING } from '@/app/design-system/tokens';
+import { BORDERS, COLORS, SPACING } from '@/app/design-system/tokens';
 import { ClpMoneyInput } from '@/components/forms/ClpMoneyInput';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import type { ProveedorRepuestos } from '@/services/proveedorRepuestosService';
-import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
+import type { CotizacionCanal, OpcionRepuesto, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import {
+  calidadLabel,
   formatRangoClp,
-  fuentesDe,
   labelFamilia,
   motivoSinPrecio,
-  nombreFuente,
+  opcionesDe,
   opcionesFamilia,
+  origenOpcionLabel,
 } from '@/components/cotizacion/repuestoCerteza';
+import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
+import { useOpcionesRepuestoQuery } from '@/hooks/useOpcionesRepuestoQuery';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 
 const I = COLORS.institutional;
+const VISIBLES = 5;
 
 type Props = {
   visible: boolean;
@@ -34,6 +40,7 @@ type Props = {
   }) => void;
   onAsumir: () => void;
   onEspecificacion?: (spec: string) => void;
+  onUsarOpcion?: (opcion: OpcionRepuesto) => void;
   loading?: boolean;
 };
 
@@ -46,6 +53,7 @@ export function RepuestoPrecioSheet({
   onConfirmar,
   onAsumir,
   onEspecificacion,
+  onUsarOpcion,
   loading,
 }: Props) {
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -54,13 +62,24 @@ export function RepuestoPrecioSheet({
   const [proveedorNombre, setProveedorNombre] = useState('');
 
   const opciones = useMemo(() => (repuesto ? opcionesFamilia(repuesto) : []), [repuesto]);
-  const fuentes = useMemo(() => (repuesto ? fuentesDe(repuesto) : []), [repuesto]);
+  const { data: opcionesRemote } = useOpcionesRepuestoQuery(
+    cotizacion.id,
+    repuesto?.id,
+    visible && Boolean(repuesto?.id),
+  );
+  const pool = useMemo(() => {
+    if (opcionesRemote?.opciones?.length) return opcionesRemote.opciones.filter((o) => o?.id);
+    return repuesto ? opcionesDe(repuesto) : [];
+  }, [opcionesRemote, repuesto]);
+  const visibles = pool.slice(0, VISIBLES);
+  const resto = pool.slice(VISIBLES);
   const motivo = repuesto ? motivoSinPrecio(repuesto) : null;
   const rango = formatRangoClp(repuesto?.precio_min_clp, repuesto?.precio_max_clp);
   const techo = Math.round(Number(repuesto?.precio_max_clp || repuesto?.precio_unitario_clp || 0));
   const vehiculo = [cotizacion.vehiculo_marca, cotizacion.vehiculo_modelo, cotizacion.vehiculo_anio]
     .filter(Boolean)
     .join(' ');
+  const calidadCliente = calidadLabel(repuesto);
 
   const handleSpec = useCallback((spec: string) => {
     onEspecificacion?.(spec);
@@ -93,11 +112,75 @@ export function RepuestoPrecioSheet({
 
   if (!repuesto) return null;
 
+  const renderOpcion = (op: OpcionRepuesto) => {
+    const url = (op.url || '').trim();
+    const precio = Math.round(Number(op.precio_clp) || 0);
+    const origen = origenOpcionLabel(op);
+    const calidad = calidadLabel(op);
+    return (
+      <View key={op.id} style={styles.opcionRow}>
+        <View style={styles.thumbWrap}>
+          {op.imagen_url ? (
+            <Image source={{ uri: op.imagen_url }} style={styles.thumb} contentFit="cover" />
+          ) : (
+            <View style={[styles.thumb, styles.thumbPlaceholder]} />
+          )}
+        </View>
+        <View style={styles.opcionCuerpo}>
+          <InstitutionalText role="body" color="ink" numberOfLines={1}>
+            {[op.marca_repuesto, op.nombre].filter(Boolean).join(' — ') || 'Opción'}
+          </InstitutionalText>
+          <View style={styles.opcionTags}>
+            <InstitutionalTag label={origen} variant="neutral" size="sm" uppercase={false} />
+            {calidad ? (
+              <InstitutionalTag label={calidad} variant="neutral" size="sm" uppercase={false} />
+            ) : null}
+            {repuesto.seleccion_cliente && calidad && calidad === calidadCliente ? (
+              <InstitutionalTag label="Elegido por el cliente" variant="success" size="sm" uppercase={false} />
+            ) : null}
+          </View>
+          {url ? (
+            <TouchableOpacity
+              accessibilityRole="link"
+              onPress={() => Linking.openURL(url).catch(() => undefined)}
+            >
+              <InstitutionalText role="caption" color="muted">Toca para abrir el aviso</InstitutionalText>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        <View style={styles.opcionAccion}>
+          {precio > 0 ? (
+            <InstitutionalText role="body" color="ink">{formatearMontoCLP(precio)}</InstitutionalText>
+          ) : null}
+          {onUsarOpcion && precio > 0 ? (
+            <InstitutionalButton
+              label="Usar este precio"
+              variant="tertiary"
+              size="compact"
+              onPress={() => onUsarOpcion(op)}
+              disabled={loading}
+            />
+          ) : null}
+        </View>
+      </View>
+    );
+  };
+
   return (
     <BottomSheet visible={visible} onClose={onClose} stickyFooter>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
         <InstitutionalText role="h3">{repuesto.nombre}</InstitutionalText>
         <InstitutionalText role="caption" color="muted">{vehiculo}</InstitutionalText>
+        {repuesto.seleccion_cliente && calidadCliente ? (
+          <InstitutionalTag
+            label={`Elegido por el cliente · ${calidadCliente}`}
+            variant="success"
+            size="sm"
+            uppercase={false}
+          />
+        ) : calidadCliente ? (
+          <InstitutionalTag label={calidadCliente} variant="neutral" size="sm" uppercase={false} />
+        ) : null}
 
         {opciones.length ? (
           <View style={styles.block}>
@@ -143,44 +226,17 @@ export function RepuestoPrecioSheet({
           </View>
         ) : null}
 
-        {fuentes.length ? (
+        {pool.length ? (
           <View style={styles.block}>
-            <InstitutionalText role="label">De dónde salió este precio</InstitutionalText>
-            {fuentes.map((f, idx) => {
-              const url = (f.url || '').trim();
-              const linea = (
-                <View style={styles.fuenteRow}>
-                  <View style={styles.fuenteNombre}>
-                    <InstitutionalText role="body" color="ink" numberOfLines={1}>
-                      {nombreFuente(f)}
-                    </InstitutionalText>
-                    {url ? (
-                      <InstitutionalText role="caption" color="muted">
-                        Toca para abrir el aviso
-                      </InstitutionalText>
-                    ) : null}
-                  </View>
-                  {f.precio_clp ? (
-                    <InstitutionalText role="body" color="ink">
-                      {formatearMontoCLP(f.precio_clp)}
-                    </InstitutionalText>
-                  ) : null}
-                </View>
-              );
-              return url ? (
-                <TouchableOpacity
-                  key={`${f.tienda}-${idx}`}
-                  accessibilityRole="link"
-                  onPress={() => Linking.openURL(url).catch(() => undefined)}
-                >
-                  {linea}
-                </TouchableOpacity>
-              ) : (
-                <View key={`${f.tienda}-${idx}`}>{linea}</View>
-              );
-            })}
+            <InstitutionalText role="label">Opciones para esta pieza</InstitutionalText>
+            {visibles.map(renderOpcion)}
+            {resto.length ? (
+              <SeccionOpcional title="Ver más opciones" hint={`${resto.length} más`}>
+                {resto.map(renderOpcion)}
+              </SeccionOpcional>
+            ) : null}
             <InstitutionalText role="caption" color="muted">
-              Son avisos publicados, no un precio cotizado a tu nombre.
+              Son avisos publicados y precios que registraste, no una cotización a tu nombre.
             </InstitutionalText>
           </View>
         ) : motivo ? (
@@ -267,13 +323,22 @@ const styles = StyleSheet.create({
     borderBottomColor: I.hairline,
   },
   provRowActive: { backgroundColor: I.surfaceSoft },
-  fuenteRow: {
+  opcionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: SPACING.fixed.sm,
     paddingVertical: SPACING.fixed.xs,
   },
-  fuenteNombre: { flex: 1, minWidth: 0 },
+  thumbWrap: { width: 44, height: 44 },
+  thumb: {
+    width: 44,
+    height: 44,
+    borderRadius: BORDERS.radius.sm,
+    backgroundColor: I.surfaceSoft,
+  },
+  thumbPlaceholder: { backgroundColor: I.surfaceSoft },
+  opcionCuerpo: { flex: 1, minWidth: 0, gap: 4 },
+  opcionTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  opcionAccion: { alignItems: 'flex-end', gap: 4 },
   footer: { gap: SPACING.fixed.xs, paddingTop: SPACING.fixed.sm },
 });

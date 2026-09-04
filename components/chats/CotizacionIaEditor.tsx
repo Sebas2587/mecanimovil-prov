@@ -23,12 +23,13 @@ import { ConfirmarPreciosSheet } from '@/components/cotizacion/ConfirmarPreciosS
 import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { RepuestoPrecioSheet } from '@/components/cotizacion/RepuestoPrecioSheet';
 import {
+  casaRepuestosLabel,
   certezaDe,
   estadoLinea,
   etiquetaBanda,
   formatRangoClp,
   labelFamilia,
-  metaLinea,
+  metaLineaTexto,
   motivoSinPrecio,
   opcionesFamilia,
 } from '@/components/cotizacion/repuestoCerteza';
@@ -186,7 +187,8 @@ const RepuestoRow = React.memo(function RepuestoRow({
   const specOps = opcionesFamilia(rep);
   const rango = formatRangoClp(rep.precio_min_clp, rep.precio_max_clp);
   const estado = estadoLinea(rep);
-  const meta = metaLinea(rep);
+  const metaTexto = metaLineaTexto(rep);
+  const casaLabel = casaRepuestosLabel(rep);
   const motivo = motivoSinPrecio(rep);
   const nombreGuardado = (rep.nombre || '').trim();
 
@@ -235,29 +237,48 @@ const RepuestoRow = React.memo(function RepuestoRow({
 
       <View style={styles.estadoRow}>
         <InstitutionalTag label={estado.label} variant={estado.variant} size="md" />
-        {meta ? (
+        {metaTexto ? (
+          <InstitutionalText
+            role="caption"
+            color="muted"
+            numberOfLines={1}
+            style={styles.metaTexto}
+          >
+            {metaTexto}
+          </InstitutionalText>
+        ) : null}
+        {rep.seleccion_cliente ? (
+          <InstitutionalTag
+            label="Elegido por el cliente"
+            variant="success"
+            size="sm"
+            uppercase={false}
+          />
+        ) : null}
+        {casaLabel ? (
           urlProducto ? (
             <TouchableOpacity
-              style={styles.metaPress}
               onPress={() => {
                 Linking.openURL(urlProducto).catch(() => undefined);
               }}
               accessibilityRole="link"
-              accessibilityLabel={`Abrir fuente en ${origenLabel || 'la tienda'}`}
+              accessibilityLabel={`Abrir fuente en ${origenLabel || casaLabel}`}
+              hitSlop={6}
             >
-              <InstitutionalText role="caption" color="muted" numberOfLines={1}>
-                {meta}
-              </InstitutionalText>
+              <InstitutionalTag
+                label={casaLabel}
+                variant="neutral"
+                size="sm"
+                uppercase={false}
+              />
             </TouchableOpacity>
           ) : (
-            <InstitutionalText
-              role="caption"
-              color="muted"
-              numberOfLines={1}
-              style={styles.metaTexto}
-            >
-              {meta}
-            </InstitutionalText>
+            <InstitutionalTag
+              label={casaLabel}
+              variant="neutral"
+              size="sm"
+              uppercase={false}
+            />
           )
         ) : null}
       </View>
@@ -668,6 +689,24 @@ export function CotizacionIaEditor({
       setPrecioBusy(false);
     }
   }, [aplicarCotizacionServidor, onChange]);
+
+  const usarOpcionLinea = useCallback(async (rep: RepuestoCotizacion, opcionId: string) => {
+    const current = cotizacionRef.current;
+    if (!current.id || !rep.id) return;
+    setPrecioBusy(true);
+    try {
+      const res = await cotizacionCanalService.usarOpcionRepuesto(current.id, {
+        repuesto_id: String(rep.id),
+        opcion_id: opcionId,
+      });
+      aplicarCotizacionServidor(res.cotizacion);
+      setRepuestoSheet(null);
+    } catch {
+      showAlert('No se pudo usar esa opción', 'Intenta de nuevo o escribe el monto a mano.');
+    } finally {
+      setPrecioBusy(false);
+    }
+  }, [aplicarCotizacionServidor]);
 
   const confirmarPrecioLinea = useCallback(async (payload: {
     precio_clp: number;
@@ -1572,6 +1611,9 @@ export function CotizacionIaEditor({
         onEspecificacion={(spec) => {
           if (repuestoSheet) void definirEspecificacionLinea(repuestoSheet, spec);
         }}
+        onUsarOpcion={(op) => {
+          if (repuestoSheet) void usarOpcionLinea(repuestoSheet, op.id);
+        }}
         loading={precioBusy}
       />
 
@@ -1656,10 +1698,10 @@ const styles = StyleSheet.create({
   estadoRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: SPACING.fixed.xs,
   },
-  metaPress: { flex: 1, minWidth: 0 },
-  metaTexto: { flex: 1, minWidth: 0 },
+  metaTexto: { flexShrink: 1, minWidth: 0 },
   precioMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
