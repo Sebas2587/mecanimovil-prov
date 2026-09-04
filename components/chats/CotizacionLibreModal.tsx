@@ -951,41 +951,42 @@ export function CotizacionLibreModal({
                 />
               </>
             ) : puedeEnviar ? (
-              <>
+              <View style={styles.footerCol}>
+                {pendientesPrecio > 0 ? (
+                  <InstitutionalText role="caption" color="muted">
+                    Faltan {pendientesPrecio} precios por confirmar
+                  </InstitutionalText>
+                ) : null}
                 <InstitutionalButton
-                  label="Descartar"
-                  variant="destructiveOutline"
+                  label={footerPrimaryLabel}
+                  variant="primary"
                   size="default"
-                  onPress={handleClose}
+                  onPress={footerPrimaryAction}
                   disabled={ocupado}
-                  loading={descartando}
-                  style={styles.footerBtnSecondary}
+                  loading={enviando}
                 />
-                <View style={{ flex: 1, gap: SPACING.fixed.xs }}>
-                  {pendientesPrecio > 0 ? (
-                    <InstitutionalText role="caption" color="muted">
-                      Faltan {pendientesPrecio} precios por confirmar
-                    </InstitutionalText>
-                  ) : null}
+                <View style={styles.footerColRow}>
                   <InstitutionalButton
-                    label={footerPrimaryLabel}
-                    variant="primary"
-                    size="default"
-                    onPress={footerPrimaryAction}
+                    label="Descartar"
+                    variant="destructiveOutline"
+                    size="compact"
+                    onPress={handleClose}
                     disabled={ocupado}
-                    loading={enviando}
+                    loading={descartando}
+                    style={styles.footerBtnSecondary}
                   />
                   {!puedeEnviarFirme ? (
                     <InstitutionalButton
                       label="Enviar como estimación"
                       variant="tertiary"
-                      size="default"
+                      size="compact"
                       onPress={() => void abrirVistaPrevia('estimacion')}
                       disabled={ocupado}
+                      style={styles.footerBtnSecondary}
                     />
                   ) : null}
                 </View>
-              </>
+              </View>
             ) : (
               <InstitutionalButton
                 label="Listo"
@@ -1205,6 +1206,15 @@ const styles = StyleSheet.create({
   footerBtnPair: {
     flex: 1,
     minWidth: 0,
+  },
+  footerCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: SPACING.fixed.sm,
+  },
+  footerColRow: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.sm,
   },
   footerBtnSecondary: {
     flex: 1,
