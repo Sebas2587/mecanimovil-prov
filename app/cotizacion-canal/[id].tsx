@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -12,6 +12,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link2, MessageCircle, Trash2 } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
+import { ConfirmarPreciosSheet } from '@/components/cotizacion/ConfirmarPreciosSheet';
+import { RegistrarCompraCard } from '@/components/cotizacion/RegistrarCompraCard';
+import { lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
+import { useProveedoresRepuestosQuery } from '@/hooks/useProveedoresRepuestosQuery';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
@@ -29,6 +33,7 @@ import cotizacionCanalService, {
   cotizacionEsActualizacion,
   cotizacionPermiteEdicionCompleta,
   cotizacionPermiteEnviar,
+  errorEnvioFirme,
   payloadEdicionCotizacion,
   type CotizacionCanal,
 } from '@/services/cotizacionCanalService';
@@ -89,6 +94,10 @@ export default function CotizacionCanalDetalleScreen() {
   const [eliminando, setEliminando] = useState(false);
   const [accionLead, setAccionLead] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [confirmarPreciosVisible, setConfirmarPreciosVisible] = useState(false);
+  const [precioBusy, setPrecioBusy] = useState(false);
+  const tipoEnvioRef = useRef<'estimacion' | 'cotizacion'>('cotizacion');
+  const { data: proveedores = [] } = useProveedoresRepuestosQuery(Boolean(draft?.id));
 
   useEffect(() => {
     if (!data) return;
@@ -205,7 +214,7 @@ export default function CotizacionCanalDetalleScreen() {
     return actualizada;
   }, [draft, hayCambios, invalidateAll]);
 
-  const abrirVistaPrevia = useCallback(async () => {
+  const abrirVistaPrevia = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     if (!draft?.id) return;
     if (adicionalRequiereFecha(draft)) {
       showAlert(
@@ -214,6 +223,8 @@ export default function CotizacionCanalDetalleScreen() {
       );
       return;
     }
+    tipoEnvioRef.current = tipo
+      || (draft.puede_enviar_firme ? 'cotizacion' : 'estimacion');
     setGuardando(true);
     try {
       await persistirSiHayCambios();
@@ -230,7 +241,7 @@ export default function CotizacionCanalDetalleScreen() {
     }
   }, [draft, persistirSiHayCambios]);
 
-  const enviar = useCallback(async () => {
+  const enviar = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     if (!draft?.id) return;
     if (adicionalRequiereFecha(draft)) {
       showAlert(
@@ -239,11 +250,13 @@ export default function CotizacionCanalDetalleScreen() {
       );
       return;
     }
+    const tipoDoc = tipo || tipoEnvioRef.current;
+    tipoEnvioRef.current = tipoDoc;
     setEnviando(true);
     try {
       const persistida = await persistirSiHayCambios();
       const eraUpdate = Boolean(persistida?.numero_publico || draft.numero_publico);
-      const res = await cotizacionCanalService.enviar(persistida?.id || draft.id);
+      const res = await cotizacionCanalService.enviar(persistida?.id || draft.id, tipoDoc);
       const cotEnviada = res.cotizacion;
       const url = res.share_url || cotEnviada.share_url || cotEnviada.url_publica;
       const entrega = res.entrega_via || cotEnviada.metadata?.entrega_canal;
@@ -275,8 +288,34 @@ export default function CotizacionCanalDetalleScreen() {
           actualizada: eraUpdate,
         }),
       );
-    } catch {
-      showAlert('Error', 'No se pudo enviar la cotización.');
+    } catch (err: unknown) {
+      const gate = errorEnvioFirme(err);
+      if (gate) {
+        showAlertButtons(
+          'Faltan precios por confirmar',
+          'Puedes confirmar los precios o enviar una estimación al cliente.',
+          [
+            { text: 'Ahora no', style: 'cancel' },
+            {
+              text: 'Enviar como estimación',
+              onPress: () => {
+                void enviar('estimacion');
+              },
+            },
+            {
+              text: 'Confirmar precios',
+              onPress: () => setConfirmarPreciosVisible(true),
+            },
+          ],
+        );
+        return;
+      }
+      const msg =
+        (err as { response?: { data?: { estado?: string[]; detail?: string } } })?.response?.data;
+      const texto = Array.isArray(msg?.estado)
+        ? msg.estado[0]
+        : msg?.detail || (err as Error)?.message || 'No se pudo enviar la cotización.';
+      showAlert('Error', String(texto));
     } finally {
       setEnviando(false);
     }
@@ -368,6 +407,9 @@ export default function CotizacionCanalDetalleScreen() {
   const titulo =
     (draft.servicio_nombre || '').trim()
     || (draft.es_cotizacion_adicional ? 'Trabajo adicional' : 'Cotización');
+  const pendientesPrecio = draft.lineas_pendientes_precio?.length
+    ?? (draft.repuestos ?? []).filter(lineaPendientePrecio).length;
+  const puedeEnviarFirme = draft.puede_enviar_firme ?? pendientesPrecio === 0;
 
   return (
     <View style={styles.screen}>
@@ -391,6 +433,10 @@ export default function CotizacionCanalDetalleScreen() {
           hideSendActions
           compactHeader
         />
+
+        {draft.estado === 'aceptada' ? (
+          <RegistrarCompraCard cotizacion={draft} />
+        ) : null}
 
         {tieneHorarioAgendado ? (
           <InstitutionalText role="caption" color="body">
@@ -462,6 +508,11 @@ export default function CotizacionCanalDetalleScreen() {
                 El cliente abrió el enlace.
               </InstitutionalText>
             ) : null}
+            {pendientesPrecio > 0 ? (
+              <InstitutionalText role="caption" color="muted">
+                Faltan {pendientesPrecio} precios por confirmar
+              </InstitutionalText>
+            ) : null}
             <View style={styles.footerRow}>
               <TouchableOpacity
                 style={styles.footerGhost}
@@ -479,15 +530,34 @@ export default function CotizacionCanalDetalleScreen() {
                 disabled={!hayCambios || guardando}
                 onPress={() => void guardar()}
               />
-              <InstitutionalButton
-                label={draft.numero_publico ? 'Revisar y enviar' : 'Aprobar y enviar'}
-                variant="primary"
-                style={styles.footerPrimary}
-                loading={enviando || guardando}
-                disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
-                onPress={() => void abrirVistaPrevia()}
-              />
+              {puedeEnviarFirme ? (
+                <InstitutionalButton
+                  label="Enviar cotización firme"
+                  variant="primary"
+                  style={styles.footerPrimary}
+                  loading={enviando || guardando}
+                  disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
+                  onPress={() => void abrirVistaPrevia('cotizacion')}
+                />
+              ) : (
+                <InstitutionalButton
+                  label="Confirmar precios"
+                  variant="primary"
+                  style={styles.footerPrimary}
+                  loading={enviando || guardando}
+                  disabled={enviando || guardando}
+                  onPress={() => setConfirmarPreciosVisible(true)}
+                />
+              )}
             </View>
+            {!puedeEnviarFirme ? (
+              <InstitutionalButton
+                label="Enviar como estimación"
+                variant="tertiary"
+                disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
+                onPress={() => void abrirVistaPrevia('estimacion')}
+              />
+            ) : null}
           </View>
         ) : null}
 
@@ -516,12 +586,12 @@ export default function CotizacionCanalDetalleScreen() {
                 onPress={() => void guardar()}
               />
               <InstitutionalButton
-                label="Revisar y enviar"
+                label={puedeEnviarFirme ? 'Enviar cotización firme' : 'Enviar como estimación'}
                 variant="primary"
                 style={styles.footerPrimary}
                 loading={enviando || guardando}
                 disabled={(!hayCambios && !draft.emision_pendiente) || enviando || guardando}
-                onPress={() => void abrirVistaPrevia()}
+                onPress={() => void abrirVistaPrevia(puedeEnviarFirme ? 'cotizacion' : 'estimacion')}
               />
             </View>
             <View style={styles.footerRow}>
@@ -568,7 +638,7 @@ export default function CotizacionCanalDetalleScreen() {
                   style={styles.footerPrimary}
                   loading={enviando || guardando}
                   disabled={enviando || guardando}
-                  onPress={() => void abrirVistaPrevia()}
+                  onPress={() => void abrirVistaPrevia(puedeEnviarFirme ? 'cotizacion' : 'estimacion')}
                 />
               ) : null}
             </View>
@@ -583,7 +653,46 @@ export default function CotizacionCanalDetalleScreen() {
         puedeEnviar={cotizacionPermiteEnviar(draft) || Boolean(draft.emision_pendiente)}
         enviando={enviando}
         onClose={() => setPreviewVisible(false)}
-        onEnviar={() => void enviar()}
+        onEnviar={() => void enviar(tipoEnvioRef.current)}
+      />
+
+      <ConfirmarPreciosSheet
+        visible={confirmarPreciosVisible}
+        onClose={() => setConfirmarPreciosVisible(false)}
+        cotizacion={draft}
+        proveedores={proveedores}
+        loading={precioBusy}
+        onAsumir={async (ids) => {
+          if (!draft.id) return;
+          setPrecioBusy(true);
+          try {
+            const res = await cotizacionCanalService.asumirPrecioRepuesto(draft.id, ids);
+            setDraft({ ...res.cotizacion });
+            await invalidateAll();
+            setConfirmarPreciosVisible(false);
+          } catch {
+            showAlert('No se pudo asumir', 'Intenta de nuevo.');
+          } finally {
+            setPrecioBusy(false);
+          }
+        }}
+        onEspecificacion={async (repuestoId, spec) => {
+          if (!draft.id) return;
+          setPrecioBusy(true);
+          try {
+            const res = await cotizacionCanalService.definirEspecificacion(draft.id, {
+              repuesto_id: String(repuestoId),
+              especificacion: spec,
+            });
+            setDraft({ ...res.cotizacion });
+            await invalidateAll();
+          } catch {
+            showAlert('No se pudo guardar', 'Intenta de nuevo la especificación.');
+          } finally {
+            setPrecioBusy(false);
+          }
+        }}
+        onAbrirDetalle={() => setConfirmarPreciosVisible(false)}
       />
     </View>
   );

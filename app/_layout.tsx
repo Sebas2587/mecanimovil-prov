@@ -245,6 +245,8 @@ export default function RootLayout() {
                   <Stack.Screen name="configuracion-canales" options={{ headerShown: false }} />
                   <Stack.Screen name="configuracion-agente-ia" options={{ headerShown: false }} />
                   <Stack.Screen name="cotizaciones-plantillas" options={{ headerShown: false }} />
+                  <Stack.Screen name="casas-repuestos" options={{ headerShown: false }} />
+                  <Stack.Screen name="mis-precios-repuestos" options={{ headerShown: false }} />
                   <Stack.Screen
                     name="cotizar-ia"
                     options={{

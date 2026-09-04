@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   useWindowDimensions,
   Linking,
   ActivityIndicator,
@@ -18,21 +17,25 @@ import { InstitutionalButton } from '@/app/design-system/components/Institutiona
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { Card } from '@/app/design-system/components';
 import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
-import {
-  institutionalInputPlaceholder,
-  institutionalInputStyles,
-} from '@/app/design-system/styles/institutionalInputs';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
+import { ClpMoneyInput } from '@/components/forms/ClpMoneyInput';
+import { ConfianzaPresupuestoCard } from '@/components/cotizacion/ConfianzaPresupuestoCard';
+import { ConfirmarPreciosSheet } from '@/components/cotizacion/ConfirmarPreciosSheet';
+import { RepuestoPrecioSheet } from '@/components/cotizacion/RepuestoPrecioSheet';
+import {
+  antigüedadLabel,
+  certezaDe,
+  formatRangoClp,
+  labelFamilia,
+  opcionesFamilia,
+} from '@/components/cotizacion/repuestoCerteza';
+import { useProveedoresRepuestosQuery } from '@/hooks/useProveedoresRepuestosQuery';
 import { VerHistorialPatenteLink } from '@/components/vehiculos/VerHistorialPatenteLink';
 import { router } from 'expo-router';
 import {
   formatearMontoCLP,
   redondearCLP,
 } from '@/utils/formatearMontoCLP';
-import {
-  formatMontoInputLocalized,
-  parseMontoDecimal,
-} from '@/utils/parseMontoDecimal';
 import type { CotizacionCanal, ManoObraLinea, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import cotizacionCanalService, {
   MAX_MANO_OBRA_LINEAS,
@@ -156,94 +159,31 @@ const ESTADO_VARIANT: Record<
   cancelada: 'error',
 };
 
-interface ClpMoneyInputProps {
-  value: number;
-  onChangeValue: (next: number) => void;
-  editable: boolean;
-  placeholder?: string;
-  compact?: boolean;
-}
-
-function ClpMoneyInput({
-  value,
-  onChangeValue,
-  editable,
-  placeholder = '0',
-  compact = false,
-}: ClpMoneyInputProps) {
-  const [focused, setFocused] = useState(false);
-  const [draft, setDraft] = useState(() =>
-    value > 0 ? formatMontoInputLocalized(value) : '',
-  );
-
-  // Solo sincroniza desde props cuando no se está escribiendo (evita borrar el monto a mitad de tipeo).
-  useEffect(() => {
-    if (focused) return;
-    setDraft(value > 0 ? formatMontoInputLocalized(value) : '');
-  }, [value, focused]);
-
-  return (
-    <View
-      style={[
-        institutionalInputStyles.inputRow,
-        compact && styles.moneyRowCompact,
-      ]}
-    >
-      <InstitutionalText role="body" color="muted" style={institutionalInputStyles.inputRowPrefix}>
-        $
-      </InstitutionalText>
-      <TextInput
-        style={[
-          institutionalInputStyles.inputRowField,
-          institutionalInputStyles.inputMono,
-          compact && institutionalInputStyles.inputCompact,
-        ]}
-        keyboardType="number-pad"
-        editable={editable}
-        placeholder={placeholder}
-        placeholderTextColor={institutionalInputPlaceholder}
-        value={draft}
-        onFocus={() => {
-          setFocused(true);
-          // Editar en dígitos crudos evita pelear con puntos de miles (es-CL).
-          setDraft(value > 0 ? String(Math.round(value)) : '');
-        }}
-        onBlur={() => {
-          const next = redondearCLP(parseMontoDecimal(draft));
-          onChangeValue(next);
-          setDraft(next > 0 ? formatMontoInputLocalized(next) : '');
-          setFocused(false);
-        }}
-        onChangeText={(t) => {
-          const cleaned = t.replace(/[^\d]/g, '');
-          setDraft(cleaned);
-          onChangeValue(redondearCLP(parseMontoDecimal(cleaned)));
-        }}
-      />
-    </View>
-  );
-}
-
 const RepuestoRow = React.memo(function RepuestoRow({
   rep,
   index,
   editable,
   onUpdate,
   onDelete,
+  onConfirmar,
+  onEspecificacion,
 }: {
   rep: RepuestoCotizacion;
   index: number;
   editable: boolean;
   onUpdate: (index: number, patch: Partial<RepuestoCotizacion>) => void;
   onDelete: (index: number) => void;
+  onConfirmar: (rep: RepuestoCotizacion) => void;
+  onEspecificacion: (rep: RepuestoCotizacion, spec: string) => void;
 }) {
   const subtotal = subtotalRepuesto(rep);
   const marcaPieza = (rep.marca_repuesto || '').trim();
   const origenLabel = origenTagLabel(rep);
   const urlProducto = (rep.url_producto || '').trim();
-  const mostrarEstimado = rep.precio_estimado !== false
-    && !fuenteEsVerificada(rep)
-    && !rep.precio_referencia_mercado;
+  const certeza = certezaDe(rep);
+  const specOps = opcionesFamilia(rep);
+  const rango = formatRangoClp(rep.precio_min_clp, rep.precio_max_clp);
+  const antiguedad = antigüedadLabel(rep.precio_capturado_en);
   const nombreGuardado = (rep.nombre || '').trim();
 
   const [nombreFocused, setNombreFocused] = useState(false);
@@ -289,47 +229,51 @@ const RepuestoRow = React.memo(function RepuestoRow({
         ) : null}
       </View>
 
-      {(marcaPieza || origenLabel || mostrarEstimado) ? (
-        <View style={styles.fuenteBadgeRow}>
-          {marcaPieza ? (
-            <InstitutionalTag
-              label={`Marca ${marcaPieza}`}
-              variant="neutral"
-              size="sm"
-            />
-          ) : null}
-          {origenLabel ? (
-            urlProducto ? (
-              <TouchableOpacity
-                onPress={() => {
-                  Linking.openURL(urlProducto).catch(() => undefined);
-                }}
-                accessibilityRole="link"
-                accessibilityLabel={`Abrir ${origenLabel}`}
-              >
-                <InstitutionalTag
-                  label={origenLabel}
-                  variant="info"
-                  size="sm"
-                />
-              </TouchableOpacity>
-            ) : (
-              <InstitutionalTag
-                label={origenLabel}
-                variant="neutral"
-                size="sm"
-              />
-            )
-          ) : null}
-          {mostrarEstimado ? (
-            <InstitutionalTag
-              label="Precio estimado — revisar"
-              variant="warning"
-              size="sm"
-            />
-          ) : null}
-        </View>
-      ) : null}
+      <View style={styles.fuenteBadgeRow}>
+        {certeza === 'confirmado' ? (
+          <InstitutionalTag label="Confirmado" variant="success" size="sm" />
+        ) : null}
+        {certeza === 'asumido' ? (
+          <InstitutionalTag label="Precio asumido" variant="neutral" size="sm" />
+        ) : null}
+        {certeza === 'referencial' ? (
+          <InstitutionalTag
+            label={`Referencia web${rep.fuentes_n ? ` · ${rep.fuentes_n} fuentes` : ''}`}
+            variant="info"
+            size="sm"
+          />
+        ) : null}
+        {certeza === 'sin_precio' && !rep.especificacion_pendiente ? (
+          <InstitutionalTag label="Falta precio" variant="error" size="sm" />
+        ) : null}
+        {rep.especificacion_pendiente ? (
+          <InstitutionalTag label="Falta especificar" variant="warning" size="sm" />
+        ) : null}
+        {rep.especificacion ? (
+          <InstitutionalTag label={rep.especificacion} variant="primary" size="sm" />
+        ) : null}
+        {origenLabel ? (
+          urlProducto ? (
+            <TouchableOpacity
+              onPress={() => {
+                Linking.openURL(urlProducto).catch(() => undefined);
+              }}
+              accessibilityRole="link"
+              accessibilityLabel={`Abrir ${origenLabel}`}
+            >
+              <InstitutionalTag label={origenLabel} variant="info" size="sm" />
+            </TouchableOpacity>
+          ) : (
+            <InstitutionalTag label={origenLabel} variant="neutral" size="sm" />
+          )
+        ) : null}
+        {marcaPieza ? (
+          <InstitutionalTag label={`Marca ${marcaPieza}`} variant="neutral" size="sm" />
+        ) : null}
+        {antiguedad ? (
+          <InstitutionalTag label={antiguedad} variant="neutral" size="sm" />
+        ) : null}
+      </View>
 
       <View style={styles.repuestoGrid}>
         <View style={styles.gridColCant}>
@@ -353,12 +297,16 @@ const RepuestoRow = React.memo(function RepuestoRow({
           <InstitutionalText role="label" color="muted" style={styles.colLabel}>
             Precio unit.
           </InstitutionalText>
-          <ClpMoneyInput
-            compact
-            value={redondearCLP(rep.precio_unitario_clp)}
-            editable={editable}
-            onChangeValue={(next) => onUpdate(index, { precio_unitario_clp: next })}
-          />
+          {certeza === 'sin_precio' ? (
+            <InstitutionalText role="body" color="muted">—</InstitutionalText>
+          ) : (
+            <ClpMoneyInput
+              compact
+              value={redondearCLP(rep.precio_unitario_clp)}
+              editable={editable}
+              onChangeValue={(next) => onUpdate(index, { precio_unitario_clp: next, certeza: 'asumido' })}
+            />
+          )}
         </View>
 
         <View style={styles.gridColSubtotal}>
@@ -366,10 +314,41 @@ const RepuestoRow = React.memo(function RepuestoRow({
             Subtotal
           </InstitutionalText>
           <InstitutionalText role="numberDisplay" color="ink" style={styles.subtotalValue} numberOfLines={1}>
-            {formatearMontoCLP(subtotal)}
+            {certeza === 'sin_precio' ? '—' : formatearMontoCLP(subtotal)}
           </InstitutionalText>
         </View>
       </View>
+      {rep.especificacion_pendiente && specOps.length && editable ? (
+        <View style={styles.specBlock}>
+          <InstitutionalText role="caption" color="muted">
+            {labelFamilia(rep)}. El tipo cambia el precio.
+          </InstitutionalText>
+          <View style={styles.specChips}>
+            {specOps.map((op) => (
+              <TouchableOpacity
+                key={op}
+                style={styles.specChip}
+                onPress={() => onEspecificacion(rep, op)}
+              >
+                <InstitutionalText role="caption">{op}</InstitutionalText>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ) : null}
+      {rango && certeza === 'referencial' ? (
+        <InstitutionalText role="caption" color="muted">
+          Rango real {rango}
+        </InstitutionalText>
+      ) : null}
+      {editable && certeza !== 'confirmado' ? (
+        <InstitutionalButton
+          label="Confirmar precio"
+          variant="outline"
+          size="compact"
+          onPress={() => onConfirmar(rep)}
+        />
+      ) : null}
     </Card>
   );
 });
@@ -458,7 +437,7 @@ const DESCUENTO_ALCANCE_TABS = [
 interface CotizacionIaEditorProps {
   cotizacion: CotizacionCanal;
   onChange: (next: CotizacionCanal) => void;
-  onEnviar?: () => void;
+  onEnviar?: (tipoDocumento?: 'estimacion' | 'cotizacion') => void;
   onGuardarPlantilla?: () => void;
   onMarcarAceptada?: () => void;
   enviarLabel?: string;
@@ -502,6 +481,12 @@ export function CotizacionIaEditor({
 
   const [modalItemsIa, setModalItemsIa] = useState(false);
   const [cotizandoItems, setCotizandoItems] = useState(false);
+  const [repuestoSheet, setRepuestoSheet] = useState<RepuestoCotizacion | null>(null);
+  const [confirmarPreciosVisible, setConfirmarPreciosVisible] = useState(false);
+  const [precioBusy, setPrecioBusy] = useState(false);
+  const { data: proveedores = [] } = useProveedoresRepuestosQuery(
+    editable && Boolean(cotizacion.id),
+  );
   const lineasSinPrecio = useMemo(
     () => repuestos.filter(lineaSinPrecioParaIa).length,
     [repuestos],
@@ -638,6 +623,94 @@ export function CotizacionIaEditor({
     },
     [onChange],
   );
+
+  const aplicarCotizacionServidor = useCallback((next: CotizacionCanal) => {
+    const current = cotizacionRef.current;
+    onChange({
+      ...current,
+      ...next,
+      metadata: {
+        ...(current.metadata || {}),
+        ...(next.metadata || {}),
+      },
+    });
+  }, [onChange]);
+
+  const abrirConfirmarRepuesto = useCallback((rep: RepuestoCotizacion) => {
+    setRepuestoSheet(rep);
+  }, []);
+
+  const definirEspecificacionLinea = useCallback(async (rep: RepuestoCotizacion, spec: string) => {
+    const current = cotizacionRef.current;
+    if (!current.id || !rep.id) {
+      const reps = current.repuestos ?? [];
+      onChange({
+        ...current,
+        repuestos: reps.map((r) =>
+          r.id === rep.id || r === rep
+            ? { ...r, especificacion: spec, especificacion_pendiente: false }
+            : r,
+        ),
+      });
+      return;
+    }
+    setPrecioBusy(true);
+    try {
+      const res = await cotizacionCanalService.definirEspecificacion(current.id, {
+        repuesto_id: String(rep.id),
+        especificacion: spec,
+      });
+      aplicarCotizacionServidor(res.cotizacion);
+    } catch {
+      showAlert('No se pudo guardar', 'Intenta de nuevo la especificación.');
+    } finally {
+      setPrecioBusy(false);
+    }
+  }, [aplicarCotizacionServidor, onChange]);
+
+  const confirmarPrecioLinea = useCallback(async (payload: {
+    precio_clp: number;
+    proveedor_id?: number | null;
+    proveedor_nombre?: string;
+    especificacion?: string;
+  }) => {
+    const current = cotizacionRef.current;
+    const rep = repuestoSheet;
+    if (!current.id || !rep?.id) return;
+    setPrecioBusy(true);
+    try {
+      const res = await cotizacionCanalService.confirmarPrecioRepuesto(current.id, {
+        repuesto_id: String(rep.id),
+        precio_clp: payload.precio_clp,
+        proveedor_id: payload.proveedor_id,
+        proveedor_nombre: payload.proveedor_nombre,
+        especificacion: payload.especificacion,
+        guardar_en_mis_precios: true,
+      });
+      aplicarCotizacionServidor(res.cotizacion);
+      setRepuestoSheet(null);
+    } catch {
+      showAlert('No se pudo confirmar', 'Revisa el monto e inténtalo de nuevo.');
+    } finally {
+      setPrecioBusy(false);
+    }
+  }, [aplicarCotizacionServidor, repuestoSheet]);
+
+  const asumirPrecios = useCallback(async (ids: string[]) => {
+    const current = cotizacionRef.current;
+    if (!current.id) return;
+    setPrecioBusy(true);
+    try {
+      const res = await cotizacionCanalService.asumirPrecioRepuesto(current.id, ids);
+      aplicarCotizacionServidor(res.cotizacion);
+      setRepuestoSheet(null);
+      setConfirmarPreciosVisible(false);
+    } catch {
+      showAlert('No se pudo asumir', 'Intenta de nuevo.');
+    } finally {
+      setPrecioBusy(false);
+    }
+  }, [aplicarCotizacionServidor]);
 
   const agregarRepuesto = useCallback(() => {
     const current = cotizacionRef.current;
@@ -1121,6 +1194,11 @@ export function CotizacionIaEditor({
           actionLabel={editable ? 'Agregar' : undefined}
           onActionPress={editable ? agregarRepuesto : undefined}
         />
+        <ConfianzaPresupuestoCard
+          repuestos={repuestos}
+          editable={editable}
+          onConfirmar={() => setConfirmarPreciosVisible(true)}
+        />
         {busquedaPendiente ? (
           <View style={styles.busquedaWebChip}>
             <ActivityIndicator size="small" color={I.muted} />
@@ -1130,9 +1208,8 @@ export function CotizacionIaEditor({
           </View>
         ) : null}
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
-          Solo aparecen Marca/Canal/Proveedor si vienen de tus servicios publicados,
-          tu historial, una búsqueda web verificada o un listing real. Sin eso, el precio
-          es estimado: revísalo antes de enviar al cliente.
+          Un precio confirmado o asumido es el que se cobra. Una referencia web se muestra
+          como rango: el cliente ve el techo hasta que confirmas.
         </InstitutionalText>
         {editable ? (
           <View style={styles.iaRepuestosBlock}>
@@ -1180,6 +1257,8 @@ export function CotizacionIaEditor({
                 editable={editable}
                 onUpdate={actualizarRepuesto}
                 onDelete={eliminarRepuesto}
+                onConfirmar={abrirConfirmarRepuesto}
+                onEspecificacion={definirEspecificacionLinea}
               />
             ))}
           </View>
@@ -1400,25 +1479,52 @@ export function CotizacionIaEditor({
           || (cotizacion.estado === 'enviada' && onMarcarAceptada)) ? (
         <View style={styles.actionsFooter}>
           {editable && onEnviar && (cotizacion.estado === 'borrador' || cotizacion.emision_pendiente) ? (
-            <InstitutionalButton
-              label={enviarLabel}
-              onPress={() => {
-                if (
-                  cotizacion.es_cotizacion_adicional
-                  && cotizacion.ejecucion_adicional === 'nueva_fecha'
-                  && (!cotizacion.fecha_propuesta || !cotizacion.hora_propuesta)
-                ) {
-                  showAlert(
-                    'Fecha requerida',
-                    'Indica día y hora acordados con el cliente antes de enviar.',
-                  );
-                  return;
-                }
-                onEnviar();
-              }}
-              loading={enviando}
-              disabled={enviando}
-            />
+            <>
+              {!(cotizacion.puede_enviar_firme ?? false)
+                && (cotizacion.lineas_pendientes_precio?.length || 0) > 0 ? (
+                <InstitutionalText role="caption" color="muted">
+                  Faltan {cotizacion.lineas_pendientes_precio?.length} precios por confirmar
+                </InstitutionalText>
+              ) : null}
+              <InstitutionalButton
+                label={cotizacion.puede_enviar_firme ? 'Enviar cotización firme' : enviarLabel}
+                onPress={() => {
+                  if (
+                    cotizacion.es_cotizacion_adicional
+                    && cotizacion.ejecucion_adicional === 'nueva_fecha'
+                    && (!cotizacion.fecha_propuesta || !cotizacion.hora_propuesta)
+                  ) {
+                    showAlert(
+                      'Fecha requerida',
+                      'Indica día y hora acordados con el cliente antes de enviar.',
+                    );
+                    return;
+                  }
+                  if (cotizacion.puede_enviar_firme) {
+                    onEnviar('cotizacion');
+                    return;
+                  }
+                  onEnviar('estimacion');
+                }}
+                loading={enviando}
+                disabled={enviando}
+              />
+              {!(cotizacion.puede_enviar_firme ?? true) ? (
+                <>
+                  <InstitutionalButton
+                    label="Confirmar precios"
+                    variant="outline"
+                    onPress={() => setConfirmarPreciosVisible(true)}
+                  />
+                  <InstitutionalButton
+                    label="Enviar como estimación"
+                    variant="tertiary"
+                    onPress={() => onEnviar('estimacion')}
+                    disabled={enviando}
+                  />
+                </>
+              ) : null}
+            </>
           ) : null}
           {editable && onGuardarPlantilla ? (
             <InstitutionalButton
@@ -1450,6 +1556,39 @@ export function CotizacionIaEditor({
           lineasSinPrecio={lineasSinPrecio}
         />
       ) : null}
+
+      <RepuestoPrecioSheet
+        visible={Boolean(repuestoSheet)}
+        onClose={() => setRepuestoSheet(null)}
+        cotizacion={cotizacion}
+        repuesto={repuestoSheet}
+        proveedores={proveedores}
+        onConfirmar={(payload) => void confirmarPrecioLinea(payload)}
+        onAsumir={() => {
+          if (repuestoSheet?.id) void asumirPrecios([String(repuestoSheet.id)]);
+        }}
+        onEspecificacion={(spec) => {
+          if (repuestoSheet) void definirEspecificacionLinea(repuestoSheet, spec);
+        }}
+        loading={precioBusy}
+      />
+
+      <ConfirmarPreciosSheet
+        visible={confirmarPreciosVisible}
+        onClose={() => setConfirmarPreciosVisible(false)}
+        cotizacion={cotizacion}
+        proveedores={proveedores}
+        onAsumir={(ids) => void asumirPrecios(ids)}
+        onEspecificacion={(repuestoId, spec) => {
+          const found = (cotizacion.repuestos ?? []).find((r) => String(r.id) === String(repuestoId));
+          if (found) void definirEspecificacionLinea(found, spec);
+        }}
+        onAbrirDetalle={(rep) => {
+          setConfirmarPreciosVisible(false);
+          setRepuestoSheet(rep);
+        }}
+        loading={precioBusy}
+      />
     </View>
   );
 }
@@ -1501,6 +1640,14 @@ const styles = StyleSheet.create({
   moneyRowCompact: {
     minHeight: 44,
     paddingVertical: 0,
+  },
+  specBlock: { gap: SPACING.fixed.xs },
+  specChips: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.fixed.xs },
+  specChip: {
+    paddingHorizontal: SPACING.fixed.sm,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: I.surfaceSoft,
   },
   emptyRepuestos: {
     gap: SPACING.fixed.sm,

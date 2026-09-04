@@ -19,6 +19,9 @@ import { getChilePhoneError } from '@/components/forms/ChilePhoneField';
 import ChileAddressField from '@/components/forms/ChileAddressField';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
 import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
+import { ConfirmarPreciosSheet } from '@/components/cotizacion/ConfirmarPreciosSheet';
+import { lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
+import { useProveedoresRepuestosQuery } from '@/hooks/useProveedoresRepuestosQuery';
 import { VistaPreviaCotizacionClienteModal } from '@/components/chats/VistaPreviaCotizacionClienteModal';
 import {
   ClienteCanalPickerSection,
@@ -45,6 +48,7 @@ import cotizacionCanalService, {
   cotizacionEsActualizacion,
   cotizacionPermiteEdicionCompleta,
   cotizacionPermiteEnviar,
+  errorEnvioFirme,
   fusionarRepuestosEnviados,
   payloadEdicionCotizacion,
   type CotizacionCanal,
@@ -150,6 +154,9 @@ export function CotizacionLibreModal({
   const [cotizacion, setCotizacion] = useState<CotizacionCanal | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [confirmarPreciosVisible, setConfirmarPreciosVisible] = useState(false);
+  const [precioBusy, setPrecioBusy] = useState(false);
+  const tipoEnvioRef = useRef<'estimacion' | 'cotizacion'>('cotizacion');
   const persistSeqRef = useRef(0);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef<CotizacionCanal | null>(null);
@@ -558,9 +565,13 @@ export function CotizacionLibreModal({
     }
   }, [cotizacion]);
 
-  const abrirVistaPrevia = useCallback(async () => {
+  const { data: proveedores = [] } = useProveedoresRepuestosQuery(Boolean(cotizacion?.id));
+
+  const abrirVistaPrevia = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     const fuente = draftRef.current || cotizacion;
     if (!fuente?.id || !cotizacionPermiteEnviar(fuente)) return;
+    tipoEnvioRef.current = tipo
+      || (fuente.puede_enviar_firme ? 'cotizacion' : 'estimacion');
     setErrorIa(null);
     try {
       await persistirCotizacion(fuente, true);
@@ -570,15 +581,17 @@ export function CotizacionLibreModal({
     }
   }, [cotizacion, persistirCotizacion]);
 
-  const handleEnviar = useCallback(async () => {
+  const handleEnviar = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     const fuente = draftRef.current || cotizacion;
     if (!fuente?.id || !cotizacionPermiteEnviar(fuente)) return;
+    const tipoDoc = tipo || tipoEnvioRef.current;
+    tipoEnvioRef.current = tipoDoc;
     setEnviando(true);
     setErrorIa(null);
     try {
       const eraUpdate = Boolean(fuente.numero_publico);
       const saved = await persistirCotizacion(fuente, true);
-      const res = await cotizacionCanalService.enviar(saved.id);
+      const res = await cotizacionCanalService.enviar(saved.id, tipoDoc);
       const url = res.share_url || res.cotizacion.share_url || res.cotizacion.url_publica || null;
       setCotizacion(res.cotizacion);
       setShareUrl(url);
@@ -652,6 +665,27 @@ export function CotizacionLibreModal({
         );
       }
     } catch (err) {
+      const gate = errorEnvioFirme(err);
+      if (gate) {
+        showAlertButtons(
+          'Faltan precios por confirmar',
+          'Puedes confirmar los precios o enviar una estimación al cliente.',
+          [
+            { text: 'Ahora no', style: 'cancel' },
+            {
+              text: 'Enviar como estimación',
+              onPress: () => {
+                void handleEnviar('estimacion');
+              },
+            },
+            {
+              text: 'Confirmar precios',
+              onPress: () => setConfirmarPreciosVisible(true),
+            },
+          ],
+        );
+        return;
+      }
       setErrorIa(extractApiError(err, 'No se pudo enviar la cotización.'));
     } finally {
       setEnviando(false);
@@ -669,14 +703,24 @@ export function CotizacionLibreModal({
     && cotizacionPermiteEnviar(cotizacion),
   );
 
+  const pendientesPrecio = cotizacion
+    ? (cotizacion.lineas_pendientes_precio?.length
+      ?? (cotizacion.repuestos ?? []).filter(lineaPendientePrecio).length)
+    : 0;
+  const puedeEnviarFirme = cotizacion?.puede_enviar_firme ?? pendientesPrecio === 0;
+
   const footerPrimaryLabel = puedeEnviar
     ? (enviando
       ? 'Enviando…'
-      : (cotizacionEsActualizacion(cotizacion) ? 'Revisar y enviar' : enviarLabel))
+      : (puedeEnviarFirme
+        ? (cotizacionEsActualizacion(cotizacion) ? 'Enviar cotización firme' : enviarLabel)
+        : 'Confirmar precios'))
     : 'Listo';
 
   const footerPrimaryAction = puedeEnviar
-    ? () => void abrirVistaPrevia()
+    ? (puedeEnviarFirme
+      ? () => void abrirVistaPrevia('cotizacion')
+      : () => setConfirmarPreciosVisible(true))
     : handleClose;
 
   return (
@@ -917,15 +961,30 @@ export function CotizacionLibreModal({
                   loading={descartando}
                   style={styles.footerBtnSecondary}
                 />
-                <InstitutionalButton
-                  label={footerPrimaryLabel}
-                  variant="primary"
-                  size="default"
-                  onPress={footerPrimaryAction}
-                  disabled={ocupado}
-                  loading={enviando}
-                  style={styles.footerBtnPrimary}
-                />
+                <View style={{ flex: 1, gap: SPACING.fixed.xs }}>
+                  {pendientesPrecio > 0 ? (
+                    <InstitutionalText role="caption" color="muted">
+                      Faltan {pendientesPrecio} precios por confirmar
+                    </InstitutionalText>
+                  ) : null}
+                  <InstitutionalButton
+                    label={footerPrimaryLabel}
+                    variant="primary"
+                    size="default"
+                    onPress={footerPrimaryAction}
+                    disabled={ocupado}
+                    loading={enviando}
+                  />
+                  {!puedeEnviarFirme ? (
+                    <InstitutionalButton
+                      label="Enviar como estimación"
+                      variant="tertiary"
+                      size="default"
+                      onPress={() => void abrirVistaPrevia('estimacion')}
+                      disabled={ocupado}
+                    />
+                  ) : null}
+                </View>
               </>
             ) : (
               <InstitutionalButton
@@ -947,7 +1006,43 @@ export function CotizacionLibreModal({
         puedeEnviar={puedeEnviar}
         enviando={enviando}
         onClose={() => setPreviewVisible(false)}
-        onEnviar={() => void handleEnviar()}
+        onEnviar={() => void handleEnviar(tipoEnvioRef.current)}
+      />
+      <ConfirmarPreciosSheet
+        visible={confirmarPreciosVisible}
+        onClose={() => setConfirmarPreciosVisible(false)}
+        cotizacion={cotizacion || { id: 0, repuestos: [], estado: 'borrador' } as CotizacionCanal}
+        proveedores={proveedores}
+        loading={precioBusy}
+        onAsumir={async (ids) => {
+          if (!cotizacion?.id) return;
+          setPrecioBusy(true);
+          try {
+            const res = await cotizacionCanalService.asumirPrecioRepuesto(cotizacion.id, ids);
+            setCotizacion(res.cotizacion);
+            setConfirmarPreciosVisible(false);
+          } catch (err) {
+            setErrorIa(extractApiError(err, 'No se pudo asumir el techo.'));
+          } finally {
+            setPrecioBusy(false);
+          }
+        }}
+        onEspecificacion={async (repuestoId, spec) => {
+          if (!cotizacion?.id) return;
+          setPrecioBusy(true);
+          try {
+            const res = await cotizacionCanalService.definirEspecificacion(cotizacion.id, {
+              repuesto_id: String(repuestoId),
+              especificacion: spec,
+            });
+            setCotizacion(res.cotizacion);
+          } catch (err) {
+            setErrorIa(extractApiError(err, 'No se pudo guardar la especificación.'));
+          } finally {
+            setPrecioBusy(false);
+          }
+        }}
+        onAbrirDetalle={() => setConfirmarPreciosVisible(false)}
       />
       <UpsellCuotaModal
         visible={upsellCuota.visible}

@@ -26,6 +26,8 @@ import {
   Landmark,
   Headphones,
   FileText,
+  Store,
+  Tags,
   MessageCircle,
   Bot,
   Camera,
@@ -33,7 +35,6 @@ import {
   Users,
   Clock,
   Wrench,
-  Tags,
   MapPinned,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -443,6 +444,18 @@ export default function PerfilScreen() {
         title: 'Plantillas de cotización',
         subtitle: 'Cotizaciones guardadas por vehículo',
         onPress: () => router.push('/cotizaciones-plantillas' as never),
+      });
+      rows.push({
+        Icon: Store,
+        title: 'Casas de repuestos',
+        subtitle: 'Dónde compras y a quién pides precio',
+        onPress: () => router.push('/casas-repuestos' as never),
+      });
+      rows.push({
+        Icon: Tags,
+        title: 'Mis precios',
+        subtitle: 'Lo que pagaste, para la próxima cotización',
+        onPress: () => router.push('/mis-precios-repuestos' as never),
       });
     }
     return rows;

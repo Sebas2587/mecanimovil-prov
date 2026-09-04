@@ -51,6 +51,26 @@ export function sumaManoObraLineas(lineas: ManoObraLinea[]): number {
   return lineas.reduce((acc, lin) => acc + Math.max(0, Math.round(Number(lin.monto_clp) || 0)), 0);
 }
 
+export type CertezaPrecio = 'confirmado' | 'asumido' | 'referencial' | 'sin_precio';
+export type CompatibilidadPieza = 'verificada' | 'probable' | 'no_verificada';
+
+export interface AlternativaRepuesto {
+  etiqueta?: 'economica' | 'equivalente' | 'premium';
+  nombre?: string;
+  marca_repuesto?: string;
+  especificacion?: string;
+  precio_clp?: number;
+  proveedor_nombre?: string;
+  url_producto?: string;
+}
+
+export interface LineaPendientePrecio {
+  id: string;
+  nombre: string;
+  certeza?: CertezaPrecio | string;
+  especificacion_pendiente?: boolean;
+}
+
 export interface RepuestoCotizacion {
   id?: string;
   nombre: string;
@@ -73,6 +93,21 @@ export interface RepuestoCotizacion {
   precio_referencia_mercado?: boolean;
   precio_iva_incluido?: boolean;
   comentario?: string;
+  certeza?: CertezaPrecio | string;
+  precio_min_clp?: number;
+  precio_max_clp?: number;
+  fuentes_n?: number;
+  precio_capturado_en?: string;
+  proveedor_id?: number | null;
+  precio_marketplace_clp?: number;
+  factor_mercado?: number;
+  categoria?: string;
+  especificacion?: string;
+  especificacion_pendiente?: boolean;
+  familia_sensible?: string;
+  codigo_parte?: string;
+  compatibilidad?: CompatibilidadPieza | string;
+  alternativas?: AlternativaRepuesto[];
 }
 
 export type CanalCotizacion =
@@ -104,6 +139,14 @@ export interface CotizacionCanal {
   share_url?: string | null;
   visto_en?: string | null;
   estado: 'borrador' | 'enviada' | 'aceptada' | 'rechazada' | 'expirada' | 'cancelada';
+  tipo_documento?: 'estimacion' | 'cotizacion' | string;
+  tipo_documento_emitido?: string;
+  repuestos_confirmados?: number;
+  repuestos_total?: number;
+  puede_enviar_firme?: boolean;
+  lineas_pendientes_precio?: LineaPendientePrecio[];
+  total_min_clp?: number;
+  total_max_clp?: number;
   modalidad: 'taller' | 'domicilio';
   /** Dirección del cliente cuando modalidad es domicilio. */
   direccion_servicio?: string;
@@ -312,6 +355,32 @@ export function clampDiasValidez(value?: number | string | null): number {
   return Math.min(90, Math.max(1, n));
 }
 
+export function errorEnvioFirme(err: unknown): {
+  message: string;
+  pendientes: LineaPendientePrecio[];
+} | null {
+  const resp = (err as { response?: { status?: number; data?: Record<string, unknown> } })?.response;
+  if (!resp?.data || typeof resp.data !== 'object') return null;
+  const raw = resp.data.lineas_pendientes ?? resp.data.lineas_pendientes_precio;
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const titleRaw = resp.data.error;
+  const message = typeof titleRaw === 'string'
+    ? titleRaw
+    : Array.isArray(titleRaw) && typeof titleRaw[0] === 'string'
+      ? titleRaw[0]
+      : 'Faltan precios por confirmar';
+  return { message, pendientes: raw as LineaPendientePrecio[] };
+}
+
+function sanitizarRepuestoEdicion(rep: RepuestoCotizacion): RepuestoCotizacion {
+  const {
+    precio_estimado: _estimado,
+    precio_referencia_mercado: _mercado,
+    ...rest
+  } = rep;
+  return rest;
+}
+
 export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<CotizacionCanal> {
   const lineasMo = resolverManoObraLineas(c);
   const patch: Partial<CotizacionCanal> = {
@@ -321,7 +390,7 @@ export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<Cotizacion
     direccion_servicio: c.direccion_servicio,
     cliente_nombre: c.cliente_nombre,
     cliente_telefono: c.cliente_telefono,
-    repuestos: c.repuestos,
+    repuestos: (c.repuestos ?? []).map(sanitizarRepuestoEdicion),
     mano_obra_lineas: lineasMo,
     mano_obra_clp: sumaManoObraLineas(lineasMo),
     descuento_tipo: c.descuento_tipo || '',
@@ -413,14 +482,73 @@ class CotizacionCanalService {
     return response.data as CotizacionCanal;
   }
 
-  async enviar(id: number): Promise<{
+  async confirmarPrecioRepuesto(
+    id: number,
+    payload: {
+      repuesto_id: string;
+      precio_clp: number;
+      proveedor_id?: number | null;
+      proveedor_nombre?: string;
+      especificacion?: string;
+      guardar_en_mis_precios?: boolean;
+    },
+  ): Promise<{ cotizacion: CotizacionCanal }> {
+    const response = await api.post(
+      `/ordenes/cotizaciones-canal/${id}/confirmar-precio-repuesto/`,
+      payload,
+    );
+    return response.data as { cotizacion: CotizacionCanal };
+  }
+
+  async asumirPrecioRepuesto(
+    id: number,
+    repuestoIds?: string[],
+  ): Promise<{ cotizacion: CotizacionCanal }> {
+    const response = await api.post(
+      `/ordenes/cotizaciones-canal/${id}/asumir-precio-repuesto/`,
+      { repuesto_id: repuestoIds || [] },
+    );
+    return response.data as { cotizacion: CotizacionCanal };
+  }
+
+  async definirEspecificacion(
+    id: number,
+    payload: { repuesto_id: string; especificacion: string },
+  ): Promise<{ cotizacion: CotizacionCanal }> {
+    const response = await api.post(
+      `/ordenes/cotizaciones-canal/${id}/definir-especificacion/`,
+      payload,
+    );
+    return response.data as { cotizacion: CotizacionCanal };
+  }
+
+  async registrarCompraRepuestos(
+    id: number,
+    items: Array<{
+      repuesto_id: string;
+      precio_clp: number;
+      proveedor_id?: number | null;
+      proveedor_nombre?: string;
+    }>,
+  ): Promise<{ ok: boolean; creados: number }> {
+    const response = await api.post(
+      `/ordenes/cotizaciones-canal/${id}/registrar-compra-repuestos/`,
+      { items },
+    );
+    return response.data as { ok: boolean; creados: number };
+  }
+
+  async enviar(id: number, tipoDocumento?: 'estimacion' | 'cotizacion'): Promise<{
     cotizacion: CotizacionCanal;
     message_id: number | null;
     share_url?: string | null;
     entrega_via?: 'app' | 'sesion_meta' | 'whatsapp_template' | 'link_publico' | string;
     entrega_mensaje?: string | null;
   }> {
-    const response = await api.post(`/ordenes/cotizaciones-canal/${id}/enviar/`);
+    const response = await api.post(
+      `/ordenes/cotizaciones-canal/${id}/enviar/`,
+      tipoDocumento ? { tipo_documento: tipoDocumento } : {},
+    );
     return response.data as {
       cotizacion: CotizacionCanal;
       message_id: number | null;
