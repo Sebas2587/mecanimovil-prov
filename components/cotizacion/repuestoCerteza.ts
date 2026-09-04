@@ -1,4 +1,8 @@
-import type { CertezaPrecio, RepuestoCotizacion } from '@/services/cotizacionCanalService';
+import type {
+  CertezaPrecio,
+  FuenteRepuesto,
+  RepuestoCotizacion,
+} from '@/services/cotizacionCanalService';
 
 export const FAMILIAS_SENSIBLES_UI: Record<string, { label: string; opciones: string[] }> = {
   bujia: { label: 'Tipo de bujía', opciones: ['Cobre', 'Platino', 'Iridio'] },
@@ -55,6 +59,100 @@ export function formatRangoClp(min?: number, max?: number): string | null {
   }
   const v = b || a;
   return `$${v.toLocaleString('es-CL')}`;
+}
+
+const ETIQUETA_FUENTE: Record<string, string> = {
+  proveedor: 'Mis precios',
+  catalogo: 'Catálogo del taller',
+  historial: 'Historial del taller',
+  web: 'Tienda web',
+  mercadolibre: 'Mercado Libre',
+};
+
+/** Fuentes trazables de la línea; cae al proveedor suelto si el backend es viejo. */
+export function fuentesDe(rep: RepuestoCotizacion): FuenteRepuesto[] {
+  const detalle = (rep.fuentes_detalle || []).filter((f) => f && (f.tienda || f.dominio || f.url));
+  if (detalle.length) return detalle;
+  const tienda = (rep.proveedor_nombre || rep.tienda_ml || '').trim();
+  const fuente = (rep.fuente_marketplace || rep.fuente_repuesto || '').trim();
+  if (!tienda && !fuente) return [];
+  return [{
+    fuente,
+    tienda: tienda || ETIQUETA_FUENTE[fuente] || 'Referencia',
+    precio_clp: rep.precio_marketplace_clp || rep.precio_unitario_clp,
+    url: rep.url_producto || '',
+  }];
+}
+
+function raizDominio(dominio: string): string {
+  const partes = dominio.replace(/^www\./, '').split('.').filter(Boolean);
+  return (partes.length >= 2 ? partes[partes.length - 2] : partes[0] || '').toLowerCase();
+}
+
+/** Nombre de tienda para mostrar; suma el dominio solo si dice algo nuevo. */
+export function nombreFuente(f: FuenteRepuesto): string {
+  const tienda = (f.tienda || '').trim();
+  const dominio = (f.dominio || '').trim();
+  const generico = ETIQUETA_FUENTE[f.fuente || ''] || 'Referencia';
+  if (!dominio) return tienda || generico;
+  const raiz = raizDominio(dominio);
+  const tiendaNorm = tienda.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!tienda || (raiz && tiendaNorm.includes(raiz))) return tienda || dominio;
+  return `${tienda} · ${dominio}`;
+}
+
+/** Una línea de meta: variante, tienda y antigüedad, sin repetir el estado. */
+export function metaLinea(rep: RepuestoCotizacion): string {
+  const fuentes = fuentesDe(rep);
+  const partes: string[] = [];
+  const spec = (rep.especificacion || '').trim();
+  if (spec) partes.push(spec);
+  if (fuentes.length) {
+    partes.push(
+      fuentes.length > 1
+        ? `${nombreFuente(fuentes[0])} +${fuentes.length - 1}`
+        : nombreFuente(fuentes[0]),
+    );
+  }
+  const marca = (rep.marca_repuesto || '').trim();
+  if (marca) partes.push(marca);
+  const edad = antigüedadLabel(rep.precio_capturado_en);
+  if (edad) partes.push(edad);
+  return partes.join(' · ');
+}
+
+/** Qué le falta a la línea para tener precio (y qué hacer). */
+export function motivoSinPrecio(rep: RepuestoCotizacion): string | null {
+  if (certezaDe(rep) !== 'sin_precio') return null;
+  if (rep.especificacion_pendiente || rep.motivo_sin_precio === 'especificacion') {
+    return 'Elige el tipo para poder cotizar: el precio cambia según la variante.';
+  }
+  return 'No encontramos referencia de precio. Escribe el monto o pídelo a tu casa de repuestos.';
+}
+
+/** Único chip de estado de la línea: qué tan firme es el precio. */
+export function estadoLinea(
+  rep: RepuestoCotizacion,
+): { label: string; variant: 'success' | 'neutral' | 'info' | 'warning' | 'error' } {
+  const certeza = certezaDe(rep);
+  if (certeza === 'confirmado') return { label: 'Confirmado', variant: 'success' };
+  if (certeza === 'asumido') return { label: 'Precio asumido', variant: 'neutral' };
+  if (certeza === 'referencial') {
+    const n = Number(rep.fuentes_n) || 0;
+    return {
+      label: n > 1 ? `Referencia · ${n} fuentes` : 'Referencia web',
+      variant: 'info',
+    };
+  }
+  if (rep.especificacion_pendiente || rep.motivo_sin_precio === 'especificacion') {
+    return { label: 'Falta el tipo', variant: 'warning' };
+  }
+  return { label: 'Falta precio', variant: 'error' };
+}
+
+/** Cómo se llama la banda según de dónde viene. */
+export function etiquetaBanda(rep: RepuestoCotizacion): string {
+  return certezaDe(rep) === 'sin_precio' ? 'Referencia de mercado' : 'Rango real';
 }
 
 export function antigüedadLabel(iso?: string): string | null {

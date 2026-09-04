@@ -8,8 +8,9 @@ import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionC
 import type { ProveedorRepuestos } from '@/services/proveedorRepuestosService';
 import {
   formatRangoClp,
-  labelFamilia,
+  fuentesDe,
   lineaPendientePrecio,
+  nombreFuente,
   opcionesFamilia,
 } from '@/components/cotizacion/repuestoCerteza';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
@@ -74,6 +75,7 @@ export function ConfirmarPreciosSheet({
         {pendientes.map((rep) => {
           const ops = opcionesFamilia(rep);
           const rango = formatRangoClp(rep.precio_min_clp, rep.precio_max_clp);
+          const fuentes = fuentesDe(rep);
           return (
             <View key={rep.id || rep.nombre} style={styles.row}>
               <TouchableOpacity onPress={() => onAbrirDetalle(rep)}>
@@ -82,7 +84,12 @@ export function ConfirmarPreciosSheet({
                   <InstitutionalText role="caption" color="muted">{rep.especificacion}</InstitutionalText>
                 ) : null}
                 <InstitutionalText role="caption" color="muted">
-                  {rango || (rep.especificacion_pendiente ? 'Falta especificar' : 'Falta precio')}
+                  {[
+                    rango || (rep.especificacion_pendiente ? 'Falta el tipo' : 'Sin referencia'),
+                    fuentes.length ? nombreFuente(fuentes[0]) : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </InstitutionalText>
               </TouchableOpacity>
               {ops.length && !rep.especificacion ? (

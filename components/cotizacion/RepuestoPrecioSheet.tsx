@@ -10,7 +10,10 @@ import type { ProveedorRepuestos } from '@/services/proveedorRepuestosService';
 import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import {
   formatRangoClp,
+  fuentesDe,
   labelFamilia,
+  motivoSinPrecio,
+  nombreFuente,
   opcionesFamilia,
 } from '@/components/cotizacion/repuestoCerteza';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
@@ -51,6 +54,8 @@ export function RepuestoPrecioSheet({
   const [proveedorNombre, setProveedorNombre] = useState('');
 
   const opciones = useMemo(() => (repuesto ? opcionesFamilia(repuesto) : []), [repuesto]);
+  const fuentes = useMemo(() => (repuesto ? fuentesDe(repuesto) : []), [repuesto]);
+  const motivo = repuesto ? motivoSinPrecio(repuesto) : null;
   const rango = formatRangoClp(repuesto?.precio_min_clp, repuesto?.precio_max_clp);
   const techo = Math.round(Number(repuesto?.precio_max_clp || repuesto?.precio_unitario_clp || 0));
   const vehiculo = [cotizacion.vehiculo_marca, cotizacion.vehiculo_modelo, cotizacion.vehiculo_anio]
@@ -122,7 +127,9 @@ export function RepuestoPrecioSheet({
             <InstitutionalText role="body" color="ink">{rango}</InstitutionalText>
             {techo > 0 ? (
               <InstitutionalText role="caption" color="muted">
-                Se cobra {formatearMontoCLP(techo)}
+                {(repuesto.precio_unitario_clp || 0) > 0
+                  ? `Se cobra ${formatearMontoCLP(techo)}`
+                  : `Si asumes el techo se cobra ${formatearMontoCLP(techo)}`}
               </InstitutionalText>
             ) : null}
             {(repuesto.factor_mercado || 0) > 1 ? (
@@ -136,12 +143,48 @@ export function RepuestoPrecioSheet({
           </View>
         ) : null}
 
-        {repuesto.url_producto ? (
-          <TouchableOpacity onPress={() => Linking.openURL(repuesto.url_producto || '').catch(() => undefined)}>
-            <InstitutionalText role="caption" color="ink">
-              Ver fuente en {repuesto.proveedor_nombre || 'la tienda'}
+        {fuentes.length ? (
+          <View style={styles.block}>
+            <InstitutionalText role="label">De dónde salió este precio</InstitutionalText>
+            {fuentes.map((f, idx) => {
+              const url = (f.url || '').trim();
+              const linea = (
+                <View style={styles.fuenteRow}>
+                  <View style={styles.fuenteNombre}>
+                    <InstitutionalText role="body" color="ink" numberOfLines={1}>
+                      {nombreFuente(f)}
+                    </InstitutionalText>
+                    {url ? (
+                      <InstitutionalText role="caption" color="muted">
+                        Toca para abrir el aviso
+                      </InstitutionalText>
+                    ) : null}
+                  </View>
+                  {f.precio_clp ? (
+                    <InstitutionalText role="body" color="ink">
+                      {formatearMontoCLP(f.precio_clp)}
+                    </InstitutionalText>
+                  ) : null}
+                </View>
+              );
+              return url ? (
+                <TouchableOpacity
+                  key={`${f.tienda}-${idx}`}
+                  accessibilityRole="link"
+                  onPress={() => Linking.openURL(url).catch(() => undefined)}
+                >
+                  {linea}
+                </TouchableOpacity>
+              ) : (
+                <View key={`${f.tienda}-${idx}`}>{linea}</View>
+              );
+            })}
+            <InstitutionalText role="caption" color="muted">
+              Son avisos publicados, no un precio cotizado a tu nombre.
             </InstitutionalText>
-          </TouchableOpacity>
+          </View>
+        ) : motivo ? (
+          <InstitutionalText role="caption" color="muted">{motivo}</InstitutionalText>
         ) : null}
 
         {mostrarForm ? (
@@ -224,5 +267,13 @@ const styles = StyleSheet.create({
     borderBottomColor: I.hairline,
   },
   provRowActive: { backgroundColor: I.surfaceSoft },
+  fuenteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xs,
+  },
+  fuenteNombre: { flex: 1, minWidth: 0 },
   footer: { gap: SPACING.fixed.xs, paddingTop: SPACING.fixed.sm },
 });

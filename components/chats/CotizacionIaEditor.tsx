@@ -23,10 +23,13 @@ import { ConfianzaPresupuestoCard } from '@/components/cotizacion/ConfianzaPresu
 import { ConfirmarPreciosSheet } from '@/components/cotizacion/ConfirmarPreciosSheet';
 import { RepuestoPrecioSheet } from '@/components/cotizacion/RepuestoPrecioSheet';
 import {
-  antigüedadLabel,
   certezaDe,
+  estadoLinea,
+  etiquetaBanda,
   formatRangoClp,
   labelFamilia,
+  metaLinea,
+  motivoSinPrecio,
   opcionesFamilia,
 } from '@/components/cotizacion/repuestoCerteza';
 import { useProveedoresRepuestosQuery } from '@/hooks/useProveedoresRepuestosQuery';
@@ -177,13 +180,14 @@ const RepuestoRow = React.memo(function RepuestoRow({
   onEspecificacion: (rep: RepuestoCotizacion, spec: string) => void;
 }) {
   const subtotal = subtotalRepuesto(rep);
-  const marcaPieza = (rep.marca_repuesto || '').trim();
   const origenLabel = origenTagLabel(rep);
   const urlProducto = (rep.url_producto || '').trim();
   const certeza = certezaDe(rep);
   const specOps = opcionesFamilia(rep);
   const rango = formatRangoClp(rep.precio_min_clp, rep.precio_max_clp);
-  const antiguedad = antigüedadLabel(rep.precio_capturado_en);
+  const estado = estadoLinea(rep);
+  const meta = metaLinea(rep);
+  const motivo = motivoSinPrecio(rep);
   const nombreGuardado = (rep.nombre || '').trim();
 
   const [nombreFocused, setNombreFocused] = useState(false);
@@ -229,49 +233,32 @@ const RepuestoRow = React.memo(function RepuestoRow({
         ) : null}
       </View>
 
-      <View style={styles.fuenteBadgeRow}>
-        {certeza === 'confirmado' ? (
-          <InstitutionalTag label="Confirmado" variant="success" size="sm" />
-        ) : null}
-        {certeza === 'asumido' ? (
-          <InstitutionalTag label="Precio asumido" variant="neutral" size="sm" />
-        ) : null}
-        {certeza === 'referencial' ? (
-          <InstitutionalTag
-            label={`Referencia web${rep.fuentes_n ? ` · ${rep.fuentes_n} fuentes` : ''}`}
-            variant="info"
-            size="sm"
-          />
-        ) : null}
-        {certeza === 'sin_precio' && !rep.especificacion_pendiente ? (
-          <InstitutionalTag label="Falta precio" variant="error" size="sm" />
-        ) : null}
-        {rep.especificacion_pendiente ? (
-          <InstitutionalTag label="Falta especificar" variant="warning" size="sm" />
-        ) : null}
-        {rep.especificacion ? (
-          <InstitutionalTag label={rep.especificacion} variant="primary" size="sm" />
-        ) : null}
-        {origenLabel ? (
+      <View style={styles.estadoRow}>
+        <InstitutionalTag label={estado.label} variant={estado.variant} size="md" />
+        {meta ? (
           urlProducto ? (
             <TouchableOpacity
+              style={styles.metaPress}
               onPress={() => {
                 Linking.openURL(urlProducto).catch(() => undefined);
               }}
               accessibilityRole="link"
-              accessibilityLabel={`Abrir ${origenLabel}`}
+              accessibilityLabel={`Abrir fuente en ${origenLabel || 'la tienda'}`}
             >
-              <InstitutionalTag label={origenLabel} variant="info" size="sm" />
+              <InstitutionalText role="caption" color="muted" numberOfLines={1}>
+                {meta}
+              </InstitutionalText>
             </TouchableOpacity>
           ) : (
-            <InstitutionalTag label={origenLabel} variant="neutral" size="sm" />
+            <InstitutionalText
+              role="caption"
+              color="muted"
+              numberOfLines={1}
+              style={styles.metaTexto}
+            >
+              {meta}
+            </InstitutionalText>
           )
-        ) : null}
-        {marcaPieza ? (
-          <InstitutionalTag label={`Marca ${marcaPieza}`} variant="neutral" size="sm" />
-        ) : null}
-        {antiguedad ? (
-          <InstitutionalTag label={antiguedad} variant="neutral" size="sm" />
         ) : null}
       </View>
 
@@ -297,16 +284,15 @@ const RepuestoRow = React.memo(function RepuestoRow({
           <InstitutionalText role="label" color="muted" style={styles.colLabel}>
             Precio unit.
           </InstitutionalText>
-          {certeza === 'sin_precio' ? (
-            <InstitutionalText role="body" color="muted">—</InstitutionalText>
-          ) : (
-            <ClpMoneyInput
-              compact
-              value={redondearCLP(rep.precio_unitario_clp)}
-              editable={editable}
-              onChangeValue={(next) => onUpdate(index, { precio_unitario_clp: next, certeza: 'asumido' })}
-            />
-          )}
+          <ClpMoneyInput
+            compact
+            value={redondearCLP(rep.precio_unitario_clp)}
+            editable={editable}
+            placeholder={certeza === 'sin_precio' ? 'Falta' : '0'}
+            onChangeValue={(next) =>
+              onUpdate(index, { precio_unitario_clp: next, certeza: next > 0 ? 'asumido' : 'sin_precio' })
+            }
+          />
         </View>
 
         <View style={styles.gridColSubtotal}>
@@ -318,10 +304,34 @@ const RepuestoRow = React.memo(function RepuestoRow({
           </InstitutionalText>
         </View>
       </View>
+      {rango || (editable && certeza !== 'confirmado') ? (
+        <View style={styles.precioMetaRow}>
+          {rango ? (
+            <InstitutionalText role="caption" color="muted" style={styles.precioMetaTexto}>
+              {etiquetaBanda(rep)} {rango}
+            </InstitutionalText>
+          ) : (
+            <View style={styles.precioMetaTexto} />
+          )}
+          {editable && certeza !== 'confirmado' ? (
+            <InstitutionalButton
+              label="Confirmar precio"
+              variant="tertiary"
+              size="compact"
+              onPress={() => onConfirmar(rep)}
+            />
+          ) : null}
+        </View>
+      ) : null}
+      {motivo ? (
+        <InstitutionalText role="caption" color="muted">
+          {motivo}
+        </InstitutionalText>
+      ) : null}
       {rep.especificacion_pendiente && specOps.length && editable ? (
         <View style={styles.specBlock}>
           <InstitutionalText role="caption" color="muted">
-            {labelFamilia(rep)}. El tipo cambia el precio.
+            {labelFamilia(rep)}
           </InstitutionalText>
           <View style={styles.specChips}>
             {specOps.map((op) => (
@@ -329,25 +339,13 @@ const RepuestoRow = React.memo(function RepuestoRow({
                 key={op}
                 style={styles.specChip}
                 onPress={() => onEspecificacion(rep, op)}
+                accessibilityRole="button"
               >
-                <InstitutionalText role="caption">{op}</InstitutionalText>
+                <InstitutionalText role="caption" color="ink">{op}</InstitutionalText>
               </TouchableOpacity>
             ))}
           </View>
         </View>
-      ) : null}
-      {rango && certeza === 'referencial' ? (
-        <InstitutionalText role="caption" color="muted">
-          Rango real {rango}
-        </InstitutionalText>
-      ) : null}
-      {editable && certeza !== 'confirmado' ? (
-        <InstitutionalButton
-          label="Confirmar precio"
-          variant="outline"
-          size="compact"
-          onPress={() => onConfirmar(rep)}
-        />
       ) : null}
     </Card>
   );
@@ -1644,11 +1642,27 @@ const styles = StyleSheet.create({
   specBlock: { gap: SPACING.fixed.xs },
   specChips: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.fixed.xs },
   specChip: {
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingVertical: 6,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: 8,
     borderRadius: 999,
+    borderWidth: BORDERS.width.thin,
+    borderColor: I.hairline,
     backgroundColor: I.surfaceSoft,
   },
+  estadoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+  },
+  metaPress: { flex: 1, minWidth: 0 },
+  metaTexto: { flex: 1, minWidth: 0 },
+  precioMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.xs,
+  },
+  precioMetaTexto: { flex: 1, minWidth: 0 },
   emptyRepuestos: {
     gap: SPACING.fixed.sm,
     alignItems: 'flex-start',
@@ -1793,12 +1807,6 @@ const styles = StyleSheet.create({
   },
   warningAfterProblema: {
     marginTop: SPACING.fixed.xs,
-  },
-  fuenteBadgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.fixed.xs,
-    marginBottom: SPACING.fixed.xs,
   },
   servicioLineaNombre: {
     flex: 1,

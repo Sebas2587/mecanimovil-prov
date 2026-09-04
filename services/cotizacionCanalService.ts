@@ -64,6 +64,17 @@ export interface AlternativaRepuesto {
   url_producto?: string;
 }
 
+/** Fuente que sostiene el precio de una línea (solo app taller). */
+export interface FuenteRepuesto {
+  fuente?: string;
+  tienda?: string;
+  dominio?: string;
+  precio_clp?: number;
+  url?: string;
+}
+
+export type MotivoSinPrecio = 'especificacion' | 'sin_referencia';
+
 export interface LineaPendientePrecio {
   id: string;
   nombre: string;
@@ -107,7 +118,11 @@ export interface RepuestoCotizacion {
   familia_sensible?: string;
   codigo_parte?: string;
   compatibilidad?: CompatibilidadPieza | string;
+  /** Por qué la línea quedó sin monto: falta la variante o no hubo referencia. */
+  motivo_sin_precio?: MotivoSinPrecio | string;
   alternativas?: AlternativaRepuesto[];
+  /** Tiendas/precios que sostienen la banda. Nunca viaja al link público. */
+  fuentes_detalle?: FuenteRepuesto[];
 }
 
 export type CanalCotizacion =

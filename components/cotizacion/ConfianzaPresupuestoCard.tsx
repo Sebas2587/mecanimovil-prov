@@ -46,36 +46,52 @@ export function ConfianzaPresupuestoCard({ repuestos, editable, onConfirmar }: P
     );
   }
 
+  const pendientes = total - ok;
+
   return (
     <Card padding="host" style={styles.card}>
-      <View style={styles.dots}>
-        {dots.map((filled, idx) => (
-          <View
-            key={`dot-${idx}`}
-            style={[styles.dot, filled ? styles.dotOk : styles.dotPend]}
+      <View style={styles.topRow}>
+        <View style={styles.texto}>
+          <InstitutionalText role="caption" color="ink">
+            {ok === 0
+              ? `${total} ${total === 1 ? 'repuesto' : 'repuestos'} sin precio confirmado`
+              : `${ok} de ${total} con precio confirmado`}
+          </InstitutionalText>
+          <View style={styles.dots}>
+            {dots.map((filled, idx) => (
+              <View
+                key={`dot-${idx}`}
+                style={[styles.dot, filled ? styles.dotOk : styles.dotPend]}
+              />
+            ))}
+          </View>
+        </View>
+        {editable ? (
+          <InstitutionalButton
+            label={ok === 0 ? 'Confirmar' : `Confirmar ${pendientes}`}
+            variant="outline"
+            size="compact"
+            onPress={handlePress}
           />
-        ))}
+        ) : null}
       </View>
-      <InstitutionalText role="caption" color="ink">
-        {ok} de {total} con precio confirmado
-      </InstitutionalText>
       <InstitutionalText role="caption" color="muted">
-        Falta {total - ok} por confirmar
+        Puedes enviar como estimación con rangos, o confirmar los precios con tu casa de
+        repuestos para enviar una cotización firme.
       </InstitutionalText>
-      {editable ? (
-        <InstitutionalButton
-          label="Confirmar precios"
-          variant="outline"
-          size="compact"
-          onPress={handlePress}
-        />
-      ) : null}
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: { gap: SPACING.fixed.xs },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.sm,
+  },
+  texto: { flex: 1, minWidth: 0, gap: SPACING.fixed.xs },
   dots: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   dot: { width: 10, height: 10, borderRadius: 5 },
   dotOk: { backgroundColor: I.semanticUp },
