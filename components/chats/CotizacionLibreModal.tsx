@@ -161,7 +161,7 @@ export function CotizacionLibreModal({
   const persistSeqRef = useRef(0);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef<CotizacionCanal | null>(null);
-  const [faseIa, setFaseIa] = useState<'idle' | 'generando' | 'precios'>('idle');
+  const [faseIa, setFaseIa] = useState<'idle' | 'generando' | 'precios' | 'listo'>('idle');
 
   const conversationId = contactoSeleccionado?.conversationId ?? (
     conversationIdProp ? parseInt(conversationIdProp, 10) : null
@@ -470,6 +470,10 @@ export function CotizacionLibreModal({
           },
         };
       }
+      setFaseIa('listo');
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 800);
+      });
       setCotizacion(lista);
       draftRef.current = lista;
       if (res.desde_plantilla && lista.servicio_nombre) {
@@ -789,9 +793,9 @@ export function CotizacionLibreModal({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {!cotizacion && generandoIa ? (
+            {!cotizacion && faseIa !== 'idle' ? (
               <CotizacionIaProgreso
-                fase={faseIa === 'precios' ? 'precios' : 'generando'}
+                fase={faseIa === 'listo' ? 'listo' : faseIa === 'precios' ? 'precios' : 'generando'}
               />
             ) : !cotizacion ? (
               <>

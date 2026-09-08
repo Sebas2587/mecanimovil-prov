@@ -6,7 +6,7 @@ import { COLORS, SPACING } from '@/app/design-system/tokens';
 
 const I = COLORS.institutional;
 
-export type FaseCotizacionIa = 'generando' | 'precios';
+export type FaseCotizacionIa = 'generando' | 'precios' | 'listo';
 
 const PASOS = [
   {
@@ -32,6 +32,7 @@ const PASOS = [
 ] as const;
 
 function pasoDesdeFase(fase: FaseCotizacionIa, elapsedMs: number): number {
+  if (fase === 'listo') return PASOS.length;
   if (fase === 'generando') {
     return elapsedMs < 700 ? 0 : 1;
   }
@@ -57,18 +58,23 @@ export function CotizacionIaProgreso({ fase }: Props) {
   }, [fase]);
 
   const activo = useMemo(() => pasoDesdeFase(fase, elapsedMs), [elapsedMs, fase]);
+  const completo = fase === 'listo' || activo >= PASOS.length;
 
   return (
     <View style={styles.wrap}>
-      <HostSectionKicker label="Armando la cotización" style={styles.kicker} />
+      <HostSectionKicker
+        label={completo ? 'Cotización lista' : 'Armando la cotización'}
+        style={styles.kicker}
+      />
       <InstitutionalText role="caption" color="muted" style={styles.lead}>
-        La cotización se abre cuando hay precios y casa de repuestos. Este riel
-        muestra en qué va la IA.
+        {completo
+          ? 'Los cuatro pasos quedaron listos: vehículo, líneas, casas y precios.'
+          : 'La cotización se abre cuando el riel termina. Ahí vas a ver precios y casa de repuestos.'}
       </InstitutionalText>
       <HostPaperSection>
         {PASOS.map((paso, index) => {
-          const done = index < activo;
-          const current = index === activo;
+          const done = completo || index < activo;
+          const current = !completo && index === activo;
           const last = index === PASOS.length - 1;
           return (
             <View key={paso.id} style={styles.row}>
@@ -105,8 +111,8 @@ export function CotizacionIaProgreso({ fase }: Props) {
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.lg,
+    gap: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.sm,
   },
   kicker: {
     marginTop: 0,

@@ -148,6 +148,8 @@ export interface RepuestoCotizacion {
   fuentes_detalle?: FuenteRepuesto[];
   calidad?: CalidadRepuesto | string;
   calidad_pendiente?: boolean;
+  /** País de la pieza si la ficha lo nombra (hecho en / importado de). */
+  pais_origen?: string;
   seleccion_cliente?: boolean;
   seleccion_cliente_en?: string;
   imagen_url?: string;
@@ -530,6 +532,9 @@ export function fusionarRepuestosEnviados(
       next.proveedor_nombre = src.proveedor_nombre || next.proveedor_nombre;
       next.tienda_ml = src.tienda_ml || next.tienda_ml;
       next.url_producto = src.url_producto || next.url_producto;
+      next.marca_repuesto = src.marca_repuesto || next.marca_repuesto;
+      next.calidad = src.calidad || next.calidad;
+      next.pais_origen = src.pais_origen || next.pais_origen;
     }
     return next;
   });

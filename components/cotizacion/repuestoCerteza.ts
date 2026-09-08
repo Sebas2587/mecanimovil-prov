@@ -128,6 +128,10 @@ export function metaLineaTexto(rep: RepuestoCotizacion): string {
   if (spec) partes.push(spec);
   const marca = (rep.marca_repuesto || '').trim();
   if (marca) partes.push(marca);
+  const calidad = calidadLabel(rep);
+  if (calidad) partes.push(calidad);
+  const pais = (rep.pais_origen || '').trim();
+  if (pais) partes.push(pais);
   const edad = antigüedadLabel(rep.precio_capturado_en);
   if (edad) partes.push(edad);
   return partes.join(' · ');
