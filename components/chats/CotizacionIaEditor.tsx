@@ -26,6 +26,7 @@ import {
   casaRepuestosLabel,
   certezaDe,
   estadoLinea,
+  lineaPendientePrecio,
   etiquetaBanda,
   formatRangoClp,
   labelFamilia,
@@ -441,7 +442,14 @@ interface CotizacionIaEditorProps {
   sinHeader?: boolean;
 }
 
-export function CotizacionIaEditor({
+export type CotizacionIaEditorHandle = {
+  abrirConfirmarPrecios: () => void;
+};
+
+export const CotizacionIaEditor = React.forwardRef<
+  CotizacionIaEditorHandle,
+  CotizacionIaEditorProps
+>(function CotizacionIaEditor({
   cotizacion,
   onChange,
   onEnviar,
@@ -454,7 +462,7 @@ export function CotizacionIaEditor({
   readonly = false,
   compactHeader = false,
   sinHeader = false,
-}: CotizacionIaEditorProps) {
+}, ref) {
   const { width } = useWindowDimensions();
   const queryClient = useQueryClient();
   const stackedFacts = width < 520;
@@ -471,8 +479,14 @@ export function CotizacionIaEditor({
   const [modalItemsIa, setModalItemsIa] = useState(false);
   const [cotizandoItems, setCotizandoItems] = useState(false);
   const [repuestoSheet, setRepuestoSheet] = useState<RepuestoCotizacion | null>(null);
+  const repuestoSheetRef = useRef<RepuestoCotizacion | null>(null);
+  repuestoSheetRef.current = repuestoSheet;
   const [confirmarPreciosVisible, setConfirmarPreciosVisible] = useState(false);
   const [precioBusy, setPrecioBusy] = useState(false);
+
+  React.useImperativeHandle(ref, () => ({
+    abrirConfirmarPrecios: () => setConfirmarPreciosVisible(true),
+  }), []);
   const { data: proveedores = [] } = useProveedoresRepuestosQuery(
     editable && Boolean(cotizacion.id),
   );
@@ -672,7 +686,10 @@ export function CotizacionIaEditor({
         opcion_id: opcionId,
       });
       aplicarCotizacionServidor(res.cotizacion);
-      setRepuestoSheet(null);
+      const siguiente = (res.cotizacion.repuestos ?? []).find(
+        (r) => String(r.id || '') !== String(rep.id) && lineaPendientePrecio(r),
+      );
+      setRepuestoSheet(siguiente || null);
     } catch {
       showAlert('No se pudo usar esa opción', 'Intenta de nuevo o escribe el monto a mano.');
     } finally {
@@ -681,18 +698,19 @@ export function CotizacionIaEditor({
   }, [aplicarCotizacionServidor]);
 
   const confirmarPrecioLinea = useCallback(async (payload: {
+    repuesto_id?: string;
     precio_clp: number;
     proveedor_id?: number | null;
     proveedor_nombre?: string;
     especificacion?: string;
   }) => {
     const current = cotizacionRef.current;
-    const rep = repuestoSheet;
-    if (!current.id || !rep?.id) return;
+    const rid = String(payload.repuesto_id || repuestoSheetRef.current?.id || '');
+    if (!current.id || !rid) return;
     setPrecioBusy(true);
     try {
       const res = await cotizacionCanalService.confirmarPrecioRepuesto(current.id, {
-        repuesto_id: String(rep.id),
+        repuesto_id: rid,
         precio_clp: payload.precio_clp,
         proveedor_id: payload.proveedor_id,
         proveedor_nombre: payload.proveedor_nombre,
@@ -700,13 +718,16 @@ export function CotizacionIaEditor({
         guardar_en_mis_precios: true,
       });
       aplicarCotizacionServidor(res.cotizacion);
-      setRepuestoSheet(null);
+      const siguiente = (res.cotizacion.repuestos ?? []).find(
+        (r) => String(r.id || '') !== rid && lineaPendientePrecio(r),
+      );
+      setRepuestoSheet(siguiente || null);
     } catch {
       showAlert('No se pudo confirmar', 'Revisa el monto e inténtalo de nuevo.');
     } finally {
       setPrecioBusy(false);
     }
-  }, [aplicarCotizacionServidor, repuestoSheet]);
+  }, [aplicarCotizacionServidor]);
 
   const asumirPrecios = useCallback(async (ids: string[]) => {
     const current = cotizacionRef.current;
@@ -715,7 +736,11 @@ export function CotizacionIaEditor({
     try {
       const res = await cotizacionCanalService.asumirPrecioRepuesto(current.id, ids);
       aplicarCotizacionServidor(res.cotizacion);
-      setRepuestoSheet(null);
+      const asumidos = new Set(ids.map(String));
+      const siguiente = (res.cotizacion.repuestos ?? []).find(
+        (r) => !asumidos.has(String(r.id || '')) && lineaPendientePrecio(r),
+      );
+      setRepuestoSheet(siguiente || null);
       setConfirmarPreciosVisible(false);
     } catch {
       showAlert('No se pudo asumir', 'Intenta de nuevo.');
@@ -1574,6 +1599,7 @@ export function CotizacionIaEditor({
       ) : null}
 
       <RepuestoPrecioSheet
+        key={repuestoSheet?.id ?? 'repuesto-sheet'}
         visible={Boolean(repuestoSheet)}
         onClose={() => setRepuestoSheet(null)}
         cotizacion={cotizacion}
@@ -1581,13 +1607,16 @@ export function CotizacionIaEditor({
         proveedores={proveedores}
         onConfirmar={(payload) => void confirmarPrecioLinea(payload)}
         onAsumir={() => {
-          if (repuestoSheet?.id) void asumirPrecios([String(repuestoSheet.id)]);
+          const rid = repuestoSheetRef.current?.id;
+          if (rid) void asumirPrecios([String(rid)]);
         }}
         onEspecificacion={(spec) => {
-          if (repuestoSheet) void definirEspecificacionLinea(repuestoSheet, spec);
+          const actual = repuestoSheetRef.current;
+          if (actual) void definirEspecificacionLinea(actual, spec);
         }}
         onUsarOpcion={(op) => {
-          if (repuestoSheet) void usarOpcionLinea(repuestoSheet, op.id);
+          const actual = repuestoSheetRef.current;
+          if (actual) void usarOpcionLinea(actual, op.id);
         }}
         loading={precioBusy}
       />
@@ -1604,13 +1633,16 @@ export function CotizacionIaEditor({
         }}
         onAbrirDetalle={(rep) => {
           setConfirmarPreciosVisible(false);
-          setRepuestoSheet(rep);
+          const actual = (cotizacionRef.current.repuestos ?? []).find(
+            (r) => String(r.id || '') === String(rep.id || ''),
+          );
+          setRepuestoSheet(actual || rep);
         }}
         loading={precioBusy}
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   root: {

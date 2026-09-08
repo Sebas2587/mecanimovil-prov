@@ -11,11 +11,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link2, MessageCircle, Trash2 } from 'lucide-react-native';
 import Header from '@/components/Header';
-import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
-import { ConfirmarPreciosSheet } from '@/components/cotizacion/ConfirmarPreciosSheet';
+import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
 import { RegistrarCompraCard } from '@/components/cotizacion/RegistrarCompraCard';
 import { lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
-import { useProveedoresRepuestosQuery } from '@/hooks/useProveedoresRepuestosQuery';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
@@ -96,11 +94,9 @@ export default function CotizacionCanalDetalleScreen() {
   const [eliminando, setEliminando] = useState(false);
   const [accionLead, setAccionLead] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
-  const [confirmarPreciosVisible, setConfirmarPreciosVisible] = useState(false);
-  const [precioBusy, setPrecioBusy] = useState(false);
+  const editorRef = useRef<CotizacionIaEditorHandle>(null);
   const tipoEnvioRef = useRef<'estimacion' | 'cotizacion'>('cotizacion');
   const [holdExpired, setHoldExpired] = useState(false);
-  const { data: proveedores = [] } = useProveedoresRepuestosQuery(Boolean(draft?.id));
 
   useEffect(() => {
     if (!data) return;
@@ -339,7 +335,7 @@ export default function CotizacionCanalDetalleScreen() {
             },
             {
               text: 'Confirmar precios',
-              onPress: () => setConfirmarPreciosVisible(true),
+              onPress: () => editorRef.current?.abrirConfirmarPrecios(),
             },
           ],
         );
@@ -485,6 +481,7 @@ export default function CotizacionCanalDetalleScreen() {
         showsVerticalScrollIndicator={false}
       >
         <CotizacionIaEditor
+          ref={editorRef}
           cotizacion={draft}
           onChange={setDraft}
           readonly={!editable}
@@ -601,7 +598,7 @@ export default function CotizacionCanalDetalleScreen() {
                   style={styles.footerPrimary}
                   loading={enviando || guardando}
                   disabled={enviando || guardando}
-                  onPress={() => setConfirmarPreciosVisible(true)}
+                  onPress={() => editorRef.current?.abrirConfirmarPrecios()}
                 />
               )}
             </View>
@@ -713,44 +710,6 @@ export default function CotizacionCanalDetalleScreen() {
         onEnviar={() => void enviar(tipoEnvioRef.current)}
       />
 
-      <ConfirmarPreciosSheet
-        visible={confirmarPreciosVisible}
-        onClose={() => setConfirmarPreciosVisible(false)}
-        cotizacion={draft}
-        proveedores={proveedores}
-        loading={precioBusy}
-        onAsumir={async (ids) => {
-          if (!draft.id) return;
-          setPrecioBusy(true);
-          try {
-            const res = await cotizacionCanalService.asumirPrecioRepuesto(draft.id, ids);
-            setDraft({ ...res.cotizacion });
-            await invalidateAll();
-            setConfirmarPreciosVisible(false);
-          } catch {
-            showAlert('No se pudo asumir', 'Intenta de nuevo.');
-          } finally {
-            setPrecioBusy(false);
-          }
-        }}
-        onEspecificacion={async (repuestoId, spec) => {
-          if (!draft.id) return;
-          setPrecioBusy(true);
-          try {
-            const res = await cotizacionCanalService.definirEspecificacion(draft.id, {
-              repuesto_id: String(repuestoId),
-              especificacion: spec,
-            });
-            setDraft({ ...res.cotizacion });
-            await invalidateAll();
-          } catch {
-            showAlert('No se pudo guardar', 'Intenta de nuevo la especificación.');
-          } finally {
-            setPrecioBusy(false);
-          }
-        }}
-        onAbrirDetalle={() => setConfirmarPreciosVisible(false)}
-      />
     </View>
   );
 }

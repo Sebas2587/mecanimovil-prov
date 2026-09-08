@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
@@ -33,6 +33,7 @@ type Props = {
   repuesto: RepuestoCotizacion | null;
   proveedores: ProveedorRepuestos[];
   onConfirmar: (payload: {
+    repuesto_id: string;
     precio_clp: number;
     proveedor_id?: number | null;
     proveedor_nombre?: string;
@@ -61,6 +62,13 @@ export function RepuestoPrecioSheet({
   const [proveedorId, setProveedorId] = useState<number | null>(null);
   const [proveedorNombre, setProveedorNombre] = useState('');
 
+  useEffect(() => {
+    setMostrarForm(false);
+    setMonto(0);
+    setProveedorId(null);
+    setProveedorNombre('');
+  }, [repuesto?.id, visible]);
+
   const opciones = useMemo(() => (repuesto ? opcionesFamilia(repuesto) : []), [repuesto]);
   const { data: opcionesRemote } = useOpcionesRepuestoQuery(
     cotizacion.id,
@@ -88,13 +96,16 @@ export function RepuestoPrecioSheet({
   const handleConfirmar = useCallback(() => {
     if (monto <= 0) return;
     const elegido = proveedores.find((p) => p.id === proveedorId);
+    const rid = String(repuesto?.id || '');
+    if (!rid) return;
     onConfirmar({
+      repuesto_id: rid,
       precio_clp: monto,
       proveedor_id: proveedorId,
       proveedor_nombre: elegido?.nombre || proveedorNombre,
       especificacion: repuesto?.especificacion,
     });
-  }, [monto, onConfirmar, proveedorId, proveedorNombre, proveedores, repuesto?.especificacion]);
+  }, [monto, onConfirmar, proveedorId, proveedorNombre, proveedores, repuesto?.especificacion, repuesto?.id]);
 
   const abrirWhatsapp = useCallback(() => {
     const elegido = proveedores.find((p) => p.id === proveedorId) || proveedores.find((p) => p.es_preferido);

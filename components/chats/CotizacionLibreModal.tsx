@@ -18,10 +18,8 @@ import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { getChilePhoneError } from '@/components/forms/ChilePhoneField';
 import ChileAddressField from '@/components/forms/ChileAddressField';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
-import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
-import { ConfirmarPreciosSheet } from '@/components/cotizacion/ConfirmarPreciosSheet';
+import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
 import { lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
-import { useProveedoresRepuestosQuery } from '@/hooks/useProveedoresRepuestosQuery';
 import { VistaPreviaCotizacionClienteModal } from '@/components/chats/VistaPreviaCotizacionClienteModal';
 import {
   ClienteCanalPickerSection,
@@ -155,8 +153,7 @@ export function CotizacionLibreModal({
   const [cotizacion, setCotizacion] = useState<CotizacionCanal | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
-  const [confirmarPreciosVisible, setConfirmarPreciosVisible] = useState(false);
-  const [precioBusy, setPrecioBusy] = useState(false);
+  const editorRef = useRef<CotizacionIaEditorHandle>(null);
   const tipoEnvioRef = useRef<'estimacion' | 'cotizacion'>('cotizacion');
   const persistSeqRef = useRef(0);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -597,8 +594,6 @@ export function CotizacionLibreModal({
     }
   }, [cotizacion]);
 
-  const { data: proveedores = [] } = useProveedoresRepuestosQuery(Boolean(cotizacion?.id));
-
   const abrirVistaPrevia = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     const fuente = draftRef.current || cotizacion;
     if (!fuente?.id || !cotizacionPermiteEnviar(fuente)) return;
@@ -713,7 +708,7 @@ export function CotizacionLibreModal({
             },
             {
               text: 'Confirmar precios',
-              onPress: () => setConfirmarPreciosVisible(true),
+              onPress: () => editorRef.current?.abrirConfirmarPrecios(),
             },
           ],
         );
@@ -753,7 +748,7 @@ export function CotizacionLibreModal({
   const footerPrimaryAction = puedeEnviar
     ? (puedeEnviarFirme
       ? () => void abrirVistaPrevia('cotizacion')
-      : () => setConfirmarPreciosVisible(true))
+      : () => editorRef.current?.abrirConfirmarPrecios())
     : handleClose;
 
   return (
@@ -914,6 +909,7 @@ export function CotizacionLibreModal({
             ) : (
               <>
                 <CotizacionIaEditor
+                  ref={editorRef}
                   cotizacion={cotizacion}
                   onChange={(next) => void persistirCotizacion(next)}
                   hideSendActions
@@ -1041,42 +1037,6 @@ export function CotizacionLibreModal({
         enviando={enviando}
         onClose={() => setPreviewVisible(false)}
         onEnviar={() => void handleEnviar(tipoEnvioRef.current)}
-      />
-      <ConfirmarPreciosSheet
-        visible={confirmarPreciosVisible}
-        onClose={() => setConfirmarPreciosVisible(false)}
-        cotizacion={cotizacion || { id: 0, repuestos: [], estado: 'borrador' } as CotizacionCanal}
-        proveedores={proveedores}
-        loading={precioBusy}
-        onAsumir={async (ids) => {
-          if (!cotizacion?.id) return;
-          setPrecioBusy(true);
-          try {
-            const res = await cotizacionCanalService.asumirPrecioRepuesto(cotizacion.id, ids);
-            setCotizacion(res.cotizacion);
-            setConfirmarPreciosVisible(false);
-          } catch (err) {
-            setErrorIa(extractApiError(err, 'No se pudo asumir el techo.'));
-          } finally {
-            setPrecioBusy(false);
-          }
-        }}
-        onEspecificacion={async (repuestoId, spec) => {
-          if (!cotizacion?.id) return;
-          setPrecioBusy(true);
-          try {
-            const res = await cotizacionCanalService.definirEspecificacion(cotizacion.id, {
-              repuesto_id: String(repuestoId),
-              especificacion: spec,
-            });
-            setCotizacion(res.cotizacion);
-          } catch (err) {
-            setErrorIa(extractApiError(err, 'No se pudo guardar la especificación.'));
-          } finally {
-            setPrecioBusy(false);
-          }
-        }}
-        onAbrirDetalle={() => setConfirmarPreciosVisible(false)}
       />
       <UpsellCuotaModal
         visible={upsellCuota.visible}
