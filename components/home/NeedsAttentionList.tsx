@@ -2,7 +2,6 @@ import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { CalendarClock, ChevronRight, MessageCircle } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
 import {
   HostPaperSection,
@@ -13,8 +12,7 @@ import {
 } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { PipelineComercialItem } from '@/services/pipelineComercialService';
-import { openCitaPersonalDetalle } from '@/utils/navigateProveedorDetalle';
-import { omnichannelChatHref } from '@/utils/chatRoutes';
+import { navegarAtencionHoy } from '@/utils/navegarCasoPipeline';
 import { leadCategoriaOf, leadOperativoTag } from '@/utils/leadBandejaPresentation';
 
 const I = COLORS.institutional;
@@ -82,8 +80,6 @@ const AttentionRow = React.memo(function AttentionRow({
 });
 
 export function NeedsAttentionList({ pipelineItems = [] }: NeedsAttentionListProps) {
-  const queryClient = useQueryClient();
-
   const items = useMemo(() => {
     const horario = pipelineItems.filter((row) => row.horario_por_confirmar);
     const sinRespuesta = pipelineItems.filter(
@@ -94,24 +90,9 @@ export function NeedsAttentionList({ pipelineItems = [] }: NeedsAttentionListPro
     return [...horario, ...sinRespuesta].slice(0, MAX_ITEMS);
   }, [pipelineItems]);
 
-  const handlePress = useCallback(
-    (row: PipelineComercialItem) => {
-      if (row.horario_por_confirmar && row.cita_id) {
-        openCitaPersonalDetalle(router, queryClient, row.cita_id);
-        return;
-      }
-      if (row.conversation_id) {
-        router.push(omnichannelChatHref(row.conversation_id));
-        return;
-      }
-      if (row.cotizacion_id) {
-        router.push(`/cotizacion-canal/${row.cotizacion_id}`);
-        return;
-      }
-      router.push('/(tabs)/bandeja?filtro=esperando_24h');
-    },
-    [queryClient],
-  );
+  const handlePress = useCallback((row: PipelineComercialItem) => {
+    navegarAtencionHoy(row);
+  }, []);
 
   const goVerTodas = useCallback(() => {
     const hayHorario = items.some((row) => row.horario_por_confirmar);

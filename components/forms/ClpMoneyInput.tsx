@@ -32,7 +32,7 @@ export function ClpMoneyInput({
   );
 
   useEffect(() => {
-    if (focused) return;
+    if (focused && value <= 0) return;
     setDraft(value > 0 ? formatMontoInputLocalized(value) : '');
   }, [value, focused]);
 

@@ -17,13 +17,22 @@ export const FAMILIAS_SENSIBLES_UI: Record<string, { label: string; opciones: st
 
 export function certezaDe(rep: RepuestoCotizacion): CertezaPrecio {
   const raw = String(rep.certeza || '').trim();
+  const tienePrecio = (rep.precio_unitario_clp || 0) > 0;
+  // El backend deja certeza=sin_precio al crear; la búsqueda web llena el
+  // monto después y a veces no reescribe el stamp. No honrar el stamp viejo.
+  if (raw === 'sin_precio' && tienePrecio) {
+    const fuente = (rep.fuente_marketplace || '').trim().toLowerCase();
+    if (fuente === 'catalogo' || fuente === 'catálogo' || fuente === 'proveedor') return 'confirmado';
+    if (fuente === 'historial' || fuente === 'web' || fuente === 'mercadolibre') return 'referencial';
+    return 'referencial';
+  }
   if (raw === 'confirmado' || raw === 'asumido' || raw === 'referencial' || raw === 'sin_precio') {
     return raw;
   }
   const fuente = (rep.fuente_marketplace || '').trim().toLowerCase();
   if (fuente === 'catalogo' || fuente === 'catálogo' || fuente === 'proveedor') return 'confirmado';
   if (fuente === 'historial' || fuente === 'web' || fuente === 'mercadolibre') return 'referencial';
-  if ((rep.precio_unitario_clp || 0) > 0) return 'referencial';
+  if (tienePrecio) return 'referencial';
   return 'sin_precio';
 }
 

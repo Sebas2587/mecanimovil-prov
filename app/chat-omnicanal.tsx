@@ -42,6 +42,7 @@ import { getChannelDisconnectedReason } from '@/utils/omnichannelConnection';
 import { getMetaReplyBlockReason } from '@/utils/whatsappMessagingWindow';
 import { OmnichannelChatRestrictionBanner } from '@/components/chats/OmnichannelChatRestrictionBanner';
 import { AgenteIaChatBanner } from '@/components/chats/AgenteIaChatBanner';
+import { CasoCotizacionChatBar } from '@/components/chats/CasoCotizacionChatBar';
 import { AgenteIaChatToggleModal } from '@/components/chats/AgenteIaChatToggleModal';
 import {
   ChatMessageComposer,
@@ -170,6 +171,7 @@ export default function ChatOmnicanalScreen() {
   const { upsertRow, replaceMensajes, refetchSilent } = useChatThreadCache(convId);
   const mensajes = threadQuery.data?.mensajes ?? [];
   const cotizacionAceptadaId = threadQuery.data?.cotizacionAceptadaId;
+  const cotizacionEnviadaId = threadQuery.data?.cotizacionEnviadaId;
   const loading = threadQuery.isPending && mensajes.length === 0;
 
   const channelWindowBlockReason = useMemo(() => {
@@ -553,6 +555,13 @@ export default function ChatOmnicanalScreen() {
                   : undefined
               }
               variant="strip"
+            />
+          ) : null}
+
+          {!cotizacionAceptadaId && cotizacionEnviadaId ? (
+            <CasoCotizacionChatBar
+              cotizacionId={cotizacionEnviadaId}
+              onCerrado={() => void refetchSilent()}
             />
           ) : null}
 

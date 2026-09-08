@@ -34,9 +34,11 @@ import cotizacionCanalService, {
   cotizacionPermiteEdicionCompleta,
   cotizacionPermiteEnviar,
   errorEnvioFirme,
+  mergeRepuestosPreservandoEdicion,
   payloadEdicionCotizacion,
   type CotizacionCanal,
 } from '@/services/cotizacionCanalService';
+import { shouldHoldRevealForPrecios } from '@/utils/cotizacionPreciosWeb';
 import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
 import {
@@ -97,6 +99,7 @@ export default function CotizacionCanalDetalleScreen() {
   const [confirmarPreciosVisible, setConfirmarPreciosVisible] = useState(false);
   const [precioBusy, setPrecioBusy] = useState(false);
   const tipoEnvioRef = useRef<'estimacion' | 'cotizacion'>('cotizacion');
+  const [holdExpired, setHoldExpired] = useState(false);
   const { data: proveedores = [] } = useProveedoresRepuestosQuery(Boolean(draft?.id));
 
   useEffect(() => {
@@ -104,8 +107,26 @@ export default function CotizacionCanalDetalleScreen() {
     setDraft((prev) => {
       if (!prev || prev.id !== data.id) return { ...data };
       if (prev.estado !== data.estado) return { ...data };
+      const prevWeb = prev.metadata?.busqueda_web_estado;
+      const nextWeb = data.metadata?.busqueda_web_estado;
+      if (prevWeb === 'pendiente' && nextWeb && nextWeb !== 'pendiente') {
+        return {
+          ...data,
+          repuestos: mergeRepuestosPreservandoEdicion(prev.repuestos ?? [], data.repuestos ?? []),
+        };
+      }
       return prev;
     });
+  }, [data]);
+
+  const holdPrecios = shouldHoldRevealForPrecios(data) && !holdExpired;
+  useEffect(() => {
+    if (!shouldHoldRevealForPrecios(data)) {
+      setHoldExpired(false);
+      return;
+    }
+    const timer = setTimeout(() => setHoldExpired(true), 45_000);
+    return () => clearTimeout(timer);
   }, [data]);
 
   const editable = Boolean(draft && cotizacionPermiteEdicionCompleta(draft));
@@ -126,11 +147,18 @@ export default function CotizacionCanalDetalleScreen() {
     if (!draft?.id) return;
     setGuardando(true);
     try {
-      const actualizada = await cotizacionCanalService.actualizar(
-        draft.id,
-        payloadEdicionCotizacion(draft),
-      );
-      setDraft({ ...actualizada });
+      const patch = payloadEdicionCotizacion(draft);
+      if (draft.metadata?.busqueda_web_estado === 'pendiente') {
+        delete patch.repuestos;
+      }
+      const actualizada = await cotizacionCanalService.actualizar(draft.id, patch);
+      setDraft({
+        ...actualizada,
+        repuestos: mergeRepuestosPreservandoEdicion(
+          draft.repuestos ?? [],
+          actualizada.repuestos ?? [],
+        ),
+      });
       await invalidateAll();
       if (actualizada.numero_publico) {
         setPreviewVisible(true);
@@ -205,11 +233,18 @@ export default function CotizacionCanalDetalleScreen() {
   const persistirSiHayCambios = useCallback(async () => {
     if (!draft?.id) return draft;
     if (!hayCambios) return draft;
-    const actualizada = await cotizacionCanalService.actualizar(
-      draft.id,
-      payloadEdicionCotizacion(draft),
-    );
-    setDraft({ ...actualizada });
+    const patch = payloadEdicionCotizacion(draft);
+    if (draft.metadata?.busqueda_web_estado === 'pendiente') {
+      delete patch.repuestos;
+    }
+    const actualizada = await cotizacionCanalService.actualizar(draft.id, patch);
+    setDraft({
+      ...actualizada,
+      repuestos: mergeRepuestosPreservandoEdicion(
+        draft.repuestos ?? [],
+        actualizada.repuestos ?? [],
+      ),
+    });
     await invalidateAll();
     return actualizada;
   }, [draft, hayCambios, invalidateAll]);
@@ -380,13 +415,18 @@ export default function CotizacionCanalDetalleScreen() {
     });
   }, [draft?.id, invalidateAll]);
 
-  if (!Number.isFinite(parsedId) || isPending) {
+  if (!Number.isFinite(parsedId) || isPending || holdPrecios) {
     return (
       <View style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
         <Header title="Cotización" showBack onBackPress={() => router.back()} />
         <View style={styles.center}>
           <ActivityIndicator color={I.primary} />
+          {holdPrecios ? (
+            <InstitutionalText role="body" color="muted" style={styles.holdHint}>
+              Buscando precios en casas de repuestos…
+            </InstitutionalText>
+          ) : null}
         </View>
       </View>
     );
@@ -414,14 +454,32 @@ export default function CotizacionCanalDetalleScreen() {
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <Header title={titulo} showBack onBackPress={() => router.back()} />
+      <Header
+        title={titulo}
+        titleRole="h4"
+        showBack
+        onBackPress={() => router.back()}
+        rightComponent={
+          editable && draft.estado === 'borrador' ? (
+            <TouchableOpacity
+              onPress={eliminar}
+              disabled={eliminando}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Eliminar cotización"
+            >
+              <Trash2 size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+            </TouchableOpacity>
+          ) : null
+        }
+      />
 
       <ScrollView
         style={hostScreenStyles.scroll}
         contentContainerStyle={[
           hostScreenStyles.scrollInner,
           styles.scrollInner,
-          { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) + 96 },
+          { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) + 72 },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -507,61 +565,56 @@ export default function CotizacionCanalDetalleScreen() {
               <InstitutionalText role="caption" color="muted">
                 El cliente abrió el enlace.
               </InstitutionalText>
-            ) : null}
-            {pendientesPrecio > 0 ? (
+            ) : pendientesPrecio > 0 ? (
               <InstitutionalText role="caption" color="muted">
                 {pendientesPrecio === 1
                   ? 'Falta 1 precio por confirmar'
                   : `Faltan ${pendientesPrecio} precios por confirmar`}
               </InstitutionalText>
             ) : null}
-            {puedeEnviarFirme ? (
-              <InstitutionalButton
-                label="Enviar cotización firme"
-                variant="primary"
-                loading={enviando || guardando}
-                disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
-                onPress={() => void abrirVistaPrevia('cotizacion')}
-              />
-            ) : (
-              <InstitutionalButton
-                label="Confirmar precios"
-                variant="primary"
-                loading={enviando || guardando}
-                disabled={enviando || guardando}
-                onPress={() => setConfirmarPreciosVisible(true)}
-              />
-            )}
-            {!puedeEnviarFirme ? (
-              <InstitutionalButton
-                label="Enviar como estimación con rangos"
-                variant="tertiary"
-                size="compact"
-                disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
-                onPress={() => void abrirVistaPrevia('estimacion')}
-              />
-            ) : null}
             <View style={styles.footerRow}>
-              {hayCambios ? (
+              {!puedeEnviarFirme ? (
                 <InstitutionalButton
-                  label="Guardar cambios"
+                  label="Enviar como estimación"
                   variant="outline"
                   size="compact"
                   style={styles.footerMid}
-                  loading={guardando}
-                  disabled={guardando}
-                  onPress={() => void guardar()}
+                  disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
+                  onPress={() => void abrirVistaPrevia('estimacion')}
                 />
               ) : null}
-              <TouchableOpacity
-                style={[styles.footerGhost, !hayCambios && styles.footerGhostSolo]}
-                onPress={eliminar}
-                disabled={eliminando}
-                accessibilityLabel="Eliminar"
-              >
-                <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-              </TouchableOpacity>
+              {puedeEnviarFirme ? (
+                <InstitutionalButton
+                  label="Enviar cotización firme"
+                  variant="primary"
+                  size="compact"
+                  style={styles.footerPrimary}
+                  loading={enviando || guardando}
+                  disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
+                  onPress={() => void abrirVistaPrevia('cotizacion')}
+                />
+              ) : (
+                <InstitutionalButton
+                  label="Confirmar precios"
+                  variant="primary"
+                  size="compact"
+                  style={styles.footerPrimary}
+                  loading={enviando || guardando}
+                  disabled={enviando || guardando}
+                  onPress={() => setConfirmarPreciosVisible(true)}
+                />
+              )}
             </View>
+            {hayCambios ? (
+              <InstitutionalButton
+                label="Guardar cambios"
+                variant="outline"
+                size="compact"
+                loading={guardando}
+                disabled={guardando}
+                onPress={() => void guardar()}
+              />
+            ) : null}
           </View>
         ) : null}
 
@@ -712,6 +765,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: SPACING.fixed.lg,
+    gap: SPACING.fixed.md,
+  },
+  holdHint: {
+    textAlign: 'center',
   },
   scrollInner: {
     gap: SPACING.fixed.md,
@@ -722,26 +779,20 @@ const styles = StyleSheet.create({
     borderTopColor: I.hairline,
     backgroundColor: COLORS.background.paper,
     paddingHorizontal: SPACING.fixed.lg,
-    paddingTop: SPACING.fixed.md,
-    gap: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.sm,
+    gap: SPACING.fixed.xs,
   },
   footerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'nowrap',
+    alignItems: 'stretch',
     gap: SPACING.fixed.sm,
   },
   footerBorrador: {
     gap: SPACING.fixed.xs,
   },
-  footerFlex: { flex: 1 },
-  footerFlexGrow: { flex: 1.2 },
-  footerGhost: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  footerGhostSolo: { marginLeft: 'auto' },
-  footerMid: { flex: 1 },
-  footerPrimary: { flex: 1.4 },
+  footerFlex: { flex: 1, minWidth: 0 },
+  footerFlexGrow: { flex: 1.2, minWidth: 0 },
+  footerMid: { flex: 1, minWidth: 0 },
+  footerPrimary: { flex: 1.15, minWidth: 0 },
 });

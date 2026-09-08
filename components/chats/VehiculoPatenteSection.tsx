@@ -4,7 +4,8 @@ import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { Card } from '@/app/design-system/components';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { consultarPatente } from '@/services/vehiculoService';
-import { VerHistorialPatenteLink } from '@/components/vehiculos/VerHistorialPatenteLink';
+import { VehiculoPatenteAcciones } from '@/components/chats/VehiculoPatenteAcciones';
+import type { CotizacionPlantilla } from '@/services/cotizacionCanalService';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
@@ -62,6 +63,9 @@ type Props = {
   /** compact = cotizar; grid = agendar (incluye color). */
   resumenVariant?: 'compact' | 'grid';
   stripNonAlphanumeric?: boolean;
+  plantillasModelo?: CotizacionPlantilla[];
+  onUsarPlantilla?: (plantilla: CotizacionPlantilla) => void;
+  accionesDisabled?: boolean;
 };
 
 export function VehiculoPatenteSection({
@@ -74,6 +78,9 @@ export function VehiculoPatenteSection({
   onCuotaError,
   resumenVariant = 'compact',
   stripNonAlphanumeric = false,
+  plantillasModelo,
+  onUsarPlantilla,
+  accionesDisabled = false,
 }: Props) {
   const handlePatenteChange = useCallback(
     (text: string) => {
@@ -162,7 +169,14 @@ export function VehiculoPatenteSection({
         <Text style={styles.patenteHint}>{patenteHint}</Text>
       ) : null}
 
-      <VerHistorialPatenteLink patente={value.patente} />
+      <VehiculoPatenteAcciones
+        patente={value.patente}
+        marca={value.marca}
+        modelo={value.modelo}
+        plantillas={plantillasModelo}
+        onUsarPlantilla={onUsarPlantilla}
+        disabled={accionesDisabled || buscandoPatente}
+      />
 
       {value.desdePatente ? (
         resumenVariant === 'grid' ? (

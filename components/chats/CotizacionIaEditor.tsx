@@ -46,6 +46,7 @@ import cotizacionCanalService, {
   calcularDescuentoCotizacion,
   clampDiasValidez,
   cotizacionPermiteEdicionCompleta,
+  mergeRepuestosPreservandoEdicion,
   resolverManoObraLineas,
   sumaManoObraLineas,
 } from '@/services/cotizacionCanalService';
@@ -78,18 +79,6 @@ function desgloseIvaDesdeTotal(totalIvaIncl: number): { neto: number; iva: numbe
   return { neto, iva, total };
 }
 
-/** Fuentes verificables (catálogo/historial/web/ML); 'estimado' es solo una inferencia por nombre. */
-function fuenteEsVerificada(rep: RepuestoCotizacion): boolean {
-  const key = (rep.fuente_marketplace || rep.fuente_repuesto || '').trim().toLowerCase();
-  return (
-    key === 'mercadolibre'
-    || key === 'catalogo'
-    || key === 'catálogo'
-    || key === 'historial'
-    || key === 'web'
-  );
-}
-
 function proveedorLabel(rep: RepuestoCotizacion): string | null {
   const nombre = (rep.proveedor_nombre || '').trim();
   if (nombre) return nombre;
@@ -118,39 +107,6 @@ function lineaSinPrecioParaIa(rep: RepuestoCotizacion): boolean {
   return !rep.precio_unitario_clp || rep.precio_unitario_clp <= 0;
 }
 
-/** Fusiona repuestos enriquecidos por web sin pisar nombres editados localmente. */
-function mergeRepuestosPreservandoEdicion(
-  local: RepuestoCotizacion[],
-  remoto: RepuestoCotizacion[],
-): RepuestoCotizacion[] {
-  if (!remoto.length) return local;
-  const remoteIds = new Set(remoto.map((r) => r.id).filter(Boolean));
-  const merged = remoto.map((rRem, idx) => {
-    const rLoc = rRem.id
-      ? local.find((l) => l.id === rRem.id)
-      : local[idx];
-    if (!rLoc) return rRem;
-    const nombreLocal = (rLoc.nombre || '').trim();
-    const localCero = !rLoc.precio_unitario_clp;
-    const remoteMejor = fuenteEsVerificada(rRem)
-      || ((rRem.precio_unitario_clp || 0) > 0 && localCero);
-    return {
-      ...rRem,
-      nombre: nombreLocal || rRem.nombre,
-      cantidad: rLoc.cantidad ?? rRem.cantidad,
-      precio_unitario_clp: remoteMejor
-        ? rRem.precio_unitario_clp
-        : (rLoc.precio_unitario_clp ?? rRem.precio_unitario_clp),
-    };
-  });
-  const extras = local.filter((l) => {
-    const nombre = (l.nombre || '').trim();
-    if (!nombre || nombre.toLowerCase() === 'repuesto') return false;
-    return Boolean(l.id && !remoteIds.has(l.id));
-  });
-  return extras.length ? [...merged, ...extras] : merged;
-}
-
 const ESTADO_VARIANT: Record<
   CotizacionCanal['estado'],
   'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
@@ -167,6 +123,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
   rep,
   index,
   editable,
+  buscandoPrecio = false,
   onUpdate,
   onDelete,
   onConfirmar,
@@ -175,12 +132,15 @@ const RepuestoRow = React.memo(function RepuestoRow({
   rep: RepuestoCotizacion;
   index: number;
   editable: boolean;
+  buscandoPrecio?: boolean;
   onUpdate: (index: number, patch: Partial<RepuestoCotizacion>) => void;
   onDelete: (index: number) => void;
   onConfirmar: (rep: RepuestoCotizacion) => void;
   onEspecificacion: (rep: RepuestoCotizacion, spec: string) => void;
 }) {
+  const precioUnit = redondearCLP(rep.precio_unitario_clp);
   const subtotal = subtotalRepuesto(rep);
+  const precioPendiente = buscandoPrecio && precioUnit <= 0;
   const origenLabel = origenTagLabel(rep);
   const urlProducto = (rep.url_producto || '').trim();
   const certeza = certezaDe(rep);
@@ -306,10 +266,11 @@ const RepuestoRow = React.memo(function RepuestoRow({
             Precio unit.
           </InstitutionalText>
           <ClpMoneyInput
+            key={`precio-${rep.id ?? index}-${precioUnit}`}
             compact
-            value={redondearCLP(rep.precio_unitario_clp)}
-            editable={editable}
-            placeholder={certeza === 'sin_precio' ? 'Falta' : '0'}
+            value={precioUnit}
+            editable={editable && !precioPendiente}
+            placeholder={precioPendiente ? 'Buscando' : (certeza === 'sin_precio' ? 'Falta' : '0')}
             onChangeValue={(next) =>
               onUpdate(index, { precio_unitario_clp: next, certeza: next > 0 ? 'asumido' : 'sin_precio' })
             }
@@ -320,9 +281,18 @@ const RepuestoRow = React.memo(function RepuestoRow({
           <InstitutionalText role="label" color="muted" style={[styles.colLabel, styles.colLabelRight]}>
             Subtotal
           </InstitutionalText>
-          <InstitutionalText role="numberDisplay" color="ink" style={styles.subtotalValue} numberOfLines={1}>
-            {certeza === 'sin_precio' ? '—' : formatearMontoCLP(subtotal)}
-          </InstitutionalText>
+          <View
+            key={`sub-${rep.id ?? index}-${subtotal}`}
+            style={styles.subtotalBox}
+          >
+            {precioPendiente ? (
+              <ActivityIndicator size="small" color={I.muted} />
+            ) : (
+              <InstitutionalText role="numberDisplay" color="ink" style={styles.subtotalValue}>
+                {subtotal > 0 ? formatearMontoCLP(subtotal) : '—'}
+              </InstitutionalText>
+            )}
+          </View>
         </View>
       </View>
       {rango || (editable && certeza !== 'confirmado') ? (
@@ -532,7 +502,9 @@ export function CotizacionIaEditor({
     const remotoEn = detalleRefrescado.actualizado_en || '';
     const localEn = cotizacion.actualizado_en || '';
     if (remoteCount < localCount) return;
-    if (remotoEn && localEn && remotoEn < localEn) return;
+    const localSinPrecio = (cotizacion.repuestos ?? []).some((r) => !redondearCLP(r.precio_unitario_clp));
+    const remotoConPrecio = (detalleRefrescado.repuestos ?? []).some((r) => redondearCLP(r.precio_unitario_clp) > 0);
+    if (remotoEn && localEn && remotoEn < localEn && !(localSinPrecio && remotoConPrecio)) return;
     const stamp = `${detalleRefrescado.id}:${detalleRefrescado.actualizado_en || estado}`;
     if (appliedWebRef.current === stamp) return;
     appliedWebRef.current = stamp;
@@ -1051,7 +1023,9 @@ export function CotizacionIaEditor({
                   ))}
                 </View>
               ) : null}
-              <VerHistorialPatenteLink patente={cotizacion.vehiculo_patente || ''} />
+              <View style={styles.factsCardAction}>
+                <VerHistorialPatenteLink patente={cotizacion.vehiculo_patente || ''} />
+              </View>
             </Card>
           ) : null}
 
@@ -1290,6 +1264,7 @@ export function CotizacionIaEditor({
                 rep={rep}
                 index={idx}
                 editable={editable}
+                buscandoPrecio={busquedaPendiente}
                 onUpdate={actualizarRepuesto}
                 onDelete={eliminarRepuesto}
                 onConfirmar={abrirConfirmarRepuesto}
@@ -1762,11 +1737,14 @@ const styles = StyleSheet.create({
   cantidadAlign: {
     textAlign: 'center',
   },
-  subtotalValue: {
+  subtotalBox: {
     minHeight: 44,
+    width: '100%',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  subtotalValue: {
     textAlign: 'right',
-    textAlignVertical: 'center',
-    lineHeight: 44,
   },
   deleteBtn: {
     padding: SPACING.fixed.xs,
@@ -1800,7 +1778,7 @@ const styles = StyleSheet.create({
   readinessCard: { gap: SPACING.fixed.xs },
   factsColumns: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    alignItems: 'flex-start',
     gap: SPACING.fixed.sm,
   },
   factsColumnsStacked: {
@@ -1809,9 +1787,15 @@ const styles = StyleSheet.create({
   factsColCard: {
     gap: SPACING.fixed.sm,
   },
+  factsCardAction: {
+    paddingTop: SPACING.fixed.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+  },
   factsColHalf: {
     flex: 1,
     minWidth: 0,
+    alignSelf: 'flex-start',
   },
   factsHeader: {
     flexDirection: 'row',

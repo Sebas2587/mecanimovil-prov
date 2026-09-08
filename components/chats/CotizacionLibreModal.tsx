@@ -8,8 +8,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  FlatList,
-  useWindowDimensions,
 } from 'react-native';
 import { Link2, Sparkles, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,7 +70,8 @@ import {
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
 import { useCotizacionPlantillasQuery } from '@/hooks/useCotizacionPlantillasQuery';
-import { PlantillaCotizacionCard } from '@/components/chats/PlantillaCotizacionCard';
+import { CotizacionIaProgreso } from '@/components/chats/CotizacionIaProgreso';
+import { busquedaWebPendiente } from '@/utils/cotizacionPreciosWeb';
 
 function suggestTelefono(channel: ChannelSlug | undefined, phone: string | null | undefined): string {
   if (!phone?.trim()) return '';
@@ -130,7 +129,6 @@ export function CotizacionLibreModal({
   channelWindowClosedReason = null,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
 
   const [clienteModo, setClienteModo] = useState<ClienteModo>('mensajes');
   const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoCanal | null>(null);
@@ -163,6 +161,7 @@ export function CotizacionLibreModal({
   const persistSeqRef = useRef(0);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef<CotizacionCanal | null>(null);
+  const [faseIa, setFaseIa] = useState<'idle' | 'generando' | 'precios'>('idle');
 
   const conversationId = contactoSeleccionado?.conversationId ?? (
     conversationIdProp ? parseInt(conversationIdProp, 10) : null
@@ -223,19 +222,8 @@ export function CotizacionLibreModal({
       return { p, score };
     });
     scored.sort((a, b) => b.score - a.score || b.p.uso_count - a.p.uso_count);
-    // Si hay servicio escrito, prioriza matches; si no, muestra las del auto.
-    const filtradas = servTokens.size
-      ? scored.filter((s) => s.score >= 1).map((s) => s.p)
-      : scored.map((s) => s.p);
-    return (filtradas.length ? filtradas : scored.map((s) => s.p)).slice(0, 6);
+    return scored.map((s) => s.p);
   }, [plantillasVehiculo, servicioNombre]);
-
-  const plantillasCarrusel = useMemo(() => {
-    const usable = Math.max(280, windowWidth - SPACING.container.horizontal * 2);
-    const itemGap = SPACING.fixed.sm;
-    const itemWidth = Math.round((usable - itemGap) / 2);
-    return { itemGap, itemWidth, snapInterval: itemWidth + itemGap };
-  }, [windowWidth]);
 
   const resetForm = useCallback(() => {
     setClienteModo(conversationIdProp ? 'mensajes' : 'manual');
@@ -251,6 +239,7 @@ export function CotizacionLibreModal({
     setPatenteHint(null);
     setErrorIa(null);
     setGenerandoIa(false);
+    setFaseIa('idle');
     setCreandoManual(false);
     setCotizacion(null);
     setShareUrl(null);
@@ -306,28 +295,36 @@ export function CotizacionLibreModal({
   }, [onEnviada]);
 
   const handleClose = useCallback(() => {
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
     const actual = draftRef.current || cotizacion;
-    if (actual?.id && actual.estado === 'borrador') {
-      showConfirm(
-        '¿Descartar este borrador?',
-        'Todavía no se envió al cliente. Si lo descartas, sale de Por revisar. Si lo dejas, puedes terminarlo después.',
-        {
-          confirmText: 'Descartar',
-          cancelText: 'Dejar para revisar',
-          onConfirm: async () => {
-            await descartarBorrador(actual.id);
-            cerrarModal();
-          },
-          onCancel: () => {
-            onEnviada?.();
-            cerrarModal();
-          },
-        },
-      );
-      return;
+    if (actual?.id) {
+      onEnviada?.();
     }
     cerrarModal();
-  }, [cerrarModal, cotizacion, descartarBorrador, onEnviada]);
+  }, [cerrarModal, cotizacion, onEnviada]);
+
+  const handleDescartarBorrador = useCallback(() => {
+    const actual = draftRef.current || cotizacion;
+    if (!actual?.id || actual.estado !== 'borrador') {
+      handleClose();
+      return;
+    }
+    showConfirm(
+      '¿Descartar este borrador?',
+      'Se elimina de Por revisar. Esta acción no se puede deshacer.',
+      {
+        confirmText: 'Descartar',
+        cancelText: 'Seguir editando',
+        onConfirm: async () => {
+          await descartarBorrador(actual.id);
+          cerrarModal();
+        },
+      },
+    );
+  }, [cerrarModal, cotizacion, descartarBorrador, handleClose]);
 
   const seleccionarContacto = useCallback((c: ContactoCanal) => {
     setContactoSeleccionado(c);
@@ -449,6 +446,7 @@ export function CotizacionLibreModal({
     }
     setErrorIa(null);
     setGenerandoIa(true);
+    setFaseIa('generando');
     try {
       const res = await cotizacionCanalService.generarIa({
         ...payloadIntake(),
@@ -458,9 +456,24 @@ export function CotizacionLibreModal({
         setErrorIa(res.error || 'No se pudo generar la cotización con IA.');
         return;
       }
-      setCotizacion(res.cotizacion);
-      if (res.desde_plantilla && res.cotizacion.servicio_nombre) {
-        setServicioNombre(res.cotizacion.servicio_nombre);
+      let lista = res.cotizacion;
+      if (lista.id && busquedaWebPendiente(lista)) {
+        setFaseIa('precios');
+        lista = await cotizacionCanalService.esperarPreciosWeb(lista.id);
+      }
+      if (busquedaWebPendiente(lista)) {
+        lista = {
+          ...lista,
+          metadata: {
+            ...(lista.metadata || {}),
+            busqueda_web_estado: 'sin_resultados',
+          },
+        };
+      }
+      setCotizacion(lista);
+      draftRef.current = lista;
+      if (res.desde_plantilla && lista.servicio_nombre) {
+        setServicioNombre(lista.servicio_nombre);
       }
     } catch (err) {
       if (esErrorCuota(err)) {
@@ -487,8 +500,13 @@ export function CotizacionLibreModal({
       );
     } finally {
       setGenerandoIa(false);
+      setFaseIa('idle');
     }
   }, [validarAntesGenerar, payloadIntake]);
+
+  useEffect(() => {
+    draftRef.current = cotizacion;
+  }, [cotizacion]);
 
   const handleUsarPlantilla = useCallback(
     (plantilla: CotizacionPlantilla) => {
@@ -604,6 +622,7 @@ export function CotizacionLibreModal({
       const res = await cotizacionCanalService.enviar(saved.id, tipoDoc);
       const url = res.share_url || res.cotizacion.share_url || res.cotizacion.url_publica || null;
       setCotizacion(res.cotizacion);
+      draftRef.current = res.cotizacion;
       setShareUrl(url);
       setPreviewVisible(false);
       onEnviada?.();
@@ -770,7 +789,11 @@ export function CotizacionLibreModal({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {!cotizacion ? (
+            {!cotizacion && generandoIa ? (
+              <CotizacionIaProgreso
+                fase={faseIa === 'precios' ? 'precios' : 'generando'}
+              />
+            ) : !cotizacion ? (
               <>
                 <InstitutionalSectionHeader title="Cliente" />
                 <View style={styles.section}>
@@ -805,43 +828,11 @@ export function CotizacionLibreModal({
                     onCuotaError={(mensaje) => setUpsellCuota({ visible: true, mensaje })}
                     resumenVariant="compact"
                     stripNonAlphanumeric
+                    plantillasModelo={plantillasSugeridas}
+                    onUsarPlantilla={handleUsarPlantilla}
+                    accionesDisabled={ocupado}
                   />
                 </View>
-
-                {plantillasSugeridas.length > 0 ? (
-                  <>
-                    <InstitutionalSectionHeader
-                      title="Cotizaciones de este modelo"
-                      count={plantillasSugeridas.length}
-                    />
-                    <View style={styles.plantillasBox}>
-                      <InstitutionalText role="caption" color="muted">
-                        Toca una para partir desde ella en vez de generar de cero.
-                      </InstitutionalText>
-                      <FlatList
-                        data={plantillasSugeridas}
-                        keyExtractor={(p) => String(p.id)}
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        snapToInterval={plantillasCarrusel.snapInterval}
-                        snapToAlignment="start"
-                        decelerationRate="fast"
-                        contentContainerStyle={styles.plantillasCarrusel}
-                        ItemSeparatorComponent={() => (
-                          <View style={{ width: plantillasCarrusel.itemGap }} />
-                        )}
-                        renderItem={({ item }) => (
-                          <PlantillaCotizacionCard
-                            plantilla={item}
-                            onPress={handleUsarPlantilla}
-                            width={plantillasCarrusel.itemWidth}
-                            disabled={ocupado}
-                          />
-                        )}
-                      />
-                    </View>
-                  </>
-                ) : null}
 
                 <InstitutionalSectionHeader title="Servicio" />
                 <View style={styles.section}>
@@ -951,25 +942,33 @@ export function CotizacionLibreModal({
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
             {!cotizacion ? (
               <>
+                {generandoIa ? null : (
+                  <InstitutionalButton
+                    label={creandoManual ? 'Creando…' : 'Crear en blanco'}
+                    variant="outline"
+                    size="default"
+                    onPress={() => void handleCrearBorrador()}
+                    disabled={ocupado}
+                    loading={creandoManual}
+                    style={styles.footerBtnPair}
+                  />
+                )}
                 <InstitutionalButton
-                  label={generandoIa ? 'Generando…' : 'Generar con IA'}
-                  variant="outline"
+                  label={
+                    faseIa === 'precios'
+                      ? 'Buscando precios…'
+                      : generandoIa
+                        ? 'Generando…'
+                        : 'Generar con IA'
+                  }
+                  variant="primary"
                   size="default"
                   onPress={() => void handleGenerarIa()}
                   disabled={ocupado}
                   loading={generandoIa}
-                  leading={(
-                    <Sparkles size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                  leading={generandoIa ? undefined : (
+                    <Sparkles size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                   )}
-                  style={styles.footerBtnPair}
-                />
-                <InstitutionalButton
-                  label={creandoManual ? 'Creando…' : 'Crear en blanco'}
-                  variant="primary"
-                  size="default"
-                  onPress={() => void handleCrearBorrador()}
-                  disabled={ocupado}
-                  loading={creandoManual}
                   style={styles.footerBtnPair}
                 />
               </>
@@ -982,23 +981,40 @@ export function CotizacionLibreModal({
                       : `Faltan ${pendientesPrecio} precios por confirmar`}
                   </InstitutionalText>
                 ) : null}
-                <InstitutionalButton
-                  label={footerPrimaryLabel}
-                  variant="primary"
-                  size="default"
-                  onPress={footerPrimaryAction}
-                  disabled={ocupado}
-                  loading={enviando}
-                />
-                {!puedeEnviarFirme ? (
-                  <InstitutionalButton
-                    label="Enviar como estimación con rangos"
-                    variant="tertiary"
-                    size="compact"
-                    onPress={() => void abrirVistaPrevia('estimacion')}
+                {cotizacion?.estado === 'borrador' ? (
+                  <TouchableOpacity
+                    onPress={handleDescartarBorrador}
                     disabled={ocupado}
-                  />
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Descartar borrador"
+                  >
+                    <InstitutionalText role="caption" color="muted">
+                      Descartar borrador
+                    </InstitutionalText>
+                  </TouchableOpacity>
                 ) : null}
+                <View style={styles.footerActions}>
+                  {!puedeEnviarFirme ? (
+                    <InstitutionalButton
+                      label="Enviar como estimación"
+                      variant="outline"
+                      size="compact"
+                      style={styles.footerBtnPair}
+                      onPress={() => void abrirVistaPrevia('estimacion')}
+                      disabled={ocupado}
+                    />
+                  ) : null}
+                  <InstitutionalButton
+                    label={footerPrimaryLabel}
+                    variant="primary"
+                    size="compact"
+                    style={styles.footerBtnGrow}
+                    onPress={footerPrimaryAction}
+                    disabled={ocupado}
+                    loading={enviando}
+                  />
+                </View>
               </View>
             ) : (
               <InstitutionalButton
@@ -1173,12 +1189,6 @@ const styles = StyleSheet.create({
   underlineTabActive: {
     borderBottomColor: I.ink,
   },
-  plantillasBox: {
-    gap: SPACING.sm,
-  },
-  plantillasCarrusel: {
-    paddingRight: SPACING.fixed.sm,
-  },
   errorBanner: {
     ...TYPOGRAPHY.styles.caption,
     color: I.semanticDown,
@@ -1217,10 +1227,16 @@ const styles = StyleSheet.create({
   footerCol: {
     flex: 1,
     minWidth: 0,
-    gap: SPACING.fixed.sm,
+    gap: SPACING.fixed.xs,
+  },
+  footerActions: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'stretch',
+    gap: SPACING.sm,
   },
   footerBtnGrow: {
-    flex: 1,
+    flex: 1.15,
     minWidth: 0,
   },
 });

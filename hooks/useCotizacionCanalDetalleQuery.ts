@@ -7,8 +7,8 @@ import { COTIZACIONES_CANAL_QUERY_KEY } from '@/hooks/useCotizacionesCanalTaller
 
 export const COTIZACION_CANAL_DETALLE_QUERY_KEY = 'cotizacion-canal-detalle';
 
-const POLL_MS = 5_000;
-const MAX_POLL_MS = 60_000;
+const POLL_MS = 2_000;
+const MAX_POLL_MS = 45_000;
 
 /**
  * Detalle de cotización con poll mientras `enabled` (búsqueda web pendiente en el editor).
@@ -28,8 +28,10 @@ export function useCotizacionCanalDetalleQuery(
     enabled: Boolean(enabled && id),
     staleTime: 0,
     refetchOnMount: 'always',
-    refetchInterval: () => {
+    refetchInterval: (q) => {
       if (!enabled) return false;
+      const estado = q.state.data?.metadata?.busqueda_web_estado;
+      if (estado !== 'pendiente') return false;
       if (startedAt.current == null) startedAt.current = Date.now();
       if (Date.now() - startedAt.current > MAX_POLL_MS) return false;
       return POLL_MS;

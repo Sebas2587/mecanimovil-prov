@@ -455,20 +455,83 @@ export function payloadEdicionCotizacion(c: CotizacionCanal): Partial<Cotizacion
   return patch;
 }
 
-/** Conserva nombres enviados al taller si la respuesta del PATCH llega desfasada. */
+function fuenteVerificadaRepuesto(rep: RepuestoCotizacion): boolean {
+  const key = (rep.fuente_marketplace || rep.fuente_repuesto || '').trim().toLowerCase();
+  return (
+    key === 'mercadolibre'
+    || key === 'catalogo'
+    || key === 'catálogo'
+    || key === 'historial'
+    || key === 'web'
+  );
+}
+
+/** Fusiona líneas enriquecidas por web sin pisar nombres/cantidades editados. */
+export function mergeRepuestosPreservandoEdicion(
+  local: RepuestoCotizacion[],
+  remoto: RepuestoCotizacion[],
+): RepuestoCotizacion[] {
+  if (!remoto.length) return local;
+  const remoteIds = new Set(remoto.map((r) => r.id).filter(Boolean));
+  const merged = remoto.map((rRem, idx) => {
+    const rLoc = rRem.id
+      ? local.find((l) => l.id === rRem.id)
+      : local[idx];
+    if (!rLoc) return rRem;
+    const nombreLocal = (rLoc.nombre || '').trim();
+    const localCero = !rLoc.precio_unitario_clp;
+    const remoteMejor = fuenteVerificadaRepuesto(rRem)
+      || ((rRem.precio_unitario_clp || 0) > 0 && localCero);
+    const precio = remoteMejor
+      ? rRem.precio_unitario_clp
+      : (rLoc.precio_unitario_clp ?? rRem.precio_unitario_clp);
+    return {
+      ...rRem,
+      nombre: nombreLocal || rRem.nombre,
+      cantidad: rLoc.cantidad ?? rRem.cantidad,
+      precio_unitario_clp: precio,
+      certeza: (precio || 0) > 0 && rRem.certeza === 'sin_precio'
+        ? (remoteMejor ? 'referencial' : (rLoc.certeza || 'referencial'))
+        : (rRem.certeza || rLoc.certeza),
+    };
+  });
+  const extras = local.filter((l) => {
+    const nombre = (l.nombre || '').trim();
+    if (!nombre || nombre.toLowerCase() === 'repuesto') return false;
+    return Boolean(l.id && !remoteIds.has(l.id));
+  });
+  return extras.length ? [...merged, ...extras] : merged;
+}
+
+/** Conserva nombres y precios locales si el PATCH vuelve con un snapshot viejo. */
 export function fusionarRepuestosEnviados(
   enviados: RepuestoCotizacion[] | undefined,
   guardados: RepuestoCotizacion[] | undefined,
 ): RepuestoCotizacion[] {
   const sent = enviados ?? [];
   const saved = guardados ?? [];
+  if (!saved.length) return sent;
   return saved.map((r, i) => {
     const src = r.id ? sent.find((x) => x.id === r.id) : sent[i];
-    const nombreEnviado = (src?.nombre || '').trim();
+    if (!src) return r;
+    const nombreEnviado = (src.nombre || '').trim();
+    const precioLocal = Number(src.precio_unitario_clp || 0);
+    const precioSaved = Number(r.precio_unitario_clp || 0);
+    const keepLocalPrecio = precioLocal > 0 && precioSaved <= 0;
+    const next: RepuestoCotizacion = { ...r };
     if (nombreEnviado && nombreEnviado !== (r.nombre || '').trim()) {
-      return { ...r, nombre: nombreEnviado };
+      next.nombre = nombreEnviado;
     }
-    return r;
+    if (keepLocalPrecio) {
+      next.precio_unitario_clp = src.precio_unitario_clp;
+      next.certeza = src.certeza || next.certeza;
+      next.fuente_marketplace = src.fuente_marketplace || next.fuente_marketplace;
+      next.fuente_repuesto = src.fuente_repuesto || next.fuente_repuesto;
+      next.proveedor_nombre = src.proveedor_nombre || next.proveedor_nombre;
+      next.tienda_ml = src.tienda_ml || next.tienda_ml;
+      next.url_producto = src.url_producto || next.url_producto;
+    }
+    return next;
   });
 }
 
@@ -481,6 +544,26 @@ export function adicionalRequiereFecha(c: CotizacionCanal): boolean {
 }
 
 class CotizacionCanalService {
+  async esperarPreciosWeb(
+    id: number,
+    opts?: { intervalMs?: number; maxMs?: number },
+  ): Promise<CotizacionCanal> {
+    const intervalMs = opts?.intervalMs ?? 1_000;
+    const maxMs = opts?.maxMs ?? 45_000;
+    const started = Date.now();
+    let last = await this.obtener(id, { sinRetry: true });
+    while (
+      last.metadata?.busqueda_web_estado === 'pendiente'
+      && Date.now() - started < maxMs
+    ) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, intervalMs);
+      });
+      last = await this.obtener(id, { sinRetry: true });
+    }
+    return last;
+  }
+
   async generarIa(payload: GenerarCotizacionIaPayload): Promise<GenerarCotizacionIaResponse> {
     const response = await api.post('/ordenes/cotizaciones-canal/generar-ia/', payload, {
       timeout: 60000,
@@ -678,8 +761,12 @@ class CotizacionCanalService {
     return Array.isArray(data) ? data : data?.results ?? [];
   }
 
-  async obtener(id: number): Promise<CotizacionCanal> {
-    const response = await api.get(`/ordenes/cotizaciones-canal/${id}/`);
+  async obtener(
+    id: number,
+    opts?: { sinRetry?: boolean },
+  ): Promise<CotizacionCanal> {
+    const qs = opts?.sinRetry ? '?sin_retry=1' : '';
+    const response = await api.get(`/ordenes/cotizaciones-canal/${id}/${qs}`);
     return response.data as CotizacionCanal;
   }
 

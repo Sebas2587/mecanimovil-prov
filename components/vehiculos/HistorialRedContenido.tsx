@@ -1,18 +1,22 @@
 import React, { useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { ClipboardList } from 'lucide-react-native';
-import { HostEmptyState, HostPaperSection, HostSectionKicker } from '@/app/design-system/components';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Car, ClipboardList } from 'lucide-react-native';
+import {
+  HostEmptyState,
+  HostPaperSection,
+  HostSectionKicker,
+  hostIconPlateStyle,
+} from '@/app/design-system/components';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
-import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { useHistorialRedQuery } from '@/hooks/useHistorialRedQuery';
 import { patenteHistorialValida, type HistorialRedEvento } from '@/services/vehiculoService';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 
 const I = COLORS.institutional;
-const FF = TYPOGRAPHY.fontFamily;
-const T = TYPOGRAPHY.styles;
 
 function anioDeFecha(fecha: string | null): string {
   if (!fecha) return 'Sin fecha';
@@ -31,56 +35,114 @@ function formatearFechaEvento(fecha: string | null): string {
   });
 }
 
-export const EventoPaper = React.memo(function EventoPaper({
-  evento,
-}: {
-  evento: HistorialRedEvento;
-}) {
-  const km =
-    evento.kilometraje != null && evento.kilometraje > 0
-      ? `${evento.kilometraje.toLocaleString('es-CL')} km`
-      : null;
-  const monto =
-    evento.taller_es_propio && evento.monto_clp != null
-      ? formatearMontoCLP(evento.monto_clp)
-      : null;
-  const rango =
-    !evento.taller_es_propio
-    && evento.rango_mercado_clp
+function metaEvento(evento: HistorialRedEvento): string {
+  const partes: string[] = [];
+  if (evento.kilometraje != null && evento.kilometraje > 0) {
+    partes.push(`${evento.kilometraje.toLocaleString('es-CL')} km`);
+  }
+  if (evento.taller_es_propio) {
+    partes.push(
+      evento.monto_clp != null && evento.monto_clp > 0
+        ? formatearMontoCLP(evento.monto_clp)
+        : 'Sin cobro registrado',
+    );
+  } else if (
+    evento.rango_mercado_clp
     && evento.rango_mercado_clp.min != null
     && evento.rango_mercado_clp.max != null
-      ? `En la red: ${formatearMontoCLP(evento.rango_mercado_clp.min)} – ${formatearMontoCLP(evento.rango_mercado_clp.max)}`
-      : null;
+  ) {
+    partes.push(
+      `En la red: ${formatearMontoCLP(evento.rango_mercado_clp.min)} – ${formatearMontoCLP(evento.rango_mercado_clp.max)}`,
+    );
+  }
+  return partes.join(' · ');
+}
+
+export const EventoTimelineRow = React.memo(function EventoTimelineRow({
+  evento,
+  last,
+}: {
+  evento: HistorialRedEvento;
+  last?: boolean;
+}) {
+  const meta = metaEvento(evento);
 
   return (
-    <HostPaperSection>
-      <View style={styles.eventoTop}>
-        <Text style={styles.servicio} numberOfLines={3}>
-          {evento.servicio_nombre || 'Servicio'}
-        </Text>
-        <InstitutionalTag
-          label={evento.taller_es_propio ? 'Tu taller' : evento.taller_nombre || 'Taller de la red'}
-          variant={evento.taller_es_propio ? 'success' : 'neutral'}
-          size="sm"
-        />
+    <View style={styles.eventoRow}>
+      <View style={styles.rail}>
+        <View style={[styles.dot, evento.taller_es_propio ? styles.dotPropio : styles.dotRed]} />
+        {last ? null : <View style={styles.stem} />}
       </View>
-      <Text style={styles.meta}>
-        {[formatearFechaEvento(evento.fecha), km].filter(Boolean).join(' · ')}
-      </Text>
-      {monto ? <Text style={styles.monto}>{monto}</Text> : null}
-      {rango ? <Text style={styles.rango}>{rango}</Text> : null}
-    </HostPaperSection>
+      <View style={[styles.eventoBody, !last && styles.eventoBodyBorder]}>
+        <View style={styles.eventoTop}>
+          <InstitutionalText role="captionBold" color="ink">
+            {formatearFechaEvento(evento.fecha)}
+          </InstitutionalText>
+          <InstitutionalTag
+            label={evento.taller_es_propio ? 'Tu taller' : evento.taller_nombre || 'Taller de la red'}
+            variant={evento.taller_es_propio ? 'success' : 'neutral'}
+            size="sm"
+          />
+        </View>
+        <InstitutionalText role="h5" color="ink">
+          {evento.servicio_nombre || 'Servicio'}
+        </InstitutionalText>
+        {meta ? (
+          <InstitutionalText role="caption" color="muted">
+            {meta}
+          </InstitutionalText>
+        ) : null}
+      </View>
+    </View>
   );
 });
 
 type Props = {
   patente: string;
-  /** Desactiva la consulta cuando el contenedor está cerrado. */
   enabled?: boolean;
+  /** En sheet el fondo ya es paper: sin cards anidadas. En pantalla, papers sobre canvas. */
+  superficie?: 'canvas' | 'sheet';
 };
 
-/** Historial de la red por patente: mismo contenido en la pantalla y en el sheet. */
-export function HistorialRedContenido({ patente, enabled = true }: Props) {
+function IdentidadHistorial({
+  vehiculoTxt,
+  total,
+  tonal,
+}: {
+  vehiculoTxt: string;
+  total: number;
+  tonal?: boolean;
+}) {
+  const conteo = total === 1
+    ? '1 servicio registrado en la red'
+    : `${total} servicios registrados en la red`;
+
+  return (
+    <View style={[styles.identidad, tonal && styles.identidadTonal]}>
+      <View style={hostIconPlateStyle}>
+        <Car size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+      </View>
+      <View style={styles.identidadCopy}>
+        <InstitutionalText role="label" color="muted">
+          FICHA DEL AUTO
+        </InstitutionalText>
+        <InstitutionalText role="h5" color="ink" numberOfLines={2}>
+          {vehiculoTxt || 'Vehículo de esta patente'}
+        </InstitutionalText>
+        <InstitutionalText role="caption" color="muted">
+          {conteo}
+        </InstitutionalText>
+      </View>
+    </View>
+  );
+}
+
+/** Historial clínico de la red por patente: misma fuente en pantalla y sheet. */
+export function HistorialRedContenido({
+  patente,
+  enabled = true,
+  superficie = 'canvas',
+}: Props) {
   const valida = patenteHistorialValida(patente);
   const { data, isPending, isError, refetch } = useHistorialRedQuery(
     valida && enabled ? patente : undefined,
@@ -102,11 +164,13 @@ export function HistorialRedContenido({ patente, enabled = true }: Props) {
     .filter(Boolean)
     .join(' ')
     .trim();
+  const total = data?.eventos?.length ?? 0;
+  const enSheet = superficie === 'sheet';
 
   if (!valida) {
     return (
       <View style={styles.centered}>
-        <InstitutionalText role="bodyBold">Indica una patente válida</InstitutionalText>
+        <InstitutionalText role="h5">Indica una patente válida</InstitutionalText>
         <InstitutionalText role="caption" color="muted">
           El historial de la red se consulta con una patente chilena (5 a 8 caracteres).
         </InstitutionalText>
@@ -125,7 +189,7 @@ export function HistorialRedContenido({ patente, enabled = true }: Props) {
   if (isError) {
     return (
       <View style={styles.centered}>
-        <InstitutionalText role="bodyBold">No pudimos cargar el historial</InstitutionalText>
+        <InstitutionalText role="h5">No pudimos cargar el historial</InstitutionalText>
         <InstitutionalButton
           label="Reintentar"
           variant="outline"
@@ -136,30 +200,38 @@ export function HistorialRedContenido({ patente, enabled = true }: Props) {
     );
   }
 
+  const identidad = (
+    <IdentidadHistorial vehiculoTxt={vehiculoTxt} total={total} tonal={enSheet} />
+  );
+
+  const timeline = grupos.length === 0 ? (
+    <HostEmptyState
+      icon={ClipboardList}
+      title="Sin servicios de la red"
+      description="Aún no hay servicios de la red para esta patente."
+    />
+  ) : (
+    grupos.map(([anio, eventos]) => {
+      const filas = eventos.map((evento, idx) => (
+        <EventoTimelineRow
+          key={evento.evento_id}
+          evento={evento}
+          last={idx === eventos.length - 1}
+        />
+      ));
+      return (
+        <View key={anio} style={styles.anioBlock}>
+          <HostSectionKicker label={anio} style={styles.anioKicker} />
+          {enSheet ? <View>{filas}</View> : <HostPaperSection>{filas}</HostPaperSection>}
+        </View>
+      );
+    })
+  );
+
   return (
     <View style={styles.lista}>
-      {vehiculoTxt ? (
-        <InstitutionalText role="caption" color="muted">
-          {vehiculoTxt}
-        </InstitutionalText>
-      ) : null}
-
-      {grupos.length === 0 ? (
-        <HostEmptyState
-          icon={ClipboardList}
-          title="Sin servicios de la red"
-          description="Aún no hay servicios de la red para esta patente."
-        />
-      ) : (
-        grupos.map(([anio, eventos]) => (
-          <View key={anio} style={styles.anioBlock}>
-            <HostSectionKicker label={anio} />
-            {eventos.map((evento) => (
-              <EventoPaper key={evento.evento_id} evento={evento} />
-            ))}
-          </View>
-        ))
-      )}
+      {enSheet ? identidad : <HostPaperSection>{identidad}</HostPaperSection>}
+      {timeline}
     </View>
   );
 }
@@ -175,33 +247,72 @@ const styles = StyleSheet.create({
     padding: SPACING.fixed.lg,
     minHeight: 160,
   },
-  anioBlock: {
+  identidad: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: SPACING.fixed.sm,
   },
-  eventoTop: {
+  identidadTonal: {
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.md,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.sm,
+  },
+  identidadCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  anioBlock: {
     gap: SPACING.fixed.xs,
   },
-  servicio: {
-    fontFamily: FF.sansSemiBold,
-    fontSize: T.h4.fontSize,
-    color: I.ink,
-    lineHeight: Math.round(T.h4.fontSize * 1.25),
+  anioKicker: {
+    marginTop: 0,
+    marginBottom: 0,
   },
-  meta: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.muted,
+  eventoRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: SPACING.fixed.sm,
   },
-  monto: {
-    fontFamily: FF.monoMedium,
-    fontSize: T.body.fontSize,
-    color: I.ink,
-    alignSelf: 'flex-end',
+  rail: {
+    width: 12,
+    alignItems: 'center',
+    paddingTop: 6,
   },
-  rango: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.muted,
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  dotPropio: {
+    backgroundColor: I.ink,
+  },
+  dotRed: {
+    backgroundColor: I.muted,
+  },
+  stem: {
+    flex: 1,
+    width: 1,
+    marginTop: 4,
+    backgroundColor: I.hairline,
+  },
+  eventoBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+    paddingBottom: SPACING.fixed.md,
+  },
+  eventoBodyBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+    marginBottom: SPACING.fixed.sm,
+  },
+  eventoTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.sm,
   },
 });
 

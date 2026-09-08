@@ -20,6 +20,7 @@ export type ChatThreadRow = {
 export type ChatThreadPayload = {
   mensajes: ChatThreadRow[];
   cotizacionAceptadaId?: number;
+  cotizacionEnviadaId?: number;
 };
 
 export function chatMessagesQueryKey(conversationId: string) {
@@ -57,15 +58,21 @@ export function useChatMessagesQuery(
       const rows = await chatService.getMessages(conversationId);
       const mensajes = (rows as Record<string, unknown>[]).map(mapApiMessage);
       let cotizacionAceptadaId: number | undefined;
+      let cotizacionEnviadaId: number | undefined;
       try {
         const cotizaciones = await cotizacionCanalService.listarPorConversacion(
           parseInt(conversationId, 10),
         );
         cotizacionAceptadaId = cotizaciones.find((c) => c.estado === 'aceptada')?.id;
+        const enviadas = cotizaciones
+          .filter((c) => c.estado === 'enviada')
+          .sort((a, b) => b.id - a.id);
+        cotizacionEnviadaId = enviadas[0]?.id;
       } catch {
         cotizacionAceptadaId = undefined;
+        cotizacionEnviadaId = undefined;
       }
-      return { mensajes, cotizacionAceptadaId };
+      return { mensajes, cotizacionAceptadaId, cotizacionEnviadaId };
     },
     enabled: Boolean(conversationId),
     staleTime: 30_000,
