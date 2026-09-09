@@ -12,6 +12,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link2, MessageCircle, Trash2 } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
+import { CotizacionIaProgreso } from '@/components/chats/CotizacionIaProgreso';
 import { RegistrarCompraCard } from '@/components/cotizacion/RegistrarCompraCard';
 import { lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
@@ -121,7 +122,7 @@ export default function CotizacionCanalDetalleScreen() {
       setHoldExpired(false);
       return;
     }
-    const timer = setTimeout(() => setHoldExpired(true), 45_000);
+    const timer = setTimeout(() => setHoldExpired(true), 70_000);
     return () => clearTimeout(timer);
   }, [data]);
 
@@ -417,12 +418,16 @@ export default function CotizacionCanalDetalleScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <Header title="Cotización" showBack onBackPress={() => router.back()} />
         <View style={styles.center}>
-          <ActivityIndicator color={I.primary} />
           {holdPrecios ? (
-            <InstitutionalText role="body" color="muted" style={styles.holdHint}>
-              Buscando precios en casas de repuestos…
-            </InstitutionalText>
-          ) : null}
+            <View style={styles.holdProgreso}>
+              <CotizacionIaProgreso
+                fase="precios"
+                progreso={data?.metadata?.busqueda_web_progreso}
+              />
+            </View>
+          ) : (
+            <ActivityIndicator color={I.primary} />
+          )}
         </View>
       </View>
     );
@@ -728,6 +733,10 @@ const styles = StyleSheet.create({
   },
   holdHint: {
     textAlign: 'center',
+  },
+  holdProgreso: {
+    alignSelf: 'stretch',
+    width: '100%',
   },
   scrollInner: {
     gap: SPACING.fixed.md,

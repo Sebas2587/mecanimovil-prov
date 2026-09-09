@@ -32,7 +32,7 @@ export function ClpMoneyInput({
   );
 
   useEffect(() => {
-    if (focused && value <= 0) return;
+    if (focused) return;
     setDraft(value > 0 ? formatMontoInputLocalized(value) : '');
   }, [value, focused]);
 
@@ -68,9 +68,7 @@ export function ClpMoneyInput({
           setFocused(false);
         }}
         onChangeText={(t) => {
-          const cleaned = t.replace(/[^\d]/g, '');
-          setDraft(cleaned);
-          onChangeValue(redondearCLP(parseMontoDecimal(cleaned)));
+          setDraft(t.replace(/[^\d]/g, ''));
         }}
       />
     </View>

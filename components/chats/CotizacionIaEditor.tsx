@@ -267,13 +267,25 @@ const RepuestoRow = React.memo(function RepuestoRow({
             Precio unit.
           </InstitutionalText>
           <ClpMoneyInput
-            key={`precio-${rep.id ?? index}-${precioUnit}`}
+            key={`precio-${rep.id ?? index}`}
             compact
             value={precioUnit}
             editable={editable && !precioPendiente}
             placeholder={precioPendiente ? 'Buscando' : (certeza === 'sin_precio' ? 'Falta' : '0')}
             onChangeValue={(next) =>
-              onUpdate(index, { precio_unitario_clp: next, certeza: next > 0 ? 'asumido' : 'sin_precio' })
+              onUpdate(index, {
+                precio_unitario_clp: next,
+                certeza: next > 0 ? 'asumido' : 'sin_precio',
+                // El taller escribió el monto: no es la ficha de esa tienda.
+                fuente_marketplace: '',
+                fuente_repuesto: '',
+                proveedor_nombre: '',
+                proveedor_id: null,
+                tienda_ml: '',
+                url_producto: '',
+                fuentes_detalle: [],
+                fuentes_n: 0,
+              })
             }
           />
         </View>

@@ -8,6 +8,20 @@ export interface ManoObraLinea {
 
 export const MAX_MANO_OBRA_LINEAS = 20;
 
+export type LineaProgresoBusquedaWeb = {
+  nombre: string;
+  estado: 'ok' | 'buscando' | 'sin_precio' | string;
+  fuente?: string;
+  precio_clp?: number | null;
+};
+
+export type ProgresoBusquedaWeb = {
+  paso?: string;
+  detalle?: string;
+  fuentes?: string[];
+  lineas?: LineaProgresoBusquedaWeb[];
+};
+
 function montoLineaMo(raw: Record<string, unknown> | ManoObraLinea | null | undefined): number {
   if (!raw) return 0;
   const row = raw as Record<string, unknown>;
@@ -249,6 +263,7 @@ export interface CotizacionCanal {
     /** pendiente | ok | sin_resultados | error — búsqueda web Gemini URL Context */
     busqueda_web_estado?: 'pendiente' | 'ok' | 'sin_resultados' | 'error' | string;
     busqueda_web_en?: string;
+    busqueda_web_progreso?: ProgresoBusquedaWeb;
     cotizacion_original_id?: number;
     cita_personal_id?: number;
     entrega_canal?: 'app' | 'sesion_meta' | 'whatsapp_template' | 'link_publico' | string;
@@ -576,12 +591,17 @@ export function adicionalRequiereFecha(c: CotizacionCanal): boolean {
 class CotizacionCanalService {
   async esperarPreciosWeb(
     id: number,
-    opts?: { intervalMs?: number; maxMs?: number },
+    opts?: {
+      intervalMs?: number;
+      maxMs?: number;
+      onTick?: (cotizacion: CotizacionCanal) => void;
+    },
   ): Promise<CotizacionCanal> {
     const intervalMs = opts?.intervalMs ?? 1_000;
-    const maxMs = opts?.maxMs ?? 45_000;
+    const maxMs = opts?.maxMs ?? 70_000;
     const started = Date.now();
     let last = await this.obtener(id, { sinRetry: true });
+    opts?.onTick?.(last);
     while (
       last.metadata?.busqueda_web_estado === 'pendiente'
       && Date.now() - started < maxMs
@@ -590,6 +610,7 @@ class CotizacionCanalService {
         setTimeout(resolve, intervalMs);
       });
       last = await this.obtener(id, { sinRetry: true });
+      opts?.onTick?.(last);
     }
     return last;
   }

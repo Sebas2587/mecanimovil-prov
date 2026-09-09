@@ -8,7 +8,7 @@ import { COTIZACIONES_CANAL_QUERY_KEY } from '@/hooks/useCotizacionesCanalTaller
 export const COTIZACION_CANAL_DETALLE_QUERY_KEY = 'cotizacion-canal-detalle';
 
 const POLL_MS = 2_000;
-const MAX_POLL_MS = 45_000;
+const MAX_POLL_MS = 70_000;
 
 /**
  * Detalle de cotización con poll mientras `enabled` (búsqueda web pendiente en el editor).

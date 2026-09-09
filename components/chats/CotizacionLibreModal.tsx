@@ -52,6 +52,7 @@ import cotizacionCanalService, {
   type CotizacionCanal,
   type CotizacionPlantilla,
   type GenerarCotizacionIaPayload,
+  type ProgresoBusquedaWeb,
 } from '@/services/cotizacionCanalService';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 import {
@@ -159,6 +160,7 @@ export function CotizacionLibreModal({
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef<CotizacionCanal | null>(null);
   const [faseIa, setFaseIa] = useState<'idle' | 'generando' | 'precios' | 'listo'>('idle');
+  const [progresoIa, setProgresoIa] = useState<ProgresoBusquedaWeb | null>(null);
 
   const conversationId = contactoSeleccionado?.conversationId ?? (
     conversationIdProp ? parseInt(conversationIdProp, 10) : null
@@ -237,6 +239,7 @@ export function CotizacionLibreModal({
     setErrorIa(null);
     setGenerandoIa(false);
     setFaseIa('idle');
+    setProgresoIa(null);
     setCreandoManual(false);
     setCotizacion(null);
     setShareUrl(null);
@@ -444,6 +447,7 @@ export function CotizacionLibreModal({
     setErrorIa(null);
     setGenerandoIa(true);
     setFaseIa('generando');
+    setProgresoIa(null);
     try {
       const res = await cotizacionCanalService.generarIa({
         ...payloadIntake(),
@@ -456,7 +460,10 @@ export function CotizacionLibreModal({
       let lista = res.cotizacion;
       if (lista.id && busquedaWebPendiente(lista)) {
         setFaseIa('precios');
-        lista = await cotizacionCanalService.esperarPreciosWeb(lista.id);
+        setProgresoIa(lista.metadata?.busqueda_web_progreso || null);
+        lista = await cotizacionCanalService.esperarPreciosWeb(lista.id, {
+          onTick: (cot) => setProgresoIa(cot.metadata?.busqueda_web_progreso || null),
+        });
       }
       if (busquedaWebPendiente(lista)) {
         lista = {
@@ -502,6 +509,7 @@ export function CotizacionLibreModal({
     } finally {
       setGenerandoIa(false);
       setFaseIa('idle');
+      setProgresoIa(null);
     }
   }, [validarAntesGenerar, payloadIntake]);
 
@@ -791,6 +799,7 @@ export function CotizacionLibreModal({
             {!cotizacion && faseIa !== 'idle' ? (
               <CotizacionIaProgreso
                 fase={faseIa === 'listo' ? 'listo' : faseIa === 'precios' ? 'precios' : 'generando'}
+                progreso={progresoIa}
               />
             ) : !cotizacion ? (
               <>

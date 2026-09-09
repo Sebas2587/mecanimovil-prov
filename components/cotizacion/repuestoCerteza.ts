@@ -114,6 +114,10 @@ export function nombreFuente(f: FuenteRepuesto): string {
 
 /** Nombre de la casa / tienda para chip; null si no hay fuente trazable. */
 export function casaRepuestosLabel(rep: RepuestoCotizacion): string | null {
+  const certeza = certezaDe(rep);
+  const tienda = (rep.proveedor_nombre || rep.tienda_ml || '').trim();
+  // Precio escrito a mano (asumido) sin casa elegida: no inventar un chip.
+  if (certeza === 'asumido' && !rep.proveedor_id && !tienda) return null;
   const fuentes = fuentesDe(rep);
   if (!fuentes.length) return null;
   return fuentes.length > 1
