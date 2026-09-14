@@ -106,12 +106,28 @@ export default function CotizacionCanalDetalleScreen() {
     setDraft((prev) => {
       if (!prev || prev.id !== data.id) return { ...data };
       if (prev.estado !== data.estado) return { ...data };
+      const prevEn = prev.actualizado_en || '';
+      const nextEn = data.actualizado_en || '';
+      if (nextEn && prevEn && nextEn < prevEn) return prev;
       const prevWeb = prev.metadata?.busqueda_web_estado;
       const nextWeb = data.metadata?.busqueda_web_estado;
       if (prevWeb === 'pendiente' && nextWeb && nextWeb !== 'pendiente') {
+        const prevCount = (prev.repuestos ?? []).length;
+        const nextCount = (data.repuestos ?? []).length;
+        if (nextCount < prevCount) return prev;
         return {
           ...data,
           repuestos: mergeRepuestosPreservandoEdicion(prev.repuestos ?? [], data.repuestos ?? []),
+        };
+      }
+      if (nextWeb === 'pendiente' && data.metadata) {
+        return {
+          ...prev,
+          metadata: {
+            ...(prev.metadata || {}),
+            ...data.metadata,
+          },
+          actualizado_en: nextEn || prevEn,
         };
       }
       return prev;

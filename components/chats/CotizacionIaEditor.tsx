@@ -52,8 +52,9 @@ import cotizacionCanalService, {
   patchPrecioEscritoPorTaller,
   resolverManoObraLineas,
   sumaManoObraLineas,
+  type ProgresoBusquedaWeb,
 } from '@/services/cotizacionCanalService';
-import { CotizarItemsIaModal } from '@/components/chats/CotizarItemsIaModal';
+import { CotizacionIaBusquedaOverlay } from '@/components/chats/CotizacionIaBusquedaOverlay';
 import {
   COTIZACION_CANAL_DETALLE_QUERY_KEY,
   useCotizacionCanalDetalleQuery,
@@ -66,6 +67,7 @@ import {
 } from '@/components/cotizaciones/EjecucionAdicionalCampos';
 import { formatDateApi } from '@/utils/fechaLocal';
 import { showAlert } from '@/utils/platformAlert';
+import { busquedaWebPendiente } from '@/utils/cotizacionPreciosWeb';
 import type { CatalogoFechaHoraValue } from '@/components/solicitudes/CatalogoFechaHoraPickers';
 
 const I = COLORS.institutional;
@@ -503,7 +505,9 @@ export const CotizacionIaEditor = React.forwardRef<
   const cotizacionRef = useRef(cotizacion);
   cotizacionRef.current = cotizacion;
 
-  const [modalItemsIa, setModalItemsIa] = useState(false);
+  const [busquedaIaVisible, setBusquedaIaVisible] = useState(false);
+  const [faseBusquedaIa, setFaseBusquedaIa] = useState<'precios' | 'listo'>('precios');
+  const [progresoBusquedaIa, setProgresoBusquedaIa] = useState<ProgresoBusquedaWeb | null>(null);
   const [cotizandoItems, setCotizandoItems] = useState(false);
   const [repuestoSheet, setRepuestoSheet] = useState<RepuestoCotizacion | null>(null);
   const repuestoSheetRef = useRef<RepuestoCotizacion | null>(null);
@@ -516,10 +520,6 @@ export const CotizacionIaEditor = React.forwardRef<
   }), []);
   const { data: proveedores = [] } = useProveedoresRepuestosQuery(
     editable && Boolean(cotizacion.id),
-  );
-  const lineasSinPrecio = useMemo(
-    () => repuestos.filter(lineaSinPrecioParaIa).length,
-    [repuestos],
   );
 
   const { data: detalleRefrescado } = useCotizacionCanalDetalleQuery(
@@ -535,9 +535,15 @@ export const CotizacionIaEditor = React.forwardRef<
   }, [busquedaPendiente]);
 
   useEffect(() => {
+    if (cotizandoItems) return;
     if (!detalleRefrescado || !busquedaPendiente) return;
     const estado = detalleRefrescado.metadata?.busqueda_web_estado;
-    if (!estado || estado === 'pendiente') return;
+    if (!estado) return;
+    if (estado === 'pendiente') {
+      const prog = detalleRefrescado.metadata?.busqueda_web_progreso;
+      if (prog) setProgresoBusquedaIa(prog);
+      return;
+    }
     const remoteCount = (detalleRefrescado.repuestos ?? []).length;
     const localCount = (cotizacion.repuestos ?? []).length;
     const remotoEn = detalleRefrescado.actualizado_en || '';
@@ -563,7 +569,7 @@ export const CotizacionIaEditor = React.forwardRef<
       },
       actualizado_en: detalleRefrescado.actualizado_en || cotizacion.actualizado_en,
     });
-  }, [busquedaPendiente, cotizacion, detalleRefrescado, onChange]);
+  }, [busquedaPendiente, cotizacion, cotizandoItems, detalleRefrescado, onChange]);
 
 
   const totalRepuestos = useMemo(
@@ -793,15 +799,30 @@ export const CotizacionIaEditor = React.forwardRef<
     });
   }, [onChange]);
 
-  const cotizarItemsConIa = useCallback(async (nombres: string[]) => {
+  const cotizarItemsConIa = useCallback(async () => {
     const current = cotizacionRef.current;
     if (!current.id || !cotizacionPermiteEdicionCompleta(current)) return;
+    const pendientes = (current.repuestos ?? []).filter(lineaSinPrecioParaIa);
+    if (!pendientes.length) {
+      showAlert(
+        'Nombra la pieza',
+        'Agrega el repuesto, escribe su nombre y vuelve a buscar. La IA no cotiza líneas vacías ni el placeholder “Repuesto”.',
+      );
+      return;
+    }
     setCotizandoItems(true);
+    setFaseBusquedaIa('precios');
+    setProgresoBusquedaIa(null);
+    setBusquedaIaVisible(true);
     try {
       const resultado = await cotizacionCanalService.cotizarItems(current.id, {
-        nombres,
+        nombres: [],
         repuestos: current.repuestos ?? [],
       });
+      queryClient.setQueryData(
+        [COTIZACION_CANAL_DETALLE_QUERY_KEY, current.id],
+        resultado.cotizacion,
+      );
       onChange({
         ...current,
         ...resultado.cotizacion,
@@ -810,11 +831,43 @@ export const CotizacionIaEditor = React.forwardRef<
           ...(resultado.cotizacion.metadata || {}),
         },
       });
-      await queryClient.invalidateQueries({
-        queryKey: [COTIZACION_CANAL_DETALLE_QUERY_KEY, current.id],
+      setProgresoBusquedaIa(resultado.cotizacion.metadata?.busqueda_web_progreso || null);
+      let lista = resultado.cotizacion;
+      if (resultado.busqueda_web || busquedaWebPendiente(lista)) {
+        lista = await cotizacionCanalService.esperarPreciosWeb(current.id, {
+          onTick: (cot) => {
+            setProgresoBusquedaIa(cot.metadata?.busqueda_web_progreso || null);
+          },
+        });
+        queryClient.setQueryData(
+          [COTIZACION_CANAL_DETALLE_QUERY_KEY, current.id],
+          lista,
+        );
+        const latest = cotizacionRef.current;
+        onChange({
+          ...latest,
+          ...lista,
+          repuestos: mergeRepuestosPreservandoEdicion(
+            latest.repuestos ?? [],
+            lista.repuestos ?? [],
+          ),
+          metadata: {
+            ...(latest.metadata || {}),
+            ...(lista.metadata || {}),
+          },
+        });
+      }
+      if (busquedaWebPendiente(lista)) {
+        setBusquedaIaVisible(false);
+        return;
+      }
+      setFaseBusquedaIa('listo');
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 800);
       });
-      setModalItemsIa(false);
+      setBusquedaIaVisible(false);
     } catch (err: unknown) {
+      setBusquedaIaVisible(false);
       const data = (err as {
         response?: { data?: Record<string, string | string[] | undefined> };
       })?.response?.data;
@@ -826,6 +879,9 @@ export const CotizacionIaEditor = React.forwardRef<
       );
     } finally {
       setCotizandoItems(false);
+      await queryClient.invalidateQueries({
+        queryKey: [COTIZACION_CANAL_DETALLE_QUERY_KEY, current.id],
+      });
     }
   }, [onChange, queryClient]);
 
@@ -1260,7 +1316,7 @@ export const CotizacionIaEditor = React.forwardRef<
           actionLabel={editable ? 'Agregar' : undefined}
           onActionPress={editable ? agregarRepuesto : undefined}
         />
-        {busquedaPendiente ? (
+        {busquedaPendiente && !busquedaIaVisible ? (
           <View style={styles.busquedaWebChip}>
             <ActivityIndicator size="small" color={I.muted} />
             <InstitutionalText role="caption" color="muted" style={styles.busquedaWebChipText}>
@@ -1275,16 +1331,18 @@ export const CotizacionIaEditor = React.forwardRef<
         {editable ? (
           <View style={styles.iaRepuestosBlock}>
             <InstitutionalButton
-              label="Buscar precios de repuestos"
+              label={cotizandoItems || busquedaPendiente ? 'Buscando precios…' : 'Buscar precios con IA'}
               variant="outline"
               size="compact"
-              disabled={busquedaPendiente || cotizandoItems}
-              onPress={() => setModalItemsIa(true)}
+              disabled={cotizandoItems}
+              onPress={() => { void cotizarItemsConIa(); }}
               leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
             />
             <InstitutionalText role="caption" color="muted">
-              La IA completa precios de piezas. No cambia la mano de obra ni las líneas
-              que ya tienen precio.
+              Agrega la pieza, escribe su nombre y pulsa buscar. La IA usa el mismo
+              proceso que al armar la cotización: catálogo, historial y tiendas, con
+              casa, ficha y monto. No cambia la mano de obra ni las líneas que ya
+              tienen precio.
             </InstitutionalText>
           </View>
         ) : null}
@@ -1614,15 +1672,11 @@ export const CotizacionIaEditor = React.forwardRef<
         </View>
       ) : null}
 
-      {editable ? (
-        <CotizarItemsIaModal
-          visible={modalItemsIa}
-          onClose={() => {
-            if (!cotizandoItems) setModalItemsIa(false);
-          }}
-          onConfirm={cotizarItemsConIa}
-          loading={cotizandoItems}
-          lineasSinPrecio={lineasSinPrecio}
+      {editable && busquedaIaVisible ? (
+        <CotizacionIaBusquedaOverlay
+          visible
+          fase={faseBusquedaIa}
+          progreso={progresoBusquedaIa}
         />
       ) : null}
 

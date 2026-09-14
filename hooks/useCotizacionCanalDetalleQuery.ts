@@ -21,6 +21,7 @@ export function useCotizacionCanalDetalleQuery(
 ) {
   const queryClient = useQueryClient();
   const startedAt = useRef<number | null>(null);
+  const estadoPollRef = useRef<string | undefined>(undefined);
 
   const query = useQuery({
     queryKey: [COTIZACION_CANAL_DETALLE_QUERY_KEY, id],
@@ -31,7 +32,14 @@ export function useCotizacionCanalDetalleQuery(
     refetchInterval: (q) => {
       if (!enabled) return false;
       const estado = q.state.data?.metadata?.busqueda_web_estado;
-      if (estado !== 'pendiente') return false;
+      if (estado !== 'pendiente') {
+        estadoPollRef.current = estado;
+        return false;
+      }
+      if (estadoPollRef.current !== 'pendiente') {
+        startedAt.current = Date.now();
+      }
+      estadoPollRef.current = estado;
       if (startedAt.current == null) startedAt.current = Date.now();
       if (Date.now() - startedAt.current > MAX_POLL_MS) return false;
       return POLL_MS;
@@ -42,12 +50,17 @@ export function useCotizacionCanalDetalleQuery(
   useEffect(() => {
     if (!enabled || !id) {
       startedAt.current = null;
+      estadoPollRef.current = undefined;
       return;
     }
+    const estado = query.data?.metadata?.busqueda_web_estado;
+    if (estado === 'pendiente' && estadoPollRef.current !== 'pendiente') {
+      startedAt.current = Date.now();
+    }
+    estadoPollRef.current = estado;
     if (startedAt.current == null) {
       startedAt.current = Date.now();
     }
-    const estado = query.data?.metadata?.busqueda_web_estado;
     if (estado && estado !== 'pendiente') {
       queryClient.invalidateQueries({ queryKey: [COTIZACIONES_CANAL_QUERY_KEY] });
     }

@@ -72,10 +72,12 @@ function valorLinea(linea: NonNullable<ProgresoBusquedaWeb['lineas']>[number]): 
 type Props = {
   fase: FaseCotizacionIa;
   progreso?: ProgresoBusquedaWeb | null;
+  /** `repuestos`: ítems extra sobre una cotización que ya existe. */
+  variante?: 'cotizacion' | 'repuestos';
 };
 
 /** Línea de tiempo Host (riel negro) mientras la IA arma la cotización. */
-export function CotizacionIaProgreso({ fase, progreso }: Props) {
+export function CotizacionIaProgreso({ fase, progreso, variante = 'cotizacion' }: Props) {
   const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
@@ -95,18 +97,25 @@ export function CotizacionIaProgreso({ fase, progreso }: Props) {
   const fuentes = (progreso?.fuentes || []).filter(Boolean);
   const lineas = (progreso?.lineas || []).filter((l) => l?.nombre);
   const mostrarLineas = !completo && (fase === 'precios' || Boolean(lineas.length));
+  const esRepuestos = variante === 'repuestos';
 
   return (
     <View style={styles.wrap}>
       <HostSectionKicker
-        label={completo ? 'Cotización lista' : 'Armando la cotización'}
+        label={completo
+          ? (esRepuestos ? 'Precios listos' : 'Cotización lista')
+          : (esRepuestos ? 'Buscando precios' : 'Armando la cotización')}
         style={styles.kicker}
       />
       <InstitutionalText role="caption" color="muted" style={styles.lead}>
         {completo
-          ? 'Los cuatro pasos quedaron listos: vehículo, líneas, casas y precios.'
+          ? (esRepuestos
+            ? 'Casa, ficha y monto de referencia quedaron en las piezas nuevas. Revisa antes de enviar.'
+            : 'Los cuatro pasos quedaron listos: vehículo, líneas, casas y precios.')
           : (progreso?.detalle
-            || 'La cotización se abre cuando el riel termina. Vas a ver de qué casa sale cada precio.')}
+            || (esRepuestos
+              ? 'Mismo proceso que al armar la cotización: catálogo del taller, historial y tiendas de Chile.'
+              : 'La cotización se abre cuando el riel termina. Vas a ver de qué casa sale cada precio.'))}
       </InstitutionalText>
       <HostPaperSection>
         {PASOS.map((paso, index) => {
