@@ -22,6 +22,7 @@ export function institutionalSectionStyles(level: InstitutionalSectionLevel = 'h
     row: {
       flexDirection: 'row',
       alignItems: 'center',
+      flexWrap: 'wrap',
       gap: SPACING.fixed.sm,
       marginBottom: SPACING.fixed.sm,
     } satisfies ViewStyle,

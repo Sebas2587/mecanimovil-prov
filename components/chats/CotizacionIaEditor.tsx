@@ -7,7 +7,7 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
-import { AlertTriangle, Car, MapPin, Phone, Plus, Sparkles, Trash2, UserRound } from 'lucide-react-native';
+import { AlertTriangle, Car, MapPin, Phone, Sparkles, Trash2, UserRound } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
@@ -20,6 +20,7 @@ import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSema
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { ClpMoneyInput } from '@/components/forms/ClpMoneyInput';
 import { ConfirmarPreciosSheet } from '@/components/cotizacion/ConfirmarPreciosSheet';
+import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBorradorAcciones';
 import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { RepuestoPrecioSheet } from '@/components/cotizacion/RepuestoPrecioSheet';
 import { FuenteFichaInterna } from '@/components/cotizacion/FuenteFichaInterna';
@@ -134,6 +135,8 @@ const RepuestoRow = React.memo(function RepuestoRow({
   onDelete,
   onConfirmar,
   onEspecificacion,
+  onBuscarIa,
+  puedeBuscarIa = false,
 }: {
   rep: RepuestoCotizacion;
   index: number;
@@ -144,6 +147,8 @@ const RepuestoRow = React.memo(function RepuestoRow({
   onDelete: (index: number) => void;
   onConfirmar: (rep: RepuestoCotizacion) => void;
   onEspecificacion: (rep: RepuestoCotizacion, spec: string) => void;
+  onBuscarIa?: () => void;
+  puedeBuscarIa?: boolean;
 }) {
   const precioUnit = redondearCLP(rep.precio_unitario_clp);
   const subtotal = subtotalRepuesto(rep);
@@ -156,6 +161,13 @@ const RepuestoRow = React.memo(function RepuestoRow({
   const minP = Math.round(Number(rep.precio_min_clp) || 0);
   const maxP = Math.round(Number(rep.precio_max_clp) || 0);
   const mostrarRango = Boolean(rango) && minP > 0 && maxP > 0 && minP !== maxP;
+  const fichaClp = Math.round(Number(rep.precio_marketplace_clp) || 0);
+  const hayPrecioParaConfirmar = Boolean(
+    editable
+    && certeza !== 'confirmado'
+    && certeza !== 'asumido'
+    && (precioUnit > 0 || minP > 0 || maxP > 0 || fichaClp > 0),
+  );
   const estado = estadoLinea(rep);
   const metaTexto = metaLineaTexto(rep);
   const casaLabel = casaRepuestosLabel(rep);
@@ -324,7 +336,16 @@ const RepuestoRow = React.memo(function RepuestoRow({
           {cantidadGuardada} × {formatearMontoCLP(precioUnit)} = {formatearMontoCLP(subtotal)}
         </InstitutionalText>
       ) : null}
-      {mostrarRango || (editable && certeza !== 'confirmado') ? (
+      {editable && puedeBuscarIa && onBuscarIa && !precioPendiente ? (
+        <InstitutionalButton
+          label="Buscar precio"
+          variant="outline"
+          size="compact"
+          onPress={onBuscarIa}
+          leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
+        />
+      ) : null}
+      {mostrarRango || hayPrecioParaConfirmar ? (
         <View style={styles.precioMetaRow}>
           {mostrarRango ? (
             <InstitutionalText role="caption" color="muted" style={styles.precioMetaTexto}>
@@ -333,7 +354,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
           ) : (
             <View style={styles.precioMetaTexto} />
           )}
-          {editable && certeza !== 'confirmado' ? (
+          {hayPrecioParaConfirmar ? (
             <InstitutionalButton
               label="Confirmar precio"
               variant="tertiary"
@@ -464,6 +485,8 @@ interface CotizacionIaEditorProps {
   guardandoPlantilla?: boolean;
   /** Oculta botones de envío (el host modal usa footer propio). */
   hideSendActions?: boolean;
+  /** Enviar estimación (rangos). Si no hay onEnviar, el host lo resuelve. */
+  onEnviarEstimacion?: () => void;
   readonly?: boolean;
   /** Encabezado compacto (tags + título de servicio) para modal y detalle. */
   compactHeader?: boolean;
@@ -473,6 +496,8 @@ interface CotizacionIaEditorProps {
 
 export type CotizacionIaEditorHandle = {
   abrirConfirmarPrecios: () => void;
+  agregarRepuesto: () => void;
+  agregarManoObra: () => void;
 };
 
 export const CotizacionIaEditor = React.forwardRef<
@@ -488,6 +513,7 @@ export const CotizacionIaEditor = React.forwardRef<
   enviando = false,
   guardandoPlantilla = false,
   hideSendActions = false,
+  onEnviarEstimacion,
   readonly = false,
   compactHeader = false,
   sinHeader = false,
@@ -515,9 +541,6 @@ export const CotizacionIaEditor = React.forwardRef<
   const [confirmarPreciosVisible, setConfirmarPreciosVisible] = useState(false);
   const [precioBusy, setPrecioBusy] = useState(false);
 
-  React.useImperativeHandle(ref, () => ({
-    abrirConfirmarPrecios: () => setConfirmarPreciosVisible(true),
-  }), []);
   const { data: proveedores = [] } = useProveedoresRepuestosQuery(
     editable && Boolean(cotizacion.id),
   );
@@ -544,11 +567,8 @@ export const CotizacionIaEditor = React.forwardRef<
       if (prog) setProgresoBusquedaIa(prog);
       return;
     }
-    const remoteCount = (detalleRefrescado.repuestos ?? []).length;
-    const localCount = (cotizacion.repuestos ?? []).length;
     const remotoEn = detalleRefrescado.actualizado_en || '';
     const localEn = cotizacion.actualizado_en || '';
-    if (remoteCount < localCount) return;
     const localSinPrecio = (cotizacion.repuestos ?? []).some((r) => !redondearCLP(r.precio_unitario_clp));
     const remotoConPrecio = (detalleRefrescado.repuestos ?? []).some((r) => redondearCLP(r.precio_unitario_clp) > 0);
     if (remotoEn && localEn && remotoEn < localEn && !(localSinPrecio && remotoConPrecio)) return;
@@ -762,12 +782,15 @@ export const CotizacionIaEditor = React.forwardRef<
     }
   }, [aplicarCotizacionServidor]);
 
-  const asumirPrecios = useCallback(async (ids: string[]) => {
+  const asumirPrecios = useCallback(async (
+    ids: string[],
+    modo: 'techo' | 'ficha' = 'techo',
+  ) => {
     const current = cotizacionRef.current;
     if (!current.id) return;
     setPrecioBusy(true);
     try {
-      const res = await cotizacionCanalService.asumirPrecioRepuesto(current.id, ids);
+      const res = await cotizacionCanalService.asumirPrecioRepuesto(current.id, ids, modo);
       aplicarCotizacionServidor(res.cotizacion);
       const asumidos = new Set(ids.map(String));
       const siguiente = (res.cotizacion.repuestos ?? []).find(
@@ -798,6 +821,37 @@ export const CotizacionIaEditor = React.forwardRef<
       ],
     });
   }, [onChange]);
+
+  const pedirEnvio = useCallback((tipo: 'estimacion' | 'cotizacion') => {
+    const current = cotizacionRef.current;
+    if (!onEnviar) return;
+    if (
+      current.es_cotizacion_adicional
+      && current.ejecucion_adicional === 'nueva_fecha'
+      && (!current.fecha_propuesta || !current.hora_propuesta)
+    ) {
+      showAlert(
+        'Fecha requerida',
+        'Indica día y hora acordados con el cliente antes de enviar.',
+      );
+      return;
+    }
+    onEnviar(tipo);
+  }, [onEnviar]);
+
+  React.useImperativeHandle(ref, () => ({
+    abrirConfirmarPrecios: () => setConfirmarPreciosVisible(true),
+    agregarRepuesto,
+    agregarManoObra: agregarManoObraLinea,
+  }), [agregarRepuesto, agregarManoObraLinea]);
+
+  const enviarEstimacion = useCallback(() => {
+    if (onEnviarEstimacion) {
+      onEnviarEstimacion();
+      return;
+    }
+    pedirEnvio('estimacion');
+  }, [onEnviarEstimacion, pedirEnvio]);
 
   const cotizarItemsConIa = useCallback(async () => {
     const current = cotizacionRef.current;
@@ -1260,8 +1314,6 @@ export const CotizacionIaEditor = React.forwardRef<
         <InstitutionalSectionHeader
           title="Mano de obra"
           count={lineasMo.length > 0 ? lineasMo.length : undefined}
-          actionLabel={editable && lineasMo.length < MAX_MANO_OBRA_LINEAS ? 'Agregar' : undefined}
-          onActionPress={editable ? agregarManoObraLinea : undefined}
         />
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
           Precio final al cliente (el IVA se desglosa en el resumen).
@@ -1275,23 +1327,10 @@ export const CotizacionIaEditor = React.forwardRef<
           </InstitutionalText>
         ) : null}
         {lineasMo.length === 0 ? (
-          <Card
-            elevated
-            padding="host"
-            style={styles.emptyRepuestos}
-            onPress={editable ? agregarManoObraLinea : undefined}
-          >
+          <Card elevated padding="host" style={styles.emptyRepuestos}>
             <InstitutionalText role="caption" color="muted">
               Sin líneas de trabajo
             </InstitutionalText>
-            {editable ? (
-              <View style={styles.emptyAdd}>
-                <Plus size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                <InstitutionalText role="captionBold" color="primary">
-                  Agregar mano de obra
-                </InstitutionalText>
-              </View>
-            ) : null}
           </Card>
         ) : (
           <View style={styles.repuestosList}>
@@ -1313,8 +1352,6 @@ export const CotizacionIaEditor = React.forwardRef<
         <InstitutionalSectionHeader
           title="Repuestos"
           count={repuestos.length > 0 ? repuestos.length : undefined}
-          actionLabel={editable ? 'Agregar' : undefined}
-          onActionPress={editable ? agregarRepuesto : undefined}
         />
         {busquedaPendiente && !busquedaIaVisible ? (
           <View style={styles.busquedaWebChip}>
@@ -1325,46 +1362,14 @@ export const CotizacionIaEditor = React.forwardRef<
           </View>
         ) : null}
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
-          Un precio confirmado o asumido es el que se cobra. El subtotal es cantidad × unitario.
-          Una referencia web se muestra como rango: el cliente ve el techo hasta que confirmas.
+          El + añade líneas. En la pieza, Buscar precio consulta tiendas.
+          El cliente ve el techo hasta que fijas ficha o techo.
         </InstitutionalText>
-        {editable ? (
-          <View style={styles.iaRepuestosBlock}>
-            <InstitutionalButton
-              label={cotizandoItems || busquedaPendiente ? 'Buscando precios…' : 'Buscar precios con IA'}
-              variant="outline"
-              size="compact"
-              disabled={cotizandoItems}
-              onPress={() => { void cotizarItemsConIa(); }}
-              leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
-            />
-            <InstitutionalText role="caption" color="muted">
-              Agrega la pieza, escribe su nombre y pulsa buscar. La IA usa el mismo
-              proceso que al armar la cotización: catálogo, historial y tiendas, con
-              casa, ficha y monto. No cambia la mano de obra ni las líneas que ya
-              tienen precio.
-            </InstitutionalText>
-          </View>
-        ) : null}
-
         {repuestos.length === 0 ? (
-          <Card
-            elevated
-            padding="host"
-            style={styles.emptyRepuestos}
-            onPress={editable ? agregarRepuesto : undefined}
-          >
+          <Card elevated padding="host" style={styles.emptyRepuestos}>
             <InstitutionalText role="caption" color="muted">
               Sin repuestos listados
             </InstitutionalText>
-            {editable ? (
-              <View style={styles.emptyAdd}>
-                <Plus size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                <InstitutionalText role="captionBold" color="primary">
-                  Agregar repuesto
-                </InstitutionalText>
-              </View>
-            ) : null}
           </Card>
         ) : (
           <View style={styles.repuestosList}>
@@ -1380,6 +1385,8 @@ export const CotizacionIaEditor = React.forwardRef<
                 onDelete={eliminarRepuesto}
                 onConfirmar={abrirConfirmarRepuesto}
                 onEspecificacion={definirEspecificacionLinea}
+                onBuscarIa={cotizarItemsConIa}
+                puedeBuscarIa={lineaSinPrecioParaIa(rep)}
               />
             ))}
           </View>
@@ -1606,52 +1613,19 @@ export const CotizacionIaEditor = React.forwardRef<
           || (cotizacion.estado === 'enviada' && onMarcarAceptada)) ? (
         <View style={styles.actionsFooter}>
           {editable && onEnviar && (cotizacion.estado === 'borrador' || cotizacion.emision_pendiente) ? (
-            <>
-              {!(cotizacion.puede_enviar_firme ?? false)
-                && (cotizacion.lineas_pendientes_precio?.length || 0) > 0 ? (
-                <InstitutionalText role="caption" color="muted">
-                  Faltan {cotizacion.lineas_pendientes_precio?.length} precios por confirmar
-                </InstitutionalText>
-              ) : null}
-              <InstitutionalButton
-                label={cotizacion.puede_enviar_firme ? 'Enviar cotización firme' : enviarLabel}
-                onPress={() => {
-                  if (
-                    cotizacion.es_cotizacion_adicional
-                    && cotizacion.ejecucion_adicional === 'nueva_fecha'
-                    && (!cotizacion.fecha_propuesta || !cotizacion.hora_propuesta)
-                  ) {
-                    showAlert(
-                      'Fecha requerida',
-                      'Indica día y hora acordados con el cliente antes de enviar.',
-                    );
-                    return;
-                  }
-                  if (cotizacion.puede_enviar_firme) {
-                    onEnviar('cotizacion');
-                    return;
-                  }
-                  onEnviar('estimacion');
-                }}
-                loading={enviando}
-                disabled={enviando}
-              />
-              {!(cotizacion.puede_enviar_firme ?? true) ? (
-                <>
-                  <InstitutionalButton
-                    label="Confirmar precios"
-                    variant="outline"
-                    onPress={() => setConfirmarPreciosVisible(true)}
-                  />
-                  <InstitutionalButton
-                    label="Enviar como estimación"
-                    variant="tertiary"
-                    onPress={() => onEnviar('estimacion')}
-                    disabled={enviando}
-                  />
-                </>
-              ) : null}
-            </>
+            <CotizacionBorradorAcciones
+              pendientesPrecio={
+                cotizacion.lineas_pendientes_precio?.length
+                ?? (cotizacion.repuestos ?? []).filter(lineaPendientePrecio).length
+              }
+              puedeEnviarFirme={cotizacion.puede_enviar_firme ?? true}
+              enviarFirmeLabel={enviarLabel}
+              confirmDisabled={enviando}
+              sendDisabled={enviando}
+              loading={enviando}
+              onConfirmarPrecios={() => setConfirmarPreciosVisible(true)}
+              onEnviarFirme={() => pedirEnvio('cotizacion')}
+            />
           ) : null}
           {editable && onGuardarPlantilla ? (
             <InstitutionalButton
@@ -1688,9 +1662,9 @@ export const CotizacionIaEditor = React.forwardRef<
         repuesto={repuestoSheet}
         proveedores={proveedores}
         onConfirmar={(payload) => void confirmarPrecioLinea(payload)}
-        onAsumir={() => {
+        onAsumir={(modo) => {
           const rid = repuestoSheetRef.current?.id;
-          if (rid) void asumirPrecios([String(rid)]);
+          if (rid) void asumirPrecios([String(rid)], modo || 'techo');
         }}
         onEspecificacion={(spec) => {
           const actual = repuestoSheetRef.current;
@@ -1708,7 +1682,7 @@ export const CotizacionIaEditor = React.forwardRef<
         onClose={() => setConfirmarPreciosVisible(false)}
         cotizacion={cotizacion}
         proveedores={proveedores}
-        onAsumir={(ids) => void asumirPrecios(ids)}
+        onAsumir={(ids, modo) => void asumirPrecios(ids, modo || 'techo')}
         onEspecificacion={(repuestoId, spec) => {
           const found = (cotizacion.repuestos ?? []).find((r) => String(r.id) === String(repuestoId));
           if (found) void definirEspecificacionLinea(found, spec);
@@ -1721,6 +1695,7 @@ export const CotizacionIaEditor = React.forwardRef<
           setRepuestoSheet(actual || rep);
         }}
         loading={precioBusy}
+        onEnviarEstimacion={(onEnviarEstimacion || onEnviar) ? enviarEstimacion : undefined}
       />
     </View>
   );
@@ -1757,7 +1732,6 @@ const styles = StyleSheet.create({
   warningText: { flex: 1 },
   section: { gap: SPACING.fixed.sm },
   repuestosHint: { marginTop: -SPACING.fixed.xs },
-  iaRepuestosBlock: { gap: SPACING.fixed.xs },
   busquedaWebChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1801,11 +1775,6 @@ const styles = StyleSheet.create({
   emptyRepuestos: {
     gap: SPACING.fixed.sm,
     alignItems: 'flex-start',
-  },
-  emptyAdd: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.fixed.xs,
   },
   repuestosList: {
     gap: SPACING.fixed.sm,

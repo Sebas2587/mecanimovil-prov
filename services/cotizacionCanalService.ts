@@ -543,50 +543,51 @@ function aplicarPrecioLocal(
   };
 }
 
-/** Fusiona líneas enriquecidas por web sin pisar nombres/cantidades/precios del taller. */
+function fusionarLineaRepuesto(
+  rLoc: RepuestoCotizacion,
+  rRem?: RepuestoCotizacion,
+): RepuestoCotizacion {
+  if (!rRem) return rLoc;
+  const nombreLocal = (rLoc.nombre || '').trim();
+  const localCero = !rLoc.precio_unitario_clp;
+  const localFirme = certezaFirmeRepuesto(rLoc) && !localCero;
+  const remoteMejor = !localFirme && (
+    fuenteVerificadaRepuesto(rRem)
+    || ((rRem.precio_unitario_clp || 0) > 0 && localCero)
+  );
+  if (localFirme) {
+    return {
+      ...aplicarPrecioLocal(rRem, rLoc),
+      nombre: nombreLocal || rRem.nombre,
+    };
+  }
+  const precio = remoteMejor
+    ? rRem.precio_unitario_clp
+    : (rLoc.precio_unitario_clp ?? rRem.precio_unitario_clp);
+  return {
+    ...rRem,
+    nombre: nombreLocal || rRem.nombre,
+    cantidad: rLoc.cantidad ?? rRem.cantidad,
+    precio_unitario_clp: precio,
+    certeza: (precio || 0) > 0 && rRem.certeza === 'sin_precio'
+      ? (remoteMejor ? 'referencial' : (rLoc.certeza || 'referencial'))
+      : (rRem.certeza || rLoc.certeza),
+  };
+}
+
+/** Fusiona precios/fuentes remotos sobre las líneas que el taller todavía tiene. */
 export function mergeRepuestosPreservandoEdicion(
   local: RepuestoCotizacion[],
   remoto: RepuestoCotizacion[],
 ): RepuestoCotizacion[] {
+  if (!local.length) return local;
   if (!remoto.length) return local;
-  const remoteIds = new Set(remoto.map((r) => r.id).filter(Boolean));
-  const merged = remoto.map((rRem, idx) => {
-    const rLoc = rRem.id
-      ? local.find((l) => l.id === rRem.id)
-      : local[idx];
-    if (!rLoc) return rRem;
-    const nombreLocal = (rLoc.nombre || '').trim();
-    const localCero = !rLoc.precio_unitario_clp;
-    const localFirme = certezaFirmeRepuesto(rLoc) && !localCero;
-    const remoteMejor = !localFirme && (
-      fuenteVerificadaRepuesto(rRem)
-      || ((rRem.precio_unitario_clp || 0) > 0 && localCero)
-    );
-    if (localFirme) {
-      return {
-        ...aplicarPrecioLocal(rRem, rLoc),
-        nombre: nombreLocal || rRem.nombre,
-      };
-    }
-    const precio = remoteMejor
-      ? rRem.precio_unitario_clp
-      : (rLoc.precio_unitario_clp ?? rRem.precio_unitario_clp);
-    return {
-      ...rRem,
-      nombre: nombreLocal || rRem.nombre,
-      cantidad: rLoc.cantidad ?? rRem.cantidad,
-      precio_unitario_clp: precio,
-      certeza: (precio || 0) > 0 && rRem.certeza === 'sin_precio'
-        ? (remoteMejor ? 'referencial' : (rLoc.certeza || 'referencial'))
-        : (rRem.certeza || rLoc.certeza),
-    };
+  return local.map((rLoc, idx) => {
+    const rRem = rLoc.id
+      ? remoto.find((r) => r.id === rLoc.id)
+      : remoto[idx];
+    return fusionarLineaRepuesto(rLoc, rRem);
   });
-  const extras = local.filter((l) => {
-    const nombre = (l.nombre || '').trim();
-    if (!nombre || nombre.toLowerCase() === 'repuesto') return false;
-    return Boolean(l.id && !remoteIds.has(l.id));
-  });
-  return extras.length ? [...merged, ...extras] : merged;
 }
 
 /** Conserva nombres y precios locales si el PATCH vuelve con un snapshot viejo. */
@@ -596,10 +597,11 @@ export function fusionarRepuestosEnviados(
 ): RepuestoCotizacion[] {
   const sent = enviados ?? [];
   const saved = guardados ?? [];
+  if (!sent.length) return [];
   if (!saved.length) return sent;
-  return saved.map((r, i) => {
-    const src = r.id ? sent.find((x) => x.id === r.id) : sent[i];
-    if (!src) return r;
+  return sent.map((src, i) => {
+    const r = src.id ? saved.find((x) => x.id === src.id) : saved[i];
+    if (!r) return src;
     const nombreEnviado = (src.nombre || '').trim();
     const precioLocal = Number(src.precio_unitario_clp || 0);
     const precioSaved = Number(r.precio_unitario_clp || 0);
@@ -721,10 +723,11 @@ class CotizacionCanalService {
   async asumirPrecioRepuesto(
     id: number,
     repuestoIds?: string[],
+    modo: 'techo' | 'ficha' = 'techo',
   ): Promise<{ cotizacion: CotizacionCanal }> {
     const response = await api.post(
       `/ordenes/cotizaciones-canal/${id}/asumir-precio-repuesto/`,
-      { repuesto_id: repuestoIds || [] },
+      { repuesto_id: repuestoIds || [], modo },
     );
     return response.data as { cotizacion: CotizacionCanal };
   }

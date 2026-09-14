@@ -12,6 +12,7 @@ export type InstitutionalSectionHeaderProps = {
   actionLabel?: string;
   onActionPress?: () => void;
   leading?: React.ReactNode;
+  trailing?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -22,6 +23,7 @@ export function InstitutionalSectionHeader({
   actionLabel,
   onActionPress,
   leading,
+  trailing,
   style,
 }: InstitutionalSectionHeaderProps) {
   const styles = institutionalSectionStyles(level);
@@ -43,6 +45,7 @@ export function InstitutionalSectionHeader({
           <Text style={styles.action}>{actionLabel}</Text>
         </Pressable>
       ) : null}
+      {trailing}
     </View>
   );
 }

@@ -15,6 +15,8 @@ import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/
 import { CotizacionIaProgreso } from '@/components/chats/CotizacionIaProgreso';
 import { CotizacionEnviadaSiguientePaso } from '@/components/cotizacion/CotizacionEnviadaSiguientePaso';
 import { RegistrarCompraCard } from '@/components/cotizacion/RegistrarCompraCard';
+import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBorradorAcciones';
+import { CotizacionEditorFab } from '@/components/cotizacion/CotizacionEditorFab';
 import { lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
@@ -97,6 +99,7 @@ export default function CotizacionCanalDetalleScreen() {
   const [eliminando, setEliminando] = useState(false);
   const [accionLead, setAccionLead] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [tipoPreview, setTipoPreview] = useState<'estimacion' | 'cotizacion'>('cotizacion');
   const editorRef = useRef<CotizacionIaEditorHandle>(null);
   const tipoEnvioRef = useRef<'estimacion' | 'cotizacion'>('cotizacion');
   const [holdExpired, setHoldExpired] = useState(false);
@@ -158,41 +161,6 @@ export default function CotizacionCanalDetalleScreen() {
     invalidateProveedorComercialQueries(qc);
   }, [parsedId, qc]);
 
-  const guardar = useCallback(async () => {
-    if (!draft?.id) return;
-    setGuardando(true);
-    try {
-      const patch = payloadEdicionCotizacion(draft);
-      if (draft.metadata?.busqueda_web_estado === 'pendiente') {
-        delete patch.repuestos;
-      }
-      const actualizada = await cotizacionCanalService.actualizar(draft.id, patch);
-      setDraft({
-        ...actualizada,
-        repuestos: mergeRepuestosPreservandoEdicion(
-          draft.repuestos ?? [],
-          actualizada.repuestos ?? [],
-        ),
-      });
-      await invalidateAll();
-      if (actualizada.numero_publico) {
-        setPreviewVisible(true);
-        return;
-      }
-      showAlert('Guardado', 'Cambios guardados.');
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { estado?: string[]; detail?: string } } })?.response?.data
-        ;
-      const texto = Array.isArray(msg?.estado)
-        ? msg.estado[0]
-        : msg?.detail || (err as Error)?.message || 'No se pudo guardar.';
-      showAlert('Error', String(texto));
-    } finally {
-      setGuardando(false);
-    }
-  }, [data?.estado, draft, invalidateAll]);
-
   const compartirConCliente = useCallback(async (
     url: string,
     cot: CotizacionCanal,
@@ -249,9 +217,6 @@ export default function CotizacionCanalDetalleScreen() {
     if (!draft?.id) return draft;
     if (!hayCambios) return draft;
     const patch = payloadEdicionCotizacion(draft);
-    if (draft.metadata?.busqueda_web_estado === 'pendiente') {
-      delete patch.repuestos;
-    }
     const actualizada = await cotizacionCanalService.actualizar(draft.id, patch);
     setDraft({
       ...actualizada,
@@ -264,6 +229,14 @@ export default function CotizacionCanalDetalleScreen() {
     return actualizada;
   }, [draft, hayCambios, invalidateAll]);
 
+  useEffect(() => {
+    if (!hayCambios || !editable || enviando || guardando || previewVisible) return;
+    const t = setTimeout(() => {
+      void persistirSiHayCambios();
+    }, 900);
+    return () => clearTimeout(t);
+  }, [hayCambios, editable, enviando, guardando, previewVisible, persistirSiHayCambios]);
+
   const abrirVistaPrevia = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     if (!draft?.id) return;
     if (adicionalRequiereFecha(draft)) {
@@ -273,8 +246,10 @@ export default function CotizacionCanalDetalleScreen() {
       );
       return;
     }
-    tipoEnvioRef.current = tipo
+    const nextTipo = tipo
       || (draft.puede_enviar_firme ? 'cotizacion' : 'estimacion');
+    tipoEnvioRef.current = nextTipo;
+    setTipoPreview(nextTipo);
     setGuardando(true);
     try {
       await persistirSiHayCambios();
@@ -343,11 +318,11 @@ export default function CotizacionCanalDetalleScreen() {
       if (gate) {
         showAlertButtons(
           'Faltan precios por confirmar',
-          'Puedes confirmar los precios o enviar una estimación al cliente.',
+          'Confirmar precios no envía: eliges ficha o techo y sigues aquí. La estimación sí sale al cliente, con rangos.',
           [
             { text: 'Ahora no', style: 'cancel' },
             {
-              text: 'Enviar como estimación',
+              text: 'Enviar estimación',
               onPress: () => {
                 void enviar('estimacion');
               },
@@ -529,6 +504,7 @@ export default function CotizacionCanalDetalleScreen() {
           readonly={!editable}
           hideSendActions
           compactHeader
+          onEnviarEstimacion={() => void abrirVistaPrevia('estimacion')}
         />
 
         {draft.estado === 'aceptada' ? (
@@ -617,56 +593,17 @@ export default function CotizacionCanalDetalleScreen() {
               <InstitutionalText role="caption" color="muted">
                 El cliente abrió el enlace.
               </InstitutionalText>
-            ) : pendientesPrecio > 0 ? (
-              <InstitutionalText role="caption" color="muted">
-                {pendientesPrecio === 1
-                  ? 'Falta 1 precio por confirmar'
-                  : `Faltan ${pendientesPrecio} precios por confirmar`}
-              </InstitutionalText>
             ) : null}
-            <View style={styles.footerRow}>
-              {!puedeEnviarFirme ? (
-                <InstitutionalButton
-                  label="Enviar como estimación"
-                  variant="outline"
-                  size="compact"
-                  style={styles.footerMid}
-                  disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
-                  onPress={() => void abrirVistaPrevia('estimacion')}
-                />
-              ) : null}
-              {puedeEnviarFirme ? (
-                <InstitutionalButton
-                  label="Enviar cotización firme"
-                  variant="primary"
-                  size="compact"
-                  style={styles.footerPrimary}
-                  loading={enviando || guardando}
-                  disabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
-                  onPress={() => void abrirVistaPrevia('cotizacion')}
-                />
-              ) : (
-                <InstitutionalButton
-                  label="Confirmar precios"
-                  variant="primary"
-                  size="compact"
-                  style={styles.footerPrimary}
-                  loading={enviando || guardando}
-                  disabled={enviando || guardando}
-                  onPress={() => editorRef.current?.abrirConfirmarPrecios()}
-                />
-              )}
-            </View>
-            {hayCambios ? (
-              <InstitutionalButton
-                label="Guardar cambios"
-                variant="outline"
-                size="compact"
-                loading={guardando}
-                disabled={guardando}
-                onPress={() => void guardar()}
-              />
-            ) : null}
+            <CotizacionBorradorAcciones
+              pendientesPrecio={pendientesPrecio}
+              puedeEnviarFirme={puedeEnviarFirme}
+              enviarFirmeLabel={cotizacionEsActualizacion(draft) ? 'Enviar actualización' : 'Enviar cotización'}
+              confirmDisabled={enviando || guardando}
+              sendDisabled={!cotizacionPermiteEnviar(draft) || enviando || guardando}
+              loading={enviando || guardando}
+              onConfirmarPrecios={() => editorRef.current?.abrirConfirmarPrecios()}
+              onEnviarFirme={() => void abrirVistaPrevia('cotizacion')}
+            />
           </View>
         ) : null}
 
@@ -685,62 +622,57 @@ export default function CotizacionCanalDetalleScreen() {
                 El cliente abrió el enlace.
               </InstitutionalText>
             ) : null}
-            <View style={styles.footerRow}>
-              <InstitutionalButton
-                label="Guardar"
-                variant="outline"
-                style={styles.footerMid}
-                loading={guardando}
-                disabled={!hayCambios || guardando}
-                onPress={() => void guardar()}
+            {!puedeEnviarFirme ? (
+              <CotizacionBorradorAcciones
+                pendientesPrecio={pendientesPrecio}
+                puedeEnviarFirme={false}
+                confirmDisabled={enviando || guardando}
+                sendDisabled={enviando || guardando}
+                loading={enviando || guardando}
+                onConfirmarPrecios={() => editorRef.current?.abrirConfirmarPrecios()}
+                onEnviarFirme={() => void abrirVistaPrevia('cotizacion')}
               />
+            ) : (
               <InstitutionalButton
-                label={puedeEnviarFirme ? 'Enviar cotización firme' : 'Enviar como estimación'}
+                label="Enviar cotización"
                 variant="primary"
-                style={styles.footerPrimary}
                 loading={enviando || guardando}
                 disabled={(!hayCambios && !draft.emision_pendiente) || enviando || guardando}
-                onPress={() => void abrirVistaPrevia(puedeEnviarFirme ? 'cotizacion' : 'estimacion')}
+                onPress={() => void abrirVistaPrevia('cotizacion')}
               />
-            </View>
+            )}
           </View>
         ) : null}
 
-        {editable && draft.estado === 'aceptada' ? (
+        {editable && draft.estado === 'aceptada' && draft.emision_pendiente ? (
           <View style={styles.footerBorrador}>
-            {draft.emision_pendiente ? (
-              <InstitutionalText role="caption" color="muted">
-                El cliente sigue viendo la versión anterior hasta que envíes esta actualización.
-              </InstitutionalText>
-            ) : null}
-            <View style={styles.footerRow}>
-              <InstitutionalButton
-                label="Guardar cambios"
-                variant={draft.emision_pendiente && !hayCambios ? 'outline' : 'primary'}
-                style={styles.footerMid}
-                loading={guardando}
-                disabled={!hayCambios || guardando}
-                onPress={() => void guardar()}
-              />
-              {draft.emision_pendiente ? (
-                <InstitutionalButton
-                  label="Revisar y enviar"
-                  variant="primary"
-                  style={styles.footerPrimary}
-                  loading={enviando || guardando}
-                  disabled={enviando || guardando}
-                  onPress={() => void abrirVistaPrevia(puedeEnviarFirme ? 'cotizacion' : 'estimacion')}
-                />
-              ) : null}
-            </View>
+            <InstitutionalText role="caption" color="muted">
+              El cliente sigue viendo la versión anterior hasta que envíes esta actualización.
+            </InstitutionalText>
+            <InstitutionalButton
+              label="Revisar y enviar"
+              variant="primary"
+              loading={enviando || guardando}
+              disabled={enviando || guardando}
+              onPress={() => void abrirVistaPrevia(puedeEnviarFirme ? 'cotizacion' : 'estimacion')}
+            />
           </View>
         ) : null}
       </View>
+
+      {editable && !previewVisible ? (
+        <CotizacionEditorFab
+          visible
+          onAddRepuesto={() => editorRef.current?.agregarRepuesto()}
+          onAddManoObra={() => editorRef.current?.agregarManoObra()}
+        />
+      ) : null}
 
       <VistaPreviaCotizacionClienteModal
         visible={previewVisible}
         cotizacionId={draft.id}
         esActualizacion={cotizacionEsActualizacion(draft)}
+        tipoDocumento={tipoPreview}
         puedeEnviar={cotizacionPermiteEnviar(draft) || Boolean(draft.emision_pendiente)}
         enviando={enviando}
         onClose={() => setPreviewVisible(false)}
@@ -782,15 +714,7 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.fixed.sm,
     gap: SPACING.fixed.xs,
   },
-  footerRow: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    alignItems: 'stretch',
-    gap: SPACING.fixed.sm,
-  },
   footerBorrador: {
     gap: SPACING.fixed.xs,
   },
-  footerMid: { flex: 1, minWidth: 0 },
-  footerPrimary: { flex: 1.15, minWidth: 0 },
 });

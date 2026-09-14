@@ -58,7 +58,8 @@ import {
   normalizeMessageText,
 } from '@/utils/chatAttachmentMedia';
 import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
-import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
+import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
+import { CotizacionEditorFab } from '@/components/cotizacion/CotizacionEditorFab';
 import { VistaPreviaCotizacionClienteModal } from '@/components/chats/VistaPreviaCotizacionClienteModal';
 import { InstitutionalButton, InstitutionalText, Card, HostSectionKicker } from '@/app/design-system/components';
 import { InstitutionalModal } from '@/design-system/components/InstitutionalModal';
@@ -114,6 +115,9 @@ export default function ChatOmnicanalScreen() {
   const [editingCotizacion, setEditingCotizacion] = useState<CotizacionCanal | null>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewEnviando, setPreviewEnviando] = useState(false);
+  const [tipoPreview, setTipoPreview] = useState<'estimacion' | 'cotizacion'>('cotizacion');
+  const tipoEnvioRef = useRef<'estimacion' | 'cotizacion'>('cotizacion');
+  const editorRef = useRef<CotizacionIaEditorHandle>(null);
 
   const conversationMeta = useOmnichannelConversationMeta(convId);
   const { map: channelConnections, featureEnabled } = useOmnichannelConnectionMap(Boolean(convId));
@@ -616,45 +620,60 @@ export default function ChatOmnicanalScreen() {
           title="Editar Cotización"
         >
           {editingCotizacion && (
-            <CotizacionIaEditor
-              cotizacion={editingCotizacion}
-              onChange={(updated) => setEditingCotizacion(updated)}
-              onEnviar={async () => {
-                if (!editingCotizacion.id || !cotizacionPermiteEnviar(editingCotizacion)) return;
-                try {
-                  const saved = await cotizacionCanalService.actualizar(
-                    editingCotizacion.id,
-                    payloadEdicionCotizacion(editingCotizacion),
-                  );
-                  setEditingCotizacion(saved);
-                  setPreviewVisible(true);
-                } catch (e) {
-                  Alert.alert('Error', 'No se pudo guardar la cotización');
-                }
-              }}
-              onGuardarPlantilla={async () => {
-                if (editingCotizacion.id) {
+            <View style={styles.editorWrap}>
+              <CotizacionIaEditor
+                ref={editorRef}
+                cotizacion={editingCotizacion}
+                onChange={(updated) => setEditingCotizacion(updated)}
+                onEnviar={async (tipo) => {
+                  if (!editingCotizacion.id || !cotizacionPermiteEnviar(editingCotizacion)) return;
                   try {
-                    await cotizacionCanalService.guardarPlantilla(editingCotizacion.id);
-                    Alert.alert('Guardado', 'Plantilla guardada correctamente');
+                    const saved = await cotizacionCanalService.actualizar(
+                      editingCotizacion.id,
+                      payloadEdicionCotizacion(editingCotizacion),
+                    );
+                    const nextTipo = tipo
+                      || (saved.puede_enviar_firme ? 'cotizacion' : 'estimacion');
+                    tipoEnvioRef.current = nextTipo;
+                    setTipoPreview(nextTipo);
+                    setEditingCotizacion(saved);
+                    setPreviewVisible(true);
                   } catch (e) {
-                    Alert.alert('Error', 'No se pudo guardar la plantilla');
+                    Alert.alert('Error', 'No se pudo guardar la cotización');
                   }
-                }
-              }}
-              onMarcarAceptada={async () => {
-                if (editingCotizacion.id) {
-                  try {
-                    await cotizacionCanalService.marcarAceptada(editingCotizacion.id);
-                    setEditingCotizacion(null);
-                    void refetchSilent();
-                  } catch (e) {
-                    Alert.alert('Error', 'No se pudo marcar como aceptada');
+                }}
+                onGuardarPlantilla={async () => {
+                  if (editingCotizacion.id) {
+                    try {
+                      await cotizacionCanalService.guardarPlantilla(editingCotizacion.id);
+                      Alert.alert('Guardado', 'Plantilla guardada correctamente');
+                    } catch (e) {
+                      Alert.alert('Error', 'No se pudo guardar la plantilla');
+                    }
                   }
-                }
-              }}
-              readonly={!cotizacionPermiteEdicionCompleta(editingCotizacion)}
-            />
+                }}
+                onMarcarAceptada={async () => {
+                  if (editingCotizacion.id) {
+                    try {
+                      await cotizacionCanalService.marcarAceptada(editingCotizacion.id);
+                      setEditingCotizacion(null);
+                      void refetchSilent();
+                    } catch (e) {
+                      Alert.alert('Error', 'No se pudo marcar como aceptada');
+                    }
+                  }
+                }}
+                readonly={!cotizacionPermiteEdicionCompleta(editingCotizacion)}
+              />
+              {cotizacionPermiteEdicionCompleta(editingCotizacion) && !previewVisible ? (
+                <CotizacionEditorFab
+                  visible
+                  bottomOffset={24}
+                  onAddRepuesto={() => editorRef.current?.agregarRepuesto()}
+                  onAddManoObra={() => editorRef.current?.agregarManoObra()}
+                />
+              ) : null}
+            </View>
           )}
         </InstitutionalModal>
 
@@ -662,6 +681,7 @@ export default function ChatOmnicanalScreen() {
           visible={previewVisible}
           cotizacionId={editingCotizacion?.id}
           esActualizacion={cotizacionEsActualizacion(editingCotizacion)}
+          tipoDocumento={tipoPreview}
           puedeEnviar={Boolean(editingCotizacion && cotizacionPermiteEnviar(editingCotizacion))}
           enviando={previewEnviando}
           onClose={() => setPreviewVisible(false)}
@@ -670,7 +690,10 @@ export default function ChatOmnicanalScreen() {
             setPreviewEnviando(true);
             try {
               const eraUpdate = cotizacionEsActualizacion(editingCotizacion);
-              const res = await cotizacionCanalService.enviar(editingCotizacion.id);
+              const res = await cotizacionCanalService.enviar(
+                editingCotizacion.id,
+                tipoEnvioRef.current,
+              );
               const enviada = res.cotizacion;
               showAlert(
                 tituloEnvioExitoso(enviada.numero_publico, { actualizada: eraUpdate }),
@@ -760,5 +783,9 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginVertical: SPACING.xs,
     maxWidth: '85%',
+  },
+  editorWrap: {
+    position: 'relative',
+    minHeight: 420,
   },
 });

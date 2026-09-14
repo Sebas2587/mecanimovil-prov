@@ -14,6 +14,7 @@ import {
   calidadLabel,
   formatRangoClp,
   labelFamilia,
+  montosFichaYTecho,
   motivoSinPrecio,
   opcionesDe,
   opcionesFamilia,
@@ -39,7 +40,7 @@ type Props = {
     proveedor_nombre?: string;
     especificacion?: string;
   }) => void;
-  onAsumir: () => void;
+  onAsumir: (modo?: 'techo' | 'ficha') => void;
   onEspecificacion?: (spec: string) => void;
   onUsarOpcion?: (opcion: OpcionRepuesto) => void;
   loading?: boolean;
@@ -83,7 +84,8 @@ export function RepuestoPrecioSheet({
   const resto = pool.slice(VISIBLES);
   const motivo = repuesto ? motivoSinPrecio(repuesto) : null;
   const rango = formatRangoClp(repuesto?.precio_min_clp, repuesto?.precio_max_clp);
-  const techo = Math.round(Number(repuesto?.precio_max_clp || repuesto?.precio_unitario_clp || 0));
+  const { ficha, techo } = montosFichaYTecho(repuesto);
+  const hayBanda = ficha > 0 && techo > 0 && ficha !== techo;
   const vehiculo = [cotizacion.vehiculo_marca, cotizacion.vehiculo_modelo, cotizacion.vehiculo_anio]
     .filter(Boolean)
     .join(' ');
@@ -215,17 +217,36 @@ export function RepuestoPrecioSheet({
           </View>
         ) : null}
 
-        {rango ? (
+        {rango || ficha > 0 || techo > 0 ? (
           <View style={styles.block}>
-            <InstitutionalText role="label">Rango de mercado</InstitutionalText>
-            <InstitutionalText role="body" color="ink">{rango}</InstitutionalText>
-            {techo > 0 ? (
-              <InstitutionalText role="caption" color="muted">
-                {(repuesto.precio_unitario_clp || 0) > 0
-                  ? `Se cobra ${formatearMontoCLP(techo)}`
-                  : `Si asumes el techo se cobra ${formatearMontoCLP(techo)}`}
-              </InstitutionalText>
-            ) : null}
+            <InstitutionalText role="label">
+              {hayBanda ? 'Ficha y techo' : 'Precio de referencia'}
+            </InstitutionalText>
+            {hayBanda ? (
+              <>
+                <InstitutionalText role="body" color="ink">
+                  Ficha {formatearMontoCLP(ficha)}
+                </InstitutionalText>
+                <InstitutionalText role="body" color="ink">
+                  Techo sugerido {formatearMontoCLP(techo)}
+                </InstitutionalText>
+                <InstitutionalText role="caption" color="muted">
+                  La ficha es el precio publicado en la tienda. El techo es un margen
+                  por si la casa cobra más. El cliente ve el techo hasta que eliges uno.
+                </InstitutionalText>
+              </>
+            ) : (
+              <>
+                <InstitutionalText role="body" color="ink">
+                  {rango || formatearMontoCLP(ficha || techo)}
+                </InstitutionalText>
+                {(ficha || techo) > 0 ? (
+                  <InstitutionalText role="caption" color="muted">
+                    Es el precio de la ficha. Al usarlo queda como el monto a cobrar.
+                  </InstitutionalText>
+                ) : null}
+              </>
+            )}
             {(repuesto.factor_mercado || 0) > 1 ? (
               <InstitutionalText role="caption" color="muted">
                 Ajuste de mostrador ×{Number(repuesto.factor_mercado).toFixed(1)}.
@@ -293,19 +314,29 @@ export function RepuestoPrecioSheet({
         ) : null}
       </ScrollView>
       <View style={styles.footer}>
-        <InstitutionalButton
-          label="Tengo el precio"
-          onPress={() => setMostrarForm(true)}
-          disabled={loading}
-        />
-        {techo > 0 ? (
+        {ficha > 0 ? (
           <InstitutionalButton
-            label={`Usar el techo (${formatearMontoCLP(techo)})`}
-            variant="outline"
-            onPress={onAsumir}
+            label={hayBanda
+              ? `Usar precio de ficha (${formatearMontoCLP(ficha)})`
+              : `Usar este precio (${formatearMontoCLP(ficha)})`}
+            onPress={() => onAsumir('ficha')}
             disabled={loading}
           />
         ) : null}
+        {techo > 0 && techo !== ficha ? (
+          <InstitutionalButton
+            label={`Usar el techo (${formatearMontoCLP(techo)})`}
+            variant="outline"
+            onPress={() => onAsumir('techo')}
+            disabled={loading}
+          />
+        ) : null}
+        <InstitutionalButton
+          label="Tengo el precio"
+          variant={ficha > 0 ? 'outline' : 'primary'}
+          onPress={() => setMostrarForm(true)}
+          disabled={loading}
+        />
         <InstitutionalButton
           label="Pedir precio por WhatsApp"
           variant="tertiary"

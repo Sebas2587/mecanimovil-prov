@@ -39,6 +39,7 @@ type Props = {
   visible: boolean;
   cotizacionId?: number | null;
   esActualizacion?: boolean;
+  tipoDocumento?: 'estimacion' | 'cotizacion';
   puedeEnviar?: boolean;
   enviando?: boolean;
   onClose: () => void;
@@ -49,6 +50,7 @@ export function VistaPreviaCotizacionClienteModal({
   visible,
   cotizacionId,
   esActualizacion = false,
+  tipoDocumento = 'cotizacion',
   puedeEnviar = true,
   enviando = false,
   onClose,
@@ -90,6 +92,7 @@ export function VistaPreviaCotizacionClienteModal({
   const reps = Array.isArray(doc?.repuestos) ? doc.repuestos : [];
   const desc = Math.max(0, Math.round(Number(doc?.descuento_clp) || 0));
   const clienteNombre = doc?.cliente?.nombre || doc?.cliente_nombre || '';
+  const esEstimacion = tipoDocumento === 'estimacion';
 
   return (
     <BottomSheet
@@ -102,12 +105,16 @@ export function VistaPreviaCotizacionClienteModal({
         Así la ve el cliente
       </InstitutionalText>
       <InstitutionalText role="h5" style={styles.heading}>
-        {esActualizacion ? 'Vista previa de la actualización' : 'Vista previa de la cotización'}
+        {esEstimacion
+          ? 'Vista previa de la estimación'
+          : (esActualizacion ? 'Vista previa de la actualización' : 'Vista previa de la cotización')}
       </InstitutionalText>
       <InstitutionalText role="small" color="muted" style={styles.hint}>
-        {esActualizacion
-          ? 'El cliente todavía ve la versión anterior. Si te parece bien, envíasela y le llega el link actualizado.'
-          : 'Así la verá el cliente. Si te parece bien, envíasela.'}
+        {esEstimacion
+          ? 'El cliente verá rangos y techo, no un precio cerrado. Confirmar precios no envía: esto sí.'
+          : (esActualizacion
+            ? 'El cliente todavía ve la versión anterior. Si te parece bien, envíasela y le llega el link actualizado.'
+            : 'Así la verá el cliente. Si te parece bien, envíasela.')}
       </InstitutionalText>
 
       <ScrollView
@@ -247,7 +254,11 @@ export function VistaPreviaCotizacionClienteModal({
         />
         {puedeEnviar ? (
           <InstitutionalButton
-            label={esActualizacion ? 'Enviar actualización' : 'Enviar al cliente'}
+            label={
+              esEstimacion
+                ? 'Enviar estimación'
+                : (esActualizacion ? 'Enviar actualización' : 'Enviar cotización')
+            }
             variant="primary"
             style={styles.footerBtnGrow}
             onPress={onEnviar}

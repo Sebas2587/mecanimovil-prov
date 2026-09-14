@@ -61,6 +61,22 @@ export function labelFamilia(rep: RepuestoCotizacion): string {
   return FAMILIAS_SENSIBLES_UI[familiaDe(rep)]?.label || 'Especificación';
 }
 
+/** Precio publicado en la ficha vs techo sugerido (ficha × factor). */
+export function montosFichaYTecho(rep?: {
+  precio_marketplace_clp?: number;
+  precio_min_clp?: number;
+  precio_max_clp?: number;
+  precio_unitario_clp?: number;
+} | null): { ficha: number; techo: number } {
+  if (!rep) return { ficha: 0, techo: 0 };
+  const unit = Math.round(Number(rep.precio_unitario_clp) || 0);
+  const ficha = Math.round(
+    Number(rep.precio_marketplace_clp) || Number(rep.precio_min_clp) || unit || 0,
+  );
+  const techo = Math.round(Number(rep.precio_max_clp) || unit || 0);
+  return { ficha, techo };
+}
+
 export function formatRangoClp(min?: number, max?: number): string | null {
   const a = Math.round(Number(min) || 0);
   const b = Math.round(Number(max) || 0);

@@ -12,6 +12,7 @@ import {
   formatRangoClp,
   fuentesDe,
   lineaPendientePrecio,
+  montosFichaYTecho,
   nombreFuente,
   opcionesFamilia,
 } from '@/components/cotizacion/repuestoCerteza';
@@ -24,10 +25,11 @@ type Props = {
   onClose: () => void;
   cotizacion: CotizacionCanal;
   proveedores: ProveedorRepuestos[];
-  onAsumir: (ids: string[]) => void;
+  onAsumir: (ids: string[], modo?: 'techo' | 'ficha') => void;
   onEspecificacion: (repuestoId: string, spec: string) => void;
   onAbrirDetalle: (rep: RepuestoCotizacion) => void;
   loading?: boolean;
+  onEnviarEstimacion?: () => void;
 };
 
 export function ConfirmarPreciosSheet({
@@ -39,6 +41,7 @@ export function ConfirmarPreciosSheet({
   onEspecificacion,
   onAbrirDetalle,
   loading,
+  onEnviarEstimacion,
 }: Props) {
   const pendientes = useMemo(
     () => (cotizacion.repuestos ?? []).filter(lineaPendientePrecio),
@@ -71,13 +74,29 @@ export function ConfirmarPreciosSheet({
     <BottomSheet visible={visible} onClose={onClose} stickyFooter>
       <InstitutionalText role="h3">Confirmar precios</InstitutionalText>
       <InstitutionalText role="caption" color="muted">
-        {pendientes.length} de {(cotizacion.repuestos ?? []).length} repuestos sin confirmar
+        Elige ficha o techo. Esto no envía al cliente: después aparece Enviar cotización.
+        {pendientes.length
+          ? ` ${pendientes.length} de ${(cotizacion.repuestos ?? []).length} sin fijar.`
+          : ''}
       </InstitutionalText>
+      {onEnviarEstimacion ? (
+        <InstitutionalButton
+          label="Enviar estimación (el cliente ve rangos)"
+          variant="tertiary"
+          onPress={() => {
+            onClose();
+            onEnviarEstimacion();
+          }}
+          accessibilityLabel="Enviar estimación al cliente. Ve rangos y techo, no un precio cerrado."
+        />
+      ) : null}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.list}>
         {pendientes.map((rep) => {
           const ops = opcionesFamilia(rep);
           const rango = formatRangoClp(rep.precio_min_clp, rep.precio_max_clp);
           const fuentes = fuentesDe(rep);
+          const { ficha, techo } = montosFichaYTecho(rep);
+          const hayBanda = ficha > 0 && techo > 0 && ficha !== techo;
           return (
             <View key={rep.id || rep.nombre} style={styles.row}>
               <TouchableOpacity onPress={() => onAbrirDetalle(rep)}>
@@ -102,7 +121,9 @@ export function ConfirmarPreciosSheet({
                 ) : null}
                 <InstitutionalText role="caption" color="muted">
                   {[
-                    rango || (rep.especificacion_pendiente ? 'Falta el tipo' : 'Sin referencia'),
+                    hayBanda
+                      ? `Ficha ${formatearMontoCLP(ficha)} · techo ${formatearMontoCLP(techo)}`
+                      : (rango || (rep.especificacion_pendiente ? 'Falta el tipo' : 'Sin referencia')),
                     fuentes.length ? nombreFuente(fuentes[0]) : '',
                   ]
                     .filter(Boolean)
@@ -122,12 +143,22 @@ export function ConfirmarPreciosSheet({
                   ))}
                 </View>
               ) : null}
-              {(rep.precio_max_clp || 0) > 0 && rep.id ? (
+              {ficha > 0 && rep.id ? (
                 <InstitutionalButton
-                  label={`Techo ${formatearMontoCLP(rep.precio_max_clp || 0)}`}
+                  label={hayBanda
+                    ? `Ficha ${formatearMontoCLP(ficha)}`
+                    : `Usar ${formatearMontoCLP(ficha)}`}
                   variant="outline"
                   size="compact"
-                  onPress={() => onAsumir([rep.id as string])}
+                  onPress={() => onAsumir([rep.id as string], 'ficha')}
+                />
+              ) : null}
+              {hayBanda && rep.id ? (
+                <InstitutionalButton
+                  label={`Techo ${formatearMontoCLP(techo)}`}
+                  variant="tertiary"
+                  size="compact"
+                  onPress={() => onAsumir([rep.id as string], 'techo')}
                 />
               ) : null}
             </View>
@@ -141,10 +172,16 @@ export function ConfirmarPreciosSheet({
           onPress={pedirTodo}
         />
         <InstitutionalButton
-          label="Usar el techo en todas"
-          onPress={() => onAsumir(ids)}
+          label="Usar precio de ficha en todas"
+          onPress={() => onAsumir(ids, 'ficha')}
           loading={loading}
           disabled={!ids.length}
+        />
+        <InstitutionalButton
+          label="Usar el techo en todas"
+          variant="outline"
+          onPress={() => onAsumir(ids, 'techo')}
+          disabled={!ids.length || loading}
         />
       </View>
     </BottomSheet>

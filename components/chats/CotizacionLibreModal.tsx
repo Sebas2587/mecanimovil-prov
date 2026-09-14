@@ -19,6 +19,8 @@ import { getChilePhoneError } from '@/components/forms/ChilePhoneField';
 import ChileAddressField from '@/components/forms/ChileAddressField';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
 import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
+import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBorradorAcciones';
+import { CotizacionEditorFab } from '@/components/cotizacion/CotizacionEditorFab';
 import { lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
 import { VistaPreviaCotizacionClienteModal } from '@/components/chats/VistaPreviaCotizacionClienteModal';
 import {
@@ -154,6 +156,7 @@ export function CotizacionLibreModal({
   const [cotizacion, setCotizacion] = useState<CotizacionCanal | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [tipoPreview, setTipoPreview] = useState<'estimacion' | 'cotizacion'>('cotizacion');
   const editorRef = useRef<CotizacionIaEditorHandle>(null);
   const tipoEnvioRef = useRef<'estimacion' | 'cotizacion'>('cotizacion');
   const persistSeqRef = useRef(0);
@@ -534,11 +537,6 @@ export function CotizacionLibreModal({
     if (!cotizacionPermiteEdicionCompleta(next) || !next.id) return next;
     try {
       const patch = payloadEdicion(next);
-      // El endpoint cotizar-items ya persistió las líneas; un PATCH con el
-      // snapshot local pisa precios/fuentes que la búsqueda web acaba de llenar.
-      if (next.metadata?.busqueda_web_estado === 'pendiente') {
-        delete patch.repuestos;
-      }
       const saved = await cotizacionCanalService.actualizar(next.id, patch);
       const merged = {
         ...saved,
@@ -605,8 +603,10 @@ export function CotizacionLibreModal({
   const abrirVistaPrevia = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     const fuente = draftRef.current || cotizacion;
     if (!fuente?.id || !cotizacionPermiteEnviar(fuente)) return;
-    tipoEnvioRef.current = tipo
+    const nextTipo = tipo
       || (fuente.puede_enviar_firme ? 'cotizacion' : 'estimacion');
+    tipoEnvioRef.current = nextTipo;
+    setTipoPreview(nextTipo);
     setErrorIa(null);
     try {
       await persistirCotizacion(fuente, true);
@@ -705,11 +705,11 @@ export function CotizacionLibreModal({
       if (gate) {
         showAlertButtons(
           'Faltan precios por confirmar',
-          'Puedes confirmar los precios o enviar una estimación al cliente.',
+          'Confirmar precios no envía: eliges ficha o techo y sigues aquí. La estimación sí sale al cliente, con rangos.',
           [
             { text: 'Ahora no', style: 'cancel' },
             {
-              text: 'Enviar como estimación',
+              text: 'Enviar estimación',
               onPress: () => {
                 void handleEnviar('estimacion');
               },
@@ -731,7 +731,7 @@ export function CotizacionLibreModal({
   const ocupado = generandoIa || creandoManual || enviando || descartando;
 
   const enviarLabel = esEnvioCanal || Boolean(cotizacion?.conversation)
-    ? 'Enviar al cliente'
+    ? 'Enviar cotización'
     : 'Generar link y compartir';
 
   const puedeEnviar = Boolean(
@@ -744,20 +744,6 @@ export function CotizacionLibreModal({
       ?? (cotizacion.repuestos ?? []).filter(lineaPendientePrecio).length)
     : 0;
   const puedeEnviarFirme = cotizacion?.puede_enviar_firme ?? pendientesPrecio === 0;
-
-  const footerPrimaryLabel = puedeEnviar
-    ? (enviando
-      ? 'Enviando…'
-      : (puedeEnviarFirme
-        ? (cotizacionEsActualizacion(cotizacion) ? 'Enviar cotización firme' : enviarLabel)
-        : 'Confirmar precios'))
-    : 'Listo';
-
-  const footerPrimaryAction = puedeEnviar
-    ? (puedeEnviarFirme
-      ? () => void abrirVistaPrevia('cotizacion')
-      : () => editorRef.current?.abrirConfirmarPrecios())
-    : handleClose;
 
   return (
     <Modal
@@ -924,6 +910,7 @@ export function CotizacionLibreModal({
                   hideSendActions
                   readonly={!cotizacionPermiteEdicionCompleta(cotizacion)}
                   compactHeader
+                  onEnviarEstimacion={() => void abrirVistaPrevia('estimacion')}
                 />
 
                 {shareUrl ? (
@@ -983,13 +970,6 @@ export function CotizacionLibreModal({
               </>
             ) : puedeEnviar ? (
               <View style={styles.footerCol}>
-                {pendientesPrecio > 0 ? (
-                  <InstitutionalText role="caption" color="muted">
-                    {pendientesPrecio === 1
-                      ? 'Falta 1 precio por confirmar'
-                      : `Faltan ${pendientesPrecio} precios por confirmar`}
-                  </InstitutionalText>
-                ) : null}
                 {cotizacion?.estado === 'borrador' ? (
                   <TouchableOpacity
                     onPress={handleDescartarBorrador}
@@ -1003,27 +983,18 @@ export function CotizacionLibreModal({
                     </InstitutionalText>
                   </TouchableOpacity>
                 ) : null}
-                <View style={styles.footerActions}>
-                  {!puedeEnviarFirme ? (
-                    <InstitutionalButton
-                      label="Enviar como estimación"
-                      variant="outline"
-                      size="compact"
-                      style={styles.footerBtnPair}
-                      onPress={() => void abrirVistaPrevia('estimacion')}
-                      disabled={ocupado}
-                    />
-                  ) : null}
-                  <InstitutionalButton
-                    label={footerPrimaryLabel}
-                    variant="primary"
-                    size="compact"
-                    style={styles.footerBtnGrow}
-                    onPress={footerPrimaryAction}
-                    disabled={ocupado}
-                    loading={enviando}
-                  />
-                </View>
+                <CotizacionBorradorAcciones
+                  pendientesPrecio={pendientesPrecio}
+                  puedeEnviarFirme={puedeEnviarFirme}
+                  enviarFirmeLabel={
+                    cotizacionEsActualizacion(cotizacion) ? 'Enviar cotización' : enviarLabel
+                  }
+                  confirmDisabled={ocupado}
+                  sendDisabled={ocupado}
+                  loading={enviando}
+                  onConfirmarPrecios={() => editorRef.current?.abrirConfirmarPrecios()}
+                  onEnviarFirme={() => void abrirVistaPrevia('cotizacion')}
+                />
               </View>
             ) : (
               <InstitutionalButton
@@ -1037,11 +1008,19 @@ export function CotizacionLibreModal({
             )}
           </View>
         </KeyboardAvoidingView>
+        {cotizacion && cotizacionPermiteEdicionCompleta(cotizacion) && !previewVisible ? (
+          <CotizacionEditorFab
+            visible
+            onAddRepuesto={() => editorRef.current?.agregarRepuesto()}
+            onAddManoObra={() => editorRef.current?.agregarManoObra()}
+          />
+        ) : null}
       </View>
       <VistaPreviaCotizacionClienteModal
         visible={previewVisible}
         cotizacionId={cotizacion?.id}
         esActualizacion={cotizacionEsActualizacion(cotizacion)}
+        tipoDocumento={tipoPreview}
         puedeEnviar={puedeEnviar}
         enviando={enviando}
         onClose={() => setPreviewVisible(false)}
@@ -1201,12 +1180,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: SPACING.fixed.xs,
-  },
-  footerActions: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    alignItems: 'stretch',
-    gap: SPACING.sm,
   },
   footerBtnGrow: {
     flex: 1.15,
