@@ -177,7 +177,11 @@ export function estadoLinea(
 
 /** Cómo se llama la banda según de dónde viene. */
 export function etiquetaBanda(rep: RepuestoCotizacion): string {
-  return certezaDe(rep) === 'sin_precio' ? 'Referencia de mercado' : 'Rango real';
+  if (certezaDe(rep) === 'sin_precio') return 'Referencia de mercado';
+  const ficha = Math.round(Number(rep.precio_marketplace_clp) || 0);
+  const factor = Number(rep.factor_mercado) || 1;
+  if (ficha > 0 && factor > 1) return 'Ficha – techo sugerido';
+  return 'Rango real';
 }
 
 const CALIDAD_LABEL: Record<string, string> = {
@@ -230,4 +234,104 @@ export function antigüedadLabel(iso?: string): string | null {
   if (dias < 30) return `hace ${dias} d`;
   const meses = Math.max(1, Math.round(dias / 30));
   return `hace ${meses} ${meses === 1 ? 'mes' : 'meses'}`;
+}
+
+export type FichaInterna = {
+  url: string;
+  tienda: string;
+  titulo: string;
+  precio: number;
+};
+
+function claveFicha(url: string, tienda: string, titulo: string): string {
+  const u = url.trim().toLowerCase().replace(/\/+$/, '');
+  if (u) return `u:${u}`;
+  return `n:${tienda.trim().toLowerCase()}|${titulo.trim().toLowerCase()}`;
+}
+
+/** Fichas de tienda que sostienen el precio (solo taller). */
+export function fichasInternasDe(rep: RepuestoCotizacion): FichaInterna[] {
+  const byKey = new Map<string, FichaInterna>();
+  const add = (raw: Partial<FichaInterna>) => {
+    const url = String(raw.url || '').trim();
+    const tienda = String(raw.tienda || '').trim();
+    const titulo = String(raw.titulo || '').trim();
+    const precio = Math.round(Number(raw.precio) || 0);
+    if (!url && !titulo) return;
+    const key = claveFicha(url, tienda, titulo);
+    const prev = byKey.get(key);
+    byKey.set(key, {
+      url: url || prev?.url || '',
+      tienda: tienda || prev?.tienda || '',
+      titulo: titulo || prev?.titulo || '',
+      precio: precio > 0 ? precio : (prev?.precio || 0),
+    });
+  };
+
+  for (const f of fuentesDe(rep)) {
+    add({
+      url: f.url,
+      tienda: nombreFuente(f),
+      titulo: f.nombre,
+      precio: f.precio_clp,
+    });
+  }
+  add({
+    url: rep.url_producto,
+    tienda: (rep.proveedor_nombre || rep.tienda_ml || '').trim(),
+    titulo: (rep.nombre_producto || '').trim(),
+    precio: rep.precio_marketplace_clp || 0,
+  });
+  for (const op of opcionesDe(rep)) {
+    add({
+      url: op.url,
+      tienda: (op.tienda || '').trim(),
+      titulo: (op.nombre || '').trim(),
+      precio: op.precio_clp,
+    });
+  }
+  return [...byKey.values()].filter((f) => Boolean(f.url));
+}
+
+const ANIO_RANGO_RE = /\b((?:19|20)\d{2})\s*[-–/a]\s*((?:19|20)\d{2})\b/i;
+const COMPONENTE_EMBRAGUE_RE = /\b(prensa|plato|disco|collarin|collarín|rodamiento|piloto)\b/i;
+
+function anioVehiculoInt(anio?: number | string | null): number | null {
+  const y = Number.parseInt(String(anio || '').slice(0, 4), 10);
+  if (!Number.isFinite(y) || y < 1980 || y > 2035) return null;
+  return y;
+}
+
+/** Avisos si la ficha no es la misma pieza o no cubre el año del auto. */
+export function avisosFichaInterna(
+  rep: RepuestoCotizacion,
+  fichas: FichaInterna[],
+  vehiculoAnio?: number | string | null,
+): string[] {
+  const avisos: string[] = [];
+  const linea = (rep.nombre || '').toLowerCase();
+  const lineaKit = /\b(kit|juego|set)\b/.test(linea)
+    || (linea.includes('embrague') && linea.includes('disco') && linea.includes('prensa'));
+  const anio = anioVehiculoInt(vehiculoAnio);
+
+  for (const f of fichas) {
+    const titulo = f.titulo || '';
+    const tituloLow = titulo.toLowerCase();
+    if (lineaKit && !/\b(kit|juego|set)\b/.test(tituloLow) && COMPONENTE_EMBRAGUE_RE.test(tituloLow)) {
+      avisos.push(`La ficha es un componente (${titulo}), no el kit de la línea.`);
+    }
+    if (anio != null && titulo) {
+      const rango = ANIO_RANGO_RE.exec(titulo);
+      if (rango) {
+        const a = Number(rango[1]);
+        const b = Number(rango[2]);
+        const lo = Math.min(a, b);
+        const hi = Math.max(a, b);
+        if (anio < lo || anio > hi) {
+          avisos.push(`La ficha cubre ${lo}–${hi}; este auto es ${anio}.`);
+        }
+      }
+    }
+  }
+  return [...new Set(avisos)];
 }

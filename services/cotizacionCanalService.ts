@@ -108,6 +108,7 @@ export interface FuenteRepuesto {
   dominio?: string;
   precio_clp?: number;
   url?: string;
+  nombre?: string;
 }
 
 export type MotivoSinPrecio = 'especificacion' | 'sin_referencia';
@@ -135,6 +136,8 @@ export interface RepuestoCotizacion {
   proveedor_nombre?: string;
   /** Link al producto/listado web (solo taller; omitido en vista pública). */
   url_producto?: string;
+  /** Título de la ficha de tienda (solo taller). */
+  nombre_producto?: string;
   /** true si el precio no viene del catálogo/historial del taller (revisar antes de enviar). */
   precio_estimado?: boolean;
   /** true si el precio viene de búsqueda web (referencia de mercado, no del taller). */
@@ -511,6 +514,7 @@ export function patchPrecioEscritoPorTaller(precio: number): Partial<RepuestoCot
     proveedor_id: null,
     tienda_ml: '',
     url_producto: '',
+    nombre_producto: '',
     fuentes_detalle: [],
     fuentes_n: 0,
   };
@@ -533,6 +537,7 @@ function aplicarPrecioLocal(
     proveedor_id: src.proveedor_id,
     tienda_ml: src.tienda_ml,
     url_producto: src.url_producto,
+    nombre_producto: src.nombre_producto,
     fuentes_detalle: src.fuentes_detalle,
     fuentes_n: src.fuentes_n,
   };

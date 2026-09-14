@@ -22,6 +22,7 @@ import { ClpMoneyInput } from '@/components/forms/ClpMoneyInput';
 import { ConfirmarPreciosSheet } from '@/components/cotizacion/ConfirmarPreciosSheet';
 import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
 import { RepuestoPrecioSheet } from '@/components/cotizacion/RepuestoPrecioSheet';
+import { FuenteFichaInterna } from '@/components/cotizacion/FuenteFichaInterna';
 import {
   casaRepuestosLabel,
   certezaDe,
@@ -126,6 +127,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
   index,
   editable,
   buscandoPrecio = false,
+  vehiculoAnio,
   onUpdate,
   onDelete,
   onConfirmar,
@@ -135,6 +137,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
   index: number;
   editable: boolean;
   buscandoPrecio?: boolean;
+  vehiculoAnio?: number | string | null;
   onUpdate: (index: number, patch: Partial<RepuestoCotizacion>) => void;
   onDelete: (index: number) => void;
   onConfirmar: (rep: RepuestoCotizacion) => void;
@@ -343,6 +346,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
           {motivo}
         </InstitutionalText>
       ) : null}
+      <FuenteFichaInterna rep={rep} vehiculoAnio={vehiculoAnio} />
       {rep.especificacion_pendiente && specOps.length && editable ? (
         <View style={styles.specBlock}>
           <InstitutionalText role="caption" color="muted">
@@ -1313,6 +1317,7 @@ export const CotizacionIaEditor = React.forwardRef<
                 index={idx}
                 editable={editable}
                 buscandoPrecio={busquedaPendiente}
+                vehiculoAnio={cotizacion.vehiculo_anio}
                 onUpdate={actualizarRepuesto}
                 onDelete={eliminarRepuesto}
                 onConfirmar={abrirConfirmarRepuesto}

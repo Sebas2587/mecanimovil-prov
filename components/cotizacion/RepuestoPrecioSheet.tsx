@@ -155,7 +155,7 @@ export function RepuestoPrecioSheet({
               accessibilityRole="link"
               onPress={() => Linking.openURL(url).catch(() => undefined)}
             >
-              <InstitutionalText role="caption" color="muted">Toca para abrir el aviso</InstitutionalText>
+              <InstitutionalText role="caption" color="primary">Abrir ficha</InstitutionalText>
             </TouchableOpacity>
           ) : null}
         </View>
