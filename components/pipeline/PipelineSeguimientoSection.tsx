@@ -688,7 +688,11 @@ export function PipelineSeguimientoSection({
 
     const quiet: LeadQuietAction[] = [];
     if (leadPuedeChat && primary.id !== 'chat') {
-      quiet.push({ id: 'chat', label: 'Ver conversación', onPress: irLeadConversacion });
+      quiet.push({
+        id: 'chat',
+        label: leadActivo.estado_raw === 'enviada' ? 'Escribir al cliente' : 'Ver conversación',
+        onPress: irLeadConversacion,
+      });
     }
     if (leadActivo.cotizacion_id && primary.id !== 'cotizacion') {
       quiet.push({ id: 'cotizacion', label: 'Ver cotización', onPress: irLeadCotizacion });
@@ -821,7 +825,7 @@ export function PipelineSeguimientoSection({
           <View style={styles.filterHintCopy}>
             <HostSectionKicker label="Sin respuesta +24h" />
             <InstitutionalText role="caption" color="muted">
-              Abre la cotización (folio MM) o cierra el caso. Si aceptó por teléfono, márcala aceptada.
+              Escribe, marca aceptada o cierra el caso. La IA solo recuerda una vez por WhatsApp.
             </InstitutionalText>
           </View>
           <TouchableOpacity onPress={() => router.replace('/(tabs)/bandeja')} hitSlop={8}>

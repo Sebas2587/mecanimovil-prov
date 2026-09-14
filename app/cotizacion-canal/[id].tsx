@@ -13,6 +13,7 @@ import { Link2, MessageCircle, Trash2 } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
 import { CotizacionIaProgreso } from '@/components/chats/CotizacionIaProgreso';
+import { CotizacionEnviadaSiguientePaso } from '@/components/cotizacion/CotizacionEnviadaSiguientePaso';
 import { RegistrarCompraCard } from '@/components/cotizacion/RegistrarCompraCard';
 import { lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
@@ -50,6 +51,7 @@ import { omnichannelChatHref } from '@/utils/chatRoutes';
 import {
   abrirWhatsAppCotizacion,
   mensajeCotizacionParaCliente,
+  mensajeSeguimientoCotizacion,
   nombresTrabajosCotizacion,
 } from '@/utils/compartirCotizacionCliente';
 
@@ -378,6 +380,25 @@ export default function CotizacionCanalDetalleScreen() {
     await compartirConCliente(url, draft, { actualizada: draft.estado !== 'borrador' });
   }, [compartirConCliente, draft]);
 
+  const recordarWhatsApp = useCallback(async () => {
+    const url = draft?.share_url || draft?.url_publica;
+    if (!url || !draft) return;
+    const mensaje = mensajeSeguimientoCotizacion({
+      clienteNombre: draft.cliente_nombre,
+      numeroPublico: draft.numero_publico,
+      servicio: draft.servicio_nombre,
+      url,
+    });
+    const via = await abrirWhatsAppCotizacion({
+      telefono: draft.cliente_telefono,
+      mensaje,
+      url,
+    });
+    if (via === 'clipboard') {
+      showAlert('Mensaje copiado', CLIPBOARD_MENSAJE_COPIADO);
+    }
+  }, [draft]);
+
   const marcarAceptada = useCallback(async () => {
     if (!draft?.id) return;
     setAccionLead(true);
@@ -506,9 +527,22 @@ export default function CotizacionCanalDetalleScreen() {
         ) : null}
 
         {draft.estado === 'enviada' && editable ? (
-          <InstitutionalText role="caption" color="body">
-            Si el cliente no respondió, escribe o cierra el caso. Si aceptó por teléfono, márcala aceptada.
-          </InstitutionalText>
+          <CotizacionEnviadaSiguientePaso
+            cotizacion={draft}
+            loading={accionLead}
+            onEscribir={
+              draft.conversation
+                ? () => router.push(omnichannelChatHref(draft.conversation as number))
+                : undefined
+            }
+            onRecordarWhatsApp={
+              (draft.share_url || draft.url_publica) && !draft.entrega_pendiente_compartir
+                ? () => void recordarWhatsApp()
+                : undefined
+            }
+            onMarcarAceptada={() => void marcarAceptada()}
+            onCerrarCaso={cerrarCaso}
+          />
         ) : null}
 
         {(draft.share_url || draft.url_publica) ? (
@@ -620,7 +654,7 @@ export default function CotizacionCanalDetalleScreen() {
           </View>
         ) : null}
 
-        {editable && draft.estado === 'enviada' ? (
+        {editable && draft.estado === 'enviada' && (hayCambios || draft.emision_pendiente) ? (
           <View style={styles.footerBorrador}>
             {draft.emision_pendiente ? (
               <InstitutionalText role="caption" color="muted">
@@ -651,24 +685,6 @@ export default function CotizacionCanalDetalleScreen() {
                 loading={enviando || guardando}
                 disabled={(!hayCambios && !draft.emision_pendiente) || enviando || guardando}
                 onPress={() => void abrirVistaPrevia(puedeEnviarFirme ? 'cotizacion' : 'estimacion')}
-              />
-            </View>
-            <View style={styles.footerRow}>
-              <InstitutionalButton
-                label="Cerrar caso"
-                variant="destructiveOutline"
-                size="compact"
-                loading={accionLead}
-                style={styles.footerFlex}
-                onPress={cerrarCaso}
-              />
-              <InstitutionalButton
-                label="Marcar aceptada"
-                variant="success"
-                size="compact"
-                loading={accionLead}
-                style={styles.footerFlexGrow}
-                onPress={() => void marcarAceptada()}
               />
             </View>
           </View>
@@ -759,8 +775,6 @@ const styles = StyleSheet.create({
   footerBorrador: {
     gap: SPACING.fixed.xs,
   },
-  footerFlex: { flex: 1, minWidth: 0 },
-  footerFlexGrow: { flex: 1.2, minWidth: 0 },
   footerMid: { flex: 1, minWidth: 0 },
   footerPrimary: { flex: 1.15, minWidth: 0 },
 });

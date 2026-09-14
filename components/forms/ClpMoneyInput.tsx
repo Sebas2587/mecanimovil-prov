@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import {
@@ -30,9 +30,12 @@ export function ClpMoneyInput({
   const [draft, setDraft] = useState(() =>
     value > 0 ? formatMontoInputLocalized(value) : '',
   );
+  const lastEmittedRef = useRef(value);
 
   useEffect(() => {
     if (focused) return;
+    if (value === lastEmittedRef.current) return;
+    lastEmittedRef.current = value;
     setDraft(value > 0 ? formatMontoInputLocalized(value) : '');
   }, [value, focused]);
 
@@ -63,9 +66,10 @@ export function ClpMoneyInput({
         }}
         onBlur={() => {
           const next = redondearCLP(parseMontoDecimal(draft));
-          onChangeValue(next);
+          lastEmittedRef.current = next;
           setDraft(next > 0 ? formatMontoInputLocalized(next) : '');
           setFocused(false);
+          onChangeValue(next);
         }}
         onChangeText={(t) => {
           setDraft(t.replace(/[^\d]/g, ''));

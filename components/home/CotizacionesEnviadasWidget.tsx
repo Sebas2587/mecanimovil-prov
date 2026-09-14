@@ -36,7 +36,7 @@ export function CotizacionesEnviadasWidget({ cotizaciones }: CotizacionesEnviada
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <HostSectionKicker label="Seguimiento IA — Cotizaciones Enviadas" />
+        <HostSectionKicker label="Cotizaciones enviadas" />
         <TouchableOpacity onPress={handleIrABandeja} activeOpacity={0.7}>
           <InstitutionalText role="navLink" color="primary">
             Ver Bandeja
@@ -60,7 +60,8 @@ export function CotizacionesEnviadasWidget({ cotizaciones }: CotizacionesEnviada
         <View style={styles.aiStatusBox}>
           <Bot size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} style={{ marginRight: 6 }} />
           <InstitutionalText role="caption" style={styles.aiStatusText}>
-            La IA realiza retomas y recordatorios por WhatsApp automáticamente para agendar la cita.
+            La IA puede enviar un recordatorio por WhatsApp si no contestan. El cierre del caso
+            (escribir, marcar aceptada o pasar a Perdidos) lo decides tú.
           </InstitutionalText>
         </View>
 

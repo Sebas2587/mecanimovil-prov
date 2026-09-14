@@ -52,6 +52,26 @@ export function mensajeCotizacionParaCliente(opts: {
   return lineas.join(' ');
 }
 
+/** Recordatorio manual: el taller lo envía; no es el follow-up automático de la IA. */
+export function mensajeSeguimientoCotizacion(opts: {
+  clienteNombre?: string | null;
+  numeroPublico?: string | null;
+  servicio?: string | null;
+  url: string;
+}): string {
+  const rawName = (opts.clienteNombre || '').trim();
+  const first = rawName.split(/\s+/)[0] || '';
+  const genericos = new Set(['', 'cliente', 'contacto', 'hola']);
+  const saludo = genericos.has(first.toLowerCase()) ? 'Hola' : `Hola ${first}`;
+  const folio = (opts.numeroPublico || '').trim();
+  const servicio = (opts.servicio || '').trim();
+  const deQue = [folio, servicio].filter(Boolean).join(' · ');
+  const cabeza = deQue
+    ? `${saludo}, ¿alcanzaste a revisar la cotización ${deQue}?`
+    : `${saludo}, ¿alcanzaste a revisar la cotización?`;
+  return `${cabeza} Si te quedó alguna duda, me comentas. ${opts.url}`;
+}
+
 export function waMeDigitsFromTelefono(telefono?: string | null): string | null {
   const nueve = extraerNueveDigitosDesdeGuardado(telefono);
   if (telefonoMovilChileValido(nueve)) return `56${nueve}`;

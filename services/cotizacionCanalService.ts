@@ -235,6 +235,7 @@ export interface CotizacionCanal {
   descuento_clp?: number;
   descuento_etiqueta?: string;
   dias_validez?: number;
+  fecha_expiracion_publica?: string | null;
   total_clp: number;
   duracion_minutos_estimada?: number | null;
   advertencias?: string[];
@@ -488,7 +489,56 @@ function certezaFirmeRepuesto(rep?: Pick<RepuestoCotizacion, 'certeza'> | null):
   return c === 'confirmado' || c === 'asumido';
 }
 
-/** Fusiona líneas enriquecidas por web sin pisar nombres/cantidades editados. */
+/** El taller escribió el unitario: el subtotal es cantidad × este monto. */
+export function patchPrecioEscritoPorTaller(precio: number): Partial<RepuestoCotizacion> {
+  const next = Math.max(0, Math.round(Number(precio) || 0));
+  if (next <= 0) {
+    return {
+      precio_unitario_clp: 0,
+      precio_min_clp: 0,
+      precio_max_clp: 0,
+      certeza: 'sin_precio',
+    };
+  }
+  return {
+    precio_unitario_clp: next,
+    precio_min_clp: next,
+    precio_max_clp: next,
+    certeza: 'asumido',
+    fuente_marketplace: '',
+    fuente_repuesto: '',
+    proveedor_nombre: '',
+    proveedor_id: null,
+    tienda_ml: '',
+    url_producto: '',
+    fuentes_detalle: [],
+    fuentes_n: 0,
+  };
+}
+
+function aplicarPrecioLocal(
+  dest: RepuestoCotizacion,
+  src: RepuestoCotizacion,
+): RepuestoCotizacion {
+  return {
+    ...dest,
+    cantidad: src.cantidad ?? dest.cantidad,
+    precio_unitario_clp: src.precio_unitario_clp,
+    precio_min_clp: src.precio_min_clp,
+    precio_max_clp: src.precio_max_clp,
+    certeza: src.certeza,
+    fuente_marketplace: src.fuente_marketplace,
+    fuente_repuesto: src.fuente_repuesto,
+    proveedor_nombre: src.proveedor_nombre,
+    proveedor_id: src.proveedor_id,
+    tienda_ml: src.tienda_ml,
+    url_producto: src.url_producto,
+    fuentes_detalle: src.fuentes_detalle,
+    fuentes_n: src.fuentes_n,
+  };
+}
+
+/** Fusiona líneas enriquecidas por web sin pisar nombres/cantidades/precios del taller. */
 export function mergeRepuestosPreservandoEdicion(
   local: RepuestoCotizacion[],
   remoto: RepuestoCotizacion[],
@@ -503,35 +553,27 @@ export function mergeRepuestosPreservandoEdicion(
     const nombreLocal = (rLoc.nombre || '').trim();
     const localCero = !rLoc.precio_unitario_clp;
     const localFirme = certezaFirmeRepuesto(rLoc) && !localCero;
-    const remoteFirme = certezaFirmeRepuesto(rRem) && (rRem.precio_unitario_clp || 0) > 0;
     const remoteMejor = !localFirme && (
       fuenteVerificadaRepuesto(rRem)
       || ((rRem.precio_unitario_clp || 0) > 0 && localCero)
     );
-    const precio = localFirme && !remoteFirme
-      ? rLoc.precio_unitario_clp
-      : (remoteMejor
-        ? rRem.precio_unitario_clp
-        : (rLoc.precio_unitario_clp ?? rRem.precio_unitario_clp));
+    if (localFirme) {
+      return {
+        ...aplicarPrecioLocal(rRem, rLoc),
+        nombre: nombreLocal || rRem.nombre,
+      };
+    }
+    const precio = remoteMejor
+      ? rRem.precio_unitario_clp
+      : (rLoc.precio_unitario_clp ?? rRem.precio_unitario_clp);
     return {
       ...rRem,
       nombre: nombreLocal || rRem.nombre,
       cantidad: rLoc.cantidad ?? rRem.cantidad,
       precio_unitario_clp: precio,
-      precio_min_clp: localFirme && !remoteFirme
-        ? (rLoc.precio_min_clp ?? rRem.precio_min_clp)
-        : rRem.precio_min_clp,
-      precio_max_clp: localFirme && !remoteFirme
-        ? (rLoc.precio_max_clp ?? rRem.precio_max_clp)
-        : rRem.precio_max_clp,
-      fuente_marketplace: localFirme && !remoteFirme
-        ? (rLoc.fuente_marketplace || rRem.fuente_marketplace)
-        : rRem.fuente_marketplace,
-      certeza: localFirme && !remoteFirme
-        ? rLoc.certeza
-        : ((precio || 0) > 0 && rRem.certeza === 'sin_precio'
-          ? (remoteMejor ? 'referencial' : (rLoc.certeza || 'referencial'))
-          : (rRem.certeza || rLoc.certeza)),
+      certeza: (precio || 0) > 0 && rRem.certeza === 'sin_precio'
+        ? (remoteMejor ? 'referencial' : (rLoc.certeza || 'referencial'))
+        : (rRem.certeza || rLoc.certeza),
     };
   });
   const extras = local.filter((l) => {
@@ -557,24 +599,16 @@ export function fusionarRepuestosEnviados(
     const precioLocal = Number(src.precio_unitario_clp || 0);
     const precioSaved = Number(r.precio_unitario_clp || 0);
     const keepLocalPrecio = (precioLocal > 0 && precioSaved <= 0)
-      || (certezaFirmeRepuesto(src) && precioLocal > 0 && !certezaFirmeRepuesto(r));
-    const next: RepuestoCotizacion = { ...r };
+      || (certezaFirmeRepuesto(src) && precioLocal > 0);
+    let next: RepuestoCotizacion = { ...r };
     if (nombreEnviado && nombreEnviado !== (r.nombre || '').trim()) {
       next.nombre = nombreEnviado;
     }
+    if (src.cantidad != null && src.cantidad !== r.cantidad) {
+      next.cantidad = src.cantidad;
+    }
     if (keepLocalPrecio) {
-      next.precio_unitario_clp = src.precio_unitario_clp;
-      next.precio_min_clp = src.precio_min_clp ?? next.precio_min_clp;
-      next.precio_max_clp = src.precio_max_clp ?? next.precio_max_clp;
-      next.certeza = src.certeza || next.certeza;
-      next.fuente_marketplace = src.fuente_marketplace || next.fuente_marketplace;
-      next.fuente_repuesto = src.fuente_repuesto || next.fuente_repuesto;
-      next.proveedor_nombre = src.proveedor_nombre || next.proveedor_nombre;
-      next.tienda_ml = src.tienda_ml || next.tienda_ml;
-      next.url_producto = src.url_producto || next.url_producto;
-      next.marca_repuesto = src.marca_repuesto || next.marca_repuesto;
-      next.calidad = src.calidad || next.calidad;
-      next.pais_origen = src.pais_origen || next.pais_origen;
+      next = aplicarPrecioLocal(next, src);
     }
     return next;
   });

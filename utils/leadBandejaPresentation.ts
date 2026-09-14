@@ -70,9 +70,13 @@ export function leadMetaHint(item: PipelineComercialItem): string {
   if (item.esperando_respuesta_24h || item.demorado_48h) {
     const cat = leadCategoriaOf(item);
     if (LEAD_ALTA_INTENCION.has(cat)) {
-      return 'mostró interés · abre la cotización o cierra el caso';
+      return 'mostró interés · escribe, marca aceptada o cierra';
     }
-    return 'abre la cotización o cierra el caso';
+    return 'escribe, marca aceptada o cierra el caso';
+  }
+  if (item.estado_normalizado === 'cotizacion_enviada') {
+    if (item.visto_sin_respuesta) return 'abrió el enlace · escribe o cierra';
+    return 'la IA recuerda una vez · si no contestan, escribe o cierra';
   }
   return '';
 }
@@ -84,9 +88,12 @@ export function leadSheetHint(item: PipelineComercialItem): string | null {
   if (item.esperando_respuesta_24h || item.demorado_48h) {
     const cat = leadCategoriaOf(item);
     if (LEAD_ALTA_INTENCION.has(cat)) {
-      return 'Mostró interés. Abre la cotización o cierra el caso.';
+      return 'Mostró interés. Escribe, marca aceptada o cierra el caso.';
     }
-    return 'Abre la cotización o cierra el caso.';
+    return 'Escribe, marca aceptada o cierra el caso. La IA solo recuerda una vez.';
+  }
+  if (item.estado_normalizado === 'cotizacion_enviada') {
+    return 'Esperando respuesta. La IA puede recordar una vez; el cierre del caso es tuyo.';
   }
   return null;
 }

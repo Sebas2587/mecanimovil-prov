@@ -48,6 +48,7 @@ import cotizacionCanalService, {
   clampDiasValidez,
   cotizacionPermiteEdicionCompleta,
   mergeRepuestosPreservandoEdicion,
+  patchPrecioEscritoPorTaller,
   resolverManoObraLineas,
   sumaManoObraLineas,
 } from '@/services/cotizacionCanalService';
@@ -147,6 +148,9 @@ const RepuestoRow = React.memo(function RepuestoRow({
   const certeza = certezaDe(rep);
   const specOps = opcionesFamilia(rep);
   const rango = formatRangoClp(rep.precio_min_clp, rep.precio_max_clp);
+  const minP = Math.round(Number(rep.precio_min_clp) || 0);
+  const maxP = Math.round(Number(rep.precio_max_clp) || 0);
+  const mostrarRango = Boolean(rango) && minP > 0 && maxP > 0 && minP !== maxP;
   const estado = estadoLinea(rep);
   const metaTexto = metaLineaTexto(rep);
   const casaLabel = casaRepuestosLabel(rep);
@@ -155,11 +159,19 @@ const RepuestoRow = React.memo(function RepuestoRow({
 
   const [nombreFocused, setNombreFocused] = useState(false);
   const [nombreDraft, setNombreDraft] = useState(nombreGuardado);
+  const cantidadGuardada = Math.max(1, Math.round(Number(rep.cantidad) || 1));
+  const [cantFocused, setCantFocused] = useState(false);
+  const [cantDraft, setCantDraft] = useState(String(cantidadGuardada));
 
   useEffect(() => {
     if (nombreFocused) return;
     setNombreDraft(nombreGuardado);
   }, [nombreGuardado, nombreFocused]);
+
+  useEffect(() => {
+    if (cantFocused) return;
+    setCantDraft(String(cantidadGuardada));
+  }, [cantidadGuardada, cantFocused]);
 
   return (
     <Card elevated padding="host" style={styles.repuestoCard}>
@@ -250,12 +262,20 @@ const RepuestoRow = React.memo(function RepuestoRow({
             label="Cant."
             compact
             mono
-            value={String(redondearCLP(rep.cantidad || 1))}
-            onChangeText={(t) =>
-              onUpdate(index, {
-                cantidad: Math.max(1, parseInt(t.replace(/\D/g, ''), 10) || 1),
-              })
-            }
+            value={cantDraft}
+            onChangeText={(t) => {
+              const digits = t.replace(/\D/g, '');
+              setCantDraft(digits);
+              const n = parseInt(digits, 10);
+              if (n >= 1) onUpdate(index, { cantidad: n });
+            }}
+            onFocus={() => setCantFocused(true)}
+            onBlur={() => {
+              const n = Math.max(1, parseInt(cantDraft, 10) || 1);
+              onUpdate(index, { cantidad: n });
+              setCantDraft(String(n));
+              setCantFocused(false);
+            }}
             keyboardType="numeric"
             editable={editable}
             inputStyle={styles.cantidadAlign}
@@ -272,21 +292,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
             value={precioUnit}
             editable={editable && !precioPendiente}
             placeholder={precioPendiente ? 'Buscando' : (certeza === 'sin_precio' ? 'Falta' : '0')}
-            onChangeValue={(next) =>
-              onUpdate(index, {
-                precio_unitario_clp: next,
-                certeza: next > 0 ? 'asumido' : 'sin_precio',
-                // El taller escribió el monto: no es la ficha de esa tienda.
-                fuente_marketplace: '',
-                fuente_repuesto: '',
-                proveedor_nombre: '',
-                proveedor_id: null,
-                tienda_ml: '',
-                url_producto: '',
-                fuentes_detalle: [],
-                fuentes_n: 0,
-              })
-            }
+            onChangeValue={(next) => onUpdate(index, patchPrecioEscritoPorTaller(next))}
           />
         </View>
 
@@ -308,9 +314,14 @@ const RepuestoRow = React.memo(function RepuestoRow({
           </View>
         </View>
       </View>
-      {rango || (editable && certeza !== 'confirmado') ? (
+      {cantidadGuardada > 1 && precioUnit > 0 && !precioPendiente ? (
+        <InstitutionalText role="caption" color="muted">
+          {cantidadGuardada} × {formatearMontoCLP(precioUnit)} = {formatearMontoCLP(subtotal)}
+        </InstitutionalText>
+      ) : null}
+      {mostrarRango || (editable && certeza !== 'confirmado') ? (
         <View style={styles.precioMetaRow}>
-          {rango ? (
+          {mostrarRango ? (
             <InstitutionalText role="caption" color="muted" style={styles.precioMetaTexto}>
               {etiquetaBanda(rep)} {rango}
             </InstitutionalText>
@@ -1254,8 +1265,8 @@ export const CotizacionIaEditor = React.forwardRef<
           </View>
         ) : null}
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
-          Un precio confirmado o asumido es el que se cobra. Una referencia web se muestra
-          como rango: el cliente ve el techo hasta que confirmas.
+          Un precio confirmado o asumido es el que se cobra. El subtotal es cantidad × unitario.
+          Una referencia web se muestra como rango: el cliente ve el techo hasta que confirmas.
         </InstitutionalText>
         {editable ? (
           <View style={styles.iaRepuestosBlock}>

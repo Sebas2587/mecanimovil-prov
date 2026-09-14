@@ -562,6 +562,7 @@ export default function ChatOmnicanalScreen() {
             <CasoCotizacionChatBar
               cotizacionId={cotizacionEnviadaId}
               onCerrado={() => void refetchSilent()}
+              onAceptada={() => void refetchSilent()}
             />
           ) : null}
 

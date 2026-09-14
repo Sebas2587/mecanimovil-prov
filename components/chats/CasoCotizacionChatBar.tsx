@@ -12,15 +12,29 @@ const I = COLORS.institutional;
 type Props = {
   cotizacionId: number;
   onCerrado?: () => void;
+  onAceptada?: () => void;
 };
 
 /** Acciones del caso cuando el chat no basta (canal caído o cliente en silencio). */
-export function CasoCotizacionChatBar({ cotizacionId, onCerrado }: Props) {
-  const [cerrando, setCerrando] = useState(false);
+export function CasoCotizacionChatBar({ cotizacionId, onCerrado, onAceptada }: Props) {
+  const [busy, setBusy] = useState(false);
 
   const abrirFolio = useCallback(() => {
     router.push(`/cotizacion-canal/${cotizacionId}`);
   }, [cotizacionId]);
+
+  const marcarAceptada = useCallback(async () => {
+    setBusy(true);
+    try {
+      await cotizacionCanalService.marcarAceptada(cotizacionId);
+      onAceptada?.();
+      showAlert('Cotización aceptada', 'Confirma el horario en Bandeja.');
+    } catch {
+      showAlert('Error', 'Solo cotizaciones enviadas pueden marcarse como aceptadas.');
+    } finally {
+      setBusy(false);
+    }
+  }, [cotizacionId, onAceptada]);
 
   const cerrarCaso = useCallback(() => {
     showConfirm(
@@ -29,7 +43,7 @@ export function CasoCotizacionChatBar({ cotizacionId, onCerrado }: Props) {
       {
         confirmText: 'Cerrar caso',
         onConfirm: async () => {
-          setCerrando(true);
+          setBusy(true);
           try {
             await cotizacionCanalService.marcarPerdida(cotizacionId);
             onCerrado?.();
@@ -37,7 +51,7 @@ export function CasoCotizacionChatBar({ cotizacionId, onCerrado }: Props) {
           } catch {
             showAlert('Error', 'No se pudo cerrar el caso.');
           } finally {
-            setCerrando(false);
+            setBusy(false);
           }
         },
       },
@@ -47,7 +61,8 @@ export function CasoCotizacionChatBar({ cotizacionId, onCerrado }: Props) {
   return (
     <View style={styles.bar}>
       <InstitutionalText role="caption" color="muted">
-        Cotización enviada. El cliente no contestó: abre el folio o cierra el caso.
+        Cotización enviada. Escribe aquí, marca aceptada si ya cerraron, o cierra el caso.
+        La IA solo recuerda una vez por WhatsApp.
       </InstitutionalText>
       <View style={styles.row}>
         <InstitutionalButton
@@ -55,17 +70,24 @@ export function CasoCotizacionChatBar({ cotizacionId, onCerrado }: Props) {
           variant="destructiveOutline"
           size="compact"
           style={styles.btn}
-          loading={cerrando}
+          loading={busy}
           onPress={cerrarCaso}
         />
         <InstitutionalButton
-          label="Ver cotización"
-          variant="primary"
+          label="Marcar aceptada"
+          variant="success"
           size="compact"
           style={styles.btn}
-          onPress={abrirFolio}
+          loading={busy}
+          onPress={() => void marcarAceptada()}
         />
       </View>
+      <InstitutionalButton
+        label="Ver cotización"
+        variant="outline"
+        size="compact"
+        onPress={abrirFolio}
+      />
     </View>
   );
 }
