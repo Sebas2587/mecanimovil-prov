@@ -538,18 +538,23 @@ export function CotizacionLibreModal({
     try {
       const patch = payloadEdicion(next);
       const saved = await cotizacionCanalService.actualizar(next.id, patch);
-      const merged = {
-        ...saved,
-        repuestos: fusionarRepuestosEnviados(
-          next.repuestos,
-          saved.repuestos,
-        ),
-      };
-      if (seq === persistSeqRef.current) {
-        setCotizacion(merged);
-        return merged;
+      if (seq !== persistSeqRef.current) {
+        return draftRef.current || next;
       }
-      return next;
+      let merged = next;
+      setCotizacion((prev) => {
+        merged = {
+          ...saved,
+          repuestos: fusionarRepuestosEnviados(
+            prev?.repuestos ?? next.repuestos,
+            saved.repuestos,
+          ),
+          mano_obra_lineas: prev?.mano_obra_lineas ?? saved.mano_obra_lineas,
+        };
+        draftRef.current = merged;
+        return merged;
+      });
+      return merged;
     } catch {
       return next;
     }

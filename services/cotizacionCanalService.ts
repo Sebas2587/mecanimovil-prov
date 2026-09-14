@@ -268,6 +268,7 @@ export interface CotizacionCanal {
     busqueda_web_estado?: 'pendiente' | 'ok' | 'sin_resultados' | 'error' | string;
     busqueda_web_en?: string;
     busqueda_web_progreso?: ProgresoBusquedaWeb;
+    busqueda_web_ids?: string[];
     cotizacion_original_id?: number;
     cita_personal_id?: number;
     entrega_canal?: 'app' | 'sesion_meta' | 'whatsapp_template' | 'link_publico' | string;
@@ -675,7 +676,7 @@ class CotizacionCanalService {
 
   async cotizarItems(
     id: number,
-    payload: { nombres?: string[]; repuestos?: RepuestoCotizacion[] },
+    payload: { nombres?: string[]; repuestos?: RepuestoCotizacion[]; repuesto_ids?: string[] },
   ): Promise<{ cotizacion: CotizacionCanal; agregados: string[]; busqueda_web: boolean }> {
     const response = await api.post(`/ordenes/cotizaciones-canal/${id}/cotizar-items/`, payload, {
       timeout: 45000,

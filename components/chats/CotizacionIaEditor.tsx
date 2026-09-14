@@ -147,7 +147,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
   onDelete: (index: number) => void;
   onConfirmar: (rep: RepuestoCotizacion) => void;
   onEspecificacion: (rep: RepuestoCotizacion, spec: string) => void;
-  onBuscarIa?: () => void;
+  onBuscarIa?: (rep: RepuestoCotizacion) => void;
   puedeBuscarIa?: boolean;
 }) {
   const precioUnit = redondearCLP(rep.precio_unitario_clp);
@@ -341,7 +341,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
           label="Buscar precio"
           variant="outline"
           size="compact"
-          onPress={onBuscarIa}
+          onPress={() => onBuscarIa?.(rep)}
           leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
         />
       ) : null}
@@ -557,6 +557,26 @@ export const CotizacionIaEditor = React.forwardRef<
     pendientePrevRef.current = busquedaPendiente;
   }, [busquedaPendiente]);
 
+  const idsBusquedaWeb = useMemo(() => {
+    const ids = (cotizacion.metadata?.busqueda_web_ids || []).map(String).filter(Boolean);
+    if (ids.length) return { tipo: 'id' as const, valores: new Set(ids) };
+    const lineas = cotizacion.metadata?.busqueda_web_progreso?.lineas || [];
+    const nombres = lineas
+      .filter((l) => l.estado === 'buscando')
+      .map((l) => String(l.nombre || '').trim())
+      .filter(Boolean);
+    return { tipo: 'nombre' as const, valores: new Set(nombres) };
+  }, [cotizacion.metadata?.busqueda_web_ids, cotizacion.metadata?.busqueda_web_progreso]);
+
+  const lineaEnBusquedaWeb = useCallback((rep: RepuestoCotizacion) => {
+    if (!busquedaPendiente) return false;
+    if (!idsBusquedaWeb.valores.size) return lineaSinPrecioParaIa(rep);
+    if (idsBusquedaWeb.tipo === 'id') {
+      return idsBusquedaWeb.valores.has(String(rep.id || ''));
+    }
+    return idsBusquedaWeb.valores.has((rep.nombre || '').trim());
+  }, [busquedaPendiente, idsBusquedaWeb]);
+
   useEffect(() => {
     if (cotizandoItems) return;
     if (!detalleRefrescado || !busquedaPendiente) return;
@@ -567,29 +587,30 @@ export const CotizacionIaEditor = React.forwardRef<
       if (prog) setProgresoBusquedaIa(prog);
       return;
     }
+    const current = cotizacionRef.current;
     const remotoEn = detalleRefrescado.actualizado_en || '';
-    const localEn = cotizacion.actualizado_en || '';
-    const localSinPrecio = (cotizacion.repuestos ?? []).some((r) => !redondearCLP(r.precio_unitario_clp));
+    const localEn = current.actualizado_en || '';
+    const localSinPrecio = (current.repuestos ?? []).some((r) => !redondearCLP(r.precio_unitario_clp));
     const remotoConPrecio = (detalleRefrescado.repuestos ?? []).some((r) => redondearCLP(r.precio_unitario_clp) > 0);
     if (remotoEn && localEn && remotoEn < localEn && !(localSinPrecio && remotoConPrecio)) return;
     const stamp = `${detalleRefrescado.id}:${detalleRefrescado.actualizado_en || estado}`;
     if (appliedWebRef.current === stamp) return;
     appliedWebRef.current = stamp;
-    const repsIn = detalleRefrescado.repuestos ?? cotizacion.repuestos ?? [];
-    const reps = mergeRepuestosPreservandoEdicion(cotizacion.repuestos ?? [], repsIn);
+    const repsIn = detalleRefrescado.repuestos ?? current.repuestos ?? [];
+    const reps = mergeRepuestosPreservandoEdicion(current.repuestos ?? [], repsIn);
     onChange({
-      ...cotizacion,
+      ...current,
       repuestos: reps,
-      mano_obra_clp: detalleRefrescado.mano_obra_clp ?? cotizacion.mano_obra_clp,
-      costo_repuestos_clp: detalleRefrescado.costo_repuestos_clp ?? cotizacion.costo_repuestos_clp,
-      total_clp: detalleRefrescado.total_clp ?? cotizacion.total_clp,
+      mano_obra_clp: detalleRefrescado.mano_obra_clp ?? current.mano_obra_clp,
+      costo_repuestos_clp: detalleRefrescado.costo_repuestos_clp ?? current.costo_repuestos_clp,
+      total_clp: detalleRefrescado.total_clp ?? current.total_clp,
       metadata: {
-        ...(cotizacion.metadata || {}),
+        ...(current.metadata || {}),
         ...(detalleRefrescado.metadata || {}),
       },
-      actualizado_en: detalleRefrescado.actualizado_en || cotizacion.actualizado_en,
+      actualizado_en: detalleRefrescado.actualizado_en || current.actualizado_en,
     });
-  }, [busquedaPendiente, cotizacion, cotizandoItems, detalleRefrescado, onChange]);
+  }, [busquedaPendiente, cotizandoItems, detalleRefrescado, onChange]);
 
 
   const totalRepuestos = useMemo(
@@ -657,12 +678,12 @@ export const CotizacionIaEditor = React.forwardRef<
     const current = resolverManoObraLineas(cotizacionRef.current);
     if (current.length >= MAX_MANO_OBRA_LINEAS) return;
     aplicarLineasMo([
-      ...current,
       {
         id: `mo-${Date.now()}`,
         nombre: '',
         monto_clp: 0,
       },
+      ...current,
     ]);
   }, [aplicarLineasMo]);
 
@@ -690,12 +711,43 @@ export const CotizacionIaEditor = React.forwardRef<
     onChange({
       ...current,
       ...next,
+      repuestos: mergeRepuestosPreservandoEdicion(
+        current.repuestos ?? [],
+        next.repuestos ?? [],
+      ),
+      mano_obra_lineas: current.mano_obra_lineas ?? next.mano_obra_lineas,
       metadata: {
         ...(current.metadata || {}),
         ...(next.metadata || {}),
       },
     });
   }, [onChange]);
+
+  const aplicarResultadoBusquedaWeb = useCallback(async (cotId: number) => {
+    const lista = await cotizacionCanalService.esperarPreciosWeb(cotId, {
+      onTick: (cot) => {
+        setProgresoBusquedaIa(cot.metadata?.busqueda_web_progreso || null);
+      },
+    });
+    queryClient.setQueryData(
+      [COTIZACION_CANAL_DETALLE_QUERY_KEY, cotId],
+      lista,
+    );
+    const latest = cotizacionRef.current;
+    onChange({
+      ...latest,
+      ...lista,
+      repuestos: mergeRepuestosPreservandoEdicion(
+        latest.repuestos ?? [],
+        lista.repuestos ?? [],
+      ),
+      metadata: {
+        ...(latest.metadata || {}),
+        ...(lista.metadata || {}),
+      },
+    });
+    return lista;
+  }, [onChange, queryClient]);
 
   const abrirConfirmarRepuesto = useCallback((rep: RepuestoCotizacion) => {
     setRepuestoSheet(rep);
@@ -722,12 +774,33 @@ export const CotizacionIaEditor = React.forwardRef<
         especificacion: spec,
       });
       aplicarCotizacionServidor(res.cotizacion);
+      if (busquedaWebPendiente(res.cotizacion)) {
+        setCotizandoItems(true);
+        setFaseBusquedaIa('precios');
+        setProgresoBusquedaIa(res.cotizacion.metadata?.busqueda_web_progreso || null);
+        setBusquedaIaVisible(true);
+        try {
+          const lista = await aplicarResultadoBusquedaWeb(current.id);
+          if (busquedaWebPendiente(lista)) {
+            setBusquedaIaVisible(false);
+          } else {
+            setFaseBusquedaIa('listo');
+            await new Promise<void>((resolve) => {
+              setTimeout(resolve, 800);
+            });
+            setBusquedaIaVisible(false);
+          }
+        } finally {
+          setCotizandoItems(false);
+        }
+      }
     } catch {
+      setBusquedaIaVisible(false);
       showAlert('No se pudo guardar', 'Intenta de nuevo la especificación.');
     } finally {
       setPrecioBusy(false);
     }
-  }, [aplicarCotizacionServidor, onChange]);
+  }, [aplicarCotizacionServidor, aplicarResultadoBusquedaWeb, onChange]);
 
   const usarOpcionLinea = useCallback(async (rep: RepuestoCotizacion, opcionId: string) => {
     const current = cotizacionRef.current;
@@ -811,13 +884,13 @@ export const CotizacionIaEditor = React.forwardRef<
     onChange({
       ...current,
       repuestos: [
-        ...reps,
         {
           id: `rep-${Date.now()}`,
-          nombre: 'Repuesto',
+          nombre: '',
           cantidad: 1,
           precio_unitario_clp: 0,
         },
+        ...reps,
       ],
     });
   }, [onChange]);
@@ -853,10 +926,13 @@ export const CotizacionIaEditor = React.forwardRef<
     pedirEnvio('estimacion');
   }, [onEnviarEstimacion, pedirEnvio]);
 
-  const cotizarItemsConIa = useCallback(async () => {
+  const cotizarItemsConIa = useCallback(async (rep?: RepuestoCotizacion) => {
     const current = cotizacionRef.current;
     if (!current.id || !cotizacionPermiteEdicionCompleta(current)) return;
-    const pendientes = (current.repuestos ?? []).filter(lineaSinPrecioParaIa);
+    const objetivo = rep && (rep.nombre || '').trim() ? rep : null;
+    const pendientes = objetivo
+      ? [objetivo]
+      : (current.repuestos ?? []).filter(lineaSinPrecioParaIa);
     if (!pendientes.length) {
       showAlert(
         'Nombra la pieza',
@@ -864,6 +940,7 @@ export const CotizacionIaEditor = React.forwardRef<
       );
       return;
     }
+    const ids = pendientes.map((r) => String(r.id || '')).filter(Boolean);
     setCotizandoItems(true);
     setFaseBusquedaIa('precios');
     setProgresoBusquedaIa(null);
@@ -872,6 +949,7 @@ export const CotizacionIaEditor = React.forwardRef<
       const resultado = await cotizacionCanalService.cotizarItems(current.id, {
         nombres: [],
         repuestos: current.repuestos ?? [],
+        repuesto_ids: ids,
       });
       queryClient.setQueryData(
         [COTIZACION_CANAL_DETALLE_QUERY_KEY, current.id],
@@ -888,31 +966,14 @@ export const CotizacionIaEditor = React.forwardRef<
       setProgresoBusquedaIa(resultado.cotizacion.metadata?.busqueda_web_progreso || null);
       let lista = resultado.cotizacion;
       if (resultado.busqueda_web || busquedaWebPendiente(lista)) {
-        lista = await cotizacionCanalService.esperarPreciosWeb(current.id, {
-          onTick: (cot) => {
-            setProgresoBusquedaIa(cot.metadata?.busqueda_web_progreso || null);
-          },
-        });
-        queryClient.setQueryData(
-          [COTIZACION_CANAL_DETALLE_QUERY_KEY, current.id],
-          lista,
-        );
-        const latest = cotizacionRef.current;
-        onChange({
-          ...latest,
-          ...lista,
-          repuestos: mergeRepuestosPreservandoEdicion(
-            latest.repuestos ?? [],
-            lista.repuestos ?? [],
-          ),
-          metadata: {
-            ...(latest.metadata || {}),
-            ...(lista.metadata || {}),
-          },
-        });
+        lista = await aplicarResultadoBusquedaWeb(current.id);
       }
       if (busquedaWebPendiente(lista)) {
         setBusquedaIaVisible(false);
+        showAlert(
+          'Sigue buscando',
+          'La consulta a tiendas sigue en segundo plano. En unos segundos se actualiza la pieza.',
+        );
         return;
       }
       setFaseBusquedaIa('listo');
@@ -937,7 +998,7 @@ export const CotizacionIaEditor = React.forwardRef<
         queryKey: [COTIZACION_CANAL_DETALLE_QUERY_KEY, current.id],
       });
     }
-  }, [onChange, queryClient]);
+  }, [aplicarResultadoBusquedaWeb, onChange, queryClient]);
 
   const kmMeta = cotizacion.metadata?.vehiculo_kilometraje_actual;
   const vehiculoTitulo = [
@@ -1379,7 +1440,7 @@ export const CotizacionIaEditor = React.forwardRef<
                 rep={rep}
                 index={idx}
                 editable={editable}
-                buscandoPrecio={busquedaPendiente}
+                buscandoPrecio={lineaEnBusquedaWeb(rep)}
                 vehiculoAnio={cotizacion.vehiculo_anio}
                 onUpdate={actualizarRepuesto}
                 onDelete={eliminarRepuesto}

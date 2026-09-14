@@ -102,6 +102,8 @@ export default function CotizacionCanalDetalleScreen() {
   const [tipoPreview, setTipoPreview] = useState<'estimacion' | 'cotizacion'>('cotizacion');
   const editorRef = useRef<CotizacionIaEditorHandle>(null);
   const tipoEnvioRef = useRef<'estimacion' | 'cotizacion'>('cotizacion');
+  const draftRef = useRef<CotizacionCanal | null>(null);
+  const persistSeqRef = useRef(0);
   const [holdExpired, setHoldExpired] = useState(false);
 
   useEffect(() => {
@@ -136,6 +138,8 @@ export default function CotizacionCanalDetalleScreen() {
       return prev;
     });
   }, [data]);
+
+  draftRef.current = draft;
 
   const holdPrecios = shouldHoldRevealForPrecios(data) && !holdExpired;
   useEffect(() => {
@@ -214,28 +218,46 @@ export default function CotizacionCanalDetalleScreen() {
   }, [compartirConCliente]);
 
   const persistirSiHayCambios = useCallback(async () => {
-    if (!draft?.id) return draft;
-    if (!hayCambios) return draft;
-    const patch = payloadEdicionCotizacion(draft);
-    const actualizada = await cotizacionCanalService.actualizar(draft.id, patch);
-    setDraft({
-      ...actualizada,
-      repuestos: mergeRepuestosPreservandoEdicion(
-        draft.repuestos ?? [],
-        actualizada.repuestos ?? [],
-      ),
+    const current = draftRef.current;
+    if (!current?.id) return current;
+    if (data && snapshot(current) === snapshot(data)) return current;
+    const seq = ++persistSeqRef.current;
+    const actualizada = await cotizacionCanalService.actualizar(
+      current.id,
+      payloadEdicionCotizacion(current),
+    );
+    const aplicar = (prev: CotizacionCanal | null): CotizacionCanal => {
+      if (!prev || prev.id !== actualizada.id) return actualizada;
+      return {
+        ...actualizada,
+        repuestos: mergeRepuestosPreservandoEdicion(
+          prev.repuestos ?? [],
+          actualizada.repuestos ?? [],
+        ),
+        mano_obra_lineas: prev.mano_obra_lineas ?? actualizada.mano_obra_lineas,
+      };
+    };
+    if (seq !== persistSeqRef.current) {
+      return aplicar(draftRef.current);
+    }
+    let applied = actualizada;
+    setDraft((prev) => {
+      applied = aplicar(prev);
+      draftRef.current = applied;
+      return applied;
     });
     await invalidateAll();
-    return actualizada;
-  }, [draft, hayCambios, invalidateAll]);
+    return applied;
+  }, [data, invalidateAll]);
 
+  const draftSnap = draft ? snapshot(draft) : '';
   useEffect(() => {
     if (!hayCambios || !editable || enviando || guardando || previewVisible) return;
     const t = setTimeout(() => {
       void persistirSiHayCambios();
     }, 900);
     return () => clearTimeout(t);
-  }, [hayCambios, editable, enviando, guardando, previewVisible, persistirSiHayCambios]);
+  }, [hayCambios, draftSnap, editable, enviando, guardando, previewVisible, persistirSiHayCambios]);
 
   const abrirVistaPrevia = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
     if (!draft?.id) return;
