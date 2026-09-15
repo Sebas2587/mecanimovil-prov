@@ -643,7 +643,7 @@ class CotizacionCanalService {
     },
   ): Promise<CotizacionCanal> {
     const intervalMs = opts?.intervalMs ?? 1_000;
-    const maxMs = opts?.maxMs ?? 90_000;
+    const maxMs = opts?.maxMs ?? 45_000;
     const started = Date.now();
     let last = await this.obtener(id, { sinRetry: true });
     opts?.onTick?.(last);

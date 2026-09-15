@@ -14,6 +14,7 @@ type Props = {
   buscando?: boolean;
   onBuscar?: () => void;
   respaldoSinGemini?: boolean;
+  fichaExigente?: boolean;
 };
 
 /** Recuadro en Repuestos: la IA sigue en tiendas o faltan fichas. */
@@ -25,6 +26,7 @@ export function CotizacionPreciosEstadoBanner({
   buscando = false,
   onBuscar,
   respaldoSinGemini = false,
+  fichaExigente = false,
 }: Props) {
   if (total <= 0 && !respaldoSinGemini) return null;
   if (!pendiente && sinTienda <= 0 && !respaldoSinGemini) return null;
@@ -39,8 +41,10 @@ export function CotizacionPreciosEstadoBanner({
   const cuerpo = respaldoSinGemini
     ? 'Usamos el catálogo y el historial del taller. Las piezas siguen buscando precio; revisa montos antes de enviar.'
     : pendiente
-      ? 'Catálogo del taller, historial y tiendas .cl. No envíes todavía: el monto aparece en cada línea al llegar.'
-      : 'La primera pasada no encontró ficha. Vuelve a buscar: a veces la casa responde en el segundo intento. Si hay rango de mercado, úsalo de guía.';
+      ? 'Busca en todas las tiendas de Chile, no solo en un par de casas. El monto aparece en cada línea al llegar.'
+      : (fichaExigente
+        ? 'Esa pieza tiene que ser del mismo motor (un kit 1.2 no sirve en un 1.1). Completa el monto o vuelve a buscar en todas las tiendas.'
+        : 'La primera pasada no encontró ficha. Vuelve a buscar: a veces la casa responde en el segundo intento. Si hay rango de mercado, úsalo de guía.');
 
   return (
     <View style={styles.wrap}>

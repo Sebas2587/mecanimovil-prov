@@ -95,10 +95,13 @@ function leadTexto(
   }
   if (progreso?.detalle) return progreso.detalle;
   if (esRepuestos || fase === 'precios') {
-    if (elapsedMs > 25_000) {
-      return 'Sigue consultando catálogo, historial y tiendas .cl. No cierres: el precio aparece en cada pieza al llegar.';
+    if (elapsedMs > 28_000) {
+      return 'Abrimos el borrador enseguida. Lo que aún no tenga ficha se completa en la cotización.';
     }
-    return 'Ahora busca el precio de cada pieza en casas de Chile. Eso es lo que tarda más, y es el valor de esta pantalla.';
+    if (elapsedMs > 12_000) {
+      return 'Sigue en todas las tiendas de Chile, no solo en un par de casas. El kit tiene que ser del mismo motor.';
+    }
+    return 'Ahora busca el precio de cada pieza en las tiendas de Chile. Eso es lo que tarda más, y es el valor de esta pantalla.';
   }
   if (elapsedMs > 20_000) {
     return 'El desglose está tardando más de lo habitual. No pulses otra vez: en cuanto tenga las líneas, busca precios en tiendas.';

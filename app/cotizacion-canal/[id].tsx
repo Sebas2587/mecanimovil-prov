@@ -40,7 +40,7 @@ import cotizacionCanalService, {
   payloadEdicionCotizacion,
   type CotizacionCanal,
 } from '@/services/cotizacionCanalService';
-import { shouldHoldRevealForPrecios } from '@/utils/cotizacionPreciosWeb';
+import { HOLD_REVEAL_PRECIOS_MS, shouldHoldRevealForPrecios } from '@/utils/cotizacionPreciosWeb';
 import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
 import {
@@ -150,7 +150,7 @@ export default function CotizacionCanalDetalleScreen() {
       setHoldExpired(false);
       return;
     }
-    const timer = setTimeout(() => setHoldExpired(true), 110_000);
+    const timer = setTimeout(() => setHoldExpired(true), HOLD_REVEAL_PRECIOS_MS);
     return () => clearTimeout(timer);
   }, [data]);
 

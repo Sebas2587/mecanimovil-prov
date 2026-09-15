@@ -1453,6 +1453,7 @@ export const CotizacionIaEditor = React.forwardRef<
           buscando={cotizandoItems}
           onBuscar={editable ? () => void cotizarItemsConIa() : undefined}
           respaldoSinGemini={Boolean(cotizacion.metadata?.respaldo_sin_gemini)}
+          fichaExigente={resumenPrecios.fichaExigente}
         />
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
           El + añade líneas. Buscar precio consulta catálogo, historial y tiendas .cl.

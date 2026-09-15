@@ -4,7 +4,9 @@ import cotizacionCanalService, {
 } from '@/services/cotizacionCanalService';
 import { redondearCLP } from '@/utils/formatearMontoCLP';
 
-export const ESPERA_PRECIOS_WEB_MS = 90_000;
+/** Overlay: no repetir 90s+90s. El worker sigue; el editor ya muestra el borrador. */
+export const ESPERA_PRECIOS_WEB_MS = 45_000;
+export const HOLD_REVEAL_PRECIOS_MS = 50_000;
 
 export function busquedaWebPendiente(
   c?: { metadata?: { busqueda_web_estado?: string } } | null,
@@ -27,6 +29,15 @@ export function lineaNecesitaBusquedaPrecio(rep: RepuestoCotizacion): boolean {
   return !lineaTienePrecioUnitario(rep);
 }
 
+/** Kit/inyector/turbo: Tavily + año + ficha exacta. Un filtro de aceite no. */
+export function lineaEsRepuestoDeFichaExigente(
+  rep?: Pick<RepuestoCotizacion, 'nombre'> | null,
+): boolean {
+  const n = (rep?.nombre || '').toLowerCase();
+  if (!n) return false;
+  return /embrague|clutch|inyector|turbo|kit de distribuci|kit distribuci/.test(n);
+}
+
 export function cotizacionTienePrecioRepuesto(
   c?: Pick<CotizacionCanal, 'repuestos'> | null,
 ): boolean {
@@ -38,6 +49,7 @@ export function resumenPreciosRepuestos(c?: Pick<CotizacionCanal, 'repuestos'> |
   conTienda: number;
   sinTienda: number;
   lineasSinTienda: RepuestoCotizacion[];
+  fichaExigente: boolean;
 } {
   const reps = c?.repuestos ?? [];
   const lineasSinTienda = reps.filter(lineaNecesitaBusquedaPrecio);
@@ -46,6 +58,7 @@ export function resumenPreciosRepuestos(c?: Pick<CotizacionCanal, 'repuestos'> |
     conTienda: reps.filter(lineaTienePrecioUnitario).length,
     sinTienda: lineasSinTienda.length,
     lineasSinTienda,
+    fichaExigente: reps.some(lineaEsRepuestoDeFichaExigente),
   };
 }
 
@@ -54,7 +67,7 @@ export function shouldHoldRevealForPrecios(c?: CotizacionCanal | null): boolean 
   return Boolean(c && busquedaWebPendiente(c) && !cotizacionTienePrecioRepuesto(c));
 }
 
-/** Espera la búsqueda en curso y, si quedan piezas en $0, lanza una segunda pasada. */
+/** Espera la búsqueda en curso y, si quedan piezas en $0, lanza una segunda pasada sin bloquear. */
 export async function esperarPreciosYReintentarSiFaltan(
   cot: CotizacionCanal,
   opts?: { onTick?: (cotizacion: CotizacionCanal) => void },
@@ -70,18 +83,16 @@ export async function esperarPreciosYReintentarSiFaltan(
   const faltan = resumenPreciosRepuestos(lista).lineasSinTienda;
   if (!lista.id || !faltan.length || busquedaWebPendiente(lista)) return lista;
   const ids = faltan.map((r) => String(r.id || '')).filter(Boolean);
-  const res = await cotizacionCanalService.cotizarItems(lista.id, {
-    nombres: [],
-    repuestos: lista.repuestos ?? [],
-    repuesto_ids: ids,
-  });
-  lista = res.cotizacion;
-  onTick?.(lista);
-  if ((res.busqueda_web || busquedaWebPendiente(lista)) && lista.id) {
-    lista = await cotizacionCanalService.esperarPreciosWeb(lista.id, {
-      maxMs: ESPERA_PRECIOS_WEB_MS,
-      onTick,
+  try {
+    const res = await cotizacionCanalService.cotizarItems(lista.id, {
+      nombres: [],
+      repuestos: lista.repuestos ?? [],
+      repuesto_ids: ids,
     });
+    lista = res.cotizacion;
+    onTick?.(lista);
+  } catch {
+    // El editor muestra el borrador; el taller pulsa Buscar si hace falta.
   }
   return lista;
 }
