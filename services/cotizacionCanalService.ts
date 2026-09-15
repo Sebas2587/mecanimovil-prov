@@ -264,6 +264,7 @@ export interface CotizacionCanal {
     precio_desde_catalogo?: boolean;
     precio_parcial_catalogo?: boolean;
     valores_estimativos?: boolean;
+    respaldo_sin_gemini?: boolean;
     /** pendiente | ok | sin_resultados | error — búsqueda web Gemini URL Context */
     busqueda_web_estado?: 'pendiente' | 'ok' | 'sin_resultados' | 'error' | string;
     busqueda_web_en?: string;
@@ -337,6 +338,8 @@ export interface GenerarCotizacionIaResponse {
   error?: string | null;
   latencia_ms?: number;
   desde_plantilla?: boolean;
+  respaldo_sin_gemini?: boolean;
+  aviso_respaldo?: string | null;
 }
 
 export function cotizacionPermiteEdicionCompleta(c: CotizacionCanal): boolean {

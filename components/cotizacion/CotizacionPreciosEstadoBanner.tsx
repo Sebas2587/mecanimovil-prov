@@ -13,6 +13,7 @@ type Props = {
   sinTienda: number;
   buscando?: boolean;
   onBuscar?: () => void;
+  respaldoSinGemini?: boolean;
 };
 
 /** Recuadro en Repuestos: la IA sigue en tiendas o faltan fichas. */
@@ -23,18 +24,23 @@ export function CotizacionPreciosEstadoBanner({
   sinTienda,
   buscando = false,
   onBuscar,
+  respaldoSinGemini = false,
 }: Props) {
-  if (total <= 0) return null;
-  if (!pendiente && sinTienda <= 0) return null;
+  if (total <= 0 && !respaldoSinGemini) return null;
+  if (!pendiente && sinTienda <= 0 && !respaldoSinGemini) return null;
 
-  const titulo = pendiente
-    ? (conTienda > 0
-      ? `${conTienda} de ${total} con precio de tienda`
-      : 'Buscando precios en casas de Chile')
-    : `${sinTienda} pieza${sinTienda === 1 ? '' : 's'} sin ficha de tienda`;
-  const cuerpo = pendiente
-    ? 'Catálogo del taller, historial y tiendas .cl. No envíes todavía: el monto aparece en cada línea al llegar.'
-    : 'La primera pasada no encontró ficha. Vuelve a buscar: a veces la casa responde en el segundo intento. Si hay rango de mercado, úsalo de guía.';
+  const titulo = respaldoSinGemini
+    ? 'Borrador listo para completar'
+    : pendiente
+      ? (conTienda > 0
+        ? `${conTienda} de ${total} con precio de tienda`
+        : 'Buscando precios en casas de Chile')
+      : `${sinTienda} pieza${sinTienda === 1 ? '' : 's'} sin ficha de tienda`;
+  const cuerpo = respaldoSinGemini
+    ? 'Usamos el catálogo y el historial del taller. Las piezas siguen buscando precio; revisa montos antes de enviar.'
+    : pendiente
+      ? 'Catálogo del taller, historial y tiendas .cl. No envíes todavía: el monto aparece en cada línea al llegar.'
+      : 'La primera pasada no encontró ficha. Vuelve a buscar: a veces la casa responde en el segundo intento. Si hay rango de mercado, úsalo de guía.';
 
   return (
     <View style={styles.wrap}>

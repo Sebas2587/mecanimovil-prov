@@ -1086,6 +1086,9 @@ export const CotizacionIaEditor = React.forwardRef<
               {cotizacion.metadata?.origen === 'agente_ia' ? (
                 <InstitutionalTag label="IA" variant="warning" size="sm" />
               ) : null}
+              {cotizacion.metadata?.respaldo_sin_gemini ? (
+                <InstitutionalTag label="Completar" variant="info" size="sm" />
+              ) : null}
               {cotizacion.es_cotizacion_adicional ? (
                 <InstitutionalTag label="Adicional" variant="info" size="sm" />
               ) : null}
@@ -1150,6 +1153,9 @@ export const CotizacionIaEditor = React.forwardRef<
                   variant="warning"
                   size="sm"
                 />
+              ) : null}
+              {cotizacion.metadata?.respaldo_sin_gemini ? (
+                <InstitutionalTag label="Completar precios" variant="info" size="sm" />
               ) : null}
               {cotizacion.es_cotizacion_adicional ? (
                 <InstitutionalTag label="Adicional" variant="info" size="sm" />
@@ -1446,6 +1452,7 @@ export const CotizacionIaEditor = React.forwardRef<
           sinTienda={resumenPrecios.sinTienda}
           buscando={cotizandoItems}
           onBuscar={editable ? () => void cotizarItemsConIa() : undefined}
+          respaldoSinGemini={Boolean(cotizacion.metadata?.respaldo_sin_gemini)}
         />
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
           El + añade líneas. Buscar precio consulta catálogo, historial y tiendas .cl.
