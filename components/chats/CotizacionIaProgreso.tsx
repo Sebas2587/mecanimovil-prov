@@ -115,7 +115,9 @@ export function CotizacionIaProgreso({ fase, progreso, variante = 'cotizacion' }
           : (progreso?.detalle
             || (esRepuestos
               ? 'Mismo proceso que al armar la cotización: catálogo del taller, historial y tiendas de Chile.'
-              : 'La cotización se abre cuando el riel termina. Vas a ver de qué casa sale cada precio.'))}
+              : elapsedMs > 12000
+                ? 'Gemini está escribiendo las líneas. Puede tardar hasta un minuto; no pulses otra vez.'
+                : 'La cotización se abre cuando el riel termina. Vas a ver de qué casa sale cada precio.'))}
       </InstitutionalText>
       <HostPaperSection>
         {PASOS.map((paso, index) => {
