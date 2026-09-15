@@ -65,6 +65,7 @@ export function BottomSheet({
             { paddingBottom: bottomPad },
             style,
             IS_WEB && styles.sheetWeb,
+            stickyFooter && IS_WEB && styles.sheetWebSticky,
           ]}
         >
           {IS_WEB ? (
@@ -82,7 +83,11 @@ export function BottomSheet({
           ) : (
             <View style={styles.handle} />
           )}
-          {children}
+          {stickyFooter ? (
+            <View style={styles.stickyInner}>{children}</View>
+          ) : (
+            children
+          )}
         </View>
       </View>
     </Modal>
@@ -134,10 +139,23 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.fixed.xs,
     ...SHADOWS.editorial,
   },
+  sheetWebSticky: {
+    overflow: 'hidden',
+    flexGrow: 0,
+    flexShrink: 1,
+    minHeight: 0,
+  },
   /** Sheet con footer fijo: ocupa hasta maxHeight y reparte scroll + botonera. */
   sheetSticky: {
     flexGrow: 1,
     flexShrink: 1,
+    minHeight: 0,
+  },
+  stickyInner: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minHeight: 0,
+    width: '100%',
   },
   handle: {
     alignSelf: 'center',

@@ -23,6 +23,7 @@ import { Card } from '@/app/design-system/components';
 import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { ClpMoneyInput } from '@/components/forms/ClpMoneyInput';
+import { CotizacionPreciosEstadoBanner } from '@/components/cotizacion/CotizacionPreciosEstadoBanner';
 import { ConfirmarPreciosSheet } from '@/components/cotizacion/ConfirmarPreciosSheet';
 import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBorradorAcciones';
 import { SeccionOpcional } from '@/components/cotizacion/SeccionOpcional';
@@ -72,7 +73,11 @@ import {
 } from '@/components/cotizaciones/EjecucionAdicionalCampos';
 import { formatDateApi } from '@/utils/fechaLocal';
 import { showAlert } from '@/utils/platformAlert';
-import { busquedaWebPendiente } from '@/utils/cotizacionPreciosWeb';
+import {
+  busquedaWebPendiente,
+  lineaNecesitaBusquedaPrecio,
+  resumenPreciosRepuestos,
+} from '@/utils/cotizacionPreciosWeb';
 import type { CatalogoFechaHoraValue } from '@/components/solicitudes/CatalogoFechaHoraPickers';
 
 const I = COLORS.institutional;
@@ -107,14 +112,6 @@ function origenTagLabel(rep: RepuestoCotizacion): string | null {
   if (key === 'historial') return 'Historial del taller';
   if (key === 'mercadolibre') return 'Mercado Libre';
   return null;
-}
-
-function lineaSinPrecioParaIa(rep: RepuestoCotizacion): boolean {
-  const nombre = (rep.nombre || '').trim().toLowerCase();
-  if (!nombre || nombre === 'repuesto') return false;
-  const key = (rep.fuente_marketplace || '').trim().toLowerCase();
-  if (key === 'catalogo' || key === 'catálogo' || key === 'historial') return false;
-  return !rep.precio_unitario_clp || rep.precio_unitario_clp <= 0;
 }
 
 const ESTADO_VARIANT: Record<
@@ -164,7 +161,9 @@ const RepuestoRow = React.memo(function RepuestoRow({
   const rango = formatRangoClp(rep.precio_min_clp, rep.precio_max_clp);
   const minP = Math.round(Number(rep.precio_min_clp) || 0);
   const maxP = Math.round(Number(rep.precio_max_clp) || 0);
-  const mostrarRango = Boolean(rango) && minP > 0 && maxP > 0 && minP !== maxP;
+  const mostrarRango = Boolean(rango) && (
+    certeza === 'sin_precio' || (minP > 0 && maxP > 0 && minP !== maxP)
+  );
   const fichaClp = Math.round(Number(rep.precio_marketplace_clp) || 0);
   const hayPrecioParaConfirmar = Boolean(
     editable
@@ -312,7 +311,13 @@ const RepuestoRow = React.memo(function RepuestoRow({
             compact
             value={precioUnit}
             editable={editable && !precioPendiente}
-            placeholder={precioPendiente ? 'Buscando' : (certeza === 'sin_precio' ? 'Falta' : '0')}
+            placeholder={
+              precioPendiente
+                ? 'Buscando'
+                : (certeza === 'sin_precio'
+                  ? (rango || 'Buscar')
+                  : '0')
+            }
             onChangeValue={(next) => onUpdate(index, patchPrecioEscritoPorTaller(next))}
           />
         </View>
@@ -561,6 +566,30 @@ export const CotizacionIaEditor = React.forwardRef<
     pendientePrevRef.current = busquedaPendiente;
   }, [busquedaPendiente]);
 
+  const resumenPrecios = useMemo(
+    () => resumenPreciosRepuestos({ repuestos }),
+    [repuestos],
+  );
+
+  useEffect(() => {
+    if (busquedaPendiente && cotizacion.metadata?.busqueda_web_progreso) {
+      setProgresoBusquedaIa(cotizacion.metadata.busqueda_web_progreso);
+    }
+  }, [busquedaPendiente, cotizacion.metadata?.busqueda_web_progreso]);
+
+  useEffect(() => {
+    if (cotizandoItems) return;
+    if (busquedaPendiente) {
+      setFaseBusquedaIa('precios');
+      setBusquedaIaVisible(true);
+      return;
+    }
+    if (!busquedaIaVisible) return;
+    setFaseBusquedaIa('listo');
+    const t = setTimeout(() => setBusquedaIaVisible(false), 900);
+    return () => clearTimeout(t);
+  }, [busquedaPendiente, cotizandoItems]);
+
   const idsBusquedaWeb = useMemo(() => {
     const ids = (cotizacion.metadata?.busqueda_web_ids || []).map(String).filter(Boolean);
     if (ids.length) return { tipo: 'id' as const, valores: new Set(ids) };
@@ -574,7 +603,7 @@ export const CotizacionIaEditor = React.forwardRef<
 
   const lineaEnBusquedaWeb = useCallback((rep: RepuestoCotizacion) => {
     if (!busquedaPendiente) return false;
-    if (!idsBusquedaWeb.valores.size) return lineaSinPrecioParaIa(rep);
+    if (!idsBusquedaWeb.valores.size) return lineaNecesitaBusquedaPrecio(rep);
     if (idsBusquedaWeb.tipo === 'id') {
       return idsBusquedaWeb.valores.has(String(rep.id || ''));
     }
@@ -926,7 +955,7 @@ export const CotizacionIaEditor = React.forwardRef<
     const objetivo = rep && (rep.nombre || '').trim() ? rep : null;
     const pendientes = objetivo
       ? [objetivo]
-      : (current.repuestos ?? []).filter(lineaSinPrecioParaIa);
+      : (current.repuestos ?? []).filter(lineaNecesitaBusquedaPrecio);
     if (!pendientes.length) {
       showAlert(
         'Nombra la pieza',
@@ -963,11 +992,6 @@ export const CotizacionIaEditor = React.forwardRef<
         lista = await aplicarResultadoBusquedaWeb(current.id);
       }
       if (busquedaWebPendiente(lista)) {
-        setBusquedaIaVisible(false);
-        showAlert(
-          'Sigue buscando',
-          'La consulta a tiendas sigue en segundo plano. En unos segundos se actualiza la pieza.',
-        );
         return;
       }
       setFaseBusquedaIa('listo');
@@ -1415,16 +1439,16 @@ export const CotizacionIaEditor = React.forwardRef<
           title="Repuestos"
           count={repuestos.length > 0 ? repuestos.length : undefined}
         />
-        {busquedaPendiente && !busquedaIaVisible ? (
-          <View style={styles.busquedaWebChip}>
-            <ActivityIndicator size="small" color={I.muted} />
-            <InstitutionalText role="caption" color="muted" style={styles.busquedaWebChipText}>
-              Buscando precios y tiendas reales…
-            </InstitutionalText>
-          </View>
-        ) : null}
+        <CotizacionPreciosEstadoBanner
+          pendiente={busquedaPendiente}
+          conTienda={resumenPrecios.conTienda}
+          total={resumenPrecios.total}
+          sinTienda={resumenPrecios.sinTienda}
+          buscando={cotizandoItems}
+          onBuscar={editable ? () => void cotizarItemsConIa() : undefined}
+        />
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
-          El + añade líneas. En la pieza, Buscar precio consulta tiendas.
+          El + añade líneas. Buscar precio consulta catálogo, historial y tiendas .cl.
           El cliente ve el de margen hasta que fijas uno.
         </InstitutionalText>
         {repuestos.length === 0 ? (
@@ -1448,7 +1472,7 @@ export const CotizacionIaEditor = React.forwardRef<
                 onConfirmar={abrirConfirmarRepuesto}
                 onEspecificacion={definirEspecificacionLinea}
                 onBuscarIa={cotizarItemsConIa}
-                puedeBuscarIa={lineaSinPrecioParaIa(rep)}
+                puedeBuscarIa={lineaNecesitaBusquedaPrecio(rep)}
               />
             ))}
           </View>

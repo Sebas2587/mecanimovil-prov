@@ -8,6 +8,7 @@ import { COLORS, SPACING } from '@/app/design-system/tokens';
 import type { CotizacionCanal, RepuestoCotizacion } from '@/services/cotizacionCanalService';
 import type { ProveedorRepuestos } from '@/services/proveedorRepuestosService';
 import {
+  COPY_PRECIO_TALLER as PRECIO,
   calidadLabel,
   formatRangoClp,
   fuentesDe,
@@ -74,7 +75,7 @@ export function ConfirmarPreciosSheet({
     <BottomSheet visible={visible} onClose={onClose} stickyFooter>
       <InstitutionalText role="h3">Confirmar precios</InstitutionalText>
       <InstitutionalText role="caption" color="muted">
-        Elige ficha o techo. Esto no envía al cliente: después aparece Enviar cotización.
+        {PRECIO.confirmarHint}
         {pendientes.length
           ? ` ${pendientes.length} de ${(cotizacion.repuestos ?? []).length} sin fijar.`
           : ''}
@@ -87,7 +88,7 @@ export function ConfirmarPreciosSheet({
             onClose();
             onEnviarEstimacion();
           }}
-          accessibilityLabel="Enviar estimación al cliente. Ve rangos y techo, no un precio cerrado."
+          accessibilityLabel="Enviar estimación al cliente. Ve rangos y el de margen, no un precio cerrado."
         />
       ) : null}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.list}>
@@ -122,7 +123,7 @@ export function ConfirmarPreciosSheet({
                 <InstitutionalText role="caption" color="muted">
                   {[
                     hayBanda
-                      ? `Ficha ${formatearMontoCLP(ficha)} · techo ${formatearMontoCLP(techo)}`
+                      ? `${PRECIO.deLaTienda} ${formatearMontoCLP(ficha)} · ${PRECIO.conMargen.toLowerCase()} ${formatearMontoCLP(techo)}`
                       : (rango || (rep.especificacion_pendiente ? 'Falta el tipo' : 'Sin referencia')),
                     fuentes.length ? nombreFuente(fuentes[0]) : '',
                   ]
@@ -146,7 +147,7 @@ export function ConfirmarPreciosSheet({
               {ficha > 0 && rep.id ? (
                 <InstitutionalButton
                   label={hayBanda
-                    ? `Ficha ${formatearMontoCLP(ficha)}`
+                    ? `${PRECIO.deLaTienda} ${formatearMontoCLP(ficha)}`
                     : `Usar ${formatearMontoCLP(ficha)}`}
                   variant="outline"
                   size="compact"
@@ -155,7 +156,7 @@ export function ConfirmarPreciosSheet({
               ) : null}
               {hayBanda && rep.id ? (
                 <InstitutionalButton
-                  label={`Techo ${formatearMontoCLP(techo)}`}
+                  label={`${PRECIO.conMargen} ${formatearMontoCLP(techo)}`}
                   variant="tertiary"
                   size="compact"
                   onPress={() => onAsumir([rep.id as string], 'techo')}
@@ -172,13 +173,13 @@ export function ConfirmarPreciosSheet({
           onPress={pedirTodo}
         />
         <InstitutionalButton
-          label="Usar precio de ficha en todas"
+          label={PRECIO.usarTiendaTodas}
           onPress={() => onAsumir(ids, 'ficha')}
           loading={loading}
           disabled={!ids.length}
         />
         <InstitutionalButton
-          label="Usar el techo en todas"
+          label={PRECIO.usarMargenTodas}
           variant="outline"
           onPress={() => onAsumir(ids, 'techo')}
           disabled={!ids.length || loading}

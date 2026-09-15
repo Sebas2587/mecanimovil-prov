@@ -150,7 +150,7 @@ export default function CotizacionCanalDetalleScreen() {
       setHoldExpired(false);
       return;
     }
-    const timer = setTimeout(() => setHoldExpired(true), 70_000);
+    const timer = setTimeout(() => setHoldExpired(true), 110_000);
     return () => clearTimeout(timer);
   }, [data]);
 

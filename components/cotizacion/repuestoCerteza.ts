@@ -168,7 +168,11 @@ export function motivoSinPrecio(rep: RepuestoCotizacion): string | null {
   if (rep.especificacion_pendiente || rep.motivo_sin_precio === 'especificacion') {
     return 'Elige el tipo para poder cotizar: el precio cambia según la variante.';
   }
-  return 'No encontramos referencia de precio. Escribe el monto o pídelo a tu casa de repuestos.';
+  const rango = formatRangoClp(rep.precio_min_clp, rep.precio_max_clp);
+  if (rango) {
+    return `Aún no hay ficha de tienda. Rango de mercado ${rango}. Pulsa Buscar precio o confirma el de tu casa.`;
+  }
+  return 'Aún no hay ficha de tienda. Pulsa Buscar precio: consulta catálogo, historial y casas de Chile.';
 }
 
 /** Único chip de estado de la línea: qué tan firme es el precio. */
@@ -191,12 +195,36 @@ export function estadoLinea(
   return { label: 'Falta precio', variant: 'error' };
 }
 
+/**
+ * Copy para el taller. En API seguimos `ficha` / `techo`.
+ * Ficha = precio publicado en la tienda. Techo = el mismo con margen.
+ */
+export const COPY_PRECIO_TALLER = {
+  seccionBanda: 'Elige qué cobrar',
+  seccionSimple: 'Precio de referencia',
+  deLaTienda: 'De la tienda',
+  conMargen: 'Con margen',
+  usarEste: 'Usar este',
+  usarDeLaTienda: 'Usar el de la tienda',
+  usarConMargen: 'Usar con margen',
+  hintBanda:
+    'De la tienda es el publicado. Con margen es por si la casa cobra más. El cliente ve el de margen hasta que eliges uno.',
+  hintForm: 'Ya está el de la tienda arriba. Cambia el monto solo si pagaste distinto.',
+  confirmarHint:
+    'Elige el de la tienda o el de margen. Esto no envía al cliente: después aparece Enviar cotización.',
+  clienteVeMargen: 'El cliente ve el de margen hasta que fijas uno.',
+  usarTiendaTodas: 'Usar el de la tienda en todas',
+  usarMargenTodas: 'Usar el de margen en todas',
+  alertaFaltanPrecios:
+    'Confirmar precios no envía: eliges el de la tienda o el de margen y sigues aquí. La estimación sí sale al cliente, con rangos.',
+} as const;
+
 /** Cómo se llama la banda según de dónde viene. */
 export function etiquetaBanda(rep: RepuestoCotizacion): string {
   if (certezaDe(rep) === 'sin_precio') return 'Referencia de mercado';
   const ficha = Math.round(Number(rep.precio_marketplace_clp) || 0);
   const factor = Number(rep.factor_mercado) || 1;
-  if (ficha > 0 && factor > 1) return 'Ficha – techo sugerido';
+  if (ficha > 0 && factor > 1) return 'Tienda – margen sugerido';
   return 'Rango real';
 }
 
@@ -215,6 +243,33 @@ export function origenOpcionLabel(op: OpcionRepuesto): string {
   if (op.es_proveedor_taller || op.fuente === 'proveedor') return 'mi casa';
   if (op.fuente === 'catalogo' || op.fuente === 'historial') return 'mis precios';
   return 'referencia web';
+}
+
+const FUENTE_GENERICA = new Set([
+  ...Object.values(ETIQUETA_FUENTE),
+  'Referencia',
+  'Referencia web',
+  'referencia web',
+]);
+
+/** Casa o tienda de la opción (Gmak), no el canal genérico. */
+export function casaOpcionLabel(
+  op: OpcionRepuesto,
+  linea?: RepuestoCotizacion | null,
+): string {
+  const deTienda = nombreFuente({
+    fuente: op.fuente,
+    tienda: op.tienda,
+    dominio: op.dominio,
+  }).trim();
+  if (deTienda && !FUENTE_GENERICA.has(deTienda)) return deTienda;
+  const tienda = (op.tienda || '').trim();
+  if (tienda && !FUENTE_GENERICA.has(tienda)) return tienda;
+  if (linea) {
+    const deLinea = casaRepuestosLabel(linea);
+    if (deLinea) return deLinea;
+  }
+  return origenOpcionLabel(op);
 }
 
 export function opcionesDe(rep: RepuestoCotizacion): OpcionRepuesto[] {

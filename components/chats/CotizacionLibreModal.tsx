@@ -72,7 +72,11 @@ import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
 import { useCotizacionPlantillasQuery } from '@/hooks/useCotizacionPlantillasQuery';
 import { CotizacionIaProgreso } from '@/components/chats/CotizacionIaProgreso';
-import { busquedaWebPendiente } from '@/utils/cotizacionPreciosWeb';
+import {
+  busquedaWebPendiente,
+  esperarPreciosYReintentarSiFaltan,
+  resumenPreciosRepuestos,
+} from '@/utils/cotizacionPreciosWeb';
 
 function suggestTelefono(channel: ChannelSlug | undefined, phone: string | null | undefined): string {
   if (!phone?.trim()) return '';
@@ -461,21 +465,16 @@ export function CotizacionLibreModal({
         return;
       }
       let lista = res.cotizacion;
-      if (lista.id && busquedaWebPendiente(lista)) {
+      const hayQueEsperarPrecios = Boolean(
+        lista.id
+        && (busquedaWebPendiente(lista) || resumenPreciosRepuestos(lista).sinTienda > 0),
+      );
+      if (hayQueEsperarPrecios) {
         setFaseIa('precios');
         setProgresoIa(lista.metadata?.busqueda_web_progreso || null);
-        lista = await cotizacionCanalService.esperarPreciosWeb(lista.id, {
+        lista = await esperarPreciosYReintentarSiFaltan(lista, {
           onTick: (cot) => setProgresoIa(cot.metadata?.busqueda_web_progreso || null),
         });
-      }
-      if (busquedaWebPendiente(lista)) {
-        lista = {
-          ...lista,
-          metadata: {
-            ...(lista.metadata || {}),
-            busqueda_web_estado: 'sin_resultados',
-          },
-        };
       }
       setFaseIa('listo');
       await new Promise<void>((resolve) => {

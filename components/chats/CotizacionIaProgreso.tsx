@@ -33,6 +33,19 @@ const PASOS = [
   },
 ] as const;
 
+function formatElapsed(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function conteoLineas(progreso?: ProgresoBusquedaWeb | null): { ok: number; total: number } {
+  const lineas = (progreso?.lineas || []).filter((l) => l?.nombre);
+  const ok = lineas.filter((l) => l.estado === 'ok' && (l.precio_clp || 0) > 0).length;
+  return { ok, total: lineas.length };
+}
+
 function pasoDesdeFase(
   fase: FaseCotizacionIa,
   elapsedMs: number,
@@ -40,7 +53,9 @@ function pasoDesdeFase(
 ): number {
   if (fase === 'listo') return PASOS.length;
   if (fase === 'generando') {
-    return elapsedMs < 700 ? 0 : 1;
+    if (elapsedMs < 2_000) return 0;
+    if (elapsedMs < 12_000) return 1;
+    return 1;
   }
   const paso = String(progreso?.paso || '');
   if (paso === 'listo' || paso === 'asignar') return 3;
@@ -49,14 +64,67 @@ function pasoDesdeFase(
   return 3;
 }
 
+function kickerLabel(
+  fase: FaseCotizacionIa,
+  esRepuestos: boolean,
+  completo: boolean,
+  elapsedMs: number,
+  progreso?: ProgresoBusquedaWeb | null,
+): string {
+  if (completo) return esRepuestos ? 'Precios listos' : 'Cotización lista';
+  const { ok, total } = conteoLineas(progreso);
+  const reloj = formatElapsed(elapsedMs);
+  if (fase === 'precios' || esRepuestos) {
+    if (total > 0) return `Precios de tienda · ${ok} de ${total} · ${reloj}`;
+    return `Buscando precios · ${reloj}`;
+  }
+  return `Armando la cotización · ${reloj}`;
+}
+
+function leadTexto(
+  fase: FaseCotizacionIa,
+  esRepuestos: boolean,
+  completo: boolean,
+  elapsedMs: number,
+  progreso?: ProgresoBusquedaWeb | null,
+): string {
+  if (completo) {
+    return esRepuestos
+      ? 'Casa, ficha y monto de referencia quedaron en las piezas. Revisa antes de enviar.'
+      : 'Desglose y precios de tienda listos. Revisa cada línea antes de enviar al cliente.';
+  }
+  if (progreso?.detalle) return progreso.detalle;
+  if (esRepuestos || fase === 'precios') {
+    if (elapsedMs > 25_000) {
+      return 'Sigue consultando catálogo, historial y tiendas .cl. No cierres: el precio aparece en cada pieza al llegar.';
+    }
+    return 'Ahora busca el precio de cada pieza en casas de Chile. Eso es lo que tarda más, y es el valor de esta pantalla.';
+  }
+  if (elapsedMs > 20_000) {
+    return 'El desglose está tardando más de lo habitual. No pulses otra vez: en cuanto tenga las líneas, busca precios en tiendas.';
+  }
+  if (elapsedMs > 8_000) {
+    return 'Está armando las piezas. Después consulta precios reales, no un monto inventado.';
+  }
+  return 'Cruza el vehículo con el trabajo pedido y arma el desglose.';
+}
+
 function detallePaso(
   index: number,
   current: boolean,
+  fase: FaseCotizacionIa,
+  elapsedMs: number,
   progreso?: ProgresoBusquedaWeb | null,
 ): string {
   if (!current) return '';
   if ((index === 2 || index === 3) && progreso?.detalle) {
     return progreso.detalle;
+  }
+  if (index === 1 && fase === 'generando' && elapsedMs > 12_000) {
+    return 'Sigue escribiendo las líneas. Suele destrabarse antes del minuto.';
+  }
+  if (index === 3 && elapsedMs > 20_000) {
+    return 'Tiendas .cl a veces tardan. Cada ficha que llega se muestra abajo.';
   }
   return PASOS[index].detalle;
 }
@@ -65,7 +133,7 @@ function valorLinea(linea: NonNullable<ProgresoBusquedaWeb['lineas']>[number]): 
   if (linea.estado === 'ok' && linea.precio_clp) {
     return formatearMontoCLP(linea.precio_clp);
   }
-  if (linea.estado === 'sin_precio') return 'Sin ficha';
+  if (linea.estado === 'sin_precio') return 'Sin ficha aún';
   return 'Buscando…';
 }
 
@@ -102,22 +170,11 @@ export function CotizacionIaProgreso({ fase, progreso, variante = 'cotizacion' }
   return (
     <View style={styles.wrap}>
       <HostSectionKicker
-        label={completo
-          ? (esRepuestos ? 'Precios listos' : 'Cotización lista')
-          : (esRepuestos ? 'Buscando precios' : 'Armando la cotización')}
+        label={kickerLabel(fase, esRepuestos, completo, elapsedMs, progreso)}
         style={styles.kicker}
       />
       <InstitutionalText role="caption" color="muted" style={styles.lead}>
-        {completo
-          ? (esRepuestos
-            ? 'Casa, ficha y monto de referencia quedaron en las piezas nuevas. Revisa antes de enviar.'
-            : 'Los cuatro pasos quedaron listos: vehículo, líneas, casas y precios.')
-          : (progreso?.detalle
-            || (esRepuestos
-              ? 'Mismo proceso que al armar la cotización: catálogo del taller, historial y tiendas de Chile.'
-              : elapsedMs > 12000
-                ? 'Gemini está escribiendo las líneas. Puede tardar hasta un minuto; no pulses otra vez.'
-                : 'La cotización se abre cuando el riel termina. Vas a ver de qué casa sale cada precio.'))}
+        {leadTexto(fase, esRepuestos, completo, elapsedMs, progreso)}
       </InstitutionalText>
       <HostPaperSection>
         {PASOS.map((paso, index) => {
@@ -146,7 +203,9 @@ export function CotizacionIaProgreso({ fase, progreso, variante = 'cotizacion' }
                   {paso.titulo}
                 </InstitutionalText>
                 <InstitutionalText role="caption" color="muted">
-                  {current ? detallePaso(index, current, progreso) : done ? 'Listo' : 'En espera'}
+                  {current
+                    ? detallePaso(index, current, fase, elapsedMs, progreso)
+                    : done ? 'Listo' : 'En espera'}
                 </InstitutionalText>
                 {current && fuentes.length ? (
                   <InstitutionalText role="caption" color="muted">
