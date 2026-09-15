@@ -27,11 +27,24 @@ export function requiereCompartirWhatsApp(via?: EntregaVia): boolean {
   return via === 'link_publico' || via === 'whatsapp_template';
 }
 
+export function requiereEntregaManual(opts: {
+  entregaVia?: EntregaVia;
+  esLibre?: boolean;
+  conversationId?: number | null;
+  channelDisconnected?: boolean;
+  channelWindowClosed?: boolean;
+}): boolean {
+  if (opts.channelDisconnected || opts.channelWindowClosed) return true;
+  if (opts.esLibre || opts.conversationId == null) return true;
+  return requiereCompartirWhatsApp(opts.entregaVia);
+}
+
 export function cuerpoEnvioExitoso(opts: {
   entregaVia?: EntregaVia;
   numeroPublico?: string | null;
   channelDisconnected?: boolean;
   esLibre?: boolean;
+  tieneTelefono?: boolean;
   actualizada?: boolean;
 }): string {
   const folio = folioCotizacionLabel(opts.numeroPublico);
@@ -39,10 +52,20 @@ export function cuerpoEnvioExitoso(opts: {
   const avisoUpdate = opts.actualizada
     ? ' El cliente ve los ítems nuevos en el mismo enlace.'
     : '';
+  const comoCompartir = opts.tieneTelefono
+    ? ' Ábrela en WhatsApp con el teléfono que registraste, o copia el link para enviarlo después.'
+    : ' Copia el link y envíaselo al cliente por el canal que uses.';
   if (opts.channelDisconnected) {
     return (
       `La cotización ya está lista${folioParen}. El canal no está conectado; `
       + 'comparte el link. Puedes reconectarlo en Configuración de canales.'
+      + avisoUpdate
+    );
+  }
+  if (opts.esLibre) {
+    return (
+      `El cliente no está en un canal conectado, así que la cotización no se envió sola${folioParen}.`
+      + comoCompartir
       + avisoUpdate
     );
   }
@@ -68,15 +91,24 @@ export function cuerpoEnvioExitoso(opts: {
       + (folio ? ` Folio ${folio}.` : '')
     );
   }
-  if (opts.esLibre) {
-    return folio
-      ? `Link listo para compartir (${folio}).${avisoUpdate}`
-      : `Link listo para compartir.${avisoUpdate}`;
-  }
-  return folio
-    ? `La cotización ya está lista (${folio}).${avisoUpdate}`
-    : `La cotización ya está lista.${avisoUpdate}`;
+  return (
+    `La cotización ya está lista${folioParen}.`
+    + (opts.tieneTelefono || opts.esLibre ? comoCompartir : '')
+    + avisoUpdate
+  );
 }
 
 export const CLIPBOARD_MENSAJE_COPIADO =
   'Mensaje copiado. Pégalo en WhatsApp del cliente.';
+
+export const CLIPBOARD_LINK_COPIADO =
+  'Link copiado. Pégalo en WhatsApp o el canal que uses.';
+
+export const HINT_CLIENTE_SIN_CANAL =
+  'Este cliente no está en un canal. Al enviar podrás copiar el link o abrirlo en WhatsApp si registras el teléfono.';
+
+export const HINT_CLIENTE_SIN_CANAL_CON_TELEFONO =
+  'Este cliente no está en un canal. Al enviar podrás copiar el link o abrirlo en WhatsApp con este teléfono.';
+
+export const HINT_CLIENTE_SIN_CANAL_SIN_TELEFONO =
+  'Este cliente no está en un canal. Agrega un teléfono para enviarla por WhatsApp, o copia el link al enviar.';

@@ -21,7 +21,7 @@ import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
 import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
 import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBorradorAcciones';
 import { CotizacionEditorFab } from '@/components/cotizacion/CotizacionEditorFab';
-import { lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
+import { COPY_PRECIO_TALLER, lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
 import { VistaPreviaCotizacionClienteModal } from '@/components/chats/VistaPreviaCotizacionClienteModal';
 import {
   ClienteCanalPickerSection,
@@ -58,16 +58,16 @@ import cotizacionCanalService, {
 } from '@/services/cotizacionCanalService';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 import {
-  abrirWhatsAppCotizacion,
-  mensajeCotizacionParaCliente,
-  nombresTrabajosCotizacion,
-} from '@/utils/compartirCotizacionCliente';
-import {
-  CLIPBOARD_MENSAJE_COPIADO,
+  HINT_CLIENTE_SIN_CANAL,
   cuerpoEnvioExitoso,
-  requiereCompartirWhatsApp,
+  requiereEntregaManual,
   tituloEnvioExitoso,
 } from '@/utils/entregaCotizacionCopy';
+import {
+  avisarCopiaLink,
+  compartirCotizacionPorWhatsApp,
+  ofrecerEntregaCotizacionEnviada,
+} from '@/utils/ofrecerEntregaCotizacion';
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { UpsellCuotaModal } from '@/components/suscripciones/UpsellCuotaModal';
 import { useCotizacionPlantillasQuery } from '@/hooks/useCotizacionPlantillasQuery';
@@ -583,26 +583,12 @@ export function CotizacionLibreModal({
   const compartirLink = useCallback(async (url: string, cot?: CotizacionCanal | null) => {
     const fuente = cot || cotizacion;
     if (!fuente) {
-      showAlert('Link de cotización', url);
+      await avisarCopiaLink(url);
       return;
     }
-    const mensaje = mensajeCotizacionParaCliente({
-      clienteNombre: fuente.cliente_nombre,
-      numeroPublico: fuente.numero_publico,
-      servicio: fuente.servicio_nombre,
-      totalClp: fuente.total_clp,
-      url,
+    await compartirCotizacionPorWhatsApp(url, fuente, {
       actualizada: Boolean(fuente.numero_publico),
-      trabajos: nombresTrabajosCotizacion(fuente),
     });
-    const via = await abrirWhatsAppCotizacion({
-      telefono: fuente.cliente_telefono,
-      mensaje,
-      url,
-    });
-    if (via === 'clipboard') {
-      showAlert('Mensaje copiado', CLIPBOARD_MENSAJE_COPIADO);
-    }
   }, [cotizacion]);
 
   const abrirVistaPrevia = useCallback(async (tipo?: 'estimacion' | 'cotizacion') => {
@@ -641,68 +627,54 @@ export function CotizacionLibreModal({
       const entrega = res.entrega_via || res.cotizacion.metadata?.entrega_canal;
       const cotEnviada = res.cotizacion;
       const folio = cotEnviada.numero_publico;
-      const requiereWhatsAppPersonal = (
-        requiereCompartirWhatsApp(entrega)
-        || Boolean(channelWindowClosedReason)
-      );
-      if (requiereWhatsAppPersonal && url) {
-        const tieneTel = Boolean(cotEnviada.cliente_telefono?.trim());
-        showAlertButtons(
-          tituloEnvioExitoso(folio, { actualizada: eraUpdate }),
-          cuerpoEnvioExitoso({
+      const entregaManual = requiereEntregaManual({
+        entregaVia: entrega,
+        esLibre: Boolean(cotEnviada.es_libre) || !cotEnviada.conversation,
+        conversationId: cotEnviada.conversation,
+        channelDisconnected: Boolean(channelDisconnectedReason),
+        channelWindowClosed: Boolean(channelWindowClosedReason),
+      });
+      if (entregaManual && url) {
+        ofrecerEntregaCotizacionEnviada({
+          url,
+          cotizacion: cotEnviada,
+          titulo: tituloEnvioExitoso(folio, { actualizada: eraUpdate }),
+          cuerpo: cuerpoEnvioExitoso({
             entregaVia: entrega || 'link_publico',
             numeroPublico: folio,
             channelDisconnected: Boolean(channelDisconnectedReason),
+            esLibre: Boolean(cotEnviada.es_libre) || !cotEnviada.conversation,
+            tieneTelefono: Boolean(cotEnviada.cliente_telefono?.trim()),
             actualizada: eraUpdate,
           }),
-          [
-            { text: 'Ahora no', style: 'cancel' },
-            {
-              text: tieneTel ? 'Abrir WhatsApp' : 'Copiar mensaje',
-              onPress: () => {
-                void compartirLink(url, cotEnviada);
-              },
-            },
-          ],
-        );
+          actualizada: eraUpdate,
+          esLibre: Boolean(cotEnviada.es_libre) || !cotEnviada.conversation,
+          channelDisconnected: Boolean(channelDisconnectedReason),
+        });
       } else if (res.cotizacion.conversation || res.message_id) {
-        const canalExterno = channel && channel !== 'app';
-        if (canalExterno && channelDisconnectedReason) {
-          showAlert(
-            tituloEnvioExitoso(folio, { actualizada: eraUpdate }),
-            cuerpoEnvioExitoso({
-              entregaVia: entrega,
-              numeroPublico: folio,
-              channelDisconnected: true,
-              actualizada: eraUpdate,
-            }),
-          );
-          if (url) await compartirLink(url);
-        } else {
-          showAlert(
-            tituloEnvioExitoso(folio, { actualizada: eraUpdate }),
-            cuerpoEnvioExitoso({
-              entregaVia: entrega || 'sesion_meta',
-              numeroPublico: folio,
-              actualizada: eraUpdate,
-            }),
-          );
-        }
-      } else if (url) {
         showAlert(
           tituloEnvioExitoso(folio, { actualizada: eraUpdate }),
           cuerpoEnvioExitoso({
-            entregaVia: entrega,
+            entregaVia: entrega || 'sesion_meta',
+            numeroPublico: folio,
+            actualizada: eraUpdate,
+          }),
+        );
+      } else if (url) {
+        ofrecerEntregaCotizacionEnviada({
+          url,
+          cotizacion: cotEnviada,
+          actualizada: eraUpdate,
+          esLibre: true,
+        });
+      } else {
+        showAlert(
+          tituloEnvioExitoso(folio, { actualizada: eraUpdate }),
+          cuerpoEnvioExitoso({
             numeroPublico: folio,
             esLibre: true,
             actualizada: eraUpdate,
           }),
-        );
-        await compartirLink(url);
-      } else {
-        showAlert(
-          tituloEnvioExitoso(folio, { actualizada: eraUpdate }),
-          cuerpoEnvioExitoso({ numeroPublico: folio, esLibre: true, actualizada: eraUpdate }),
         );
       }
     } catch (err) {
@@ -710,7 +682,7 @@ export function CotizacionLibreModal({
       if (gate) {
         showAlertButtons(
           'Faltan precios por confirmar',
-          'Confirmar precios no envía: eliges ficha o techo y sigues aquí. La estimación sí sale al cliente, con rangos.',
+          COPY_PRECIO_TALLER.alertaFaltanPrecios,
           [
             { text: 'Ahora no', style: 'cancel' },
             {
@@ -731,7 +703,7 @@ export function CotizacionLibreModal({
     } finally {
       setEnviando(false);
     }
-  }, [cotizacion, persistirCotizacion, compartirLink, onEnviada, channel, channelDisconnectedReason, channelWindowClosedReason]);
+  }, [cotizacion, persistirCotizacion, onEnviada, channelDisconnectedReason, channelWindowClosedReason]);
 
   const ocupado = generandoIa || creandoManual || enviando || descartando;
 
@@ -810,7 +782,7 @@ export function CotizacionLibreModal({
                     onClienteNombreChange={setClienteNombre}
                     clienteTelefono={clienteTelefono}
                     onClienteTelefonoChange={setClienteTelefono}
-                    manualFooterHint="Sin chat vinculado se genera un link público para compartir."
+                    manualFooterHint={HINT_CLIENTE_SIN_CANAL}
                     contextoChat={Boolean(conversationIdProp)}
                   />
                 </View>
@@ -922,16 +894,28 @@ export function CotizacionLibreModal({
                   <View style={styles.shareBox}>
                     <View style={styles.shareHeader}>
                       <Link2 size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                      <InstitutionalText role="h5">Link público</InstitutionalText>
+                      <InstitutionalText role="h5">Link para el cliente</InstitutionalText>
                     </View>
-                    <InstitutionalText role="caption" color="muted" selectable>
+                    <InstitutionalText role="caption" color="muted">
+                      {cotizacion?.conversation
+                        ? 'También puedes copiar el enlace si el cliente no lo vio en el chat.'
+                        : 'No se envió por un canal. Copia el link o ábrelo en WhatsApp.'}
+                    </InstitutionalText>
+                    <InstitutionalText role="caption" color="muted" selectable style={styles.shareUrl}>
                       {shareUrl}
                     </InstitutionalText>
                     <InstitutionalButton
                       label="Copiar link"
-                      variant="outline"
-                      onPress={() => void compartirLink(shareUrl)}
+                      variant="primary"
+                      onPress={() => void avisarCopiaLink(shareUrl)}
                     />
+                    {cotizacion?.cliente_telefono?.trim() ? (
+                      <InstitutionalButton
+                        label="Abrir WhatsApp"
+                        variant="secondary"
+                        onPress={() => void compartirLink(shareUrl, cotizacion)}
+                      />
+                    ) : null}
                   </View>
                 ) : null}
 
@@ -1004,7 +988,7 @@ export function CotizacionLibreModal({
             ) : (
               <InstitutionalButton
                 label="Listo"
-                variant="primary"
+                variant="outline"
                 size="default"
                 onPress={handleClose}
                 disabled={ocupado}
@@ -1167,6 +1151,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
+  },
+  shareUrl: {
+    flexShrink: 1,
   },
   footer: {
     flexDirection: 'row',

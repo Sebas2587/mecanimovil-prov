@@ -65,6 +65,7 @@ import { COLORS, SPACING, BORDERS, TYPOGRAPHY, SHADOWS } from '@/app/design-syst
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
+import { avisarCopiaLink } from '@/utils/ofrecerEntregaCotizacion';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
 import {
   agendaProveedorService,
@@ -1026,7 +1027,7 @@ export function PipelineSeguimientoSection({
                   style={styles.sheetLinkBtn}
                   onPress={() => {
                     const url = cotizacionDetalle?.share_url || cotizacionDetalle?.url_publica;
-                    if (url) showAlert('Link de cotización', url);
+                    if (url) void avisarCopiaLink(url);
                   }}
                   accessibilityRole="button"
                   accessibilityLabel="Ver link público"

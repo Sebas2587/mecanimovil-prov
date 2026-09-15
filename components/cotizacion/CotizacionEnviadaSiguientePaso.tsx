@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { MessageCircle, Phone } from 'lucide-react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Link2, MessageCircle, Phone } from 'lucide-react-native';
 import { HostPaperSection, InstitutionalTag } from '@/app/design-system/components';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
@@ -15,6 +15,7 @@ type Props = {
   cotizacion: CotizacionCanal;
   loading?: boolean;
   onEscribir?: () => void;
+  onCopiarLink?: () => void;
   onRecordarWhatsApp?: () => void;
   onMarcarAceptada?: () => void;
   onCerrarCaso?: () => void;
@@ -24,12 +25,18 @@ export function CotizacionEnviadaSiguientePaso({
   cotizacion,
   loading,
   onEscribir,
+  onCopiarLink,
   onRecordarWhatsApp,
   onMarcarAceptada,
   onCerrarCaso,
 }: Props) {
   const paso = siguientePasoCotizacionEnviada(cotizacion);
+  const { width } = useWindowDimensions();
   if (!paso) return null;
+  const pendienteCompartir = Boolean(cotizacion.entrega_pendiente_compartir);
+  const accionesVisibles = [onCopiarLink, onRecordarWhatsApp, onEscribir].filter(Boolean).length;
+  const stackActions = width < 560 || accionesVisibles > 2;
+  const rowStyle = [styles.row, stackActions && styles.rowStack];
 
   return (
     <HostPaperSection style={styles.card}>
@@ -49,39 +56,55 @@ export function CotizacionEnviadaSiguientePaso({
         </InstitutionalText>
       ) : null}
 
-      {onEscribir || onRecordarWhatsApp ? (
-        <View style={styles.row}>
-          {onEscribir ? (
+      {onCopiarLink || onRecordarWhatsApp || onEscribir ? (
+        <View style={rowStyle}>
+          {onCopiarLink ? (
             <InstitutionalButton
-              label="Escribir"
+              label="Copiar link"
               variant="primary"
               size="compact"
               style={styles.btn}
-              leading={<MessageCircle size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
-              onPress={onEscribir}
+              leading={
+                <Link2
+                  size={16}
+                  color={I.onPrimary}
+                  strokeWidth={ICON_STROKE_WIDTH}
+                />
+              }
+              onPress={onCopiarLink}
             />
           ) : null}
           {onRecordarWhatsApp ? (
             <InstitutionalButton
-              label="Recordar por WhatsApp"
-              variant={onEscribir ? 'outline' : 'primary'}
+              label={pendienteCompartir ? 'Abrir WhatsApp' : 'Recordar por WhatsApp'}
+              variant="secondary"
               size="compact"
               style={styles.btn}
               leading={
                 <Phone
                   size={16}
-                  color={onEscribir ? I.primary : I.onPrimary}
+                  color={COLORS.buttonSecondary.text}
                   strokeWidth={ICON_STROKE_WIDTH}
                 />
               }
               onPress={onRecordarWhatsApp}
             />
           ) : null}
+          {onEscribir ? (
+            <InstitutionalButton
+              label="Escribir"
+              variant="outline"
+              size="compact"
+              style={styles.btn}
+              leading={<MessageCircle size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
+              onPress={onEscribir}
+            />
+          ) : null}
         </View>
       ) : null}
 
       {onMarcarAceptada || onCerrarCaso ? (
-        <View style={styles.row}>
+        <View style={rowStyle}>
           {onCerrarCaso ? (
             <InstitutionalButton
               label="Cerrar caso"
@@ -118,8 +141,12 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.sm,
     marginTop: SPACING.fixed.xs,
   },
+  rowStack: {
+    flexDirection: 'column',
+  },
   btn: {
     flex: 1,
     minWidth: 0,
+    width: '100%',
   },
 });

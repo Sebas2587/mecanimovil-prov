@@ -64,7 +64,7 @@ export function siguientePasoCotizacionEnviada(
     return {
       kicker: 'Por compartir',
       titulo: 'Todavía no la recibió',
-      cuerpo: 'Comparte el link por WhatsApp. Hasta que lo abra, no hay respuesta que esperar.',
+      cuerpo: 'Copia el link o ábrelo en WhatsApp. Hasta que el cliente lo abra, no hay respuesta que esperar.',
       validezLabel,
       urgencia: 'warning',
     };

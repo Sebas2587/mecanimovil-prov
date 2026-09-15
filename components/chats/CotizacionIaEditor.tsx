@@ -9,6 +9,10 @@ import {
 } from 'react-native';
 import { AlertTriangle, Car, MapPin, Phone, Sparkles, Trash2, UserRound } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import {
+  HINT_CLIENTE_SIN_CANAL_CON_TELEFONO,
+  HINT_CLIENTE_SIN_CANAL_SIN_TELEFONO,
+} from '@/utils/entregaCotizacionCopy';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
@@ -812,10 +816,7 @@ export const CotizacionIaEditor = React.forwardRef<
         opcion_id: opcionId,
       });
       aplicarCotizacionServidor(res.cotizacion);
-      const siguiente = (res.cotizacion.repuestos ?? []).find(
-        (r) => String(r.id || '') !== String(rep.id) && lineaPendientePrecio(r),
-      );
-      setRepuestoSheet(siguiente || null);
+      setRepuestoSheet(null);
     } catch {
       showAlert('No se pudo usar esa opción', 'Intenta de nuevo o escribe el monto a mano.');
     } finally {
@@ -844,10 +845,7 @@ export const CotizacionIaEditor = React.forwardRef<
         guardar_en_mis_precios: true,
       });
       aplicarCotizacionServidor(res.cotizacion);
-      const siguiente = (res.cotizacion.repuestos ?? []).find(
-        (r) => String(r.id || '') !== rid && lineaPendientePrecio(r),
-      );
-      setRepuestoSheet(siguiente || null);
+      setRepuestoSheet(null);
     } catch {
       showAlert('No se pudo confirmar', 'Revisa el monto e inténtalo de nuevo.');
     } finally {
@@ -865,11 +863,7 @@ export const CotizacionIaEditor = React.forwardRef<
     try {
       const res = await cotizacionCanalService.asumirPrecioRepuesto(current.id, ids, modo);
       aplicarCotizacionServidor(res.cotizacion);
-      const asumidos = new Set(ids.map(String));
-      const siguiente = (res.cotizacion.repuestos ?? []).find(
-        (r) => !asumidos.has(String(r.id || '')) && lineaPendientePrecio(r),
-      );
-      setRepuestoSheet(siguiente || null);
+      setRepuestoSheet(null);
       setConfirmarPreciosVisible(false);
     } catch {
       showAlert('No se pudo asumir', 'Intenta de nuevo.');
@@ -1292,6 +1286,13 @@ export const CotizacionIaEditor = React.forwardRef<
                     editable={editable}
                     multiline
                   />
+                  {!cotizacion.conversation ? (
+                    <InstitutionalText role="caption" color="muted">
+                      {cotizacion.cliente_telefono?.trim()
+                        ? HINT_CLIENTE_SIN_CANAL_CON_TELEFONO
+                        : HINT_CLIENTE_SIN_CANAL_SIN_TELEFONO}
+                    </InstitutionalText>
+                  ) : null}
                 </View>
               ) : (
                 <View style={styles.factsGrid}>
@@ -1424,7 +1425,7 @@ export const CotizacionIaEditor = React.forwardRef<
         ) : null}
         <InstitutionalText role="caption" color="muted" style={styles.repuestosHint}>
           El + añade líneas. En la pieza, Buscar precio consulta tiendas.
-          El cliente ve el techo hasta que fijas ficha o techo.
+          El cliente ve el de margen hasta que fijas uno.
         </InstitutionalText>
         {repuestos.length === 0 ? (
           <Card elevated padding="host" style={styles.emptyRepuestos}>

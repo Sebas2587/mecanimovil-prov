@@ -17,7 +17,7 @@ import { CotizacionEnviadaSiguientePaso } from '@/components/cotizacion/Cotizaci
 import { RegistrarCompraCard } from '@/components/cotizacion/RegistrarCompraCard';
 import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBorradorAcciones';
 import { CotizacionEditorFab } from '@/components/cotizacion/CotizacionEditorFab';
-import { lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
+import { COPY_PRECIO_TALLER, lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
@@ -46,16 +46,19 @@ import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert'
 import {
   CLIPBOARD_MENSAJE_COPIADO,
   cuerpoEnvioExitoso,
-  requiereCompartirWhatsApp,
+  requiereEntregaManual,
   tituloEnvioExitoso,
 } from '@/utils/entregaCotizacionCopy';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
 import {
   abrirWhatsAppCotizacion,
-  mensajeCotizacionParaCliente,
   mensajeSeguimientoCotizacion,
-  nombresTrabajosCotizacion,
 } from '@/utils/compartirCotizacionCliente';
+import {
+  avisarCopiaLink,
+  compartirCotizacionPorWhatsApp,
+  ofrecerEntregaCotizacionEnviada,
+} from '@/utils/ofrecerEntregaCotizacion';
 
 const I = COLORS.institutional;
 
@@ -165,57 +168,20 @@ export default function CotizacionCanalDetalleScreen() {
     invalidateProveedorComercialQueries(qc);
   }, [parsedId, qc]);
 
-  const compartirConCliente = useCallback(async (
-    url: string,
-    cot: CotizacionCanal,
-    opts?: { actualizada?: boolean; silencioso?: boolean },
-  ) => {
-    const mensaje = mensajeCotizacionParaCliente({
-      clienteNombre: cot.cliente_nombre,
-      numeroPublico: cot.numero_publico,
-      servicio: cot.servicio_nombre,
-      totalClp: cot.total_clp,
-      url,
-      actualizada: Boolean(opts?.actualizada ?? cot.numero_publico),
-      trabajos: nombresTrabajosCotizacion(cot),
-    });
-    const via = await abrirWhatsAppCotizacion({
-      telefono: cot.cliente_telefono,
-      mensaje,
-      url,
-    });
-    if (opts?.silencioso) return via;
-    if (via === 'clipboard') {
-      showAlert('Mensaje copiado', CLIPBOARD_MENSAJE_COPIADO);
-    }
-    return via;
-  }, []);
-
   const ofrecerEnvioWhatsAppPersonal = useCallback((
     url: string,
     cot: CotizacionCanal,
     entregaMensaje?: string,
+    opts?: { actualizada?: boolean; esLibre?: boolean },
   ) => {
-    const tieneTel = Boolean(cot.cliente_telefono?.trim());
-    showAlertButtons(
-      tituloEnvioExitoso(cot.numero_publico, { actualizada: Boolean(cot.numero_publico) }),
-      entregaMensaje
-        || cuerpoEnvioExitoso({
-          entregaVia: 'link_publico',
-          numeroPublico: cot.numero_publico,
-          actualizada: Boolean(cot.numero_publico),
-        }),
-      [
-        { text: 'Ahora no', style: 'cancel' },
-        {
-          text: tieneTel ? 'Abrir WhatsApp' : 'Copiar mensaje',
-          onPress: () => {
-            void compartirConCliente(url, cot, { actualizada: true });
-          },
-        },
-      ],
-    );
-  }, [compartirConCliente]);
+    ofrecerEntregaCotizacionEnviada({
+      url,
+      cotizacion: cot,
+      cuerpo: entregaMensaje,
+      actualizada: opts?.actualizada,
+      esLibre: opts?.esLibre ?? (cot.es_libre || !cot.conversation),
+    });
+  }, []);
 
   const persistirSiHayCambios = useCallback(async () => {
     const current = draftRef.current;
@@ -315,15 +281,23 @@ export default function CotizacionCanalDetalleScreen() {
         showAlert('Cotización lista', 'Se guardó, pero no hay link para compartir.');
         return;
       }
-      if (requiereCompartirWhatsApp(entrega)) {
+      const esLibre = Boolean(cotEnviada.es_libre) || !cotEnviada.conversation;
+      if (requiereEntregaManual({
+        entregaVia: entrega,
+        esLibre,
+        conversationId: cotEnviada.conversation,
+      })) {
         ofrecerEnvioWhatsAppPersonal(
           url,
           cotEnviada,
           cuerpoEnvioExitoso({
-            entregaVia: entrega,
+            entregaVia: entrega || 'link_publico',
             numeroPublico: cotEnviada.numero_publico,
+            esLibre,
+            tieneTelefono: Boolean(cotEnviada.cliente_telefono?.trim()),
             actualizada: eraUpdate,
           }),
+          { actualizada: eraUpdate, esLibre },
         );
         return;
       }
@@ -340,7 +314,7 @@ export default function CotizacionCanalDetalleScreen() {
       if (gate) {
         showAlertButtons(
           'Faltan precios por confirmar',
-          'Confirmar precios no envía: eliges ficha o techo y sigues aquí. La estimación sí sale al cliente, con rangos.',
+          COPY_PRECIO_TALLER.alertaFaltanPrecios,
           [
             { text: 'Ahora no', style: 'cancel' },
             {
@@ -390,8 +364,16 @@ export default function CotizacionCanalDetalleScreen() {
   const compartir = useCallback(async () => {
     const url = draft?.share_url || draft?.url_publica;
     if (!url || !draft) return;
-    await compartirConCliente(url, draft, { actualizada: draft.estado !== 'borrador' });
-  }, [compartirConCliente, draft]);
+    await compartirCotizacionPorWhatsApp(url, draft, {
+      actualizada: draft.estado !== 'borrador',
+    });
+  }, [draft]);
+
+  const copiarLink = useCallback(() => {
+    const url = draft?.share_url || draft?.url_publica;
+    if (!url) return;
+    void avisarCopiaLink(url);
+  }, [draft]);
 
   const recordarWhatsApp = useCallback(async () => {
     const url = draft?.share_url || draft?.url_publica;
@@ -549,9 +531,14 @@ export default function CotizacionCanalDetalleScreen() {
                 ? () => router.push(omnichannelChatHref(draft.conversation as number))
                 : undefined
             }
+            onCopiarLink={
+              draft.share_url || draft.url_publica
+                ? copiarLink
+                : undefined
+            }
             onRecordarWhatsApp={
-              (draft.share_url || draft.url_publica) && !draft.entrega_pendiente_compartir
-                ? () => void recordarWhatsApp()
+              (draft.share_url || draft.url_publica)
+                ? () => void (draft.entrega_pendiente_compartir ? compartir() : recordarWhatsApp())
                 : undefined
             }
             onMarcarAceptada={() => void marcarAceptada()}
@@ -559,12 +546,12 @@ export default function CotizacionCanalDetalleScreen() {
           />
         ) : null}
 
-        {(draft.share_url || draft.url_publica) ? (
+        {(draft.share_url || draft.url_publica) && draft.estado !== 'enviada' ? (
           <InstitutionalButton
-            label="Compartir link"
+            label="Copiar link"
             variant="outline"
             leading={<Link2 size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
-            onPress={() => void compartir()}
+            onPress={copiarLink}
           />
         ) : null}
 

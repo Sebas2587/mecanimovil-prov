@@ -41,10 +41,15 @@ export function registerPlatformAlertHost(setter: HostSetter): () => void {
   };
 }
 
-function emitWeb(request: PlatformAlertRequest): boolean {
-  if (Platform.OS !== 'web' || !alertHost) return false;
+function emitHost(request: PlatformAlertRequest): boolean {
+  if (!alertHost) return false;
   alertHost(request);
   return true;
+}
+
+function emitWeb(request: PlatformAlertRequest): boolean {
+  if (Platform.OS !== 'web') return false;
+  return emitHost(request);
 }
 
 /** Alert compatible con web (modal institucional) y nativo. */
@@ -122,7 +127,7 @@ export function showConfirm(
 export type AlertButton = PlatformAlertButton;
 
 /**
- * Alert con varios botones. En web: modal; fallback confirm/alert nativo.
+ * Alert con varios botones. Usa el modal institucional en web, iOS y Android.
  */
 export function showAlertButtons(
   title: string,
@@ -133,50 +138,25 @@ export function showAlertButtons(
   const cancelBtn = list.find((b) => b.style === 'cancel');
   const actionBtns = list.filter((b) => b.style !== 'cancel');
 
+  if (emitHost({ kind: 'buttons', title, message, buttons: list })) {
+    return;
+  }
+
   if (Platform.OS === 'web') {
     if (actionBtns.length === 1 && !cancelBtn) {
-      if (
-        emitWeb({
-          kind: 'alert',
-          title,
-          message,
-          onDismiss: actionBtns[0].onPress,
-        })
-      ) {
-        return;
+      if (typeof window !== 'undefined') {
+        window.alert([title, message].filter(Boolean).join('\n\n'));
+        actionBtns[0].onPress?.();
       }
+      return;
     }
-    if (actionBtns.length === 1 && (cancelBtn || list.length === 2)) {
-      if (
-        emitWeb({
-          kind: 'confirm',
-          title,
-          message,
-          confirmText: actionBtns[0].text,
-          onConfirm: actionBtns[0].onPress,
-          onCancel: cancelBtn?.onPress,
-        })
-      ) {
-        return;
-      }
+    if (actionBtns.length >= 1) {
       const text = [title, message].filter(Boolean).join('\n\n');
       if (typeof window !== 'undefined' && window.confirm(text)) {
         actionBtns[0].onPress?.();
       } else {
         cancelBtn?.onPress?.();
       }
-      return;
-    }
-    if (actionBtns.length === 1 && emitWeb({
-      kind: 'buttons',
-      title,
-      message,
-      buttons: list,
-      buttonIndex: 0,
-    })) {
-      return;
-    }
-    if (emitWeb({ kind: 'alert', title, message, onDismiss: actionBtns.at(-1)?.onPress })) {
       return;
     }
   }

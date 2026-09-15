@@ -23,6 +23,7 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-syst
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { getChannelVisual, type ChannelSlug } from '@/utils/channelVisuals';
 import { nombreContactoAgendable } from '@/utils/nombreContactoAgendable';
+import { HINT_CLIENTE_SIN_CANAL } from '@/utils/entregaCotizacionCopy';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -100,7 +101,7 @@ export function ClienteCanalPickerSection({
   clienteTelefono,
   onClienteTelefonoChange,
   telefonoHint = 'Opcional. Indicativo +56; ingresa 9 dígitos comenzando en 9.',
-  manualFooterHint = 'Sin chat vinculado se genera un link público o agenda sin canal.',
+  manualFooterHint = HINT_CLIENTE_SIN_CANAL,
   contextoChat = false,
 }: Props) {
   const { data: inbox = [], isPending: inboxLoading } = useChatInboxQuery(enabled);

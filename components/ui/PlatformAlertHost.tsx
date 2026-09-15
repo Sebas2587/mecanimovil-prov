@@ -3,11 +3,14 @@ import {
   Modal,
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Pressable,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import {
   registerPlatformAlertHost,
   type PlatformAlertRequest,
@@ -18,6 +21,9 @@ const FF = TYPOGRAPHY.fontFamily;
 
 export function PlatformAlertHost() {
   const [request, setRequest] = useState<PlatformAlertRequest | null>(null);
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const narrow = width < 420;
 
   useEffect(() => registerPlatformAlertHost(setRequest), []);
 
@@ -36,8 +42,8 @@ export function PlatformAlertHost() {
       return;
     }
     if (current.kind === 'buttons') {
-      const btn = current.buttons[current.buttonIndex ?? 0];
-      btn?.onPress?.();
+      const cancel = current.buttons.find((b) => b.style === 'cancel');
+      cancel?.onPress?.();
       return;
     }
     current.onDismiss?.();
@@ -46,37 +52,81 @@ export function PlatformAlertHost() {
   if (!request) return null;
 
   const isConfirm = request.kind === 'confirm';
-  const buttons =
-    request.kind === 'buttons'
-      ? request.buttons
-      : [{ text: isConfirm ? (request.confirmText ?? 'Aceptar') : 'Entendido' }];
+  const isButtons = request.kind === 'buttons';
+  const buttons = isButtons
+    ? request.buttons
+    : [{ text: isConfirm ? (request.confirmText ?? 'Aceptar') : 'Entendido' }];
+  const stackActions = isButtons || buttons.length > 2 || narrow;
+  const primaryIndex = (() => {
+    const idx = buttons.findIndex(
+      (b) => b.style !== 'cancel' && b.style !== 'destructive',
+    );
+    return idx >= 0 ? idx : buttons.length - 1;
+  })();
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={() => close(false)}>
-      <Pressable style={styles.backdrop} onPress={() => (isConfirm ? close(false) : close(true))}>
+    <Modal
+      visible
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={() => close(false)}
+    >
+      <Pressable
+        style={[
+          styles.backdrop,
+          {
+            paddingTop: Math.max(insets.top, SPACING.fixed.lg),
+            paddingBottom: Math.max(insets.bottom, SPACING.fixed.lg),
+          },
+        ]}
+        onPress={() => (isConfirm || isButtons ? close(false) : close(true))}
+      >
         <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
           <Text style={styles.title}>{request.title}</Text>
           {request.message ? (
-            <Text style={styles.message}>{request.message}</Text>
+            <ScrollView
+              style={styles.messageScroll}
+              contentContainerStyle={styles.messageScrollContent}
+              nestedScrollEnabled
+            >
+              <Text style={styles.message}>{request.message}</Text>
+            </ScrollView>
           ) : null}
-          <View style={[styles.actions, isConfirm && styles.actionsConfirm]}>
-            {isConfirm ? (
-              <TouchableOpacity
-                style={[styles.btn, styles.btnSecondary]}
+          <View
+            style={[
+              styles.actions,
+              isConfirm && !stackActions && styles.actionsConfirm,
+              stackActions && styles.actionsStack,
+            ]}
+          >
+            {isConfirm && !isButtons ? (
+              <InstitutionalButton
+                label={request.kind === 'confirm' ? (request.cancelText ?? 'Cancelar') : 'Cancelar'}
+                variant="outline"
+                size="compact"
+                style={stackActions ? styles.btnStack : styles.btnRow}
                 onPress={() => close(false)}
-                activeOpacity={0.88}
-              >
-                <Text style={styles.btnSecondaryText}>
-                  {request.kind === 'confirm' ? (request.cancelText ?? 'Cancelar') : 'Cancelar'}
-                </Text>
-              </TouchableOpacity>
+              />
             ) : null}
             {buttons.map((btn, index) => {
-              const isPrimary = !isConfirm || index === buttons.length - 1;
+              const isCancel = btn.style === 'cancel';
+              const isDestructive = btn.style === 'destructive';
+              const isPrimary = !isCancel && !isDestructive && index === primaryIndex;
+              const variant = isDestructive
+                ? 'destructiveOutline'
+                : isCancel
+                  ? 'outline'
+                  : isPrimary
+                    ? 'primary'
+                    : 'secondary';
               return (
-                <TouchableOpacity
+                <InstitutionalButton
                   key={`${btn.text}-${index}`}
-                  style={[styles.btn, isPrimary ? styles.btnPrimary : styles.btnSecondary]}
+                  label={btn.text}
+                  variant={variant}
+                  size="compact"
+                  style={stackActions ? styles.btnStack : styles.btnRow}
                   onPress={() => {
                     if (request.kind === 'buttons') {
                       setRequest(null);
@@ -85,12 +135,7 @@ export function PlatformAlertHost() {
                       close(true);
                     }
                   }}
-                  activeOpacity={0.88}
-                >
-                  <Text style={isPrimary ? styles.btnPrimaryText : styles.btnSecondaryText}>
-                    {btn.text}
-                  </Text>
-                </TouchableOpacity>
+                />
               );
             })}
           </View>
@@ -106,7 +151,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background.overlay,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING.fixed.lg,
+    paddingHorizontal: SPACING.fixed.lg,
   },
   card: {
     width: '100%',
@@ -114,7 +159,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.modal.xl,
     borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.border.light,
+    borderColor: I.hairline,
     padding: SPACING.fixed.lg,
     ...SHADOWS.sm,
   },
@@ -129,7 +174,13 @@ const styles = StyleSheet.create({
     fontFamily: FF.sansRegular,
     color: I.body,
     lineHeight: Math.round(TYPOGRAPHY.fontSize.base * TYPOGRAPHY.lineHeight.normal),
+  },
+  messageScroll: {
+    maxHeight: 220,
     marginBottom: SPACING.fixed.lg,
+  },
+  messageScrollContent: {
+    paddingBottom: SPACING.fixed.xxs,
   },
   actions: {
     flexDirection: 'row',
@@ -139,29 +190,16 @@ const styles = StyleSheet.create({
   actionsConfirm: {
     justifyContent: 'space-between',
   },
-  btn: {
-    paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.md,
+  actionsStack: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  btnRow: {
     minWidth: 96,
-    alignItems: 'center',
+    flex: 1,
   },
-  btnPrimary: {
-    backgroundColor: I.primary,
-  },
-  btnSecondary: {
-    backgroundColor: I.surfaceStrong,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-  },
-  btnPrimaryText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansSemiBold,
-    color: I.onPrimary,
-  },
-  btnSecondaryText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
+  btnStack: {
+    minWidth: 0,
+    width: '100%',
   },
 });

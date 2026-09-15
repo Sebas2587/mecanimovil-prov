@@ -80,6 +80,34 @@ export function waMeDigitsFromTelefono(telefono?: string | null): string | null 
   return null;
 }
 
+export async function copiarTextoPortapapeles(texto: string): Promise<'clipboard' | 'share'> {
+  const value = (texto || '').trim();
+  if (!value) return 'share';
+  try {
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return 'clipboard';
+    }
+  } catch {
+    /* native clipboard below */
+  }
+  try {
+    const Clipboard = await import('expo-clipboard');
+    if (Clipboard?.setStringAsync) {
+      await Clipboard.setStringAsync(value);
+      return 'clipboard';
+    }
+  } catch {
+    /* share fallback */
+  }
+  await Share.share({ message: value });
+  return 'share';
+}
+
+export async function copiarLinkCotizacion(url: string): Promise<'clipboard' | 'share'> {
+  return copiarTextoPortapapeles(url);
+}
+
 export async function abrirWhatsAppCotizacion(opts: {
   telefono?: string | null;
   mensaje: string;

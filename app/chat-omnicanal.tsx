@@ -64,7 +64,8 @@ import { VistaPreviaCotizacionClienteModal } from '@/components/chats/VistaPrevi
 import { InstitutionalButton, InstitutionalText, Card, HostSectionKicker } from '@/app/design-system/components';
 import { InstitutionalModal } from '@/design-system/components/InstitutionalModal';
 import { showAlert } from '@/utils/platformAlert';
-import { cuerpoEnvioExitoso, tituloEnvioExitoso } from '@/utils/entregaCotizacionCopy';
+import { cuerpoEnvioExitoso, requiereEntregaManual, tituloEnvioExitoso } from '@/utils/entregaCotizacionCopy';
+import { ofrecerEntregaCotizacionEnviada } from '@/utils/ofrecerEntregaCotizacion';
 
 const I = COLORS.institutional;
 const K = COLORS.kanban;
@@ -695,14 +696,32 @@ export default function ChatOmnicanalScreen() {
                 tipoEnvioRef.current,
               );
               const enviada = res.cotizacion;
-              showAlert(
-                tituloEnvioExitoso(enviada.numero_publico, { actualizada: eraUpdate }),
-                cuerpoEnvioExitoso({
-                  entregaVia: res.entrega_via || enviada.entrega_via,
-                  numeroPublico: enviada.numero_publico,
+              const url = res.share_url || enviada.share_url || enviada.url_publica;
+              const entrega = res.entrega_via || enviada.entrega_via;
+              const entregaManual = requiereEntregaManual({
+                entregaVia: entrega,
+                esLibre: Boolean(enviada.es_libre) || !enviada.conversation,
+                conversationId: enviada.conversation,
+                channelDisconnected: Boolean(channelDisconnectedReason),
+              });
+              if (entregaManual && url) {
+                ofrecerEntregaCotizacionEnviada({
+                  url,
+                  cotizacion: enviada,
                   actualizada: eraUpdate,
-                }),
-              );
+                  esLibre: Boolean(enviada.es_libre) || !enviada.conversation,
+                  channelDisconnected: Boolean(channelDisconnectedReason),
+                });
+              } else {
+                showAlert(
+                  tituloEnvioExitoso(enviada.numero_publico, { actualizada: eraUpdate }),
+                  cuerpoEnvioExitoso({
+                    entregaVia: entrega,
+                    numeroPublico: enviada.numero_publico,
+                    actualizada: eraUpdate,
+                  }),
+                );
+              }
               setPreviewVisible(false);
               setEditingCotizacion(null);
               void refetchSilent();
