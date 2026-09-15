@@ -996,9 +996,12 @@ export function CotizacionLibreModal({
             )}
           </View>
         </KeyboardAvoidingView>
-        {cotizacion && cotizacionPermiteEdicionCompleta(cotizacion) && !previewVisible ? (
+        {cotizacion
+          && cotizacion.estado === 'borrador'
+          && !previewVisible ? (
           <CotizacionEditorFab
             visible
+            variant="plus"
             onAddRepuesto={() => editorRef.current?.agregarRepuesto()}
             onAddManoObra={() => editorRef.current?.agregarManoObra()}
           />

@@ -9,14 +9,14 @@ import {
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link2, MessageCircle, Trash2 } from 'lucide-react-native';
+import { Calendar, Check, Eye, Link2, MessageCircle, Package, Pencil, Phone, Trash2, Wrench, X } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
 import { CotizacionIaProgreso } from '@/components/chats/CotizacionIaProgreso';
 import { CotizacionEnviadaSiguientePaso } from '@/components/cotizacion/CotizacionEnviadaSiguientePaso';
 import { RegistrarCompraCard } from '@/components/cotizacion/RegistrarCompraCard';
 import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBorradorAcciones';
-import { CotizacionEditorFab } from '@/components/cotizacion/CotizacionEditorFab';
+import { CotizacionEditorFab, type CotizacionFabAction } from '@/components/cotizacion/CotizacionEditorFab';
 import { COPY_PRECIO_TALLER, lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
@@ -108,6 +108,7 @@ export default function CotizacionCanalDetalleScreen() {
   const draftRef = useRef<CotizacionCanal | null>(null);
   const persistSeqRef = useRef(0);
   const [holdExpired, setHoldExpired] = useState(false);
+  const [editando, setEditando] = useState(false);
 
   useEffect(() => {
     if (!data) return;
@@ -144,6 +145,10 @@ export default function CotizacionCanalDetalleScreen() {
 
   draftRef.current = draft;
 
+  useEffect(() => {
+    setEditando(false);
+  }, [parsedId]);
+
   const holdPrecios = shouldHoldRevealForPrecios(data) && !holdExpired;
   useEffect(() => {
     if (!shouldHoldRevealForPrecios(data)) {
@@ -155,6 +160,8 @@ export default function CotizacionCanalDetalleScreen() {
   }, [data]);
 
   const editable = Boolean(draft && cotizacionPermiteEdicionCompleta(draft));
+  const esEmitida = draft?.estado === 'enviada' || draft?.estado === 'aceptada';
+  const modoVista = Boolean(esEmitida && editable && !editando);
   const tieneHorarioAgendado = Boolean(draft?.tiene_horario_agendado);
   const hayCambios = useMemo(() => {
     if (!draft || !data) return false;
@@ -274,6 +281,7 @@ export default function CotizacionCanalDetalleScreen() {
       const url = res.share_url || cotEnviada.share_url || cotEnviada.url_publica;
       const entrega = res.entrega_via || cotEnviada.metadata?.entrega_canal;
       setDraft({ ...cotEnviada });
+      setEditando(false);
       setPreviewVisible(false);
       await invalidateAll();
       await refetch();
@@ -467,6 +475,101 @@ export default function CotizacionCanalDetalleScreen() {
   const pendientesPrecio = draft.lineas_pendientes_precio?.length
     ?? (draft.repuestos ?? []).filter(lineaPendientePrecio).length;
   const puedeEnviarFirme = draft.puede_enviar_firme ?? pendientesPrecio === 0;
+  const shareUrl = draft.share_url || draft.url_publica || '';
+  const fabActions: CotizacionFabAction[] = [];
+  if (draft.estado === 'borrador' || editando) {
+    fabActions.push({
+      key: 'mano',
+      label: 'Mano de obra',
+      icon: Wrench,
+      onPress: () => editorRef.current?.agregarManoObra(),
+    });
+    fabActions.push({
+      key: 'repuesto',
+      label: 'Repuesto',
+      icon: Package,
+      onPress: () => editorRef.current?.agregarRepuesto(),
+    });
+  } else {
+    if (editable) {
+      fabActions.push({
+        key: 'editar',
+        label: 'Editar cotización',
+        icon: Pencil,
+        onPress: () => setEditando(true),
+      });
+    }
+    if (draft.estado === 'aceptada' && draft.cita_personal_id && !tieneHorarioAgendado) {
+      fabActions.push({
+        key: 'agendar',
+        label: 'Agendar visita',
+        icon: Calendar,
+        onPress: () => router.push(`/cita-agenda-personal/${draft.cita_personal_id}?agendar=1`),
+      });
+    }
+    if (shareUrl) {
+      fabActions.push({
+        key: 'copiar',
+        label: 'Copiar link',
+        icon: Link2,
+        onPress: copiarLink,
+      });
+    }
+    if (draft.id && (draft.numero_publico || draft.estado !== 'borrador' || draft.emision_pendiente)) {
+      fabActions.push({
+        key: 'preview',
+        label: 'Ver como el cliente',
+        icon: Eye,
+        onPress: () => void abrirVistaPrevia(),
+      });
+    }
+    if (draft.conversation) {
+      fabActions.push({
+        key: 'chat',
+        label: 'Ver conversación',
+        icon: MessageCircle,
+        onPress: () => router.push(omnichannelChatHref(draft.conversation as number)),
+      });
+    }
+    if (shareUrl && draft.estado === 'enviada' && !draft.entrega_pendiente_compartir) {
+      fabActions.push({
+        key: 'wa',
+        label: 'Recordar por WhatsApp',
+        icon: Phone,
+        onPress: () => void recordarWhatsApp(),
+      });
+    }
+    if (draft.estado === 'enviada') {
+      fabActions.push({
+        key: 'aceptar',
+        label: 'Marcar aceptada',
+        icon: Check,
+        onPress: () => void marcarAceptada(),
+      });
+      fabActions.push({
+        key: 'cerrar',
+        label: 'Cerrar caso',
+        icon: X,
+        onPress: cerrarCaso,
+      });
+    }
+    if (tieneHorarioAgendado && draft.cita_personal_id) {
+      fabActions.push({
+        key: 'cita',
+        label: 'Ver cita',
+        icon: Calendar,
+        onPress: () => router.push(`/cita-agenda-personal/${draft.cita_personal_id}`),
+      });
+    }
+  }
+  const fabVariant = draft.estado === 'borrador' || editando ? 'plus' : 'more';
+  const showFooter = Boolean(
+    (tieneHorarioAgendado && draft.cita_personal_id)
+    || (editable && draft.estado === 'borrador')
+    || (draft.estado === 'enviada' && !editando && draft.entrega_pendiente_compartir && shareUrl)
+    || (editable && draft.estado === 'enviada' && editando && (hayCambios || draft.emision_pendiente))
+    || (editable && editando && draft.estado === 'aceptada' && draft.emision_pendiente)
+  );
 
   return (
     <View style={styles.screen}>
@@ -487,6 +590,32 @@ export default function CotizacionCanalDetalleScreen() {
             >
               <Trash2 size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
+          ) : editando ? (
+            <TouchableOpacity
+              onPress={() => {
+                if (hayCambios) {
+                  showConfirm(
+                    'Descartar cambios',
+                    'Se perderán los cambios que no hayas enviado al cliente.',
+                    {
+                      confirmText: 'Descartar',
+                      onConfirm: () => {
+                        if (data) setDraft({ ...data });
+                        setEditando(false);
+                      },
+                    },
+                  );
+                  return;
+                }
+                if (data) setDraft({ ...data });
+                setEditando(false);
+              }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Cancelar edición"
+            >
+              <X size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            </TouchableOpacity>
           ) : null
         }
       />
@@ -505,7 +634,7 @@ export default function CotizacionCanalDetalleScreen() {
           ref={editorRef}
           cotizacion={draft}
           onChange={setDraft}
-          readonly={!editable}
+          readonly={!editable || modoVista}
           hideSendActions
           compactHeader
           onEnviarEstimacion={() => void abrirVistaPrevia('estimacion')}
@@ -522,63 +651,12 @@ export default function CotizacionCanalDetalleScreen() {
           </InstitutionalText>
         ) : null}
 
-        {draft.estado === 'enviada' && editable ? (
-          <CotizacionEnviadaSiguientePaso
-            cotizacion={draft}
-            loading={accionLead}
-            onEscribir={
-              draft.conversation
-                ? () => router.push(omnichannelChatHref(draft.conversation as number))
-                : undefined
-            }
-            onCopiarLink={
-              draft.share_url || draft.url_publica
-                ? copiarLink
-                : undefined
-            }
-            onRecordarWhatsApp={
-              (draft.share_url || draft.url_publica)
-                ? () => void (draft.entrega_pendiente_compartir ? compartir() : recordarWhatsApp())
-                : undefined
-            }
-            onMarcarAceptada={() => void marcarAceptada()}
-            onCerrarCaso={cerrarCaso}
-          />
-        ) : null}
-
-        {(draft.share_url || draft.url_publica) && draft.estado !== 'enviada' ? (
-          <InstitutionalButton
-            label="Copiar link"
-            variant="outline"
-            leading={<Link2 size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />}
-            onPress={copiarLink}
-          />
-        ) : null}
-
-        {draft.id && (draft.numero_publico || draft.estado !== 'borrador' || draft.emision_pendiente) ? (
-          <InstitutionalButton
-            label="Ver como el cliente"
-            variant="outline"
-            onPress={() => void abrirVistaPrevia()}
-          />
-        ) : null}
-
-        {draft.conversation ? (
-          <InstitutionalButton
-            label="Ver conversación"
-            variant="outline"
-            leading={
-              <MessageCircle
-                size={18}
-                color={I.primary}
-                strokeWidth={ICON_STROKE_WIDTH}
-              />
-            }
-            onPress={() => router.push(omnichannelChatHref(draft.conversation as number))}
-          />
+        {draft.estado === 'enviada' && !editando ? (
+          <CotizacionEnviadaSiguientePaso cotizacion={draft} />
         ) : null}
       </ScrollView>
 
+      {showFooter ? (
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) }]}>
         {tieneHorarioAgendado && draft.cita_personal_id ? (
           <InstitutionalButton
@@ -616,7 +694,16 @@ export default function CotizacionCanalDetalleScreen() {
           </View>
         ) : null}
 
-        {editable && draft.estado === 'enviada' && (hayCambios || draft.emision_pendiente) ? (
+        {draft.estado === 'enviada' && !editando && draft.entrega_pendiente_compartir && (draft.share_url || draft.url_publica) ? (
+          <InstitutionalButton
+            label="Compartir por WhatsApp"
+            variant="primary"
+            leading={<Phone size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
+            onPress={() => void compartir()}
+          />
+        ) : null}
+
+        {editable && draft.estado === 'enviada' && editando && (hayCambios || draft.emision_pendiente) ? (
           <View style={styles.footerBorrador}>
             {draft.emision_pendiente ? (
               <InstitutionalText role="caption" color="muted">
@@ -653,7 +740,7 @@ export default function CotizacionCanalDetalleScreen() {
           </View>
         ) : null}
 
-        {editable && draft.estado === 'aceptada' && draft.emision_pendiente ? (
+        {editable && editando && draft.estado === 'aceptada' && draft.emision_pendiente ? (
           <View style={styles.footerBorrador}>
             <InstitutionalText role="caption" color="muted">
               El cliente sigue viendo la versión anterior hasta que envíes esta actualización.
@@ -668,12 +755,18 @@ export default function CotizacionCanalDetalleScreen() {
           </View>
         ) : null}
       </View>
+      ) : null}
 
-      {editable && !previewVisible ? (
+      {!previewVisible && fabActions.length > 0 ? (
         <CotizacionEditorFab
           visible
-          onAddRepuesto={() => editorRef.current?.agregarRepuesto()}
-          onAddManoObra={() => editorRef.current?.agregarManoObra()}
+          variant={fabVariant}
+          actions={fabActions}
+          bottomOffset={
+            showFooter
+              ? undefined
+              : Math.max(insets.bottom, SPACING.fixed.md) + SPACING.fixed.lg
+          }
         />
       ) : null}
 

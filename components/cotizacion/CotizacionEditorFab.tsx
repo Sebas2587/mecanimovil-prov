@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Package, Plus, Wrench, X } from 'lucide-react-native';
+import { MoreHorizontal, Package, Plus, Wrench, X, type LucideIcon } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { ICON_STROKE_WIDTH_EMPHASIS } from '@/app/design-system/iconography';
@@ -10,12 +10,22 @@ const I = COLORS.institutional;
 const FAB_SIZE = 56;
 const ACTION_SIZE = 44;
 
+export type CotizacionFabAction = {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  onPress: () => void;
+  disabled?: boolean;
+};
+
 type Props = {
   visible: boolean;
+  actions?: CotizacionFabAction[];
+  variant?: 'plus' | 'more';
   canAddLabor?: boolean;
   bottomOffset?: number;
-  onAddRepuesto: () => void;
-  onAddManoObra: () => void;
+  onAddRepuesto?: () => void;
+  onAddManoObra?: () => void;
 };
 
 function FabAction({
@@ -27,7 +37,7 @@ function FabAction({
   label: string;
   onPress: () => void;
   disabled?: boolean;
-  icon: typeof Package;
+  icon: LucideIcon;
 }) {
   if (disabled) return null;
   return (
@@ -47,8 +57,25 @@ function FabAction({
   );
 }
 
+function accionesAgregar(
+  onAddRepuesto?: () => void,
+  onAddManoObra?: () => void,
+  canAddLabor = true,
+): CotizacionFabAction[] {
+  const items: CotizacionFabAction[] = [];
+  if (onAddManoObra && canAddLabor) {
+    items.push({ key: 'mano', label: 'Mano de obra', icon: Wrench, onPress: onAddManoObra });
+  }
+  if (onAddRepuesto) {
+    items.push({ key: 'repuesto', label: 'Repuesto', icon: Package, onPress: onAddRepuesto });
+  }
+  return items;
+}
+
 export function CotizacionEditorFab({
   visible,
+  actions,
+  variant,
   canAddLabor = true,
   bottomOffset,
   onAddRepuesto,
@@ -57,6 +84,8 @@ export function CotizacionEditorFab({
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const bottom = bottomOffset ?? Math.max(insets.bottom, SPACING.fixed.md) + 96;
+  const menu = actions?.length ? actions : accionesAgregar(onAddRepuesto, onAddManoObra, canAddLabor);
+  const look = variant ?? (actions?.length ? 'more' : 'plus');
 
   useEffect(() => {
     if (!visible) setOpen(false);
@@ -64,17 +93,15 @@ export function CotizacionEditorFab({
 
   const close = useCallback(() => setOpen(false), []);
 
-  const addRepuesto = useCallback(() => {
-    onAddRepuesto();
+  const run = useCallback((action: CotizacionFabAction) => {
+    action.onPress();
     setOpen(false);
-  }, [onAddRepuesto]);
+  }, []);
 
-  const addManoObra = useCallback(() => {
-    onAddManoObra();
-    setOpen(false);
-  }, [onAddManoObra]);
+  if (!visible || menu.length === 0) return null;
 
-  if (!visible) return null;
+  const openLabel = look === 'plus' ? 'Agregar ítems a la cotización' : 'Más acciones';
+  const closeLabel = 'Cerrar menú';
 
   return (
     <View style={styles.layer} pointerEvents="box-none">
@@ -83,35 +110,35 @@ export function CotizacionEditorFab({
           style={styles.scrim}
           onPress={close}
           accessibilityRole="button"
-          accessibilityLabel="Cerrar menú agregar"
+          accessibilityLabel={closeLabel}
         />
       ) : null}
       <View style={[styles.cluster, { bottom, right: SPACING.fixed.lg }]} pointerEvents="box-none">
         {open ? (
           <View style={styles.actions}>
-            <FabAction
-              label="Mano de obra"
-              icon={Wrench}
-              disabled={!canAddLabor}
-              onPress={addManoObra}
-            />
-            <FabAction
-              label="Repuesto"
-              icon={Package}
-              onPress={addRepuesto}
-            />
+            {menu.map((action) => (
+              <FabAction
+                key={action.key}
+                label={action.label}
+                icon={action.icon}
+                disabled={action.disabled}
+                onPress={() => run(action)}
+              />
+            ))}
           </View>
         ) : null}
         <Pressable
           onPress={() => setOpen((v) => !v)}
           accessibilityRole="button"
-          accessibilityLabel={open ? 'Cerrar menú agregar' : 'Agregar ítems a la cotización'}
+          accessibilityLabel={open ? closeLabel : openLabel}
           style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
         >
           {open ? (
             <X size={24} color={COLORS.buttonSecondary.text} strokeWidth={ICON_STROKE_WIDTH_EMPHASIS} />
-          ) : (
+          ) : look === 'plus' ? (
             <Plus size={26} color={COLORS.buttonSecondary.text} strokeWidth={ICON_STROKE_WIDTH_EMPHASIS} />
+          ) : (
+            <MoreHorizontal size={26} color={COLORS.buttonSecondary.text} strokeWidth={ICON_STROKE_WIDTH_EMPHASIS} />
           )}
         </Pressable>
       </View>

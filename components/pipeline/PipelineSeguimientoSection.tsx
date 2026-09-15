@@ -993,7 +993,10 @@ export function PipelineSeguimientoSection({
           setCitaParaHorario(null);
           setMiembroParaHorario(null);
           void refetch();
-          showAlert('Cita agendada', 'Día y hora confirmados. Ya puedes iniciar el servicio desde el detalle.');
+          showAlert(
+            'Cita agendada',
+            'Día y hora confirmados. El cliente ya recibió la fecha de la visita. Ya puedes iniciar el servicio desde el detalle.',
+          );
         }}
       />
 

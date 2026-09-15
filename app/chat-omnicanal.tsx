@@ -666,9 +666,12 @@ export default function ChatOmnicanalScreen() {
                 }}
                 readonly={!cotizacionPermiteEdicionCompleta(editingCotizacion)}
               />
-              {cotizacionPermiteEdicionCompleta(editingCotizacion) && !previewVisible ? (
+              {cotizacionPermiteEdicionCompleta(editingCotizacion)
+                && (editingCotizacion.estado === 'borrador' || Boolean(editingCotizacion.emision_pendiente))
+                && !previewVisible ? (
                 <CotizacionEditorFab
                   visible
+                  variant="plus"
                   bottomOffset={24}
                   onAddRepuesto={() => editorRef.current?.agregarRepuesto()}
                   onAddManoObra={() => editorRef.current?.agregarManoObra()}

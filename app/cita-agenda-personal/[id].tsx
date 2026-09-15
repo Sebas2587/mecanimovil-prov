@@ -1429,7 +1429,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
           mostrarFeedback({
             tipo: 'success',
             titulo: 'Cita agendada',
-            mensaje: 'Día y hora confirmados. Ya puedes iniciar el servicio.',
+            mensaje: 'Día y hora confirmados. El cliente ya recibió la fecha de la visita.',
           });
         }}
       />
