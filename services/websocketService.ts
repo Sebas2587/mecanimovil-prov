@@ -61,6 +61,7 @@ export interface NuevoMensajeChatEvent {
   channel?: string;
   external_contact_name?: string | null;
   external_contact_phone?: string | null;
+  channel_metadata?: Record<string, unknown>;
 }
 
 export interface PagoExpiradoEvent {
@@ -384,7 +385,8 @@ class WebSocketService {
             content: data.content,
             es_proveedor: data.es_proveedor !== undefined ? data.es_proveedor : false,
             timestamp: data.timestamp,
-            archivo_adjunto: data.archivo_adjunto || data.attachment || null
+            archivo_adjunto: data.archivo_adjunto || data.attachment || null,
+            channel_metadata: (data.channel_metadata as Record<string, unknown> | undefined) ?? undefined,
           };
           this.handleNuevoMensajeChat(chatEvent);
           break;

@@ -41,6 +41,10 @@ export const ChatLinkPreview = React.memo(function ChatLinkPreview({
   const description = (data?.description || '').trim();
   const site = (data?.site_name || '').trim() || fallback.subtitle;
   const image = (data?.image || '').trim();
+  const imageSource = React.useMemo(
+    () => (image ? { uri: image } : null),
+    [image],
+  );
 
   const onPress = useCallback(() => {
     void openChatUrl(url);
@@ -61,8 +65,8 @@ export const ChatLinkPreview = React.memo(function ChatLinkPreview({
         pressed && styles.pressed,
       ]}
     >
-      {image ? (
-        <Image source={{ uri: image }} style={styles.thumb} resizeMode="cover" />
+      {imageSource ? (
+        <Image source={imageSource} style={styles.thumb} resizeMode="cover" />
       ) : (
         <View style={[styles.iconWrap, own && host ? styles.iconWrapOwn : null]}>
           <Icon size={18} color={iconColor} strokeWidth={ICON_STROKE_WIDTH} />

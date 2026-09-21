@@ -29,6 +29,37 @@ const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
 const FF = TYPOGRAPHY.fontFamily;
 
+function humanizarErrorEnvio(raw?: string | null): string {
+  const text = (raw || '').trim();
+  if (!text) return 'No llegó al WhatsApp del cliente.';
+  const lower = text.toLowerCase();
+  if (lower.includes('131000') || lower.includes('something went wrong')) {
+    return 'WhatsApp no pudo entregar este mensaje. Intenta enviarlo de nuevo.';
+  }
+  if (lower.includes('quota') || lower.includes('cuota') || lower.includes('quota_blocked')) {
+    return 'Se agotó la cuota de mensajes de este mes.';
+  }
+  if (
+    lower.includes('24 hour')
+    || lower.includes('customer care window')
+    || lower.includes('ventana')
+  ) {
+    return 'Pasaron más de 24 horas. Comparte el link por WhatsApp.';
+  }
+  if (lower.includes('template_sin_nombre')) {
+    return 'Falta la plantilla de WhatsApp para este aviso.';
+  }
+  try {
+    const parsed = JSON.parse(text) as { error?: { message?: string }; message?: string };
+    const msg = parsed?.error?.message || parsed?.message;
+    if (msg) return String(msg);
+  } catch {
+    // texto plano
+  }
+  if (text.length > 140) return 'No llegó al WhatsApp del cliente.';
+  return text;
+}
+
 function isUglySenderLabel(label?: string | null): boolean {
   if (!label) return true;
   const t = label.trim();
@@ -73,6 +104,17 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
     setLoadingImage(false);
   }, [mensaje.id, mensaje.archivo_adjunto, mensaje.attachment]);
 
+  const handleImageLoadStart = useCallback(() => {
+    setLoadingImage((prev) => (prev ? prev : true));
+  }, []);
+  const handleImageLoadEnd = useCallback(() => {
+    setLoadingImage((prev) => (prev ? false : prev));
+  }, []);
+  const handleImageError = useCallback(() => {
+    setLoadingImage(false);
+    setImageFailed(true);
+  }, []);
+
   const formatTime = (timestamp: string) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
@@ -83,6 +125,10 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   const { mime, name } = getMessageAttachmentMeta(mensaje);
   const imageUri = resolveChatAttachmentUri(attachmentRaw, () =>
     ServerConfig.getInstance().getMediaURLSync()
+  );
+  const imageSource = useMemo(
+    () => (imageUri ? { uri: imageUri } : undefined),
+    [imageUri],
   );
   const showImage = !!attachmentRaw && isChatAttachmentImage(attachmentRaw, mime, name);
   const showVideo = !!attachmentRaw && !showImage && isChatAttachmentVideo(attachmentRaw, mime, name);
@@ -128,15 +174,12 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
             disabled={!onImagePress}
           >
             <Image
-              source={{ uri: imageUri }}
+              source={imageSource}
               style={styles.attachedImage}
               resizeMode="cover"
-              onLoadStart={() => setLoadingImage(true)}
-              onLoadEnd={() => setLoadingImage(false)}
-              onError={() => {
-                setLoadingImage(false);
-                setImageFailed(true);
-              }}
+              onLoadStart={handleImageLoadStart}
+              onLoadEnd={handleImageLoadEnd}
+              onError={handleImageError}
             />
             {loadingImage && (
               <View style={styles.loadingOverlay}>
@@ -285,7 +328,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
 
       {host && esPropio && sendError ? (
         <Text style={styles.sendErrorText} numberOfLines={2}>
-          ⚠ No llegó al cliente: {sendError}
+          ⚠ {humanizarErrorEnvio(sendError)}
         </Text>
       ) : host && esPropio && showReadReceipt ? (
         <Text style={styles.readReceipt}>{mensaje.leido ? 'Leído' : 'Enviado'}</Text>

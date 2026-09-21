@@ -61,6 +61,7 @@ import {
 } from '@/utils/ofrecerEntregaCotizacion';
 
 const I = COLORS.institutional;
+const STACK_OPTIONS = { headerShown: false } as const;
 
 function snapshot(c: CotizacionCanal): string {
   return JSON.stringify({
@@ -439,7 +440,7 @@ export default function CotizacionCanalDetalleScreen() {
   if (!Number.isFinite(parsedId) || isPending || holdPrecios) {
     return (
       <View style={styles.screen}>
-        <Stack.Screen options={{ headerShown: false }} />
+        <Stack.Screen options={STACK_OPTIONS} />
         <Header title="Cotización" showBack onBackPress={() => router.back()} />
         <View style={styles.center}>
           {holdPrecios ? (
@@ -460,7 +461,7 @@ export default function CotizacionCanalDetalleScreen() {
   if (isError || !draft) {
     return (
       <View style={styles.screen}>
-        <Stack.Screen options={{ headerShown: false }} />
+        <Stack.Screen options={STACK_OPTIONS} />
         <Header title="Cotización" showBack onBackPress={() => router.back()} />
         <View style={styles.center}>
           <InstitutionalText role="body">No encontramos esta cotización.</InstitutionalText>
@@ -573,7 +574,7 @@ export default function CotizacionCanalDetalleScreen() {
 
   return (
     <View style={styles.screen}>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen options={STACK_OPTIONS} />
       <Header
         title={titulo}
         titleRole="h4"

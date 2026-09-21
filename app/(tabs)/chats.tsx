@@ -317,8 +317,11 @@ export default function ChatsScreen() {
       if (rowKey) {
         const cached = queryClient.getQueryData<typeof chats>(CHAT_INBOX_QUERY_KEY);
         const chatIndex = cached?.findIndex((chat) =>
-          (event.oferta_id && chat.oferta_id === event.oferta_id)
-          || (event.conversation_id && chat.conversation_id === event.conversation_id),
+          (event.oferta_id && String(chat.oferta_id) === String(event.oferta_id))
+          || (
+            event.conversation_id
+            && String(chat.conversation_id) === String(event.conversation_id)
+          ),
         ) ?? -1;
 
         if (chatIndex !== -1 && cached) {

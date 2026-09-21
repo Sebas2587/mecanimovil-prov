@@ -69,6 +69,7 @@ import { ofrecerEntregaCotizacionEnviada } from '@/utils/ofrecerEntregaCotizacio
 
 const I = COLORS.institutional;
 const K = COLORS.kanban;
+const STACK_OPTIONS = { headerShown: false } as const;
 
 type AttachmentState = StagedAttachment & { mime: string };
 
@@ -224,7 +225,7 @@ export default function ChatOmnicanalScreen() {
 
   useEffect(() => {
     const unsub = websocketService.onNuevoMensajeChat((event: NuevoMensajeChatEvent) => {
-      if (event.conversation_id !== convId) return;
+      if (String(event.conversation_id ?? '') !== String(convId)) return;
       upsertRow(mapWsEvent(event));
     });
     return unsub;
@@ -364,7 +365,7 @@ export default function ChatOmnicanalScreen() {
   return (
     <View style={styles.screenRoot}>
       <SafeAreaView style={styles.safeArea} edges={['bottom']}>
-        <Stack.Screen options={{ headerShown: false }} />
+        <Stack.Screen options={STACK_OPTIONS} />
 
         <OmnichannelChatHeader
           channel={conversationMeta.channel}
