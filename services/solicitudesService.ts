@@ -797,11 +797,18 @@ export const obtenerListaChats = async (): Promise<any[]> => {
     return Array.isArray(response.data) ? response.data : [];
   } catch (error: any) {
     // Si es 401, no hay sesión - no es un error crítico, solo retornar array vacío
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || error.status === 401) {
       console.log('⚠️ [SOLICITUDES SERVICE] No autenticado (401), retornando lista vacía');
       return [];
     }
-    console.error('❌ [SOLICITUDES SERVICE] Error al obtener lista de chats:', error);
+    if (
+      error.code === 'ERR_NO_AUTH'
+      || error.code === 'ERR_CANCELED'
+      || error.message === 'Sin sesión activa'
+    ) {
+      return [];
+    }
+    console.warn('⚠️ [SOLICITUDES SERVICE] Error al obtener lista de chats:', error?.message || error);
     if (error.status === 404 || error.response?.status === 404) {
       return [];
     }

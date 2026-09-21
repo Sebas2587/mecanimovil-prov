@@ -126,6 +126,7 @@ const setupInterceptors = (api: any) => {
         '/usuarios/login/', // login (usuarios)
         '/usuarios/login-proveedor/', // login (proveedores)
         '/usuarios/google-login-proveedor/', // Google login proveedores
+        '/usuarios/vapid-public-key/', // Web Push: la clave es pública (AllowAny)
       ];
 
       const isPublicEndpoint = publicEndpoints.some(endpoint =>
@@ -138,9 +139,12 @@ const setupInterceptors = (api: any) => {
       // CRÍTICO: Para FormData, NO configurar Content-Type manualmente
       // React Native y axios lo maneja automáticamente
       if (!isFormData) {
-        // Solo para requests JSON, asegurar Content-Type
-        if (!config.headers['Content-Type']) {
-          config.headers['Content-Type'] = 'application/json';
+        const method = String(config.method || 'get').toLowerCase();
+        // GET/HEAD con Content-Type: application/json fuerza preflight CORS innecesario.
+        if (method !== 'get' && method !== 'head' && method !== 'options') {
+          if (!config.headers['Content-Type']) {
+            config.headers['Content-Type'] = 'application/json';
+          }
         }
       } else {
         // Para FormData, ELIMINAR cualquier Content-Type manual

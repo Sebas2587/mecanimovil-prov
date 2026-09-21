@@ -7,12 +7,12 @@ import {
   Animated,
   Pressable,
   Platform,
-  Alert,
 } from 'react-native';
 import { Swipeable, type Swipeable as SwipeableType } from 'react-native-gesture-handler';
 import { Trash2 } from 'lucide-react-native';
 import { COLORS, SPACING, BORDERS, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { showConfirm } from '@/utils/platformAlert';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
@@ -35,14 +35,12 @@ const DELETE_MESSAGE =
   'Se borrará esta conversación y sus mensajes. Esta acción no se puede deshacer.';
 
 export function confirmChatDeletion(onConfirm: () => void | Promise<void>) {
-  if (IS_WEB && typeof window !== 'undefined') {
-    if (window.confirm(`Eliminar chat\n\n${DELETE_MESSAGE}`)) void onConfirm();
-    return;
-  }
-  Alert.alert('Eliminar chat', DELETE_MESSAGE, [
-    { text: 'Cancelar', style: 'cancel' },
-    { text: 'Eliminar', style: 'destructive', onPress: () => { void onConfirm(); } },
-  ]);
+  // Safari throws `Can't find variable: EmptyRanges` on window.confirm/alert.
+  showConfirm('Eliminar chat', DELETE_MESSAGE, {
+    confirmText: 'Eliminar',
+    cancelText: 'Cancelar',
+    onConfirm,
+  });
 }
 
 interface ChatSwipeableRowProps {

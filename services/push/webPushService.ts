@@ -51,12 +51,42 @@ async function requestNotificationPermission(): Promise<boolean> {
   return permission === 'granted';
 }
 
+function unwrapAxiosData<T>(payload: unknown): T {
+  if (
+    payload
+    && typeof payload === 'object'
+    && 'data' in payload
+    && ('status' in payload || 'headers' in payload || 'config' in payload)
+  ) {
+    return (payload as { data: T }).data;
+  }
+  return payload as T;
+}
+
 async function getVapidPublicKey(): Promise<string | null> {
   try {
-    const response = (await get('/usuarios/vapid-public-key/')) as { vapid_public_key?: string };
-    return response?.vapid_public_key || null;
-  } catch (err) {
-    if (__DEV__) console.error('[webPush] No se pudo obtener VAPID public key:', err);
+    const payload = await get('/usuarios/vapid-public-key/');
+    const data = unwrapAxiosData<{ vapid_public_key?: string }>(payload);
+    const key = typeof data?.vapid_public_key === 'string' ? data.vapid_public_key.trim() : '';
+    return key || null;
+  } catch (err: unknown) {
+    const status =
+      (err as { response?: { status?: number }; status?: number })?.response?.status
+      ?? (err as { status?: number }).status;
+    const code = (err as { code?: string })?.code;
+    if (
+      status === 401
+      || status === 403
+      || status === 503
+      || code === 'ERR_NO_AUTH'
+      || code === 'ERR_CANCELED'
+    ) {
+      if (__DEV__) {
+        console.warn('[webPush] VAPID no disponible', status ? `(HTTP ${status})` : code || '');
+      }
+      return null;
+    }
+    if (__DEV__) console.warn('[webPush] No se pudo obtener VAPID public key:', err);
     return null;
   }
 }

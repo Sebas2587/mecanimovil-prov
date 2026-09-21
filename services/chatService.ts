@@ -51,6 +51,11 @@ class ChatService {
     await post(`/chat/conversations/${conversationId}/mark_read/`);
   }
 
+  async markAllRead() {
+    const response = await post('/chat/conversations/mark_all_read/');
+    return response.data as { marked_read?: number; legacy_marked_read?: number };
+  }
+
   async getLinkPreview(url: string): Promise<ChatLinkPreviewPayload> {
     const response = await get('/chat/link-preview/', { params: { url } });
     return response.data as ChatLinkPreviewPayload;

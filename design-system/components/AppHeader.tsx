@@ -95,12 +95,14 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   side: {
-    width: 44,
+    minWidth: 44,
+    flexShrink: 0,
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
   sideRight: {
     alignItems: 'flex-end',
+    maxWidth: '46%',
   },
   center: {
     flex: 1,

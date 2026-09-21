@@ -7,7 +7,6 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
-  Alert,
   TouchableOpacity,
   Platform,
 } from 'react-native';
@@ -26,6 +25,8 @@ import {
 } from '@/hooks/useChatInboxQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChatSwipeableRow, confirmChatDeletion } from '@/components/chats/ChatSwipeableRow';
+import { showAlert } from '@/utils/platformAlert';
+import chatService from '@/services/chatService';
 import websocketService from '@/app/services/websocketService';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
@@ -127,7 +128,7 @@ function cotizacionBadgeLabel(estado: string | null | undefined): string | null 
 }
 
 export default function ChatsScreen() {
-  const { totalMensajesNoLeidos, actualizarTotal, decrementarNoLeidos } = useChats();
+  const { totalMensajesNoLeidos, actualizarTotal, decrementarNoLeidos, resetearNoLeidos } = useChats();
   const { isAuthenticated, usuario, estadoProveedor } = useAuth();
   const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
   const { data: cotizacionesCanalPendientes = 0 } = useCotizacionesCanalPendientesQuery(cuentaAprobada);
@@ -153,6 +154,7 @@ export default function ChatsScreen() {
   const [chatHighlighted, setChatHighlighted] = useState<string | null>(null);
   /** Row en proceso de borrado: `oferta:{id}` o `omni:{conversationId}`. */
   const [deletingRowKey, setDeletingRowKey] = useState<string | null>(null);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
 
   const chatsVisibles = useMemo(() => {
     let filtered = chats.filter((c) => matchesChatFilter(c, chatFilter));
@@ -269,6 +271,44 @@ export default function ChatsScreen() {
     }
   }, [refetch]);
 
+  const markAllAsRead = useCallback(async () => {
+    if (markingAllRead || totalNoLeidos <= 0) return;
+    const previous = queryClient.getQueryData<typeof chats>(CHAT_INBOX_QUERY_KEY);
+    setMarkingAllRead(true);
+    queryClient.setQueryData<typeof chats>(CHAT_INBOX_QUERY_KEY, (prev) => {
+      if (!prev) return prev;
+      return prev.map((c) => ({
+        ...c,
+        mensajes_no_leidos: 0,
+        ultimo_mensaje:
+          c.ultimo_mensaje && !c.ultimo_mensaje.es_propio
+            ? { ...c.ultimo_mensaje, leido: true }
+            : c.ultimo_mensaje,
+      }));
+    });
+    resetearNoLeidos();
+    try {
+      await chatService.markAllRead();
+    } catch {
+      if (previous) {
+        queryClient.setQueryData(CHAT_INBOX_QUERY_KEY, previous);
+      } else {
+        void refetch();
+      }
+      actualizarTotal(totalNoLeidos);
+      showAlert('Error', 'No se pudieron marcar todos los mensajes como leídos.');
+    } finally {
+      setMarkingAllRead(false);
+    }
+  }, [
+    actualizarTotal,
+    markingAllRead,
+    queryClient,
+    refetch,
+    resetearNoLeidos,
+    totalNoLeidos,
+  ]);
+
   useEffect(() => {
     if (!isAuthenticated || !usuario) return;
 
@@ -340,7 +380,7 @@ export default function ChatsScreen() {
       try {
         const result = await solicitudesService.eliminarChatPorOferta(ofertaId);
         if (!result.success) {
-          Alert.alert('Error', result.error || 'No se pudo eliminar el chat');
+          showAlert('Error', result.error || 'No se pudo eliminar el chat');
           throw new Error(result.error || 'delete failed');
         }
         queryClient.setQueryData(CHAT_INBOX_QUERY_KEY, (prev: typeof chats | undefined) => {
@@ -379,7 +419,7 @@ export default function ChatsScreen() {
             ?.detail
           || (err as { message?: string })?.message
           || 'No se pudo eliminar el chat';
-        Alert.alert('Error', message);
+        showAlert('Error', message);
         throw err;
       } finally {
         setDeletingRowKey(null);
@@ -631,6 +671,24 @@ export default function ChatsScreen() {
         <Header
           title="Mensajes"
           badge={totalMensajesNoLeidos > 0 ? totalMensajesNoLeidos : undefined}
+          rightComponent={
+            totalNoLeidos > 0 || markingAllRead ? (
+              <TouchableOpacity
+                onPress={markAllAsRead}
+                disabled={markingAllRead}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.headerReadAll}
+                accessibilityRole="button"
+                accessibilityLabel="Marcar todos los mensajes como leídos"
+              >
+                <CheckCheck size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalText role="captionBold" color="primary" numberOfLines={1}>
+                  {markingAllRead ? 'Leyendo…' : 'Leer todo'}
+                </InstitutionalText>
+              </TouchableOpacity>
+            ) : null
+          }
         />
 
         <View style={[styles.searchBarWrap, hostScreenStyles.gutterX]}>
@@ -757,6 +815,12 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: COLORS.background.default,
+  },
+  headerReadAll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.xxs,
   },
   loadingContainer: {
     flex: 1,
