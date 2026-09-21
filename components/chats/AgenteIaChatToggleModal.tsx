@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, Switch, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Platform, View, StyleSheet, Switch, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Bot, Lock, Settings2, X } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
@@ -86,9 +86,11 @@ export function AgenteIaChatToggleModal({
         <InstitutionalText role="h5" style={styles.title}>
           Agente IA
         </InstitutionalText>
-        <TouchableOpacity onPress={onClose} accessibilityLabel="Cerrar" hitSlop={8}>
-          <X size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-        </TouchableOpacity>
+        {Platform.OS === 'web' ? null : (
+          <TouchableOpacity onPress={onClose} accessibilityLabel="Cerrar" hitSlop={8}>
+            <X size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {isLoading ? (

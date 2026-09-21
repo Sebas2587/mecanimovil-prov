@@ -1,13 +1,11 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   Animated,
   Modal,
   Platform,
   Pressable,
-  TouchableOpacity,
   View,
   StyleSheet,
-  type GestureResponderEvent,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -53,10 +51,6 @@ export function BottomSheet({
     if (visible) reset();
   }, [visible, reset]);
 
-  const absorbSheetPress = useCallback((e: GestureResponderEvent) => {
-    e.stopPropagation?.();
-  }, []);
-
   if (!visible) return null;
 
   return (
@@ -68,13 +62,20 @@ export function BottomSheet({
       statusBarTranslucent
       presentationStyle="overFullScreen"
     >
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={onClose}
+      {/*
+        El scrim es hermano del paper, no su padre. En web Touchable/Pressable
+        se vuelven <button>; si envuelven el sheet, anidan botones (switch, X, CTAs).
+      */}
+      <View
+        pointerEvents="box-none"
         style={[styles.overlay, IS_WEB && styles.overlayWeb]}
-        accessibilityRole="button"
-        accessibilityLabel="Cerrar"
       >
+        <Pressable
+          onPress={onClose}
+          style={[styles.scrim, IS_WEB && styles.scrimWeb]}
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar"
+        />
         <Animated.View
           collapsable={false}
           style={[
@@ -87,36 +88,34 @@ export function BottomSheet({
           ]}
           {...panHandlers}
         >
-          <TouchableOpacity activeOpacity={1} onPress={absorbSheetPress}>
-            {IS_WEB ? (
-              <View style={styles.dialogBar}>
-                <Pressable
-                  onPress={onClose}
-                  hitSlop={8}
-                  style={styles.closeBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cerrar"
-                >
-                  <X size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                </Pressable>
-              </View>
-            ) : (
-              <View
-                style={styles.handleHit}
-                accessibilityRole="adjustable"
-                accessibilityLabel="Arrastra hacia abajo para cerrar"
+          {IS_WEB ? (
+            <View style={styles.dialogBar}>
+              <Pressable
+                onPress={onClose}
+                hitSlop={8}
+                style={styles.closeBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar"
               >
-                <View style={styles.handle} />
-              </View>
-            )}
-            {stickyFooter ? (
-              <View style={styles.stickyInner}>{children}</View>
-            ) : (
-              children
-            )}
-          </TouchableOpacity>
+                <X size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+              </Pressable>
+            </View>
+          ) : (
+            <View
+              style={styles.handleHit}
+              accessibilityRole="adjustable"
+              accessibilityLabel="Arrastra hacia abajo para cerrar"
+            >
+              <View style={styles.handle} />
+            </View>
+          )}
+          {stickyFooter ? (
+            <View style={styles.stickyInner}>{children}</View>
+          ) : (
+            children
+          )}
         </Animated.View>
-      </TouchableOpacity>
+      </View>
     </Modal>
   );
 }
@@ -141,10 +140,16 @@ const styles = StyleSheet.create({
       height: '100vh',
       width: '100vw',
       boxSizing: 'border-box',
-      cursor: 'pointer',
     } as ViewStyle),
   },
+  scrim: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  scrimWeb: {
+    cursor: 'pointer',
+  } as ViewStyle,
   sheet: {
+    zIndex: 1,
     backgroundColor: C.background.paper,
     borderTopLeftRadius: BORDERS.radius.modal.xl,
     borderTopRightRadius: BORDERS.radius.modal.xl,
