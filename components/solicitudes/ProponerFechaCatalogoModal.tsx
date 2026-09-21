@@ -157,8 +157,13 @@ export function ProponerFechaCatalogoModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <Pressable style={styles.dismissHit} onPress={onClose} accessibilityLabel="Cerrar" />
+      <View style={styles.overlay} pointerEvents="box-none">
+        <Pressable
+          style={styles.dismissHit}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar"
+        />
         <Card
           elevated
           padding={0}
@@ -283,7 +288,6 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: withOpacity(I.ink, 0.48),
     // RN Web: sin altura explícita flex-end no ancla el sheet al fondo.
     ...(Platform.OS === 'web'
       ? ({ height: '100%', minHeight: '100%' } as const)
@@ -291,6 +295,7 @@ const styles = StyleSheet.create({
   },
   dismissHit: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: withOpacity(I.ink, 0.48),
   },
   sheet: {
     width: '100%',
@@ -302,6 +307,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     overflow: 'hidden',
     flexDirection: 'column',
+    zIndex: 1,
   },
   sheetHeader: {
     flexDirection: 'row',

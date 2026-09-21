@@ -11,10 +11,12 @@ import {
 } from 'react-native';
 import { Swipeable, type Swipeable as SwipeableType } from 'react-native-gesture-handler';
 import { Trash2 } from 'lucide-react-native';
-import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, BORDERS, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const I = COLORS.institutional;
+const T = TYPOGRAPHY.styles;
+const FF = TYPOGRAPHY.fontFamily;
 const ACTION_WIDTH = 88;
 const OPEN_THRESHOLD = 56;
 const IS_WEB = Platform.OS === 'web';
@@ -29,12 +31,24 @@ function closeOtherRows(activeKey: string) {
   });
 }
 
+const DELETE_MESSAGE =
+  'Se borrará esta conversación y sus mensajes. Esta acción no se puede deshacer.';
+
+export function confirmChatDeletion(onConfirm: () => void | Promise<void>) {
+  if (IS_WEB && typeof window !== 'undefined') {
+    if (window.confirm(`Eliminar chat\n\n${DELETE_MESSAGE}`)) void onConfirm();
+    return;
+  }
+  Alert.alert('Eliminar chat', DELETE_MESSAGE, [
+    { text: 'Cancelar', style: 'cancel' },
+    { text: 'Eliminar', style: 'destructive', onPress: () => { void onConfirm(); } },
+  ]);
+}
+
 interface ChatSwipeableRowProps {
   rowKey: string;
   onDelete: () => void | Promise<void>;
   disabled?: boolean;
-  /** Acciones extra (ej. Agendar) apiladas con Eliminar en la misma columna de 48px en web. */
-  webSideActions?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -42,7 +56,6 @@ export function ChatSwipeableRow({
   rowKey,
   onDelete,
   disabled,
-  webSideActions,
   children,
 }: ChatSwipeableRowProps) {
   const swipeRef = useRef<SwipeableType | null>(null);
@@ -58,19 +71,6 @@ export function ChatSwipeableRow({
       setDeleting(false);
     }
   }, [disabled, deleting, onDelete]);
-
-  const confirmAndDelete = useCallback(() => {
-    if (disabled || deleting) return;
-    const mensaje = 'Se borrará esta conversación y sus mensajes. Esta acción no se puede deshacer.';
-    if (IS_WEB && typeof window !== 'undefined') {
-      if (window.confirm(`Eliminar chat\n\n${mensaje}`)) void runDelete();
-      return;
-    }
-    Alert.alert('Eliminar chat', mensaje, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => { void runDelete(); } },
-    ]);
-  }, [disabled, deleting, runDelete]);
 
   const renderRightActions = useCallback(
     (_progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
@@ -109,32 +109,18 @@ export function ChatSwipeableRow({
     [rowKey],
   );
 
-  // En web: una sola columna de acciones (48px) para no estrechar la card.
-  // Sparkles + Eliminar van apilados verticalmente, no lado a lado.
+  const overlay = deleting ? (
+    <View style={styles.deletingOverlay}>
+      <ActivityIndicator size="small" color={I.primary} />
+    </View>
+  ) : null;
+
   if (IS_WEB) {
     return (
       <View style={styles.webRow}>
-        <View style={styles.webMain}>
-          <View style={styles.rowContent}>
-            {children}
-            {deleting ? (
-              <View style={styles.deletingOverlay}>
-                <ActivityIndicator size="small" color={I.primary} />
-              </View>
-            ) : null}
-          </View>
-        </View>
-        <View style={styles.webActionsColumn}>
-          {webSideActions}
-          <Pressable
-            style={[styles.webActionBtn, (disabled || deleting) && styles.webActionBtnDisabled]}
-            onPress={confirmAndDelete}
-            disabled={disabled || deleting}
-            accessibilityRole="button"
-            accessibilityLabel="Eliminar conversación"
-          >
-            <Trash2 size={18} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-          </Pressable>
+        <View style={styles.rowContent}>
+          {children}
+          {overlay}
         </View>
       </View>
     );
@@ -154,11 +140,7 @@ export function ChatSwipeableRow({
     >
       <View style={styles.rowContent}>
         {children}
-        {deleting ? (
-          <View style={styles.deletingOverlay}>
-            <ActivityIndicator size="small" color={I.primary} />
-          </View>
-        ) : null}
+        {overlay}
       </View>
     </Swipeable>
   );
@@ -167,9 +149,12 @@ export function ChatSwipeableRow({
 const styles = StyleSheet.create({
   swipeContainer: {
     marginBottom: SPACING.sm,
+    alignSelf: 'stretch',
+    width: '100%',
   },
   rowContent: {
     position: 'relative',
+    width: '100%',
   },
   actionContainer: {
     width: ACTION_WIDTH,
@@ -185,9 +170,10 @@ const styles = StyleSheet.create({
   },
   actionLabel: {
     color: I.onPrimary,
-    fontSize: 12,
-    fontFamily: 'Inter-SemiBold',
-    fontWeight: '600',
+    fontSize: T.captionBold.fontSize,
+    fontFamily: FF.sansSemiBold,
+    fontWeight: T.captionBold.fontWeight as '600',
+    lineHeight: Math.round(T.captionBold.fontSize * T.captionBold.lineHeight),
   },
   deletingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -197,34 +183,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   webRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: SPACING.xs,
+    width: '100%',
     marginBottom: SPACING.sm,
-  },
-  webMain: {
-    flex: 1,
-    minWidth: 0,
-  },
-  webActionsColumn: {
-    width: 48,
-    flexShrink: 0,
-    justifyContent: 'center',
-    gap: SPACING.xs,
-  },
-  webActionBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: COLORS.background.paper,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // @ts-expect-error web-only cursor
-    cursor: 'pointer',
-  },
-  webActionBtnDisabled: {
-    opacity: 0.5,
   },
 });

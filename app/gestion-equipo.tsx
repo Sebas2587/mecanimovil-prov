@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  Pressable,
   TextInput,
   Modal,
   Switch,
@@ -467,8 +468,14 @@ export default function GestionEquipoScreen() {
 
       {/* Modal de formulario */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+        <View style={styles.modalOverlay} pointerEvents="box-none">
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setModalVisible(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar"
+          />
+          <View style={styles.modalCard} pointerEvents="auto">
             <Text style={styles.modalTitle}>
               {form.id ? 'Editar' : 'Agregar'} {form.rol === 'supervisor' ? 'supervisor' : 'mecánico'}
             </Text>
@@ -809,14 +816,18 @@ const styles = StyleSheet.create({
   emptyText: { color: I.muted, fontFamily: FF.regular, fontSize: 14, paddingVertical: SPACING.md },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   modalCard: {
     backgroundColor: I.white,
     borderTopLeftRadius: BORDERS.radius.lg,
     borderTopRightRadius: BORDERS.radius.lg,
     padding: SPACING.lg,
+    zIndex: 1,
   },
   modalTitle: { fontFamily: FF.bold, fontSize: 18, color: I.text, marginBottom: SPACING.md },
   label: { fontFamily: FF.semibold, fontSize: 13, color: I.text, marginTop: SPACING.md, marginBottom: SPACING.xs },

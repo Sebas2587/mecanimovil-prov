@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
 } from 'react-native';
 import { X, Check, DollarSign, Plus, Trash2, Building2, Wrench, Package, FileText, Lock } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
@@ -183,8 +184,15 @@ export function ModalAjusteBorrador({
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.overlay}
+        pointerEvents="box-none"
       >
-        <View style={styles.sheetContainer}>
+        <Pressable
+          style={styles.backdrop}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar"
+        />
+        <View style={styles.sheetContainer} pointerEvents="auto">
           {/* Header estilo Airbnb */}
           <View style={styles.header}>
             <View>
@@ -375,8 +383,11 @@ export function ModalAjusteBorrador({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   sheetContainer: {
     backgroundColor: COLORS.base.white,
@@ -384,6 +395,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: BORDERS.radius.xl,
     maxHeight: '88%',
     paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    zIndex: 1,
   },
   header: {
     flexDirection: 'row',

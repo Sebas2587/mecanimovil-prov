@@ -13,8 +13,7 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import {
-  MessageCircle, Check, CheckCheck, Sparkles, Clock3,
-  Search, Filter, ChevronRight,
+  MessageCircle, Check, CheckCheck, Sparkles, Clock3, Search, Trash2,
 } from 'lucide-react-native';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -26,7 +25,7 @@ import {
   CHAT_INBOX_QUERY_KEY,
 } from '@/hooks/useChatInboxQuery';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChatSwipeableRow } from '@/components/chats/ChatSwipeableRow';
+import { ChatSwipeableRow, confirmChatDeletion } from '@/components/chats/ChatSwipeableRow';
 import websocketService from '@/app/services/websocketService';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import Header from '@/components/Header';
@@ -37,16 +36,18 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens
 import {
   Card,
   hostScreenStyles,
-  HostSectionKicker,
   InstitutionalButton,
+  InstitutionalScreenTabs,
   InstitutionalText,
+  institutionalInputPlaceholder,
+  institutionalInputStyles,
 } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
 import { ChannelBadge } from '@/components/chats/ChannelBadge';
 import { ChannelAvatar } from '@/components/chats/ChannelAvatar';
 import { ChatInboxLinkRow } from '@/components/chats/ChatInboxLinkRow';
-import { omnichannelChatHref, resolveChatHref } from '@/utils/chatRoutes';
+import { resolveChatHref } from '@/utils/chatRoutes';
 import { useOmnichannelConnectionMap } from '@/hooks/useOmnichannelConnections';
 import {
   getChannelDisconnectedReason,
@@ -85,14 +86,14 @@ type AgendarContactoState = {
 } | null;
 
 const I = COLORS.institutional;
-/** Jerarquía tipo Coinbase / doc proveedores — tamaños desde `TYPOGRAPHY.styles`. */
+/** Tamaños Host desde `TYPOGRAPHY.styles`. */
 const T = TYPOGRAPHY.styles;
 
 const CHAT_FILTERS: { key: ChatInboxFilter; label: string }[] = [
   { key: 'todos', label: 'Todos' },
   { key: 'sin_responder', label: 'Sin responder' },
   { key: 'calificados', label: 'Calificados' },
-  { key: 'cotizacion_enviada', label: 'Cotiz. enviada' },
+  { key: 'cotizacion_enviada', label: 'Enviadas' },
   { key: 'cotizacion_aceptada', label: 'Aceptadas' },
   { key: 'borrador', label: 'Borrador IA' },
 ];
@@ -188,6 +189,48 @@ export default function ChatsScreen() {
     () => chats.reduce((sum, chat) => sum + (chat.mensajes_no_leidos || 0), 0),
     [chats],
   );
+
+  const filterCounts = useMemo(() => {
+    const counts: Record<ChatInboxFilter, number> = {
+      todos: chats.length,
+      sin_responder: 0,
+      calificados: 0,
+      cotizacion_enviada: 0,
+      cotizacion_aceptada: 0,
+      borrador: 0,
+    };
+    for (const chat of chats) {
+      if (matchesChatFilter(chat, 'sin_responder')) counts.sin_responder += 1;
+      if (matchesChatFilter(chat, 'calificados')) counts.calificados += 1;
+      if (matchesChatFilter(chat, 'cotizacion_enviada')) counts.cotizacion_enviada += 1;
+      if (matchesChatFilter(chat, 'cotizacion_aceptada')) counts.cotizacion_aceptada += 1;
+      if (matchesChatFilter(chat, 'borrador')) counts.borrador += 1;
+    }
+    return counts;
+  }, [chats]);
+
+  const filterTabs = useMemo(
+    () =>
+      CHAT_FILTERS.map((f) => {
+        const fromInbox = filterCounts[f.key];
+        const badge =
+          f.key === 'todos'
+            ? undefined
+            : f.key === 'borrador'
+              ? (borradoresAgenteCount > 0 ? borradoresAgenteCount : fromInbox)
+              : fromInbox;
+        return {
+          key: f.key,
+          label: f.label,
+          badge: badge && badge > 0 ? badge : undefined,
+        };
+      }),
+    [borradoresAgenteCount, filterCounts],
+  );
+
+  const handleChatFilter = useCallback((key: ChatInboxFilter) => {
+    setChatFilter(key);
+  }, []);
 
   const abrirAgendarDesdeFila = useCallback((item: {
     channel?: string;
@@ -393,165 +436,167 @@ export default function ChatsScreen() {
       }
     };
 
+    const showWebDelete = Platform.OS === 'web';
+    const showCardFooter = isOmnichannel || showWebDelete;
+
+    const inner = (
+      <View style={styles.chatCardInner}>
+        <View style={styles.chatAvatar}>
+          <ChannelAvatar
+            channel={isOmnichannel ? channel : 'app'}
+            photoUrl={!isOmnichannel ? otra_persona?.foto : null}
+          />
+        </View>
+
+        <View style={styles.chatContent}>
+          <View style={styles.chatTopRow}>
+            <Text style={[styles.chatName, hasUnread && styles.chatNameUnread]} numberOfLines={1}>
+              {otra_persona?.nombre || 'Cliente'}
+            </Text>
+            <Text style={[styles.chatDate, hasUnread && styles.chatDateUnread]}>
+              {ultimo_mensaje?.fecha_envio ? formatearFecha(ultimo_mensaje.fecha_envio) : ''}
+            </Text>
+          </View>
+
+          {isOmnichannel && channel ? (
+            <View style={styles.channelRow}>
+              <ChannelBadge channel={channel} compact />
+            </View>
+          ) : null}
+
+          {channelDisconnectedReason ? (
+            <Text style={styles.channelWarning} numberOfLines={1}>
+              {channelDisconnectedReason}
+            </Text>
+          ) : null}
+
+          {(!!vehiculoPill || !!cotizacionLabel || showLeadTag) ? (
+            <View style={styles.tagsRow}>
+              {!!cotizacionLabel ? (
+                <InstitutionalTag
+                  label={cotizacionLabel}
+                  variant={
+                    item.cotizacion_estado === 'aceptada' || item.cotizacion_estado === 'enviada'
+                      ? 'primary'
+                      : 'neutral'
+                  }
+                  size="sm"
+                />
+              ) : null}
+              {showLeadTag ? (
+                <InstitutionalTag
+                  label={LEAD_CATEGORIA_LABELS[leadCat] || leadCat}
+                  variant={LEAD_CATEGORIA_VARIANT[leadCat] || 'neutral'}
+                  size="sm"
+                />
+              ) : null}
+              {!!vehiculoPill ? (
+                <InstitutionalTag label={vehiculoPill} variant="neutral" size="sm" />
+              ) : null}
+            </View>
+          ) : null}
+
+          <View style={styles.chatMessageRow}>
+            {ultimo_mensaje?.es_propio && (
+              <>
+                {ultimo_mensaje.leido ? (
+                  <CheckCheck size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} style={{ marginRight: 4 }} />
+                ) : (
+                  <Check size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} style={{ marginRight: 4 }} />
+                )}
+              </>
+            )}
+            <Text
+              style={[styles.chatMessage, hasUnread && !ultimo_mensaje?.es_propio && styles.chatMessageUnread]}
+              numberOfLines={2}
+            >
+              {ultimo_mensaje?.es_propio ? 'Tú: ' : ''}
+              {ultimo_mensaje?.mensaje ||
+                (getMessageAttachmentUri(ultimo_mensaje)
+                  ? attachmentPreviewLabel(ultimo_mensaje)
+                  : 'Sin mensajes')}
+            </Text>
+            {hasUnread && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>
+                  {mensajes_no_leidos > 99 ? '99+' : mensajes_no_leidos}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+    );
+
+    const runRowDelete = () => {
+      if (isOmnichannel) {
+        return deleteOmnichannelChat(conversation_id, mensajes_no_leidos || 0);
+      }
+      return deleteChat(oferta_id, mensajes_no_leidos || 0);
+    };
+
     const cardBody = (
       <Card
         elevated
         padding="host"
         style={[styles.chatCard, isHighlighted && styles.chatCardHighlighted]}
       >
-        <View style={styles.chatCardInner}>
-          <ChannelAvatar
-            channel={isOmnichannel ? channel : 'app'}
-            photoUrl={!isOmnichannel ? otra_persona?.foto : null}
-          />
-
-          <View style={styles.chatContent}>
-            <View style={styles.chatTopRow}>
-              <Text style={[styles.chatName, hasUnread && styles.chatNameUnread]} numberOfLines={1}>
-                {otra_persona?.nombre || 'Cliente'}
-              </Text>
-              <Text style={[styles.chatDate, hasUnread && styles.chatDateUnread]}>
-                {ultimo_mensaje?.fecha_envio ? formatearFecha(ultimo_mensaje.fecha_envio) : ''}
-              </Text>
-            </View>
-
-            {isOmnichannel && channel ? (
-              <View style={styles.channelRow}>
-                <ChannelBadge channel={channel} compact />
-              </View>
-            ) : null}
-
-            {channelDisconnectedReason ? (
-              <Text style={styles.channelWarning} numberOfLines={1}>
-                {channelDisconnectedReason}
-              </Text>
-            ) : null}
-
-            {(!!vehiculoPill || !!cotizacionLabel || showLeadTag) ? (
-              <View style={styles.tagsRow}>
-                {!!cotizacionLabel ? (
-                  <InstitutionalTag
-                    label={cotizacionLabel}
-                    variant={
-                      item.cotizacion_estado === 'aceptada'
-                        ? 'primary'
-                        : item.cotizacion_estado === 'enviada'
-                          ? 'primary'
-                          : 'neutral'
-                    }
-                    size="sm"
-                  />
-                ) : null}
-                {showLeadTag ? (
-                  <InstitutionalTag
-                    label={LEAD_CATEGORIA_LABELS[leadCat] || leadCat}
-                    variant={LEAD_CATEGORIA_VARIANT[leadCat] || 'neutral'}
-                    size="sm"
-                  />
-                ) : null}
-                {!!vehiculoPill ? (
-                  <InstitutionalTag label={vehiculoPill} variant="neutral" size="sm" />
-                ) : null}
-              </View>
-            ) : null}
-
-            <View style={styles.chatMessageRow}>
-              {ultimo_mensaje?.es_propio && (
-                <>
-                  {ultimo_mensaje.leido ? (
-                    <CheckCheck size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} style={{ marginRight: 4 }} />
-                  ) : (
-                    <Check size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} style={{ marginRight: 4 }} />
-                  )}
-                </>
-              )}
-              <Text
-                style={[styles.chatMessage, hasUnread && !ultimo_mensaje?.es_propio && styles.chatMessageUnread]}
-                numberOfLines={1}
+        {chatHref ? (
+          <ChatInboxLinkRow
+            href={chatHref}
+            onPress={markReadIfNeeded}
+            highlighted={isHighlighted}
+          >
+            {inner}
+          </ChatInboxLinkRow>
+        ) : (
+          inner
+        )}
+        {showCardFooter ? (
+          <View style={[styles.cardFooter, !isOmnichannel && styles.cardFooterEnd]}>
+            {isOmnichannel ? (
+              <TouchableOpacity
+                style={styles.cardAction}
+                onPress={() => abrirAgendarDesdeFila(item)}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel="Cotizar o agendar cita"
               >
-                {ultimo_mensaje?.es_propio ? 'Tú: ' : ''}
-                {ultimo_mensaje?.mensaje ||
-                  (getMessageAttachmentUri(ultimo_mensaje)
-                    ? attachmentPreviewLabel(ultimo_mensaje)
-                    : 'Sin mensajes')}
-              </Text>
-              {hasUnread && (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadBadgeText}>
-                    {mensajes_no_leidos > 99 ? '99+' : mensajes_no_leidos}
-                  </Text>
-                </View>
-              )}
-            </View>
+                <Sparkles size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalText role="captionBold" color="primary">Cotizar</InstitutionalText>
+              </TouchableOpacity>
+            ) : null}
+            {showWebDelete ? (
+              <TouchableOpacity
+                style={styles.cardAction}
+                onPress={() => confirmChatDeletion(runRowDelete)}
+                activeOpacity={0.75}
+                disabled={isDeleting}
+                accessibilityRole="button"
+                accessibilityLabel="Eliminar conversación"
+              >
+                <Trash2 size={16} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalText role="captionBold" color="semanticDown">Eliminar</InstitutionalText>
+              </TouchableOpacity>
+            ) : null}
           </View>
-        </View>
+        ) : null}
       </Card>
     );
 
-    if (isOmnichannel && chatHref) {
-      const agendarBtn = (
-        <TouchableOpacity
-          style={styles.quickActionBtn}
-          onPress={() => abrirAgendarDesdeFila(item)}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel="Agendar cita y cotizar con IA"
-        >
-          <Sparkles size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-        </TouchableOpacity>
-      );
-
-      return (
-        <ChatSwipeableRow
-          rowKey={`omni:${String(conversation_id)}`}
-          disabled={isDeleting}
-          onDelete={() => deleteOmnichannelChat(conversation_id, mensajes_no_leidos || 0)}
-          // En web Agendar + Eliminar van en UNA columna (48px) para no achicar la card.
-          webSideActions={agendarBtn}
-        >
-          {Platform.OS === 'web' ? (
-            <ChatInboxLinkRow
-              href={chatHref}
-              onPress={markReadIfNeeded}
-              highlighted={isHighlighted}
-            >
-              {cardBody}
-            </ChatInboxLinkRow>
-          ) : (
-            <View style={styles.chatRowWithAction}>
-              <View style={styles.chatRowMain}>
-                <ChatInboxLinkRow
-                  href={chatHref}
-                  onPress={markReadIfNeeded}
-                  highlighted={isHighlighted}
-                >
-                  {cardBody}
-                </ChatInboxLinkRow>
-              </View>
-              {agendarBtn}
-            </View>
-          )}
-        </ChatSwipeableRow>
-      );
+    if (!chatHref) {
+      return <View style={styles.listItemFallback}>{cardBody}</View>;
     }
 
-    if (chatHref && !isOmnichannel) {
-      return (
-        <View style={styles.listItemFallback}>
-          <ChatSwipeableRow
-            rowKey={String(oferta_id)}
-            disabled={isDeleting}
-            onDelete={() => deleteChat(oferta_id, mensajes_no_leidos || 0)}
-          >
-            <ChatInboxLinkRow href={chatHref} onPress={markReadIfNeeded} highlighted={isHighlighted}>
-              {cardBody}
-            </ChatInboxLinkRow>
-          </ChatSwipeableRow>
-        </View>
-      );
-    }
-
-    return <View style={styles.listItemFallback}>{cardBody}</View>;
+    return (
+      <ChatSwipeableRow
+        rowKey={isOmnichannel ? `omni:${String(conversation_id)}` : String(oferta_id)}
+        disabled={isDeleting}
+        onDelete={runRowDelete}
+      >
+        {cardBody}
+      </ChatSwipeableRow>
+    );
   }, [
     abrirAgendarDesdeFila,
     channelConnections,
@@ -588,54 +633,29 @@ export default function ChatsScreen() {
           badge={totalMensajesNoLeidos > 0 ? totalMensajesNoLeidos : undefined}
         />
 
-        {/* Search Bar - Airbnb Host style */}
         <View style={[styles.searchBarWrap, hostScreenStyles.gutterX]}>
-          <View style={styles.searchBarContainer}>
-            <Search size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+          <View style={institutionalInputStyles.inputRow}>
+            <Search size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
             <TextInput
-              style={styles.searchBarInput}
-              placeholder="Buscar por cliente, teléfono, patente o mensaje…"
-              placeholderTextColor={I.muted}
+              style={institutionalInputStyles.inputRowField}
+              placeholder="Cliente, teléfono, patente o mensaje"
+              placeholderTextColor={institutionalInputPlaceholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+              returnKeyType="search"
+              accessibilityLabel="Buscar mensaje o cliente"
             />
           </View>
         </View>
 
-        {/* Filters - Airbnb Host style with HostSectionKicker */}
-        <View style={[styles.filtersWrap, hostScreenStyles.gutterX]}>
-          <HostSectionKicker label="FILTROS" />
-          <FlatList
-            horizontal
-            data={CHAT_FILTERS}
-            keyExtractor={(f) => f.key}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filtersRow}
-            renderItem={({ item: f }) => {
-              const active = chatFilter === f.key;
-              const badgeCount =
-                f.key === 'borrador' && borradoresAgenteCount > 0
-                  ? borradoresAgenteCount
-                  : 0;
-              return (
-                <InstitutionalButton
-                  label={f.label}
-                  variant={active ? 'primary' : 'outline'}
-                  size="compact"
-                  onPress={() => setChatFilter(f.key)}
-                  disabled={active}
-                  style={styles.filterChip}
-                >
-                  {badgeCount > 0 && (
-                    <View style={[styles.filterCount, active && styles.filterCountActive]}>
-                      <Text style={[styles.filterCountText, active && styles.filterCountTextActive]}>
-                        {badgeCount}
-                      </Text>
-                    </View>
-                  )}
-                </InstitutionalButton>
-              );
-            }}
+        <View style={[styles.tabsOuter, hostScreenStyles.gutterX]}>
+          <InstitutionalScreenTabs
+            activeKey={chatFilter}
+            onChange={handleChatFilter}
+            tabs={filterTabs}
           />
         </View>
 
@@ -753,75 +773,56 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  filtersWrap: {
-    paddingTop: SPACING.sm,
+  tabsOuter: {
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.xs,
+  },
+  searchBarWrap: {
+    paddingTop: SPACING.xs,
     paddingBottom: SPACING.xs,
-  },
-  filtersRow: {
-    gap: SPACING.xs,
-    paddingRight: SPACING.sm,
-  },
-  filterChip: {
-    // Usa estilos de InstitutionalButton, solo margin extra
-    marginRight: 0,
-  },
-  filterCount: {
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 5,
-    borderRadius: BORDERS.radius.sm,
-    backgroundColor: COLORS.selection.background,
-    borderWidth: BORDERS.width.thin,
-    borderColor: COLORS.selection.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
-  },
-  filterCountActive: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderColor: 'rgba(255,255,255,0.28)',
-  },
-  filterCountText: {
-    fontSize: 11,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    color: I.primaryActive,
-  },
-  filterCountTextActive: {
-    color: I.onPrimary,
   },
   tagsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: SPACING.fixed.xs,
     marginTop: 2,
     marginBottom: 2,
   },
-  chatRowWithAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
+  chatCard: {
+    alignSelf: 'stretch',
+    width: '100%',
   },
-  chatRowMain: {
-    flex: 1,
-    minWidth: 0,
-  },
-  quickActionBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: COLORS.background.paper,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-
-  chatCard: {},
   chatCardInner: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: SPACING.sm + 4,
+  },
+  chatAvatar: {
+    flexShrink: 0,
+    marginTop: 2,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
+    marginHorizontal: -SPACING.fixed.md,
+    paddingHorizontal: SPACING.fixed.md,
+    marginBottom: -SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.sm,
+  },
+  cardFooterEnd: {
+    justifyContent: 'flex-end',
+  },
+  cardAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    minHeight: 36,
+    paddingVertical: SPACING.fixed.xxs,
   },
   chatCardHighlighted: {
     backgroundColor: COLORS.selection.background,
@@ -832,6 +833,7 @@ const styles = StyleSheet.create({
   },
   chatContent: {
     flex: 1,
+    minWidth: 0,
     gap: SPACING.xs,
   },
   chatTopRow: {
@@ -865,6 +867,7 @@ const styles = StyleSheet.create({
     color: I.ink,
   },
   chatDate: {
+    flexShrink: 0,
     fontSize: T.caption.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontWeight: T.caption.fontWeight as '400',
@@ -883,6 +886,7 @@ const styles = StyleSheet.create({
   },
   chatMessage: {
     flex: 1,
+    minWidth: 0,
     fontSize: T.navLink.fontSize,
     fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
     fontWeight: T.navLink.fontWeight as '400',
@@ -901,6 +905,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     marginLeft: SPACING.sm,
     minWidth: 22,
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -941,27 +946,6 @@ const styles = StyleSheet.create({
     lineHeight: Math.round(T.small.fontSize * T.small.lineHeight),
     color: I.muted,
     textAlign: 'center',
-  },
-  searchBarWrap: {
-    paddingTop: SPACING.xs,
-    paddingBottom: SPACING.xs,
-  },
-  searchBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    backgroundColor: COLORS.background.paper,
-    borderWidth: 1,
-    borderColor: COLORS.border.light,
-    borderRadius: BORDERS.radius.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-  },
-  searchBarInput: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.text.primary,
-    paddingVertical: 0,
   },
   jobChooserHint: {
     marginTop: SPACING.xs,

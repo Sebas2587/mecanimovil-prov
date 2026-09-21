@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
+  Animated,
   Modal,
   Platform,
   Pressable,
+  TouchableOpacity,
   View,
   StyleSheet,
+  type GestureResponderEvent,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -12,6 +15,7 @@ import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, BORDERS, SPACING, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { useSheetDismissGesture } from '@/app/design-system/components/useSheetDismissGesture';
 
 const C = COLORS;
 const I = COLORS.institutional;
@@ -27,8 +31,8 @@ export type BottomSheetProps = {
 };
 
 /**
- * Móvil: sheet inferior (Airbnb Hosts).
- * Web: diálogo centrado — no se pega ni se corta bajo el viewport.
+ * Móvil: sheet inferior — tap en el scrim o swipe down cierra.
+ * Web: diálogo centrado — click / tap fuera del paper cierra; swipe down también.
  */
 export function BottomSheet({
   visible,
@@ -38,11 +42,22 @@ export function BottomSheet({
   stickyFooter = false,
 }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
+  const { translateY, panHandlers, reset } = useSheetDismissGesture(onClose);
   const bottomPad = IS_WEB
     ? SPACING.fixed.lg
     : stickyFooter
       ? Math.max(insets.bottom, SPACING.fixed.xxs)
       : Math.max(insets.bottom, SPACING.fixed.md);
+
+  useEffect(() => {
+    if (visible) reset();
+  }, [visible, reset]);
+
+  const absorbSheetPress = useCallback((e: GestureResponderEvent) => {
+    e.stopPropagation?.();
+  }, []);
+
+  if (!visible) return null;
 
   return (
     <Modal
@@ -50,46 +65,58 @@ export function BottomSheet({
       transparent
       animationType={IS_WEB ? 'fade' : 'slide'}
       onRequestClose={onClose}
+      statusBarTranslucent
+      presentationStyle="overFullScreen"
     >
-      <View style={[styles.overlay, IS_WEB && styles.overlayWeb]}>
-        <Pressable
-          style={styles.backdrop}
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel="Cerrar"
-        />
-        <View
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={onClose}
+        style={[styles.overlay, IS_WEB && styles.overlayWeb]}
+        accessibilityRole="button"
+        accessibilityLabel="Cerrar"
+      >
+        <Animated.View
+          collapsable={false}
           style={[
             styles.sheet,
             stickyFooter && !IS_WEB && styles.sheetSticky,
-            { paddingBottom: bottomPad },
+            { paddingBottom: bottomPad, transform: [{ translateY }] },
             style,
             IS_WEB && styles.sheetWeb,
             stickyFooter && IS_WEB && styles.sheetWebSticky,
           ]}
+          {...panHandlers}
         >
-          {IS_WEB ? (
-            <View style={styles.dialogBar}>
-              <Pressable
-                onPress={onClose}
-                hitSlop={8}
-                style={styles.closeBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Cerrar"
+          <TouchableOpacity activeOpacity={1} onPress={absorbSheetPress}>
+            {IS_WEB ? (
+              <View style={styles.dialogBar}>
+                <Pressable
+                  onPress={onClose}
+                  hitSlop={8}
+                  style={styles.closeBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cerrar"
+                >
+                  <X size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                </Pressable>
+              </View>
+            ) : (
+              <View
+                style={styles.handleHit}
+                accessibilityRole="adjustable"
+                accessibilityLabel="Arrastra hacia abajo para cerrar"
               >
-                <X size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-              </Pressable>
-            </View>
-          ) : (
-            <View style={styles.handle} />
-          )}
-          {stickyFooter ? (
-            <View style={styles.stickyInner}>{children}</View>
-          ) : (
-            children
-          )}
-        </View>
-      </View>
+                <View style={styles.handle} />
+              </View>
+            )}
+            {stickyFooter ? (
+              <View style={styles.stickyInner}>{children}</View>
+            ) : (
+              children
+            )}
+          </TouchableOpacity>
+        </Animated.View>
+      </TouchableOpacity>
     </Modal>
   );
 }
@@ -97,14 +124,14 @@ export function BottomSheet({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     justifyContent: 'flex-end',
     backgroundColor: C.background.overlay,
   },
   overlayWeb: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING.fixed.lg,
-    // RN-web: el Modal no siempre llena el viewport; fixed evita que quede bajo la pantalla.
     ...({
       position: 'fixed',
       top: 0,
@@ -114,10 +141,8 @@ const styles = StyleSheet.create({
       height: '100vh',
       width: '100vw',
       boxSizing: 'border-box',
+      cursor: 'pointer',
     } as ViewStyle),
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
   },
   sheet: {
     backgroundColor: C.background.paper,
@@ -127,16 +152,17 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.fixed.sm,
     maxHeight: '92%',
     width: '100%',
-    zIndex: 1,
   },
   sheetWeb: {
     borderRadius: BORDERS.radius.modal.md,
     borderTopLeftRadius: BORDERS.radius.modal.md,
     borderTopRightRadius: BORDERS.radius.modal.md,
     maxWidth: 440,
-    width: '100%',
+    width: '92%',
     maxHeight: '85vh' as unknown as number,
     paddingTop: SPACING.fixed.xs,
+    // @ts-expect-error web-only cursor
+    cursor: 'default',
     ...SHADOWS.editorial,
   },
   sheetWebSticky: {
@@ -145,7 +171,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minHeight: 0,
   },
-  /** Sheet con footer fijo: ocupa hasta maxHeight y reparte scroll + botonera. */
   sheetSticky: {
     flexGrow: 1,
     flexShrink: 1,
@@ -157,13 +182,16 @@ const styles = StyleSheet.create({
     minHeight: 0,
     width: '100%',
   },
+  handleHit: {
+    alignItems: 'center',
+    paddingTop: SPACING.fixed.xxs,
+    paddingBottom: SPACING.fixed.md,
+  },
   handle: {
-    alignSelf: 'center',
     width: 36,
     height: 4,
     borderRadius: 2,
     backgroundColor: C.border.main,
-    marginBottom: SPACING.fixed.md,
   },
   dialogBar: {
     flexDirection: 'row',
