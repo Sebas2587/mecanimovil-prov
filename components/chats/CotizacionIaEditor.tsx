@@ -38,6 +38,7 @@ import {
   formatRangoClp,
   labelFamilia,
   metaLineaTexto,
+  montosFichaYTecho,
   motivoSinPrecio,
   opcionesFamilia,
 } from '@/components/cotizacion/repuestoCerteza';
@@ -139,6 +140,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
   onEspecificacion,
   onBuscarIa,
   puedeBuscarIa = false,
+  rangoCliente = null,
 }: {
   rep: RepuestoCotizacion;
   index: number;
@@ -151,6 +153,7 @@ const RepuestoRow = React.memo(function RepuestoRow({
   onEspecificacion: (rep: RepuestoCotizacion, spec: string) => void;
   onBuscarIa?: (rep: RepuestoCotizacion) => void;
   puedeBuscarIa?: boolean;
+  rangoCliente?: string | null;
 }) {
   const precioUnit = redondearCLP(rep.precio_unitario_clp);
   const subtotal = subtotalRepuesto(rep);
@@ -346,6 +349,11 @@ const RepuestoRow = React.memo(function RepuestoRow({
           {cantidadGuardada} × {formatearMontoCLP(precioUnit)} = {formatearMontoCLP(subtotal)}
         </InstitutionalText>
       ) : null}
+      {rangoCliente ? (
+        <InstitutionalText role="caption" color="muted">
+          {rangoCliente}
+        </InstitutionalText>
+      ) : null}
       {editable && puedeBuscarIa && onBuscarIa && !precioPendiente ? (
         <InstitutionalButton
           label="Buscar precio"
@@ -478,6 +486,19 @@ const DESCUENTO_TIPO_TABS = [
   { key: 'porcentaje' as const, label: '%' },
   { key: 'monto' as const, label: '$' },
 ];
+
+function captionRangoCliente(
+  rep: RepuestoCotizacion,
+  emitida: boolean,
+  editable: boolean,
+): string | null {
+  const { ficha, techo } = montosFichaYTecho(rep);
+  if (!(ficha > 0 && techo > 0 && ficha !== techo)) return null;
+  if (!emitida && !editable) return null;
+  const rango = formatRangoClp(Math.min(ficha, techo), Math.max(ficha, techo));
+  if (!rango) return null;
+  return emitida ? `Cliente ve ${rango}` : `En estimación el cliente vería ${rango}`;
+}
 
 const DESCUENTO_ALCANCE_TABS = [
   { key: 'mano_obra' as const, label: 'Mano de obra' },
@@ -679,6 +700,27 @@ export const CotizacionIaEditor = React.forwardRef<
     () => desgloseIvaDesdeTotal(totalCalculado),
     [totalCalculado],
   );
+
+  const esEstimacionEmitida = cotizacion.estado !== 'borrador'
+    && (cotizacion.tipo_documento === 'estimacion'
+      || cotizacion.tipo_documento_emitido === 'estimacion');
+
+  const bandaCliente = useMemo(() => {
+    let min = 0;
+    let max = 0;
+    for (const rep of repuestos) {
+      const qty = Math.max(1, Math.round(Number(rep.cantidad) || 1));
+      const { ficha, techo } = montosFichaYTecho(rep);
+      const lo = ficha > 0 && techo > 0 ? Math.min(ficha, techo) : (ficha || techo);
+      const hi = ficha > 0 && techo > 0 ? Math.max(ficha, techo) : (techo || ficha);
+      min += qty * lo;
+      max += qty * hi;
+    }
+    const desc = descuentoLive.descuentoClp;
+    min = Math.max(0, min + manoObra - desc);
+    max = Math.max(0, max + manoObra - desc);
+    return { min, max, hayRango: min > 0 && max > 0 && min !== max };
+  }, [repuestos, manoObra, descuentoLive.descuentoClp]);
 
   const aplicarLineasMo = useCallback((next: ManoObraLinea[]) => {
     const current = cotizacionRef.current;
@@ -1101,6 +1143,11 @@ export const CotizacionIaEditor = React.forwardRef<
                   size="sm"
                 />
               ) : null}
+              {cotizacion.estado !== 'borrador'
+                && (cotizacion.tipo_documento === 'estimacion'
+                  || cotizacion.tipo_documento_emitido === 'estimacion') ? (
+                <InstitutionalTag label="Estimación · rangos" variant="warning" size="sm" />
+              ) : null}
               <InstitutionalTag
                 label={cotizacion.estado}
                 variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
@@ -1483,6 +1530,7 @@ export const CotizacionIaEditor = React.forwardRef<
                 onEspecificacion={definirEspecificacionLinea}
                 onBuscarIa={cotizarItemsConIa}
                 puedeBuscarIa={lineaNecesitaBusquedaPrecio(rep)}
+                rangoCliente={captionRangoCliente(rep, esEstimacionEmitida, editable)}
               />
             ))}
           </View>
@@ -1516,35 +1564,72 @@ export const CotizacionIaEditor = React.forwardRef<
             </InstitutionalText>
           </View>
         ) : null}
+        {esEstimacionEmitida && bandaCliente.hayRango ? null : (
+          <>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryRow}>
+              <InstitutionalText role="caption" color="muted">
+                Neto
+              </InstitutionalText>
+              <InstitutionalText role="captionBold" color="ink">
+                {formatearMontoCLP(desgloseTotal.neto)}
+              </InstitutionalText>
+            </View>
+            <View style={styles.summaryRow}>
+              <InstitutionalText role="caption" color="muted">
+                IVA 19%
+              </InstitutionalText>
+              <InstitutionalText role="captionBold" color="ink">
+                {formatearMontoCLP(desgloseTotal.iva)}
+              </InstitutionalText>
+            </View>
+          </>
+        )}
         <View style={styles.summaryDivider} />
-        <View style={styles.summaryRow}>
-          <InstitutionalText role="caption" color="muted">
-            Neto
-          </InstitutionalText>
-          <InstitutionalText role="captionBold" color="ink">
-            {formatearMontoCLP(desgloseTotal.neto)}
-          </InstitutionalText>
-        </View>
-        <View style={styles.summaryRow}>
-          <InstitutionalText role="caption" color="muted">
-            IVA 19%
-          </InstitutionalText>
-          <InstitutionalText role="captionBold" color="ink">
-            {formatearMontoCLP(desgloseTotal.iva)}
-          </InstitutionalText>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryRow}>
-          <InstitutionalText role="h5" color="ink">
-            Total a pagar
-          </InstitutionalText>
-          <InstitutionalText role="numberDisplay" color="ink" style={styles.totalValue}>
-            {formatearMontoCLP(desgloseTotal.total)}
-          </InstitutionalText>
-        </View>
-        <InstitutionalText role="caption" color="muted">
-          Los precios de línea ya incluyen IVA. El desglose neto/IVA es informativo.
-        </InstitutionalText>
+        {esEstimacionEmitida && bandaCliente.hayRango ? (
+          <>
+            <View style={styles.summaryRow}>
+              <InstitutionalText role="h5" color="ink">
+                Total estimado
+              </InstitutionalText>
+              <InstitutionalText role="numberDisplay" color="ink" style={styles.totalValue}>
+                {formatRangoClp(bandaCliente.min, bandaCliente.max)}
+              </InstitutionalText>
+            </View>
+            <View style={styles.summaryRow}>
+              <InstitutionalText role="caption" color="muted">
+                Total de trabajo (taller)
+              </InstitutionalText>
+              <InstitutionalText role="captionBold" color="ink">
+                {formatearMontoCLP(desgloseTotal.total)}
+              </InstitutionalText>
+            </View>
+            <InstitutionalText role="caption" color="muted">
+              El cliente ve el rango. Los montos de línea no cambian.
+            </InstitutionalText>
+          </>
+        ) : (
+          <>
+            <View style={styles.summaryRow}>
+              <InstitutionalText role="h5" color="ink">
+                Total a pagar
+              </InstitutionalText>
+              <InstitutionalText role="numberDisplay" color="ink" style={styles.totalValue}>
+                {formatearMontoCLP(desgloseTotal.total)}
+              </InstitutionalText>
+            </View>
+            {bandaCliente.hayRango ? (
+              <InstitutionalText role="caption" color="muted">
+                Si envías estimación, el cliente verá{' '}
+                {formatRangoClp(bandaCliente.min, bandaCliente.max)}.
+              </InstitutionalText>
+            ) : (
+              <InstitutionalText role="caption" color="muted">
+                Los precios de línea ya incluyen IVA. El desglose neto/IVA es informativo.
+              </InstitutionalText>
+            )}
+          </>
+        )}
       </Card>
 
       <SeccionOpcional

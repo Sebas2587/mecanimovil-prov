@@ -33,6 +33,15 @@ function formatFecha(iso?: string | null): string {
   return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+function formatRangoOMonto(min?: number, max?: number, fallback?: number): string {
+  const a = Math.round(Number(min) || 0);
+  const b = Math.round(Number(max) || 0);
+  if (a > 0 && b > 0 && a !== b) {
+    return `${formatearMontoCLP(a)} – ${formatearMontoCLP(b)}`;
+  }
+  return formatearMontoCLP(b || a || fallback || 0);
+}
+
 type Props = {
   visible: boolean;
   cotizacionId?: number | null;
@@ -184,15 +193,23 @@ export function VistaPreviaCotizacionClienteModal({
               {reps.map((rep, idx) => {
                 const qty = Number(rep.cantidad) || 1;
                 const unit = Number(rep.precio_unitario_clp) || 0;
+                const min = Number(rep.precio_min_clp) || 0;
+                const max = Number(rep.precio_max_clp) || 0;
+                const unitLabel = esEstimacion
+                  ? formatRangoOMonto(min, max, unit)
+                  : formatearMontoCLP(unit);
+                const subLabel = esEstimacion
+                  ? formatRangoOMonto(min * qty, max * qty, qty * unit)
+                  : formatearMontoCLP(qty * unit);
                 return (
                   <View key={`${rep.nombre}-${idx}`} style={styles.lineRow}>
                     <InstitutionalText role="body" style={styles.lineName}>
                       {rep.nombre || 'Repuesto'}
                     </InstitutionalText>
                     <InstitutionalText role="caption" color="muted">
-                      Repuesto · {qty} × {formatearMontoCLP(unit)}
+                      Repuesto · {qty} × {unitLabel}
                     </InstitutionalText>
-                    <InstitutionalText role="bodyBold">{formatearMontoCLP(qty * unit)}</InstitutionalText>
+                    <InstitutionalText role="bodyBold">{subLabel}</InstitutionalText>
                   </View>
                 );
               })}
@@ -227,9 +244,20 @@ export function VistaPreviaCotizacionClienteModal({
                 </View>
               ) : null}
               <View style={styles.totalRow}>
-                <InstitutionalText role="bodyBold">Total a pagar</InstitutionalText>
-                <InstitutionalText role="h5">{formatearMontoCLP(doc.total_clp)}</InstitutionalText>
+                <InstitutionalText role="bodyBold">
+                  {esEstimacion ? 'Total estimado' : 'Total a pagar'}
+                </InstitutionalText>
+                <InstitutionalText role="h5">
+                  {esEstimacion
+                    ? formatRangoOMonto(doc.total_min_clp, doc.total_max_clp, doc.total_clp)
+                    : formatearMontoCLP(doc.total_clp)}
+                </InstitutionalText>
               </View>
+              {esEstimacion ? (
+                <InstitutionalText role="caption" color="muted">
+                  Valores de referencia. El taller confirma antes de comprar.
+                </InstitutionalText>
+              ) : null}
             </View>
 
             <InstitutionalText role="caption" color="muted">

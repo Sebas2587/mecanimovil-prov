@@ -386,10 +386,15 @@ export type VistaPreviaPublica = {
   modalidad?: string;
   mano_obra_lineas?: Array<{ id?: string; nombre?: string; monto_clp?: number }>;
   mano_obra_clp?: number;
+  tipo_documento?: 'estimacion' | 'cotizacion' | string;
+  total_min_clp?: number;
+  total_max_clp?: number;
   repuestos?: Array<{
     nombre?: string;
     cantidad?: number;
     precio_unitario_clp?: number;
+    precio_min_clp?: number;
+    precio_max_clp?: number;
   }>;
   costo_repuestos_clp?: number;
   descuento_clp?: number;
