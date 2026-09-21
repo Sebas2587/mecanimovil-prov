@@ -1,4 +1,5 @@
 import api from './api';
+import { hidratarPreciosCotizacion } from '@/utils/cotizacionPreciosWeb';
 
 export interface ManoObraLinea {
   id?: string;
@@ -54,8 +55,18 @@ export function resolverManoObraLineas(c: Pick<CotizacionCanal, 'mano_obra_linea
       });
     });
   }
-  if (out.length) return out.slice(0, MAX_MANO_OBRA_LINEAS);
   const mo = Math.max(0, Math.round(Number(c.mano_obra_clp) || 0));
+  if (out.length) {
+    const suma = out.reduce((acc, lin) => acc + lin.monto_clp, 0);
+    if (suma > 0 || mo <= 0) return out.slice(0, MAX_MANO_OBRA_LINEAS);
+    const n = Math.min(out.length, MAX_MANO_OBRA_LINEAS);
+    const base = Math.floor(mo / n);
+    const resto = mo - base * n;
+    return out.slice(0, n).map((lin, i) => ({
+      ...lin,
+      monto_clp: base + (i === 0 ? resto : 0),
+    }));
+  }
   if (mo <= 0) return [];
   const titulo = (c.servicio_nombre || '').trim() || 'Mano de obra';
   return [{ id: 'mo-1', nombre: titulo, monto_clp: mo }];
@@ -633,6 +644,10 @@ export function adicionalRequiereFecha(c: CotizacionCanal): boolean {
   );
 }
 
+function hidratarLista(rows: CotizacionCanal[]): CotizacionCanal[] {
+  return rows.map(hidratarPreciosCotizacion);
+}
+
 class CotizacionCanalService {
   async esperarPreciosWeb(
     id: number,
@@ -684,16 +699,20 @@ class CotizacionCanalService {
     const response = await api.post(`/ordenes/cotizaciones-canal/${id}/cotizar-items/`, payload, {
       timeout: 45000,
     });
-    return response.data as {
+    const data = response.data as {
       cotizacion: CotizacionCanal;
       agregados: string[];
       busqueda_web: boolean;
+    };
+    return {
+      ...data,
+      cotizacion: hidratarPreciosCotizacion(data.cotizacion),
     };
   }
 
   async actualizar(id: number, patch: Partial<CotizacionCanal>): Promise<CotizacionCanal> {
     const response = await api.patch(`/ordenes/cotizaciones-canal/${id}/`, patch);
-    return response.data as CotizacionCanal;
+    return hidratarPreciosCotizacion(response.data as CotizacionCanal);
   }
 
   async vistaPrevia(id: number): Promise<VistaPreviaPublica> {
@@ -849,13 +868,15 @@ class CotizacionCanalService {
     const url = qs ? `/ordenes/cotizaciones-canal/?${qs}` : '/ordenes/cotizaciones-canal/';
     const response = await api.get(url);
     const data = response.data as CotizacionCanal[] | { results?: CotizacionCanal[] };
-    return Array.isArray(data) ? data : data?.results ?? [];
+    const rows = Array.isArray(data) ? data : data?.results ?? [];
+    return hidratarLista(rows);
   }
 
   async listarPorConversacion(conversationId: number): Promise<CotizacionCanal[]> {
     const response = await api.get(`/ordenes/cotizaciones-canal/por-conversacion/${conversationId}/`);
     const data = response.data as CotizacionCanal[] | { results?: CotizacionCanal[] };
-    return Array.isArray(data) ? data : data?.results ?? [];
+    const rows = Array.isArray(data) ? data : data?.results ?? [];
+    return hidratarLista(rows);
   }
 
   async obtener(
@@ -864,7 +885,7 @@ class CotizacionCanalService {
   ): Promise<CotizacionCanal> {
     const qs = opts?.sinRetry ? '?sin_retry=1' : '';
     const response = await api.get(`/ordenes/cotizaciones-canal/${id}/${qs}`);
-    return response.data as CotizacionCanal;
+    return hidratarPreciosCotizacion(response.data as CotizacionCanal);
   }
 
   async listarPlantillas(filtro?: {

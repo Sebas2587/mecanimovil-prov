@@ -75,6 +75,7 @@ import { formatDateApi } from '@/utils/fechaLocal';
 import { showAlert } from '@/utils/platformAlert';
 import {
   busquedaWebPendiente,
+  esBorradorGeneradoPorAgente,
   lineaNecesitaBusquedaPrecio,
   resumenPreciosRepuestos,
 } from '@/utils/cotizacionPreciosWeb';
@@ -534,7 +535,8 @@ export const CotizacionIaEditor = React.forwardRef<
   const editable = !readonly;
   const lineasMo = useMemo(() => resolverManoObraLineas(cotizacion), [cotizacion]);
   const manoObra = sumaManoObraLineas(lineasMo);
-  const busquedaPendiente = cotizacion.metadata?.busqueda_web_estado === 'pendiente';
+  const busquedaPendiente = !esBorradorGeneradoPorAgente(cotizacion)
+    && cotizacion.metadata?.busqueda_web_estado === 'pendiente';
   const appliedWebRef = useRef<string | null>(null);
   const pendientePrevRef = useRef(false);
   const cotizacionRef = useRef(cotizacion);
