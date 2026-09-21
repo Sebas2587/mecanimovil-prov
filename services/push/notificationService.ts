@@ -68,6 +68,7 @@ function configureNotificationHandler(Notifications: NotificationsModule): void 
   notificationHandlerConfigured = true;
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
+      shouldShowAlert: true,
       shouldShowBanner: true,
       shouldShowList: true,
       shouldPlaySound: true,
@@ -126,7 +127,7 @@ class NotificationService {
     return this.isNativePushAvailable();
   }
 
-  async requestPermissions(): Promise<boolean> {
+    async requestPermissions(): Promise<boolean> {
     const Notifications = loadNotifications();
     const Device = loadDevice();
     if (!Notifications || !Device) return false;
@@ -138,7 +139,13 @@ class NotificationService {
     const { status: existing } = await Notifications.getPermissionsAsync();
     let finalStatus = existing;
     if (existing !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+        },
+      });
       finalStatus = status;
     }
     return finalStatus === 'granted';
@@ -200,11 +207,22 @@ class NotificationService {
 
   /** Registra Expo push tras login (solo nativo). */
   async syncPushTokenForUser(userId: number): Promise<void> {
-    if (!userId || !this.isNativePushAvailable()) return;
-    const token = await this.obtenerPushToken();
-    if (token) {
-      await this.registrarTokenEnBackend(token, userId);
+    if (!userId || !this.isNativePushAvailable()) {
+      if (__DEV__ && userId && IS_EXPO_GO) {
+        console.warn(
+          '[NotificationService] Expo Go no registra push nativo. Usa un dev build o EAS.',
+        );
+      }
+      return;
     }
+    const token = await this.obtenerPushToken();
+    if (!token) {
+      if (__DEV__) {
+        console.warn('[NotificationService] Sin Expo push token (permiso denegado o projectId).');
+      }
+      return;
+    }
+    await this.registrarTokenEnBackend(token, userId);
   }
 
   /** Registra Web Push tras login (solo web). */

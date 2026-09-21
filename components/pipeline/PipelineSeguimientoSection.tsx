@@ -12,7 +12,7 @@ import {
   type RefreshControlProps,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import {
   Check,
   ChevronDown,

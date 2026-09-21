@@ -114,7 +114,12 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
   }, []);
 
   const irABandeja = useCallback(() => {
-    router.push('/(tabs)/bandeja');
+    // Cotizar está encima de los tabs: un push deja Bandeja detrás y en iOS traba el stack.
+    if (router.canDismiss()) {
+      router.dismissTo('/(tabs)/bandeja');
+      return;
+    }
+    router.replace('/(tabs)/bandeja');
   }, []);
 
   const onRefresh = useCallback(() => {

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
@@ -7,6 +7,7 @@ import PipelineClientesSection from '@/components/pipeline/PipelineClientesSecti
 import { COLORS, SPACING } from '@/app/design-system/tokens';
 import { hostScreenStyles } from '@/app/design-system/components';
 import type { OrigenPipeline, PrioridadClientePipeline } from '@/services/pipelineComercialService';
+import { navigateBack } from '@/utils/navigateBack';
 
 const I = COLORS.institutional;
 
@@ -51,10 +52,20 @@ export default function BandejaTabScreen() {
       ? 'Clientes con una cotización aceptada que aún no tiene horario.'
       : undefined;
 
+  const handleBack = useCallback(() => {
+    navigateBack('/(tabs)');
+  }, []);
+
   return (
     <TabScreenWrapper>
       <View style={styles.screen}>
-        <Header title="Bandeja Comercial" backgroundColor={I.canvas} titleColor={I.ink} />
+        <Header
+          title="Bandeja Comercial"
+          showBack
+          onBackPress={handleBack}
+          backgroundColor={I.canvas}
+          titleColor={I.ink}
+        />
         <View style={[styles.body, hostScreenStyles.scroll]}>
           <PipelineClientesSection
             limite={100}

@@ -177,7 +177,7 @@ export function CotizacionCanalBubble(props: CotizacionCanalBubbleProps) {
             const cant = redondearCLP(rep.cantidad || 1);
             const unit = redondearCLP(rep.precio_unitario_clp);
             return (
-              <Text key={`rep-${idx}`} style={[styles.line, t.line]} numberOfLines={expanded ? 2 : 1}>
+              <Text key={`rep-${idx}`} style={[styles.line, t.line]}>
                 {rep.nombre} ×{cant} · {formatearMontoCLP(cant * unit)}
               </Text>
             );
@@ -193,7 +193,7 @@ export function CotizacionCanalBubble(props: CotizacionCanalBubbleProps) {
       {(expanded || moConMonto.length > 0) && moVisible.length > 0 ? (
         <View style={styles.block}>
           {moVisible.map((lin, idx) => (
-            <Text key={`mo-${idx}`} style={[styles.line, t.line]} numberOfLines={expanded ? 2 : 1}>
+            <Text key={`mo-${idx}`} style={[styles.line, t.line]}>
               {lin.nombre} · {formatearMontoCLP(lin.monto_clp)}
             </Text>
           ))}
@@ -348,6 +348,7 @@ const styles = StyleSheet.create({
   line: {
     fontFamily: FF.sansRegular,
     fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: 18,
   },
   lineMuted: {
     fontFamily: FF.sansRegular,

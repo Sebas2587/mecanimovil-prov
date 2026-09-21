@@ -13,7 +13,7 @@ function buildTargetUrl(data) {
   const ordenId = data.orden_id || data.order_id || '';
   const channel = data.channel || '';
 
-  if (type === 'chat_message' || type === 'nuevo_mensaje_chat') {
+  if (type === 'chat_message' || type === 'nuevo_mensaje_chat' || type === 'nuevo_contacto_canal') {
     if (conversationId && !ofertaId) {
       const params = new URLSearchParams();
       params.set('conversationId', String(conversationId));
@@ -74,7 +74,7 @@ function buildTargetUrl(data) {
     return `${APP_ORIGIN}/creditos`;
   }
 
-  if (type === 'agente_ia_cotizacion_borrador') {
+  if (type === 'agente_ia_cotizacion_borrador' || type === 'pipeline_borrador_listo_sin_enviar' || type === 'pipeline_cotizacion_adicional_borrador') {
     return `${APP_ORIGIN}/cotizar-ia`;
   }
 
@@ -87,7 +87,7 @@ function buildTargetUrl(data) {
     return `${APP_ORIGIN}/(tabs)/chats`;
   }
 
-  if (type === 'agente_ia_cotizacion_aceptada' || type === 'agente_ia_cita_confirmada') {
+  if (type === 'agente_ia_cotizacion_aceptada' || type === 'agente_ia_cita_confirmada' || type === 'pipeline_agenda_pendiente_confirmacion' || type === 'cita_agendada') {
     const citaId = data.cita_id || data.citaId || '';
     if (citaId) {
       return `${APP_ORIGIN}/cita-agenda-personal/${encodeURIComponent(String(citaId))}`;
@@ -111,6 +111,10 @@ function buildTargetUrl(data) {
       return `${APP_ORIGIN}/chat-omnicanal?${params.toString()}`;
     }
     return `${APP_ORIGIN}/(tabs)/index`;
+  }
+
+  if (type === 'pipeline_cotizacion_sin_respuesta_24h' || type === 'pipeline_cotizacion_demorada_48h') {
+    return `${APP_ORIGIN}/(tabs)/bandeja`;
   }
 
   return `${APP_ORIGIN}/notificaciones`;
@@ -138,8 +142,10 @@ self.addEventListener('push', (event) => {
     'checklist_pendiente',
     'orden_asignada_mecanico',
     'chat_message',
+    'nuevo_contacto_canal',
     'agente_ia_cotizacion_borrador',
     'agente_ia_escalamiento',
+    'pipeline_agenda_pendiente_confirmacion',
   ].includes(type);
 
   const tagSuffix =

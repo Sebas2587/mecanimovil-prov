@@ -7,9 +7,9 @@
 | iOS / Android (dev/EAS build) | Expo Push | `POST /usuarios/registrar-push-token/` |
 | Web (navegador) | Web Push VAPID | `POST /usuarios/registrar-web-push/` con `app_origen: proveedor` |
 
-Los canales son **mutuamente excluyentes** en el cliente: web no usa `expo-notifications`; nativo no registra Service Worker.
+Los canales **no son excluyentes en el envío**: el backend entrega a todos los tokens Expo activos (iOS y Android) **y** a las suscripciones Web Push. Un token nativo inválido se desactiva y no silencia el navegador.
 
-En backend, si el usuario tiene **PushToken nativo activo** (últimos 30 días), no se envía Web Push duplicado al mismo usuario.
+En el cliente sí son excluyentes: web no usa `expo-notifications`; nativo no registra Service Worker.
 
 ## Flujo web
 
@@ -25,6 +25,10 @@ En backend, si el usuario tiene **PushToken nativo activo** (últimos 30 días),
 | `nueva_solicitud` | Cliente publica solicitud compatible |
 | `solicitud_por_vencer` | Celery cada 30 min (~30–60 min antes de expirar) |
 | `chat_message` + `channel` | Mensaje app / WhatsApp / Messenger / Instagram |
+| `nuevo_contacto_canal` | Primer mensaje de un contacto nuevo en un canal conectado |
+| `agente_ia_cotizacion_borrador` | Borrador del agente pendiente de revisión/envío |
+| `agente_ia_cita_confirmada` / `pipeline_agenda_pendiente_confirmacion` | Cita agendada o horario por confirmar |
+| `suscripcion_por_vencer` / `suscripcion_vencida` | Celery cada 6 h |
 | `checklist_pendiente` | Orden confirmada con checklist PENDIENTE creado |
 
 ## Requisitos de build nativo

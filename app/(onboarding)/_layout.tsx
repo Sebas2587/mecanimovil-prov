@@ -4,7 +4,13 @@ import { OnboardingDraftProvider } from '@/context/OnboardingDraftContext';
 export default function OnboardingLayout() {
   return (
     <OnboardingDraftProvider>
-    <Stack>
+    <Stack
+      screenOptions={{
+        presentation: 'card',
+        animation: 'slide_from_right',
+        gestureDirection: 'horizontal',
+      }}
+    >
       <Stack.Screen 
         name="tipo-cuenta" 
         options={{ 

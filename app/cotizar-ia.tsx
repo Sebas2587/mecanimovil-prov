@@ -16,7 +16,7 @@ export default function CotizarIaScreen() {
       router.back();
       return;
     }
-    router.replace('/(tabs)' as never);
+    router.replace('/(tabs)');
   }, []);
 
   return (

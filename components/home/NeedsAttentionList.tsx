@@ -63,18 +63,22 @@ const AttentionRow = React.memo(function AttentionRow({
         )}
       </View>
       <View style={styles.copy}>
-        <InstitutionalText role="bodyBold" numberOfLines={1}>
+        <InstitutionalText role="bodyBold">
           {titulo}
         </InstitutionalText>
         {vehiculo ? (
-          <InstitutionalTag label={vehiculo} variant="neutral" size="sm" />
+          <InstitutionalText role="caption" color="muted">
+            {vehiculo}
+          </InstitutionalText>
         ) : null}
-        <InstitutionalText role="caption" color="body" numberOfLines={2}>
+        <InstitutionalText role="caption" color="body">
           {copyAtencion(row)}
         </InstitutionalText>
+        <InstitutionalTag label={tag.label} variant={tag.variant} size="sm" />
       </View>
-      <InstitutionalTag label={tag.label} variant="warning" size="sm" />
-      <ChevronRight size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+      <View style={styles.chevron}>
+        <ChevronRight size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+      </View>
     </TouchableOpacity>
   );
 });
@@ -155,7 +159,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: SPACING.fixed.sm,
     paddingVertical: SPACING.fixed.sm,
   },
@@ -166,6 +170,10 @@ const styles = StyleSheet.create({
   copy: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
+    gap: 4,
+  },
+  chevron: {
+    marginTop: 2,
+    flexShrink: 0,
   },
 });

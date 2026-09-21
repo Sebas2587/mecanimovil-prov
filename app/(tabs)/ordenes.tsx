@@ -29,7 +29,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
 import websocketService from '@/app/services/websocketService';

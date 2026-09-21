@@ -21,11 +21,9 @@ const IS_WEB = Platform.OS === 'web';
 
 export type { VistaPreviaPublica };
 
-function tituloCorto(nombre?: string | null): string {
+function tituloDetalle(nombre?: string | null): string {
   const raw = String(nombre || '').trim();
-  if (!raw) return 'Detalle del presupuesto';
-  if (raw.length > 72) return 'Detalle del presupuesto';
-  return raw;
+  return raw || 'Detalle del presupuesto';
 }
 
 function formatFecha(iso?: string | null): string {
@@ -173,10 +171,10 @@ export function VistaPreviaCotizacionClienteModal({
 
             <View style={styles.block}>
               <InstitutionalText role="caption" color="muted">Detalle</InstitutionalText>
-              <InstitutionalText role="body">{tituloCorto(doc.servicio_nombre)}</InstitutionalText>
+              <InstitutionalText role="body">{tituloDetalle(doc.servicio_nombre)}</InstitutionalText>
               {moLineas.map((lin) => (
                 <View key={lin.id || lin.nombre} style={styles.lineRow}>
-                  <InstitutionalText role="body" style={styles.lineName} numberOfLines={3}>
+                  <InstitutionalText role="body" style={styles.lineName}>
                     {lin.nombre}
                   </InstitutionalText>
                   <InstitutionalText role="caption" color="muted">Mano de obra</InstitutionalText>
@@ -188,7 +186,7 @@ export function VistaPreviaCotizacionClienteModal({
                 const unit = Number(rep.precio_unitario_clp) || 0;
                 return (
                   <View key={`${rep.nombre}-${idx}`} style={styles.lineRow}>
-                    <InstitutionalText role="body" style={styles.lineName} numberOfLines={3}>
+                    <InstitutionalText role="body" style={styles.lineName}>
                       {rep.nombre || 'Repuesto'}
                     </InstitutionalText>
                     <InstitutionalText role="caption" color="muted">
@@ -336,7 +334,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   lineName: {
-    flex: 1,
+    flexShrink: 1,
   },
   totals: {
     gap: 6,

@@ -10,7 +10,7 @@ import {
   TextInput,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { Check, ChevronDown, ChevronRight, Inbox, SlidersHorizontal, Users } from 'lucide-react-native';
 import {
   ORIGEN_PIPELINE_LABELS,

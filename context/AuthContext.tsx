@@ -38,8 +38,10 @@ async function registerPushForUser(userId: number | undefined): Promise<void> {
   if (!userId) return;
   try {
     await NotificationService.syncNotificationsForUser(userId);
-  } catch {
-    /* no crítico */
+  } catch (e) {
+    if (__DEV__) {
+      console.warn('[Auth] No se pudo registrar push:', e);
+    }
   }
 }
 

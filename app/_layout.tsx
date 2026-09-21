@@ -86,14 +86,13 @@ if (typeof RNLogBox !== 'undefined') {
 // - Los errores NUNCA aparecerán visualmente en la interfaz (ni RedBox, ni LogBox, ni YellowBox)
 // - El usuario solo verá Alert.alert con mensajes amigables cuando sea necesario
 
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import {
   Poppins_400Regular,
   Poppins_500Medium,
   Poppins_600SemiBold,
 } from '@expo-google-fonts/poppins';
-import { Stack } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-gesture-handler';
@@ -192,6 +191,10 @@ export default function RootLayout() {
                       // iOS: evita el texto "(tabs)" junto a la flecha al abrir pantallas fuera del grupo tabs
                       headerBackTitleVisible: false,
                       headerBackTitle: '',
+                      // SDK 57: sin esto, iOS/Android presentan pushes como hoja flotante (formSheet).
+                      presentation: 'card',
+                      animation: 'slide_from_right',
+                      gestureDirection: 'horizontal',
                     }}
                   >
                   <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -251,9 +254,6 @@ export default function RootLayout() {
                     name="cotizar-ia"
                     options={{
                       headerShown: false,
-                      presentation: 'transparentModal',
-                      animation: 'none',
-                      contentStyle: { backgroundColor: 'transparent' },
                     }}
                   />
                   <Stack.Screen name="chat-omnicanal" options={{ headerShown: false }} />

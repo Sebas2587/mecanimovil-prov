@@ -70,9 +70,10 @@ export function navigateByPushNotification(
       break;
 
     case 'chat_message':
-    case 'nuevo_mensaje_chat': {
+    case 'nuevo_mensaje_chat':
+    case 'nuevo_contacto_canal': {
       const conversationId =
-        typeof data.conversation_id === 'string' ? data.conversation_id.trim() : '';
+        data.conversation_id != null ? String(data.conversation_id).trim() : '';
       if (conversationId && !ofertaId) {
         if (queryClient) void prefetchChatInbox(queryClient);
         const channel =
@@ -148,7 +149,9 @@ export function navigateByPushNotification(
     }
 
     case 'agente_ia_cotizacion_aceptada':
-    case 'agente_ia_cita_confirmada': {
+    case 'agente_ia_cita_confirmada':
+    case 'pipeline_agenda_pendiente_confirmacion':
+    case 'cita_agendada': {
       if (queryClient) invalidateProveedorComercialQueries(queryClient);
       const citaId = data.cita_id != null ? String(data.cita_id).trim() : '';
       if (citaId) {
@@ -168,6 +171,20 @@ export function navigateByPushNotification(
         return true;
       }
       router.push('/(tabs)/chats');
+      return true;
+    }
+
+    case 'pipeline_borrador_listo_sin_enviar':
+    case 'pipeline_cotizacion_adicional_borrador': {
+      if (queryClient) invalidateProveedorComercialQueries(queryClient);
+      router.push('/cotizar-ia');
+      return true;
+    }
+
+    case 'pipeline_cotizacion_sin_respuesta_24h':
+    case 'pipeline_cotizacion_demorada_48h': {
+      if (queryClient) invalidateProveedorComercialQueries(queryClient);
+      router.push('/(tabs)/bandeja');
       return true;
     }
 
