@@ -11,6 +11,7 @@ import {
 } from '@/utils/push/mecanicoPushAlerts';
 import type { PushNotificationData } from '@/utils/push/navigateByPushNotification';
 import { invalidateAsignacionesMecanicoQueries } from '@/utils/invalidateAsignacionesMecanico';
+import websocketService from '@/services/websocketService';
 
 export type TipoAlerta = 
   | 'mercado_pago_no_configurado'
@@ -24,7 +25,8 @@ export type TipoAlerta =
   | 'creditos_agotados'
   | 'creditos_para_confirmar'
   | 'orden_asignada_mecanico'
-  | 'checklist_pendiente';
+  | 'checklist_pendiente'
+  | 'mensaje_entrante';
 
 export interface Alerta {
   id: string;
@@ -45,7 +47,7 @@ interface AlertsContextType {
   alertasVisibles: Alerta[];
   alertasNoLeidas: number;
   saludSuscripcion: SaludSuscripcion | null;
-  agregarAlerta: (alerta: Omit<Alerta, 'id' | 'fecha' | 'leida'>) => void;
+  agregarAlerta: (alerta: Omit<Alerta, 'id' | 'fecha' | 'leida'>, dedupeId?: string) => void;
   registrarAlertaPushMecanico: (data: PushNotificationData) => void;
   marcarComoLeida: (id: string) => void;
   eliminarAlerta: (id: string) => void;
@@ -94,21 +96,21 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const alertasNoLeidas = alertasVisibles.filter((alerta) => !alerta.leida).length;
 
   // Agregar nueva alerta
-  const agregarAlerta = (alertaData: Omit<Alerta, 'id' | 'fecha' | 'leida'>) => {
+  const agregarAlerta = (alertaData: Omit<Alerta, 'id' | 'fecha' | 'leida'>, dedupeId?: string) => {
     const nuevaAlerta: Alerta = {
       ...alertaData,
-      id: `${alertaData.tipo}_${Date.now()}`,
+      id: dedupeId || `${alertaData.tipo}_${Date.now()}`,
       fecha: new Date(),
       leida: false,
     };
 
     setAlertas(prev => {
-      // Evitar duplicados del mismo tipo
-      const existe = prev.some(a => a.tipo === nuevaAlerta.tipo && !a.leida);
-      if (existe) {
-        return prev;
+      if (dedupeId && prev.some((a) => a.id === dedupeId)) return prev;
+      if (!dedupeId) {
+        const existe = prev.some(a => a.tipo === nuevaAlerta.tipo && !a.leida);
+        if (existe) return prev;
       }
-      return [nuevaAlerta, ...prev];
+      return [nuevaAlerta, ...prev].slice(0, 40);
     });
   };
 
@@ -379,6 +381,33 @@ export const AlertsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       verificarInFlightRef.current = false;
     }
   };
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const unsub = websocketService.onNuevoMensajeChat((event) => {
+      if (event.es_proveedor) return;
+      const conv = event.conversation_id != null ? String(event.conversation_id).trim() : '';
+      const contact = event.external_contact_name?.trim()
+        || event.enviado_por?.trim()
+        || 'Contacto';
+      const preview = (event.mensaje || event.message || event.content || '').trim();
+      agregarAlerta({
+        tipo: 'mensaje_entrante',
+        titulo: 'Nuevo mensaje',
+        mensaje: preview
+          ? `${contact}: ${preview.length > 90 ? `${preview.slice(0, 90)}…` : preview}`
+          : `Mensaje de ${contact}`,
+        accion: {
+          texto: 'Abrir chat',
+          ruta: conv
+            ? `/chat-omnicanal?conversationId=${encodeURIComponent(conv)}`
+            : '/(tabs)/chats',
+        },
+        prioridad: 'media',
+      }, `msg-${event.mensaje_id || conv || Date.now()}`);
+    });
+    return unsub;
+  }, [isAuthenticated]);
 
   // Verificar alertas cuando cambia el estado relevante del proveedor (debounced)
   useEffect(() => {

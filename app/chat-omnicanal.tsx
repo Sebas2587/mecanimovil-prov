@@ -21,7 +21,9 @@ import chatService from '@/services/chatService';
 import { OmnichannelChatHeader, OmnichannelChatActionBar } from '@/components/chats/OmnichannelChatHeader';
 import omnichannelService from '@/services/omnichannelService';
 import proveedorRepuestosService from '@/services/proveedorRepuestosService';
-import { useInvalidateChatInbox } from '@/hooks/useChatInboxQuery';
+import { CHAT_INBOX_QUERY_KEY, useInvalidateChatInbox } from '@/hooks/useChatInboxQuery';
+import { useQueryClient } from '@tanstack/react-query';
+import type { InboxChatItem } from '@/services/omnichannelService';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
 import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
@@ -126,24 +128,49 @@ export default function ChatOmnicanalScreen() {
 
   const conversationMeta = useOmnichannelConversationMeta(convId);
   const invalidateChatInbox = useInvalidateChatInbox();
+  const queryClient = useQueryClient();
+  const [rolAplicado, setRolAplicado] = useState<string | null>(null);
+  const contactoRol = rolAplicado ?? conversationMeta.contactoRol;
+  const rolSugerido = rolAplicado ? '' : conversationMeta.rolSugerido;
+
+  useEffect(() => {
+    setRolAplicado(null);
+  }, [convId]);
+
+  const aplicarRolLocal = useCallback((rol: string) => {
+    setRolAplicado(rol);
+    queryClient.setQueryData<InboxChatItem[]>(CHAT_INBOX_QUERY_KEY, (prev) => {
+      if (!prev) return prev;
+      return prev.map((item) => (
+        String(item.conversation_id) === convId
+          ? { ...item, contacto_rol: rol, rol_sugerido: '' }
+          : item
+      ));
+    });
+  }, [convId, queryClient]);
+
   const aceptarSoloConsulta = useCallback(async () => {
     if (!conversationMeta.contactId) return;
+    aplicarRolLocal('solo_consulta');
     try {
       await omnichannelService.fijarRolContacto(conversationMeta.contactId, 'solo_consulta');
       invalidateChatInbox();
     } catch {
+      setRolAplicado(null);
       Alert.alert('No se pudo marcar', 'Intenta de nuevo.');
     }
-  }, [conversationMeta.contactId, invalidateChatInbox]);
+  }, [aplicarRolLocal, conversationMeta.contactId, invalidateChatInbox]);
   const marcarOtro = useCallback(async () => {
     if (!conversationMeta.contactId) return;
+    aplicarRolLocal('otro');
     try {
       await omnichannelService.fijarRolContacto(conversationMeta.contactId, 'otro');
       invalidateChatInbox();
     } catch {
+      setRolAplicado(null);
       Alert.alert('No se pudo marcar', 'Intenta de nuevo.');
     }
-  }, [conversationMeta.contactId, invalidateChatInbox]);
+  }, [aplicarRolLocal, conversationMeta.contactId, invalidateChatInbox]);
   const marcarCasa = useCallback(async (confirmarRolCliente = false) => {
     const telefono = (conversationMeta.contactPhone || '').trim();
     if (!telefono) {
@@ -151,6 +178,7 @@ export default function ChatOmnicanalScreen() {
       return;
     }
     const nombre = (conversationMeta.contactName || '').trim() || 'Casa de repuestos';
+    aplicarRolLocal('casa_repuestos');
     try {
       await proveedorRepuestosService.crearProveedor(
         { nombre, telefono, tipo: 'mostrador' },
@@ -163,6 +191,7 @@ export default function ChatOmnicanalScreen() {
       const texto = cuerpo && typeof cuerpo === 'object' && 'detail' in cuerpo
         ? String((cuerpo as { detail?: string }).detail || '')
         : '';
+      setRolAplicado(null);
       if (respuesta?.status === 409) {
         showConfirm(
           'Este número ya es cliente',
@@ -176,7 +205,7 @@ export default function ChatOmnicanalScreen() {
       }
       Alert.alert('No se pudo marcar', respuesta?.data?.telefono?.[0] || 'Intenta de nuevo.');
     }
-  }, [conversationMeta.contactName, conversationMeta.contactPhone, invalidateChatInbox]);
+  }, [aplicarRolLocal, conversationMeta.contactName, conversationMeta.contactPhone, invalidateChatInbox]);
   const { map: channelConnections, featureEnabled } = useOmnichannelConnectionMap(Boolean(convId));
 
   const channelSlug = conversationMeta.channel as CanalSlug;
@@ -436,8 +465,8 @@ export default function ChatOmnicanalScreen() {
           onBack={() => router.back()}
           contactoRol={conversationMeta.contactoRol}
         />
-        {conversationMeta.rolSugerido === 'casa_repuestos'
-          && conversationMeta.contactoRol !== 'casa_repuestos' ? (
+        {rolSugerido === 'casa_repuestos'
+          && contactoRol !== 'casa_repuestos' ? (
           <View style={styles.sugerenciaRol}>
             <Text style={styles.sugerenciaRolText}>
               Este mensaje parece de una casa de repuestos. Márcalo para que el agente no le cotice un servicio.
@@ -457,9 +486,9 @@ export default function ChatOmnicanalScreen() {
               />
             </View>
           </View>
-        ) : conversationMeta.rolSugerido === 'solo_consulta'
-          && conversationMeta.contactoRol !== 'solo_consulta'
-          && conversationMeta.contactoRol !== 'casa_repuestos' ? (
+        ) : rolSugerido === 'solo_consulta'
+          && contactoRol !== 'solo_consulta'
+          && contactoRol !== 'casa_repuestos' ? (
           <View style={styles.sugerenciaRol}>
             <Text style={styles.sugerenciaRolText}>
               Este contacto pregunta y no concreta. El agente puede bajar la insistencia.
@@ -471,7 +500,7 @@ export default function ChatOmnicanalScreen() {
               onPress={() => { void aceptarSoloConsulta(); }}
             />
           </View>
-        ) : (conversationMeta.contactoRol === '' || conversationMeta.contactoRol === 'sin_clasificar')
+        ) : (contactoRol === '' || contactoRol === 'sin_clasificar')
           && conversationMeta.contactId ? (
           <View style={styles.sugerenciaRol}>
             <Text style={styles.sugerenciaRolText}>

@@ -8,9 +8,13 @@ export const CHAT_INBOX_QUERY_KEY = ['chat-inbox'] as const;
 export async function fetchChatInboxQuery(): Promise<InboxChatItem[]> {
   try {
     return await omnichannelService.obtenerInboxUnificado();
-  } catch {
-    const legacy = await obtenerListaChats();
-    return legacy as InboxChatItem[];
+  } catch (error) {
+    const status = (error as { response?: { status?: number } })?.response?.status;
+    if (status === 404) {
+      const legacy = await obtenerListaChats();
+      return legacy as InboxChatItem[];
+    }
+    throw error;
   }
 }
 

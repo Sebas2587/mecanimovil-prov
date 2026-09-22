@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import {
-  MessageCircle, Check, CheckCheck, Sparkles, Clock3, Search, Trash2,
+  MessageCircle, Check, CheckCheck, Sparkles, Clock3, Search, Trash2, SlidersHorizontal, X,
 } from 'lucide-react-native';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -38,7 +38,6 @@ import {
   Card,
   hostScreenStyles,
   InstitutionalButton,
-  InstitutionalScreenTabs,
   InstitutionalText,
   institutionalInputPlaceholder,
   institutionalInputStyles,
@@ -93,16 +92,24 @@ const I = COLORS.institutional;
 /** Tamaños Host desde `TYPOGRAPHY.styles`. */
 const T = TYPOGRAPHY.styles;
 
-const CHAT_FILTERS: { key: ChatInboxFilter; label: string }[] = [
+const PRIMARY_FILTERS: { key: ChatInboxFilter; label: string }[] = [
   { key: 'todos', label: 'Todos' },
-  { key: 'sin_responder', label: 'Sin responder' },
-  { key: 'calificados', label: 'Calificados' },
-  { key: 'cotizacion_enviada', label: 'Enviadas' },
-  { key: 'cotizacion_aceptada', label: 'Aceptadas' },
-  { key: 'borrador', label: 'Borrador IA' },
+  { key: 'sin_responder', label: 'Por responder' },
   { key: 'casas', label: 'Casas' },
+];
+
+const MORE_FILTERS: { key: ChatInboxFilter; label: string }[] = [
   { key: 'clientes', label: 'Clientes' },
   { key: 'solo_consulta', label: 'Solo consulta' },
+  { key: 'calificados', label: 'Calificados' },
+  { key: 'borrador', label: 'Borrador IA' },
+  { key: 'cotizacion_enviada', label: 'Enviadas' },
+  { key: 'cotizacion_aceptada', label: 'Aceptadas' },
+];
+
+const CHAT_FILTERS: { key: ChatInboxFilter; label: string }[] = [
+  ...PRIMARY_FILTERS,
+  ...MORE_FILTERS,
 ];
 
 function matchesChatFilter(chat: InboxChatItem, filter: ChatInboxFilter): boolean {
@@ -169,6 +176,7 @@ export default function ChatsScreen() {
     useOmnichannelConnectionMap(isAuthenticated && Boolean(usuario));
   const [refreshing, setRefreshing] = useState(false);
   const [chatFilter, setChatFilter] = useState<ChatInboxFilter>('todos');
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [contactoAccion, setContactoAccion] = useState<AgendarContactoState>(null);
   const [jobModal, setJobModal] = useState<'chooser' | 'agendar' | 'cotizar' | null>(null);
@@ -738,11 +746,58 @@ export default function ChatsScreen() {
         </View>
 
         <View style={[styles.tabsOuter, hostScreenStyles.gutterX]}>
-          <InstitutionalScreenTabs
-            activeKey={chatFilter}
-            onChange={handleChatFilter}
-            tabs={filterTabs}
-          />
+          <View style={styles.tabsRow}>
+            <View style={styles.underlineTabs}>
+              {PRIMARY_FILTERS.map((tab) => {
+                const active = chatFilter === tab.key;
+                const badge = filterTabs.find((item) => item.key === tab.key)?.badge;
+                return (
+                  <TouchableOpacity
+                    key={tab.key}
+                    style={[styles.underlineTab, active && styles.underlineTabActive]}
+                    onPress={() => handleChatFilter(tab.key)}
+                    activeOpacity={0.75}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <InstitutionalText
+                      role={active ? 'captionBold' : 'caption'}
+                      color={active ? 'ink' : 'muted'}
+                    >
+                      {tab.label}
+                    </InstitutionalText>
+                    {badge ? (
+                      <View style={styles.tabBadge}>
+                        <Text style={styles.tabBadgeText}>{badge > 99 ? '99+' : badge}</Text>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TouchableOpacity
+              style={styles.filterButton}
+              onPress={() => setFiltrosAbiertos(true)}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Más filtros de mensajes"
+            >
+              <SlidersHorizontal size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            </TouchableOpacity>
+          </View>
+          {MORE_FILTERS.some((item) => item.key === chatFilter) ? (
+            <TouchableOpacity
+              style={styles.activeFilterChip}
+              onPress={() => handleChatFilter('todos')}
+              accessibilityRole="button"
+              accessibilityLabel="Quitar filtro"
+            >
+              <InstitutionalText role="captionBold">
+                {MORE_FILTERS.find((item) => item.key === chatFilter)?.label}
+              </InstitutionalText>
+              <X size={14} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         {cotizacionesCanalPendientes > 0 ? (
@@ -780,6 +835,41 @@ export default function ChatsScreen() {
             showsVerticalScrollIndicator={false}
           />
         )}
+
+        <BottomSheet
+          visible={filtrosAbiertos}
+          onClose={() => setFiltrosAbiertos(false)}
+        >
+          <InstitutionalText role="h4">Filtrar mensajes</InstitutionalText>
+          <InstitutionalText role="caption" color="muted" style={styles.jobChooserHint}>
+            El día a día queda en Todos, Por responder y Casas. El resto está aquí.
+          </InstitutionalText>
+          <View style={styles.filterList}>
+            {MORE_FILTERS.map((item) => {
+              const active = chatFilter === item.key;
+              const badge = filterTabs.find((tab) => tab.key === item.key)?.badge;
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[styles.filterRow, active && styles.filterRowActive]}
+                  onPress={() => {
+                    handleChatFilter(item.key);
+                    setFiltrosAbiertos(false);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <InstitutionalText role={active ? 'bodyBold' : 'body'}>
+                    {item.label}
+                  </InstitutionalText>
+                  {badge ? (
+                    <InstitutionalText role="caption" color="muted">{badge}</InstitutionalText>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </BottomSheet>
 
         <BottomSheet
           visible={jobModal === 'chooser' && Boolean(contactoAccion)}
@@ -868,6 +958,78 @@ const styles = StyleSheet.create({
   tabsOuter: {
     paddingTop: SPACING.fixed.sm,
     paddingBottom: SPACING.fixed.xs,
+    gap: SPACING.fixed.sm,
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: SPACING.fixed.sm,
+  },
+  underlineTabs: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
+  },
+  underlineTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.fixed.xxs,
+    paddingBottom: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.xs,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+    marginBottom: -StyleSheet.hairlineWidth,
+  },
+  underlineTabActive: {
+    borderBottomColor: I.ink,
+  },
+  tabBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: I.surfaceSoft,
+  },
+  tabBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: I.ink,
+  },
+  filterButton: {
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.fixed.xs,
+  },
+  activeFilterChip: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
+    paddingVertical: SPACING.fixed.xxs,
+    paddingHorizontal: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.full,
+    backgroundColor: I.surfaceSoft,
+  },
+  filterList: {
+    gap: SPACING.fixed.xs,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.sm,
+    borderRadius: BORDERS.radius.md,
+  },
+  filterRowActive: {
+    backgroundColor: I.surfaceSoft,
   },
   searchBarWrap: {
     paddingTop: SPACING.xs,
