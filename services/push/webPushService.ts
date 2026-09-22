@@ -6,6 +6,12 @@ import { setItem, deleteItem } from '@/utils/authStorage';
 import { get, post } from '@/services/api';
 
 const WEB_PUSH_ENDPOINT_KEY = 'web_push_endpoint';
+const PUSH_SERVICE_UNAVAILABLE =
+  'Este navegador no tiene servicio de notificaciones push.';
+
+/** El navegador expone PushManager, pero el servicio (FCM u otro) no está. */
+let pushServiceUnavailable = false;
+let pushUnavailableLogged = false;
 
 export type WebPushStatus = {
   supported: boolean;
@@ -15,6 +21,27 @@ export type WebPushStatus = {
   reason?: string;
   error?: string;
 };
+
+function mensajePushNoDisponible(err: unknown): string | null {
+  const name = err instanceof Error ? err.name : '';
+  const message = err instanceof Error ? err.message : String(err ?? '');
+  if (
+    name === 'AbortError'
+    || /push service not available/i.test(message)
+    || /registration failed/i.test(message)
+  ) {
+    return PUSH_SERVICE_UNAVAILABLE;
+  }
+  return null;
+}
+
+function marcarPushNoDisponible(): void {
+  pushServiceUnavailable = true;
+  if (__DEV__ && !pushUnavailableLogged) {
+    pushUnavailableLogged = true;
+    console.warn(`[webPush] ${PUSH_SERVICE_UNAVAILABLE} Las alertas web quedan desactivadas.`);
+  }
+}
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -106,8 +133,13 @@ async function registerSubscriptionInBackend(subscription: PushSubscription): Pr
   await setItem(WEB_PUSH_ENDPOINT_KEY, endpoint);
 }
 
+export function getWebPushBlockReason(): string | null {
+  return pushServiceUnavailable ? PUSH_SERVICE_UNAVAILABLE : null;
+}
+
 export async function subscribeWebPush(): Promise<boolean> {
   if (Platform.OS !== 'web') return false;
+  if (pushServiceUnavailable) return false;
   if (typeof window === 'undefined' || !('PushManager' in window)) {
     return false;
   }
@@ -136,7 +168,11 @@ export async function subscribeWebPush(): Promise<boolean> {
     await registerSubscriptionInBackend(subscription);
     return true;
   } catch (err) {
-    if (__DEV__) console.error('[webPush] subscribeWebPush:', err);
+    if (mensajePushNoDisponible(err)) {
+      marcarPushNoDisponible();
+      return false;
+    }
+    if (__DEV__) console.warn('[webPush] subscribeWebPush:', err);
     return false;
   }
 }
@@ -180,6 +216,14 @@ export async function getWebPushStatus(): Promise<WebPushStatus> {
   }
 
   const permission = Notification.permission;
+  if (pushServiceUnavailable) {
+    return {
+      supported: false,
+      permission,
+      subscribed: false,
+      reason: PUSH_SERVICE_UNAVAILABLE,
+    };
+  }
   try {
     const registration = await navigator.serviceWorker.getRegistration('/sw.js');
     const subscription = registration

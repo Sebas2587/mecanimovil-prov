@@ -9,7 +9,11 @@ import {
 } from 'react-native';
 import { Bell, BellOff } from 'lucide-react-native';
 import NotificationService from '@/services/push/notificationService';
-import { subscribeWebPush, type WebPushStatus } from '@/services/push/webPushService';
+import {
+  getWebPushBlockReason,
+  subscribeWebPush,
+  type WebPushStatus,
+} from '@/services/push/webPushService';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { institutionalStatusColors } from '@/app/design-system/styles/institutionalSemantic';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -62,6 +66,10 @@ export function WebPushSettingsRow({ showTopBorder = false }: Props) {
       }
       const permission =
         typeof Notification !== 'undefined' ? Notification.permission : 'default';
+      if (getWebPushBlockReason()) {
+        showAlert('Alertas no disponibles', getWebPushBlockReason()!);
+        return;
+      }
       if (permission === 'denied') {
         showAlert(
           'Permiso bloqueado',

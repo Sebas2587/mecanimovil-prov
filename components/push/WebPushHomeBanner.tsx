@@ -2,7 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, StyleSheet, TouchableOpacity, ActivityIndicator, View } from 'react-native';
 import { Bell } from 'lucide-react-native';
 import NotificationService from '@/services/push/notificationService';
-import { subscribeWebPush, type WebPushStatus } from '@/services/push/webPushService';
+import {
+  getWebPushBlockReason,
+  subscribeWebPush,
+  type WebPushStatus,
+} from '@/services/push/webPushService';
 import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
 import {
   HostPaperSection,
@@ -47,6 +51,8 @@ export function WebPushHomeBanner() {
           'Alertas activadas',
           'Recibirás avisos de cotizaciones IA, mensajes y cambios de estado en este navegador.',
         );
+      } else if (getWebPushBlockReason()) {
+        showAlert('Alertas no disponibles', getWebPushBlockReason()!);
       } else if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
         showAlert(
           'Permiso bloqueado',
