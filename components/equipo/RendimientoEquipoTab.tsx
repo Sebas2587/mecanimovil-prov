@@ -69,6 +69,11 @@ function dentroTiempoCount(m: MecanicoKpis): number {
   return m.ordenes_dentro_tiempo ?? 0;
 }
 
+function tops(items: { nombre: string; total: number }[] | undefined): string {
+  if (!items?.length) return '—';
+  return items.map((item) => `${item.nombre} ${item.total}`).join(' · ');
+}
+
 export function RendimientoEquipoTab() {
   const [diasVentana, setDiasVentana] = useState<number>(30);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -97,6 +102,11 @@ export function RendimientoEquipoTab() {
   const selected = useMemo(
     () => kpis.find((m) => m.mecanico_id === selectedId) ?? null,
     [kpis, selectedId],
+  );
+
+  const equipo = useMemo(
+    () => kpis.filter((m) => m.mecanico_id != null && !m.solo_uso_ia),
+    [kpis],
   );
 
   const kpiRows = useMemo(() => {
@@ -164,6 +174,22 @@ export function RendimientoEquipoTab() {
           <Text style={styles.error}>{error || 'No se pudieron cargar las métricas.'}</Text>
         ) : null}
 
+        {equipo.length > 0 ? (
+          <View style={styles.detail}>
+            <HostSectionKicker label="Pendientes del equipo" />
+            <HostPaperSection>
+              {equipo.map((m, idx) => (
+                <HostMetricRow
+                  key={m.mecanico_id}
+                  label={m.nombre}
+                  value={`${m.servicios_en_proceso ?? 0} abiertas · ${(m.sin_checklist ?? 0) + (m.checklist_en_curso ?? 0)} checklist`}
+                  last={idx === equipo.length - 1}
+                />
+              ))}
+            </HostPaperSection>
+          </View>
+        ) : null}
+
         {!selected ? (
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyText}>No hay datos de rendimiento disponibles</Text>
@@ -188,11 +214,33 @@ export function RendimientoEquipoTab() {
               </Text>
             ) : (
               <>
+                <HostSectionKicker label="Control" />
+                <HostPaperSection>
+                  <HostMetricRow
+                    label="Abiertas"
+                    value={String(selected.servicios_en_proceso ?? 0)}
+                  />
+                  <HostMetricRow
+                    label="Sin checklist"
+                    value={String(selected.sin_checklist ?? 0)}
+                  />
+                  <HostMetricRow
+                    label="Checklist en curso"
+                    value={String(selected.checklist_en_curso ?? 0)}
+                  />
+                  <HostMetricRow
+                    label="Domicilio / taller"
+                    value={`${selected.servicios_domicilio ?? 0} / ${selected.servicios_taller ?? 0}`}
+                  />
+                  <HostMetricRow
+                    label="Clientes"
+                    value={String(selected.clientes_atendidos ?? 0)}
+                  />
+                  <HostMetricRow label="Marcas" value={tops(selected.marcas_top)} />
+                  <HostMetricRow label="Modelos" value={tops(selected.modelos_top)} last />
+                </HostPaperSection>
+
                 <HostSectionKicker label="Rendimiento" />
-                <Text style={styles.legend}>
-                  Flujo completo de {selected.nombre}: órdenes Mecanimovil + citas personales
-                  cerradas (checklist, tiempos y productividad).
-                </Text>
                 <HostPaperSection>
                   <View style={styles.scoreHero}>
                     <ScoreCircle score={selected.score_rendimiento_global} label="Score" />
@@ -262,11 +310,7 @@ export function RendimientoEquipoTab() {
                   ))}
                 </HostPaperSection>
 
-                <HostSectionKicker label="Vs periodo anterior (proporcional)" />
-                <Text style={styles.legend}>
-                  Compara los primeros días del mes en curso con los mismos días del mes
-                  anterior (variación relativa, no % de cumplimiento).
-                </Text>
+                <HostSectionKicker label="Vs periodo anterior" />
                 <HostPaperSection>
                   <ComparativoMensual comparativo={selected.comparativo} />
                 </HostPaperSection>

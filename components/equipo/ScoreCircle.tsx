@@ -48,8 +48,7 @@ export function ScoreCircle({ score, size = 96, label = 'Score' }: Props) {
             strokeDasharray={`${circumference} ${circumference}`}
             strokeDashoffset={offset}
             strokeLinecap="round"
-            rotation="-90"
-            origin={`${size / 2}, ${size / 2}`}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
           />
         ) : null}
       </Svg>

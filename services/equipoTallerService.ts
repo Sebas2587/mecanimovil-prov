@@ -172,6 +172,13 @@ export interface MecanicoKpis {
   tiempo_aceptacion_promedio_minutos?: number | null;
   rechazos_periodo?: number;
   score_rendimiento_global: number | null;
+  sin_checklist?: number;
+  checklist_en_curso?: number;
+  servicios_domicilio?: number;
+  servicios_taller?: number;
+  clientes_atendidos?: number;
+  marcas_top?: { nombre: string; total: number }[];
+  modelos_top?: { nombre: string; total: number }[];
   ventana_desde?: string;
   ventana_hasta?: string;
   uso_ia_gemini?: UsoIaGemini;

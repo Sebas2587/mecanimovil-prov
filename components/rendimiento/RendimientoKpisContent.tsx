@@ -300,9 +300,8 @@ export function RendimientoKpisContent() {
                 <Text style={styles.heroPct}>{data.score_rendimiento}%</Text>
                 <Text style={styles.heroTier}>Nivel: {tierName}</Text>
                 <Text style={styles.heroFoot}>
-                  Posiciona tu negocio en la app de clientes. Incluye ofertas, aceptación de órdenes,
-                  confiabilidad (rechazos), reseñas, checklist y tiempos (últimos {data.ventana_dias} días).
-                  No incluye agenda personal ni métricas individuales de mecánicos.
+                  Ofertas, aceptación, rechazos, reseñas y tiempos de los últimos {data.ventana_dias} días.
+                  La agenda personal y cada mecánico van en el control de abajo.
                 </Text>
                 {data.multiplicador_penalizacion != null && data.multiplicador_penalizacion < 1 ? (
                   <Text style={styles.penaltyNotice}>
@@ -337,48 +336,48 @@ export function RendimientoKpisContent() {
                 <ScoreBlock
                   title="Tiempo de respuesta (oferta)"
                   score={data.score_tiempo_respuesta}
-                  description="Velocidad para enviar la oferta desde que la solicitud quedó publicada (dirigidas priorizadas). 0 min → 100 pts, ≥120 min → 0 pts."
+                  description="Minutos desde que la solicitud se publicó hasta que enviaste la oferta."
                 />
                 <ScoreBlock
                   title="Aceptación de órdenes (24h)"
                   score={data.score_aceptacion_ordenes ?? null}
-                  description={`Tiempo para aceptar o rechazar órdenes pagadas del marketplace. Muestra: ${data.aceptacion_ordenes_muestra ?? 0}. ≤24 h → mejor puntaje.`}
+                  description={`Aceptar o rechazar órdenes pagadas. Muestra: ${data.aceptacion_ordenes_muestra ?? 0}.`}
                 />
                 <ScoreBlock
                   title="Confiabilidad (rechazos)"
                   score={data.score_confiabilidad ?? null}
-                  description={`Rechazos de solicitudes u órdenes pesan más si son recientes. En periodo: ${data.rechazos_periodo ?? 0}. ${(data.rechazos_ultimos_7_dias ?? 0) >= 3 ? '3+ rechazos en 7 días aplican −15% al índice.' : ''}`}
+                  description={`Rechazos del periodo: ${data.rechazos_periodo ?? 0}. Los recientes pesan más.`}
                 />
                 <ScoreBlock
                   title="Satisfacción del cliente"
                   score={data.score_calificacion_cliente}
-                  description="Reseñas de clientes en el periodo. SIEMPRE entra al promedio: sin reseñas = 0 pts. Es la señal que más impacta en el nivel."
+                  description="Promedio de reseñas del periodo. Sin reseñas el puntaje queda en cero."
                 />
                 <ScoreBlock
                   title="Checklist"
                   score={data.score_checklist}
-                  description="% de checklists completados sobre las órdenes terminadas en el periodo."
+                  description="Checklists cerrados sobre órdenes terminadas."
                 />
                 <ScoreBlock
                   title="Tiempo vs estimado"
                   score={data.score_tiempo_ejecucion}
-                  description="Tiempo real tuyo en el checklist (inicio → tu firma) vs el tiempo estimado en la oferta. 1,0 = cumpliste; ≥2,0 = el doble → 0 pts."
+                  description="Tiempo real del checklist frente al estimado de la oferta."
                 />
                 <ScoreBlock
                   title="Consistencia de actividad"
                   score={data.score_consistencia}
-                  description={`Racha máxima de días consecutivos con ≥1 servicio terminado. Racha actual: ${data.max_racha_dias_consecutivos ?? 0} días. 10 días seguidos → 100 pts. SIEMPRE entra al promedio.`}
+                  description={`Días seguidos con al menos un servicio terminado. Racha: ${data.max_racha_dias_consecutivos ?? 0}.`}
                 />
                 <ScoreBlock
                   title="Velocidad de arranque"
                   score={data.score_inicio_checklist}
-                  description="Tiempo promedio entre que se crea el checklist (servicio iniciado) y que pulsas 'Iniciar'. ≤5 min → 100 pts, ≥90 min → 0 pts."
+                  description="Minutos entre crear el checklist y pulsar Iniciar."
                 />
                 {data.score_calidad_servicio != null && (
                   <ScoreBlock
                     title="Calidad del servicio"
                     score={data.score_calidad_servicio}
-                    description="Aspectos estructurados en reseñas: puntualidad, limpieza, claridad, trato y entrega de repuestos. Solo suma si los clientes completaron los aspectos."
+                    description="Puntualidad, limpieza, claridad, trato y repuestos en las reseñas."
                     isLast
                   />
                 )}
@@ -420,32 +419,33 @@ export function RendimientoKpisContent() {
 
             {mecanicoKpis.length > 0 && (
               <View style={styles.sectionWrap}>
-                <SectionTitle>RESUMEN OPERATIVO POR MECÁNICO</SectionTitle>
+                <SectionTitle>CONTROL DEL EQUIPO</SectionTitle>
                 <Text style={styles.mecanicoSectionHint}>
-                  Solo órdenes Mecanimovil con mecánico asignado en el periodo (fecha de servicio o de solicitud).
-                  No alimenta el índice del taller. Ver detalle en Gestión de equipo.
+                  Asignaciones abiertas, checklist pendiente, domicilio frente a taller, clientes y marcas del periodo.
                 </Text>
                 <DsCard>
-                  <View style={[styles.mecRow, styles.mecHeaderRow]}>
-                    <Text style={[styles.mecNombre, styles.mecHeaderText]}>Mecánico</Text>
-                    <Text style={[styles.mecNum, styles.mecHeaderText]}>Asign.</Text>
-                    <Text style={[styles.mecNum, styles.mecHeaderText]}>Compl.</Text>
-                    <Text style={[styles.mecNum, styles.mecHeaderText]}>En proc.</Text>
-                  </View>
                   {mecanicoKpis.map((m, idx) => (
                     <View
                       key={m.mecanico_id}
-                      style={[styles.mecRow, idx < mecanicoKpis.length - 1 && styles.metricGridRowBorder]}
+                      style={[styles.mecBlock, idx < mecanicoKpis.length - 1 && styles.metricGridRowBorder]}
                     >
                       <Text style={[styles.mecNombre, !m.activo && styles.mecInactivo]} numberOfLines={1}>
                         {m.nombre}
-                        {!m.activo ? ' (off)' : ''}
+                        {!m.activo ? ' (inactivo)' : ''}
                       </Text>
-                      <Text style={styles.mecNum}>{m.total_asignados ?? 0}</Text>
-                      <Text style={styles.mecNum}>
-                        {m.servicios_completados_totales ?? m.servicios_completados ?? 0}
+                      <Text style={styles.mecFacts}>
+                        {`${m.servicios_en_proceso ?? 0} abiertas · ${(m.sin_checklist ?? 0) + (m.checklist_en_curso ?? 0)} checklist · ${m.servicios_domicilio ?? 0} domicilio · ${m.servicios_taller ?? 0} taller · ${m.clientes_atendidos ?? 0} clientes`}
                       </Text>
-                      <Text style={styles.mecNum}>{m.servicios_en_proceso ?? 0}</Text>
+                      {(m.marcas_top?.length || m.modelos_top?.length) ? (
+                        <Text style={styles.mecFacts} numberOfLines={2}>
+                          {m.marcas_top?.length
+                            ? `Marcas ${m.marcas_top.map((item) => `${item.nombre} ${item.total}`).join(', ')}`
+                            : ''}
+                          {m.modelos_top?.length
+                            ? `${m.marcas_top?.length ? ' · ' : ''}Modelos ${m.modelos_top.map((item) => `${item.nombre} ${item.total}`).join(', ')}`
+                            : ''}
+                        </Text>
+                      ) : null}
                     </View>
                   ))}
                 </DsCard>
@@ -463,10 +463,7 @@ export function RendimientoKpisContent() {
 
             <View style={styles.sectionWrap}>
               <Text style={styles.disclaimer}>
-                {'Los datos se calculan en el servidor con una ventana móvil de ' + data.ventana_dias + ' días. '
-                + 'El tiempo de checklist mide solo tu trabajo (inicio → tu firma), sin incluir la espera de firma del cliente. '
-                + 'La consistencia mide tu racha máxima de días consecutivos con ≥1 servicio terminado. '
-                + 'Sin reseñas de clientes el score es limitado automáticamente; pide a tus clientes que califiquen.'}
+                {`Ventana de ${data.ventana_dias} días. El checklist mide tu trabajo hasta tu firma. Sin reseñas, ese puntaje queda en cero.`}
               </Text>
             </View>
           </>
@@ -739,13 +736,21 @@ const styles = StyleSheet.create({
     color: I.muted,
     fontFamily: FF.sansSemiBold,
   },
+  mecBlock: {
+    paddingVertical: SPACING.fixed.sm,
+    gap: 2,
+  },
   mecNombre: {
-    flex: 1,
-    paddingRight: SPACING.fixed.sm,
     fontSize: small.fontSize,
     lineHeight: lh(small.fontSize, small.lineHeight),
     fontFamily: FF.sansMedium,
     color: I.ink,
+  },
+  mecFacts: {
+    fontSize: caption.fontSize,
+    lineHeight: lh(caption.fontSize, caption.lineHeight),
+    fontFamily: FF.sansRegular,
+    color: I.muted,
   },
   mecInactivo: {
     color: I.muted,
