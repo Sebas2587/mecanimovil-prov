@@ -19,10 +19,8 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import chatService from '@/services/chatService';
 import { OmnichannelChatHeader, OmnichannelChatActionBar } from '@/components/chats/OmnichannelChatHeader';
-import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import omnichannelService from '@/services/omnichannelService';
 import proveedorRepuestosService from '@/services/proveedorRepuestosService';
-import { showConfirm } from '@/utils/platformAlert';
 import { useInvalidateChatInbox } from '@/hooks/useChatInboxQuery';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
@@ -68,7 +66,7 @@ import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/
 import { VistaPreviaCotizacionClienteModal } from '@/components/chats/VistaPreviaCotizacionClienteModal';
 import { InstitutionalButton, InstitutionalText, Card, HostSectionKicker } from '@/app/design-system/components';
 import { InstitutionalModal } from '@/design-system/components/InstitutionalModal';
-import { showAlert } from '@/utils/platformAlert';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { cuerpoEnvioExitoso, requiereEntregaManual, tituloEnvioExitoso } from '@/utils/entregaCotizacionCopy';
 import { ofrecerEntregaCotizacionEnviada } from '@/utils/ofrecerEntregaCotizacion';
 
