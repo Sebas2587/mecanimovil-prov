@@ -152,6 +152,7 @@ export default function ConfiguracionAgenteIaScreen() {
   const [tonoVentas, setTonoVentas] = useState<'conservador' | 'balanceado' | 'proactivo'>('balanceado');
   const [permiteEstimadosHistoricos, setPermiteEstimadosHistoricos] = useState(true);
   const [requiereDireccionAntesCotizar, setRequiereDireccionAntesCotizar] = useState(false);
+  const [consultaCasasAutomatica, setConsultaCasasAutomatica] = useState(false);
 
   // Mientras hay docs indexándose, refresca la lista para ver el estado.
   useEffect(() => {
@@ -175,6 +176,7 @@ export default function ConfiguracionAgenteIaScreen() {
       setTonoVentas(config.tono_ventas || 'balanceado');
       setPermiteEstimadosHistoricos(config.permite_estimados_historicos !== false);
       setRequiereDireccionAntesCotizar(Boolean(config.requiere_direccion_antes_de_cotizar));
+      setConsultaCasasAutomatica(Boolean(config.consulta_casas_automatica));
     }
   }, [
     config?.actualizado_en,
@@ -186,6 +188,7 @@ export default function ConfiguracionAgenteIaScreen() {
     config?.tono_ventas,
     config?.permite_estimados_historicos,
     config?.requiere_direccion_antes_de_cotizar,
+    config?.consulta_casas_automatica,
   ]);
 
   const toggleMaster = useCallback(
@@ -398,6 +401,7 @@ export default function ConfiguracionAgenteIaScreen() {
         tono_ventas: tonoVentas,
         permite_estimados_historicos: permiteEstimadosHistoricos,
         requiere_direccion_antes_de_cotizar: requiereDireccionAntesCotizar,
+        consulta_casas_automatica: consultaCasasAutomatica,
       },
       {
         onSuccess: () => {
@@ -718,6 +722,19 @@ export default function ConfiguracionAgenteIaScreen() {
               {...institutionalSwitchProps}
               value={requiereDireccionAntesCotizar}
               onValueChange={setRequiereDireccionAntesCotizar}
+            />
+          </View>
+          <View style={styles.switchRow}>
+            <View style={styles.flex}>
+              <InstitutionalText role="body">Consultar casas si no hay precio</InstitutionalText>
+              <InstitutionalText role="caption" color="muted">
+                Cuando catálogo y web no encuentran la pieza, el agente escribe a tus casas de repuestos. Apagado, solo sale si lo pides en la cotización.
+              </InstitutionalText>
+            </View>
+            <Switch
+              {...institutionalSwitchProps}
+              value={consultaCasasAutomatica}
+              onValueChange={setConsultaCasasAutomatica}
             />
           </View>
           <InstitutionalButton

@@ -51,13 +51,26 @@ class ProveedorRepuestosService {
     return unwrapList<ProveedorRepuestos>(response.data);
   }
 
-  async crearProveedor(payload: Partial<ProveedorRepuestos>): Promise<ProveedorRepuestos> {
-    const response = await api.post('/ordenes/proveedores-repuestos/', payload);
+  async crearProveedor(
+    payload: Partial<ProveedorRepuestos>,
+    opciones?: { confirmarRolCliente?: boolean },
+  ): Promise<ProveedorRepuestos> {
+    const response = await api.post('/ordenes/proveedores-repuestos/', {
+      ...payload,
+      confirmar_rol_cliente: Boolean(opciones?.confirmarRolCliente),
+    });
     return response.data as ProveedorRepuestos;
   }
 
-  async actualizarProveedor(id: number, payload: Partial<ProveedorRepuestos>): Promise<ProveedorRepuestos> {
-    const response = await api.patch(`/ordenes/proveedores-repuestos/${id}/`, payload);
+  async actualizarProveedor(
+    id: number,
+    payload: Partial<ProveedorRepuestos>,
+    opciones?: { confirmarRolCliente?: boolean },
+  ): Promise<ProveedorRepuestos> {
+    const response = await api.patch(`/ordenes/proveedores-repuestos/${id}/`, {
+      ...payload,
+      confirmar_rol_cliente: Boolean(opciones?.confirmarRolCliente),
+    });
     return response.data as ProveedorRepuestos;
   }
 

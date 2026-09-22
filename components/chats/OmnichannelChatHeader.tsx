@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { ArrowLeft, Bot } from 'lucide-react-native';
 import { ChannelBadge } from '@/components/chats/ChannelBadge';
 import { HostAvatar, InstitutionalButton, HOST_GUTTER } from '@/app/design-system/components';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { ChannelSlug } from '@/utils/channelVisuals';
@@ -18,6 +19,7 @@ type HeaderProps = {
   isMetaPending: boolean;
   paddingTop: number;
   onBack: () => void;
+  contactoRol?: string;
 };
 
 /**
@@ -30,7 +32,19 @@ function OmnichannelChatHeaderComponent({
   isMetaPending,
   paddingTop,
   onBack,
+  contactoRol = '',
 }: HeaderProps) {
+  const rolLabel = contactoRol === 'casa_repuestos'
+    ? 'Casa de repuestos'
+    : contactoRol === 'cliente_nuevo'
+      ? 'Cliente nuevo'
+      : contactoRol === 'cliente_recurrente'
+        ? 'Cliente recurrente'
+        : contactoRol === 'solo_consulta'
+          ? 'Solo consulta'
+          : contactoRol === 'otro'
+            ? 'Otro'
+            : '';
   return (
     <View style={[styles.header, { paddingTop }]}>
       <TouchableOpacity onPress={onBack} style={styles.backBtn} accessibilityLabel="Volver" hitSlop={8}>
@@ -46,7 +60,16 @@ function OmnichannelChatHeaderComponent({
           {isMetaPending && !hasKnownChannel ? (
             <ActivityIndicator size="small" color={I.muted} />
           ) : hasKnownChannel ? (
-            <ChannelBadge channel={channel} compact />
+            <View style={styles.badgeRow}>
+              <ChannelBadge channel={channel} compact />
+              {rolLabel ? (
+                <InstitutionalTag
+                  label={rolLabel}
+                  variant={contactoRol === 'casa_repuestos' ? 'primary' : 'neutral'}
+                  size="sm"
+                />
+              ) : null}
+            </View>
           ) : null}
         </View>
       </View>
@@ -163,6 +186,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
     justifyContent: 'center',
     gap: 3,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   name: {
     fontSize: TYPOGRAPHY.fontSize.base,

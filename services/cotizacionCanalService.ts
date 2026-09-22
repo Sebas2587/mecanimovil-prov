@@ -171,6 +171,11 @@ export interface RepuestoCotizacion {
   compatibilidad?: CompatibilidadPieza | string;
   /** Por qué la línea quedó sin monto: falta la variante o no hubo referencia. */
   motivo_sin_precio?: MotivoSinPrecio | string;
+  consulta_casas?: {
+    estado?: string;
+    casa?: string;
+    puede_consultar_otras?: boolean;
+  };
   alternativas?: AlternativaRepuesto[];
   /** Tiendas/precios que sostienen la banda. Nunca viaja al link público. */
   fuentes_detalle?: FuenteRepuesto[];
@@ -709,6 +714,21 @@ class CotizacionCanalService {
       cotizacion: CotizacionCanal;
       agregados: string[];
       busqueda_web: boolean;
+    };
+    return {
+      ...data,
+      cotizacion: hidratarPreciosCotizacion(data.cotizacion),
+    };
+  }
+
+  async consultarCasas(
+    id: number,
+    payload: { repuesto_id: string; proveedor_id?: number; solo_restantes?: boolean },
+  ): Promise<{ cotizacion: CotizacionCanal; resultado: { ok?: boolean; motivo?: string; enviadas?: number; casas?: string[] } }> {
+    const response = await api.post(`/ordenes/cotizaciones-canal/${id}/consultar-casas/`, payload);
+    const data = response.data as {
+      cotizacion: CotizacionCanal;
+      resultado: { ok?: boolean; motivo?: string; enviadas?: number; casas?: string[] };
     };
     return {
       ...data,

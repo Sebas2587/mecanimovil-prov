@@ -76,7 +76,10 @@ type ChatInboxFilter =
   | 'cotizacion_enviada'
   | 'cotizacion_aceptada'
   | 'borrador'
-  | 'calificados';
+  | 'calificados'
+  | 'casas'
+  | 'clientes'
+  | 'solo_consulta';
 
 type AgendarContactoState = {
   channel?: ChannelSlug;
@@ -97,6 +100,9 @@ const CHAT_FILTERS: { key: ChatInboxFilter; label: string }[] = [
   { key: 'cotizacion_enviada', label: 'Enviadas' },
   { key: 'cotizacion_aceptada', label: 'Aceptadas' },
   { key: 'borrador', label: 'Borrador IA' },
+  { key: 'casas', label: 'Casas' },
+  { key: 'clientes', label: 'Clientes' },
+  { key: 'solo_consulta', label: 'Solo consulta' },
 ];
 
 function matchesChatFilter(chat: InboxChatItem, filter: ChatInboxFilter): boolean {
@@ -107,6 +113,11 @@ function matchesChatFilter(chat: InboxChatItem, filter: ChatInboxFilter): boolea
   if (filter === 'cotizacion_enviada') return chat.cotizacion_estado === 'enviada';
   if (filter === 'cotizacion_aceptada') return chat.cotizacion_estado === 'aceptada';
   if (filter === 'borrador') return chat.cotizacion_estado === 'borrador';
+  if (filter === 'casas') return chat.contacto_rol === 'casa_repuestos';
+  if (filter === 'clientes') {
+    return chat.contacto_rol === 'cliente_nuevo' || chat.contacto_rol === 'cliente_recurrente';
+  }
+  if (filter === 'solo_consulta') return chat.contacto_rol === 'solo_consulta';
   if (filter === 'calificados') {
     return (
       (chat.lead_categoria === 'interesado_calificado' || chat.lead_categoria === 'listo_agendar')
@@ -116,6 +127,16 @@ function matchesChatFilter(chat: InboxChatItem, filter: ChatInboxFilter): boolea
     );
   }
   return true;
+}
+
+function rolContactoLabel(rol: string | null | undefined, sugerido: string | null | undefined): string | null {
+  if (rol === 'casa_repuestos') return 'Casa de repuestos';
+  if (rol === 'cliente_nuevo') return 'Cliente nuevo';
+  if (rol === 'cliente_recurrente') return 'Cliente recurrente';
+  if (rol === 'solo_consulta') return 'Solo consulta';
+  if (rol === 'otro') return 'Otro';
+  if (sugerido === 'solo_consulta') return '¿Solo consulta?';
+  return null;
 }
 
 function cotizacionBadgeLabel(estado: string | null | undefined): string | null {
@@ -200,6 +221,9 @@ export default function ChatsScreen() {
       cotizacion_enviada: 0,
       cotizacion_aceptada: 0,
       borrador: 0,
+      casas: 0,
+      clientes: 0,
+      solo_consulta: 0,
     };
     for (const chat of chats) {
       if (matchesChatFilter(chat, 'sin_responder')) counts.sin_responder += 1;
@@ -207,6 +231,9 @@ export default function ChatsScreen() {
       if (matchesChatFilter(chat, 'cotizacion_enviada')) counts.cotizacion_enviada += 1;
       if (matchesChatFilter(chat, 'cotizacion_aceptada')) counts.cotizacion_aceptada += 1;
       if (matchesChatFilter(chat, 'borrador')) counts.borrador += 1;
+      if (matchesChatFilter(chat, 'casas')) counts.casas += 1;
+      if (matchesChatFilter(chat, 'clientes')) counts.clientes += 1;
+      if (matchesChatFilter(chat, 'solo_consulta')) counts.solo_consulta += 1;
     }
     return counts;
   }, [chats]);
@@ -447,8 +474,9 @@ export default function ChatsScreen() {
     const hasUnread = mensajes_no_leidos > 0;
     const vehiculoPill = formatVehiculoPillLabel(vehiculo);
     const cotizacionLabel = cotizacionBadgeLabel(item.cotizacion_estado);
+    const rolLabel = rolContactoLabel(item.contacto_rol, item.rol_sugerido);
     const leadCat = (item.lead_categoria || 'sin_calificar') as LeadCategoria;
-    const showLeadTag = leadCat !== 'sin_calificar';
+    const showLeadTag = leadCat !== 'sin_calificar' && item.contacto_rol !== 'casa_repuestos' && item.contacto_rol !== 'otro';
     const isDeleting = isOmnichannel
       ? deletingRowKey === `omni:${String(conversation_id)}`
       : deletingRowKey === `oferta:${String(oferta_id)}`;
@@ -503,8 +531,15 @@ export default function ChatsScreen() {
             </Text>
           ) : null}
 
-          {(!!vehiculoPill || !!cotizacionLabel || showLeadTag) ? (
+          {(!!vehiculoPill || !!cotizacionLabel || showLeadTag || !!rolLabel) ? (
             <View style={styles.tagsRow}>
+              {!!rolLabel ? (
+                <InstitutionalTag
+                  label={rolLabel}
+                  variant={item.contacto_rol === 'casa_repuestos' ? 'primary' : 'neutral'}
+                  size="sm"
+                />
+              ) : null}
               {!!cotizacionLabel ? (
                 <InstitutionalTag
                   label={cotizacionLabel}

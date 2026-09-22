@@ -21,6 +21,9 @@ export type OmnichannelConversationMeta = {
   nombreAgendable: string;
   hasKnownChannel: boolean;
   isMetaPending: boolean;
+  contactoRol: string;
+  rolSugerido: string;
+  contactId: string | null;
 };
 
 function formatDisplayName(name: string): string {
@@ -64,6 +67,9 @@ export function useOmnichannelConversationMeta(conversationId: string): Omnichan
       displayName: formatDisplayName(contactName),
       nombreAgendable,
       hasKnownChannel,
+      contactoRol: fromInbox?.contacto_rol || '',
+      rolSugerido: fromInbox?.rol_sugerido || '',
+      contactId: fromInbox?.otra_persona?.id != null ? String(fromInbox.otra_persona.id) : null,
     };
   }, [
     conversationId,

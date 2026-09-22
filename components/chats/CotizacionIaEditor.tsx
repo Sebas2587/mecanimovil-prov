@@ -141,6 +141,8 @@ const RepuestoRow = React.memo(function RepuestoRow({
   onBuscarIa,
   puedeBuscarIa = false,
   rangoCliente = null,
+  onConsultarCasas,
+  consultandoCasas = false,
 }: {
   rep: RepuestoCotizacion;
   index: number;
@@ -154,6 +156,8 @@ const RepuestoRow = React.memo(function RepuestoRow({
   onBuscarIa?: (rep: RepuestoCotizacion) => void;
   puedeBuscarIa?: boolean;
   rangoCliente?: string | null;
+  onConsultarCasas?: (rep: RepuestoCotizacion, soloRestantes?: boolean) => void;
+  consultandoCasas?: boolean;
 }) {
   const precioUnit = redondearCLP(rep.precio_unitario_clp);
   const subtotal = subtotalRepuesto(rep);
@@ -362,6 +366,25 @@ const RepuestoRow = React.memo(function RepuestoRow({
           onPress={() => onBuscarIa?.(rep)}
           leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
         />
+      ) : null}
+      {editable && onConsultarCasas && !precioPendiente && (certeza === 'sin_precio' || rep.consulta_casas?.puede_consultar_otras) ? (
+        <InstitutionalButton
+          label={rep.consulta_casas?.puede_consultar_otras ? 'Consultar otras casas' : 'Consultar casas'}
+          variant="outline"
+          size="compact"
+          loading={consultandoCasas}
+          onPress={() => onConsultarCasas(rep, Boolean(rep.consulta_casas?.puede_consultar_otras))}
+        />
+      ) : null}
+      {rep.fuente_marketplace === 'casa_repuestos' && rep.proveedor_nombre ? (
+        <InstitutionalText role="caption" color="muted">
+          Precio de {rep.proveedor_nombre}
+        </InstitutionalText>
+      ) : null}
+      {rep.consulta_casas?.estado === 'sin_respuesta' && rep.consulta_casas.casa ? (
+        <InstitutionalText role="caption" color="muted">
+          {rep.consulta_casas.casa} no respondió. La cotización sigue en espera.
+        </InstitutionalText>
       ) : null}
       {mostrarRango || hayPrecioParaConfirmar ? (
         <View style={styles.precioMetaRow}>
@@ -572,6 +595,34 @@ export const CotizacionIaEditor = React.forwardRef<
   repuestoSheetRef.current = repuestoSheet;
   const [confirmarPreciosVisible, setConfirmarPreciosVisible] = useState(false);
   const [precioBusy, setPrecioBusy] = useState(false);
+  const [consultandoRepuestoId, setConsultandoRepuestoId] = useState<string | null>(null);
+
+  const consultarCasasLinea = useCallback(async (rep: RepuestoCotizacion, soloRestantes = false) => {
+    const repuestoId = String(rep.id || '');
+    if (!cotizacion.id || !repuestoId) return;
+    setConsultandoRepuestoId(repuestoId);
+    try {
+      const res = await cotizacionCanalService.consultarCasas(cotizacion.id, {
+        repuesto_id: repuestoId,
+        solo_restantes: soloRestantes,
+      });
+      onChange(res.cotizacion);
+      const enviadas = Number(res.resultado?.enviadas || 0);
+      if (enviadas <= 0) {
+        const motivo = res.resultado?.motivo;
+        showAlert(
+          'No se consultó',
+          motivo === 'sin_casas'
+            ? 'Agrega una casa con teléfono en Casas de repuestos.'
+            : 'WhatsApp no dejó el mensaje. La casa tiene que haber escrito en las últimas 24 horas, o el hilo está pausado.',
+        );
+      }
+    } catch {
+      showAlert('No se pudo consultar', 'Intenta de nuevo.');
+    } finally {
+      setConsultandoRepuestoId(null);
+    }
+  }, [cotizacion.id, onChange]);
 
   const { data: proveedores = [] } = useProveedoresRepuestosQuery(
     editable && Boolean(cotizacion.id),
@@ -1531,6 +1582,8 @@ export const CotizacionIaEditor = React.forwardRef<
                 onBuscarIa={cotizarItemsConIa}
                 puedeBuscarIa={lineaNecesitaBusquedaPrecio(rep)}
                 rangoCliente={captionRangoCliente(rep, esEstimacionEmitida, editable)}
+                onConsultarCasas={cotizacion.estado === 'borrador' ? consultarCasasLinea : undefined}
+                consultandoCasas={consultandoRepuestoId === String(rep.id || '')}
               />
             ))}
           </View>

@@ -28,10 +28,13 @@ export function useMisPreciosRepuestosQuery(q = '', enabled = true) {
 export function useCrearProveedorMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Partial<ProveedorRepuestos>) =>
-      proveedorRepuestosService.crearProveedor(payload),
+    mutationFn: (input: { payload: Partial<ProveedorRepuestos>; confirmarRolCliente?: boolean }) =>
+      proveedorRepuestosService.crearProveedor(input.payload, {
+        confirmarRolCliente: input.confirmarRolCliente,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [PROVEEDORES_REPUESTOS_KEY] });
+      qc.invalidateQueries({ queryKey: ['chat-inbox'] });
     },
   });
 }
@@ -39,10 +42,18 @@ export function useCrearProveedorMutation() {
 export function useActualizarProveedorMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: Partial<ProveedorRepuestos> }) =>
-      proveedorRepuestosService.actualizarProveedor(id, payload),
+    mutationFn: ({
+      id,
+      payload,
+      confirmarRolCliente,
+    }: {
+      id: number;
+      payload: Partial<ProveedorRepuestos>;
+      confirmarRolCliente?: boolean;
+    }) => proveedorRepuestosService.actualizarProveedor(id, payload, { confirmarRolCliente }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [PROVEEDORES_REPUESTOS_KEY] });
+      qc.invalidateQueries({ queryKey: ['chat-inbox'] });
     },
   });
 }

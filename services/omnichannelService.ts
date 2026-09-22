@@ -101,6 +101,9 @@ export interface InboxChatItem {
   /** Calificación de intención del lead (omnicanal con agente IA). */
   lead_categoria?: LeadCategoria;
   lead_score?: number;
+  /** Rol durable del contacto: casa de repuestos, cliente, solo consulta, otro. */
+  contacto_rol?: string | null;
+  rol_sugerido?: string | null;
 }
 
 const omnichannelService = {
@@ -167,6 +170,10 @@ const omnichannelService = {
     await api.post(`/chat/conversations/${conversationId}/vincular-solicitud/`, {
       solicitud_id: solicitudId,
     });
+  },
+
+  async fijarRolContacto(contactId: string, rol: 'solo_consulta' | 'otro' | 'sin_clasificar'): Promise<void> {
+    await api.post(`/omnichannel/contacts/${contactId}/rol/`, { rol });
   },
 };
 

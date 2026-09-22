@@ -18,6 +18,7 @@ export interface AgenteIaConfig {
   permite_estimados_historicos?: boolean;
   tono_ventas?: TonoVentasAgente;
   requiere_direccion_antes_de_cotizar?: boolean;
+  consulta_casas_automatica?: boolean;
   actualizado_en?: string;
   /** false si el plan actual del taller no incluye el Agente IA (ej. Plan Básico). */
   agente_ia_disponible_en_plan?: boolean;

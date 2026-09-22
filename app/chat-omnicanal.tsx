@@ -19,6 +19,11 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import chatService from '@/services/chatService';
 import { OmnichannelChatHeader, OmnichannelChatActionBar } from '@/components/chats/OmnichannelChatHeader';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import omnichannelService from '@/services/omnichannelService';
+import proveedorRepuestosService from '@/services/proveedorRepuestosService';
+import { showConfirm } from '@/utils/platformAlert';
+import { useInvalidateChatInbox } from '@/hooks/useChatInboxQuery';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
 import { CotizacionCanalBubble } from '@/components/chats/CotizacionCanalBubble';
@@ -122,6 +127,58 @@ export default function ChatOmnicanalScreen() {
   const editorRef = useRef<CotizacionIaEditorHandle>(null);
 
   const conversationMeta = useOmnichannelConversationMeta(convId);
+  const invalidateChatInbox = useInvalidateChatInbox();
+  const aceptarSoloConsulta = useCallback(async () => {
+    if (!conversationMeta.contactId) return;
+    try {
+      await omnichannelService.fijarRolContacto(conversationMeta.contactId, 'solo_consulta');
+      invalidateChatInbox();
+    } catch {
+      Alert.alert('No se pudo marcar', 'Intenta de nuevo.');
+    }
+  }, [conversationMeta.contactId, invalidateChatInbox]);
+  const marcarOtro = useCallback(async () => {
+    if (!conversationMeta.contactId) return;
+    try {
+      await omnichannelService.fijarRolContacto(conversationMeta.contactId, 'otro');
+      invalidateChatInbox();
+    } catch {
+      Alert.alert('No se pudo marcar', 'Intenta de nuevo.');
+    }
+  }, [conversationMeta.contactId, invalidateChatInbox]);
+  const marcarCasa = useCallback(async (confirmarRolCliente = false) => {
+    const telefono = (conversationMeta.contactPhone || '').trim();
+    if (!telefono) {
+      Alert.alert('Falta el teléfono', 'Sin número no se puede marcar este chat como casa de repuestos.');
+      return;
+    }
+    const nombre = (conversationMeta.contactName || '').trim() || 'Casa de repuestos';
+    try {
+      await proveedorRepuestosService.crearProveedor(
+        { nombre, telefono, tipo: 'mostrador' },
+        { confirmarRolCliente },
+      );
+      invalidateChatInbox();
+    } catch (error) {
+      const respuesta = (error as { response?: { status?: number; data?: { detail?: unknown; telefono?: string[] } } })?.response;
+      const cuerpo = respuesta?.data?.detail;
+      const texto = cuerpo && typeof cuerpo === 'object' && 'detail' in cuerpo
+        ? String((cuerpo as { detail?: string }).detail || '')
+        : '';
+      if (respuesta?.status === 409) {
+        showConfirm(
+          'Este número ya es cliente',
+          texto || 'Confirma para marcarlo como casa de repuestos. El historial del chat se conserva.',
+          {
+            confirmText: 'Marcar como casa',
+            onConfirm: () => { void marcarCasa(true); },
+          },
+        );
+        return;
+      }
+      Alert.alert('No se pudo marcar', respuesta?.data?.telefono?.[0] || 'Intenta de nuevo.');
+    }
+  }, [conversationMeta.contactName, conversationMeta.contactPhone, invalidateChatInbox]);
   const { map: channelConnections, featureEnabled } = useOmnichannelConnectionMap(Boolean(convId));
 
   const channelSlug = conversationMeta.channel as CanalSlug;
@@ -379,7 +436,65 @@ export default function ChatOmnicanalScreen() {
           isMetaPending={conversationMeta.isMetaPending}
           paddingTop={insets.top + SPACING.sm}
           onBack={() => router.back()}
+          contactoRol={conversationMeta.contactoRol}
         />
+        {conversationMeta.rolSugerido === 'casa_repuestos'
+          && conversationMeta.contactoRol !== 'casa_repuestos' ? (
+          <View style={styles.sugerenciaRol}>
+            <Text style={styles.sugerenciaRolText}>
+              Este mensaje parece de una casa de repuestos. Márcalo para que el agente no le cotice un servicio.
+            </Text>
+            <View style={styles.sugerenciaRolAcciones}>
+              <InstitutionalButton
+                label="Casa de repuestos"
+                variant="outline"
+                size="compact"
+                onPress={() => { void marcarCasa(false); }}
+              />
+              <InstitutionalButton
+                label="No es cliente"
+                variant="outline"
+                size="compact"
+                onPress={() => { void marcarOtro(); }}
+              />
+            </View>
+          </View>
+        ) : conversationMeta.rolSugerido === 'solo_consulta'
+          && conversationMeta.contactoRol !== 'solo_consulta'
+          && conversationMeta.contactoRol !== 'casa_repuestos' ? (
+          <View style={styles.sugerenciaRol}>
+            <Text style={styles.sugerenciaRolText}>
+              Este contacto pregunta y no concreta. El agente puede bajar la insistencia.
+            </Text>
+            <InstitutionalButton
+              label="Marcar solo consulta"
+              variant="outline"
+              size="compact"
+              onPress={() => { void aceptarSoloConsulta(); }}
+            />
+          </View>
+        ) : (conversationMeta.contactoRol === '' || conversationMeta.contactoRol === 'sin_clasificar')
+          && conversationMeta.contactId ? (
+          <View style={styles.sugerenciaRol}>
+            <Text style={styles.sugerenciaRolText}>
+              Si este número no es un cliente, márcalo para que el agente no le venda un servicio.
+            </Text>
+            <View style={styles.sugerenciaRolAcciones}>
+              <InstitutionalButton
+                label="Casa de repuestos"
+                variant="outline"
+                size="compact"
+                onPress={() => { void marcarCasa(false); }}
+              />
+              <InstitutionalButton
+                label="No es cliente"
+                variant="outline"
+                size="compact"
+                onPress={() => { void marcarOtro(); }}
+              />
+            </View>
+          </View>
+        ) : null}
 
         <AgendarDesdeCanalModal
           visible={agendarVisible}
@@ -813,6 +928,27 @@ const styles = StyleSheet.create({
     marginHorizontal: SPACING.md,
     marginBottom: SPACING.xs,
     borderRadius: BORDERS.radius.md,
+  },
+  sugerenciaRol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: I.paper,
+  },
+  sugerenciaRolText: {
+    flex: 1,
+    minWidth: 160,
+    ...TYPOGRAPHY.styles.caption,
+    color: I.muted,
+  },
+  sugerenciaRolAcciones: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
   },
   cotizacionAceptadaText: {
     ...TYPOGRAPHY.styles.body,

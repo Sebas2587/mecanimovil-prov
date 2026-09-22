@@ -73,7 +73,7 @@ export default function CasasRepuestosScreen() {
     setFormVisible(true);
   }, []);
 
-  const guardar = useCallback(async () => {
+  const guardar = useCallback(async (confirmarRolCliente = false) => {
     if (!nombre.trim()) {
       showAlert('Nombre requerido', 'Indica el nombre de la casa de repuestos.');
       return;
@@ -87,13 +87,30 @@ export default function CasasRepuestosScreen() {
     };
     try {
       if (editando) {
-        await actualizar.mutateAsync({ id: editando.id, payload });
+        await actualizar.mutateAsync({ id: editando.id, payload, confirmarRolCliente });
       } else {
-        await crear.mutateAsync(payload);
+        await crear.mutateAsync({ payload, confirmarRolCliente });
       }
       setFormVisible(false);
-    } catch {
-      showAlert('No se pudo guardar', 'Intenta de nuevo.');
+    } catch (error) {
+      const respuesta = (error as { response?: { status?: number; data?: { detail?: unknown } } })?.response;
+      const cuerpo = respuesta?.data?.detail;
+      const texto = cuerpo && typeof cuerpo === 'object' && 'detail' in cuerpo
+        ? String((cuerpo as { detail?: string }).detail || '')
+        : '';
+      if (respuesta?.status === 409) {
+        showConfirm(
+          'Este número ya es cliente',
+          texto || 'Confirma para marcarlo como casa de repuestos. El historial del chat se conserva.',
+          {
+            confirmText: 'Marcar como casa',
+            onConfirm: () => { void guardar(true); },
+          },
+        );
+        return;
+      }
+      const telefonoError = (respuesta?.data as { telefono?: string[] } | undefined)?.telefono?.[0];
+      showAlert('No se pudo guardar', telefonoError || 'Intenta de nuevo.');
     }
   }, [actualizar, comuna, crear, direccion, editando, nombre, notas, telefono]);
 
