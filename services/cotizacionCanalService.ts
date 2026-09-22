@@ -281,6 +281,7 @@ export interface CotizacionCanal {
     busqueda_web_en?: string;
     busqueda_web_progreso?: ProgresoBusquedaWeb;
     busqueda_web_ids?: string[];
+    reabierta_por_taller?: boolean;
     cotizacion_original_id?: number;
     cita_personal_id?: number;
     entrega_canal?: 'app' | 'sesion_meta' | 'whatsapp_template' | 'link_publico' | string;
@@ -354,10 +355,10 @@ export interface GenerarCotizacionIaResponse {
 }
 
 export function cotizacionPermiteEdicionCompleta(c: CotizacionCanal): boolean {
+  // Enviada se corrige reabriéndola a borrador. Aceptada queda cerrada.
+  if (c.estado !== 'borrador') return false;
   if (typeof c.permite_edicion_completa === 'boolean') return c.permite_edicion_completa;
-  if (c.es_cotizacion_adicional) return c.estado === 'borrador';
-  if (c.tiene_horario_agendado) return false;
-  return c.estado === 'borrador' || c.estado === 'enviada' || c.estado === 'aceptada';
+  return true;
 }
 
 /** Primer envío: solo borrador. No reutilizar edición completa para mostrar el CTA. */

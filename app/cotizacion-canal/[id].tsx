@@ -9,7 +9,7 @@ import {
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
-import { Calendar, Check, Eye, Link2, MessageCircle, Package, Pencil, Phone, Trash2, Wrench, X } from 'lucide-react-native';
+import { Calendar, Check, Eye, Link2, MessageCircle, Package, Phone, Trash2, Wrench, X } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
 import { CotizacionIaProgreso } from '@/components/chats/CotizacionIaProgreso';
@@ -404,6 +404,24 @@ export default function CotizacionCanalDetalleScreen() {
     }
   }, [draft]);
 
+  const corregirCotizacion = useCallback(async () => {
+    if (!draft?.id || draft.estado !== 'enviada') return;
+    setGuardando(true);
+    try {
+      const reabierta = await cotizacionCanalService.reabrir(draft.id);
+      setDraft({ ...reabierta });
+      setEditando(false);
+      await invalidateAll();
+    } catch {
+      showAlert(
+        'No se pudo corregir',
+        'Solo puedes corregir una cotización enviada que el cliente todavía no acepta.',
+      );
+    } finally {
+      setGuardando(false);
+    }
+  }, [draft?.estado, draft?.id, invalidateAll]);
+
   const marcarAceptada = useCallback(async () => {
     if (!draft?.id) return;
     setAccionLead(true);
@@ -493,14 +511,6 @@ export default function CotizacionCanalDetalleScreen() {
       onPress: () => editorRef.current?.agregarRepuesto(),
     });
   } else {
-    if (editable) {
-      fabActions.push({
-        key: 'editar',
-        label: 'Editar cotización',
-        icon: Pencil,
-        onPress: () => setEditando(true),
-      });
-    }
     if (draft.estado === 'aceptada' && draft.cita_personal_id && !tieneHorarioAgendado) {
       fabActions.push({
         key: 'agendar',
@@ -565,12 +575,12 @@ export default function CotizacionCanalDetalleScreen() {
     }
   }
   const fabVariant = draft.estado === 'borrador' || editando ? 'plus' : 'more';
+  const citaParaAdicional = draft.cita_personal_id || draft.cita_origen_id || null;
   const showFooter = Boolean(
     (tieneHorarioAgendado && draft.cita_personal_id)
     || (editable && draft.estado === 'borrador')
-    || (draft.estado === 'enviada' && !editando && draft.entrega_pendiente_compartir && shareUrl)
-    || (editable && draft.estado === 'enviada' && editando && (hayCambios || draft.emision_pendiente))
-    || (editable && editando && draft.estado === 'aceptada' && draft.emision_pendiente)
+    || draft.estado === 'enviada'
+    || (draft.estado === 'aceptada' && citaParaAdicional)
   );
 
   return (
@@ -646,10 +656,15 @@ export default function CotizacionCanalDetalleScreen() {
           <RegistrarCompraCard cotizacion={draft} />
         ) : null}
 
-        {tieneHorarioAgendado ? (
+        {draft.estado === 'aceptada' ? (
           <InstitutionalText role="caption" color="body">
-            Esta cotización ya tiene un horario agendado. Los ítems extra van en un trabajo
-            adicional: puede ser un servicio nuevo o solo repuestos, sin mano de obra.
+            Esta cotización ya fue aceptada y queda cerrada. Para sumar o cambiar trabajo, crea una cotización adicional.
+          </InstitutionalText>
+        ) : null}
+
+        {draft.estado === 'enviada' ? (
+          <InstitutionalText role="caption" color="body">
+            El cliente ya tiene este documento. Si hay que cambiar precios o ítems antes de que acepte, corrígela: vuelve a borrador y confirmas los precios como al crearla.
           </InstitutionalText>
         ) : null}
 
@@ -705,56 +720,21 @@ export default function CotizacionCanalDetalleScreen() {
           />
         ) : null}
 
-        {editable && draft.estado === 'enviada' && editando && (hayCambios || draft.emision_pendiente) ? (
-          <View style={styles.footerBorrador}>
-            {draft.emision_pendiente ? (
-              <InstitutionalText role="caption" color="muted">
-                El cliente sigue viendo la versión anterior hasta que envíes esta actualización.
-              </InstitutionalText>
-            ) : draft.entrega_pendiente_compartir ? (
-              <InstitutionalText role="caption" color="muted">
-                El cliente aún no la recibió por el chat. Usa Compartir link.
-              </InstitutionalText>
-            ) : draft.visto_en ? (
-              <InstitutionalText role="caption" color="muted">
-                El cliente abrió el enlace.
-              </InstitutionalText>
-            ) : null}
-            {!puedeEnviarFirme ? (
-              <CotizacionBorradorAcciones
-                pendientesPrecio={pendientesPrecio}
-                puedeEnviarFirme={false}
-                confirmDisabled={enviando || guardando}
-                sendDisabled={enviando || guardando}
-                loading={enviando || guardando}
-                onConfirmarPrecios={() => editorRef.current?.abrirConfirmarPrecios()}
-                onEnviarFirme={() => void abrirVistaPrevia('cotizacion')}
-              />
-            ) : (
-              <InstitutionalButton
-                label="Enviar cotización"
-                variant="primary"
-                loading={enviando || guardando}
-                disabled={(!hayCambios && !draft.emision_pendiente) || enviando || guardando}
-                onPress={() => void abrirVistaPrevia('cotizacion')}
-              />
-            )}
-          </View>
+        {draft.estado === 'enviada' ? (
+          <InstitutionalButton
+            label="Corregir cotización"
+            variant={draft.entrega_pendiente_compartir ? 'outline' : 'primary'}
+            loading={guardando}
+            onPress={() => void corregirCotizacion()}
+          />
         ) : null}
 
-        {editable && editando && draft.estado === 'aceptada' && draft.emision_pendiente ? (
-          <View style={styles.footerBorrador}>
-            <InstitutionalText role="caption" color="muted">
-              El cliente sigue viendo la versión anterior hasta que envíes esta actualización.
-            </InstitutionalText>
-            <InstitutionalButton
-              label="Revisar y enviar"
-              variant="primary"
-              loading={enviando || guardando}
-              disabled={enviando || guardando}
-              onPress={() => void abrirVistaPrevia(puedeEnviarFirme ? 'cotizacion' : 'estimacion')}
-            />
-          </View>
+        {draft.estado === 'aceptada' && citaParaAdicional && !tieneHorarioAgendado ? (
+          <InstitutionalButton
+            label="Nueva cotización adicional"
+            variant="primary"
+            onPress={() => router.push(`/agregar-servicio-adicional/${citaParaAdicional}`)}
+          />
         ) : null}
       </View>
       ) : null}

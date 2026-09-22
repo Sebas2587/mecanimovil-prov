@@ -1220,9 +1220,9 @@ export const CotizacionIaEditor = React.forwardRef<
       </View>
       ) : null}
 
-      {editable && (cotizacion.estado === 'enviada' || cotizacion.estado === 'aceptada') ? (
+      {editable && cotizacion.estado === 'borrador' && cotizacion.metadata?.reabierta_por_taller ? (
         <InstitutionalText role="caption" color="muted">
-          Puedes agregar ítems con IA o con el valor que definas, y volver a enviar esta misma cotización al cliente.
+          Corriges esta cotización en borrador. Confirma precios y vuelve a enviarla. El cliente sigue viendo la versión anterior hasta ese envío.
         </InstitutionalText>
       ) : null}
 

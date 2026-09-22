@@ -73,6 +73,8 @@ import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBot
 import { ConfirmarHorarioCitaSheet } from '@/components/agenda/ConfirmarHorarioCitaSheet';
 import { CitaResumenEconomicoCard } from '@/components/agenda/CitaResumenEconomicoCard';
 import { CitaCasoIdentidad } from '@/components/agenda/CitaCasoIdentidad';
+import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
+import { useCotizacionCanalDetalleQuery } from '@/hooks/useCotizacionCanalDetalleQuery';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import { checklistService } from '@/services/checklistService';
 import { mapCitaEstadoOperativo } from '@/utils/estadoOperativo';
@@ -129,6 +131,13 @@ export default function CitaAgendaPersonalDetalleScreen() {
   } = useCitaPersonalQuery(Number.isNaN(citaId) ? null : citaId);
 
   const showInitialLoader = !Number.isNaN(citaId) && citaPending && !cita;
+  const cotizacionOrigenId = cita?.cotizacion_canal_origen_id ?? null;
+  const {
+    data: cotizacionOrigen,
+    isPending: cotizacionOrigenPending,
+    isError: cotizacionOrigenError,
+  } = useCotizacionCanalDetalleQuery(cotizacionOrigenId);
+  const ignorarCambioCotizacion = useCallback(() => undefined, []);
 
   const [procesando, setProcesando] = useState(false);
   const [editando, setEditando] = useState(false);
@@ -855,6 +864,13 @@ export default function CitaAgendaPersonalDetalleScreen() {
     puedeServicios: !esSupervisor || puede('servicios'),
   });
 
+  const muestraDocumentoComercial = Boolean(cotizacionOrigen) && !editando;
+  const documentoComercialCargando = Boolean(
+    cotizacionOrigenId
+    && !cotizacionOrigen
+    && !cotizacionOrigenError
+    && cotizacionOrigenPending,
+  );
   const folioCita = folioIdentidadLabel({
     numeroPublico: cita.numero_publico,
   });
@@ -877,7 +893,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     if (cita.cotizacion_canal_origen_id && !checklistIniciado) {
       fabActions.push({
         key: 'cotizacion',
-        label: 'Actualizar cotización',
+        label: 'Ver cotización',
         icon: FileText,
         onPress: () => router.push(`/cotizacion-canal/${cita.cotizacion_canal_origen_id}`),
       });
@@ -943,27 +959,41 @@ export default function CitaAgendaPersonalDetalleScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <CitaCasoIdentidad
-            servicioNombre={
-              nombreServicio && nombreServicio !== 'Servicio' ? nombreServicio : 'Trabajo en curso'
-            }
-            folioLabel={folioCita}
-            estadoOperativo={estadoOperativo}
-            modalidadLabel={esDomicilio ? 'Domicilio' : 'Taller'}
-            fechaHoraLabel={fechaHoraLabel}
-            horarioPorConfirmar={horarioPorConfirmar}
-            clienteNombre={det.cliente_nombre}
-            clienteTelefono={det.cliente_telefono}
-            direccion={det.direccion}
-            esDomicilio={esDomicilio}
-            vehiculoMarca={det.vehiculo_marca}
-            vehiculoModelo={det.vehiculo_modelo}
-            vehiculoAnio={det.vehiculo_anio}
-            vehiculoPatente={det.vehiculo_patente}
-            vehiculoVin={det.vehiculo_vin}
-            vehiculoCilindraje={det.vehiculo_cilindraje}
-            onLlamar={handleLlamar}
-          />
+          {documentoComercialCargando ? (
+            <View style={styles.documentoCargando}>
+              <ActivityIndicator color={I.primary} />
+            </View>
+          ) : muestraDocumentoComercial && cotizacionOrigen ? (
+            <CotizacionIaEditor
+              cotizacion={cotizacionOrigen}
+              onChange={ignorarCambioCotizacion}
+              readonly
+              hideSendActions
+              compactHeader
+            />
+          ) : (
+            <CitaCasoIdentidad
+              servicioNombre={
+                nombreServicio && nombreServicio !== 'Servicio' ? nombreServicio : 'Trabajo en curso'
+              }
+              folioLabel={folioCita}
+              estadoOperativo={estadoOperativo}
+              modalidadLabel={esDomicilio ? 'Domicilio' : 'Taller'}
+              fechaHoraLabel={fechaHoraLabel}
+              horarioPorConfirmar={horarioPorConfirmar}
+              clienteNombre={det.cliente_nombre}
+              clienteTelefono={det.cliente_telefono}
+              direccion={det.direccion}
+              esDomicilio={esDomicilio}
+              vehiculoMarca={det.vehiculo_marca}
+              vehiculoModelo={det.vehiculo_modelo}
+              vehiculoAnio={det.vehiculo_anio}
+              vehiculoPatente={det.vehiculo_patente}
+              vehiculoVin={det.vehiculo_vin}
+              vehiculoCilindraje={det.vehiculo_cilindraje}
+              onLlamar={handleLlamar}
+            />
+          )}
 
           {editando && esActiva && permitirEditarCita ? (
             <>
@@ -1041,7 +1071,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                 ) : null}
               </HostPaperSection>
 
-              {cita.resumen_economico ? (
+              {muestraDocumentoComercial || documentoComercialCargando ? null : cita.resumen_economico ? (
                 <CitaResumenEconomicoCard
                   resumen={cita.resumen_economico}
                   servicioNombre={nombreServicio}
@@ -1523,6 +1553,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: SPACING.fixed.sm,
+  },
+  documentoCargando: {
+    paddingVertical: SPACING.fixed.lg,
+    alignItems: 'center',
   },
   loadingContainer: {
     flex: 1,
