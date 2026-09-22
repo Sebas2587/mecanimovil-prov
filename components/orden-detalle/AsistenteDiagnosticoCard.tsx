@@ -11,6 +11,8 @@ import { showAlert } from '@/utils/platformAlert';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
+import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
+import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import {
   asistenteDiagnosticoService,
   type AsistenteDiagnosticoOrigen,
@@ -138,13 +140,13 @@ export function AsistenteDiagnosticoCard({ origen, entityId, habilitado = true }
         accessibilityState={{ expanded }}
         accessibilityLabel={`Asistente de reparación IA. ${expanded ? 'Contraer sección' : 'Expandir sección'}`}
       >
-        <View style={styles.iconWrap}>
-          <Sparkles size={18} color={I.primary} strokeWidth={2} />
+        <View style={hostIconPlateStyle}>
+          <Sparkles size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Asistente de reparación IA</Text>
+          <Text style={styles.title}>Guía de reparación</Text>
           <Text style={styles.subtitle} numberOfLines={2}>
-            {expanded ? 'Guía según vehículo y problema reportado' : summaryCollapsed}
+            {expanded ? 'Procedimiento sugerido para este vehículo' : summaryCollapsed}
           </Text>
         </View>
         <InstitutionalIcon
@@ -169,20 +171,13 @@ export function AsistenteDiagnosticoCard({ origen, entityId, habilitado = true }
                 <GuiaReparacionContenido contenido={contenido} />
               )}
 
-              <TouchableOpacity
-                style={[styles.button, (generating || loading) && styles.buttonDisabled]}
+              <InstitutionalButton
+                label={contenido ? 'Regenerar guía' : 'Generar guía'}
+                variant={contenido ? 'outline' : 'secondary'}
                 onPress={() => void generar()}
                 disabled={generating || loading}
-                activeOpacity={0.85}
-              >
-                {generating ? (
-                  <ActivityIndicator color={I.onPrimary} size="small" />
-                ) : (
-                  <Text style={styles.buttonText}>
-                    {contenido ? 'Regenerar guía' : 'Generar guía de reparación'}
-                  </Text>
-                )}
-              </TouchableOpacity>
+                loading={generating}
+              />
 
               {contenido && data?.diagnostico_id && puedeGuardarGuia ? (
                 <TouchableOpacity
@@ -241,14 +236,6 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
   },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.surfaceSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   title: {
     fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
     fontSize: TYPOGRAPHY.fontSize.md,
@@ -266,21 +253,8 @@ const styles = StyleSheet.create({
     color: I.body,
     lineHeight: 20,
   },
-  button: {
-    backgroundColor: I.primary,
-    borderRadius: BORDERS.radius.md,
-    paddingVertical: SPACING.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-  },
   buttonDisabled: {
     opacity: 0.7,
-  },
-  buttonText: {
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.onPrimary,
   },
   saveButton: {
     flexDirection: 'row',

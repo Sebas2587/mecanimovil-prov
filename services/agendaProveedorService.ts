@@ -120,6 +120,8 @@ export interface CitaAgendaPersonal {
   miembro_taller?: number | null;
   conversation_id?: number | null;
   cotizacion_canal_origen_id?: number | null;
+  /** Folio MM de la cotización origen (mismo caso). */
+  numero_publico?: string | null;
   resumen_economico?: CitaResumenEconomico | null;
   permite_cotizacion_adicional?: boolean;
   cotizacion_adicional_pendiente_id?: number | null;
@@ -152,6 +154,7 @@ export interface EventoAgendaUnificado {
   miembro_taller_id?: number | null;
   mecanico_nombre?: string | null;
   conversation_id?: number | null;
+  numero_publico?: string | null;
 }
 
 export interface CitaAgendaPersonalCreatePayload {

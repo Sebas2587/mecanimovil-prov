@@ -15,8 +15,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Pencil } from 'lucide-react-native';
+import { FileText, ListChecks, UserRound, Wrench } from 'lucide-react-native';
 import Header from '@/components/Header';
+import { CotizacionEditorFab, type CotizacionFabAction } from '@/components/cotizacion/CotizacionEditorFab';
+import { folioIdentidadLabel } from '@/utils/entregaCotizacionCopy';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -24,9 +26,7 @@ import {
   COLORS,
   SPACING,
   TYPOGRAPHY,
-  SHADOWS,
   BORDERS,
-  withOpacity,
   platformShadow,
 } from '@/app/design-system/tokens';
 import {
@@ -44,19 +44,18 @@ import {
   type CitaAgendaPersonalCreatePayload,
 } from '@/services/agendaProveedorService';
 import {
-  CatalogoFechaHoraPickers,
   formatDateApi,
   resolveInitialPickerValue,
   type CatalogoFechaHoraValue,
 } from '@/components/solicitudes/CatalogoFechaHoraPickers';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
-import { MontoCLPField, parsePrecioReferencia, formatMontoInputLocalized } from '@/components/forms/MontoCLPField';
+import { parsePrecioReferencia, formatMontoInputLocalized } from '@/components/forms/MontoCLPField';
 import { ChilePhoneField, getChilePhoneError } from '@/components/forms/ChilePhoneField';
 import ChileAddressField from '@/components/forms/ChileAddressField';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
 import { extraerNueveDigitosDesdeGuardado, normalizarTelefonoChileParaGuardar } from '@/utils/chilePhone';
 import { calcularDuracionMinutos, esRangoHorarioValido, sumarMinutosAHora } from '@/utils/citaPersonalHorario';
-import { parseFechaLocal, formatFechaHoraPropuesta } from '@/utils/fechaLocal';
+import { parseFechaLocal, formatFechaHoraPropuesta, formatearFechaServicioExacta } from '@/utils/fechaLocal';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { consultarPatente } from '@/services/vehiculoService';
 import { VerHistorialPatenteLink } from '@/components/vehiculos/VerHistorialPatenteLink';
@@ -73,15 +72,10 @@ import { ChecklistSignatureModal } from '@/components/checklist/ChecklistSignatu
 import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBottomSheet';
 import { ConfirmarHorarioCitaSheet } from '@/components/agenda/ConfirmarHorarioCitaSheet';
 import { CitaResumenEconomicoCard } from '@/components/agenda/CitaResumenEconomicoCard';
+import { CitaCasoIdentidad } from '@/components/agenda/CitaCasoIdentidad';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
-import { InstitutionalTag } from '@/design-system/components/InstitutionalTag';
-import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 import { checklistService } from '@/services/checklistService';
-import {
-  ESTADO_OPERATIVO_LABELS,
-  ESTADO_OPERATIVO_VARIANT,
-  mapCitaEstadoOperativo,
-} from '@/utils/estadoOperativo';
+import { mapCitaEstadoOperativo } from '@/utils/estadoOperativo';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -285,12 +279,6 @@ export default function CitaAgendaPersonalDetalleScreen() {
     && cita?.cotizacion_canal_origen_id
     && !adicionalPendienteId,
   );
-  const puedeActualizarCotizacion = Boolean(
-    esActiva
-    && cita?.cotizacion_canal_origen_id
-    && !checklistIniciado
-    && horarioPorConfirmar,
-  );
   const esDiaServicio = Boolean(
     cita?.puede_iniciar_servicio_hoy
     ?? (cita?.fecha_servicio && (() => {
@@ -399,8 +387,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
     if (esActiva && editando) {
       return 72 + footerBottomPad + SPACING.fixed.md;
     }
-    // Una sola fila: cancelar (izq) + CTA primario (der)
-    return 64 + footerBottomPad + SPACING.fixed.md;
+    // CTA full-width + cancelar como link debajo (deja hueco para el FAB).
+    return 108 + footerBottomPad + SPACING.fixed.md;
   }, [
     muestraFooterAcciones,
     mostrarStickyPrimario,
@@ -552,21 +540,24 @@ export default function CitaAgendaPersonalDetalleScreen() {
       mostrarFeedback({ tipo: 'warning', titulo: 'Datos incompletos', mensaje: telError });
       return;
     }
-    if (!fechaHora.hora || !fechaHora.horaFin) {
-      mostrarFeedback({
-        tipo: 'warning',
-        titulo: 'Datos incompletos',
-        mensaje: 'Selecciona hora de inicio y término para la cita.',
-      });
-      return;
-    }
-    if (!esRangoHorarioValido(fechaHora.hora, fechaHora.horaFin)) {
-      mostrarFeedback({
-        tipo: 'warning',
-        titulo: 'Datos incompletos',
-        mensaje: 'La hora de término debe ser al menos 15 minutos después del inicio.',
-      });
-      return;
+    const horarioPendiente = Boolean(cita?.horario_por_confirmar);
+    if (!horarioPendiente) {
+      if (!fechaHora.hora || !fechaHora.horaFin) {
+        mostrarFeedback({
+          tipo: 'warning',
+          titulo: 'Datos incompletos',
+          mensaje: 'Selecciona hora de inicio y término para la cita.',
+        });
+        return;
+      }
+      if (!esRangoHorarioValido(fechaHora.hora, fechaHora.horaFin)) {
+        mostrarFeedback({
+          tipo: 'warning',
+          titulo: 'Datos incompletos',
+          mensaje: 'La hora de término debe ser al menos 15 minutos después del inicio.',
+        });
+        return;
+      }
     }
     if (tipoServicio === 'domicilio') {
       if (!direccion.trim()) {
@@ -610,28 +601,32 @@ export default function CitaAgendaPersonalDetalleScreen() {
       if (precio != null) detalle.precio_referencia = precio;
     }
 
-    const payload: CitaAgendaPersonalCreatePayload = {
-      fecha_servicio: formatDateApi(fechaHora.fecha),
-      hora_servicio: `${fechaHora.hora}:00`,
-      duracion_minutos: calcularDuracionMinutos(fechaHora.hora, fechaHora.horaFin),
-      tipo_servicio: tipoServicio,
-      detalle,
-    };
+    const payload: Partial<CitaAgendaPersonalCreatePayload> = horarioPendiente
+      ? { tipo_servicio: tipoServicio, detalle }
+      : {
+          fecha_servicio: formatDateApi(fechaHora.fecha),
+          hora_servicio: `${fechaHora.hora}:00`,
+          duracion_minutos: calcularDuracionMinutos(fechaHora.hora, fechaHora.horaFin),
+          tipo_servicio: tipoServicio,
+          detalle,
+        };
 
     setProcesando(true);
     try {
-      const validacion = await agendaProveedorService.validarSlot({
-        ...payload,
-        excluir_cita_id: citaId,
-      });
-      if (!validacion.success || !validacion.data?.valido) {
-        mostrarFeedback({
-          tipo: 'error',
-          titulo: 'Horario no disponible',
-          mensaje:
-            validacion.data?.error || validacion.message || 'El horario seleccionado no está disponible.',
+      if (!horarioPendiente) {
+        const validacion = await agendaProveedorService.validarSlot({
+          ...payload,
+          excluir_cita_id: citaId,
         });
-        return;
+        if (!validacion.success || !validacion.data?.valido) {
+          mostrarFeedback({
+            tipo: 'error',
+            titulo: 'Horario no disponible',
+            mensaje:
+              validacion.data?.error || validacion.message || 'El horario seleccionado no está disponible.',
+          });
+          return;
+        }
       }
 
       const res = await agendaProveedorService.actualizarCita(citaId, payload);
@@ -682,7 +677,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
   const formatearFecha = (fecha: string) => {
     const parsed = parseFechaLocal(fecha);
     if (!parsed) return '—';
-    return parsed.toLocaleDateString('es-ES', {
+    return parsed.toLocaleDateString('es-CL', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -777,7 +772,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
       <View style={styles.container}>
         <Stack.Screen options={stackOptions} />
         <Header
-          title="Trabajo en curso"
+          title="Cita"
+          titleRole="h4"
           showBack
           onBackPress={() => router.back()}
           backgroundColor={I.canvas}
@@ -845,11 +841,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     }
   };
 
-  const duracionLabel = formatDuracion(cita.duracion_minutos);
   const esDomicilio = cita.tipo_servicio === 'domicilio';
-  const metaFactsLine = [esDomicilio ? 'A domicilio' : 'En taller', duracionLabel]
-    .filter(Boolean)
-    .join(' · ');
   const textoUbicacion = esDomicilio
     ? det.direccion?.trim() || 'Dirección no registrada'
     : 'El cliente acudirá al taller';
@@ -863,33 +855,81 @@ export default function CitaAgendaPersonalDetalleScreen() {
     puedeServicios: !esSupervisor || puede('servicios'),
   });
 
-  const tituloCita =
-    nombreServicio && nombreServicio !== 'Servicio' ? nombreServicio : 'Trabajo en curso';
+  const folioCita = folioIdentidadLabel({
+    numeroPublico: cita.numero_publico,
+  });
+  const tituloCita = folioCita || 'Cita';
+  const horaFin = cita.duracion_minutos
+    ? sumarMinutosAHora(formatearHora(cita.hora_servicio), cita.duracion_minutos)
+    : '';
+  const fechaHoraLabel = horarioPorConfirmar
+    ? 'Horario por confirmar'
+    : formatearFechaServicioExacta(cita.fecha_servicio, cita.hora_servicio, horaFin);
 
-  const mostrarEditarHeader =
-    esActiva && permitirEditarCita && !editando && !checklistEnCurso;
+  const puedeMostrarAsistenteIa =
+    esActiva
+    && citaAgendada
+    && checklistIniciado
+    && puedeUsarAsistenteIa;
+
+  const fabActions: CotizacionFabAction[] = [];
+  if (esActiva && permitirEditarCita && !editando) {
+    if (cita.cotizacion_canal_origen_id && !checklistIniciado) {
+      fabActions.push({
+        key: 'cotizacion',
+        label: 'Actualizar cotización',
+        icon: FileText,
+        onPress: () => router.push(`/cotizacion-canal/${cita.cotizacion_canal_origen_id}`),
+      });
+    }
+    fabActions.push({
+      key: 'tecnico',
+      label: cita.miembro_taller ? 'Reasignar técnico' : 'Asignar técnico',
+      icon: Wrench,
+      onPress: () => setAsignarVisible(true),
+    });
+    fabActions.push({
+      key: 'cliente',
+      label: 'Editar datos del cliente',
+      icon: UserRound,
+      onPress: handleEditarCita,
+    });
+    if (permitirAgregarHallazgo) {
+      fabActions.push({
+        key: 'hallazgo',
+        label: checklistEnEjecucion ? 'Agregar hallazgo' : 'Agregar ítems o servicio adicional',
+        icon: ListChecks,
+        onPress: () => router.push(`/agregar-servicio-adicional/${cita.id}`),
+      });
+    } else if (adicionalPendienteId) {
+      fabActions.push({
+        key: 'adicional',
+        label: 'Ver trabajo adicional',
+        icon: FileText,
+        onPress: () => router.push(`/cotizacion-canal/${adicionalPendienteId}`),
+      });
+    }
+    if (cita.checklist_id && (checklistPendienteSupervisor || checklistPendienteFirmaCliente || checklistCompletado)) {
+      fabActions.push({
+        key: 'resumen',
+        label: 'Ver resumen del trabajo',
+        icon: ListChecks,
+        onPress: () => setShowChecklistResumen(true),
+      });
+    }
+  }
+  const mostrarFab = fabActions.length > 0;
 
   return (
     <View style={styles.container}>
       <Stack.Screen options={stackOptions} />
       <Header
         title={tituloCita}
+        titleRole="h4"
         showBack
         onBackPress={() => router.back()}
         backgroundColor={I.canvas}
         titleColor={I.ink}
-        rightComponent={
-          mostrarEditarHeader ? (
-            <TouchableOpacity
-              onPress={handleEditarCita}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              accessibilityRole="button"
-              accessibilityLabel="Editar cita"
-            >
-              <Pencil size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-            </TouchableOpacity>
-          ) : null
-        }
       />
 
       <KeyboardAvoidingView style={styles.screenRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -899,21 +939,31 @@ export default function CitaAgendaPersonalDetalleScreen() {
           contentContainerStyle={[
             hostScreenStyles.scrollInner,
             styles.scrollContent,
-            { paddingBottom: footerReserve },
+            { paddingBottom: footerReserve + (mostrarFab ? 24 : 0) },
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.statusBlock}>
-            <InstitutionalTag
-              label={ESTADO_OPERATIVO_LABELS[estadoOperativo]}
-              variant={ESTADO_OPERATIVO_VARIANT[estadoOperativo]}
-              size="sm"
-            />
-            {cita.template_generado_por_ia ? (
-              <InstitutionalTag label="Checklist IA" variant="info" size="sm" />
-            ) : null}
-            {metaFactsLine ? <Text style={styles.metaFacts}>{metaFactsLine}</Text> : null}
-          </View>
+          <CitaCasoIdentidad
+            servicioNombre={
+              nombreServicio && nombreServicio !== 'Servicio' ? nombreServicio : 'Trabajo en curso'
+            }
+            folioLabel={folioCita}
+            estadoOperativo={estadoOperativo}
+            modalidadLabel={esDomicilio ? 'Domicilio' : 'Taller'}
+            fechaHoraLabel={fechaHoraLabel}
+            horarioPorConfirmar={horarioPorConfirmar}
+            clienteNombre={det.cliente_nombre}
+            clienteTelefono={det.cliente_telefono}
+            direccion={det.direccion}
+            esDomicilio={esDomicilio}
+            vehiculoMarca={det.vehiculo_marca}
+            vehiculoModelo={det.vehiculo_modelo}
+            vehiculoAnio={det.vehiculo_anio}
+            vehiculoPatente={det.vehiculo_patente}
+            vehiculoVin={det.vehiculo_vin}
+            vehiculoCilindraje={det.vehiculo_cilindraje}
+            onLlamar={handleLlamar}
+          />
 
           {editando && esActiva && permitirEditarCita ? (
             <>
@@ -951,86 +1001,36 @@ export default function CitaAgendaPersonalDetalleScreen() {
                   />
                 </EditSection>
               )}
-              <EditSection title="Servicio">
-                <InstitutionalField label="Nombre servicio" value={servicioNombre} onChangeText={setServicioNombre} />
-                <InstitutionalField label="Descripción" value={descripcion} onChangeText={setDescripcion} multiline />
-                <MontoCLPField
-                  label="Precio referencia"
-                  value={precioReferencia}
-                  onChangeValue={setPrecioReferencia}
-                />
-              </EditSection>
-              <EditSection title="Fecha y hora">
-                <CatalogoFechaHoraPickers value={fechaHora} onChange={setFechaHora} modo="rango" />
-              </EditSection>
+              <Text style={styles.addressDetailsText}>
+                El servicio y el horario se cambian desde la cotización o «Confirmar horario».
+              </Text>
             </>
           ) : (
             <>
-              <HostSectionKicker label="Cliente y vehículo" />
-              <HostPaperSection style={styles.section}>
-                <View style={styles.clientInfoContainer}>
-                  <HostAvatar name={det.cliente_nombre} size={56} />
-                  <View style={styles.clientInfoTextos}>
-                    <Text style={styles.clientName} numberOfLines={2}>
-                      {det.cliente_nombre}
-                    </Text>
-                    {det.cliente_telefono ? (
-                      <TouchableOpacity onPress={handleLlamar} activeOpacity={0.75} style={styles.clientPhoneRow}>
-                        <InstitutionalIcon name="call" size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                        <Text style={styles.clientPhoneText}>{det.cliente_telefono}</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                </View>
-
-                <View style={styles.vehicleBlock}>
-                  <Text style={styles.vehicleMarcaModelo} numberOfLines={2}>
-                    {[det.vehiculo_marca, det.vehiculo_modelo].filter(Boolean).join(' ')}
-                  </Text>
-                  {det.vehiculo_patente ? (
-                    <>
-                      <Text style={styles.vehiclePatente}>{det.vehiculo_patente}</Text>
-                      <VerHistorialPatenteLink patente={det.vehiculo_patente} />
-                    </>
-                  ) : null}
-                </View>
-
-                <HostMetricRow label="Año" value={String(det.vehiculo_anio ?? 'N/A')} />
-                <HostMetricRow label="Kilometraje" value="N/A" />
-                <HostMetricRow label="VIN" value={det.vehiculo_vin || 'N/A'} />
-                <HostMetricRow
-                  label="Cilindraje"
-                  value={
-                    cilindrajeEfectivo(det.vehiculo_cilindraje, det.vehiculo_marca, det.vehiculo_modelo) || 'N/A'
-                  }
-                  last
-                />
-              </HostPaperSection>
-
               <HostSectionKicker label="Fecha y hora" />
               <HostPaperSection style={styles.section}>
+                <HostMetricRow
+                  label="Fecha"
+                  value={horarioPorConfirmar ? 'Por confirmar' : formatearFecha(cita.fecha_servicio)}
+                />
+                <HostMetricRow
+                  label="Horario"
+                  value={
+                    horarioPorConfirmar
+                      ? 'Por confirmar'
+                      : formatearRangoHora(cita.hora_servicio, cita.duracion_minutos)
+                  }
+                />
+                <HostMetricRow
+                  label="Duración"
+                  value={formatDuracion(cita.duracion_minutos) || '—'}
+                  last
+                />
                 {horarioPorConfirmar ? (
-                  <>
-                    <InstitutionalTag label="Por confirmar" variant="warning" size="sm" />
-                    <Text style={styles.horarioPendienteTitle}>Horario pendiente</Text>
-                    <Text style={styles.horarioPendienteBody}>
-                      El cliente aceptó la cotización. Usa «Confirmar horario» para elegir técnico
-                      (o automático) y luego el día y hora en su calendario.
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <HostMetricRow
-                      label="Fecha"
-                      value={formatearFecha(cita.fecha_servicio)}
-                    />
-                    <HostMetricRow
-                      label="Horario"
-                      value={formatearRangoHora(cita.hora_servicio, cita.duracion_minutos)}
-                      last
-                    />
-                  </>
-                )}
+                  <Text style={styles.horarioPendienteBody}>
+                    El cliente aceptó. Confirma técnico y elige día y hora reales en el calendario.
+                  </Text>
+                ) : null}
               </HostPaperSection>
 
               <HostSectionKicker label="Ubicación del servicio" />
@@ -1047,6 +1047,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                   servicioNombre={nombreServicio}
                   descripcion={det.descripcion}
                   precioReferencia={det.precio_referencia}
+                  folio={folioCita || null}
                 />
               ) : (
                 <>
@@ -1132,211 +1133,54 @@ export default function CitaAgendaPersonalDetalleScreen() {
                 </>
               ) : null}
 
-              {esActiva && puedeUsarAsistenteIa ? (
-                <HostPaperSection style={styles.section}>
-                  <View style={styles.asistenteIaWrap}>
-                    <AsistenteDiagnosticoCard origen="cita" entityId={cita.id} habilitado />
-                  </View>
-                </HostPaperSection>
-              ) : null}
-
-              {(puedeActualizarCotizacion || adicionalPendienteId || (citaAgendada && !checklistIniciado && !esDiaServicio && cita.tiene_checklist)) ? (
-                <View style={styles.checklistActions}>
-                  {citaAgendada && !checklistIniciado && !esDiaServicio && cita.tiene_checklist ? (
-                    <Text style={styles.addressDetailsText}>
-                      Se inicia el {formatearFecha(cita.fecha_servicio)}. No se puede adelantar el checklist.
-                    </Text>
-                  ) : null}
-                  {puedeActualizarCotizacion ? (
-                    <>
-                      <InstitutionalButton
-                        label="Actualizar cotización"
-                        variant="outline"
-                        onPress={() => router.push(`/cotizacion-canal/${cita.cotizacion_canal_origen_id}`)}
-                        disabled={procesando}
-                      />
-                      <Text style={styles.addressDetailsText}>
-                        El horario aún no está confirmado. Edita la misma cotización (mismo enlace) y reenvíala al cliente.
-                      </Text>
-                    </>
-                  ) : null}
-                  {adicionalPendienteId && !checklistEnEjecucion ? (
-                    <InstitutionalButton
-                      label="Esperando al cliente"
-                      variant="outline"
-                      onPress={() => router.push(`/cotizacion-canal/${adicionalPendienteId}`)}
-                    />
-                  ) : null}
-                </View>
-              ) : null}
-
               <HostSectionKicker label="Técnico asignado" />
               <HostPaperSection style={styles.section}>
-                <View style={styles.sectionHeaderRow}>
-                  <View style={styles.tecnicoRow}>
-                    <HostAvatar name={cita.mecanico_nombre?.trim() || 'Sin técnico'} size="sm" />
-                    <View style={styles.tecnicoInfo}>
-                      <Text style={styles.tecnicoNombre}>
-                        {cita.mecanico_nombre?.trim() || 'Sin técnico asignado'}
+                <View style={styles.tecnicoRow}>
+                  <HostAvatar name={cita.mecanico_nombre?.trim() || 'Sin técnico'} size="sm" />
+                  <View style={styles.tecnicoInfo}>
+                    <Text style={styles.tecnicoNombre}>
+                      {cita.mecanico_nombre?.trim() || 'Sin técnico asignado'}
+                    </Text>
+                    {tecnicoModalidad ? (
+                      <Text style={styles.tecnicoSub}>Atiende: {tecnicoModalidad}</Text>
+                    ) : null}
+                    {tecnicoEspecialidades ? (
+                      <Text style={styles.tecnicoSub} numberOfLines={2}>
+                        {tecnicoEspecialidades}
                       </Text>
-                      {tecnicoModalidad ? (
-                        <Text style={styles.tecnicoSub}>Atiende: {tecnicoModalidad}</Text>
-                      ) : null}
-                      {tecnicoEspecialidades ? (
-                        <Text style={styles.tecnicoSub} numberOfLines={2}>
-                          {tecnicoEspecialidades}
-                        </Text>
-                      ) : null}
-                    </View>
+                    ) : null}
                   </View>
-                  {esActiva && permitirEditarCita ? (
-                    <InstitutionalButton
-                      label={cita.miembro_taller ? 'Reasignar' : 'Asignar'}
-                      variant="tertiary"
-                      size="compact"
-                      onPress={() => setAsignarVisible(true)}
-                    />
-                  ) : null}
                 </View>
               </HostPaperSection>
 
-              {cita.tiene_checklist ? (
+              {puedeMostrarAsistenteIa ? (
                 <>
-                  <HostSectionKicker label="Ejecución del servicio" />
+                  <HostSectionKicker label="Guía de reparación" />
+                  <AsistenteDiagnosticoCard origen="cita" entityId={cita.id} habilitado />
+                </>
+              ) : null}
+
+              {cita.informe_publico_url ? (
+                <>
+                  <HostSectionKicker label="Informe del cliente" />
                   <HostPaperSection style={styles.section}>
-                  <View style={styles.sectionHeaderRow}>
-                    <View style={styles.sectionHeaderTitleInline} />
-                    <InstitutionalTag
+                    <Text style={styles.informeLinkHint}>
+                      {checklistPendienteFirmaCliente
+                        ? 'Comparte este enlace para que el cliente cierre el servicio.'
+                        : 'Puedes reenviar el informe si el cliente lo necesita.'}
+                    </Text>
+                    <Text style={styles.informeLinkUrl} numberOfLines={2}>
+                      {cita.informe_publico_url}
+                    </Text>
+                    <InstitutionalButton
                       label={
-                        checklistPendienteSupervisor
-                          ? 'Esperando supervisor'
-                          : checklistPendienteFirmaCliente
-                            ? 'Esperando cliente'
-                            : ESTADO_OPERATIVO_LABELS[estadoOperativo]
+                        checklistPendienteFirmaCliente
+                          ? 'Copiar enlace'
+                          : 'Copiar / compartir enlace'
                       }
-                      variant={
-                        checklistPendienteSupervisor || checklistPendienteFirmaCliente
-                          ? 'warning'
-                          : ESTADO_OPERATIVO_VARIANT[estadoOperativo]
-                      }
-                      size="sm"
+                      variant="outline"
+                      onPress={() => void copiarEnlaceInformeCita(cita.informe_publico_url!)}
                     />
-                  </View>
-
-                  <View style={styles.checklistStatusBlock}>
-                    {cita.checklist_id ? (
-                      <>
-                        <Text style={styles.checklistProgressTitle}>
-                          {checklistCompletado
-                            ? 'Servicio cerrado'
-                            : checklistPendienteSupervisor
-                              ? puedeRectificarSupervisor
-                                ? 'Etapa 2 · Revisar y firmar (supervisor/mandante)'
-                                : 'Etapa 2 · Esperando revisión del supervisor'
-                              : checklistPendienteFirmaCliente
-                                ? 'Etapa 3 · El cliente debe cerrar el servicio'
-                                : puedeOperarChecklist
-                                  ? 'Etapa 1 · Llenar checklist'
-                                  : 'Etapa 1 · En ejecución por el técnico'}
-                        </Text>
-                        <Text style={styles.checklistProgressMeta}>
-                          {(cita.checklist_items_completados ?? 0)} de{' '}
-                          {(cita.checklist_items_total ?? 0)} ítems
-                          {cita.checklist_minutos_transcurridos != null
-                            ? ` · ${cita.checklist_minutos_transcurridos} min`
-                            : ''}
-                        </Text>
-                        <View style={styles.checklistProgressTrack}>
-                          <View
-                            style={[
-                              styles.checklistProgressFill,
-                              {
-                                width: `${Math.max(
-                                  0,
-                                  Math.min(100, cita.checklist_progreso_porcentaje ?? 0),
-                                )}%`,
-                              },
-                            ]}
-                          />
-                        </View>
-                        <Text style={styles.checklistStatusCopy}>
-                          {checklistPendienteSupervisor
-                            ? puedeRectificarSupervisor
-                              ? 'El mecánico ya terminó el llenado. Revisa el trabajo y firma para generar el informe; el cliente cerrará el servicio después.'
-                              : 'El mecánico ya firmó. Falta la revisión del supervisor o mandante para enviar el informe al cliente.'
-                            : checklistPendienteFirmaCliente
-                              ? 'Comparte el enlace del informe. El cliente revisa, firma y con eso se cierra el servicio.'
-                              : checklistCompletado
-                                ? cita.informe_publico_url
-                                  ? 'El cliente ya cerró el servicio. Puedes reenviar el enlace del informe si lo necesita.'
-                                  : 'El servicio quedó cerrado y firmado por el cliente.'
-                                : puedeOperarChecklist
-                                  ? 'Completa los pasos del checklist. Al finalizar firmas como técnico; luego supervisor/mandante revisa y el cliente cierra.'
-                                  : 'El técnico está llenando el checklist. Cuando termine, te toca revisar y firmar.'}
-                        </Text>
-                      </>
-                    ) : (
-                      <Text style={styles.checklistStatusCopy}>
-                        {puedeOperarChecklist
-                          ? horarioPorConfirmar
-                            ? 'Confirma el horario arriba antes de iniciar el servicio.'
-                            : !esDiaServicio
-                              ? `Se inicia el ${formatearFecha(cita.fecha_servicio)}. No se puede adelantar el checklist.`
-                              : 'Usa «Iniciar servicio» abajo para generar y completar el checklist.'
-                          : 'El técnico asignado debe iniciar el servicio para comenzar el checklist.'}
-                      </Text>
-                    )}
-
-                    <View style={styles.checklistActions}>
-                      {permitirAgregarHallazgo ? (
-                        <InstitutionalButton
-                          label={checklistEnEjecucion ? 'Agregar hallazgo' : 'Agregar ítems o servicio adicional'}
-                          variant="outline"
-                          onPress={() => router.push(`/agregar-servicio-adicional/${cita.id}`)}
-                          disabled={procesando}
-                        />
-                      ) : adicionalPendienteId ? (
-                        <InstitutionalButton
-                          label="Esperando al cliente"
-                          variant="outline"
-                          onPress={() => router.push(`/cotizacion-canal/${adicionalPendienteId}`)}
-                        />
-                      ) : null}
-
-                      {cita.checklist_id
-                        && (checklistPendienteSupervisor
-                          || checklistPendienteFirmaCliente
-                          || checklistCompletado) ? (
-                        <InstitutionalButton
-                          label="Ver resumen del trabajo"
-                          variant="outline"
-                          onPress={() => setShowChecklistResumen(true)}
-                        />
-                      ) : null}
-
-                      {cita.informe_publico_url ? (
-                        <View style={styles.informeLinkInline}>
-                          <Text style={styles.informeLinkHint}>
-                            {checklistPendienteFirmaCliente
-                              ? 'Enlace para el cliente'
-                              : 'Reenviar enlace del informe'}
-                          </Text>
-                          <Text style={styles.informeLinkUrl} numberOfLines={2}>
-                            {cita.informe_publico_url}
-                          </Text>
-                          <InstitutionalButton
-                            label={
-                              checklistPendienteFirmaCliente
-                                ? 'Copiar enlace'
-                                : 'Copiar / compartir enlace'
-                            }
-                            variant="outline"
-                            onPress={() => void copiarEnlaceInformeCita(cita.informe_publico_url!)}
-                          />
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
                   </HostPaperSection>
                 </>
               ) : null}
@@ -1441,6 +1285,17 @@ export default function CitaAgendaPersonalDetalleScreen() {
         instanceId={cita.checklist_id ?? null}
       />
 
+      <CotizacionEditorFab
+        visible={mostrarFab}
+        variant="more"
+        actions={fabActions}
+        bottomOffset={
+          muestraFooterAcciones && mostrarStickyPrimario
+            ? footerReserve + SPACING.fixed.xs
+            : undefined
+        }
+      />
+
       <ChecklistSignatureModal
         visible={showSupervisorFirmaModal}
         onClose={() => setShowSupervisorFirmaModal(false)}
@@ -1531,7 +1386,6 @@ function CitaPersonalFooter({
   onDescartar,
   onEliminar,
 }: CitaPersonalFooterProps) {
-  const estiloCtaDerecha = permitirCancelar ? styles.footerBtnPrimary : styles.footerBtnGrow;
   const ctaDerecha = (() => {
     if (permitirConfirmarHorario) {
       return (
@@ -1543,7 +1397,6 @@ function CitaPersonalFooter({
           leading={
             <InstitutionalIcon name="calendar-today" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
           }
-          style={estiloCtaDerecha}
         />
       );
     }
@@ -1555,7 +1408,6 @@ function CitaPersonalFooter({
           loading={iniciandoServicio}
           onPress={onIniciarServicio ?? (() => undefined)}
           disabled={procesando}
-          style={estiloCtaDerecha}
         />
       );
     }
@@ -1567,7 +1419,6 @@ function CitaPersonalFooter({
           loading={firmandoSupervisor}
           onPress={onFirmarSupervisor ?? (() => undefined)}
           disabled={procesando || firmandoSupervisor}
-          style={estiloCtaDerecha}
         />
       );
     }
@@ -1578,7 +1429,6 @@ function CitaPersonalFooter({
           variant="primary"
           onPress={onContinuarChecklist ?? (() => undefined)}
           disabled={procesando}
-          style={estiloCtaDerecha}
         />
       );
     }
@@ -1592,7 +1442,6 @@ function CitaPersonalFooter({
           leading={
             <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
           }
-          style={estiloCtaDerecha}
         />
       );
     }
@@ -1602,18 +1451,18 @@ function CitaPersonalFooter({
   return (
     <View style={[styles.footer, { paddingBottom: bottomPad }]}>
       {esActiva && !editando ? (
-        <View style={styles.footerRow}>
+        <View style={styles.footerStack}>
+          {ctaDerecha}
           {permitirCancelar ? (
             <InstitutionalButton
               label="Cancelar visita"
-              variant="destructiveOutline"
+              variant="tertiary"
               size="compact"
               onPress={onCancelar}
               disabled={procesando}
-              style={ctaDerecha ? styles.footerBtnCancel : styles.footerBtnGrow}
+              style={styles.footerCancelLink}
             />
           ) : null}
-          {ctaDerecha}
         </View>
       ) : null}
 
@@ -1699,12 +1548,22 @@ const styles = StyleSheet.create({
     lineHeight: lh(TS.body.fontSize, TS.body.lineHeight),
     color: I.primary,
   },
+  heroBlock: {
+    marginBottom: SPACING.fixed.md,
+    gap: SPACING.fixed.xs,
+  },
+  heroTitle: {
+    fontSize: TS.h3.fontSize,
+    fontFamily: FF.sansSemiBold,
+    lineHeight: lh(TS.h3.fontSize, TS.h3.lineHeight),
+    letterSpacing: TS.h3.letterSpacing,
+    color: I.ink,
+  },
   statusBlock: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: SPACING.fixed.sm,
-    marginBottom: SPACING.fixed.sm,
   },
   metaFacts: {
     fontSize: TYPOGRAPHY.fontSize.sm,
@@ -1963,14 +1822,13 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     gap: SPACING.fixed.sm,
   },
-  footerBtnGrow: {
-    flex: 1,
+  footerStack: {
+    gap: SPACING.fixed.xs,
   },
-  footerBtnCancel: {
-    flex: 0.9,
+  footerCancelLink: {
     alignSelf: 'center',
   },
-  footerBtnPrimary: {
-    flex: 1.85,
+  footerBtnGrow: {
+    flex: 1,
   },
 });

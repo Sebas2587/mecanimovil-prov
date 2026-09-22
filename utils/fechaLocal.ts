@@ -77,3 +77,40 @@ export function formatFechaHoraPropuesta(
   const horaTxt = (hora || '').substring(0, 5);
   return horaTxt ? `${fechaTxt} a las ${horaTxt}` : fechaTxt;
 }
+
+/** Fecha de visita con año: "martes 17 de junio de 2026 · 10:00". */
+export function formatearFechaServicioExacta(
+  fecha?: string | null,
+  hora?: string | null,
+  horaFin?: string | null,
+): string {
+  const parsed = parseFechaLocal(fecha);
+  if (!parsed) return '';
+  const fechaTxt = parsed.toLocaleDateString('es-CL', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  const inicio = (hora || '').substring(0, 5);
+  if (!inicio) return fechaTxt;
+  const fin = (horaFin || '').substring(0, 5);
+  return fin ? `${fechaTxt} · ${inicio}–${fin}` : `${fechaTxt} · ${inicio}`;
+}
+
+/** Fecha de visita compacta con año, para listas. */
+export function formatearFechaServicioLista(
+  fecha?: string | null,
+  hora?: string | null,
+): string {
+  const parsed = parseFechaLocal(fecha);
+  if (!parsed) return '';
+  const fechaTxt = parsed.toLocaleDateString('es-CL', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  const horaTxt = (hora || '').substring(0, 5);
+  return horaTxt ? `${fechaTxt} · ${horaTxt}` : fechaTxt;
+}

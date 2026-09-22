@@ -11,11 +11,12 @@ import {
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight, FileText, MessageCircle } from 'lucide-react-native';
+import { ChevronRight, FileText, Layers, MessageCircle } from 'lucide-react-native';
 import Header from '@/components/Header';
 import {
   HostEmptyState,
   HostPaperSection,
+  HostSectionKicker,
   HOST_GUTTER,
   hostScreenStyles,
 } from '@/app/design-system/components';
@@ -38,6 +39,8 @@ import {
   mapPipelineEstadoToOperativo,
 } from '@/utils/estadoOperativo';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { folioCotizacionLabel } from '@/utils/entregaCotizacionCopy';
+import { formatearFechaServicioLista } from '@/utils/fechaLocal';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
 import { navegarCasoPipeline } from '@/utils/navegarCasoPipeline';
 
@@ -127,14 +130,24 @@ function adicionalDe(principal: PipelineClienteCaso, adicional: PipelineClienteC
   return Boolean(folioP && folioA && folioP === folioA);
 }
 
-function referenciaPrincipal(caso: PipelineClienteCaso): string | null {
+function vinculoPrincipal(caso: PipelineClienteCaso): string | null {
   if (!esTrabajoAdicional(caso)) return null;
   const folio = (caso.folio_principal || '').trim();
   const servicio = (caso.servicio_principal_nombre || '').trim();
   const desde = [folio, servicio].filter(Boolean).join(' · ');
-  const extra = caso.ejecucion_adicional === 'nueva_fecha' ? ' · Nueva fecha' : '';
-  if (!desde) return extra ? `Del trabajo en curso${extra}` : 'Del trabajo en curso';
-  return `Desde: ${desde}${extra}`;
+  if (!desde) return 'Del trabajo principal';
+  return `De ${desde}`;
+}
+
+function etiquetaEjecucion(caso: PipelineClienteCaso): {
+  label: string;
+  variant: 'neutral' | 'warning';
+} | null {
+  if (!esTrabajoAdicional(caso)) return null;
+  if (caso.ejecucion_adicional === 'nueva_fecha') {
+    return { label: 'Nueva fecha', variant: 'warning' };
+  }
+  return { label: 'Misma visita', variant: 'neutral' };
 }
 
 type CasoCluster = {
@@ -163,27 +176,44 @@ function agruparCasosPorPrincipal(casos: PipelineClienteCaso[]): CasoCluster[] {
 
 const CasoListing = React.memo(function CasoListing({
   caso,
-  adicionalHuerfano,
+  variante = 'principal',
+  extrasCount = 0,
+  mostrarVinculo = false,
   onPress,
 }: {
   caso: PipelineClienteCaso;
-  adicionalHuerfano?: boolean;
+  variante?: 'principal' | 'adicional';
+  extrasCount?: number;
+  mostrarVinculo?: boolean;
   onPress: (caso: PipelineClienteCaso) => void;
 }) {
   const handlePress = useCallback(() => onPress(caso), [caso, onPress]);
-  const folio = caso.numero_publico?.trim();
+  const esAdicional = variante === 'adicional';
+  const folio = folioCotizacionLabel(caso.numero_publico);
   const monto = caso.monto_clp != null ? formatearMontoCLP(caso.monto_clp) : null;
   const operativo = tagCaso(caso);
   const origen = ORIGEN_PIPELINE_LABELS[caso.origen] || '';
-  const fecha = fechaCorta(caso.fecha_referencia);
+  const fechaVisita = formatearFechaServicioLista(caso.fecha_agendada, caso.hora_agendada);
+  const fecha = fechaVisita || fechaCorta(caso.fecha_referencia);
   const meta = [origen, fecha].filter(Boolean).join(' · ');
-  const desde = adicionalHuerfano ? referenciaPrincipal(caso) : null;
+  const desde = mostrarVinculo ? vinculoPrincipal(caso) : null;
+  const ejecucion = esAdicional ? etiquetaEjecucion(caso) : null;
+  const hintExtras = extrasCount > 0
+    ? extrasCount === 1
+      ? 'Incluye 1 trabajo adicional'
+      : `Incluye ${extrasCount} trabajos adicionales`
+    : null;
 
   return (
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.7}
       accessibilityRole="button"
+      accessibilityLabel={
+        esAdicional
+          ? `Trabajo adicional, ${caso.servicio_resumen || 'servicio'}`
+          : undefined
+      }
     >
       <View style={styles.casoTop}>
         <Text style={styles.casoServicio} numberOfLines={2}>
@@ -192,7 +222,12 @@ const CasoListing = React.memo(function CasoListing({
         <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
       <View style={styles.casoTags}>
-        {adicionalHuerfano ? <InstitutionalTag label="Adicional" variant="info" size="sm" /> : null}
+        {esAdicional ? (
+          <InstitutionalTag label="Trabajo adicional" variant="info" size="sm" />
+        ) : null}
+        {ejecucion ? (
+          <InstitutionalTag label={ejecucion.label} variant={ejecucion.variant} size="sm" />
+        ) : null}
         {folio ? <InstitutionalTag label={folio} variant="neutral" size="sm" /> : null}
         <InstitutionalTag label={operativo.label} variant={operativo.variant} size="sm" />
       </View>
@@ -213,45 +248,12 @@ const CasoListing = React.memo(function CasoListing({
           {monto ? <Text style={styles.casoPrecio}>{monto}</Text> : null}
         </View>
       ) : null}
-    </TouchableOpacity>
-  );
-});
-
-const AdicionalCompact = React.memo(function AdicionalCompact({
-  caso,
-  last,
-  onPress,
-}: {
-  caso: PipelineClienteCaso;
-  last?: boolean;
-  onPress: (caso: PipelineClienteCaso) => void;
-}) {
-  const handlePress = useCallback(() => onPress(caso), [caso, onPress]);
-  const folio = caso.numero_publico?.trim();
-  const operativo = tagCaso(caso);
-  const monto = caso.monto_clp != null ? formatearMontoCLP(caso.monto_clp) : null;
-  const meta = [folio, operativo.label].filter(Boolean).join(' · ');
-
-  return (
-    <TouchableOpacity
-      style={[styles.adicionalRow, !last && styles.adicionalRowBorder]}
-      onPress={handlePress}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityLabel={`Adicional, ${caso.servicio_resumen || 'servicio'}`}
-    >
-      <View style={styles.adicionalBody}>
-        <Text style={styles.adicionalLabel}>Adicional</Text>
-        <Text style={styles.adicionalServicio} numberOfLines={1}>
-          {caso.servicio_resumen || ESTADO_PIPELINE_LABELS[caso.estado_normalizado]}
-        </Text>
-        {meta ? (
-          <Text style={styles.adicionalMeta} numberOfLines={1}>
-            {meta}
-          </Text>
-        ) : null}
-      </View>
-      {monto ? <Text style={styles.adicionalPrecio}>{monto}</Text> : null}
+      {hintExtras ? (
+        <View style={styles.casoNestedHintRow}>
+          <Layers size={14} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+          <Text style={styles.casoNestedHint}>{hintExtras}</Text>
+        </View>
+      ) : null}
     </TouchableOpacity>
   );
 });
@@ -268,24 +270,32 @@ const CasoClusterPaper = React.memo(function CasoClusterPaper({
   const listing = cluster.principal ?? cluster.adicionales[0];
   const extras = cluster.principal ? cluster.adicionales : [];
   const huerfano = !cluster.principal;
+  const kickerExtras = extras.length === 1 ? 'Trabajo adicional' : 'Trabajos adicionales';
 
   return (
-    <View style={{ width }}>
-      <HostPaperSection style={styles.paperClip}>
-        <CasoListing caso={listing} adicionalHuerfano={huerfano} onPress={onPress} />
-        {extras.length > 0 ? (
-          <View style={styles.adicionalStrip}>
-            {extras.map((caso, index) => (
-              <AdicionalCompact
-                key={casoId(caso)}
-                caso={caso}
-                last={index === extras.length - 1}
-                onPress={onPress}
-              />
+    <View style={[styles.clusterCol, { width }]}>
+      <HostPaperSection>
+        <CasoListing
+          caso={listing}
+          variante={huerfano ? 'adicional' : 'principal'}
+          extrasCount={extras.length}
+          mostrarVinculo={huerfano}
+          onPress={onPress}
+        />
+      </HostPaperSection>
+      {extras.length > 0 ? (
+        <View style={styles.nestedGroup}>
+          <View style={styles.nestedRail} />
+          <View style={styles.nestedCol}>
+            <HostSectionKicker label={kickerExtras} style={styles.nestedKicker} />
+            {extras.map((caso) => (
+              <HostPaperSection key={casoId(caso)}>
+                <CasoListing caso={caso} variante="adicional" onPress={onPress} />
+              </HostPaperSection>
             ))}
           </View>
-        ) : null}
-      </HostPaperSection>
+        </View>
+      ) : null}
     </View>
   );
 });
@@ -575,8 +585,29 @@ const styles = StyleSheet.create({
     gap: GRID_GAP,
     alignItems: 'flex-start',
   },
-  paperClip: {
-    overflow: 'hidden',
+  clusterCol: {
+    gap: SPACING.fixed.xs,
+  },
+  nestedGroup: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: SPACING.fixed.sm,
+    paddingLeft: SPACING.fixed.sm,
+  },
+  nestedRail: {
+    width: 2,
+    borderRadius: 1,
+    backgroundColor: I.hairline,
+    marginVertical: SPACING.fixed.xs,
+  },
+  nestedCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: SPACING.fixed.xs,
+  },
+  nestedKicker: {
+    marginTop: 0,
+    marginBottom: SPACING.fixed.xxs,
   },
   casoTop: {
     flexDirection: 'row',
@@ -622,52 +653,19 @@ const styles = StyleSheet.create({
     fontSize: T.body.fontSize,
     color: I.ink,
   },
-  adicionalStrip: {
+  casoNestedHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
     marginTop: SPACING.fixed.sm,
-    marginHorizontal: -SPACING.fixed.md,
-    marginBottom: -SPACING.fixed.sm,
-    paddingHorizontal: SPACING.fixed.md,
-    paddingVertical: SPACING.fixed.sm,
-    backgroundColor: I.surfaceSoft,
+    paddingTop: SPACING.fixed.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
   },
-  adicionalRow: {
-    paddingVertical: SPACING.fixed.xs,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.fixed.sm,
-  },
-  adicionalRowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: I.hairline,
-  },
-  adicionalBody: {
+  casoNestedHint: {
     flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  adicionalLabel: {
     fontFamily: FF.sansMedium,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    letterSpacing: TYPOGRAPHY.letterSpacing.wider,
-    textTransform: 'uppercase',
-    color: I.muted,
-  },
-  adicionalServicio: {
-    fontFamily: FF.sansMedium,
-    fontSize: T.body.fontSize,
-    color: I.ink,
-  },
-  adicionalMeta: {
-    fontFamily: FF.sansRegular,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: I.muted,
-  },
-  adicionalPrecio: {
-    fontFamily: FF.monoMedium,
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: I.ink,
-    paddingTop: 2,
+    color: I.muted,
   },
 });

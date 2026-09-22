@@ -55,6 +55,8 @@ export interface PipelineComercialItem {
   es_libre?: boolean;
   entrega_via?: string | null;
   en_edicion?: boolean;
+  fecha_agendada?: string | null;
+  hora_agendada?: string | null;
 }
 
 export type LeadCategoria =
@@ -133,6 +135,8 @@ export interface PipelineClienteCaso {
   folio_principal?: string | null;
   cotizacion_original_id?: number | null;
   ejecucion_adicional?: 'misma_visita' | 'nueva_fecha' | string | null;
+  fecha_agendada?: string | null;
+  hora_agendada?: string | null;
 }
 
 export interface PipelineClienteVehiculoFicha extends PipelineClienteVehiculo {

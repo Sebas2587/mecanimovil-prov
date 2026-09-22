@@ -63,6 +63,8 @@ import {
 } from '@/utils/estadoOperativo';
 import { COLORS, SPACING, BORDERS, TYPOGRAPHY, SHADOWS } from '@/app/design-system/tokens';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { folioCotizacionLabel } from '@/utils/entregaCotizacionCopy';
+import { formatearFechaServicioLista } from '@/utils/fechaLocal';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { avisarCopiaLink } from '@/utils/ofrecerEntregaCotizacion';
@@ -192,7 +194,8 @@ const LeadCard = React.memo(function LeadCard({
 }) {
   const handlePress = useCallback(() => onPress(item), [onPress, item]);
   const esCotizacion = item.tipo_entidad === 'cotizacion_canal';
-  const folio = item.numero_publico?.trim();
+  const folio = folioCotizacionLabel(item.numero_publico);
+  const fechaVisita = formatearFechaServicioLista(item.fecha_agendada, item.hora_agendada);
   const monto = item.monto_clp != null ? formatearMontoCLP(item.monto_clp) : null;
   const servicio =
     item.servicio_resumen?.trim()
@@ -238,13 +241,16 @@ const LeadCard = React.memo(function LeadCard({
           </View>
         </View>
 
-        {(folio || vehiculo) && esCotizacion ? (
+        {(folio || vehiculo || fechaVisita) ? (
           <View style={styles.leadTags}>
             {folio ? (
               <InstitutionalTag label={folio} variant="neutral" size="sm" />
             ) : null}
             {vehiculo ? (
               <InstitutionalTag label={vehiculo} variant="neutral" size="sm" />
+            ) : null}
+            {fechaVisita ? (
+              <InstitutionalTag label={fechaVisita} variant="info" size="sm" />
             ) : null}
           </View>
         ) : null}

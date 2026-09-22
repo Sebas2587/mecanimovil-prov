@@ -19,6 +19,7 @@ export type CitaResumenEconomicoCardProps = {
   servicioNombre?: string;
   descripcion?: string;
   precioReferencia?: string | number | null;
+  folio?: string | null;
 };
 
 function fuenteLabel(fuente: CitaResumenEconomico['fuente']): string | null {
@@ -40,6 +41,7 @@ export function CitaResumenEconomicoCard({
   servicioNombre,
   descripcion,
   precioReferencia,
+  folio,
 }: CitaResumenEconomicoCardProps) {
   const titulo = resumen.servicio_nombre || servicioNombre || 'Servicio';
   const notas = resumen.descripcion_problema || descripcion || '';
@@ -73,8 +75,11 @@ export function CitaResumenEconomicoCard({
           ) : null}
         </View>
 
-        {tagFuente ? (
-          <InstitutionalTag label={tagFuente} variant="neutral" size="sm" />
+        {folio || tagFuente ? (
+          <View style={styles.tagRow}>
+            {folio ? <InstitutionalTag label={folio} variant="neutral" size="sm" /> : null}
+            {tagFuente ? <InstitutionalTag label={tagFuente} variant="neutral" size="sm" /> : null}
+          </View>
         ) : null}
 
         {tieneLineas ? (
@@ -214,6 +219,12 @@ const styles = StyleSheet.create({
   titulo: {
     flex: 1,
     minWidth: 0,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: SPACING.fixed.xs,
   },
   block: {
     gap: SPACING.fixed.xs,

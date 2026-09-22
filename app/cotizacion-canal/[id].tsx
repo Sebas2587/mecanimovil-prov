@@ -46,6 +46,7 @@ import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert'
 import {
   CLIPBOARD_MENSAJE_COPIADO,
   cuerpoEnvioExitoso,
+  folioCotizacionLabel,
   requiereEntregaManual,
   tituloEnvioExitoso,
 } from '@/utils/entregaCotizacionCopy';
@@ -471,7 +472,7 @@ export default function CotizacionCanalDetalleScreen() {
   }
 
   const titulo =
-    (draft.servicio_nombre || '').trim()
+    folioCotizacionLabel(draft.numero_publico)
     || (draft.es_cotizacion_adicional ? 'Trabajo adicional' : 'Cotización');
   const pendientesPrecio = draft.lineas_pendientes_precio?.length
     ?? (draft.repuestos ?? []).filter(lineaPendientePrecio).length;

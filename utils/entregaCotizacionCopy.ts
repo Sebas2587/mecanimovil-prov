@@ -12,6 +12,22 @@ export function folioCotizacionLabel(numeroPublico?: string | null): string {
   return n ? `#${n}` : '';
 }
 
+/** Folio de caso (siempre MM-xxxxxx). Sin fallback inventado. */
+export function folioIdentidadCita(opts: {
+  numeroPublico?: string | null;
+  citaId?: number | null;
+}): string {
+  return (opts.numeroPublico || '').trim().replace(/^#/, '');
+}
+
+export function folioIdentidadLabel(opts: {
+  numeroPublico?: string | null;
+  citaId?: number | null;
+}): string {
+  const id = folioIdentidadCita(opts);
+  return id ? `#${id}` : '';
+}
+
 export function tituloEnvioExitoso(
   numeroPublico?: string | null,
   opts?: { actualizada?: boolean },

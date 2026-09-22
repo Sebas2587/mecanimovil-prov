@@ -31,6 +31,7 @@ import {
 } from '@/app/design-system/components';
 import { AsignarTecnicoBottomSheet } from '@/components/equipo/AsignarTecnicoBottomSheet';
 import equipoTallerService, { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
+import { formatearFechaServicioExacta } from '@/utils/fechaLocal';
 
 const I = COLORS.institutional;
 const successStatus = institutionalStatusColors('success');
@@ -560,9 +561,11 @@ export default function OrdenDetalleScreen() {
           </TouchableOpacity>
           <View style={styles.titleContainer}>
             <Text style={styles.title}>
+              {orden.numero_publico ? `#${orden.numero_publico}` : `Orden #${orden.id}`}
+            </Text>
+            <Text style={styles.subtitle}>
               {orden.vehiculo_detail.marca} {orden.vehiculo_detail.modelo}
             </Text>
-            <Text style={styles.subtitle}>Orden #{orden.id}</Text>
           </View>
           <View style={[styles.estadoBadge, { backgroundColor: colorEstado }]}>
             <Text style={styles.estadoTexto}>{orden.estado_display}</Text>
@@ -710,7 +713,7 @@ export default function OrdenDetalleScreen() {
               <View>
                 <Text style={styles.scheduleLabel}>Fecha</Text>
                 <Text style={styles.scheduleValue}>
-                  {ordenesProveedorService.formatearFecha(orden.fecha_servicio)}
+                  {formatearFechaServicioExacta(orden.fecha_servicio)}
                 </Text>
               </View>
             </View>

@@ -19,6 +19,8 @@ import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTa
 import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { folioCotizacionLabel } from '@/utils/entregaCotizacionCopy';
+import { formatearFechaServicioLista } from '@/utils/fechaLocal';
 import { OrigenConversacionChip } from '@/components/pipeline/OrigenConversacionChip';
 
 const I = COLORS.institutional;
@@ -91,6 +93,8 @@ const AtencionItemCard = memo(function AtencionItemCard({
 }) {
   const handlePress = useCallback(() => onPress(item), [onPress, item]);
   const monto = item.monto_clp != null ? formatearMontoCLP(item.monto_clp) : null;
+  const folio = folioCotizacionLabel(item.numero_publico);
+  const fechaVisita = formatearFechaServicioLista(item.fecha_agendada, item.hora_agendada);
 
   return (
     <Card onPress={handlePress} style={styles.itemCard} elevated>
@@ -105,10 +109,14 @@ const AtencionItemCard = memo(function AtencionItemCard({
       </View>
 
       <View style={styles.metaRow}>
+        {folio ? <InstitutionalTag variant="neutral" label={folio} /> : null}
         <InstitutionalTag
           variant="neutral"
           label={ORIGEN_PIPELINE_LABELS[item.origen] || item.origen}
         />
+        {fechaVisita ? (
+          <InstitutionalTag variant="info" label={fechaVisita} />
+        ) : null}
         {item.esperando_respuesta_24h ? (
           <InstitutionalTag variant="warning" label="+24h sin respuesta" />
         ) : null}

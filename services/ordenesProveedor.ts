@@ -32,6 +32,7 @@ export interface TiempoRespuestaRequerido {
 
 export interface Orden {
   id: number;
+  numero_publico?: string | null;
   cliente_detail: ClienteProtegido | ClienteCompleto;
   vehiculo_detail: {
     marca: string;
