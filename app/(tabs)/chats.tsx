@@ -361,6 +361,7 @@ export default function ChatsScreen() {
         external_contact_name: event.external_contact_name,
         external_contact_phone: event.external_contact_phone,
       });
+      invalidateChatInbox();
       if (!event.es_proveedor) {
         setChatHighlighted(rowKey);
         setTimeout(() => setChatHighlighted(null), 2000);
@@ -368,7 +369,7 @@ export default function ChatsScreen() {
     });
 
     return () => { unsubscribe(); };
-  }, [isAuthenticated, usuario, queryClient]);
+  }, [invalidateChatInbox, isAuthenticated, usuario, queryClient]);
 
   useFocusEffect(
     useCallback(() => {

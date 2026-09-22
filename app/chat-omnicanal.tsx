@@ -308,17 +308,19 @@ export default function ChatOmnicanalScreen() {
         return;
       }
       upsertRow(mapWsEvent(raw));
+      void refetchSilent();
     });
     return () => chatService.disconnect();
-  }, [convId, mapWsEvent, upsertRow]);
+  }, [convId, mapWsEvent, refetchSilent, upsertRow]);
 
   useEffect(() => {
     const unsub = websocketService.onNuevoMensajeChat((event: NuevoMensajeChatEvent) => {
       if (String(event.conversation_id ?? '') !== String(convId)) return;
       upsertRow(mapWsEvent(event));
+      void refetchSilent();
     });
     return unsub;
-  }, [convId, mapWsEvent, upsertRow]);
+  }, [convId, mapWsEvent, refetchSilent, upsertRow]);
 
   const handlePickMedia = async () => {
     try {
