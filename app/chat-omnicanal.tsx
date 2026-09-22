@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Edit3, Send, Paperclip, Mic, MoreHorizontal } from 'lucide-react-native';
+import { X, Edit3, Send, Paperclip, Mic, MoreHorizontal, Check, FileText } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import chatService from '@/services/chatService';
@@ -42,7 +42,8 @@ import { getChannelDisconnectedReason } from '@/utils/omnichannelConnection';
 import { getMetaReplyBlockReason } from '@/utils/whatsappMessagingWindow';
 import { OmnichannelChatRestrictionBanner } from '@/components/chats/OmnichannelChatRestrictionBanner';
 import { AgenteIaChatBanner } from '@/components/chats/AgenteIaChatBanner';
-import { CasoCotizacionChatBar } from '@/components/chats/CasoCotizacionChatBar';
+import { useCasoCotizacionAcciones } from '@/components/chats/CasoCotizacionChatBar';
+import { CotizacionEditorFab } from '@/components/cotizacion/CotizacionEditorFab';
 import { AgenteIaChatToggleModal } from '@/components/chats/AgenteIaChatToggleModal';
 import {
   ChatMessageComposer,
@@ -59,7 +60,6 @@ import {
 } from '@/utils/chatAttachmentMedia';
 import { AttachmentStagingTray, type StagedAttachment } from '@/components/chats/AttachmentStagingTray';
 import { CotizacionIaEditor, type CotizacionIaEditorHandle } from '@/components/chats/CotizacionIaEditor';
-import { CotizacionEditorFab } from '@/components/cotizacion/CotizacionEditorFab';
 import { VistaPreviaCotizacionClienteModal } from '@/components/chats/VistaPreviaCotizacionClienteModal';
 import { InstitutionalButton, InstitutionalText, Card, HostSectionKicker } from '@/app/design-system/components';
 import { InstitutionalModal } from '@/design-system/components/InstitutionalModal';
@@ -178,6 +178,11 @@ export default function ChatOmnicanalScreen() {
   const mensajes = threadQuery.data?.mensajes ?? [];
   const cotizacionAceptadaId = threadQuery.data?.cotizacionAceptadaId;
   const cotizacionEnviadaId = threadQuery.data?.cotizacionEnviadaId;
+  const casoCotizacion = useCasoCotizacionAcciones({
+    cotizacionId: cotizacionEnviadaId ?? 0,
+    onCerrado: () => void refetchSilent(),
+    onAceptada: () => void refetchSilent(),
+  });
   const loading = threadQuery.isPending && mensajes.length === 0;
 
   const channelWindowBlockReason = useMemo(() => {
@@ -564,14 +569,6 @@ export default function ChatOmnicanalScreen() {
             />
           ) : null}
 
-          {!cotizacionAceptadaId && cotizacionEnviadaId ? (
-            <CasoCotizacionChatBar
-              cotizacionId={cotizacionEnviadaId}
-              onCerrado={() => void refetchSilent()}
-              onAceptada={() => void refetchSilent()}
-            />
-          ) : null}
-
           <ChatMessageComposer
             value={texto}
             onChangeText={setTexto}
@@ -603,6 +600,32 @@ export default function ChatOmnicanalScreen() {
             }
           />
         </View>
+
+        <CotizacionEditorFab
+          visible={Boolean(cotizacionEnviadaId && !cotizacionAceptadaId)}
+          variant="more"
+          bottomOffset={176}
+          actions={cotizacionEnviadaId ? [
+            {
+              key: 'aceptar',
+              label: 'Marcar aceptada',
+              icon: Check,
+              onPress: () => void casoCotizacion.marcarAceptada(),
+            },
+            {
+              key: 'ver',
+              label: 'Ver cotización',
+              icon: FileText,
+              onPress: casoCotizacion.abrirFolio,
+            },
+            {
+              key: 'cerrar',
+              label: 'Cerrar caso',
+              icon: X,
+              onPress: casoCotizacion.cerrarCaso,
+            },
+          ] : []}
+        />
 
         <Modal visible={!!selectedImage} transparent animationType="fade" onRequestClose={() => setSelectedImage(null)}>
           <View style={styles.modalBg}>

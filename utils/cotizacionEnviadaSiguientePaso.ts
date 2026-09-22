@@ -9,6 +9,24 @@ export type SiguientePasoEnviada = {
   urgencia: 'info' | 'warning';
 };
 
+function conContextoAdicional(
+  paso: SiguientePasoEnviada,
+  adicional: boolean,
+  principal?: string | null,
+): SiguientePasoEnviada {
+  if (!adicional) return paso;
+  const desde = (principal || '').trim();
+  const vinculo = desde
+    ? ` Depende de «${desde}». Ese servicio ya agendado no cambia.`
+    : ' El servicio ya agendado no cambia.';
+  const titulo = paso.titulo.charAt(0).toLowerCase() + paso.titulo.slice(1);
+  return {
+    ...paso,
+    titulo: `Trabajo adicional: ${titulo}`,
+    cuerpo: `${paso.cuerpo}${vinculo}`,
+  };
+}
+
 function fechaExpiracionDe(c: CotizacionCanal): Date | null {
   const raw = c.fecha_expiracion_publica;
   if (raw) {
@@ -41,6 +59,8 @@ export function siguientePasoCotizacionEnviada(
     | 'enviada_en'
     | 'dias_validez'
     | 'fecha_expiracion_publica'
+    | 'es_cotizacion_adicional'
+    | 'servicio_principal_nombre'
   >,
   now: Date = new Date(),
 ): SiguientePasoEnviada | null {
@@ -51,65 +71,67 @@ export function siguientePasoCotizacionEnviada(
     ? differenceInHours(now, enviada)
     : 0;
 
+  let paso: SiguientePasoEnviada;
   if (c.emision_pendiente) {
-    return {
+    paso = {
       kicker: 'Actualización pendiente',
       titulo: 'El cliente aún ve la versión anterior',
       cuerpo: 'Envía esta actualización para que el link muestre los cambios. Si ya aceptó por teléfono, márcala aceptada.',
       validezLabel,
       urgencia: 'warning',
     };
-  }
-  if (c.entrega_pendiente_compartir) {
-    return {
+  } else if (c.entrega_pendiente_compartir) {
+    paso = {
       kicker: 'Por compartir',
       titulo: 'Todavía no la recibió',
       cuerpo: 'Copia el link o ábrelo en WhatsApp. Hasta que el cliente lo abra, no hay respuesta que esperar.',
       validezLabel,
       urgencia: 'warning',
     };
-  }
-  if (c.visto_en && horas >= 24) {
-    return {
+  } else if (c.visto_en && horas >= 24) {
+    paso = {
       kicker: 'Sin respuesta',
       titulo: 'Abrió el enlace y no contestó',
       cuerpo: 'Escribe, recuérdale por WhatsApp o cierra el caso. Si aceptó por teléfono, márcala aceptada. La IA solo envía un recordatorio automático.',
       validezLabel,
       urgencia: 'warning',
     };
-  }
-  if (c.visto_en) {
-    return {
+  } else if (c.visto_en) {
+    paso = {
       kicker: 'Visto',
       titulo: 'El cliente abrió el enlace',
       cuerpo: 'Si no escribe, recuérdale por WhatsApp o espera. Si aceptó por teléfono, márcala aceptada.',
       validezLabel,
       urgencia: 'info',
     };
-  }
-  if (horas >= 48) {
-    return {
+  } else if (horas >= 48) {
+    paso = {
       kicker: 'Sin respuesta +48h',
       titulo: 'Nadie contestó esta cotización',
       cuerpo: 'Escribe, recuérdale por WhatsApp o cierra el caso. No hace falta seguir esperando en silencio.',
       validezLabel,
       urgencia: 'warning',
     };
-  }
-  if (horas >= 24) {
-    return {
+  } else if (horas >= 24) {
+    paso = {
       kicker: 'Sin respuesta',
       titulo: 'Sigue sin respuesta desde ayer',
       cuerpo: 'La IA puede recordar una sola vez por WhatsApp. Si no contestan, escribe tú, marca aceptada o cierra el caso.',
       validezLabel,
       urgencia: 'warning',
     };
+  } else {
+    paso = {
+      kicker: 'Esperando respuesta',
+      titulo: 'Cotización enviada',
+      cuerpo: 'La IA puede enviar un recordatorio si no contestan. Tú decides el cierre: escribir, marcar aceptada o pasar el caso a Perdidos.',
+      validezLabel,
+      urgencia: 'info',
+    };
   }
-  return {
-    kicker: 'Esperando respuesta',
-    titulo: 'Cotización enviada',
-    cuerpo: 'La IA puede enviar un recordatorio si no contestan. Tú decides el cierre: escribir, marcar aceptada o pasar el caso a Perdidos.',
-    validezLabel,
-    urgencia: 'info',
-  };
+  return conContextoAdicional(
+    paso,
+    Boolean(c.es_cotizacion_adicional),
+    c.servicio_principal_nombre,
+  );
 }

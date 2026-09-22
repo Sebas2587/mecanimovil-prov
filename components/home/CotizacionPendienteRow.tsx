@@ -114,7 +114,7 @@ function CotizacionPendienteRowInner({ item, onPress, last }: CotizacionPendient
 
         {item.es_cotizacion_adicional ? (
           <View style={styles.tags}>
-            <InstitutionalTag label="Adicional" variant="info" size="sm" />
+            <InstitutionalTag label="Adicional" variant="adicional" size="sm" />
             {item.servicio_principal_nombre ? (
               <InstitutionalText role="small" color="muted" numberOfLines={1} style={styles.tagMeta}>
                 Desde {item.servicio_principal_nombre}

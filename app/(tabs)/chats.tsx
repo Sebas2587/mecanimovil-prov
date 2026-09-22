@@ -20,7 +20,7 @@ import solicitudesService from '@/services/solicitudesService';
 import {
   useChatInboxQuery,
   useInvalidateChatInbox,
-  upsertChatInboxFromWs,
+  applyChatInboxFromWs,
   CHAT_INBOX_QUERY_KEY,
 } from '@/hooks/useChatInboxQuery';
 import { useQueryClient } from '@tanstack/react-query';
@@ -314,53 +314,43 @@ export default function ChatsScreen() {
 
     const unsubscribe = websocketService.onNuevoMensajeChat((event) => {
       const rowKey = event.oferta_id || event.conversation_id;
-      if (rowKey) {
-        const cached = queryClient.getQueryData<typeof chats>(CHAT_INBOX_QUERY_KEY);
-        const chatIndex = cached?.findIndex((chat) =>
-          (event.oferta_id && String(chat.oferta_id) === String(event.oferta_id))
-          || (
-            event.conversation_id
-            && String(chat.conversation_id) === String(event.conversation_id)
-          ),
-        ) ?? -1;
-
-        if (chatIndex !== -1 && cached) {
-          const chatActualizado = { ...cached[chatIndex] };
-          chatActualizado.ultimo_mensaje = {
-            id: event.mensaje_id,
-            mensaje: event.mensaje,
-            fecha_envio: event.timestamp,
-            es_propio: event.es_proveedor,
-            leido: false,
-          };
-          if (!event.es_proveedor) {
-            chatActualizado.mensajes_no_leidos = (chatActualizado.mensajes_no_leidos || 0) + 1;
-            setChatHighlighted(rowKey);
-            setTimeout(() => setChatHighlighted(null), 2000);
-          }
-          upsertChatInboxFromWs(queryClient, rowKey, chatActualizado);
-        } else {
-          invalidateChatInbox();
-        }
+      if (!rowKey) return;
+      applyChatInboxFromWs(queryClient, {
+        conversation_id: event.conversation_id,
+        oferta_id: event.oferta_id,
+        mensaje_id: event.mensaje_id,
+        mensaje: event.mensaje,
+        timestamp: event.timestamp,
+        es_proveedor: event.es_proveedor,
+        channel: event.channel,
+        external_contact_name: event.external_contact_name,
+        external_contact_phone: event.external_contact_phone,
+      });
+      if (!event.es_proveedor) {
+        setChatHighlighted(rowKey);
+        setTimeout(() => setChatHighlighted(null), 2000);
       }
     });
 
     return () => { unsubscribe(); };
-  }, [isAuthenticated, usuario, queryClient, invalidateChatInbox]);
+  }, [isAuthenticated, usuario, queryClient]);
 
   useFocusEffect(
     useCallback(() => {
-      if (isAuthenticated && usuario) {
+      if (!isAuthenticated || !usuario) return;
+      const updatedAt = queryClient.getQueryState(CHAT_INBOX_QUERY_KEY)?.dataUpdatedAt ?? 0;
+      if (Date.now() - updatedAt > 15_000) {
         void refetch();
-        void refetchConnections();
-        if (cuentaAprobada) {
-          void refetchBorradoresAgente();
-        }
+      }
+      void refetchConnections();
+      if (cuentaAprobada) {
+        void refetchBorradoresAgente();
       }
     }, [
       isAuthenticated,
       usuario,
       cuentaAprobada,
+      queryClient,
       refetch,
       refetchConnections,
       refetchBorradoresAgente,

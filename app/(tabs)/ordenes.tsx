@@ -297,7 +297,7 @@ export default function OrdenesScreen() {
             <InstitutionalTag label={textoEstado} variant={estadoVariant} size="sm" />
             <OrigenOrdenBadge origen="mecanimovil" />
             {oferta?.es_oferta_secundaria ? (
-              <InstitutionalTag label="Adicional" variant="primary" size="sm" />
+              <InstitutionalTag label="Adicional" variant="adicional" size="sm" />
             ) : null}
             {urgencia ? (
               <View style={styles.urgentBadge}>

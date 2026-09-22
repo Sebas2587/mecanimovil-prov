@@ -59,8 +59,8 @@ const styles = StyleSheet.create({
     color: I.muted,
   },
   progressBarBackground: {
-    height: 3,
-    backgroundColor: I.hairlineSoft,
+    height: 4,
+    backgroundColor: I.surfaceSoft,
     borderRadius: BORDERS.radius.pill,
     overflow: 'hidden',
   },

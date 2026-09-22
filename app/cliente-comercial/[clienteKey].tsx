@@ -223,7 +223,7 @@ const CasoListing = React.memo(function CasoListing({
       </View>
       <View style={styles.casoTags}>
         {esAdicional ? (
-          <InstitutionalTag label="Trabajo adicional" variant="info" size="sm" />
+          <InstitutionalTag label="Trabajo adicional" variant="adicional" size="sm" />
         ) : null}
         {ejecucion ? (
           <InstitutionalTag label={ejecucion.label} variant={ejecucion.variant} size="sm" />
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
   nestedRail: {
     width: 2,
     borderRadius: 1,
-    backgroundColor: I.hairline,
+    backgroundColor: COLORS.accent[400],
     marginVertical: SPACING.fixed.xs,
   },
   nestedCol: {

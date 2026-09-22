@@ -73,6 +73,7 @@ export function InstitutionalField({
           mono && institutionalInputStyles.inputMono,
           multiline && institutionalInputStyles.inputMultiline,
           error ? institutionalInputStyles.inputError : null,
+          editable ? null : institutionalInputStyles.inputDisabled,
           ...(Array.isArray(inputStyle) ? inputStyle : inputStyle ? [inputStyle] : []),
         ]}
         value={value}

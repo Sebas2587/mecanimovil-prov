@@ -266,7 +266,7 @@ const LeadCard = React.memo(function LeadCard({
             <InstitutionalTag label="Checklist IA" variant="info" size="sm" />
           ) : null}
           {item.es_cotizacion_adicional ? (
-            <InstitutionalTag label="Adicional" variant="info" size="sm" />
+            <InstitutionalTag label="Adicional" variant="adicional" size="sm" />
           ) : null}
           {showLeadTag ? (
             <InstitutionalTag

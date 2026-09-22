@@ -386,6 +386,13 @@ class WebSocketService {
             es_proveedor: data.es_proveedor !== undefined ? data.es_proveedor : false,
             timestamp: data.timestamp,
             archivo_adjunto: data.archivo_adjunto || data.attachment || null,
+            channel: data.channel != null ? String(data.channel) : undefined,
+            external_contact_name: data.external_contact_name != null
+              ? String(data.external_contact_name)
+              : null,
+            external_contact_phone: data.external_contact_phone != null
+              ? String(data.external_contact_phone)
+              : null,
             channel_metadata: (data.channel_metadata as Record<string, unknown> | undefined) ?? undefined,
           };
           this.handleNuevoMensajeChat(chatEvent);
@@ -894,4 +901,16 @@ class WebSocketService {
   }
 }
 
-export default new WebSocketService();
+const WS_SINGLETON_KEY = '__mecanimovilWebSocketService';
+
+function sharedWebSocketService(): WebSocketService {
+  const host = globalThis as typeof globalThis & {
+    [WS_SINGLETON_KEY]?: WebSocketService;
+  };
+  if (!host[WS_SINGLETON_KEY]) {
+    host[WS_SINGLETON_KEY] = new WebSocketService();
+  }
+  return host[WS_SINGLETON_KEY];
+}
+
+export default sharedWebSocketService();

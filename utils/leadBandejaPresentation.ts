@@ -64,9 +64,22 @@ export function leadCategoriaLabel(item: PipelineComercialItem): string {
   return LEAD_CATEGORIA_LABELS[cat] || cat;
 }
 
+function esSilencioDeAdicional(item: PipelineComercialItem): boolean {
+  if (!item.es_cotizacion_adicional) return false;
+  return Boolean(
+    item.esperando_respuesta_24h
+    || item.demorado_48h
+    || item.visto_sin_respuesta
+    || item.estado_normalizado === 'cotizacion_enviada',
+  );
+}
+
 export function leadMetaHint(item: PipelineComercialItem): string {
   if (cotizacionEstaEnEdicion(item)) return 'guarda y envía para actualizar el link';
   if (item.horario_por_confirmar) return 'elige día y hora';
+  if (esSilencioDeAdicional(item)) {
+    return 'trabajo adicional · la visita agendada sigue igual';
+  }
   if (item.esperando_respuesta_24h || item.demorado_48h) {
     const cat = leadCategoriaOf(item);
     if (LEAD_ALTA_INTENCION.has(cat)) {
@@ -84,6 +97,9 @@ export function leadMetaHint(item: PipelineComercialItem): string {
 export function leadSheetHint(item: PipelineComercialItem): string | null {
   if (item.horario_por_confirmar) {
     return 'Confirma día y hora.';
+  }
+  if (esSilencioDeAdicional(item)) {
+    return 'Es un trabajo adicional. El servicio ya agendado sigue igual. Escribe, márcalo aceptado o cierra solo este trabajo.';
   }
   if (item.esperando_respuesta_24h || item.demorado_48h) {
     const cat = leadCategoriaOf(item);

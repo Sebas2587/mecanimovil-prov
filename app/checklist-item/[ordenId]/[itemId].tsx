@@ -17,7 +17,12 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH, ICON_SIZE } from '@/app/design-system/iconography';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
-import { HostPaperSection, hostScreenStyles } from '@/app/design-system/components';
+import {
+  HostPaperSection,
+  InstitutionalButton,
+  InstitutionalText,
+  hostScreenStyles,
+} from '@/app/design-system/components';
 import { checklistQueryKeys } from '@/hooks/checklistQueryKeys';
 import { checklistService } from '@/services/checklistService';
 import { showAlert, showAlertButtons } from '@/utils/platformAlert';
@@ -199,9 +204,7 @@ export default function ChecklistItemDetailScreen() {
           <Text style={styles.errorMessage}>
             No se pudo identificar la orden o cita del checklist.
           </Text>
-          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-            <Text style={styles.backButtonText}>Volver</Text>
-          </TouchableOpacity>
+          <InstitutionalButton label="Volver" onPress={handleGoBack} variant="outline" />
         </View>
       </SafeAreaView>
     );
@@ -232,9 +235,7 @@ export default function ChecklistItemDetailScreen() {
           <Text style={styles.errorMessage}>
             No encontramos el checklist asociado a este ítem.
           </Text>
-          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-            <Text style={styles.backButtonText}>Volver</Text>
-          </TouchableOpacity>
+          <InstitutionalButton label="Volver" onPress={handleGoBack} variant="outline" />
         </View>
       </SafeAreaView>
     );
@@ -254,9 +255,7 @@ export default function ChecklistItemDetailScreen() {
           <Text style={styles.errorMessage}>
             No se pudo encontrar el ítem del checklist solicitado.
           </Text>
-          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-            <Text style={styles.backButtonText}>Volver</Text>
-          </TouchableOpacity>
+          <InstitutionalButton label="Volver" onPress={handleGoBack} variant="outline" />
         </View>
       </SafeAreaView>
     );
@@ -271,7 +270,7 @@ export default function ChecklistItemDetailScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={handleGoBack} style={styles.closeButton} hitSlop={12}>
+          <TouchableOpacity onPress={handleGoBack} style={styles.closeButton} hitSlop={12} accessibilityLabel="Volver">
             <InstitutionalIcon
               name="arrow-back"
               size={ICON_SIZE.md}
@@ -279,7 +278,9 @@ export default function ChecklistItemDetailScreen() {
               strokeWidth={ICON_STROKE_WIDTH}
             />
           </TouchableOpacity>
-          <Text style={styles.topBarStep}>{stepLabel}</Text>
+          <InstitutionalText role="caption" color="muted" style={styles.topBarStep}>
+            {stepLabel}
+          </InstitutionalText>
           <View style={styles.topBarSpacer} />
         </View>
 
@@ -293,9 +294,13 @@ export default function ChecklistItemDetailScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.heroTitle}>{item.pregunta_texto}</Text>
+          <InstitutionalText role="h2" style={styles.heroTitle}>
+            {item.pregunta_texto}
+          </InstitutionalText>
           {item.descripcion_ayuda ? (
-            <Text style={styles.heroSupport}>{item.descripcion_ayuda}</Text>
+            <InstitutionalText role="body" color="body" style={styles.heroSupport}>
+              {item.descripcion_ayuda}
+            </InstitutionalText>
           ) : null}
 
           <HostPaperSection style={styles.answerBlock}>
@@ -325,7 +330,7 @@ export default function ChecklistItemDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: I.canvas,
   },
   flex: { flex: 1 },
   topBar: {
@@ -333,24 +338,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACING.fixed.md,
     paddingVertical: SPACING.fixed.sm,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: I.canvas,
+    borderBottomWidth: BORDERS.width.thin,
+    borderBottomColor: I.hairline,
   },
   closeButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: I.canvas,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
   },
   topBarStep: {
     flex: 1,
     textAlign: 'center',
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansMedium,
-    color: I.muted,
   },
   topBarSpacer: { width: 40 },
   content: {
@@ -360,18 +360,9 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.fixed.md,
   },
   heroTitle: {
-    fontSize: 28,
-    fontFamily: FF.sansSemiBold,
-    color: I.ink,
-    lineHeight: 34,
-    letterSpacing: -0.4,
     marginBottom: SPACING.fixed.sm,
   },
   heroSupport: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansRegular,
-    color: I.body,
-    lineHeight: Math.round(TYPOGRAPHY.fontSize.base * 1.45),
     marginBottom: SPACING.fixed.lg,
   },
   answerBlock: {},
@@ -406,18 +397,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: SPACING.fixed.xs,
     marginBottom: SPACING.fixed.lg,
-  },
-  backButton: {
-    backgroundColor: I.primary,
-    paddingHorizontal: SPACING.fixed.lg,
-    paddingVertical: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.lg,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  backButtonText: {
-    color: I.onPrimary,
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontFamily: FF.sansSemiBold,
   },
 });

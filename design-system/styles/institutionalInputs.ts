@@ -59,6 +59,12 @@ export const institutionalInputStyles = StyleSheet.create({
     borderColor: I.semanticDown,
     borderWidth: BORDERS.width.medium,
   } satisfies TextStyle,
+  /** Solo lectura: superficie tonal, texto body. No parece un campo activo. */
+  inputDisabled: {
+    backgroundColor: I.surfaceSoft,
+    color: I.body,
+    ...(Platform.OS === 'web' ? ({ cursor: 'default' } as object) : {}),
+  } satisfies TextStyle,
   errorText: {
     ...institutionalTextStyle('caption', I.semanticDown),
     fontFamily: FF.sansMedium,
@@ -89,5 +95,15 @@ export const institutionalInputStyles = StyleSheet.create({
     color: I.ink,
     paddingVertical: SPACING.fixed.sm,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}),
+  } satisfies TextStyle,
+  inputRowDisabled: {
+    backgroundColor: I.surfaceSoft,
+  } satisfies ViewStyle,
+  inputRowPrefixDisabled: {
+    color: I.muted,
+  } satisfies TextStyle,
+  inputRowFieldDisabled: {
+    color: I.body,
+    ...(Platform.OS === 'web' ? ({ cursor: 'default' } as object) : {}),
   } satisfies TextStyle,
 });

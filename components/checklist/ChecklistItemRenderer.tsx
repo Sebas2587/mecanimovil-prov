@@ -967,7 +967,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           }}
         >
           {selected && (
-            <InstitutionalIcon name="check-circle" size={18} color={I.onPrimary} style={styles.optionCheckIcon}  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="check-circle" size={18} color={I.primary} style={styles.optionCheckIcon}  strokeWidth={ICON_STROKE_WIDTH} />
           )}
           <Text style={[
             styles.modernOptionText,
@@ -1226,7 +1226,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                 onPress={handleTakePicture}
                 disabled={uploadingPhoto}
               >
-                <InstitutionalIcon name="camera-alt" size={22} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="camera-alt" size={22} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.modernPhotoButtonText}>Tomar Foto</Text>
               </TouchableOpacity>
 
@@ -1235,7 +1235,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                 onPress={handlePickFromGallery}
                 disabled={uploadingPhoto}
               >
-                <InstitutionalIcon name="photo-library" size={22} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="photo-library" size={22} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.modernPhotoButtonText}>Galería</Text>
               </TouchableOpacity>
             </View>
@@ -1387,7 +1387,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                   setShowSignatureModal(true);
                 }}
               >
-                <InstitutionalIcon name="gesture" size={22} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
+                <InstitutionalIcon name="gesture" size={22} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
                 <Text style={styles.modernSignatureButtonText}>
                   {signatureButtonLabel}
                 </Text>
@@ -1657,7 +1657,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         {/* FECHA Y HORA */}
         {item.tipo_pregunta === 'DATETIME' && (
           <TouchableOpacity style={styles.modernSelectButton}>
-            <InstitutionalIcon name="schedule" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="schedule" size={20} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modernSelectButtonText}>
               {inputValue ? new Date(inputValue).toLocaleString('es-ES') : 'Seleccionar fecha y hora'}
             </Text>
@@ -1668,7 +1668,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
         {/* UBICACIÓN GPS */}
         {item.tipo_pregunta === 'LOCATION' && (
           <TouchableOpacity style={styles.modernSelectButton}>
-            <InstitutionalIcon name="location-on" size={20} color={I.primary}  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="location-on" size={20} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
             <Text style={styles.modernSelectButtonText}>
               {inputValue ? 'Ubicación capturada ✓' : 'Obtener ubicación GPS'}
             </Text>

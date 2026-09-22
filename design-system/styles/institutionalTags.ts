@@ -11,7 +11,8 @@ export type InstitutionalTagVariant =
   | 'success'
   | 'warning'
   | 'error'
-  | 'info';
+  | 'info'
+  | 'adicional';
 
 export type InstitutionalTagSize = 'sm' | 'md';
 
@@ -55,6 +56,12 @@ const variantPalette: Record<
     bg: COLORS.base.soft,
     border: withOpacity(I.primary, 0.14),
     text: I.primaryActive,
+  },
+  /** Tipo de trabajo, no estado. Naranja Tinder: no comparte el rosa de agendado/info. */
+  adicional: {
+    bg: COLORS.accent[50],
+    border: COLORS.accent[200],
+    text: COLORS.accent[700],
   },
 };
 

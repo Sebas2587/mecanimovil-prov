@@ -1,13 +1,7 @@
-import React, { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
 import { router } from 'expo-router';
-import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
-import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
-import { COLORS, SPACING } from '@/app/design-system/tokens';
 import cotizacionCanalService from '@/services/cotizacionCanalService';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
-
-const I = COLORS.institutional;
 
 type Props = {
   cotizacionId: number;
@@ -15,8 +9,8 @@ type Props = {
   onAceptada?: () => void;
 };
 
-/** Acciones del caso cuando el chat no basta (canal caído o cliente en silencio). */
-export function CasoCotizacionChatBar({ cotizacionId, onCerrado, onAceptada }: Props) {
+/** Acciones del caso fuera del hilo: el chat las muestra en el botón flotante. */
+export function useCasoCotizacionAcciones({ cotizacionId, onCerrado, onAceptada }: Props) {
   const [busy, setBusy] = useState(false);
 
   const abrirFolio = useCallback(() => {
@@ -58,58 +52,5 @@ export function CasoCotizacionChatBar({ cotizacionId, onCerrado, onAceptada }: P
     );
   }, [cotizacionId, onCerrado]);
 
-  return (
-    <View style={styles.bar}>
-      <InstitutionalText role="caption" color="muted">
-        Cotización enviada. Escribe aquí, marca aceptada si ya cerraron, o cierra el caso.
-        La IA solo recuerda una vez por WhatsApp.
-      </InstitutionalText>
-      <View style={styles.row}>
-        <InstitutionalButton
-          label="Cerrar caso"
-          variant="destructiveOutline"
-          size="compact"
-          style={styles.btn}
-          loading={busy}
-          onPress={cerrarCaso}
-        />
-        <InstitutionalButton
-          label="Marcar aceptada"
-          variant="success"
-          size="compact"
-          style={styles.btn}
-          loading={busy}
-          onPress={() => void marcarAceptada()}
-        />
-      </View>
-      <InstitutionalButton
-        label="Ver cotización"
-        variant="outline"
-        size="compact"
-        onPress={abrirFolio}
-      />
-    </View>
-  );
+  return { busy, abrirFolio, marcarAceptada, cerrarCaso };
 }
-
-const styles = StyleSheet.create({
-  bar: {
-    gap: SPACING.fixed.xs,
-    paddingHorizontal: SPACING.fixed.md,
-    paddingTop: SPACING.fixed.sm,
-    backgroundColor: I.canvas,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: I.hairline,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: SPACING.fixed.sm,
-  },
-  btn: {
-    flex: 1,
-    minWidth: 0,
-  },
-});
-
-export default CasoCotizacionChatBar;

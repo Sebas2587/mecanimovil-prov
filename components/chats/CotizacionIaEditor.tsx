@@ -1134,7 +1134,7 @@ export const CotizacionIaEditor = React.forwardRef<
                 <InstitutionalTag label="Completar" variant="info" size="sm" />
               ) : null}
               {cotizacion.es_cotizacion_adicional ? (
-                <InstitutionalTag label="Adicional" variant="info" size="sm" />
+                <InstitutionalTag label="Adicional" variant="adicional" size="sm" />
               ) : null}
               {cotizacion.numero_publico ? (
                 <InstitutionalTag
@@ -1207,7 +1207,7 @@ export const CotizacionIaEditor = React.forwardRef<
                 <InstitutionalTag label="Completar precios" variant="info" size="sm" />
               ) : null}
               {cotizacion.es_cotizacion_adicional ? (
-                <InstitutionalTag label="Adicional" variant="info" size="sm" />
+                <InstitutionalTag label="Adicional" variant="adicional" size="sm" />
               ) : null}
               <InstitutionalTag
                 label={cotizacion.estado}

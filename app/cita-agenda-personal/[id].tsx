@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { FileText, ListChecks, UserRound, Wrench } from 'lucide-react-native';
+import { FileText, ListChecks, MessageCircle, UserRound, Wrench } from 'lucide-react-native';
 import Header from '@/components/Header';
 import { CotizacionEditorFab, type CotizacionFabAction } from '@/components/cotizacion/CotizacionEditorFab';
 import { folioIdentidadLabel } from '@/utils/entregaCotizacionCopy';
@@ -78,6 +78,7 @@ import { useCotizacionCanalDetalleQuery } from '@/hooks/useCotizacionCanalDetall
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import { checklistService } from '@/services/checklistService';
 import { mapCitaEstadoOperativo } from '@/utils/estadoOperativo';
+import { omnichannelChatHref } from '@/utils/chatRoutes';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -889,6 +890,18 @@ export default function CitaAgendaPersonalDetalleScreen() {
     && puedeUsarAsistenteIa;
 
   const fabActions: CotizacionFabAction[] = [];
+  const chatClienteId = cita.conversation_id || cotizacionOrigen?.conversation || null;
+  if (chatClienteId && !editando) {
+    fabActions.push({
+      key: 'chat',
+      label: 'Escribir al cliente',
+      icon: MessageCircle,
+      onPress: () => router.push(omnichannelChatHref(chatClienteId, {
+        name: det.cliente_nombre,
+        phone: det.cliente_telefono,
+      })),
+    });
+  }
   if (esActiva && permitirEditarCita && !editando) {
     if (cita.cotizacion_canal_origen_id && !checklistIniciado) {
       fabActions.push({

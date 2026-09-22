@@ -26,6 +26,9 @@ function copyAtencion(row: PipelineComercialItem): string {
   if (row.horario_por_confirmar) {
     return 'Aceptó el servicio. Elige día y hora.';
   }
+  if (row.es_cotizacion_adicional) {
+    return 'Trabajo adicional sin respuesta. El servicio ya agendado sigue igual.';
+  }
   const alta = ['interesado_calificado', 'listo_agendar'].includes(leadCategoriaOf(row));
   if (alta) {
     return 'No respondió. Ya mostró interés: escribe o cierra el caso.';
@@ -43,8 +46,13 @@ const AttentionRow = React.memo(function AttentionRow({
   onPress: (row: PipelineComercialItem) => void;
 }) {
   const handlePress = useCallback(() => onPress(row), [onPress, row]);
-  const titulo = row.cliente_nombre || 'Cliente';
-  const vehiculo = row.vehiculo_resumen?.trim();
+  const esAdicional = Boolean(row.es_cotizacion_adicional);
+  const titulo = esAdicional
+    ? (row.servicio_resumen?.trim() || 'Trabajo adicional')
+    : (row.cliente_nombre || 'Cliente');
+  const vehiculo = esAdicional
+    ? [row.cliente_nombre, row.vehiculo_resumen?.trim()].filter(Boolean).join(' · ')
+    : row.vehiculo_resumen?.trim();
   const tag = leadOperativoTag(row, 'Acción', 'warning');
   const esHorario = Boolean(row.horario_por_confirmar);
 
@@ -74,7 +82,12 @@ const AttentionRow = React.memo(function AttentionRow({
         <InstitutionalText role="caption" color="body">
           {copyAtencion(row)}
         </InstitutionalText>
-        <InstitutionalTag label={tag.label} variant={tag.variant} size="sm" />
+        <View style={styles.tags}>
+          {esAdicional ? (
+            <InstitutionalTag label="Trabajo adicional" variant="adicional" size="sm" />
+          ) : null}
+          <InstitutionalTag label={tag.label} variant={tag.variant} size="sm" />
+        </View>
       </View>
       <View style={styles.chevron}>
         <ChevronRight size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
@@ -89,6 +102,9 @@ export function NeedsAttentionList({ pipelineItems = [] }: NeedsAttentionListPro
     const sinRespuesta = pipelineItems.filter(
       (row) =>
         !row.horario_por_confirmar
+        && row.estado_normalizado !== 'aceptado_agendado'
+        && row.estado_normalizado !== 'en_ejecucion'
+        && row.estado_normalizado !== 'completado'
         && (row.esperando_respuesta_24h || row.demorado_48h),
     );
     return [...horario, ...sinRespuesta].slice(0, MAX_ITEMS);
@@ -171,6 +187,11 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: 4,
+  },
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   chevron: {
     marginTop: 2,

@@ -17,7 +17,7 @@ import { ChecklistProgressBar } from '@/components/checklist/ChecklistProgressBa
 import { ChecklistSignatureModal } from '@/components/checklist/ChecklistSignatureModal';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH, ICON_SIZE } from '@/app/design-system/iconography';
 import { ChecklistDiffModal } from '@/components/checklist/ChecklistDiffModal';
@@ -25,7 +25,10 @@ import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { showAlert, showConfirm, showAlertButtons } from '@/utils/platformAlert';
 import { useOrdenSignatureDisplay } from '@/hooks/useOrdenSignatureDisplay';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { HostSectionKicker } from '@/app/design-system/components/HostSurfaces';
+import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
 import { MecanicoAsignadoCard } from '@/components/equipo/MecanicoAsignadoCard';
 import { useAuth } from '@/context/AuthContext';
 
@@ -763,8 +766,8 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
 
         {canStart && (
           <View style={styles.onboardingCard}>
-            <View style={styles.onboardingIconWrap}>
-              <InstitutionalIcon name="play-arrow" size={28} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+            <View style={hostIconPlateStyle}>
+              <InstitutionalIcon name="play-arrow" size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <Text style={styles.onboardingTitle}>
               {autoStarting ? 'Iniciando checklist…' : 'Listo para iniciar'}
@@ -790,8 +793,8 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
 
         {canResume && (
           <View style={styles.onboardingCard}>
-            <View style={[styles.onboardingIconWrap, styles.onboardingIconWrapWarning]}>
-              <InstitutionalIcon name="pause-circle" size={28} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
+            <View style={hostIconPlateStyle}>
+              <InstitutionalIcon name="pause-circle" size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <Text style={styles.onboardingTitle}>Checklist pausado</Text>
             <Text style={styles.onboardingDescription}>
@@ -823,15 +826,23 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                 icon="assignment"
               />
             )}
-            <View style={styles.checklistSummary}>
-              <Text style={styles.checklistSummaryText}>
-                {esperandoFirmaSupervisor
-                  ? 'Revisa los ítems completados antes de firmar'
+            <HostSectionKicker
+              label={
+                esperandoFirmaSupervisor
+                  ? 'Revisión'
                   : esperandoFirmaCliente
-                    ? 'Resumen de ítems completados en este servicio'
-                    : `${totalCompletados} de ${totalSteps} completados`}
-              </Text>
-            </View>
+                    ? 'Resumen'
+                    : 'Ítems'
+              }
+              style={styles.checklistKicker}
+            />
+            <InstitutionalText role="caption" color="muted">
+              {esperandoFirmaSupervisor
+                ? 'Revisa los ítems completados antes de firmar'
+                : esperandoFirmaCliente
+                  ? 'Resumen de ítems completados en este servicio'
+                  : `${totalCompletados} de ${totalSteps} completados`}
+            </InstitutionalText>
             {sortedItems.map((item) => {
                 const itemCompleted = itemChecklistCompleto(instance.respuestas, item);
                 const isRequired = !!(item.es_obligatorio_efectivo || item.es_obligatorio);
@@ -869,7 +880,7 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                     </View>
 
                     <View style={styles.checklistItemInfo}>
-                      <Text style={[styles.checklistItemTitle, itemCompleted && styles.checklistItemTitleCompleted]}>
+                      <Text style={styles.checklistItemTitle}>
                         {item.pregunta_texto}
                       </Text>
                       {item.descripcion_ayuda ? (
@@ -879,10 +890,8 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                       ) : null}
                     </View>
 
-                    {isRequired ? (
-                      <View style={styles.requiredBadge}>
-                        <Text style={styles.requiredBadgeText}>Req.</Text>
-                      </View>
+                    {isRequired && !itemCompleted ? (
+                      <InstitutionalTag label="Obligatorio" variant="warning" size="sm" />
                     ) : null}
 
                     <InstitutionalIcon name="chevron-right" size={20} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
@@ -1080,7 +1089,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.lg,
   },
   onboardingCard: {
-    backgroundColor: I.canvas,
+    backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.lg,
     padding: SPACING.fixed.lg,
     marginHorizontal: SPACING.fixed.md,
@@ -1088,17 +1097,7 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     gap: SPACING.fixed.sm,
-  },
-  onboardingIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: BORDERS.radius.lg,
-    backgroundColor: withOpacity(I.primary, 0.08),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  onboardingIconWrapWarning: {
-    backgroundColor: withOpacity(I.accentYellow, 0.15),
+    ...SHADOWS.editorial,
   },
   onboardingTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
@@ -1136,8 +1135,9 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: COLORS.background.paper,
     gap: SPACING.fixed.sm,
+    ...SHADOWS.editorial,
   },
   informeLinkTitle: {
     fontSize: TYPOGRAPHY.fontSize.md,
@@ -1150,7 +1150,7 @@ const styles = StyleSheet.create({
     color: I.body,
   },
   completedCard: {
-    backgroundColor: withOpacity(I.semanticUp, 0.08),
+    backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.lg,
     padding: SPACING.fixed.lg,
     marginHorizontal: SPACING.fixed.md,
@@ -1159,6 +1159,7 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     gap: SPACING.fixed.sm,
+    ...SHADOWS.editorial,
   },
   completedTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
@@ -1191,23 +1192,20 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.fixed.sm,
     gap: SPACING.fixed.sm,
   },
-  checklistSummary: {
-    marginBottom: SPACING.fixed.xxs,
-  },
-  checklistSummaryText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: FF.sansMedium,
-    color: I.muted,
+  checklistKicker: {
+    marginTop: 0,
+    marginBottom: 0,
   },
   checklistItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.fixed.md,
-    backgroundColor: I.canvas,
+    backgroundColor: COLORS.background.paper,
     borderRadius: BORDERS.radius.lg,
     gap: SPACING.fixed.sm,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
+    ...SHADOWS.editorial,
     ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : {}),
   },
   checkbox: {
@@ -1225,8 +1223,7 @@ const styles = StyleSheet.create({
     borderColor: I.semanticUp,
   },
   checklistItemCompleted: {
-    backgroundColor: withOpacity(I.semanticUp, 0.06),
-    borderColor: withOpacity(I.semanticUp, 0.35),
+    borderColor: withOpacity(I.semanticUp, 0.28),
   },
   checklistItemRequired: {},
   checklistItemInfo: {
@@ -1234,31 +1231,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   checklistItemTitle: {
-    fontSize: TYPOGRAPHY.fontSize.md,
+    fontSize: TYPOGRAPHY.styles.h4.fontSize,
     fontFamily: FF.sansSemiBold,
     color: I.ink,
-  },
-  checklistItemTitleCompleted: {
-    color: I.muted,
-    textDecorationLine: 'line-through',
   },
   checklistItemDescription: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontFamily: FF.sansRegular,
     color: I.body,
     marginTop: 2,
-  },
-  requiredBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: BORDERS.radius.sm,
-    backgroundColor: withOpacity(I.accentYellow, 0.15),
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.accentYellow, 0.4),
-  },
-  requiredBadgeText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontFamily: FF.sansSemiBold,
-    color: I.body,
   },
 }); 

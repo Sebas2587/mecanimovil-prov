@@ -44,9 +44,17 @@ export function ClpMoneyInput({
       style={[
         institutionalInputStyles.inputRow,
         compact && styles.moneyRowCompact,
+        editable ? null : institutionalInputStyles.inputRowDisabled,
       ]}
     >
-      <InstitutionalText role="body" color="muted" style={institutionalInputStyles.inputRowPrefix}>
+      <InstitutionalText
+        role="body"
+        color="muted"
+        style={[
+          institutionalInputStyles.inputRowPrefix,
+          editable ? null : institutionalInputStyles.inputRowPrefixDisabled,
+        ]}
+      >
         $
       </InstitutionalText>
       <TextInput
@@ -54,6 +62,7 @@ export function ClpMoneyInput({
           institutionalInputStyles.inputRowField,
           institutionalInputStyles.inputMono,
           compact && institutionalInputStyles.inputCompact,
+          editable ? null : institutionalInputStyles.inputRowFieldDisabled,
         ]}
         keyboardType="number-pad"
         editable={editable}

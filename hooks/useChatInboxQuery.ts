@@ -49,6 +49,72 @@ export function useInvalidateChatInbox() {
   }, [queryClient]);
 }
 
+type InboxWsPatch = {
+  conversation_id?: string;
+  oferta_id?: string;
+  mensaje_id: string;
+  mensaje: string;
+  timestamp: string;
+  es_proveedor: boolean;
+  channel?: string;
+  external_contact_name?: string | null;
+  external_contact_phone?: string | null;
+};
+
+function ultimoDesdeWs(event: InboxWsPatch): InboxChatItem['ultimo_mensaje'] {
+  return {
+    id: event.mensaje_id || `ws-${event.timestamp}`,
+    mensaje: (event.mensaje || '').trim() || 'Mensaje',
+    fecha_envio: event.timestamp || new Date().toISOString(),
+    es_propio: event.es_proveedor,
+    leido: false,
+  };
+}
+
+/** Mueve el chat al tope o lo crea al instante, sin esperar el inbox completo. */
+export function applyChatInboxFromWs(queryClient: QueryClient, event: InboxWsPatch) {
+  const conversationId = event.conversation_id ? String(event.conversation_id) : '';
+  const ofertaId = event.oferta_id ? String(event.oferta_id) : '';
+  if (!conversationId && !ofertaId) return;
+
+  queryClient.setQueryData<InboxChatItem[]>(CHAT_INBOX_QUERY_KEY, (prev) => {
+    const list = prev ?? [];
+    const index = list.findIndex(
+      (item) =>
+        (ofertaId && item.oferta_id && String(item.oferta_id) === ofertaId)
+        || (conversationId && item.conversation_id && String(item.conversation_id) === conversationId),
+    );
+    const ultimo = ultimoDesdeWs(event);
+    if (index === -1) {
+      const created: InboxChatItem = {
+        kind: ofertaId && !conversationId ? 'oferta' : 'omnichannel',
+        channel: (event.channel || (ofertaId ? 'app' : '')).toLowerCase(),
+        conversation_id: conversationId || null,
+        oferta_id: ofertaId || null,
+        solicitud_id: null,
+        otra_persona: {
+          nombre: event.external_contact_name?.trim() || 'Cliente',
+          telefono: event.external_contact_phone || null,
+        },
+        ultimo_mensaje: ultimo,
+        mensajes_no_leidos: event.es_proveedor ? 0 : 1,
+        cliente_sin_responder: !event.es_proveedor,
+      };
+      return [created, ...list];
+    }
+    const current = list[index];
+    const updated: InboxChatItem = {
+      ...current,
+      ultimo_mensaje: ultimo,
+      mensajes_no_leidos: event.es_proveedor
+        ? current.mensajes_no_leidos
+        : (current.mensajes_no_leidos || 0) + 1,
+      cliente_sin_responder: event.es_proveedor ? current.cliente_sin_responder : true,
+    };
+    return [updated, ...list.filter((_, i) => i !== index)];
+  });
+}
+
 export function upsertChatInboxFromWs(
   queryClient: QueryClient,
   rowKey: string,
