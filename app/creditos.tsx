@@ -748,32 +748,12 @@ export default function CreditosScreen() {
     [planes]
   );
 
-  const requireMercadoPago = useCallback(
-    (accion: string): boolean => {
-      if (mpConectado) return true;
-      Alert.alert(
-        'Mercado Pago requerido',
-        `Para ${accion} necesitas conectar tu cuenta de Mercado Pago.`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Conectar',
-            onPress: () => router.push('/configuracion-mercadopago'),
-          },
-        ],
-      );
-      return false;
-    },
-    [mpConectado],
-  );
-
   const onRefresh = useCallback(() => {
     void refreshAll();
   }, [refreshAll]);
 
   // ── Handlers suscripción ──────────────────────────────────
   const handleSuscribirse = useCallback(async (plan: PlanSuscripcion) => {
-    if (!requireMercadoPago('suscribirte a un plan')) return;
     setPlanSuscribiendoId(plan.id);
     try {
       const resultado = await suscripcionesService.suscribirse(plan.id);
@@ -796,7 +776,7 @@ export default function CreditosScreen() {
     } finally {
       setPlanSuscribiendoId(null);
     }
-  }, [requireMercadoPago]);
+  }, []);
 
   const handleCancelarSuscripcion = useCallback(() => {
     // En web Alert.alert no ejecuta onPress — usar showConfirm (modal institucional).
@@ -899,10 +879,9 @@ export default function CreditosScreen() {
 
   const handleComprarPaquete = useCallback(
     (paquete: PaqueteCreditos) => {
-      if (!requireMercadoPago('comprar créditos')) return;
       router.push({ pathname: '/creditos/comprar', params: { paqueteId: paquete.id.toString() } });
     },
-    [requireMercadoPago],
+    [],
   );
 
   // Deep links legacy (?tab=saldo|historial|rendimiento) → pantallas dedicadas
@@ -925,11 +904,9 @@ export default function CreditosScreen() {
     );
   }
 
-  // Aviso MP: Suscripción / Tienda requieren cuenta conectada.
+  // La cuenta conectada es para que el cliente te pague. No bloquea el plan ni los créditos.
   const mpNoticeTone = institutionalStatusColors('info');
-  const mostrarMpBanner =
-    mpConectado === false && (activeTab === 'suscripcion' || activeTab === 'tienda');
-  const mpBannerAccion = activeTab === 'suscripcion' ? 'suscribirte' : 'comprar créditos';
+  const mostrarMpBanner = mpConectado === false;
   const mpBanner = mostrarMpBanner ? (
     <Pressable
       onPress={() => router.push('/configuracion-mercadopago')}
@@ -943,7 +920,7 @@ export default function CreditosScreen() {
     >
       <Info size={16} color={mpNoticeTone.icon} strokeWidth={ICON_STROKE_WIDTH} />
       <Text style={[styles.mpBannerText, { color: textSecondary }]} numberOfLines={2}>
-        Conecta Mercado Pago para {mpBannerAccion}.{' '}
+        Sin Mercado Pago conectado igual puedes pagar el plan o los créditos. Conéctala para que los clientes te paguen en la app.{' '}
         <Text style={[styles.mpBannerLink, { color: mpNoticeTone.text }]}>Conectar</Text>
       </Text>
     </Pressable>
@@ -1388,7 +1365,6 @@ export default function CreditosScreen() {
                 variant="primary"
                 size="compact"
                 onPress={() => {
-                  if (!requireMercadoPago('comprar créditos')) return;
                   router.push(`/creditos/comprar?cantidadCreditos=${cantidadComprar}`);
                 }}
                 style={styles.tiendaCta}

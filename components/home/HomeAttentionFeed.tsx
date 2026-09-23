@@ -10,6 +10,7 @@ import { SPACING } from '@/app/design-system/tokens';
 import { HomePrimaryActions } from './HomePrimaryActions';
 import { HomePendientesRevisionList } from './HomePendientesRevisionList';
 import { NeedsAttentionList } from './NeedsAttentionList';
+import { HomeDecisionesMarketplace } from './HomeDecisionesMarketplace';
 
 const ESTADOS_BANDEJA = new Set(['nuevo', 'cotizacion_enviada', 'en_negociacion']);
 
@@ -93,6 +94,7 @@ export function HomeAttentionFeed({
 
   return (
     <View style={styles.feedContainer}>
+      <HomeDecisionesMarketplace enabled={enabled} />
       <HomePrimaryActions
         borradoresCount={borradoresCount}
         bandejaCount={bandejaCount}
