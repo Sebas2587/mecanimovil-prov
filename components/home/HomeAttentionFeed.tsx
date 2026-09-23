@@ -60,6 +60,7 @@ export function HomeAttentionFeed({
       pipelineQuery.refetch(),
       cotizacionesQuery.refetch(),
       borradoresQuery.refetch(),
+      queryClient.invalidateQueries({ queryKey: ['ordenes-marketplace-decision'] }),
     ]);
     onRefreshFeed?.();
   }, [queryClient, pipelineQuery, cotizacionesQuery, borradoresQuery, onRefreshFeed]);
@@ -81,6 +82,7 @@ export function HomeAttentionFeed({
     });
     const unsubSolicitud = websocketService.onNuevaSolicitud(() => {
       invalidateProveedorComercialQueries(queryClient);
+      void queryClient.invalidateQueries({ queryKey: ['ordenes-marketplace-decision'] });
     });
 
     return () => {

@@ -16,27 +16,54 @@ import {
   obtenerNombreSeguro,
   type Orden,
 } from '@/services/ordenesProveedor';
+import { obtenerMisOfertas, type OfertaProveedor } from '@/services/solicitudesService';
 
 const I = COLORS.institutional;
 const MAX_ITEMS = 5;
 
-async function fetchDecisiones(): Promise<Orden[]> {
-  const res = await ordenesProveedorService.obtenerPendientes();
-  const data = res.success && Array.isArray(res.data) ? res.data : [];
-  return data.filter((orden) => orden.estado === 'pendiente_aceptacion_proveedor');
+type Decision =
+  | { kind: 'orden'; orden: Orden }
+  | { kind: 'oferta'; oferta: OfertaProveedor };
+
+async function fetchDecisiones(): Promise<Decision[]> {
+  const [ordenesRes, ofertasRes] = await Promise.all([
+    ordenesProveedorService.obtenerPendientes(),
+    obtenerMisOfertas(),
+  ]);
+  const ordenes = ordenesRes.success && Array.isArray(ordenesRes.data) ? ordenesRes.data : [];
+  const ofertas = ofertasRes.success && Array.isArray(ofertasRes.data) ? ofertasRes.data : [];
+  const decisiones: Decision[] = [
+    ...ordenes
+      .filter((orden) => orden.estado === 'pendiente_aceptacion_proveedor')
+      .map((orden) => ({ kind: 'orden' as const, orden })),
+    ...ofertas
+      .filter((oferta) => oferta.estado === 'pendiente_confirmacion')
+      .map((oferta) => ({ kind: 'oferta' as const, oferta })),
+  ];
+  return decisiones;
 }
 
-function resumen(orden: Orden): string {
-  const nombre = obtenerNombreSeguro(orden.cliente_detail);
-  const vehiculo = [orden.vehiculo_detail?.marca, orden.vehiculo_detail?.modelo]
-    .filter(Boolean)
-    .join(' ');
-  const patente = orden.vehiculo_detail?.placa;
-  return [nombre, patente, vehiculo].filter(Boolean).join(' · ');
+function tituloDecision(item: Decision): string {
+  if (item.kind === 'orden') {
+    return item.orden.lineas?.[0]?.servicio_nombre?.trim() || 'Trabajo del marketplace';
+  }
+  const nombres = (item.oferta.solicitud_detail?.servicios_solicitados ?? [])
+    .map((servicio) => servicio.nombre)
+    .filter(Boolean);
+  return nombres.join(', ') || 'Trabajo del marketplace';
 }
 
-function titulo(orden: Orden): string {
-  return orden.lineas?.[0]?.servicio_nombre?.trim() || 'Trabajo del marketplace';
+function resumenDecision(item: Decision): string {
+  if (item.kind === 'orden') {
+    const nombre = obtenerNombreSeguro(item.orden.cliente_detail);
+    const vehiculo = [item.orden.vehiculo_detail?.marca, item.orden.vehiculo_detail?.modelo]
+      .filter(Boolean)
+      .join(' ');
+    return [nombre, item.orden.vehiculo_detail?.placa, vehiculo].filter(Boolean).join(' · ');
+  }
+  const detail = item.oferta.solicitud_detail;
+  const vehiculo = [detail?.vehiculo?.marca, detail?.vehiculo?.modelo].filter(Boolean).join(' ');
+  return [detail?.cliente_nombre, detail?.vehiculo?.patente, vehiculo].filter(Boolean).join(' · ');
 }
 
 export function HomeDecisionesMarketplace({ enabled = true }: { enabled?: boolean }) {
@@ -50,8 +77,12 @@ export function HomeDecisionesMarketplace({ enabled = true }: { enabled?: boolea
 
   const items = (query.data ?? []).slice(0, MAX_ITEMS);
 
-  const abrir = useCallback((orden: Orden) => {
-    router.push(`/orden-detalle/${orden.id}`);
+  const abrir = useCallback((item: Decision) => {
+    if (item.kind === 'orden') {
+      router.push(`/orden-detalle/${item.orden.id}`);
+      return;
+    }
+    router.push(`/solicitud-detalle/${item.oferta.solicitud}`);
   }, []);
 
   if (!enabled || items.length === 0) return null;
@@ -71,22 +102,22 @@ export function HomeDecisionesMarketplace({ enabled = true }: { enabled?: boolea
         </TouchableOpacity>
       </View>
       <HostPaperSection style={styles.paper}>
-        {items.map((orden, index) => (
+        {items.map((item, index) => (
           <TouchableOpacity
-            key={orden.id}
+            key={item.kind === 'orden' ? `orden-${item.orden.id}` : `oferta-${item.oferta.id}`}
             style={[styles.row, index < items.length - 1 && styles.rowBorder]}
-            onPress={() => abrir(orden)}
+            onPress={() => abrir(item)}
             activeOpacity={0.75}
             accessibilityRole="button"
-            accessibilityLabel={`Aceptar o rechazar ${titulo(orden)}`}
+            accessibilityLabel={`Aceptar o rechazar ${tituloDecision(item)}`}
           >
             <View style={hostIconPlateStyle}>
               <ClipboardList size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <View style={styles.copy}>
-              <InstitutionalText role="bodyBold">{titulo(orden)}</InstitutionalText>
+              <InstitutionalText role="bodyBold">{tituloDecision(item)}</InstitutionalText>
               <InstitutionalText role="caption" color="muted">
-                {resumen(orden)}
+                {resumenDecision(item)}
               </InstitutionalText>
               <InstitutionalText role="caption" color="body">
                 El cliente te eligió. Acepta o rechaza el trabajo.

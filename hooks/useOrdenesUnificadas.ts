@@ -27,7 +27,6 @@ const ESTADOS_ACTIVOS = [
   'enviada',
   'vista',
   'en_chat',
-  'pendiente_confirmacion',
   'pendiente_creditos',
   'aceptada',
   'pendiente_pago',
@@ -292,6 +291,7 @@ export function useOrdenesUnificadas(enabled: boolean): UseOrdenesUnificadasResu
   const ordenesActivas = useMemo(
     () =>
       ordenesCompletas.filter((o) => {
+        if (o.estado === 'pendiente_aceptacion_proveedor') return false;
         const efectivo = getEstadoEfectivo(o);
         return !ESTADOS_COMPLETADOS_OK.includes(efectivo) && !ESTADOS_RECHAZADAS.includes(efectivo);
       }),
