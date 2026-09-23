@@ -336,6 +336,7 @@ export default function HomeScreen() {
       !esSupervisor
       && saludSuscripcion
       && saludSuscripcion.estado_salud !== 'ok'
+      && saludSuscripcion.estado_salud !== 'sin_suscripcion'
       && !dismissSuscripcionAlert
     ) {
       list.push({

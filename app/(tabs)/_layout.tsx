@@ -1,15 +1,16 @@
 import { Tabs } from 'expo-router';
 import React, { useEffect } from 'react';
-import { Platform, View, Text, StyleSheet } from 'react-native';
-import { Home, ClipboardList, MessageCircle, Calendar, Inbox } from 'lucide-react-native';
+import { Platform, View, Text, StyleSheet, Pressable } from 'react-native';
+import { Home, ClipboardList, MessageCircle, Calendar, Inbox, ArrowRight } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import { useAlerts } from '@/context/AlertsContext';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
 import { useChats } from '@/context/ChatsContext';
 import websocketService from '@/app/services/websocketService';
 import connectionService from '@/services/connectionService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '@/app/design-system/tokens/colors';
+import { COLORS, withOpacity } from '@/app/design-system/tokens/colors';
 import { platformShadow } from '@/app/design-system/tokens';
 import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
 import { useLegalConsentGate } from '@/hooks/useLegalConsentGate';
@@ -212,12 +213,82 @@ export default function TabLayout() {
 
       <Tabs.Screen name="checklist-demo" options={{ href: null }} />
     </Tabs>
+    <PlanUpdateEdge bottom={tabH + insets.bottom} />
     {needsConsent ? (
       <LegalConsentModal visible={needsConsent} onAccepted={clearNeedsConsent} />
     ) : null}
     </>
   );
 }
+
+/** Pastilla pegada al borde superior de la barra, solo sin plan activo. */
+function PlanUpdateEdge({ bottom }: { bottom: number }) {
+  const { esMecanicoEquipo } = useAuth();
+  const { saludSuscripcion } = useAlerts();
+  if (esMecanicoEquipo || saludSuscripcion?.estado_salud !== 'sin_suscripcion') return null;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Activar un plan"
+      onPress={() => router.push('/creditos')}
+      style={[edgeStyles.wrap, { bottom }]}
+    >
+      <View style={edgeStyles.pill}>
+        <Text style={edgeStyles.copy} numberOfLines={1}>
+          Activa un plan y recibe créditos cada mes
+        </Text>
+        <View style={edgeStyles.chip}>
+          <Text style={edgeStyles.chipText}>Update</Text>
+          <ArrowRight size={12} color={C.institutional.onPrimary} strokeWidth={1.75} />
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+const edgeStyles = StyleSheet.create({
+  wrap: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    zIndex: 40,
+    alignItems: 'center',
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    maxWidth: '100%',
+    borderWidth: 1,
+    borderColor: withOpacity(C.brand.magenta, 0.3),
+    borderRadius: 999,
+    backgroundColor: withOpacity(C.brand.magenta, 0.1),
+    paddingVertical: 4,
+    paddingLeft: 14,
+    paddingRight: 4,
+  },
+  copy: {
+    flexShrink: 1,
+    color: C.brand.magenta,
+    fontSize: 13,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: C.brand.magenta,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  chipText: {
+    color: C.institutional.onPrimary,
+    fontSize: 13,
+    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+  },
+});
 
 const tabStyles = StyleSheet.create({
   iconWrap: {

@@ -25,19 +25,13 @@ import {
   Pressable,
   Alert,
   Platform,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
-  type LayoutChangeEvent,
 } from 'react-native';
-import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   CreditCard,
   Store,
   Info,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react-native';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { useTheme } from '@/app/design-system/theme/useTheme';
@@ -228,8 +222,27 @@ interface PlanCardProps {
   onSuscribirse: (plan: PlanSuscripcion) => void;
   cargando: boolean;
   precioRecargaPorCredito: number;
-  /** Iguala altura en carrusel (flex fill). */
+  /** Iguala altura cuando las cards van en fila. */
   fillHeight?: boolean;
+  /** Qué suma este plan respecto del anterior, más barato. */
+  ventaja?: string | null;
+}
+
+function pasoSobrePlanAnterior(plan: PlanSuscripcion, anterior: PlanSuscripcion | null): string | null {
+  if (!anterior) return 'Punto de partida: marketplace, WhatsApp y las herramientas para empezar.';
+  const extras: string[] = [];
+  const creditos = plan.creditos_mensuales - anterior.creditos_mensuales;
+  if (creditos > 0) extras.push(`${creditos} créditos más al mes`);
+  if (plan.agente_ia_incluido && !anterior.agente_ia_incluido) extras.push('agente IA en el chat');
+  const cot = (plan.cotizaciones_ia_mensuales ?? 0) - (anterior.cotizaciones_ia_mensuales ?? 0);
+  if (cot > 0) extras.push(`${cot} cotizaciones IA más`);
+  const canales = (plan.canales_mensajeria_max ?? 0) - (anterior.canales_mensajeria_max ?? 0);
+  if (canales > 0) extras.push('más canales de mensajería');
+  if (plan.acceso_endpoints_patente_pro && !anterior.acceso_endpoints_patente_pro) {
+    extras.push('consulta de patente PRO');
+  }
+  if (extras.length === 0) return 'Mismo alcance que el plan anterior, con otro cupo mensual.';
+  return `Por sobre el anterior: ${extras.slice(0, 3).join(' · ')}.`;
 }
 
 function canalesLabel(n: number): string {
@@ -242,10 +255,12 @@ function canalesLabel(n: number): string {
 /** Superficie paper Host; plan activo = degradado Tinder sutil (sin gris). */
 function PlanCardShell({
   active,
+  featured,
   fillHeight,
   children,
 }: {
   active: boolean;
+  featured?: boolean;
   fillHeight?: boolean;
   children: React.ReactNode;
 }) {
@@ -254,7 +269,7 @@ function PlanCardShell({
       style={[
         styles.planShell,
         fillHeight && styles.planShellFill,
-        active ? styles.planShellActive : styles.planShellIdle,
+        active ? styles.planShellActive : featured ? styles.planShellFeatured : styles.planShellIdle,
       ]}
     >
       {active ? (
@@ -276,7 +291,15 @@ function PlanCardShell({
 }
 
 const PlanCard: React.FC<PlanCardProps> = React.memo(
-  ({ plan, suscripcionActual, onSuscribirse, cargando, precioRecargaPorCredito, fillHeight = false }) => {
+  ({
+    plan,
+    suscripcionActual,
+    onSuscribirse,
+    cargando,
+    precioRecargaPorCredito,
+    fillHeight = false,
+    ventaja = null,
+  }) => {
     const I = COLORS.institutional;
     const featured = plan.destacado;
     const ink = I.ink;
@@ -344,15 +367,25 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
     ];
 
     return (
-      <PlanCardShell active={esPlanActual} fillHeight={fillHeight}>
+      <PlanCardShell active={esPlanActual} featured={featured} fillHeight={fillHeight}>
         <View style={[styles.planTierInner, fillHeight && styles.planTierInnerFill]}>
+          {(esPlanActual || featured) ? (
+            <LinearGradient
+              colors={[...GRADIENTS.hostCta]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.planAccentBar}
+            />
+          ) : (
+            <View style={styles.planAccentBarIdle} />
+          )}
           <View style={styles.planAirbnbHeader}>
             <View style={styles.planAirbnbHeaderText}>
-              <Text style={[styles.planTierName, { color: ink }]} numberOfLines={1}>
+              <Text style={[styles.planTierName, { color: ink }]} numberOfLines={2}>
                 {plan.nombre}
               </Text>
               {plan.descripcion ? (
-                <Text style={[styles.planAirbnbHeaderMeta, { color: muted }]} numberOfLines={2}>
+                <Text style={[styles.planAirbnbHeaderMeta, { color: muted }]} numberOfLines={3}>
                   {plan.descripcion}
                 </Text>
               ) : null}
@@ -360,7 +393,7 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
             <View style={styles.planAirbnbBadges}>
               {esPlanActual ? <InstitutionalTag label="Tu plan" variant="success" size="sm" /> : null}
               {!esPlanActual && featured ? (
-                <InstitutionalTag label="Destacado" variant="neutral" size="sm" />
+                <InstitutionalTag label="Recomendado" variant="neutral" size="sm" />
               ) : null}
             </View>
           </View>
@@ -379,6 +412,10 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
               Tienda {formatCLP(precioRecargaPorCredito)} · {ahorroLabel}
             </Text>
           </View>
+
+          {ventaja ? (
+            <Text style={[styles.planPaso, { color: COLORS.brand.magenta }]}>{ventaja}</Text>
+          ) : null}
 
           <Text style={[styles.planFeaturesKicker, { color: muted }]}>Incluye este mes</Text>
           <View style={styles.planFeaturesList}>
@@ -422,7 +459,7 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
 PlanCard.displayName = 'PlanCard';
 
 // ─────────────────────────────────────────────────────────────
-// PlanesCarousel — paging nativo (una página = un plan)
+// Planes — 3 columnas en web, una columna a ancho de teléfono
 // ─────────────────────────────────────────────────────────────
 interface PlanesCarouselProps {
   planes: PlanSuscripcion[];
@@ -430,14 +467,10 @@ interface PlanesCarouselProps {
   onSuscribirse: (plan: PlanSuscripcion) => void;
   cargando: boolean;
   precioRecargaPorCredito: number;
-  /** Texto intro encima de las cards; en web las flechas van a la derecha de esta fila. */
   introText?: string;
 }
 
-/**
- * Swipe tipo UIKit: pagingEnabled + Gesture Handler.
- * En web: flechas arriba a la derecha (el mouse no “desliza” como el dedo).
- */
+/** Web: tres columnas del mismo alto. Teléfono: una card a ancho completo. */
 const PlanesCarousel: React.FC<PlanesCarouselProps> = React.memo(
   ({
     planes,
@@ -447,173 +480,28 @@ const PlanesCarousel: React.FC<PlanesCarouselProps> = React.memo(
     precioRecargaPorCredito,
     introText,
   }) => {
-    const scrollRef = React.useRef<GHScrollView>(null);
-    const [activeIndex, setActiveIndex] = useState(0);
-    const [pageWidth, setPageWidth] = useState(0);
-    const isWeb = Platform.OS === 'web';
-    const canGoPrev = activeIndex > 0;
-    const canGoNext = activeIndex < planes.length - 1;
-
-    const onTrackLayout = useCallback((e: LayoutChangeEvent) => {
-      const w = e.nativeEvent.layout.width;
-      if (w > 0) setPageWidth((prev) => (Math.abs(prev - w) > 1 ? w : prev));
-    }, []);
-
-    const onMomentumEnd = useCallback(
-      (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-        if (pageWidth <= 0) return;
-        const idx = Math.round(e.nativeEvent.contentOffset.x / pageWidth);
-        setActiveIndex(Math.max(0, Math.min(planes.length - 1, idx)));
-      },
-      [pageWidth, planes.length]
-    );
-
-    const scrollToIndex = useCallback(
-      (index: number) => {
-        if (pageWidth <= 0) return;
-        const clamped = Math.max(0, Math.min(planes.length - 1, index));
-        setActiveIndex(clamped);
-        scrollRef.current?.scrollTo({ x: clamped * pageWidth, animated: true });
-      },
-      [pageWidth, planes.length]
-    );
-
-    const introRow =
-      introText || (isWeb && planes.length > 1) ? (
-        <View style={styles.carouselIntroRow}>
-          {introText ? (
-            <Text style={[styles.suscripcionPlanosHeroSub, styles.carouselIntroText, { color: I_TAB.body }]}>
-              {introText}
-            </Text>
-          ) : (
-            <View style={styles.carouselIntroText} />
-          )}
-          {isWeb && planes.length > 1 ? (
-            <View style={styles.carouselChevronGroup}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Plan anterior"
-                disabled={!canGoPrev}
-                onPress={() => scrollToIndex(activeIndex - 1)}
-                style={[
-                  styles.carouselChevronBtn,
-                  {
-                    borderColor: I_TAB.hairline,
-                    backgroundColor: PAPER,
-                    opacity: canGoPrev ? 1 : 0.35,
-                  },
-                ]}
-              >
-                <ChevronLeft size={20} color={I_TAB.ink} strokeWidth={ICON_STROKE_WIDTH} />
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Plan siguiente"
-                disabled={!canGoNext}
-                onPress={() => scrollToIndex(activeIndex + 1)}
-                style={[
-                  styles.carouselChevronBtn,
-                  {
-                    borderColor: I_TAB.hairline,
-                    backgroundColor: PAPER,
-                    opacity: canGoNext ? 1 : 0.35,
-                  },
-                ]}
-              >
-                <ChevronRight size={20} color={I_TAB.ink} strokeWidth={ICON_STROKE_WIDTH} />
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
-      ) : null;
-
-    if (planes.length <= 1) {
-      return (
-        <View onLayout={onTrackLayout}>
-          {introRow}
-          {planes.map((plan) => (
-            <PlanCard
-              key={plan.id}
-              plan={plan}
-              suscripcionActual={suscripcionActual}
-              onSuscribirse={onSuscribirse}
-              cargando={cargando}
-              precioRecargaPorCredito={precioRecargaPorCredito}
-            />
-          ))}
-        </View>
-      );
-    }
+    const isWeb = Platform.OS === 'web' && planes.length > 1;
 
     return (
-      <View onLayout={onTrackLayout} style={styles.carouselTrack}>
-        {introRow}
-
-        {pageWidth > 0 ? (
-          <GHScrollView
-            ref={scrollRef}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            bounces
-            decelerationRate="fast"
-            nestedScrollEnabled
-            keyboardShouldPersistTaps="handled"
-            onMomentumScrollEnd={onMomentumEnd}
-            onScroll={isWeb ? onMomentumEnd : undefined}
-            scrollEventThrottle={isWeb ? 16 : undefined}
-            style={[
-              styles.carouselScroll,
-              isWeb
-                ? ({
-                    scrollSnapType: 'x mandatory',
-                    WebkitOverflowScrolling: 'touch',
-                  } as object)
-                : null,
-            ]}
-            contentContainerStyle={styles.carouselContent}
-          >
-            {planes.map((plan) => (
-              <View
-                key={plan.id}
-                style={[
-                  styles.carouselSlide,
-                  { width: pageWidth },
-                  isWeb
-                    ? ({ scrollSnapAlign: 'start', scrollSnapStop: 'always' } as object)
-                    : null,
-                ]}
-              >
-                <PlanCard
-                  plan={plan}
-                  suscripcionActual={suscripcionActual}
-                  onSuscribirse={onSuscribirse}
-                  cargando={cargando}
-                  precioRecargaPorCredito={precioRecargaPorCredito}
-                />
-              </View>
-            ))}
-          </GHScrollView>
-        ) : (
-          <View style={styles.carouselScrollPlaceholder} />
-        )}
-
-        <View style={styles.carouselDotsRow}>
+      <View>
+        {introText ? (
+          <Text style={[styles.suscripcionPlanosHeroSub, styles.carouselIntroText, { color: I_TAB.body }]}>
+            {introText}
+          </Text>
+        ) : null}
+        <View style={isWeb ? styles.planGrid : styles.planStack}>
           {planes.map((plan, index) => (
-            <Pressable
-              key={plan.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Ir al ${plan.nombre}`}
-              onPress={() => scrollToIndex(index)}
-              hitSlop={8}
-              style={[
-                styles.carouselDot,
-                {
-                  backgroundColor: index === activeIndex ? I_TAB.ink : I_TAB.hairline,
-                  width: index === activeIndex ? 18 : 6,
-                },
-              ]}
-            />
+            <View key={plan.id} style={isWeb ? styles.planGridCell : styles.planStackCell}>
+              <PlanCard
+                plan={plan}
+                suscripcionActual={suscripcionActual}
+                onSuscribirse={onSuscribirse}
+                cargando={cargando}
+                precioRecargaPorCredito={precioRecargaPorCredito}
+                fillHeight={isWeb}
+                ventaja={pasoSobrePlanAnterior(plan, index > 0 ? planes[index - 1] : null)}
+              />
+            </View>
           ))}
         </View>
       </View>
@@ -1867,6 +1755,47 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background.paper,
     borderColor: COLORS.institutional.hairline,
     ...SHADOWS.editorial,
+  },
+  planShellFeatured: {
+    backgroundColor: COLORS.background.paper,
+    borderColor: withOpacity(COLORS.brand.magenta, 0.45),
+    borderWidth: BORDERS.width.thin,
+    ...SHADOWS.editorial,
+  },
+  planAccentBar: {
+    height: 3,
+    borderRadius: BORDERS.radius.pill,
+    marginBottom: SPACING.fixed.sm,
+  },
+  planAccentBarIdle: {
+    height: 3,
+    borderRadius: BORDERS.radius.pill,
+    marginBottom: SPACING.fixed.sm,
+    backgroundColor: COLORS.institutional.hairlineSoft,
+  },
+  planPaso: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    lineHeight: 18,
+    marginBottom: SPACING.fixed.sm,
+  },
+  planGrid: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: SPACING.fixed.md,
+    marginTop: SPACING.sm,
+  },
+  planGridCell: {
+    flex: 1,
+    minWidth: 0,
+  },
+  planStack: {
+    marginTop: SPACING.sm,
+    gap: SPACING.fixed.sm,
+  },
+  planStackCell: {
+    alignSelf: 'stretch',
+    width: '100%',
   },
   /** Plan activo: borde magenta suave + degradado Tinder semitransparente (sin gris). */
   planShellActive: {
