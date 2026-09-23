@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
   type GestureResponderEvent,
   type ModalProps,
 } from 'react-native';
@@ -39,7 +40,9 @@ export function InstitutionalModal({
 }: InstitutionalModalProps) {
   const handleClose = onClose ?? onRequestClose ?? (() => undefined);
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const bottomPad = Math.max(insets.bottom, SPACING.fixed.md);
+  const sheetMaxHeight = Math.round(windowHeight * 0.92);
   const { translateY, panHandlers, reset } = useSheetDismissGesture(handleClose);
 
   useEffect(() => {
@@ -76,7 +79,11 @@ export function InstitutionalModal({
             collapsable={false}
             style={[
               styles.sheet,
-              { paddingBottom: bottomPad, transform: [{ translateY }] },
+              {
+                maxHeight: sheetMaxHeight,
+                paddingBottom: bottomPad,
+                transform: [{ translateY }],
+              },
             ]}
             {...panHandlers}
           >
@@ -127,8 +134,8 @@ const styles = StyleSheet.create({
     backgroundColor: C.background.paper,
     borderTopLeftRadius: BORDERS.radius.modal.xl,
     borderTopRightRadius: BORDERS.radius.modal.xl,
-    maxHeight: '92%',
     width: '100%',
+    overflow: 'hidden',
   },
   handleHit: {
     alignItems: 'center',

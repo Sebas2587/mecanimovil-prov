@@ -220,36 +220,38 @@ interface PlanCardProps {
   plan: PlanSuscripcion;
   suscripcionActual: SuscripcionProveedor | null;
   onSuscribirse: (plan: PlanSuscripcion) => void;
-  cargando: boolean;
+  /** Spinner solo en la card que se está suscribiendo. */
+  cargando?: boolean;
+  /** Otra card está en curso: esta queda quieta. */
+  ocupado?: boolean;
   precioRecargaPorCredito: number;
   /** Iguala altura cuando las cards van en fila. */
   fillHeight?: boolean;
-  /** Qué suma este plan respecto del anterior, más barato. */
-  ventaja?: string | null;
+  /** Un solo tag arriba: Para empezar, Recomendado o Más canales. */
+  etiqueta?: string | null;
+  /** Una sola card lleva el botón principal. */
+  ctaPrincipal?: boolean;
 }
 
-function pasoSobrePlanAnterior(plan: PlanSuscripcion, anterior: PlanSuscripcion | null): string | null {
-  if (!anterior) return 'Punto de partida: marketplace, WhatsApp y las herramientas para empezar.';
-  const extras: string[] = [];
-  const creditos = plan.creditos_mensuales - anterior.creditos_mensuales;
-  if (creditos > 0) extras.push(`${creditos} créditos más al mes`);
-  if (plan.agente_ia_incluido && !anterior.agente_ia_incluido) extras.push('agente IA en el chat');
-  const cot = (plan.cotizaciones_ia_mensuales ?? 0) - (anterior.cotizaciones_ia_mensuales ?? 0);
-  if (cot > 0) extras.push(`${cot} cotizaciones IA más`);
-  const canales = (plan.canales_mensajeria_max ?? 0) - (anterior.canales_mensajeria_max ?? 0);
-  if (canales > 0) extras.push('más canales de mensajería');
-  if (plan.acceso_endpoints_patente_pro && !anterior.acceso_endpoints_patente_pro) {
-    extras.push('consulta de patente PRO');
-  }
-  if (extras.length === 0) return 'Mismo alcance que el plan anterior, con otro cupo mensual.';
-  return `Por sobre el anterior: ${extras.slice(0, 3).join(' · ')}.`;
+function etiquetaDeCard(plan: PlanSuscripcion, index: number, total: number): string {
+  if (plan.destacado) return 'Recomendado';
+  if (index === 0) return 'Para empezar';
+  if (index === total - 1) return 'Más canales';
+  return 'Para empezar';
 }
 
-function canalesLabel(n: number): string {
-  if (n <= 0) return 'Sin canales';
-  if (n === 1) return '1 canal (WhatsApp)';
-  if (n === 2) return '2 canales (WhatsApp + 1)';
-  return `${n} canales (todos)`;
+const CANALES_EN_ORDEN = ['WhatsApp', 'Messenger', 'Instagram'] as const;
+
+function canalesDelPlan(n: number): string[] {
+  if (n <= 0) return [];
+  return CANALES_EN_ORDEN.slice(0, Math.min(n, CANALES_EN_ORDEN.length));
+}
+
+function resumenCorto(plan: PlanSuscripcion): string {
+  const canales = plan.canales_mensajeria_max ?? 0;
+  if (plan.acceso_endpoints_patente_pro || canales >= 3) return 'Todos los canales y patente PRO.';
+  if (plan.agente_ia_incluido) return 'Más créditos y agente IA.';
+  return 'Marketplace y WhatsApp.';
 }
 
 /** Superficie paper Host; plan activo = degradado Tinder sutil (sin gris). */
@@ -295,10 +297,12 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
     plan,
     suscripcionActual,
     onSuscribirse,
-    cargando,
+    cargando = false,
+    ocupado = false,
     precioRecargaPorCredito,
     fillHeight = false,
-    ventaja = null,
+    etiqueta = null,
+    ctaPrincipal = false,
   }) => {
     const I = COLORS.institutional;
     const featured = plan.destacado;
@@ -326,8 +330,7 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
           ? `Hasta ~${estMax} postulaciones/mes`
           : `~${estMin}–${estMax} postulaciones/mes`;
 
-    const ctaDisabled = cargando || esPlanActual || (estaEnCualquierPlan && !esPlanActual);
-    const ctaEsSecundario = esPlanActual || (estaEnCualquierPlan && !esPlanActual);
+    const ctaDisabled = ocupado || esPlanActual || (estaEnCualquierPlan && !esPlanActual);
 
     const ctaLabel = esPlanActual
       ? 'Plan activo'
@@ -356,14 +359,14 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
       ? `${(plan.conversaciones_agente_ia_max ?? 0).toLocaleString('es-CL')} / mes`
       : 'No incluido';
 
+    const canalesIncluidos = canalesDelPlan(canales);
     const features: { label: string; value: string }[] = [
       { label: 'Créditos marketplace', value: `${plan.creditos_mensuales} / mes` },
-      { label: 'Agente IA (chat + cotización)', value: agenteIaValor },
+      { label: 'Agente IA', value: agenteIaValor },
       { label: 'Cotizaciones IA', value: `${cotIa} / mes` },
       { label: 'Diagnósticos IA', value: `${diagIa} / mes` },
       { label: 'Consultas patente', value: `${patentes} / mes` },
-      { label: 'Mensajería', value: canalesLabel(canales) },
-      { label: 'Conversaciones salientes', value: `${conversaciones.toLocaleString('es-CL')} / mes` },
+      { label: 'Conversaciones', value: `${conversaciones.toLocaleString('es-CL')} / mes` },
     ];
 
     return (
@@ -380,22 +383,13 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
             <View style={styles.planAccentBarIdle} />
           )}
           <View style={styles.planAirbnbHeader}>
-            <View style={styles.planAirbnbHeaderText}>
-              <Text style={[styles.planTierName, { color: ink }]} numberOfLines={2}>
-                {plan.nombre}
-              </Text>
-              {plan.descripcion ? (
-                <Text style={[styles.planAirbnbHeaderMeta, { color: muted }]} numberOfLines={3}>
-                  {plan.descripcion}
-                </Text>
-              ) : null}
-            </View>
-            <View style={styles.planAirbnbBadges}>
-              {esPlanActual ? <InstitutionalTag label="Tu plan" variant="success" size="sm" /> : null}
-              {!esPlanActual && featured ? (
-                <InstitutionalTag label="Recomendado" variant="neutral" size="sm" />
-              ) : null}
-            </View>
+            {etiqueta ? (
+              <View style={styles.planAirbnbBadges}>
+                <InstitutionalTag label={etiqueta} variant="neutral" size="sm" />
+              </View>
+            ) : null}
+            <Text style={[styles.planTierName, { color: ink }]}>{plan.nombre}</Text>
+            <Text style={[styles.planAirbnbHeaderMeta, { color: muted }]}>{resumenCorto(plan)}</Text>
           </View>
 
           <View style={styles.planPriceHero}>
@@ -413,10 +407,6 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
             </Text>
           </View>
 
-          {ventaja ? (
-            <Text style={[styles.planPaso, { color: COLORS.brand.magenta }]}>{ventaja}</Text>
-          ) : null}
-
           <Text style={[styles.planFeaturesKicker, { color: muted }]}>Incluye este mes</Text>
           <View style={styles.planFeaturesList}>
             {features.map((f, idx) => (
@@ -432,6 +422,18 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
                 <Text style={[styles.planFeatureValue, { color: ink }]}>{f.value}</Text>
               </View>
             ))}
+            <View style={[styles.planCanalesBlock, { borderTopColor: I.hairline }]}>
+              <Text style={[styles.planFeatureLabel, styles.planCanalesLabel, { color: body }]}>Canales</Text>
+              <View style={styles.planCanalBadges}>
+                {canalesIncluidos.length > 0 ? (
+                  canalesIncluidos.map((nombre) => (
+                    <InstitutionalTag key={nombre} label={nombre} variant="neutral" size="sm" />
+                  ))
+                ) : (
+                  <Text style={[styles.planFeatureValue, { color: ink }]}>Ninguno</Text>
+                )}
+              </View>
+            </View>
           </View>
 
           <Text style={[styles.planOverageHint, { color: muted }]}>
@@ -444,7 +446,7 @@ const PlanCard: React.FC<PlanCardProps> = React.memo(
           <View style={styles.planTierCtaBleed}>
             <InstitutionalButton
               label={ctaLabel}
-              variant={ctaEsSecundario ? 'secondary' : 'primary'}
+              variant={ctaPrincipal ? 'primary' : 'secondary'}
               size="compact"
               onPress={() => onSuscribirse(plan)}
               disabled={ctaDisabled}
@@ -465,41 +467,69 @@ interface PlanesCarouselProps {
   planes: PlanSuscripcion[];
   suscripcionActual: SuscripcionProveedor | null;
   onSuscribirse: (plan: PlanSuscripcion) => void;
-  cargando: boolean;
+  cargandoPlanId: number | null;
   precioRecargaPorCredito: number;
   introText?: string;
 }
 
-/** Web: tres columnas del mismo alto. Teléfono: una card a ancho completo. */
+const PLAN_GRID_GAP = 16;
+
+/** 3 columnas si entra, 2 en pantallas medias y 1 en el teléfono. */
+function columnasParaAncho(ancho: number, cantidad: number): number {
+  if (cantidad <= 1 || ancho < 640) return 1;
+  if (ancho < 960) return Math.min(2, cantidad);
+  return Math.min(3, cantidad);
+}
+
+/** Web y teléfono: el ancho medido define cuántas cards caben. */
 const PlanesCarousel: React.FC<PlanesCarouselProps> = React.memo(
   ({
     planes,
     suscripcionActual,
     onSuscribirse,
-    cargando,
+    cargandoPlanId,
     precioRecargaPorCredito,
     introText,
   }) => {
-    const isWeb = Platform.OS === 'web' && planes.length > 1;
+    const [trackWidth, setTrackWidth] = useState(0);
+    const columns = columnasParaAncho(trackWidth, planes.length);
+    const cellWidth =
+      trackWidth > 0
+        ? columns === 1
+          ? trackWidth
+          : (trackWidth - PLAN_GRID_GAP * (columns - 1)) / columns
+        : undefined;
+    const idPrincipal =
+      planes.find((plan) => plan.destacado)?.id ?? planes[Math.min(1, planes.length - 1)]?.id;
 
     return (
-      <View>
+      <View
+        onLayout={(e) => {
+          const w = e.nativeEvent.layout.width;
+          if (w > 0) setTrackWidth((prev) => (Math.abs(prev - w) > 1 ? w : prev));
+        }}
+      >
         {introText ? (
           <Text style={[styles.suscripcionPlanosHeroSub, styles.carouselIntroText, { color: I_TAB.body }]}>
             {introText}
           </Text>
         ) : null}
-        <View style={isWeb ? styles.planGrid : styles.planStack}>
+        <View style={columns > 1 ? styles.planGrid : styles.planStack}>
           {planes.map((plan, index) => (
-            <View key={plan.id} style={isWeb ? styles.planGridCell : styles.planStackCell}>
+            <View
+              key={plan.id}
+              style={cellWidth ? { width: cellWidth } : styles.planStackCell}
+            >
               <PlanCard
                 plan={plan}
                 suscripcionActual={suscripcionActual}
                 onSuscribirse={onSuscribirse}
-                cargando={cargando}
+                cargando={cargandoPlanId === plan.id}
+                ocupado={cargandoPlanId != null && cargandoPlanId !== plan.id}
                 precioRecargaPorCredito={precioRecargaPorCredito}
-                fillHeight={isWeb}
-                ventaja={pasoSobrePlanAnterior(plan, index > 0 ? planes[index - 1] : null)}
+                fillHeight={columns > 1}
+                etiqueta={etiquetaDeCard(plan, index, planes.length)}
+                ctaPrincipal={plan.id === idPrincipal}
               />
             </View>
           ))}
@@ -617,7 +647,7 @@ export default function CreditosScreen() {
       setCantidadComprar((prev) => Math.max(prev, minCreditosDesdeRuta));
     }
   }, [minCreditosDesdeRuta]);
-  const [cargandoSuscripcion, setCargandoSuscripcion] = useState(false);
+  const [planSuscribiendoId, setPlanSuscribiendoId] = useState<number | null>(null);
   const [cargandoCancelar, setCargandoCancelar] = useState(false);
   const [cargandoSincronizar, setCargandoSincronizar] = useState(false);
   const [modalSuscripcion, setModalSuscripcion] = useState<ModalSuscripcion>({
@@ -744,7 +774,7 @@ export default function CreditosScreen() {
   // ── Handlers suscripción ──────────────────────────────────
   const handleSuscribirse = useCallback(async (plan: PlanSuscripcion) => {
     if (!requireMercadoPago('suscribirte a un plan')) return;
-    setCargandoSuscripcion(true);
+    setPlanSuscribiendoId(plan.id);
     try {
       const resultado = await suscripcionesService.suscribirse(plan.id);
       if (!resultado.success || !resultado.data) {
@@ -756,11 +786,15 @@ export default function CreditosScreen() {
         Alert.alert('Error', 'MercadoPago no retornó una URL de pago válida.');
         return;
       }
+      if (Platform.OS === 'web') {
+        window.location.assign(init_point);
+        return;
+      }
       setModalSuscripcion({ visible: true, checkoutUrl: init_point, suscripcionId: suscripcion_id });
     } catch {
       Alert.alert('Error', 'Ocurrió un error inesperado. Intenta nuevamente.');
     } finally {
-      setCargandoSuscripcion(false);
+      setPlanSuscribiendoId(null);
     }
   }, [requireMercadoPago]);
 
@@ -1021,7 +1055,7 @@ export default function CreditosScreen() {
             planes={planesOrdenadosComparativa}
             suscripcionActual={suscripcion}
             onSuscribirse={handleSuscribirse}
-            cargando={cargandoSuscripcion}
+            cargandoPlanId={planSuscribiendoId}
             precioRecargaPorCredito={precioTopUpClp}
             introText={
               Platform.OS === 'web'
@@ -1773,16 +1807,30 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.sm,
     backgroundColor: COLORS.institutional.hairlineSoft,
   },
-  planPaso: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
-    lineHeight: 18,
+  planPasoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
     marginBottom: SPACING.fixed.sm,
+  },
+  planPasoChip: {
+    borderRadius: BORDERS.radius.pill,
+    borderWidth: BORDERS.width.thin,
+    borderColor: withOpacity(COLORS.brand.magenta, 0.35),
+    backgroundColor: COLORS.background.paper,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  planPasoChipText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
+    color: COLORS.brand.magenta,
   },
   planGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'stretch',
-    gap: SPACING.fixed.md,
+    gap: PLAN_GRID_GAP,
     marginTop: SPACING.sm,
   },
   planGridCell: {
@@ -1825,10 +1873,8 @@ const styles = StyleSheet.create({
     minHeight: SPACING.sm,
   },
   planAirbnbHeader: {
-    flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: SPACING.sm,
+    gap: SPACING.fixed.xs,
     paddingBottom: SPACING.fixed.sm,
   },
   planAirbnbHeaderText: {
@@ -1842,9 +1888,28 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   planAirbnbBadges: {
-    alignItems: 'flex-end',
-    gap: SPACING.fixed.xxs,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  planCanalesBlock: {
+    alignSelf: 'stretch',
+    paddingTop: 10,
+    gap: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  planCanalesLabel: {
+    flexGrow: 0,
     flexShrink: 0,
+  },
+  planCanalBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    width: '100%',
+    gap: 6,
   },
   planPriceHero: {
     paddingBottom: SPACING.fixed.md,

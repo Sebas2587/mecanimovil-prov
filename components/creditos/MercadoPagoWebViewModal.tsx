@@ -10,6 +10,7 @@ import {
   AppState,
   Alert,
   AppStateStatus,
+  Platform,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -421,6 +422,13 @@ const MercadoPagoWebViewModal: React.FC<MercadoPagoWebViewModalProps> = ({
   }, [verificarEstadoPago]);
 
   if (!visible || !checkoutUrl) {
+    return null;
+  }
+
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined') {
+      window.location.assign(checkoutUrl);
+    }
     return null;
   }
 

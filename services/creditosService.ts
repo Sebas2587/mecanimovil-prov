@@ -311,7 +311,7 @@ function normalizeServicioCreditoRow(item: unknown): ServicioCreditoTablaRow | n
   const id = r.servicio_id ?? r.servicioId ?? r.id;
   const nombre = r.nombre ?? r.name;
   const precio = r.precio_referencia_clp ?? r.precioReferenciaClp ?? 0;
-  const creditos = r.creditos_requeridos ?? r.creditosRequeridos ?? 2;
+  const creditos = r.creditos_requeridos ?? r.creditosRequeridos ?? 0;
   const sid = Number(id);
   if (!Number.isFinite(sid) || sid <= 0) return null;
   return {
@@ -330,7 +330,9 @@ export const obtenerTablaServiciosCreditos = async (): Promise<ApiResponse<Servi
   const parse = (response: { data: unknown }): ServicioCreditoTablaRow[] => {
     const raw = response.data;
     const list = extractServiciosTablaPayload(raw);
-    return list.map(normalizeServicioCreditoRow).filter((x): x is ServicioCreditoTablaRow => x != null);
+    return list
+      .map(normalizeServicioCreditoRow)
+      .filter((x): x is ServicioCreditoTablaRow => x != null && x.creditos_requeridos > 0);
   };
 
   try {

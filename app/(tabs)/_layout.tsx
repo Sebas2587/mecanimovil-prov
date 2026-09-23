@@ -10,7 +10,7 @@ import { useChats } from '@/context/ChatsContext';
 import websocketService from '@/app/services/websocketService';
 import connectionService from '@/services/connectionService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, withOpacity } from '@/app/design-system/tokens/colors';
+import { COLORS } from '@/app/design-system/tokens/colors';
 import { platformShadow } from '@/app/design-system/tokens';
 import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
 import { useLegalConsentGate } from '@/hooks/useLegalConsentGate';
@@ -261,12 +261,19 @@ const edgeStyles = StyleSheet.create({
     gap: 8,
     maxWidth: '100%',
     borderWidth: 1,
-    borderColor: withOpacity(C.brand.magenta, 0.3),
+    borderColor: C.brand.magenta,
     borderRadius: 999,
-    backgroundColor: withOpacity(C.brand.magenta, 0.1),
+    backgroundColor: C.background.paper,
     paddingVertical: 4,
     paddingLeft: 14,
     paddingRight: 4,
+    ...platformShadow({
+      shadowColor: C.text.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
+      elevation: 6,
+    }),
   },
   copy: {
     flexShrink: 1,
