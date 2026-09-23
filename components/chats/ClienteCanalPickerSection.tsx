@@ -24,6 +24,7 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { getChannelVisual, type ChannelSlug } from '@/utils/channelVisuals';
 import { nombreContactoAgendable } from '@/utils/nombreContactoAgendable';
 import { HINT_CLIENTE_SIN_CANAL } from '@/utils/entregaCotizacionCopy';
+import { ContextoClienteCotizacion } from '@/components/chats/ContextoClienteCotizacion';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -83,6 +84,8 @@ type Props = {
   manualFooterHint?: string;
   /** Desde chat: chip fijo sin tabs de modo. */
   contextoChat?: boolean;
+  patenteActual?: string;
+  onUsarPatente?: (patente: string) => void;
 };
 
 /**
@@ -103,6 +106,8 @@ export function ClienteCanalPickerSection({
   telefonoHint = 'Opcional. Indicativo +56; ingresa 9 dígitos comenzando en 9.',
   manualFooterHint = HINT_CLIENTE_SIN_CANAL,
   contextoChat = false,
+  patenteActual = '',
+  onUsarPatente,
 }: Props) {
   const { data: inbox = [], isPending: inboxLoading } = useChatInboxQuery(enabled);
   const contactos = useMemo(() => contactosDesdeInbox(inbox), [inbox]);
@@ -230,6 +235,13 @@ export function ClienteCanalPickerSection({
                 </View>
                 <ChannelBadge channel={contactoSeleccionado.canal} compact />
               </View>
+              {onUsarPatente ? (
+                <ContextoClienteCotizacion
+                  conversationId={contactoSeleccionado.conversationId}
+                  patenteActual={patenteActual}
+                  onUsarPatente={onUsarPatente}
+                />
+              ) : null}
               {!contextoChat ? (
                 <TouchableOpacity onPress={abrirPicker} hitSlop={8}>
                   <InstitutionalText role="captionBold" color="primary">

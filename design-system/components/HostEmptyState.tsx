@@ -13,8 +13,8 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 export type HostEmptyStateProps = {
   icon: LucideIcon;
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
   primaryAction?: { label: string; onPress: () => void };
   secondaryAction?: { label: string; onPress: () => void };
   style?: ViewStyle;
@@ -29,21 +29,26 @@ export function HostEmptyState({
   secondaryAction,
   style,
 }: HostEmptyStateProps) {
+  const showCopy = Boolean(title || description);
   return (
     <HostPaperSection style={[styles.card, style]}>
-      <View style={styles.header}>
-        <View style={hostIconPlateStyle}>
-          <Icon size={22} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
+      {showCopy ? (
+        <View style={styles.header}>
+          <View style={hostIconPlateStyle}>
+            <Icon size={22} color={hostIconPlateColor} strokeWidth={ICON_STROKE_WIDTH} />
+          </View>
+          <View style={styles.textCol}>
+            {title ? <InstitutionalText role="h4">{title}</InstitutionalText> : null}
+            {description ? (
+              <InstitutionalText role="caption" color="body" style={styles.desc}>
+                {description}
+              </InstitutionalText>
+            ) : null}
+          </View>
         </View>
-        <View style={styles.textCol}>
-          <InstitutionalText role="h4">{title}</InstitutionalText>
-          <InstitutionalText role="caption" color="body" style={styles.desc}>
-            {description}
-          </InstitutionalText>
-        </View>
-      </View>
+      ) : null}
       {primaryAction || secondaryAction ? (
-        <View style={styles.actions}>
+        <View style={[styles.actions, !showCopy && styles.actionsOnly]}>
           {primaryAction ? (
             <InstitutionalButton
               variant="primary"
@@ -89,6 +94,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: SPACING.fixed.sm,
     marginTop: SPACING.fixed.lg,
+  },
+  actionsOnly: {
+    marginTop: 0,
   },
   actionBtn: {
     flexGrow: 1,

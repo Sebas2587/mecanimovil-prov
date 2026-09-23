@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { Card } from '@/app/design-system/components';
@@ -66,6 +66,8 @@ type Props = {
   plantillasModelo?: CotizacionPlantilla[];
   onUsarPlantilla?: (plantilla: CotizacionPlantilla) => void;
   accionesDisabled?: boolean;
+  /** Al tocar una patente detectada en el chat, consulta el registro. */
+  lookupRequest?: { patente: string; nonce: number } | null;
 };
 
 export function VehiculoPatenteSection({
@@ -81,6 +83,7 @@ export function VehiculoPatenteSection({
   plantillasModelo,
   onUsarPlantilla,
   accionesDisabled = false,
+  lookupRequest = null,
 }: Props) {
   const handlePatenteChange = useCallback(
     (text: string) => {
@@ -101,8 +104,8 @@ export function VehiculoPatenteSection({
     [value, onChange, onPatenteHintChange, stripNonAlphanumeric],
   );
 
-  const handlePatenteBlur = useCallback(async () => {
-    const patente = value.patente.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const consultar = useCallback(async (patenteRaw: string) => {
+    const patente = patenteRaw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (patente.length < 5) {
       onPatenteHintChange(null);
       return;
@@ -125,7 +128,7 @@ export function VehiculoPatenteSection({
     } catch (err) {
       onChange({
         ...VEHICULO_PATENTE_VACIO,
-        patente: value.patente,
+        patente,
       });
       if (esErrorCuota(err)) {
         const mensaje = mensajeCuotaError(
@@ -140,13 +143,16 @@ export function VehiculoPatenteSection({
     } finally {
       onBuscandoPatenteChange(false);
     }
-  }, [
-    value.patente,
-    onChange,
-    onBuscandoPatenteChange,
-    onPatenteHintChange,
-    onCuotaError,
-  ]);
+  }, [onChange, onBuscandoPatenteChange, onPatenteHintChange, onCuotaError]);
+
+  const handlePatenteBlur = useCallback(() => {
+    void consultar(value.patente);
+  }, [consultar, value.patente]);
+
+  useEffect(() => {
+    if (!lookupRequest?.nonce || !lookupRequest.patente) return;
+    void consultar(lookupRequest.patente);
+  }, [lookupRequest?.nonce]);
 
   return (
     <>

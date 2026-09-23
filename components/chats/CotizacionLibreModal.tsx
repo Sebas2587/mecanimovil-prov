@@ -37,6 +37,7 @@ import { nombreContactoAgendable } from '@/utils/nombreContactoAgendable';
 import type { ChannelSlug } from '@/utils/channelVisuals';
 import { channelRespondLabel } from '@/components/chats/ChannelBadge';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { useWebVisualViewport, webFooterBottom } from '@/hooks/useWebVisualViewport';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
 import { withWebLineHeight } from '@/utils/webTypography';
@@ -134,6 +135,8 @@ export function CotizacionLibreModal({
   channelWindowClosedReason = null,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const webViewport = useWebVisualViewport();
+  const footerBottom = webFooterBottom(webViewport, insets.bottom, SPACING.md);
 
   const [clienteModo, setClienteModo] = useState<ClienteModo>('mensajes');
   const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoCanal | null>(null);
@@ -141,6 +144,7 @@ export function CotizacionLibreModal({
   const [clienteTelefono, setClienteTelefono] = useState('');
 
   const [vehiculo, setVehiculo] = useState<VehiculoPatenteState>(VEHICULO_PATENTE_VACIO);
+  const [patenteDesdeChat, setPatenteDesdeChat] = useState<{ patente: string; nonce: number } | null>(null);
   const [servicioNombre, setServicioNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [modalidad, setModalidad] = useState<'taller' | 'domicilio'>('taller');
@@ -237,6 +241,7 @@ export function CotizacionLibreModal({
     setClienteNombre('');
     setClienteTelefono('');
     setVehiculo(VEHICULO_PATENTE_VACIO);
+    setPatenteDesdeChat(null);
     setServicioNombre('');
     setDescripcion('');
     setModalidad('taller');
@@ -732,6 +737,7 @@ export function CotizacionLibreModal({
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.flex}
+          keyboardVerticalOffset={0}
         >
           <View style={styles.header}>
             <View style={styles.headerText}>
@@ -783,6 +789,11 @@ export function CotizacionLibreModal({
                     onClienteTelefonoChange={setClienteTelefono}
                     manualFooterHint={HINT_CLIENTE_SIN_CANAL}
                     contextoChat={Boolean(conversationIdProp)}
+                    patenteActual={vehiculo.patente}
+                    onUsarPatente={(patente) => {
+                      setVehiculo((prev) => ({ ...prev, patente, desdePatente: false }));
+                      setPatenteDesdeChat({ patente, nonce: Date.now() });
+                    }}
                   />
                 </View>
 
@@ -801,6 +812,7 @@ export function CotizacionLibreModal({
                     plantillasModelo={plantillasSugeridas}
                     onUsarPlantilla={handleUsarPlantilla}
                     accionesDisabled={ocupado}
+                    lookupRequest={patenteDesdeChat}
                   />
                 </View>
 
@@ -923,7 +935,13 @@ export function CotizacionLibreModal({
             )}
           </ScrollView>
 
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
+          <View
+            style={[
+              styles.footer,
+              webViewport.touch && styles.footerStack,
+              { paddingBottom: footerBottom },
+            ]}
+          >
             {!cotizacion ? (
               <>
                 {generandoIa ? null : (
@@ -934,7 +952,7 @@ export function CotizacionLibreModal({
                     onPress={() => void handleCrearBorrador()}
                     disabled={ocupado}
                     loading={creandoManual}
-                    style={styles.footerBtnPair}
+                    style={[styles.footerBtnPair, webViewport.touch && styles.footerBtnFull]}
                   />
                 )}
                 <InstitutionalButton
@@ -953,11 +971,11 @@ export function CotizacionLibreModal({
                   leading={generandoIa ? undefined : (
                     <Sparkles size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                   )}
-                  style={styles.footerBtnPair}
+                  style={[styles.footerBtnPair, webViewport.touch && styles.footerBtnFull]}
                 />
               </>
             ) : puedeEnviar ? (
-              <View style={styles.footerCol}>
+              <View style={[styles.footerCol, webViewport.touch && styles.footerBtnFull]}>
                 {cotizacion?.estado === 'borrador' ? (
                   <TouchableOpacity
                     onPress={handleDescartarBorrador}
@@ -1002,6 +1020,7 @@ export function CotizacionLibreModal({
           <CotizacionEditorFab
             visible
             variant="plus"
+            bottomOffset={footerBottom + 112}
             onAddRepuesto={() => editorRef.current?.agregarRepuesto()}
             onAddManoObra={() => editorRef.current?.agregarManoObra()}
           />
@@ -1029,10 +1048,10 @@ export function CotizacionLibreModal({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: COLORS.background.default,
-    ...(Platform.OS === 'web' ? { minHeight: '100vh' as unknown as number } : null),
   },
-  flex: { flex: 1 },
+  flex: { flex: 1, minHeight: 0 },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1068,7 +1087,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.md,
     backgroundColor: I.surfaceStrong,
   },
-  scroll: { flex: 1 },
+  scroll: { flex: 1, minHeight: 0 },
   scrollContent: {
     paddingHorizontal: SPACING.container.horizontal,
     paddingTop: SPACING.lg,
@@ -1158,17 +1177,28 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   footer: {
+    flexShrink: 0,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: SPACING.sm,
     paddingHorizontal: SPACING.container.horizontal,
     paddingTop: SPACING.md,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
     backgroundColor: COLORS.background.paper,
+    zIndex: 5,
   },
   footerBtnPair: {
     flex: 1,
     minWidth: 0,
+  },
+  footerBtnFull: {
+    flexGrow: 0,
+    flexBasis: 'auto',
+    width: '100%',
+  },
+  footerStack: {
+    flexDirection: 'column',
   },
   footerCol: {
     flex: 1,

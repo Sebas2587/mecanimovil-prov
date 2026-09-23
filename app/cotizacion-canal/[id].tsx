@@ -21,6 +21,7 @@ import { COPY_PRECIO_TALLER, lineaPendientePrecio } from '@/components/cotizacio
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
+import { useWebVisualViewport, webFooterBottom } from '@/hooks/useWebVisualViewport';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { hostScreenStyles } from '@/app/design-system/components';
 import {
@@ -92,6 +93,8 @@ export default function CotizacionCanalDetalleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const parsedId = Number(id);
   const insets = useSafeAreaInsets();
+  const webViewport = useWebVisualViewport();
+  const footerBottom = webFooterBottom(webViewport, insets.bottom, SPACING.fixed.md);
   const qc = useQueryClient();
 
   const { data, isPending, isError, refetch } = useCotizacionCanalDetalleQuery(
@@ -578,7 +581,7 @@ export default function CotizacionCanalDetalleScreen() {
   const citaParaAdicional = draft.cita_personal_id || draft.cita_origen_id || null;
   const showFooter = Boolean(
     (tieneHorarioAgendado && draft.cita_personal_id)
-    || (editable && draft.estado === 'borrador')
+    || draft.estado === 'borrador'
     || draft.estado === 'enviada'
     || (draft.estado === 'aceptada' && citaParaAdicional)
   );
@@ -633,11 +636,11 @@ export default function CotizacionCanalDetalleScreen() {
       />
 
       <ScrollView
-        style={hostScreenStyles.scroll}
+        style={[hostScreenStyles.scroll, styles.scroll]}
         contentContainerStyle={[
           hostScreenStyles.scrollInner,
           styles.scrollInner,
-          { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) + 72 },
+          { paddingBottom: footerBottom + 72 },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -674,7 +677,7 @@ export default function CotizacionCanalDetalleScreen() {
       </ScrollView>
 
       {showFooter ? (
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.fixed.md) }]}>
+      <View style={[styles.footer, { paddingBottom: footerBottom }]}>
         {tieneHorarioAgendado && draft.cita_personal_id ? (
           <InstitutionalButton
             label="Agregar ítems o servicio adicional"
@@ -683,7 +686,7 @@ export default function CotizacionCanalDetalleScreen() {
           />
         ) : null}
 
-        {editable && draft.estado === 'borrador' ? (
+        {draft.estado === 'borrador' ? (
           <View style={styles.footerBorrador}>
             {draft.emision_pendiente || (draft.numero_publico && draft.estado === 'borrador') ? (
               <InstitutionalText role="caption" color="muted">
@@ -746,8 +749,8 @@ export default function CotizacionCanalDetalleScreen() {
           actions={fabActions}
           bottomOffset={
             showFooter
-              ? undefined
-              : Math.max(insets.bottom, SPACING.fixed.md) + SPACING.fixed.lg
+              ? footerBottom + 112
+              : footerBottom + SPACING.fixed.lg
           }
         />
       ) : null}
@@ -770,7 +773,12 @@ export default function CotizacionCanalDetalleScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: I.surfaceSoft,
+  },
+  scroll: {
+    flex: 1,
+    minHeight: 0,
   },
   center: {
     flex: 1,
@@ -791,6 +799,8 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.fixed.sm,
   },
   footer: {
+    flexShrink: 0,
+    zIndex: 5,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
     backgroundColor: COLORS.background.paper,

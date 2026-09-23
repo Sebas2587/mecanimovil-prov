@@ -6,10 +6,9 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
-  TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
-import { FileText, Search, Sparkles } from 'lucide-react-native';
+import { FileText, Search } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
 import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
@@ -38,6 +37,7 @@ import {
   institutionalInputStyles,
 } from '@/app/design-system/styles/institutionalInputs';
 import { useQueryClient } from '@tanstack/react-query';
+import { useWebVisualViewport, webFooterBottom } from '@/hooks/useWebVisualViewport';
 
 const I = COLORS.institutional;
 
@@ -60,13 +60,15 @@ type Props = {
 };
 
 /**
- * Listing Host (`/cotizar-ia`): borradores por revisar/enviar + crear.
+ * Listing Host (`/cotizar-ia`): borradores por revisar + tarjeta de acciones.
+ * El texto vacío solo aparece si no hay borradores. Los botones se mantienen.
  * Detalle en `/cotizacion-canal/[id]`. Enviadas en Bandeja; agendadas en Agenda.
- * Un solo CTA a la vez: empty state, o Sparkles en el header si hay lista.
  */
 export function CotizacionesIaList({ enabled = true, onBack }: Props) {
   const qc = useQueryClient();
   const insets = useSafeAreaInsets();
+  const webViewport = useWebVisualViewport();
+  const listBottom = webFooterBottom(webViewport, insets.bottom, SPACING.fixed.lg);
   const { data = [], isPending, isFetching, refetch } = useCotizacionesCanalTallerQuery(enabled);
   const { data: borradoresAgente } = useAgenteBorradoresPendientesQuery(enabled);
   const invalidate = useInvalidateCotizacionesCanalTaller();
@@ -134,6 +136,10 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
 
   const borradoresCount = borradoresAgente?.count ?? borradoresPorRevisar.length;
 
+  const hayLista = borradoresPorRevisar.length > 0;
+  const buscando = Boolean(searchQuery.trim());
+  const mostrarTextoVacio = !hayLista && !buscando;
+
   const header = useMemo(
     () => (
       <View style={styles.headerBlock}>
@@ -151,6 +157,17 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
             returnKeyType="search"
           />
         </View>
+        <HostEmptyState
+          icon={FileText}
+          title={mostrarTextoVacio ? 'Sin borradores por revisar' : undefined}
+          description={
+            mostrarTextoVacio
+              ? 'Crea una cotización en blanco o con IA. Lo ya enviado está en Bandeja.'
+              : undefined
+          }
+          primaryAction={{ label: 'Nueva cotización', onPress: abrirCrear }}
+          secondaryAction={{ label: 'Ir a Bandeja', onPress: irABandeja }}
+        />
         {borradoresFiltrados.length > 0 ? (
           <HostSectionKicker
             label={`Por revisar${borradoresCount > 0 ? ` (${borradoresFiltrados.length})` : ''}`}
@@ -159,7 +176,7 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
         ) : null}
       </View>
     ),
-    [borradoresCount, borradoresFiltrados.length, searchQuery],
+    [abrirCrear, borradoresCount, borradoresFiltrados.length, irABandeja, mostrarTextoVacio, searchQuery],
   );
 
   const renderItem = useCallback(
@@ -180,19 +197,6 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
     [abrirDetalle, borradoresFiltrados.length],
   );
 
-  const hayLista = borradoresPorRevisar.length > 0;
-  const crearEnHeader = isPending || hayLista || Boolean(searchQuery.trim());
-  const headerCrear = crearEnHeader ? (
-    <TouchableOpacity
-      onPress={abrirCrear}
-      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-      accessibilityRole="button"
-      accessibilityLabel="Nueva cotización"
-    >
-      <Sparkles size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-    </TouchableOpacity>
-  ) : null;
-
   const screenHeader = (
     <Header
       title="Cotizar"
@@ -200,7 +204,6 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
       onBackPress={onBack}
       backgroundColor={I.canvas}
       titleColor={I.ink}
-      rightComponent={headerCrear}
     />
   );
 
@@ -239,7 +242,7 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
           styles.list,
           {
             paddingHorizontal: HOST_GUTTER,
-            paddingBottom: Math.max(insets.bottom, SPACING.fixed.lg),
+            paddingBottom: listBottom,
           },
           borradoresFiltrados.length === 0 && styles.listEmpty,
         ]}
@@ -258,21 +261,13 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
           />
         }
         ListEmptyComponent={
-          <HostEmptyState
-            icon={FileText}
-            title={searchQuery.trim() ? 'Sin coincidencias' : 'Sin borradores por revisar'}
-            description={
-              searchQuery.trim()
-                ? `Nada coincide con «${searchQuery.trim()}».`
-                : 'Crea una cotización en blanco o con IA. Lo ya enviado está en Bandeja.'
-            }
-            primaryAction={
-              searchQuery.trim()
-                ? undefined
-                : { label: 'Nueva cotización', onPress: abrirCrear }
-            }
-            secondaryAction={{ label: 'Ir a Bandeja', onPress: irABandeja }}
-          />
+          buscando ? (
+            <HostEmptyState
+              icon={FileText}
+              title="Sin coincidencias"
+              description={`Nada coincide con «${searchQuery.trim()}».`}
+            />
+          ) : null
         }
       />
 
@@ -286,7 +281,7 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: I.canvas },
+  root: { flex: 1, minHeight: 0, backgroundColor: I.canvas },
   list: {
     paddingTop: SPACING.fixed.sm,
     gap: 0,
