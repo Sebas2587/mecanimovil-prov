@@ -1,4 +1,4 @@
-import { Link, Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
@@ -12,15 +12,13 @@ export default function NotFoundScreen() {
       <Stack.Screen options={{ title: 'No encontrada' }} />
       <View style={styles.container}>
         <InstitutionalText role="h4">Esta pantalla no existe.</InstitutionalText>
-        <Link href="/" asChild>
-          <InstitutionalButton
-            label="Ir al inicio"
-            variant="secondary"
-            size="compact"
-            onPress={() => {}}
-            style={styles.link}
-          />
-        </Link>
+        <InstitutionalButton
+          label="Ir al inicio"
+          variant="secondary"
+          size="compact"
+          onPress={() => router.replace('/')}
+          style={styles.link}
+        />
       </View>
     </>
   );
