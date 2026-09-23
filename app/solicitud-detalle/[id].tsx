@@ -952,10 +952,7 @@ export default function SolicitudDetalleScreen() {
                   {solicitud.vehiculo_info.modelo}
                 </Text>
                 {solicitud.vehiculo_info.patente ? (
-                  <View style={styles.patentePill}>
-                    <InstitutionalIcon name="badge" size={14} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                    <Text style={styles.patentePillText}>{solicitud.vehiculo_info.patente}</Text>
-                  </View>
+                  <InstitutionalTag label={solicitud.vehiculo_info.patente} variant="neutral" size="sm" />
                 ) : null}
               </View>
 
@@ -1009,7 +1006,13 @@ export default function SolicitudDetalleScreen() {
                   const detalle = detallesOfertaPorServicio.get(Number(servicio.id));
                   const repuestos = detalle?.repuestos_info ?? [];
                   return (
-                    <View key={servicio.id || index} style={styles.servicioDetalleCard}>
+                    <View
+                      key={servicio.id || index}
+                      style={[
+                        styles.servicioDetalleCard,
+                        index < (solicitud.servicios_solicitados_detail?.length ?? 0) - 1 && styles.servicioDetalleDivider,
+                      ]}
+                    >
                       <Text style={styles.servicioDetalleNombre} numberOfLines={3}>
                         {servicio.nombre}
                       </Text>
@@ -1201,11 +1204,7 @@ export default function SolicitudDetalleScreen() {
                   </Text>
                 ) : null}
                 <View style={styles.estadoOfertaRow}>
-                  <View style={[styles.estadoOfertaPill, { backgroundColor: withOpacity(I.primary, 0.12) }]}>
-                    <Text style={[styles.estadoOfertaPillText, { color: I.primary }]}>
-                      {textoEstadoOferta(miOferta.estado)}
-                    </Text>
-                  </View>
+                  <InstitutionalTag label={textoEstadoOferta(miOferta.estado)} variant="neutral" size="sm" />
                 </View>
                 <Text style={styles.ofertaPrecio}>
                   {parseFloat(miOferta.precio_total_ofrecido).toLocaleString('es-CL', {
@@ -1528,7 +1527,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: withOpacity(I.primary, 0.12),
+    backgroundColor: I.surfaceSoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1541,12 +1540,10 @@ const styles = StyleSheet.create({
   },
 
   vehicleCard: {
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.fixed.sm + 2,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
     gap: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
   },
   vehicleCardHeader: {
     flexDirection: 'row',
@@ -1575,7 +1572,7 @@ const styles = StyleSheet.create({
   },
   vehicleHighlight: {
     fontFamily: FF.sansSemiBold,
-    color: I.primary,
+    color: I.ink,
   },
   patentePill: {
     flexDirection: 'row',
@@ -1601,11 +1598,7 @@ const styles = StyleSheet.create({
   },
   vehiculoGridItem: {
     flex: 1,
-    backgroundColor: I.canvas,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.fixed.sm + 2,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
+    paddingVertical: SPACING.fixed.xs,
   },
   vehiculoGridItemHeader: {
     flexDirection: 'row',
@@ -1633,11 +1626,11 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.md,
   },
   servicioDetalleCard: {
-    backgroundColor: I.surfaceStrong,
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.fixed.sm + 2,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
+    paddingVertical: SPACING.fixed.sm,
+  },
+  servicioDetalleDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
   },
   servicioDetalleNombre: {
     fontSize: TYPOGRAPHY.fontSize.base,
@@ -1779,11 +1772,6 @@ const styles = StyleSheet.create({
   tecnicoCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: SPACING.fixed.md,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.canvas,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
     gap: SPACING.fixed.sm,
   },
   tecnicoAvatar: {
@@ -1849,13 +1837,7 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.fixed.sm,
   },
 
-  addressCard: {
-    backgroundColor: I.surfaceSoft,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    padding: SPACING.fixed.md,
-  },
+  addressCard: {},
   addressHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1879,11 +1861,7 @@ const styles = StyleSheet.create({
   },
 
   ofertaHighlightCard: {
-    backgroundColor: withOpacity(I.primary, 0.06),
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.fixed.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.primary, 0.2),
+    gap: SPACING.fixed.xs,
   },
   ofertaStatusHeader: {
     flexDirection: 'row',
@@ -1972,11 +1950,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.md,
   },
   ofertaSecundariaCard: {
-    borderRadius: BORDERS.radius.md,
-    padding: SPACING.fixed.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    backgroundColor: I.surfaceSoft,
+    paddingVertical: SPACING.fixed.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: I.hairline,
   },
   ofertaSecundariaHeader: {
     flexDirection: 'row',
@@ -2045,14 +2021,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.fixed.xs,
-    marginTop: SPACING.fixed.sm,
-    marginBottom: SPACING.fixed.xs,
-    paddingVertical: SPACING.fixed.xs + 2,
-    paddingHorizontal: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: withOpacity(I.primary, 0.08),
-    borderWidth: BORDERS.width.thin,
-    borderColor: withOpacity(I.primary, 0.22),
+    marginBottom: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: I.hairline,
   },
   fechaPropuestaBannerText: {
     flex: 1,
