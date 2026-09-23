@@ -73,9 +73,13 @@ export default function EditarZonaServicioScreen() {
           })
           .filter(commune => commune !== undefined) as Commune[];
 
-        setSelectedCommunes(selectedCommunesObjects);
+        setSelectedCommunes((prev) => {
+          const prevKey = prev.map((c) => c.code).join('|');
+          const nextKey = selectedCommunesObjects.map((c) => c.code).join('|');
+          return prevKey === nextKey ? prev : selectedCommunesObjects;
+        });
       } else {
-        setSelectedCommunes([]);
+        setSelectedCommunes((prev) => (prev.length === 0 ? prev : []));
       }
     }
   }, [serviceArea, availableCommunes]);
