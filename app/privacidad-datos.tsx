@@ -5,7 +5,6 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -19,6 +18,7 @@ import { InstitutionalText } from '@/app/design-system/components/InstitutionalT
 import {
   Card,
   HostSectionKicker,
+  HostSwitch,
   hostScreenStyles,
 } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -228,11 +228,9 @@ export default function PrivacidadDatosScreen() {
             <View key={key}>
               <View style={styles.prefRow}>
                 <Text style={styles.prefLabel}>{label}</Text>
-                <Switch
+                <HostSwitch
                   value={prefs[key]}
                   onValueChange={(v) => void togglePref(key, v)}
-                  trackColor={{ false: I.hairline, true: I.primaryDisabled }}
-                  thumbColor={prefs[key] ? I.primary : I.surfaceStrong}
                 />
               </View>
               {index < arr.length - 1 ? <View style={styles.rowDivider} /> : null}

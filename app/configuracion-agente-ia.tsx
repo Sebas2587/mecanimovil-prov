@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  Switch,
   TextInput,
   ActivityIndicator,
   Pressable,
@@ -35,7 +34,7 @@ import {
   hostScreenStyles,
   institutionalInputPlaceholder,
   institutionalInputStyles,
-  institutionalSwitchProps,
+  HostSwitch,
 } from '@/app/design-system/components';
 import {
   AGENTE_IA_DOCUMENTOS_KEY,
@@ -491,11 +490,10 @@ export default function ConfiguracionAgenteIaScreen() {
                   : 'Interruptor general del taller. Si lo apagas, el agente se desactiva en todos los chats y deja de contestar. Para intervenir en un chat puntual, apaga el Agente IA dentro de esa conversación.'}
               </InstitutionalText>
             </View>
-            <Switch
+            <HostSwitch
               value={Boolean(config.habilitado)}
               onValueChange={toggleMaster}
               disabled={config.agente_ia_disponible_en_plan === false || updateConfig.isPending}
-              {...institutionalSwitchProps}
             />
           </Pressable>
         </HostPaperSection>
@@ -521,10 +519,9 @@ export default function ConfiguracionAgenteIaScreen() {
                   </InstitutionalText>
                 </View>
               </View>
-              <Switch
+              <HostSwitch
                 value={canalActivo(c.key)}
                 onValueChange={() => toggleCanal(c.key)}
-                {...institutionalSwitchProps}
               />
             </Pressable>
           ))}
@@ -705,8 +702,7 @@ export default function ConfiguracionAgenteIaScreen() {
                 Cuando no hay tarifa en catálogo, el agente puede citar montos orientativos de trabajos similares completados.
               </InstitutionalText>
             </View>
-            <Switch
-              {...institutionalSwitchProps}
+            <HostSwitch
               value={permiteEstimadosHistoricos}
               onValueChange={setPermiteEstimadosHistoricos}
             />
@@ -718,8 +714,7 @@ export default function ConfiguracionAgenteIaScreen() {
                 El agente no armará borrador hasta tener la dirección del cliente (servicio a domicilio).
               </InstitutionalText>
             </View>
-            <Switch
-              {...institutionalSwitchProps}
+            <HostSwitch
               value={requiereDireccionAntesCotizar}
               onValueChange={setRequiereDireccionAntesCotizar}
             />
@@ -731,8 +726,7 @@ export default function ConfiguracionAgenteIaScreen() {
                 Cuando catálogo y web no encuentran la pieza, el agente escribe a tus casas de repuestos. Apagado, solo sale si lo pides en la cotización.
               </InstitutionalText>
             </View>
-            <Switch
-              {...institutionalSwitchProps}
+            <HostSwitch
               value={consultaCasasAutomatica}
               onValueChange={setConsultaCasasAutomatica}
             />

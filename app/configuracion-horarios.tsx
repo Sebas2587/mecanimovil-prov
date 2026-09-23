@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Switch,
   Modal,
   RefreshControl,
 } from 'react-native';
@@ -27,7 +26,7 @@ import {
   HostSectionKicker,
   hostScreenStyles,
   HOST_GUTTER,
-  institutionalSwitchProps,
+  HostSwitch,
 } from '@/app/design-system/components';
 import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
@@ -742,10 +741,9 @@ export default function ConfiguracionHorariosScreen() {
           <Text style={[styles.modernDiaNombre, !diaActivo && styles.modernDiaNombreInactive]}>
             {dia.corto}
           </Text>
-          <Switch
+          <HostSwitch
             value={diaActivo}
             onValueChange={() => toggleDiaActivo(index)}
-            {...institutionalSwitchProps}
             accessibilityLabel={`${dia.nombre} ${diaActivo ? 'activo' : 'inactivo'}`}
           />
         </View>

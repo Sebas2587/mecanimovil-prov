@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Platform, View, StyleSheet, Switch, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Platform, View, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Bot, Lock, Settings2, X } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
@@ -9,7 +9,7 @@ import {
   InstitutionalButton,
   InstitutionalTag,
   InstitutionalText,
-  institutionalSwitchProps,
+  HostSwitch,
 } from '@/app/design-system/components';
 import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
 import {
@@ -139,12 +139,10 @@ export function AgenteIaChatToggleModal({
                   : 'Disponible desde el Plan Profesional. Sube de plan para activar la auto-respuesta.'}
             </InstitutionalText>
           </View>
-          <Switch
+          <HostSwitch
             value={switchOn}
             onValueChange={handleToggle}
             disabled={busy || !disponibleEnPlan || !chatIdOk}
-            {...institutionalSwitchProps}
-            style={styles.switch}
           />
         </View>
       )}

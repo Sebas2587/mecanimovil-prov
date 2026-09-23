@@ -11,7 +11,6 @@ import {
   Pressable,
   TextInput,
   Modal,
-  Switch,
   Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -23,6 +22,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import {
   Card,
   HostSectionKicker,
+  HostSwitch,
   hostScreenStyles,
 } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -336,7 +336,7 @@ export default function GestionEquipoScreen() {
             </Text>
           </View>
         </View>
-        <Switch value={m.activo} onValueChange={() => toggleActivo(m)} />
+        <HostSwitch value={m.activo} onValueChange={() => toggleActivo(m)} />
       </View>
 
       {m.especialidades_detalle?.length > 0 && (
@@ -542,7 +542,7 @@ export default function GestionEquipoScreen() {
                         <Text style={styles.permLabel}>{opcion.label}</Text>
                         <Text style={styles.permDesc}>{opcion.descripcion}</Text>
                       </View>
-                      <Switch
+                      <HostSwitch
                         value={Boolean(form.permisos[opcion.key])}
                         onValueChange={() => togglePermiso(opcion.key)}
                       />
@@ -560,7 +560,7 @@ export default function GestionEquipoScreen() {
                         Permite que el mecánico inicie sesión y vea sus órdenes asignadas.
                       </Text>
                     </View>
-                    <Switch
+                    <HostSwitch
                       value={form.darAccesoApp || form.tieneAcceso}
                       onValueChange={(value) => setForm((p) => ({ ...p, darAccesoApp: value }))}
                     />

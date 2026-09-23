@@ -9,7 +9,6 @@ import {
   Alert,
   AppState,
   AppStateStatus,
-  Switch,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,6 +26,7 @@ import {
   Card,
   HostPaperSection,
   HostSectionKicker,
+  HostSwitch,
   hostScreenStyles,
 } from '@/app/design-system/components';
 import Header from '@/components/Header';
@@ -282,10 +282,9 @@ export default function ConfiguracionCanalesScreen() {
               </InstitutionalText>
             </View>
             {conectada && conn ? (
-              <Switch
+              <HostSwitch
                 value={conn.enabled}
                 onValueChange={(v) => handleToggle(conn, v)}
-                trackColor={{ false: I.hairline, true: I.primary }}
               />
             ) : null}
           </View>

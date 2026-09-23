@@ -2,7 +2,6 @@ import React, { memo } from 'react';
 import {
   View,
   Text,
-  Switch,
   ActivityIndicator,
   TouchableOpacity,
   StyleSheet,
@@ -11,6 +10,7 @@ import { Radar, Inbox, ChevronRight } from 'lucide-react-native';
 import type { SolicitudPublica } from '@/services/solicitudesService';
 import { HomeRadarSolicitudItem } from '@/components/solicitudes/HomeRadarSolicitudItem';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { HostSwitch } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 
 const I = COLORS.institutional;
@@ -130,15 +130,10 @@ function HomeSolicitudesSectionInner({
         {radarSwitchLoading ? (
           <ActivityIndicator size="small" color={I.primary} />
         ) : (
-          <Switch
+          <HostSwitch
             value={radarActivo}
             onValueChange={onToggleRadar}
             disabled={!radarPreferenciaCargada}
-            trackColor={{
-              false: I.hairlineSoft,
-              true: COLORS.primary[100],
-            }}
-            thumbColor={radarActivo ? I.primary : I.mutedSoft}
             accessibilityLabel={radarActivo ? 'Pausar radar' : 'Activar radar'}
           />
         )}

@@ -26,6 +26,7 @@ export { HostEmptyState, type HostEmptyStateProps } from './HostEmptyState';
 export { AppHeader, type AppHeaderProps } from './AppHeader';
 export { BottomSheet, type BottomSheetProps } from './BottomSheet';
 export { PrimaryGradientFill } from './PrimaryGradientFill';
+export { HostSwitch, type HostSwitchProps } from './HostSwitch';
 export { HOST_GUTTER, hostScreenStyles } from '../styles/hostLayout';
 
 export { INSTITUTIONAL_SELECTION, institutionalSelectionStyles } from '../styles/institutionalSelection';

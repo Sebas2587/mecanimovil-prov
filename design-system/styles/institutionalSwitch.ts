@@ -3,13 +3,13 @@ import { COLORS } from '../tokens';
 const I = COLORS.institutional;
 
 /**
- * Switch Host: neutro (sin verde iOS ni magenta).
- * Off/on en grises del sistema visual Host.
+ * @deprecated Usar HostSwitch. El Switch nativo en web ignora estos colores.
+ * Activo = negro Airbnb (ink). Apagado = gris de superficie.
  */
 export const institutionalSwitchProps = {
   trackColor: {
     false: I.surfaceStrong,
-    true: I.muted,
+    true: I.ink,
   },
   thumbColor: I.onPrimary,
   ios_backgroundColor: I.surfaceStrong,
