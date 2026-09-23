@@ -33,27 +33,9 @@ function lh(fontSize: number, lineMult: number): number {
   return Math.round(fontSize * lineMult);
 }
 
-function formatMinutos(v: number | null | undefined): string {
-  if (v == null || Number.isNaN(v)) return '—';
-  if (v < 60) return `${Math.round(v)} min`;
-  const h = Math.floor(v / 60);
-  const m = Math.round(v % 60);
-  return m > 0 ? `${h} h ${m} min` : `${h} h`;
-}
-
 function formatScore(v: number | null | undefined): string {
   if (v == null) return '—';
   return `${v}`;
-}
-
-function formatRatio(v: number | null | undefined): string {
-  if (v == null) return '—';
-  return `${v.toFixed(2)}×`;
-}
-
-function formatEstrellas(v: number | null | undefined): string {
-  if (v == null || Number.isNaN(v)) return '—';
-  return `${v.toFixed(1)} / 5`;
 }
 
 function DsCard({ children }: { children: React.ReactNode }) {
@@ -153,62 +135,6 @@ export function RendimientoKpisContent() {
     () => (data != null ? targetTierNameForScore(data.score_rendimiento) : '—'),
     [data]
   );
-
-  const metricRows = useMemo((): [MetricItem, MetricItem][] | null => {
-    if (!data) return null;
-    return [
-      [
-        { label: 'Ofertas (total)', value: `${data.ofertas_total_en_periodo}` },
-        {
-          label: 'Dirigidas / globales',
-          value: `${data.ofertas_dirigidas_muestra} / ${data.ofertas_globales_muestra}`,
-        },
-      ],
-      [
-        { label: 'Resp. media (dir.)', value: formatMinutos(data.tiempo_respuesta_dirigida_media_minutos) },
-        { label: 'Resp. media (glob.)', value: formatMinutos(data.tiempo_respuesta_global_media_minutos) },
-      ],
-      [
-        { label: 'Órdenes con actividad', value: `${data.ordenes_mercado_en_periodo}` },
-        { label: 'Servicios terminados', value: `${data.servicios_terminados_en_periodo ?? data.ordenes_mercado_completadas}` },
-      ],
-      [
-        {
-          label: 'Checklist (ok / total)',
-          value: `${data.checklist_completados} / ${data.ordenes_con_checklist}`,
-        },
-        { label: 'Tiempo medio checklist', value: formatMinutos(data.checklist_tiempo_promedio_minutos ?? null) },
-      ],
-      [
-        { label: 'Aceptación órdenes (ø)', value: formatMinutos(data.tiempo_aceptacion_ordenes_promedio_minutos ?? null) },
-        { label: 'Rechazos en periodo', value: `${data.rechazos_periodo ?? 0}` },
-      ],
-      [
-        { label: 'Ejec. vs estimado (ø)', value: formatRatio(data.tiempo_ejecucion_vs_estimado_promedio) },
-        { label: 'Arranque checklist (ø)', value: formatMinutos(data.tiempo_inicio_checklist_promedio_minutos ?? null) },
-      ],
-      [
-        {
-          label: 'Racha máx. días consec.',
-          value: data.max_racha_dias_consecutivos != null ? `${data.max_racha_dias_consecutivos} días` : '—',
-        },
-        {
-          label: 'Reseñas en periodo',
-          value: `${data.resenas_muestra} / ${data.resenas_totales_proveedor} total`,
-        },
-      ],
-      [
-        {
-          label: 'Calificación (reseñas orden)',
-          value: formatEstrellas(data.calificacion_cliente_promedio),
-        },
-        {
-          label: 'Calificación (servicios)',
-          value: formatEstrellas(data.calificacion_servicios_promedio),
-        },
-      ],
-    ];
-  }, [data]);
 
   const onRefresh = useCallback(() => {
     refresh();
@@ -331,97 +257,28 @@ export function RendimientoKpisContent() {
             ) : null}
 
             <View style={styles.sectionWrap}>
-              <SectionTitle>DESGLOSE DE PUNTAJES</SectionTitle>
+              <SectionTitle>ESTE PERIODO</SectionTitle>
               <DsCard>
-                <ScoreBlock
-                  title="Tiempo de respuesta (oferta)"
-                  score={data.score_tiempo_respuesta}
-                  description="Minutos desde que la solicitud se publicó hasta que enviaste la oferta."
+                <TwoColumnMetricGrid
+                  rows={[
+                    [
+                      { label: 'Ofertas', value: `${data.ofertas_total_en_periodo}` },
+                      { label: 'Terminados', value: `${data.servicios_terminados_en_periodo ?? data.ordenes_mercado_completadas}` },
+                    ],
+                    [
+                      { label: 'Checklist', value: `${data.checklist_completados} / ${data.ordenes_con_checklist}` },
+                      { label: 'Rechazos', value: `${data.rechazos_periodo ?? 0}` },
+                    ],
+                  ]}
                 />
-                <ScoreBlock
-                  title="Aceptación de órdenes (24h)"
-                  score={data.score_aceptacion_ordenes ?? null}
-                  description={`Aceptar o rechazar órdenes pagadas. Muestra: ${data.aceptacion_ordenes_muestra ?? 0}.`}
-                />
-                <ScoreBlock
-                  title="Confiabilidad (rechazos)"
-                  score={data.score_confiabilidad ?? null}
-                  description={`Rechazos del periodo: ${data.rechazos_periodo ?? 0}. Los recientes pesan más.`}
-                />
-                <ScoreBlock
-                  title="Satisfacción del cliente"
-                  score={data.score_calificacion_cliente}
-                  description="Promedio de reseñas del periodo. Sin reseñas el puntaje queda en cero."
-                />
-                <ScoreBlock
-                  title="Checklist"
-                  score={data.score_checklist}
-                  description="Checklists cerrados sobre órdenes terminadas."
-                />
-                <ScoreBlock
-                  title="Tiempo vs estimado"
-                  score={data.score_tiempo_ejecucion}
-                  description="Tiempo real del checklist frente al estimado de la oferta."
-                />
-                <ScoreBlock
-                  title="Consistencia de actividad"
-                  score={data.score_consistencia}
-                  description={`Días seguidos con al menos un servicio terminado. Racha: ${data.max_racha_dias_consecutivos ?? 0}.`}
-                />
-                <ScoreBlock
-                  title="Velocidad de arranque"
-                  score={data.score_inicio_checklist}
-                  description="Minutos entre crear el checklist y pulsar Iniciar."
-                />
-                {data.score_calidad_servicio != null && (
-                  <ScoreBlock
-                    title="Calidad del servicio"
-                    score={data.score_calidad_servicio}
-                    description="Puntualidad, limpieza, claridad, trato y repuestos en las reseñas."
-                    isLast
-                  />
-                )}
               </DsCard>
-            </View>
-
-            {data.aspectos_resena && Object.values(data.aspectos_resena).some((v) => v != null) && (
-              <View style={styles.sectionWrap}>
-                <SectionTitle>ASPECTOS DE RESEÑAS (PERIODO)</SectionTitle>
-                <DsCard>
-                  <TwoColumnMetricGrid
-                    rows={[
-                      [
-                        { label: 'Puntualidad', value: data.aspectos_resena.puntualidad != null ? `${data.aspectos_resena.puntualidad.toFixed(1)} / 5` : '—' },
-                        { label: 'Entrega a tiempo', value: data.aspectos_resena.recepcion_a_tiempo != null ? `${data.aspectos_resena.recepcion_a_tiempo.toFixed(1)} / 5` : '—' },
-                      ],
-                      [
-                        { label: 'Limpieza auto', value: data.aspectos_resena.limpieza_auto != null ? `${data.aspectos_resena.limpieza_auto.toFixed(1)} / 5` : '—' },
-                        { label: 'Zona limpia', value: data.aspectos_resena.zona_limpia != null ? `${data.aspectos_resena.zona_limpia.toFixed(1)} / 5` : '—' },
-                      ],
-                      [
-                        { label: 'Claridad', value: data.aspectos_resena.claridad_explicacion != null ? `${data.aspectos_resena.claridad_explicacion.toFixed(1)} / 5` : '—' },
-                        { label: 'Info. relevante', value: data.aspectos_resena.informacion_relevante != null ? `${data.aspectos_resena.informacion_relevante.toFixed(1)} / 5` : '—' },
-                      ],
-                      [
-                        { label: 'Trato', value: data.aspectos_resena.trato != null ? `${data.aspectos_resena.trato.toFixed(1)} / 5` : '—' },
-                        { label: '% Entregó repuestos', value: data.aspectos_resena.pct_entrego_repuestos != null ? `${data.aspectos_resena.pct_entrego_repuestos.toFixed(0)}%` : '—' },
-                      ],
-                    ]}
-                  />
-                </DsCard>
-              </View>
-            )}
-
-            <View style={styles.sectionWrap}>
-              <SectionTitle>DATOS EN ESTE PERIODO</SectionTitle>
-              <DsCard>{metricRows ? <TwoColumnMetricGrid rows={metricRows} /> : null}</DsCard>
             </View>
 
             {mecanicoKpis.length > 0 && (
               <View style={styles.sectionWrap}>
                 <SectionTitle>CONTROL DEL EQUIPO</SectionTitle>
                 <Text style={styles.mecanicoSectionHint}>
-                  Asignaciones abiertas, checklist pendiente, domicilio frente a taller, clientes y marcas del periodo.
+                  Abiertas, checklist y domicilio o taller de cada mecánico.
                 </Text>
                 <DsCard>
                   {mecanicoKpis.map((m, idx) => (
@@ -461,11 +318,6 @@ export function RendimientoKpisContent() {
               </View>
             )}
 
-            <View style={styles.sectionWrap}>
-              <Text style={styles.disclaimer}>
-                {`Ventana de ${data.ventana_dias} días. El checklist mide tu trabajo hasta tu firma. Sin reseñas, ese puntaje queda en cero.`}
-              </Text>
-            </View>
           </>
         ) : null}
       </ScrollView>

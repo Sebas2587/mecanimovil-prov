@@ -1,4 +1,4 @@
-import React, { memo, useState, type ReactNode } from 'react';
+import React, { memo, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   View,
   TextInput,
@@ -53,11 +53,18 @@ function ChatMessageComposerComponent({
   attachmentPreview,
   footerAction,
 }: Props) {
+  const inputRef = useRef<TextInput>(null);
   const [voiceRecording, setVoiceRecording] = useState(false);
-  const canInteract = editable && !sending;
-  const canSend = canInteract && (Boolean(value.trim()) || hasAttachment);
+  const canInteract = editable;
+  const canSend = editable && !sending && (Boolean(value.trim()) || hasAttachment);
   const showPlaceholder = canInteract ? placeholder : disabledPlaceholder;
-  const showMic = Boolean(onAudioRecorded) && canInteract && !canSend;
+  const showMic = Boolean(onAudioRecorded) && canInteract && !sending && !canSend;
+
+  useEffect(() => {
+    if (!editable) return;
+    const timer = setTimeout(() => inputRef.current?.focus(), 250);
+    return () => clearTimeout(timer);
+  }, [editable]);
 
   return (
     <View
@@ -89,6 +96,7 @@ function ChatMessageComposerComponent({
         <View style={[styles.mainSlot, voiceRecording && styles.slotCollapsed]}>
           {!voiceRecording ? (
             <TextInput
+              ref={inputRef}
               style={styles.textInput}
               value={value}
               onChangeText={onChangeText}
@@ -97,9 +105,17 @@ function ChatMessageComposerComponent({
               multiline={canInteract}
               maxLength={500}
               editable={canInteract}
+              autoFocus={canInteract && Platform.OS === 'web'}
               blurOnSubmit={false}
               returnKeyType="send"
-              onSubmitEditing={Platform.OS !== 'web' && canInteract ? onSend : undefined}
+              onSubmitEditing={
+                Platform.OS !== 'web' && canInteract
+                  ? () => {
+                      onSend();
+                      inputRef.current?.focus();
+                    }
+                  : undefined
+              }
               onKeyPress={
                 Platform.OS === 'web' && canInteract
                   ? (e: {
@@ -109,6 +125,7 @@ function ChatMessageComposerComponent({
                       if (e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
                         e.preventDefault?.();
                         onSend();
+                        inputRef.current?.focus();
                       }
                     }
                   : undefined
@@ -136,7 +153,10 @@ function ChatMessageComposerComponent({
         {canSend && !voiceRecording ? (
           <TouchableOpacity
             style={[styles.sendBtn, sending && styles.sendBtnDisabled]}
-            onPress={onSend}
+            onPress={() => {
+              onSend();
+              setTimeout(() => inputRef.current?.focus(), 0);
+            }}
             disabled={sending}
             accessibilityLabel="Enviar"
           >

@@ -167,8 +167,7 @@ export const InteractiveStatsChart: React.FC<InteractiveStatsChartProps> = ({
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>Sin consumo este mes</Text>
               <Text style={styles.emptyBody}>
-                Cuando postules y se consuman créditos, verás el uso diario y el ingreso asociado
-                estimado con el precio de referencia vigente.
+                El uso diario aparece cuando postulas y se consumen créditos.
               </Text>
             </View>
           ) : (

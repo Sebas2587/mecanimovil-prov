@@ -18,12 +18,34 @@ export function PushNotificationSetup() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
-  const { registrarAlertaPushMecanico } = useAlerts();
+  const { registrarAlertaPushMecanico, agregarAlerta } = useAlerts();
 
   const handlePushData = (data: PushNotificationData | undefined, navigate = true) => {
     if (!data) return;
     maybeInvalidateFromPushData(queryClient, data);
     registrarAlertaPushMecanico(data);
+    const type = typeof data.type === 'string' ? data.type : '';
+    if (type === 'chat_message' || type === 'nuevo_mensaje_chat' || type === 'nuevo_contacto_canal') {
+      const conv = data.conversation_id != null ? String(data.conversation_id).trim() : '';
+      const preview = typeof data.preview === 'string'
+        ? data.preview
+        : typeof data.body === 'string'
+          ? data.body
+          : '';
+      const messageId = data.message_id != null ? String(data.message_id) : conv;
+      agregarAlerta({
+        tipo: 'mensaje_entrante',
+        titulo: type === 'nuevo_contacto_canal' ? 'Nuevo contacto' : 'Nuevo mensaje',
+        mensaje: preview || 'Tienes un mensaje nuevo',
+        accion: {
+          texto: 'Abrir chat',
+          ruta: conv
+            ? `/chat-omnicanal?conversationId=${encodeURIComponent(conv)}`
+            : '/(tabs)/chats',
+        },
+        prioridad: 'media',
+      }, `msg-${messageId}`);
+    }
     if (navigate) {
       navigateByPushNotification(router, data, queryClient);
     }
@@ -64,7 +86,7 @@ export function PushNotificationSetup() {
         handlePushData(data as PushNotificationData, false);
       },
     );
-  }, [isAuthenticated, router, queryClient, registrarAlertaPushMecanico]);
+  }, [agregarAlerta, isAuthenticated, router, queryClient, registrarAlertaPushMecanico]);
 
   return null;
 }

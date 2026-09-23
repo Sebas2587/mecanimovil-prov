@@ -221,6 +221,15 @@ export default function ChatsScreen() {
     [chats],
   );
 
+  const unreadPorResponder = useMemo(
+    () =>
+      chats.reduce((sum, chat) => {
+        if (!matchesChatFilter(chat, 'sin_responder')) return sum;
+        return sum + (chat.mensajes_no_leidos || 0);
+      }, 0),
+    [chats],
+  );
+
   const filterCounts = useMemo(() => {
     const counts: Record<ChatInboxFilter, number> = {
       todos: chats.length,
@@ -253,16 +262,18 @@ export default function ChatsScreen() {
         const badge =
           f.key === 'todos'
             ? undefined
-            : f.key === 'borrador'
-              ? (borradoresAgenteCount > 0 ? borradoresAgenteCount : fromInbox)
-              : fromInbox;
+            : f.key === 'sin_responder'
+              ? unreadPorResponder
+              : f.key === 'borrador'
+                ? (borradoresAgenteCount > 0 ? borradoresAgenteCount : fromInbox)
+                : fromInbox;
         return {
           key: f.key,
           label: f.label,
           badge: badge && badge > 0 ? badge : undefined,
         };
       }),
-    [borradoresAgenteCount, filterCounts],
+    [borradoresAgenteCount, filterCounts, unreadPorResponder],
   );
 
   const handleChatFilter = useCallback((key: ChatInboxFilter) => {
@@ -482,6 +493,7 @@ export default function ChatsScreen() {
     const isHighlighted = chatHighlighted === rowKey;
     const hasUnread = mensajes_no_leidos > 0;
     const vehiculoPill = formatVehiculoPillLabel(vehiculo);
+    const telefonoContacto = (otra_persona?.telefono || '').trim();
     const cotizacionLabel = cotizacionBadgeLabel(item.cotizacion_estado);
     const rolLabel = rolContactoLabel(item.contacto_rol, item.rol_sugerido);
     const leadCat = (item.lead_categoria || 'sin_calificar') as LeadCategoria;
@@ -540,7 +552,7 @@ export default function ChatsScreen() {
             </Text>
           ) : null}
 
-          {(!!vehiculoPill || !!cotizacionLabel || showLeadTag || !!rolLabel) ? (
+          {(!!vehiculoPill || !!telefonoContacto || !!cotizacionLabel || showLeadTag || !!rolLabel) ? (
             <View style={styles.tagsRow}>
               {!!rolLabel ? (
                 <InstitutionalTag
@@ -569,6 +581,9 @@ export default function ChatsScreen() {
               ) : null}
               {!!vehiculoPill ? (
                 <InstitutionalTag label={vehiculoPill} variant="neutral" size="sm" />
+              ) : null}
+              {!!telefonoContacto ? (
+                <InstitutionalTag label={telefonoContacto} variant="neutral" size="sm" />
               ) : null}
             </View>
           ) : null}
@@ -616,7 +631,10 @@ export default function ChatsScreen() {
       <Card
         elevated
         padding="host"
-        style={[styles.chatCard, isHighlighted && styles.chatCardHighlighted]}
+        style={[
+          styles.chatCard,
+          (hasUnread || isHighlighted) && styles.chatCardHighlighted,
+        ]}
       >
         {chatHref ? (
           <ChatInboxLinkRow
@@ -641,6 +659,27 @@ export default function ChatsScreen() {
               >
                 <Sparkles size={16} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
                 <InstitutionalText role="captionBold" color="primary">Cotizar</InstitutionalText>
+              </TouchableOpacity>
+            ) : null}
+            {isOmnichannel ? (
+              <TouchableOpacity
+                style={styles.cardAction}
+                onPress={() => {
+                  if (item.cotizacion_id) {
+                    router.push(`/cotizacion-canal/${item.cotizacion_id}`);
+                    return;
+                  }
+                  router.push('/(tabs)/bandeja');
+                }}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  item.cotizacion_id ? 'Abrir cotización del cliente' : 'Abrir bandeja del taller'
+                }
+              >
+                <InstitutionalText role="captionBold" color="ink">
+                  {item.cotizacion_id ? 'Cotización' : 'Bandeja'}
+                </InstitutionalText>
               </TouchableOpacity>
             ) : null}
             {showWebDelete ? (
@@ -769,7 +808,7 @@ export default function ChatsScreen() {
                     </InstitutionalText>
                     {badge ? (
                       <View style={styles.tabBadge}>
-                        <Text style={styles.tabBadgeText}>{badge > 99 ? '99+' : badge}</Text>
+                        <Text style={styles.tabBadgeText}>{badge}</Text>
                       </View>
                     ) : null}
                   </TouchableOpacity>

@@ -24,7 +24,7 @@ export function PushNotificationListeners() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
-  const { registrarAlertaPushMecanico } = useAlerts();
+  const { registrarAlertaPushMecanico, agregarAlerta } = useAlerts();
   const lastHandledId = useRef<string | null>(null);
   const lastResponse = Notifications.useLastNotificationResponse();
 
@@ -55,6 +55,23 @@ export function PushNotificationListeners() {
       if (MECANICO_PUSH_TYPES.has(type)) {
         registrarAlertaPushMecanico(data);
       }
+      if (type === 'chat_message' || type === 'nuevo_mensaje_chat' || type === 'nuevo_contacto_canal') {
+        const conv = data.conversation_id != null ? String(data.conversation_id).trim() : '';
+        const preview = typeof data.preview === 'string' ? data.preview : '';
+        const messageId = data.message_id != null ? String(data.message_id) : conv;
+        agregarAlerta({
+          tipo: 'mensaje_entrante',
+          titulo: type === 'nuevo_contacto_canal' ? 'Nuevo contacto' : 'Nuevo mensaje',
+          mensaje: preview || notification.request.content.body || 'Tienes un mensaje nuevo',
+          accion: {
+            texto: 'Abrir chat',
+            ruta: conv
+              ? `/chat-omnicanal?conversationId=${encodeURIComponent(conv)}`
+              : '/(tabs)/chats',
+          },
+          prioridad: 'media',
+        }, `msg-${messageId}`);
+      }
       if (SOLICITUD_PUSH_TYPES.has(type) && __DEV__) {
         console.log('[Push] Nueva solicitud recibida en foreground:', data);
       }
@@ -68,7 +85,7 @@ export function PushNotificationListeners() {
       receivedSub.remove();
       responseSub.remove();
     };
-  }, [isAuthenticated, router, registrarAlertaPushMecanico]);
+  }, [agregarAlerta, isAuthenticated, router, registrarAlertaPushMecanico]);
 
   return null;
 }

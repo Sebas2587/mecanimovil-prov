@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   chip: {
     width: 72,
     alignItems: 'center',
-    paddingVertical: SPACING.fixed.sm,
+    paddingVertical: SPACING.fixed.xxs,
     paddingHorizontal: SPACING.fixed.xxs,
     borderRadius: BORDERS.radius.sm,
     backgroundColor: PAPER,
@@ -89,14 +89,14 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   avatar: {
-    width: 40,
-    height: 40,
+    width: 28,
+    height: 28,
     borderRadius: BORDERS.radius.md,
     marginBottom: 6,
   },
   avatarPh: {
-    width: 40,
-    height: 40,
+    width: 28,
+    height: 28,
     borderRadius: BORDERS.radius.md,
     backgroundColor: I.surfaceSoft,
     borderWidth: BORDERS.width.thin,
