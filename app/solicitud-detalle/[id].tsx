@@ -717,13 +717,14 @@ export default function SolicitudDetalleScreen() {
 
   const detallesOfertaPorServicio = useMemo(() => {
     const map = new Map<number, DetalleServicioOferta>();
-    (miOferta?.detalles_servicios_detail ?? []).forEach((detalle) => {
+    const lineas = miOferta?.detalles_servicios_detail ?? miOferta?.detalles_servicios ?? [];
+    lineas.forEach((detalle) => {
       if (detalle.servicio != null) {
         map.set(Number(detalle.servicio), detalle);
       }
     });
     return map;
-  }, [miOferta?.detalles_servicios_detail]);
+  }, [miOferta?.detalles_servicios_detail, miOferta?.detalles_servicios]);
 
   const fmtRepuestoLinea = (rep: {
     precio?: number;
@@ -1012,6 +1013,11 @@ export default function SolicitudDetalleScreen() {
                       <Text style={styles.servicioDetalleNombre} numberOfLines={3}>
                         {servicio.nombre}
                       </Text>
+                      {requiereRepuestos && repuestos.length === 0 ? (
+                        <Text style={styles.repuestosOfertaLabel}>
+                          El cliente pidió con repuestos. Este servicio no tiene repuestos publicados.
+                        </Text>
+                      ) : null}
                       {repuestos.length > 0 ? (
                         <View style={styles.repuestosOfertaBlock}>
                           <Text style={styles.repuestosOfertaLabel}>Repuestos incluidos</Text>
