@@ -96,11 +96,11 @@ export function HomeAttentionFeed({
 
   return (
     <View style={styles.feedContainer}>
-      <HomeDecisionesMarketplace enabled={enabled} />
       <HomePrimaryActions
         borradoresCount={borradoresCount}
         bandejaCount={bandejaCount}
       />
+      <HomeDecisionesMarketplace enabled={enabled} />
 
       <NeedsAttentionList pipelineItems={pipelineQuery.data?.results} />
 
