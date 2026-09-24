@@ -10,6 +10,7 @@ export function normalizarPatenteChile(raw: string): string {
 }
 
 export function extraerPatentesChile(texto: string): string[] {
+  if (typeof texto !== 'string' || !texto) return [];
   const found: string[] = [];
   const seen = new Set<string>();
   for (const match of texto.matchAll(PATENTE_RE)) {

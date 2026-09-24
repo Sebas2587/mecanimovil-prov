@@ -71,6 +71,7 @@ import { InstitutionalModal } from '@/design-system/components/InstitutionalModa
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { cuerpoEnvioExitoso, requiereEntregaManual, tituloEnvioExitoso } from '@/utils/entregaCotizacionCopy';
 import { ofrecerEntregaCotizacionEnviada } from '@/utils/ofrecerEntregaCotizacion';
+import { navigateBack } from '@/utils/navigateBack';
 
 const I = COLORS.institutional;
 const K = COLORS.kanban;
@@ -281,7 +282,7 @@ export default function ChatOmnicanalScreen() {
     useCallback(() => {
       if (!convId) {
         Alert.alert('Conversación no encontrada', 'Vuelve al listado de chats e intenta de nuevo.', [
-          { text: 'OK', onPress: () => router.back() },
+          { text: 'OK', onPress: () => navigateBack('/(tabs)/chats') },
         ]);
         return;
       }
@@ -464,7 +465,7 @@ export default function ChatOmnicanalScreen() {
           hasKnownChannel={conversationMeta.hasKnownChannel}
           isMetaPending={conversationMeta.isMetaPending}
           paddingTop={insets.top + SPACING.sm}
-          onBack={() => router.back()}
+          onBack={() => navigateBack('/(tabs)/chats')}
           contactoRol={conversationMeta.contactoRol}
         />
         {rolSugerido === 'casa_repuestos'

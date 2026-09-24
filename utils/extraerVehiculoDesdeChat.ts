@@ -128,8 +128,26 @@ function marcaModeloEn(texto: string): { marca: string; modelo: string } {
   return { marca: '', modelo: '' };
 }
 
+function lineasSeguras(lineas: Array<LineaChat | string | null | undefined>): LineaChat[] {
+  const seguras: LineaChat[] = [];
+  for (const linea of lineas) {
+    if (typeof linea === 'string') {
+      const texto = linea.trim();
+      if (texto) seguras.push({ texto, propio: false });
+      continue;
+    }
+    if (!linea || typeof linea.texto !== 'string') continue;
+    const texto = linea.texto.trim();
+    if (!texto) continue;
+    seguras.push({ texto, propio: Boolean(linea.propio) });
+  }
+  return seguras;
+}
+
 /** Patente, datos del auto y tracción mencionados en el chat. */
-export function vehiculoDesdeMensajesCliente(lineas: LineaChat[]): VehiculoEnChat {
+export function vehiculoDesdeMensajesCliente(
+  lineas: Array<LineaChat | string | null | undefined>,
+): VehiculoEnChat {
   const vacio: VehiculoEnChat = {
     patente: null,
     marca: '',
@@ -138,7 +156,8 @@ export function vehiculoDesdeMensajesCliente(lineas: LineaChat[]): VehiculoEnCha
     cilindraje: '',
     traccion: '',
   };
-  const delCliente = lineas.filter((linea) => !linea.propio).map((linea) => linea.texto).reverse();
+  const seguras = lineasSeguras(lineas);
+  const delCliente = seguras.filter((linea) => !linea.propio).map((linea) => linea.texto).reverse();
   let patente: string | null = null;
   let marca = '';
   let modelo = '';
@@ -160,7 +179,7 @@ export function vehiculoDesdeMensajesCliente(lineas: LineaChat[]): VehiculoEnCha
     if (patente && marca && anio && cilindraje) break;
   }
 
-  const traccion = traccionDesdeLineas(lineas);
+  const traccion = traccionDesdeLineas(seguras);
   if (!patente && !marca && !anio && !cilindraje && !traccion) return vacio;
   return { patente, marca, modelo, anio, cilindraje, traccion };
 }

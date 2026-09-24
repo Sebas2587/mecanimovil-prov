@@ -39,10 +39,14 @@ export function ContextoClienteCotizacion({
   });
 
   const vehiculo = useMemo(() => {
-    const lineas = (Array.isArray(data) ? data : [])
-      .map(lineaChat)
-      .filter((item): item is LineaChat => item != null);
-    return vehiculoDesdeMensajesCliente(lineas);
+    try {
+      const lineas = (Array.isArray(data) ? data : [])
+        .map(lineaChat)
+        .filter((item): item is LineaChat => item != null);
+      return vehiculoDesdeMensajesCliente(lineas);
+    } catch {
+      return vehiculoDesdeMensajesCliente([]);
+    }
   }, [data]);
 
   if (isError || !vehiculo.patente) return null;

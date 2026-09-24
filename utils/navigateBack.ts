@@ -6,15 +6,11 @@ import { router, type Href } from 'expo-router';
  * En web, Expo Router suele ignorar router.back() / history.back(); replace al fallback es fiable.
  */
 export function navigateBack(fallback: Href = '/(tabs)' as Href) {
-  if (Platform.OS === 'web') {
-    router.replace(fallback);
-    return;
-  }
-
   const canGoBack =
     typeof router.canGoBack === 'function' ? router.canGoBack() : false;
 
-  if (canGoBack) {
+  // En web, canGoBack a veces dice que sí y el stack igual no tiene pantalla previa.
+  if (Platform.OS !== 'web' && canGoBack) {
     router.back();
     return;
   }
