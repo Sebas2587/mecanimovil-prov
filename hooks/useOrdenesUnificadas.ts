@@ -393,7 +393,7 @@ export function useOrdenesUnificadas(enabled: boolean): UseOrdenesUnificadasResu
   );
 
   const activas = useMemo(
-    () => mergeOrdenesPorGrupo(activasMarketplace, citasActivasConfirmadas),
+    () => mergeOrdenesPorGrupo(activasMarketplace, citasActivasConfirmadas, 'agenda_reciente'),
     [activasMarketplace, citasActivasConfirmadas],
   );
 

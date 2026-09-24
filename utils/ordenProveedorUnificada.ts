@@ -90,12 +90,34 @@ function timestampItem(item: OrdenActivaItem): number {
   return timestampMarketplaceItem(item);
 }
 
-export type OrdenCronologico = 'asc' | 'desc';
+const ESTADOS_ACEPTADOS = new Set([
+  'aceptada',
+  'pendiente_pago',
+  'pagada_parcialmente',
+  'pagada',
+  'en_ejecucion',
+]);
+
+/** Fecha de agendamiento solo si el servicio ya fue aceptado o confirmado. */
+function timestampAgendado(item: OrdenActivaItem): number | null {
+  if (item.origen === 'personal') {
+    if (!item.cita.fecha_servicio || item.cita.horario_por_confirmar) return null;
+    const ts = timestampServicio(item.cita.fecha_servicio, item.cita.hora_servicio);
+    return ts === Number.MAX_SAFE_INTEGER ? null : ts;
+  }
+  const fecha = item.orden?.fecha_servicio || item.oferta?.fecha_disponible || null;
+  if (!fecha || !ESTADOS_ACEPTADOS.has(item.estadoEfectivo)) return null;
+  const ts = timestampServicio(fecha, item.orden?.hora_servicio || item.oferta?.hora_disponible || null);
+  return ts === Number.MAX_SAFE_INTEGER ? null : ts;
+}
+
+export type OrdenCronologico = 'asc' | 'desc' | 'agenda_reciente';
 
 /**
  * Combina marketplace + citas personales.
- * - `asc` (default): próximo servicio primero (Activas).
+ * - `asc` (default): próximo servicio primero.
  * - `desc`: más reciente primero (Completadas / Rechazadas).
+ * - `agenda_reciente`: aceptados y confirmados con fecha, el agendamiento más nuevo arriba.
  */
 export function mergeOrdenesPorGrupo(
   marketplace: ActividadMarketplaceItem[],
@@ -113,6 +135,13 @@ export function mergeOrdenesPorGrupo(
   ];
 
   items.sort((a, b) => {
+    if (orden === 'agenda_reciente') {
+      const ta = timestampAgendado(a);
+      const tb = timestampAgendado(b);
+      if (ta != null && tb != null) return tb - ta;
+      if (ta != null) return -1;
+      if (tb != null) return 1;
+    }
     const diff = timestampItem(a) - timestampItem(b);
     return orden === 'desc' ? -diff : diff;
   });
