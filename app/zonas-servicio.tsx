@@ -54,11 +54,11 @@ export default function ZonasServicioScreen() {
   const [stats, setStats] = useState<ServiceAreaStats | null>(null);
 
   useEffect(() => {
-    setServiceAreas(serviceAreasFromQuery);
+    setServiceAreas((prev) => (prev === serviceAreasFromQuery ? prev : serviceAreasFromQuery));
   }, [serviceAreasFromQuery]);
 
   useEffect(() => {
-    setStats(statsFromQuery);
+    setStats((prev) => (prev === statsFromQuery ? prev : statsFromQuery));
   }, [statsFromQuery]);
 
   const I = COLORS.institutional;

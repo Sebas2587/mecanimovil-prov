@@ -3,6 +3,7 @@ import cotizacionCanalService, {
   type CotizacionPlantilla,
 } from '@/services/cotizacionCanalService';
 import { DASHBOARD_QUERY_STALE_MS } from '@/hooks/useDashboardFinanzas';
+import { emptyList } from '@/hooks/stableEmpty';
 
 export type FiltroPlantillaVehiculo = {
   marca?: string;
@@ -47,8 +48,8 @@ export function useCotizacionPlantillasQuery(
   });
 
   return {
-    data: data ?? [],
-    plantillas: data ?? [],
+    data: data ?? emptyList<CotizacionPlantilla>(),
+    plantillas: data ?? emptyList<CotizacionPlantilla>(),
     loading: isPending && data == null,
     isRefetching: isFetching && data != null,
     error: error instanceof Error ? error.message : null,

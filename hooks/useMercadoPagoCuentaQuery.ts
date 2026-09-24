@@ -5,6 +5,7 @@ import mercadoPagoProveedorService, {
   type PagoRecibido,
 } from '@/services/mercadoPagoProveedorService';
 import { DASHBOARD_QUERY_STALE_MS } from '@/hooks/useDashboardFinanzas';
+import { emptyList } from '@/hooks/stableEmpty';
 import {
   invalidateMercadoPagoQueries,
   mpEstadoCuentaQueryKey,
@@ -50,7 +51,7 @@ export function useMercadoPagoHistorialPagosQuery(enabled = true) {
   });
 
   return {
-    data: data ?? [],
+    data: data ?? emptyList<PagoRecibido>(),
     loading: isPending && data == null,
     isRefetching: isFetching && data != null,
     error: error instanceof Error ? error.message : null,

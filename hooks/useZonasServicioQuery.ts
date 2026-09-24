@@ -4,6 +4,7 @@ import serviceAreasApi, {
   type ServiceAreaStats,
 } from '@/services/serviceAreasApi';
 import { DASHBOARD_QUERY_STALE_MS } from '@/hooks/useDashboardFinanzas';
+import { emptyList } from '@/hooks/stableEmpty';
 
 export type ZonasServicioData = {
   areas: ServiceArea[];
@@ -37,7 +38,7 @@ export function useZonasServicioQuery(enabled = true) {
 
   return {
     data: data ?? null,
-    areas: data?.areas ?? [],
+    areas: data?.areas ?? emptyList<ServiceArea>(),
     stats: data?.stats ?? null,
     loading: isPending && data == null,
     isRefetching: isFetching && data != null,

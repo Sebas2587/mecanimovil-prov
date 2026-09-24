@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { serviciosAPI } from '@/services/api';
 import { parseMisMarcasResponse } from '@/utils/parseMisMarcasResponse';
 import { DASHBOARD_QUERY_STALE_MS } from '@/hooks/useDashboardFinanzas';
+import { emptyList, emptyMap } from '@/hooks/stableEmpty';
 
 export const MIS_SERVICIOS_QUERY_KEY = ['mis-servicios-ofertas'] as const;
 
@@ -123,8 +124,8 @@ export function useMisServiciosQuery(enabled = true) {
   });
 
   return {
-    servicios: data?.servicios ?? [],
-    marcasLookup: data?.marcasLookup ?? new Map<number, MarcaProveedorRow>(),
+    servicios: data?.servicios ?? emptyList<ServicioOfertaRow>(),
+    marcasLookup: data?.marcasLookup ?? emptyMap<number, MarcaProveedorRow>(),
     loading: isPending && data == null,
     isRefetching: isFetching && data != null,
     error: error instanceof Error ? error.message : null,

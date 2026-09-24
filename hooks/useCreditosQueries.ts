@@ -19,6 +19,7 @@ import {
   saldoCreditosQueryKey,
   suscripcionProveedorQueryKey,
 } from '@/hooks/useDashboardFinanzas';
+import { emptyList } from '@/hooks/stableEmpty';
 
 export { saldoCreditosQueryKey, suscripcionProveedorQueryKey };
 export {
@@ -144,7 +145,7 @@ export function usePlanesSuscripcionQuery(enabled = true) {
   });
 
   return {
-    data: data ?? [],
+    data: data ?? emptyList<PlanSuscripcion>(),
     loading: isPending && data == null,
     isRefetching: isFetching && data != null,
     error: error instanceof Error ? error.message : null,
@@ -170,7 +171,7 @@ export function useCobrosMpHistorialQuery(enabled = true) {
   });
 
   return {
-    data: data ?? [],
+    data: data ?? emptyList<CobroMP>(),
     loading: isPending && data == null,
     isRefetching: isFetching && data != null,
     error: error instanceof Error ? error.message : null,
@@ -237,8 +238,8 @@ export function useHistorialCreditosQuery(enabled = true, limit = 50) {
 
   return {
     data: data ?? null,
-    compras: data?.compras ?? [],
-    consumos: data?.consumos ?? [],
+    compras: data?.compras ?? emptyList<CompraCreditos>(),
+    consumos: data?.consumos ?? emptyList<ConsumoCredito>(),
     loading: isPending && data == null,
     isRefetching: isFetching && data != null,
     error: error instanceof Error ? error.message : null,

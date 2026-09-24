@@ -7,6 +7,7 @@ import {
   type ModeloVehiculo,
 } from '@/services/api';
 import { DASHBOARD_QUERY_STALE_MS } from '@/hooks/useDashboardFinanzas';
+import { emptyList, emptyRecord } from '@/hooks/stableEmpty';
 
 export type EspecialidadesMarcasData = {
   todasMarcas: MarcaVehiculo[];
@@ -75,10 +76,10 @@ export function useEspecialidadesMarcasQuery(enabled = true) {
 
   return {
     data: data ?? null,
-    todasMarcas: data?.todasMarcas ?? [],
-    modelosPorMarca: data?.modelosPorMarca ?? {},
-    marcasActuales: data?.marcasActuales ?? [],
-    marcasSeleccionadasIds: data?.marcasSeleccionadasIds ?? [],
+    todasMarcas: data?.todasMarcas ?? emptyList<MarcaVehiculo>(),
+    modelosPorMarca: data?.modelosPorMarca ?? emptyRecord<Record<number, ModeloVehiculo[]>>(),
+    marcasActuales: data?.marcasActuales ?? emptyList<MarcaVehiculo>(),
+    marcasSeleccionadasIds: data?.marcasSeleccionadasIds ?? emptyList<number>(),
     loading: isPending && data == null,
     isRefetching: isFetching && data != null,
     error: error instanceof Error ? error.message : null,

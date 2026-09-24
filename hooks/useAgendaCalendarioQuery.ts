@@ -5,6 +5,7 @@ import {
 } from '@/services/agendaProveedorService';
 import { formatDateApi } from '@/components/solicitudes/CatalogoFechaHoraPickers';
 import { DASHBOARD_QUERY_STALE_MS } from '@/hooks/useDashboardFinanzas';
+import { emptyList } from '@/hooks/stableEmpty';
 
 export function rangoMesCalendario(mes: Date): { desde: string; hasta: string } {
   const year = mes.getFullYear();
@@ -54,7 +55,7 @@ export function useAgendaCalendarioQuery({ mesActual, miembroFiltro, enabled = t
   });
 
   return {
-    eventos: data ?? [],
+    eventos: data ?? emptyList<EventoAgendaUnificado>(),
     loading: isPending && data == null,
     isRefetching: isFetching && data != null,
     error: error instanceof Error ? error.message : null,

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { documentosAPI, type DocumentoOnboarding, type TipoDocumento } from '@/services/api';
 import { DASHBOARD_QUERY_STALE_MS } from '@/hooks/useDashboardFinanzas';
+import { emptyList } from '@/hooks/stableEmpty';
 
 export type DocumentoLocalRow = DocumentoOnboarding & {
   esObligatorio: boolean;
@@ -116,8 +117,8 @@ export function usePerfilDocumentosQuery(enabled = true) {
   });
 
   return {
-    documentos: data?.documentos ?? [],
-    tiposDocumento: data?.tiposDocumento ?? [],
+    documentos: data?.documentos ?? emptyList<DocumentoLocalRow>(),
+    tiposDocumento: data?.tiposDocumento ?? emptyList<TipoDocumento>(),
     loading: isPending && data == null,
     isRefetching: isFetching && data != null,
     error: error instanceof Error ? error.message : null,

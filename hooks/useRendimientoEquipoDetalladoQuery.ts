@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import equipoTallerService, { type MecanicoKpis } from '@/services/equipoTallerService';
 import { DASHBOARD_QUERY_STALE_MS } from '@/hooks/useDashboardFinanzas';
+import { emptyList } from '@/hooks/stableEmpty';
 
 export function rendimientoEquipoDetalladoQueryKey(dias: number) {
   const d = Math.min(365, Math.max(1, Math.round(dias)));
@@ -29,7 +30,7 @@ export function useRendimientoEquipoDetalladoQuery({ enabled = true, dias = 30 }
     error instanceof Error ? error.message : error != null ? String(error) : null;
 
   return {
-    data: data ?? [],
+    data: data ?? emptyList<MecanicoKpis>(),
     loading: isPending && data == null,
     isRefetching: isFetching && data != null,
     error: errorMessage,

@@ -204,11 +204,15 @@ export default function EspecialidadesMarcasScreen() {
     }
   }, [estadoProveedor]);
 
+  const marcasIdsKey = marcasSeleccionadasIds.join(',');
+
   useEffect(() => {
-    if (!modoEdicion && !hasChanges) {
-      setMarcasSeleccionadas(marcasSeleccionadasIds);
-    }
-  }, [marcasSeleccionadasIds, modoEdicion, hasChanges]);
+    if (modoEdicion || hasChanges) return;
+    const next = marcasIdsKey ? marcasIdsKey.split(',').map(Number) : [];
+    setMarcasSeleccionadas((prev) => (
+      prev.length === next.length && prev.every((id, index) => id === next[index]) ? prev : next
+    ));
+  }, [marcasIdsKey, modoEdicion, hasChanges]);
 
   useEffect(() => {
     if (catalogError) {

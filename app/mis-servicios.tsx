@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useCallback, useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -131,7 +131,6 @@ const MisServiciosScreen = () => {
   const { width: windowWidth } = useWindowDimensions();
   const columns = windowWidth >= GRID_BREAKPOINT ? 2 : 1;
   const { servicios, loading, isRefetching, refresh } = useMisServiciosQuery(true);
-  const [serviciosFiltrados, setServiciosFiltrados] = useState<ServicioOfertaRow[]>([]);
   const [searchText, setSearchText] = useState('');
 
   const verDetalleServicio = useCallback((grupo: ServicioCatalogoGrupo<ServicioOfertaRow>) => {
@@ -146,13 +145,10 @@ const MisServiciosScreen = () => {
     });
   }, []);
 
-  const aplicarFiltro = useCallback((texto: string, serviciosLista: ServicioOfertaRow[]) => {
-    if (!texto.trim()) {
-      setServiciosFiltrados(serviciosLista);
-      return;
-    }
-    const textoLower = texto.toLowerCase().trim();
-    const filtrados = serviciosLista.filter((servicio) => {
+  const serviciosFiltrados = useMemo(() => {
+    const textoLower = searchText.toLowerCase().trim();
+    if (!textoLower) return servicios;
+    return servicios.filter((servicio) => {
       const nombreMatch = servicio.servicio_info.nombre.toLowerCase().includes(textoLower);
       const marcaMatch = servicio.marca_vehiculo_info?.nombre.toLowerCase().includes(textoLower);
       const tipoMatch =
@@ -162,12 +158,7 @@ const MisServiciosScreen = () => {
       const motorMatch = labelTipoMotor(servicio.tipo_motor).toLowerCase().includes(textoLower);
       return nombreMatch || marcaMatch || tipoMatch || motorMatch;
     });
-    setServiciosFiltrados(filtrados);
-  }, []);
-
-  useEffect(() => {
-    aplicarFiltro(searchText, servicios);
-  }, [searchText, servicios, aplicarFiltro]);
+  }, [searchText, servicios]);
 
   const onRefresh = useCallback(async () => {
     try {

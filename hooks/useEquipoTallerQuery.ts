@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { especialidadesAPI } from '@/services/api';
 import equipoTallerService, { type MiembroTaller } from '@/services/equipoTallerService';
 import { DASHBOARD_QUERY_STALE_MS } from '@/hooks/useDashboardFinanzas';
+import { emptyList } from '@/hooks/stableEmpty';
 
 export interface EquipoTallerData {
   miembros: MiembroTaller[];
@@ -29,8 +30,8 @@ export function useEquipoTallerQuery(enabled = true) {
 
   return {
     data,
-    miembros: data?.miembros ?? [],
-    categorias: data?.categorias ?? [],
+    miembros: data?.miembros ?? emptyList<MiembroTaller>(),
+    categorias: data?.categorias ?? emptyList<{ id: number; nombre: string }>(),
     loading: isPending && data == null,
     isRefetching: isFetching && data != null,
     error: error instanceof Error ? error.message : null,

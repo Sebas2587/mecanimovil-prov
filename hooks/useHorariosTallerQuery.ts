@@ -6,6 +6,7 @@ import {
   type EstadoAgendaProveedor,
 } from '@/utils/horariosProveedor';
 import { DASHBOARD_QUERY_STALE_MS } from '@/hooks/useDashboardFinanzas';
+import { emptyList } from '@/hooks/stableEmpty';
 
 export type HorariosTallerData = {
   horarios: HorarioProveedor[];
@@ -61,7 +62,7 @@ export function useHorariosTallerQuery(miembroId: number | null, enabled = true)
 
   return {
     data: data ?? null,
-    horarios: data ?? [],
+    horarios: data ?? emptyList<HorarioProveedor>(),
     loading: isPending && data == null,
     isRefetching: isFetching && data != null,
     error: error instanceof Error ? error.message : null,
