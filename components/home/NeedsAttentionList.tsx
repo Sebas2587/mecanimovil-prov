@@ -98,13 +98,19 @@ const AttentionRow = React.memo(function AttentionRow({
 
 export function NeedsAttentionList({ pipelineItems = [] }: NeedsAttentionListProps) {
   const items = useMemo(() => {
-    const horario = pipelineItems.filter((row) => row.horario_por_confirmar);
+    const abierto = (row: PipelineComercialItem) =>
+      row.estado_normalizado !== 'rechazado_perdido'
+      && row.estado_normalizado !== 'completado'
+      && row.estado_normalizado !== 'aceptado_agendado'
+      && row.estado_normalizado !== 'en_ejecucion';
+    const horario = pipelineItems.filter(
+      (row) => row.horario_por_confirmar && !row.fecha_agendada && abierto(row),
+    );
     const sinRespuesta = pipelineItems.filter(
       (row) =>
         !row.horario_por_confirmar
-        && row.estado_normalizado !== 'aceptado_agendado'
-        && row.estado_normalizado !== 'en_ejecucion'
-        && row.estado_normalizado !== 'completado'
+        && !row.fecha_agendada
+        && abierto(row)
         && (row.esperando_respuesta_24h || row.demorado_48h),
     );
     return [...horario, ...sinRespuesta].slice(0, MAX_ITEMS);

@@ -18,7 +18,7 @@ import { X, Edit3, Send, Paperclip, Mic, MoreHorizontal, Check, FileText } from 
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import chatService from '@/services/chatService';
-import { OmnichannelChatHeader, OmnichannelChatActionBar } from '@/components/chats/OmnichannelChatHeader';
+import { etiquetaAgenda, OmnichannelChatHeader, OmnichannelChatActionBar } from '@/components/chats/OmnichannelChatHeader';
 import omnichannelService from '@/services/omnichannelService';
 import proveedorRepuestosService from '@/services/proveedorRepuestosService';
 import { CHAT_INBOX_QUERY_KEY, useInvalidateChatInbox } from '@/hooks/useChatInboxQuery';
@@ -263,8 +263,10 @@ export default function ChatOmnicanalScreen() {
   const mensajes = threadQuery.data?.mensajes ?? [];
   const cotizacionAceptadaId = threadQuery.data?.cotizacionAceptadaId;
   const cotizacionEnviadaId = threadQuery.data?.cotizacionEnviadaId;
+  const cotizacionCerrableId = threadQuery.data?.cotizacionCerrableId;
+  const agenda = threadQuery.data?.agenda;
   const casoCotizacion = useCasoCotizacionAcciones({
-    cotizacionId: cotizacionEnviadaId ?? 0,
+    cotizacionId: cotizacionCerrableId ?? cotizacionEnviadaId ?? 0,
     onCerrado: () => void refetchSilent(),
     onAceptada: () => void refetchSilent(),
   });
@@ -467,6 +469,7 @@ export default function ChatOmnicanalScreen() {
           paddingTop={insets.top + SPACING.sm}
           onBack={() => navigateBack('/(tabs)/chats')}
           contactoRol={conversationMeta.contactoRol}
+          agendaLabel={agenda ? etiquetaAgenda(agenda.fecha, agenda.hora) : null}
         />
         {rolSugerido === 'casa_repuestos'
           && contactoRol !== 'casa_repuestos' ? (
@@ -737,9 +740,16 @@ export default function ChatOmnicanalScreen() {
             footerAction={
               <OmnichannelChatActionBar
                 cotizacionAceptada={Boolean(cotizacionAceptadaId)}
+                citaAgendada={Boolean(agenda)}
                 conversationId={convId}
                 onPressCotizar={() => setCotizarVisible(true)}
-                onPressAgendar={() => setAgendarVisible(true)}
+                onPressAgendar={() => {
+                  if (agenda) {
+                    router.push(`/cita-agenda-personal/${agenda.citaId}`);
+                    return;
+                  }
+                  setAgendarVisible(true);
+                }}
                 onPressAgenteIa={() => setAgenteIaVisible(true)}
               />
             }
@@ -747,16 +757,16 @@ export default function ChatOmnicanalScreen() {
         </View>
 
         <CotizacionEditorFab
-          visible={Boolean(cotizacionEnviadaId && !cotizacionAceptadaId)}
+          visible={Boolean(cotizacionCerrableId)}
           variant="more"
           bottomOffset={176}
-          actions={cotizacionEnviadaId ? [
-            {
+          actions={cotizacionCerrableId ? [
+            ...(cotizacionEnviadaId ? [{
               key: 'aceptar',
               label: 'Marcar aceptada',
               icon: Check,
               onPress: () => void casoCotizacion.marcarAceptada(),
-            },
+            }] : []),
             {
               key: 'ver',
               label: 'Ver cotización',

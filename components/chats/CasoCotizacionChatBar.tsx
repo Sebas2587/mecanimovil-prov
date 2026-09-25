@@ -39,9 +39,16 @@ export function useCasoCotizacionAcciones({ cotizacionId, onCerrado, onAceptada 
         onConfirm: async () => {
           setBusy(true);
           try {
-            await cotizacionCanalService.marcarPerdida(cotizacionId);
+            const actualizada = await cotizacionCanalService.marcarPerdida(cotizacionId);
             onCerrado?.();
-            showAlert('Caso cerrado', 'Quedó en Perdidos.');
+            if (actualizada.cierre === 'terminada') {
+              showAlert(
+                'Orden terminada',
+                'El servicio principal ya está cerrado. Los adicionales rechazados no lo vuelven a abrir.',
+              );
+            } else {
+              showAlert('Caso cerrado', 'Quedó en Perdidos.');
+            }
           } catch {
             showAlert('Error', 'No se pudo cerrar el caso.');
           } finally {

@@ -17,10 +17,19 @@ export type ChatThreadRow = {
   channel_metadata?: Record<string, unknown>;
 };
 
+export type ChatAgenda = {
+  citaId: number;
+  fecha: string;
+  hora: string;
+};
+
 export type ChatThreadPayload = {
   mensajes: ChatThreadRow[];
   cotizacionAceptadaId?: number;
   cotizacionEnviadaId?: number;
+  /** Cotización enviada que todavía se puede cerrar (principal o adicional). */
+  cotizacionCerrableId?: number;
+  agenda?: ChatAgenda;
 };
 
 export function chatMessagesQueryKey(conversationId: string) {
@@ -59,20 +68,41 @@ export function useChatMessagesQuery(
       const mensajes = (rows as Record<string, unknown>[]).map(mapApiMessage);
       let cotizacionAceptadaId: number | undefined;
       let cotizacionEnviadaId: number | undefined;
+      let cotizacionCerrableId: number | undefined;
+      let agenda: ChatAgenda | undefined;
       try {
         const cotizaciones = await cotizacionCanalService.listarPorConversacion(
           parseInt(conversationId, 10),
         );
-        cotizacionAceptadaId = cotizaciones.find((c) => c.estado === 'aceptada')?.id;
+        const principales = cotizaciones.filter((c) => !c.es_cotizacion_adicional);
+        const agendada = principales.find((c) => c.tiene_horario_agendado && c.cita_personal_id);
+        if (agendada?.cita_personal_id && agendada.fecha_agendada) {
+          agenda = {
+            citaId: agendada.cita_personal_id,
+            fecha: agendada.fecha_agendada,
+            hora: agendada.hora_agendada || '',
+          };
+        }
+        const aceptadaSinHorario = principales.find(
+          (c) => c.estado === 'aceptada' && !c.tiene_horario_agendado,
+        );
+        cotizacionAceptadaId = agenda ? undefined : aceptadaSinHorario?.id;
         const enviadas = cotizaciones
           .filter((c) => c.estado === 'enviada')
           .sort((a, b) => b.id - a.id);
         cotizacionEnviadaId = enviadas[0]?.id;
+        const cerrable = cotizaciones.find((c) => c.estado === 'enviada')
+          || cotizaciones.find((c) => (
+            c.estado === 'aceptada' && (c.es_cotizacion_adicional || !c.tiene_horario_agendado)
+          ));
+        cotizacionCerrableId = cerrable?.id;
       } catch {
         cotizacionAceptadaId = undefined;
         cotizacionEnviadaId = undefined;
+        cotizacionCerrableId = undefined;
+        agenda = undefined;
       }
-      return { mensajes, cotizacionAceptadaId, cotizacionEnviadaId };
+      return { mensajes, cotizacionAceptadaId, cotizacionEnviadaId, cotizacionCerrableId, agenda };
     },
     enabled: Boolean(conversationId),
     staleTime: 30_000,

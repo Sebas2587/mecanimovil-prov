@@ -101,6 +101,11 @@ export interface InboxChatItem {
   /** Calificación de intención del lead (omnicanal con agente IA). */
   lead_categoria?: LeadCategoria;
   lead_score?: number;
+  /** Visita activa con día y hora ya confirmados. */
+  cita_agendada?: boolean;
+  cita_id?: number | null;
+  cita_fecha?: string | null;
+  cita_hora?: string | null;
   /** Rol durable del contacto: casa de repuestos, cliente, solo consulta, otro. */
   contacto_rol?: string | null;
   rol_sugerido?: string | null;

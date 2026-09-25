@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
@@ -44,6 +44,58 @@ const FF = TYPOGRAPHY.fontFamily;
 const TS = TYPOGRAPHY.styles;
 const lh = (fontSize: number, lineHeightMult: number) => Math.round(fontSize * lineHeightMult);
 
+function textoBloqueoAdicional(cita: {
+  estado?: string;
+  checklist_estado?: string | null;
+  cotizacion_adicional_pendiente_id?: number | null;
+  horario_por_confirmar?: boolean;
+}): string {
+  if (cita.cotizacion_adicional_pendiente_id) {
+    return 'Ya hay un trabajo adicional pendiente. Revísalo o espera la respuesta del cliente.';
+  }
+  if (cita.horario_por_confirmar) {
+    return 'Confirma el horario primero. Mientras tanto puedes editar la cotización original.';
+  }
+  if (cita.estado === 'cerrada' || cita.checklist_estado === 'COMPLETADO') {
+    return 'El cliente ya certificó este servicio. La visita quedó cerrada. Un hallazgo nuevo se cotiza como otro trabajo.';
+  }
+  if (cita.estado === 'cancelada') {
+    return 'Esta visita está cancelada. No se puede agregar un trabajo adicional.';
+  }
+  return 'Este trabajo aún no permite agregar un servicio adicional.';
+}
+
+function mensajeRechazoAdicional(data: unknown): {
+  mensaje: string;
+  codigo: string;
+  cotizacionId: number | null;
+} {
+  if (Array.isArray(data) && data.length > 0) {
+    return { mensaje: String(data[0]), codigo: '', cotizacionId: null };
+  }
+  if (!data || typeof data !== 'object') {
+    return { mensaje: '', codigo: '', cotizacionId: null };
+  }
+  const row = data as Record<string, unknown>;
+  const cotizacionRaw = row.cotizacion_id;
+  const cotizacionId = typeof cotizacionRaw === 'number'
+    ? cotizacionRaw
+    : Array.isArray(cotizacionRaw) && typeof cotizacionRaw[0] === 'number'
+      ? cotizacionRaw[0]
+      : null;
+  return {
+    mensaje: textoErrorApi(row.detail),
+    codigo: textoErrorApi(row.codigo),
+    cotizacionId,
+  };
+}
+
+function textoErrorApi(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value) && value.length > 0) return String(value[0]);
+  return '';
+}
+
 function formatPrecio(val: string | number | undefined): string {
   const n = Number(val);
   if (!Number.isFinite(n) || n <= 0) return 'Sin precio';
@@ -55,7 +107,7 @@ export default function AgregarServicioAdicionalScreen() {
   const parsedId = Number(citaId);
   const insets = useSafeAreaInsets();
 
-  const { data: cita, isPending: citaLoading } = useCitaPersonalQuery(
+  const { data: cita, isPending: citaLoading, refetch: refetchCita } = useCitaPersonalQuery(
     Number.isFinite(parsedId) ? parsedId : undefined,
   );
   const { data: catalogo, isPending: catalogoLoading } = useMisServiciosQuery(true);
@@ -73,6 +125,21 @@ export default function AgregarServicioAdicionalScreen() {
     const rows = catalogo?.servicios ?? [];
     return rows.filter((s) => s.disponible);
   }, [catalogo?.servicios]);
+
+  useFocusEffect(useCallback(() => {
+    if (!Number.isFinite(parsedId)) return undefined;
+    void refetchCita();
+    return undefined;
+  }, [parsedId, refetchCita]));
+
+  const esperaFirmaCliente = cita?.checklist_estado === 'PENDIENTE_FIRMA_CLIENTE';
+  useEffect(() => {
+    if (!esperaFirmaCliente) return undefined;
+    const timer = setInterval(() => {
+      void refetchCita();
+    }, 12_000);
+    return () => clearInterval(timer);
+  }, [esperaFirmaCliente, refetchCita]);
 
   const toggleServicio = useCallback((oferta: ServicioOfertaRow) => {
     setSeleccionados((prev) => {
@@ -164,12 +231,17 @@ export default function AgregarServicioAdicionalScreen() {
         }],
       );
     } catch (err: unknown) {
-      const data = (err as { response?: { data?: { detail?: string; codigo?: string; cotizacion_id?: number } } })
-        ?.response?.data;
-      const msg = data?.detail || (err as Error)?.message || 'No se pudo crear el hallazgo.';
+      const data = (err as { response?: { data?: unknown } })?.response?.data;
+      const parsed = mensajeRechazoAdicional(data);
+      void refetchCita();
+      const msg = parsed.mensaje || (err as Error)?.message || 'No se pudo crear el hallazgo.';
+      if (parsed.codigo === 'visita_cerrada' || parsed.codigo === 'visita_cancelada') {
+        showAlert('Visita cerrada', msg);
+        return;
+      }
       const pendienteId =
         cita.cotizacion_adicional_pendiente_id
-        || (typeof data?.cotizacion_id === 'number' ? data.cotizacion_id : null);
+        || parsed.cotizacionId;
       if (pendienteId && String(msg).toLowerCase().includes('pendiente')) {
         showAlertButtons(
           'Hay un hallazgo pendiente',
@@ -185,7 +257,7 @@ export default function AgregarServicioAdicionalScreen() {
     } finally {
       setEnviando(false);
     }
-  }, [cita, descripcionIa, ejecucion, fechaHora, modo, motivo, seleccionados, servicioIa]);
+  }, [cita, descripcionIa, ejecucion, fechaHora, modo, motivo, refetchCita, seleccionados, servicioIa]);
 
   if (citaLoading || !Number.isFinite(parsedId)) {
     return (
@@ -217,11 +289,7 @@ export default function AgregarServicioAdicionalScreen() {
         <Header title="Agregar hallazgo" showBack onBackPress={() => router.back()} />
         <View style={[styles.center, hostScreenStyles.gutterX]}>
           <Text style={styles.errorText}>
-            {cita.cotizacion_adicional_pendiente_id
-              ? 'Ya hay un trabajo adicional pendiente. Revísalo o espera la respuesta del cliente.'
-              : cita.horario_por_confirmar
-                ? 'Confirma el horario primero. Mientras tanto puedes editar la cotización original.'
-                : 'Este trabajo aún no permite agregar un servicio adicional.'}
+            {textoBloqueoAdicional(cita)}
           </Text>
           {cita.cotizacion_adicional_pendiente_id ? (
             <InstitutionalButton

@@ -13,7 +13,7 @@ import {
   Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { FileText, ListChecks, MessageCircle, UserRound, Wrench } from 'lucide-react-native';
 import Header from '@/components/Header';
@@ -61,6 +61,7 @@ import { consultarPatente } from '@/services/vehiculoService';
 import { VerHistorialPatenteLink } from '@/components/vehiculos/VerHistorialPatenteLink';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { etiquetaModalidadMecanico } from '@/services/equipoTallerService';
+import { invalidateProveedorComercialQueries } from '@/utils/invalidateProveedorComercial';
 import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
 import { useCitaPersonalQuery } from '@/hooks/useCitaPersonalQuery';
 import { useAuth } from '@/context/AuthContext';
@@ -352,14 +353,22 @@ export default function CitaAgendaPersonalDetalleScreen() {
     }
   }, [esMecanicoEquipo, editando]);
 
-  // Taller/supervisor: refrescar progreso mientras el técnico trabaja el checklist.
+  const esperaCierreCliente = mostrarProgresoChecklist || checklistPendienteFirmaCliente;
+
+  useFocusEffect(useCallback(() => {
+    if (Number.isNaN(citaId)) return undefined;
+    void refetchCita();
+    return undefined;
+  }, [citaId, refetchCita]));
+
+  // Refresca mientras el técnico trabaja o el cliente aún no firma, para ocultar el hallazgo al cerrar.
   useEffect(() => {
-    if (!mostrarProgresoChecklist || !citaId || Number.isNaN(citaId)) return;
+    if (!esperaCierreCliente || Number.isNaN(citaId)) return undefined;
     const timer = setInterval(() => {
       void refetchCita();
-    }, 15_000);
+    }, 12_000);
     return () => clearInterval(timer);
-  }, [mostrarProgresoChecklist, citaId, refetchCita]);
+  }, [esperaCierreCliente, citaId, refetchCita]);
 
   const puedeIniciarServicioSticky = Boolean(
     esActiva
@@ -513,6 +522,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
     try {
       const res = await agendaProveedorService.eliminarCita(citaId);
       if (res.success) {
+        invalidateProveedorComercialQueries(queryClient);
+        invalidateProveedorMarketplaceQueries(queryClient);
         if (Platform.OS === 'web') {
           showAlert('Cita eliminada', 'La cita fue eliminada correctamente.');
         }
@@ -533,7 +544,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
     } finally {
       setProcesando(false);
     }
-  }, [citaId, mostrarFeedback]);
+  }, [citaId, mostrarFeedback, queryClient]);
 
   const handleEliminar = useCallback(() => {
     showConfirm('Eliminar cita', 'Esta acción no se puede deshacer.', {

@@ -19,7 +19,9 @@ import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBo
 import { CotizacionEditorFab, type CotizacionFabAction } from '@/components/cotizacion/CotizacionEditorFab';
 import { COPY_PRECIO_TALLER, lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
 import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
+import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { etiquetaAgenda } from '@/components/chats/OmnichannelChatHeader';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
 import { useWebVisualViewport, webFooterBottom } from '@/hooks/useWebVisualViewport';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -447,8 +449,15 @@ export default function CotizacionCanalDetalleScreen() {
       onConfirm: async () => {
         setAccionLead(true);
         try {
-          await cotizacionCanalService.marcarPerdida(draft.id);
+          const actualizada = await cotizacionCanalService.marcarPerdida(draft.id);
           await invalidateAll();
+          if (actualizada.cierre === 'terminada') {
+            showAlert(
+              'Orden terminada',
+              'El servicio principal ya está cerrado. Los adicionales rechazados no lo vuelven a abrir.',
+            );
+            return;
+          }
           router.back();
         } catch {
           showAlert('Error', 'No se pudo cerrar el caso.');
@@ -554,6 +563,11 @@ export default function CotizacionCanalDetalleScreen() {
         onPress: () => void recordarWhatsApp(),
       });
     }
+    const puedeCerrarCaso = draft.estado === 'enviada'
+      || (
+        draft.estado === 'aceptada'
+        && (draft.es_cotizacion_adicional || !tieneHorarioAgendado)
+      );
     if (draft.estado === 'enviada') {
       fabActions.push({
         key: 'aceptar',
@@ -561,6 +575,8 @@ export default function CotizacionCanalDetalleScreen() {
         icon: Check,
         onPress: () => void marcarAceptada(),
       });
+    }
+    if (puedeCerrarCaso) {
       fabActions.push({
         key: 'cerrar',
         label: 'Cerrar caso',
@@ -645,6 +661,13 @@ export default function CotizacionCanalDetalleScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {tieneHorarioAgendado && draft.fecha_agendada ? (
+          <InstitutionalTag
+            label={etiquetaAgenda(draft.fecha_agendada, draft.hora_agendada)}
+            variant="success"
+            size="sm"
+          />
+        ) : null}
         <CotizacionIaEditor
           ref={editorRef}
           cotizacion={draft}

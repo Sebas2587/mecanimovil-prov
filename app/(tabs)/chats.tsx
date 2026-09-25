@@ -45,6 +45,7 @@ import {
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
 import { ChannelBadge } from '@/components/chats/ChannelBadge';
+import { etiquetaAgenda } from '@/components/chats/OmnichannelChatHeader';
 import { ChannelAvatar } from '@/components/chats/ChannelAvatar';
 import { ChatInboxLinkRow } from '@/components/chats/ChatInboxLinkRow';
 import { resolveChatHref } from '@/utils/chatRoutes';
@@ -494,10 +495,16 @@ export default function ChatsScreen() {
     const hasUnread = mensajes_no_leidos > 0;
     const vehiculoPill = formatVehiculoPillLabel(vehiculo);
     const telefonoContacto = (otra_persona?.telefono || '').trim();
-    const cotizacionLabel = cotizacionBadgeLabel(item.cotizacion_estado);
+    const agendaLabel = item.cita_agendada && item.cita_fecha
+      ? etiquetaAgenda(item.cita_fecha, item.cita_hora)
+      : null;
+    const cotizacionLabel = agendaLabel ? null : cotizacionBadgeLabel(item.cotizacion_estado);
     const rolLabel = rolContactoLabel(item.contacto_rol, item.rol_sugerido);
     const leadCat = (item.lead_categoria || 'sin_calificar') as LeadCategoria;
-    const showLeadTag = leadCat !== 'sin_calificar' && item.contacto_rol !== 'casa_repuestos' && item.contacto_rol !== 'otro';
+    const showLeadTag = !agendaLabel
+      && leadCat !== 'sin_calificar'
+      && item.contacto_rol !== 'casa_repuestos'
+      && item.contacto_rol !== 'otro';
     const isDeleting = isOmnichannel
       ? deletingRowKey === `omni:${String(conversation_id)}`
       : deletingRowKey === `oferta:${String(oferta_id)}`;
@@ -552,7 +559,7 @@ export default function ChatsScreen() {
             </Text>
           ) : null}
 
-          {(!!vehiculoPill || !!telefonoContacto || !!cotizacionLabel || showLeadTag || !!rolLabel) ? (
+          {(!!vehiculoPill || !!telefonoContacto || !!cotizacionLabel || !!agendaLabel || showLeadTag || !!rolLabel) ? (
             <View style={styles.tagsRow}>
               {!!rolLabel ? (
                 <InstitutionalTag
@@ -560,6 +567,9 @@ export default function ChatsScreen() {
                   variant={item.contacto_rol === 'casa_repuestos' ? 'primary' : 'neutral'}
                   size="sm"
                 />
+              ) : null}
+              {agendaLabel ? (
+                <InstitutionalTag label={agendaLabel} variant="success" size="sm" />
               ) : null}
               {!!cotizacionLabel ? (
                 <InstitutionalTag

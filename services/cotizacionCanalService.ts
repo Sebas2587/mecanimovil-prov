@@ -210,6 +210,10 @@ export interface CotizacionCanal {
   cita_origen_id?: number | null;
   /** Cita activa con día y hora confirmados. */
   tiene_horario_agendado?: boolean;
+  fecha_agendada?: string;
+  hora_agendada?: string;
+  /** Respuesta de cierre: la orden ya estaba terminada y no pasa a Perdidos. */
+  cierre?: 'terminada' | string;
   /** Se puede editar ítems (IA o manual) y reenviar; false si ya hay horario. */
   permite_edicion_completa?: boolean;
   token?: string | null;

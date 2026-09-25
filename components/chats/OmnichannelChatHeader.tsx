@@ -12,6 +12,16 @@ import { useAgenteSesionQuery } from '@/hooks/useAgenteIaQueries';
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+export function etiquetaAgenda(fecha: string, hora?: string | null): string {
+  const partes = fecha.split('-');
+  const dia = Number(partes[2]);
+  const mes = MESES[Number(partes[1]) - 1] || '';
+  const cuando = Number.isFinite(dia) && mes ? `${dia} ${mes}` : fecha;
+  return hora ? `Agendado ${cuando} · ${hora}` : `Agendado ${cuando}`;
+}
+
 type HeaderProps = {
   channel: ChannelSlug;
   displayName: string;
@@ -20,6 +30,7 @@ type HeaderProps = {
   paddingTop: number;
   onBack: () => void;
   contactoRol?: string;
+  agendaLabel?: string | null;
 };
 
 /**
@@ -33,6 +44,7 @@ function OmnichannelChatHeaderComponent({
   paddingTop,
   onBack,
   contactoRol = '',
+  agendaLabel = '',
 }: HeaderProps) {
   const rolLabel = contactoRol === 'casa_repuestos'
     ? 'Casa de repuestos'
@@ -69,7 +81,12 @@ function OmnichannelChatHeaderComponent({
                   size="sm"
                 />
               ) : null}
+              {agendaLabel ? (
+                <InstitutionalTag label={agendaLabel} variant="success" size="sm" />
+              ) : null}
             </View>
+          ) : agendaLabel ? (
+            <InstitutionalTag label={agendaLabel} variant="success" size="sm" />
           ) : null}
         </View>
       </View>
@@ -83,6 +100,7 @@ type ActionBarProps = {
   onPressAgenteIa?: () => void;
   conversationId?: string | number | null;
   cotizacionAceptada?: boolean;
+  citaAgendada?: boolean;
 };
 
 function OmnichannelChatActionBarComponent({
@@ -91,6 +109,7 @@ function OmnichannelChatActionBarComponent({
   onPressAgenteIa,
   conversationId,
   cotizacionAceptada,
+  citaAgendada = false,
 }: ActionBarProps) {
   const { data: sesion } = useAgenteSesionQuery(
     conversationId,
@@ -119,7 +138,26 @@ function OmnichannelChatActionBarComponent({
           style={styles.footerSecondary}
         />
       ) : null}
-      {cotizacionAceptada ? (
+      {citaAgendada ? (
+        <>
+          <InstitutionalButton
+            label="Cotizar"
+            variant="outline"
+            size="compact"
+            onPress={onPressCotizar}
+            accessibilityLabel="Cotizar un trabajo adicional"
+            style={styles.footerSecondaryAction}
+          />
+          <InstitutionalButton
+            label="Ver cita"
+            variant="primary"
+            size="compact"
+            onPress={onPressAgendar}
+            accessibilityLabel="Ver la cita ya agendada"
+            style={styles.footerPrimary}
+          />
+        </>
+      ) : cotizacionAceptada ? (
         <InstitutionalButton
           label="Agendar cita"
           variant="primary"

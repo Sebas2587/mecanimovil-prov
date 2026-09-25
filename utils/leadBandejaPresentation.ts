@@ -33,6 +33,10 @@ export function leadOperativoTag(
   if (cotizacionEstaEnEdicion(item)) {
     return { label: 'En edición', variant: 'primary' };
   }
+  if (item.fecha_agendada && !item.horario_por_confirmar) {
+    const hora = item.hora_agendada ? ` ${item.hora_agendada}` : '';
+    return { label: `Agendado${hora}`, variant: 'success' };
+  }
   if (item.horario_por_confirmar) {
     return { label: 'Confirmar horario', variant: 'warning' };
   }
