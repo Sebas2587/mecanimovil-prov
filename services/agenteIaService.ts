@@ -235,6 +235,22 @@ const agenteIaService = {
     const { data } = await api.get<AgenteIaActividadTaller>('/agente-ia/actividad-taller/');
     return data;
   },
+
+  async consultarDueno(payload: {
+    texto: string;
+    historial: Array<{ rol: 'dueno' | 'agente'; texto: string }>;
+  }): Promise<{
+    ok: boolean;
+    haciendo: string;
+    titulo: string;
+    resumen: string;
+    filas: Array<{ id: string; titulo: string; detalle: string; meta: string }>;
+    memoria_ids: string[];
+    error?: string;
+  }> {
+    const { data } = await api.post('/agente-ia/dueno/', payload);
+    return data;
+  },
 };
 
 export default agenteIaService;
