@@ -16,9 +16,18 @@ export type TurnoAgente = {
   resultado: ResultadoConsulta | null;
 };
 
+export type HiloResumen = {
+  id: number;
+  titulo: string;
+};
+
 type Props = {
   turnos: TurnoAgente[];
+  hilos: HiloResumen[];
+  hiloId: number | null;
   onCerrar: () => void;
+  onNueva: () => void;
+  onElegir: (id: number) => void;
 };
 
 const BurbujaDueno = React.memo(function BurbujaDueno({ texto }: { texto: string }) {
@@ -40,7 +49,14 @@ const EstadoAgente = React.memo(function EstadoAgente({ texto }: { texto: string
   );
 });
 
-export const HiloAgente = React.memo(function HiloAgente({ turnos, onCerrar }: Props) {
+export const HiloAgente = React.memo(function HiloAgente({
+  turnos,
+  hilos,
+  hiloId,
+  onCerrar,
+  onNueva,
+  onElegir,
+}: Props) {
   const ref = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -53,9 +69,27 @@ export const HiloAgente = React.memo(function HiloAgente({ turnos, onCerrar }: P
   return (
     <View style={styles.lienzo}>
       <View style={styles.cabeza}>
-        <InstitutionalText role="caption" color="muted">
-          Agente del taller
-        </InstitutionalText>
+        <Pressable onPress={onNueva} accessibilityRole="button" style={styles.nueva}>
+          <InstitutionalText role="captionBold" color="primary">Nueva</InstitutionalText>
+        </Pressable>
+        <ScrollView
+          horizontal
+          style={styles.listaScroll}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.lista}
+        >
+          {hilos.map((hilo) => (
+            <Pressable
+              key={hilo.id}
+              onPress={() => onElegir(hilo.id)}
+              style={[styles.hiloChip, hilo.id === hiloId && styles.hiloChipOn]}
+            >
+              <InstitutionalText role="caption" numberOfLines={1}>
+                {hilo.titulo}
+              </InstitutionalText>
+            </Pressable>
+          ))}
+        </ScrollView>
         <Pressable
           onPress={onCerrar}
           accessibilityRole="button"
@@ -98,9 +132,32 @@ const styles = StyleSheet.create({
   cabeza: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: SPACING.fixed.sm,
     paddingHorizontal: SPACING.fixed.lg,
     paddingVertical: SPACING.fixed.sm,
+  },
+  nueva: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: I.surfaceSoft,
+  },
+  listaScroll: {
+    flex: 1,
+  },
+  lista: {
+    gap: SPACING.fixed.xs,
+    alignItems: 'center',
+  },
+  hiloChip: {
+    maxWidth: 180,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: I.canvas,
+  },
+  hiloChipOn: {
+    backgroundColor: I.surfaceStrong,
   },
   cerrar: {
     width: 36,

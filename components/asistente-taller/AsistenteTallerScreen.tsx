@@ -28,7 +28,7 @@ import { ejecutarVerbo } from '@/components/asistente-taller/ejecutarVerbo';
 import { FilaLeads } from '@/components/asistente-taller/FilaLeads';
 import { openCitaPersonalDetalle, openOfertaDetalle } from '@/utils/navigateProveedorDetalle';
 import { fraseDelDia } from '@/utils/asistenteTaller/fraseDia';
-import { HiloAgente, type TurnoAgente } from '@/components/asistente-taller/HiloAgente';
+import { HiloAgente, type HiloResumen, type TurnoAgente } from '@/components/asistente-taller/HiloAgente';
 import {
   filasRendimiento,
   fraseHaciendo,
@@ -104,6 +104,8 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
   const [chatAbierto, setChatAbierto] = useState(false);
   const [turnos, setTurnos] = useState<TurnoAgente[]>([]);
   const [memoriaIds, setMemoriaIds] = useState<string[]>([]);
+  const [hilos, setHilos] = useState<HiloResumen[]>([]);
+  const [hiloId, setHiloId] = useState<number | null>(null);
   const chatListo = useRef(false);
   const [preguntaIds, setPreguntaIds] = useState<string[] | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -196,10 +198,73 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
     startTransition(() => setChatAbierto(true));
   }, []);
 
+  const cargarHilos = useCallback(async () => {
+    try {
+      const lista = await agenteIaService.listarHilosDueno();
+      setHilos(lista.map((hilo) => ({ id: hilo.id, titulo: hilo.titulo })));
+    } catch {
+      setHilos([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!chatAbierto) return;
+    void cargarHilos();
+  }, [cargarHilos, chatAbierto]);
+
   const onCerrarChat = useCallback(() => {
     chatListo.current = false;
     setChatAbierto(false);
     setTurnos([]);
+    setHiloId(null);
+  }, []);
+
+  const onNuevaConversacion = useCallback(() => {
+    setHiloId(null);
+    setTurnos([]);
+    setMemoriaIds([]);
+  }, []);
+
+  const onElegirHilo = useCallback(async (id: number) => {
+    setHiloId(id);
+    try {
+      const hilo = await agenteIaService.obtenerHiloDueno(id);
+      const siguientes: TurnoAgente[] = [];
+      let pregunta = '';
+      for (const mensaje of hilo.mensajes) {
+        if (mensaje.rol === 'dueno') {
+          if (pregunta) {
+            siguientes.push({ id: `h-${mensaje.id}`, pregunta, haciendo: null, resultado: null });
+          }
+          pregunta = mensaje.texto;
+          continue;
+        }
+        const vista = mensaje.vista;
+        siguientes.push({
+          id: `h-${mensaje.id}`,
+          pregunta: pregunta || mensaje.texto,
+          haciendo: null,
+          resultado: vista && (vista.titulo || vista.resumen)
+            ? {
+              titulo: vista.titulo || 'Agente del taller',
+              resumen: vista.resumen || mensaje.texto,
+              filas: vista.filas || [],
+            }
+            : {
+              titulo: 'Agente del taller',
+              resumen: mensaje.texto,
+              filas: [],
+            },
+        });
+        pregunta = '';
+      }
+      if (pregunta) {
+        siguientes.push({ id: `h-abierto-${id}`, pregunta, haciendo: null, resultado: null });
+      }
+      setTurnos(siguientes);
+    } catch {
+      setTurnos([]);
+    }
   }, []);
 
   const onSubmit = useCallback(async (texto: string) => {
@@ -221,8 +286,14 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
       return filas;
     });
     try {
-      const remoto = await agenteIaService.consultarDueno({ texto, historial });
+      const remoto = await agenteIaService.consultarDueno({
+        texto,
+        historial,
+        hilo_id: hiloId,
+      });
       if (remoto.ok) {
+        if (remoto.hilo_id) setHiloId(remoto.hilo_id);
+        void cargarHilos();
         setMemoriaIds(remoto.memoria_ids || []);
         setTurnos((prev) => prev.map((turno) => (
           turno.id === id
@@ -287,7 +358,7 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
     setTurnos((prev) => prev.map((turno) => (
       turno.id === id ? { ...turno, haciendo: null, resultado } : turno
     )));
-  }, [agenda.eventos, correrVerbo, leads, memoriaIds, pipeline.data?.results]);
+  }, [agenda.eventos, cargarHilos, correrVerbo, hiloId, leads, memoriaIds, pipeline.data?.results]);
 
   const onSinVoz = useCallback(() => {
     decir('asistente', 'En este teléfono escribe el pedido. El micrófono transcribe cuando el navegador puede escucharte.');
@@ -455,7 +526,14 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
         </View>
         <View style={chatAbierto ? styles.zonaChat : styles.zona}>
           {chatAbierto ? (
-            <HiloAgente turnos={turnos} onCerrar={onCerrarChat} />
+            <HiloAgente
+              turnos={turnos}
+              hilos={hilos}
+              hiloId={hiloId}
+              onCerrar={onCerrarChat}
+              onNueva={onNuevaConversacion}
+              onElegir={(id) => { void onElegirHilo(id); }}
+            />
           ) : (
         <ScrollView
           ref={hiloRef}

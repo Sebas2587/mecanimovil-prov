@@ -238,9 +238,12 @@ const agenteIaService = {
 
   async consultarDueno(payload: {
     texto: string;
+    hilo_id?: number | null;
     historial: Array<{ rol: 'dueno' | 'agente'; texto: string }>;
   }): Promise<{
     ok: boolean;
+    hilo_id?: number;
+    hilo_titulo?: string;
     haciendo: string;
     titulo: string;
     resumen: string;
@@ -249,6 +252,25 @@ const agenteIaService = {
     error?: string;
   }> {
     const { data } = await api.post('/agente-ia/dueno/', payload);
+    return data;
+  },
+
+  async listarHilosDueno(): Promise<Array<{ id: number; titulo: string; actualizado_en: string }>> {
+    const { data } = await api.get('/agente-ia/dueno/hilos/');
+    return data;
+  },
+
+  async obtenerHiloDueno(hiloId: number): Promise<{
+    id: number;
+    titulo: string;
+    mensajes: Array<{
+      id: number;
+      rol: 'dueno' | 'agente';
+      texto: string;
+      vista?: { titulo?: string; resumen?: string; filas?: Array<{ id: string; titulo: string; detalle: string; meta: string }> };
+    }>;
+  }> {
+    const { data } = await api.get(`/agente-ia/dueno/hilos/${hiloId}/`);
     return data;
   },
 };
