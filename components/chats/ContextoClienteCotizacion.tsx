@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
@@ -13,16 +13,20 @@ function lineaChat(row: unknown): LineaChat | null {
   const raw = row as Record<string, unknown>;
   const texto = String(raw.mensaje ?? raw.message ?? raw.content ?? '').trim();
   if (!texto) return null;
-  return {
-    texto,
-    propio: Boolean(raw.es_proveedor ?? raw.es_propio),
-  };
+  const direction = String(raw.direction || '');
+  const propio = direction
+    ? direction === 'outbound'
+    : Boolean(raw.es_proveedor ?? raw.es_propio);
+  return { texto, propio };
 }
 
 type Props = {
   conversationId: number;
   patenteActual: string;
-  onUsarPatente: (patente: string) => void;
+  onUsarPatente: (
+    patente: string,
+    datos?: { marca?: string; modelo?: string; anio?: string; cilindraje?: string },
+  ) => void;
 };
 
 /** Una fila: patente del chat y, si viene en el mensaje, marca, modelo, año, cilindraje o 4x2/4x4. */
@@ -49,6 +53,16 @@ export function ContextoClienteCotizacion({
     }
   }, [data]);
 
+  useEffect(() => {
+    if (!vehiculo.patente || patenteActual.trim()) return;
+    onUsarPatente(vehiculo.patente, {
+      marca: vehiculo.marca,
+      modelo: vehiculo.modelo,
+      anio: vehiculo.anio,
+      cilindraje: vehiculo.cilindraje,
+    });
+  }, [onUsarPatente, patenteActual, vehiculo.patente, vehiculo.marca, vehiculo.modelo, vehiculo.anio, vehiculo.cilindraje]);
+
   if (isError || !vehiculo.patente) return null;
 
   const usada = vehiculo.patente === patenteActual.trim().toUpperCase();
@@ -58,7 +72,12 @@ export function ContextoClienteCotizacion({
     <View style={styles.row}>
       <TouchableOpacity
         style={[styles.plate, usada && styles.plateOn]}
-        onPress={() => onUsarPatente(vehiculo.patente as string)}
+        onPress={() => onUsarPatente(vehiculo.patente as string, {
+          marca: vehiculo.marca,
+          modelo: vehiculo.modelo,
+          anio: vehiculo.anio,
+          cilindraje: vehiculo.cilindraje,
+        })}
         accessibilityRole="button"
         accessibilityLabel={`Usar patente ${vehiculo.patente} del chat`}
       >

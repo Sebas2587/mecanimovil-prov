@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { Card } from '@/app/design-system/components';
@@ -23,6 +23,8 @@ export type VehiculoPatenteState = {
   color: string;
   vin: string;
   cilindraje: string;
+  motor: string;
+  tipoMotor: string;
   desdePatente: boolean;
 };
 
@@ -34,8 +36,16 @@ export const VEHICULO_PATENTE_VACIO: VehiculoPatenteState = {
   color: '',
   vin: '',
   cilindraje: '',
+  motor: '',
+  tipoMotor: '',
   desdePatente: false,
 };
+
+function etiquetaCombustible(raw: string): string {
+  const limpio = raw.trim();
+  if (!limpio) return '';
+  return limpio.charAt(0).toUpperCase() + limpio.slice(1).toLowerCase();
+}
 
 function valorSpec(text: string): string {
   return text.trim() || 'N/A';
@@ -85,24 +95,9 @@ export function VehiculoPatenteSection({
   accionesDisabled = false,
   lookupRequest = null,
 }: Props) {
-  const handlePatenteChange = useCallback(
-    (text: string) => {
-      const nextPatente = stripNonAlphanumeric
-        ? text.toUpperCase().replace(/[^A-Z0-9]/g, '')
-        : text.toUpperCase();
-      if (value.desdePatente) {
-        onChange({
-          ...VEHICULO_PATENTE_VACIO,
-          patente: nextPatente,
-        });
-        onPatenteHintChange(null);
-      } else {
-        onChange({ ...value, patente: nextPatente });
-        onPatenteHintChange(null);
-      }
-    },
-    [value, onChange, onPatenteHintChange, stripNonAlphanumeric],
-  );
+  const consultada = useRef('');
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   const consultar = useCallback(async (patenteRaw: string) => {
     const patente = patenteRaw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -110,6 +105,7 @@ export function VehiculoPatenteSection({
       onPatenteHintChange(null);
       return;
     }
+    consultada.current = patente;
     onBuscandoPatenteChange(true);
     onPatenteHintChange(null);
     try {
@@ -122,13 +118,17 @@ export function VehiculoPatenteSection({
         color: data.color?.trim() || '',
         vin: data.vin?.trim() || '',
         cilindraje: cilindrajeEfectivo(data.cilindraje, data.marca_nombre, data.modelo_nombre),
+        motor: data.motor?.trim() || '',
+        tipoMotor: etiquetaCombustible(data.tipo_motor || ''),
         desdePatente: true,
       });
       onPatenteHintChange('Datos del vehículo cargados desde la patente.');
     } catch (err) {
+      const previo = valueRef.current;
       onChange({
-        ...VEHICULO_PATENTE_VACIO,
+        ...previo,
         patente,
+        desdePatente: false,
       });
       if (esErrorCuota(err)) {
         const mensaje = mensajeCuotaError(
@@ -145,6 +145,30 @@ export function VehiculoPatenteSection({
     }
   }, [onChange, onBuscandoPatenteChange, onPatenteHintChange, onCuotaError]);
 
+  const handlePatenteChange = useCallback(
+    (text: string) => {
+      const nextPatente = stripNonAlphanumeric
+        ? text.toUpperCase().replace(/[^A-Z0-9]/g, '')
+        : text.toUpperCase();
+      if (value.desdePatente) {
+        onChange({
+          ...VEHICULO_PATENTE_VACIO,
+          patente: nextPatente,
+        });
+        onPatenteHintChange(null);
+      } else {
+        onChange({ ...value, patente: nextPatente });
+        onPatenteHintChange(null);
+      }
+      const compacta = nextPatente.replace(/[^A-Z0-9]/g, '');
+      if (compacta.length === 6 && compacta !== consultada.current) {
+        consultada.current = compacta;
+        void consultar(compacta);
+      }
+    },
+    [consultar, value, onChange, onPatenteHintChange, stripNonAlphanumeric],
+  );
+
   const handlePatenteBlur = useCallback(() => {
     void consultar(value.patente);
   }, [consultar, value.patente]);
@@ -158,7 +182,7 @@ export function VehiculoPatenteSection({
     <>
       <InstitutionalField
         label="Patente"
-        hint="Consulta el registro al salir del campo. Si existe, autocompleta y bloquea los datos del vehículo."
+        hint="Al completar la patente se consulta el registro y se cargan los datos del vehículo."
         value={value.patente}
         onChangeText={handlePatenteChange}
         placeholder="ABCD12"
@@ -196,8 +220,12 @@ export function VehiculoPatenteSection({
               <VehiculoSpecItem label="Color" value={value.color} />
             </View>
             <View style={styles.vehiculoGrid}>
-              <VehiculoSpecItem label="VIN" value={value.vin} />
               <VehiculoSpecItem label="Cilindraje" value={value.cilindraje} />
+              <VehiculoSpecItem label="Motor" value={value.motor} />
+            </View>
+            <View style={styles.vehiculoGrid}>
+              <VehiculoSpecItem label="Combustible" value={value.tipoMotor} />
+              <VehiculoSpecItem label="VIN" value={value.vin} />
             </View>
           </View>
         ) : (
@@ -209,14 +237,16 @@ export function VehiculoPatenteSection({
             </View>
             <View style={styles.vehiculoGrid}>
               <VehiculoSpecItem label="Año" value={value.anio} />
-              <VehiculoSpecItem label="Cilindraje" value={value.cilindraje} />
+              <VehiculoSpecItem label="Color" value={value.color} />
             </View>
-            {value.vin ? (
-              <View style={styles.vehiculoGrid}>
-                <VehiculoSpecItem label="VIN" value={value.vin} />
-                <View style={styles.vehiculoGridItem} />
-              </View>
-            ) : null}
+            <View style={styles.vehiculoGrid}>
+              <VehiculoSpecItem label="Cilindraje" value={value.cilindraje} />
+              <VehiculoSpecItem label="Motor" value={value.motor} />
+            </View>
+            <View style={styles.vehiculoGrid}>
+              <VehiculoSpecItem label="Combustible" value={value.tipoMotor} />
+              <VehiculoSpecItem label="VIN" value={value.vin} />
+            </View>
           </Card>
         )
       ) : (

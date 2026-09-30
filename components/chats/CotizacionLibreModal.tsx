@@ -343,6 +343,14 @@ export function CotizacionLibreModal({
     setClienteNombre(nombreContactoAgendable(c.nombre));
     setClienteTelefono(c.telefono || '');
     setErrorIa(null);
+    const patente = (c.patente || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (patente.length >= 5) {
+      setVehiculo({ ...VEHICULO_PATENTE_VACIO, patente });
+      setPatenteDesdeChat({ patente, nonce: Date.now() });
+      return;
+    }
+    setVehiculo(VEHICULO_PATENTE_VACIO);
+    setPatenteDesdeChat(null);
   }, []);
 
   const limpiarContacto = useCallback(() => {
@@ -790,8 +798,15 @@ export function CotizacionLibreModal({
                     manualFooterHint={HINT_CLIENTE_SIN_CANAL}
                     contextoChat={Boolean(conversationIdProp)}
                     patenteActual={vehiculo.patente}
-                    onUsarPatente={(patente) => {
-                      setVehiculo((prev) => ({ ...prev, patente, desdePatente: false }));
+                    onUsarPatente={(patente, datos) => {
+                      setVehiculo({
+                        ...VEHICULO_PATENTE_VACIO,
+                        patente,
+                        marca: datos?.marca || '',
+                        modelo: datos?.modelo || '',
+                        anio: datos?.anio || '',
+                        cilindraje: datos?.cilindraje || '',
+                      });
                       setPatenteDesdeChat({ patente, nonce: Date.now() });
                     }}
                   />

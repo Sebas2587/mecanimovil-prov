@@ -573,30 +573,44 @@ function aplicarPrecioLocal(
   };
 }
 
+function montoDeFicha(rep?: RepuestoCotizacion | null): number {
+  if (!rep) return 0;
+  const unit = Math.round(Number(rep.precio_unitario_clp) || 0);
+  if (unit > 0) return unit;
+  const ficha = Math.round(Number(rep.precio_marketplace_clp) || 0);
+  if (ficha > 0) return ficha;
+  return Math.round(Number(rep.precio_min_clp) || 0);
+}
+
 function fusionarLineaRepuesto(
   rLoc: RepuestoCotizacion,
   rRem?: RepuestoCotizacion,
 ): RepuestoCotizacion {
   if (!rRem) return rLoc;
+  const remoto = { ...rRem };
+  if (!(remoto.precio_unitario_clp > 0)) {
+    const ficha = montoDeFicha(remoto);
+    if (ficha > 0) remoto.precio_unitario_clp = ficha;
+  }
   const nombreLocal = (rLoc.nombre || '').trim();
   const localCero = !rLoc.precio_unitario_clp;
   const localFirme = certezaFirmeRepuesto(rLoc) && !localCero;
   const remoteMejor = !localFirme && (
-    fuenteVerificadaRepuesto(rRem)
-    || ((rRem.precio_unitario_clp || 0) > 0 && localCero)
+    fuenteVerificadaRepuesto(remoto)
+    || ((remoto.precio_unitario_clp || 0) > 0 && localCero)
   );
   if (localFirme) {
     return {
-      ...aplicarPrecioLocal(rRem, rLoc),
-      nombre: nombreLocal || rRem.nombre,
+      ...aplicarPrecioLocal(remoto, rLoc),
+      nombre: nombreLocal || remoto.nombre,
     };
   }
   const precio = remoteMejor
-    ? rRem.precio_unitario_clp
-    : (rLoc.precio_unitario_clp ?? rRem.precio_unitario_clp);
+    ? remoto.precio_unitario_clp
+    : (rLoc.precio_unitario_clp ?? remoto.precio_unitario_clp);
   return {
-    ...rRem,
-    nombre: nombreLocal || rRem.nombre,
+    ...remoto,
+    nombre: nombreLocal || remoto.nombre,
     cantidad: rLoc.cantidad ?? rRem.cantidad,
     precio_unitario_clp: precio,
     certeza: (precio || 0) > 0 && rRem.certeza === 'sin_precio'

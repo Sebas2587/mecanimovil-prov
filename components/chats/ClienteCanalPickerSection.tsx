@@ -36,6 +36,7 @@ export type ContactoCanal = {
   nombre: string;
   telefono: string | null;
   canal: ChannelSlug;
+  patente?: string;
 };
 
 const CLIENTE_TABS = [
@@ -57,12 +58,16 @@ export function contactosDesdeInbox(items: InboxChatItem[]): ContactoCanal[] {
     if (seen.has(key)) continue;
     seen.add(key);
     const canal = (item.channel || 'whatsapp') as ChannelSlug;
+    const vehiculo = item.vehiculo;
+    const patenteRaw = vehiculo && typeof vehiculo.patente === 'string' ? vehiculo.patente : '';
+    const patente = patenteRaw.toUpperCase().replace(/[^A-Z0-9]/g, '');
     // Solo nombre agendable real; vacío si Meta/PSID. No persistir "Cliente".
     out.push({
       conversationId: Number(item.conversation_id),
       nombre: nombreContactoAgendable(item.otra_persona?.nombre),
       telefono: item.otra_persona?.telefono ?? null,
       canal,
+      patente,
     });
   }
   return out;
@@ -85,7 +90,10 @@ type Props = {
   /** Desde chat: chip fijo sin tabs de modo. */
   contextoChat?: boolean;
   patenteActual?: string;
-  onUsarPatente?: (patente: string) => void;
+  onUsarPatente?: (
+    patente: string,
+    datos?: { marca?: string; modelo?: string; anio?: string; cilindraje?: string },
+  ) => void;
 };
 
 /**
