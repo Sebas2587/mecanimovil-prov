@@ -25,12 +25,19 @@ export type EnlaceConsulta = {
   es_borrador?: boolean;
 };
 
+export type PasoConsulta = {
+  texto: string;
+  estado: 'hecho' | 'ahora';
+};
+
 export type ResultadoConsulta = {
   titulo: string;
   resumen: string;
   filas: FilaConsulta[];
   confirmacion?: ConfirmacionConsulta | null;
   enlace?: EnlaceConsulta | null;
+  pasos?: PasoConsulta[];
+  siguiente?: string;
 };
 
 export type AccionConsulta =

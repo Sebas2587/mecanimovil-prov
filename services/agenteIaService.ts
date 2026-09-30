@@ -259,6 +259,8 @@ const agenteIaService = {
       descripcion?: string;
       es_borrador?: boolean;
     } | null;
+    pasos?: Array<{ texto: string; estado: 'hecho' | 'ahora' }>;
+    siguiente?: string;
     error?: string;
   }> {
     const { data } = await api.post('/agente-ia/dueno/', payload);
@@ -290,6 +292,8 @@ const agenteIaService = {
           descripcion?: string;
           es_borrador?: boolean;
         } | null;
+        pasos?: Array<{ texto: string; estado: 'hecho' | 'ahora' }>;
+        siguiente?: string;
       };
     }>;
   }> {

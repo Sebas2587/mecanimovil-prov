@@ -255,6 +255,8 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
               filas: vista.filas || [],
               confirmacion: vista.confirmacion || null,
               enlace: vista.enlace?.cotizacion_id ? vista.enlace : null,
+              pasos: vista.pasos || [],
+              siguiente: vista.siguiente || '',
             }
             : {
               titulo: 'Agente del taller',
@@ -345,6 +347,8 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
                 filas,
                 confirmacion: remoto.confirmacion || null,
                 enlace,
+                pasos: remoto.pasos || [],
+                siguiente: remoto.siguiente || '',
               },
             }
             : turno

@@ -95,6 +95,20 @@ export const PanelConsulta = React.memo(function PanelConsulta({
         ) : null}
       </View>
       <InstitutionalText role="body">{resultado.resumen}</InstitutionalText>
+      {(resultado.pasos || []).map((paso) => (
+        <InstitutionalText
+          key={`${paso.estado}-${paso.texto}`}
+          role="caption"
+          color={paso.estado === 'ahora' ? 'primary' : 'muted'}
+        >
+          {paso.estado === 'ahora' ? 'Ahora' : 'Listo'} · {paso.texto}
+        </InstitutionalText>
+      ))}
+      {resultado.siguiente ? (
+        <InstitutionalText role="captionBold">
+          Siguiente: {resultado.siguiente}
+        </InstitutionalText>
+      ) : null}
       {resultado.confirmacion && onConfirmar ? (
         <Pressable
           onPress={confirmar}
