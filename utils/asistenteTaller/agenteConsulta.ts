@@ -16,11 +16,20 @@ export type ConfirmacionConsulta = {
   tipo: 'accion' | 'whatsapp';
 };
 
+export type EnlaceConsulta = {
+  url: string;
+  cotizacion_id: number;
+  busqueda_pendiente?: boolean;
+  titulo?: string;
+  descripcion?: string;
+};
+
 export type ResultadoConsulta = {
   titulo: string;
   resumen: string;
   filas: FilaConsulta[];
   confirmacion?: ConfirmacionConsulta | null;
+  enlace?: EnlaceConsulta | null;
 };
 
 export type AccionConsulta =
@@ -297,7 +306,47 @@ export function planificarConsulta(input: {
   };
 }
 
+const MENORES = new Set(['de', 'del', 'la', 'el', 'y', 'e', 'a', 'en']);
+
+function tituloFrase(texto: string): string {
+  return texto.split(/\s+/).filter(Boolean).map((parte, index) => {
+    if (index > 0 && MENORES.has(parte)) return parte;
+    return parte.charAt(0).toUpperCase() + parte.slice(1);
+  }).join(' ');
+}
+
+export function frasesEsperaCotizacion(texto: string): string[] | null {
+  const p = plano(texto);
+  if (/se cotiza|cotiza mas|mas cotiz|cuantas cotiz/.test(p)) return null;
+  if (/servicio del taller|dar de alta|da de alta|en el catalogo|como servicio/.test(p)
+    && !/\b(cotizacion|presupuesto)\b/.test(p)) {
+    return null;
+  }
+  if (!/\b(cotizacion|cotizar|cotizale|cotizame|cotiza|presupuesto)\b/.test(p)) return null;
+  const patente = texto.toUpperCase().match(/\b([A-Z]{4}\s?-?\s?\d{2}|[A-Z]{2}\s?-?\s?\d{4})\b/);
+  const servicio = p.match(
+    /\b((?:cambio|reparacion|mantencion|revision|alineacion|balanceo|diagnostico|instalacion)\s+de\s+[a-z0-9 ]{3,40})/,
+  );
+  const frases: string[] = [];
+  if (patente) {
+    frases.push(`Buscando la patente ${patente[1].replace(/[\s-]/g, '')}…`);
+  }
+  const nombre = servicio
+    ? tituloFrase(servicio[1].split(/\b(?:para|patente|domicilio)\b/)[0].trim())
+    : 'la cotización';
+  const candidatos = [...p.matchAll(/\bpara\s+([a-zñ]+(?:\s+[a-zñ]+){0,2})(?:\s+((?:19|20)\d{2}))?/g)];
+  const auto = candidatos.find((item) => !['el', 'la', 'los', 'un', 'una', 'este'].includes(item[1].split(' ')[0]));
+  const vehiculo = auto && auto[1].split(' ').length > 1
+    ? `${tituloFrase(auto[1])}${auto[2] ? ` ${auto[2]}` : ''}`
+    : '';
+  frases.push(vehiculo ? `Armando ${nombre} para ${vehiculo}…` : `Armando ${nombre}…`);
+  if (!/\bsin repuestos\b/.test(p)) frases.push('Buscando repuestos…');
+  return frases;
+}
+
 export function fraseHaciendo(texto: string): string {
+  const espera = frasesEsperaCotizacion(texto);
+  if (espera?.length) return espera[0];
   const p = plano(texto);
   if (/\bagendar\b|\bprograma\b|\bponle hora\b|\bponer hora\b/.test(p)) {
     return 'Buscando a quién hay que ponerle hora…';

@@ -5,7 +5,7 @@ import { InstitutionalText } from '@/app/design-system/components';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { PanelConsulta } from '@/components/asistente-taller/PanelConsulta';
-import type { ResultadoConsulta } from '@/utils/asistenteTaller/agenteConsulta';
+import type { FilaConsulta, ResultadoConsulta } from '@/utils/asistenteTaller/agenteConsulta';
 
 const I = COLORS.institutional;
 
@@ -29,6 +29,7 @@ type Props = {
   onNueva: () => void;
   onElegir: (id: number) => void;
   onConfirmar?: () => void;
+  onElegirFila?: (fila: FilaConsulta) => void;
 };
 
 const BurbujaDueno = React.memo(function BurbujaDueno({ texto }: { texto: string }) {
@@ -58,6 +59,7 @@ export const HiloAgente = React.memo(function HiloAgente({
   onNueva,
   onElegir,
   onConfirmar,
+  onElegirFila,
 }: Props) {
   const ref = useRef<ScrollView>(null);
 
@@ -117,6 +119,7 @@ export const HiloAgente = React.memo(function HiloAgente({
               <PanelConsulta
                 resultado={turno.resultado}
                 onConfirmar={index === turnos.length - 1 ? onConfirmar : undefined}
+                onElegirFila={index === turnos.length - 1 ? onElegirFila : undefined}
               />
             ) : null}
           </View>

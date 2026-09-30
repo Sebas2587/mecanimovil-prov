@@ -32,8 +32,11 @@ import { HiloAgente, type HiloResumen, type TurnoAgente } from '@/components/asi
 import {
   filasRendimiento,
   fraseHaciendo,
+  frasesEsperaCotizacion,
   planificarConsulta,
+  type EnlaceConsulta,
 } from '@/utils/asistenteTaller/agenteConsulta';
+import cotizacionCanalService from '@/services/cotizacionCanalService';
 import { decisionesDePipeline, type LeadDecision } from '@/utils/asistenteTaller/verboLead';
 import { kpisProveedorService } from '@/services/kpisProveedorService';
 import agenteIaService from '@/services/agenteIaService';
@@ -250,6 +253,7 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
               resumen: vista.resumen || mensaje.texto,
               filas: vista.filas || [],
               confirmacion: vista.confirmacion || null,
+              enlace: vista.enlace?.url ? vista.enlace : null,
             }
             : {
               titulo: 'Agente del taller',
@@ -272,12 +276,22 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
     chatListo.current = true;
     setChatAbierto(true);
     const id = idMensaje();
+    const espera = frasesEsperaCotizacion(texto);
     setTurnos((prev) => [...prev, {
       id,
       pregunta: texto,
-      haciendo: fraseHaciendo(texto),
+      haciendo: espera?.[0] || fraseHaciendo(texto),
       resultado: null,
     }]);
+    let paso = 0;
+    const reloj = espera && espera.length > 1
+      ? setInterval(() => {
+        paso = (paso + 1) % espera.length;
+        setTurnos((prev) => prev.map((turno) => (
+          turno.id === id && turno.haciendo ? { ...turno, haciendo: espera[paso] } : turno
+        )));
+      }, 1600)
+      : null;
     const items = pipeline.data?.results ?? [];
     const historial = turnos.slice(-8).flatMap((turno) => {
       const filas = [{ rol: 'dueno' as const, texto: turno.pregunta }];
@@ -293,6 +307,7 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
         hilo_id: hiloId,
       });
       if (remoto.ok) {
+        if (reloj) clearInterval(reloj);
         if (remoto.hilo_id) setHiloId(remoto.hilo_id);
         void cargarHilos();
         setMemoriaIds(remoto.memoria_ids || []);
@@ -302,6 +317,20 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
             mensaje: remoto.abrir_whatsapp.texto,
             url: '',
           });
+        }
+        let enlace: EnlaceConsulta | null = remoto.enlace?.url ? remoto.enlace : null;
+        if (enlace?.busqueda_pendiente && enlace.cotizacion_id) {
+          setTurnos((prev) => prev.map((turno) => (
+            turno.id === id ? { ...turno, haciendo: 'Buscando repuestos…' } : turno
+          )));
+          try {
+            await cotizacionCanalService.esperarPreciosWeb(enlace.cotizacion_id);
+            await queryClient.invalidateQueries({ queryKey: ['chat-link-preview', enlace.url] });
+            await queryClient.invalidateQueries({ queryKey: ['pipeline-comercial'] });
+          } catch {
+            /* La miniatura queda con el borrador aunque la búsqueda no termine. */
+          }
+          enlace = { ...enlace, busqueda_pendiente: false };
         }
         setTurnos((prev) => prev.map((turno) => (
           turno.id === id
@@ -313,6 +342,7 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
                 resumen: remoto.resumen,
                 filas: remoto.filas || [],
                 confirmacion: remoto.confirmacion || null,
+                enlace,
               },
             }
             : turno
@@ -321,6 +351,8 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
       }
     } catch {
       /* El agente remoto no respondió: se usa el contexto que ya está en el teléfono. */
+    } finally {
+      if (reloj) clearInterval(reloj);
     }
     const plan = planificarConsulta({
       texto,
@@ -352,10 +384,14 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
     setTurnos((prev) => prev.map((turno) => (
       turno.id === id ? { ...turno, haciendo: null, resultado } : turno
     )));
-  }, [agenda.eventos, cargarHilos, hiloId, memoriaIds, pipeline.data?.results, turnos]);
+  }, [agenda.eventos, cargarHilos, hiloId, memoriaIds, pipeline.data?.results, queryClient, turnos]);
 
   const onConfirmarPaso = useCallback(() => {
     void onSubmit('sí');
+  }, [onSubmit]);
+
+  const onElegirFila = useCallback((fila: { id: string }) => {
+    void onSubmit(`elijo ${fila.id}`);
   }, [onSubmit]);
 
   const onSinVoz = useCallback(() => {
@@ -543,6 +579,7 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
               onNueva={onNuevaConversacion}
               onElegir={(id) => { void onElegirHilo(id); }}
               onConfirmar={onConfirmarPaso}
+              onElegirFila={onElegirFila}
             />
           ) : (
         <ScrollView
