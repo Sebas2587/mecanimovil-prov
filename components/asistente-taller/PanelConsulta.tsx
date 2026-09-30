@@ -17,7 +17,7 @@ type Props = {
 };
 
 function filaElegible(id: string): boolean {
-  return id.startsWith('dest:') || id.startsWith('persona:');
+  return id.startsWith('dest:') || id.startsWith('persona:') || id.startsWith('chat:') || id.startsWith('cotizacion:');
 }
 
 const FilaResultado = React.memo(function FilaResultado({
@@ -27,8 +27,16 @@ const FilaResultado = React.memo(function FilaResultado({
   fila: FilaConsulta;
   onElegir?: (fila: FilaConsulta) => void;
 }) {
-  const elegible = Boolean(onElegir) && filaElegible(fila.id);
+  const elegible = filaElegible(fila.id) && (fila.id.startsWith('chat:') || fila.id.startsWith('cotizacion:') || Boolean(onElegir));
   const onPress = useCallback(() => {
+    if (fila.id.startsWith('chat:')) {
+      router.push(`/chat-omnicanal?conversationId=${fila.id.slice(5)}`);
+      return;
+    }
+    if (fila.id.startsWith('cotizacion:')) {
+      router.push(`/cotizacion-canal/${fila.id.slice('cotizacion:'.length)}`);
+      return;
+    }
     onElegir?.(fila);
   }, [fila, onElegir]);
   const cuerpo = (
