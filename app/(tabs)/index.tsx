@@ -1,16 +1,24 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
+  ScrollView,
   ActivityIndicator,
+  RefreshControl,
   TouchableOpacity,
   Image,
   Animated,
 } from 'react-native';
-import { AsistenteTallerScreen } from '@/components/asistente-taller/AsistenteTallerScreen';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { HomeAttentionFeed } from '@/components/home/HomeAttentionFeed';
+import {
+  HomeFloatingAlertsDock,
+  type OpsFloatingAlert,
+} from '@/components/home/HomeFloatingAlertsDock';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Bell,
+  Clock,
+  AlertTriangle, CreditCard,
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
@@ -19,29 +27,47 @@ import TabScreenWrapper from '@/components/TabScreenWrapper';
 import websocketService, { type NuevaSolicitudEvent } from '@/app/services/websocketService';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
-import { HOST_GUTTER } from '@/app/design-system/components';
+import { HOST_GUTTER, hostScreenStyles } from '@/app/design-system/components';
 import AlertaPagoExpirado from '@/components/alerts/AlertaPagoExpirado';
 import { useAlerts } from '@/context/AlertsContext';
+import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
+import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
 import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
+import { horariosAPI } from '@/services/api';
 import { MecanicoHomeView } from '@/components/home/MecanicoHomeView';
+import { useAgenteBorradoresPendientesQuery } from '@/hooks/useAgenteIaQueries';
+import {
+  normalizarEstadoAgendaApi,
+} from '@/utils/horariosProveedor';
 
 export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens
   const theme = useTheme();
-  const { alertasNoLeidas } = useAlerts();
+  const insets = useSafeAreaInsets();
+  const { saludSuscripcion, alertasNoLeidas } = useAlerts();
 
   const {
     isLoading,
     estadoProveedor,
     usuario,
     obtenerNombreProveedor,
+    esSupervisor,
     esMecanicoEquipo,
     puede,
   } = useAuth();
 
   /** Habilitado por admin para operar (≠ sello "Verificado" en perfil). */
   const cuentaAprobadaPorAdmin = estadoProveedor?.estado_verificacion === 'aprobado';
+  const { refetch: refetchBorradoresAgente } = useAgenteBorradoresPendientesQuery(
+    cuentaAprobadaPorAdmin && puede('servicios'),
+  );
+  const perfilProveedorKey = useMemo(
+    () => estadoProveedorReloadKey(estadoProveedor ?? null),
+    [estadoProveedor]
+  );
+  const [refreshing, setRefreshing] = useState(false);
+  const [agendarRapidoVisible, setAgendarRapidoVisible] = useState(false);
   const [nuevasSolicitudesIds, setNuevasSolicitudesIds] = useState<Set<string>>(new Set());
 
   // Estado para alertas de pago expirado
@@ -51,6 +77,12 @@ export default function HomeScreen() {
   const [alertaOfertaId, setAlertaOfertaId] = useState<string | undefined>(undefined);
   const [alertaSolicitudId, setAlertaSolicitudId] = useState<string | undefined>(undefined);
   const [alertaCreditosDevueltos, setAlertaCreditosDevueltos] = useState(false);
+
+  /** null = aún no consultado; true = falta configurar horarios en BD */
+  const [necesitaConfigurarHorarios, setNecesitaConfigurarHorarios] = useState<boolean | null>(null);
+  /** Alertas operativas flotantes: descartables en la sesión (no fijas en el feed). */
+  const [dismissHorariosAlert, setDismissHorariosAlert] = useState(false);
+  const [dismissSuscripcionAlert, setDismissSuscripcionAlert] = useState(false);
 
   // Animación de pulso para notificaciones y badges
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -86,6 +118,28 @@ export default function HomeScreen() {
   const safeBorders = useMemo(() => {
     return theme?.borders || BORDERS || {};
   }, [theme]);
+
+  const verificarHorariosConfigurados = useCallback(async () => {
+    if (!cuentaAprobadaPorAdmin) {
+      setNecesitaConfigurarHorarios(null);
+      return;
+    }
+    try {
+      const estado = await horariosAPI.obtenerEstadoConfiguracion();
+      const normalizado = normalizarEstadoAgendaApi(estado);
+      setNecesitaConfigurarHorarios(normalizado.necesita_configurar);
+    } catch (error) {
+      devWarn('No se pudo verificar horarios del proveedor:', error);
+      setNecesitaConfigurarHorarios(null);
+    }
+  }, [cuentaAprobadaPorAdmin]);
+
+  // Horarios: solo al montar o cuando cambia el perfil (no en cada focus).
+  useEffect(() => {
+    if (cuentaAprobadaPorAdmin) {
+      verificarHorariosConfigurados();
+    }
+  }, [perfilProveedorKey, cuentaAprobadaPorAdmin, verificarHorariosConfigurados]);
 
   // Badge de novedad en header al recibir solicitud por WebSocket
   useEffect(() => {
@@ -254,6 +308,78 @@ export default function HomeScreen() {
     }
   }, [cuentaAprobadaPorAdmin]);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      verificarHorariosConfigurados(),
+      cuentaAprobadaPorAdmin && puede('servicios')
+        ? refetchBorradoresAgente()
+        : Promise.resolve(),
+    ]);
+    setRefreshing(false);
+  };
+
+  const opsFloatingAlerts = useMemo((): OpsFloatingAlert[] => {
+    const list: OpsFloatingAlert[] = [];
+    if (necesitaConfigurarHorarios === true && !dismissHorariosAlert) {
+      list.push({
+        id: 'ops-horarios',
+        variant: 'warning',
+        Icon: Clock,
+        title: 'Configura tus horarios',
+        message: 'Activa el horario del taller o de un mecánico para que puedan agendar.',
+        onPress: () => router.push('/configuracion-horarios'),
+        onDismiss: () => setDismissHorariosAlert(true),
+      });
+    }
+    if (
+      !esSupervisor
+      && saludSuscripcion
+      && saludSuscripcion.estado_salud !== 'ok'
+      && saludSuscripcion.estado_salud !== 'sin_suscripcion'
+      && !dismissSuscripcionAlert
+    ) {
+      list.push({
+        id: 'ops-suscripcion',
+        variant: saludSuscripcion.estado_salud === 'por_vencer' ? 'warning' : 'danger',
+        Icon:
+          saludSuscripcion.estado_salud === 'por_vencer'
+            ? Clock
+            : saludSuscripcion.estado_salud === 'pago_fallido'
+              ? CreditCard
+              : AlertTriangle,
+        title:
+          saludSuscripcion.estado_salud === 'por_vencer'
+            ? 'Renovación próxima'
+            : saludSuscripcion.estado_salud === 'pago_fallido'
+              ? 'Pago fallido'
+              : saludSuscripcion.estado_salud === 'sin_suscripcion'
+                ? 'Sin suscripción'
+                : 'Suscripción vencida',
+        message: saludSuscripcion.mensaje ?? undefined,
+        onPress: saludSuscripcion.accion
+          ? () => router.push(saludSuscripcion.accion as any)
+          : undefined,
+        onDismiss: () => setDismissSuscripcionAlert(true),
+      });
+    }
+    return list;
+  }, [
+    necesitaConfigurarHorarios,
+    dismissHorariosAlert,
+    esSupervisor,
+    saludSuscripcion,
+    dismissSuscripcionAlert,
+  ]);
+
+  // Obtener saludo según hora del día
+  const obtenerSaludo = () => {
+    const hora = new Date().getHours();
+    if (hora >= 5 && hora < 12) return 'Buenos días';
+    if (hora >= 12 && hora < 19) return 'Buenas tardes';
+    return 'Buenas noches';
+  };
+
   const primaryObj = safeColors?.primary as any;
   const accentObj = safeColors?.accent as any;
 
@@ -361,31 +487,94 @@ export default function HomeScreen() {
     );
   }
 
+  // Cuenta aprobada: dashboard principal
   return (
     <TabScreenWrapper>
-      <AsistenteTallerScreen
-        enabled={cuentaAprobadaPorAdmin && puede('servicios')}
-        alertas={nuevasSolicitudesIds.size + alertasNoLeidas}
-      />
-      <AlertaPagoExpirado
-        visible={mostrarAlertaPago}
-        mensaje={alertaMensaje}
-        tipo={alertaTipo}
-        ofertaId={alertaOfertaId}
-        solicitudId={alertaSolicitudId}
-        creditosDevueltos={alertaCreditosDevueltos}
-        onDismiss={async () => {
-          setMostrarAlertaPago(false);
-          if (alertaSolicitudId) {
-            try {
-              const { post } = await import('@/services/api');
-              await post(`/ordenes/solicitudes-publicas/${alertaSolicitudId}/descartar-alerta/`);
-            } catch (error) {
-              console.error('Error descartando alerta:', error);
+      <View style={[themedStyles.screen, { backgroundColor: palette.canvas }]}>
+        {/* 1. HEADER — Today */}
+        <SafeAreaView edges={['top']} style={{ backgroundColor: palette.canvas }}>
+          <View style={themedStyles.header}>
+            <View style={themedStyles.headerLeft}>
+              {(usuario as any)?.foto_perfil ? (
+                <Image source={{ uri: (usuario as any).foto_perfil }} style={themedStyles.avatar} />
+              ) : (
+                <View style={themedStyles.avatarPlaceholder}>
+                  <Text style={themedStyles.avatarInitial}>
+                    {(obtenerNombreProveedor() || 'T').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={themedStyles.welcomeLabel}>{obtenerSaludo()}</Text>
+                <Text style={themedStyles.providerName} numberOfLines={1}>{obtenerNombreProveedor()}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={themedStyles.bellOuter}
+              activeOpacity={0.7}
+              onPress={() => router.push('/notificaciones')}
+            >
+              <View style={themedStyles.bellButton}>
+                <Bell size={20} color={palette.ink} />
+              </View>
+              {(nuevasSolicitudesIds.size > 0 || alertasNoLeidas > 0) && (
+                <Animated.View style={[themedStyles.bellDot, { transform: [{ scale: pulseAnim }] }]} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+
+        <ScrollView
+          style={hostScreenStyles.scroll}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          contentContainerStyle={[
+            hostScreenStyles.scrollInner,
+            {
+              paddingTop: SPACING.fixed.xl,
+              paddingBottom: insets.bottom + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl),
+            },
+          ]}
+        >
+          <HomeAttentionFeed
+            enabled={cuentaAprobadaPorAdmin && puede('servicios')}
+            refreshing={refreshing}
+            onRefreshFeed={onRefresh}
+            onAgendar={() => setAgendarRapidoVisible(true)}
+          />
+        </ScrollView>
+
+        <HomeFloatingAlertsDock
+          enabled={cuentaAprobadaPorAdmin}
+          opsAlerts={opsFloatingAlerts}
+        />
+
+        <AlertaPagoExpirado
+          visible={mostrarAlertaPago}
+          mensaje={alertaMensaje}
+          tipo={alertaTipo}
+          ofertaId={alertaOfertaId}
+          solicitudId={alertaSolicitudId}
+          creditosDevueltos={alertaCreditosDevueltos}
+          onDismiss={async () => {
+            setMostrarAlertaPago(false);
+            if (alertaSolicitudId) {
+              try {
+                const { post } = await import('@/services/api');
+                await post(`/ordenes/solicitudes-publicas/${alertaSolicitudId}/descartar-alerta/`);
+              } catch (error) {
+                console.error('Error descartando alerta:', error);
+              }
             }
-          }
-        }}
-      />
+          }}
+        />
+
+        <AgendarDesdeCanalModal
+          visible={agendarRapidoVisible}
+          onClose={() => setAgendarRapidoVisible(false)}
+          subtitle="Agenda una cita personal para un cliente"
+        />
+        </View>
     </TabScreenWrapper>
   );
 }
