@@ -32,6 +32,7 @@ import { HiloAgente, type HiloResumen, type TurnoAgente } from '@/components/asi
 import {
   filasRendimiento,
   fraseHaciendo,
+  filasBorrador,
   frasesEsperaCotizacion,
   planificarConsulta,
   type EnlaceConsulta,
@@ -253,7 +254,7 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
               resumen: vista.resumen || mensaje.texto,
               filas: vista.filas || [],
               confirmacion: vista.confirmacion || null,
-              enlace: vista.enlace?.url ? vista.enlace : null,
+              enlace: vista.enlace?.cotizacion_id ? vista.enlace : null,
             }
             : {
               titulo: 'Agente del taller',
@@ -318,17 +319,18 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
             url: '',
           });
         }
-        let enlace: EnlaceConsulta | null = remoto.enlace?.url ? remoto.enlace : null;
+        let enlace: EnlaceConsulta | null = remoto.enlace?.cotizacion_id ? remoto.enlace : null;
+        let filas = remoto.filas || [];
         if (enlace?.busqueda_pendiente && enlace.cotizacion_id) {
           setTurnos((prev) => prev.map((turno) => (
-            turno.id === id ? { ...turno, haciendo: 'Buscando repuestos…' } : turno
+            turno.id === id ? { ...turno, haciendo: 'Buscando precios en tiendas…' } : turno
           )));
           try {
-            await cotizacionCanalService.esperarPreciosWeb(enlace.cotizacion_id);
-            await queryClient.invalidateQueries({ queryKey: ['chat-link-preview', enlace.url] });
+            const actualizada = await cotizacionCanalService.esperarPreciosWeb(enlace.cotizacion_id);
+            filas = filasBorrador(actualizada);
             await queryClient.invalidateQueries({ queryKey: ['pipeline-comercial'] });
           } catch {
-            /* La miniatura queda con el borrador aunque la búsqueda no termine. */
+            /* El desglose queda con lo que alcanzó a armar el borrador. */
           }
           enlace = { ...enlace, busqueda_pendiente: false };
         }
@@ -340,7 +342,7 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
               resultado: {
                 titulo: remoto.titulo,
                 resumen: remoto.resumen,
-                filas: remoto.filas || [],
+                filas,
                 confirmacion: remoto.confirmacion || null,
                 enlace,
               },

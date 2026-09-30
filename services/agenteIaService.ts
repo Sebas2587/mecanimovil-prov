@@ -252,11 +252,12 @@ const agenteIaService = {
     confirmacion?: { etiqueta: string; tipo: 'accion' | 'whatsapp' } | null;
     abrir_whatsapp?: { telefono: string; texto: string } | null;
     enlace?: {
-      url: string;
+      url?: string;
       cotizacion_id: number;
       busqueda_pendiente?: boolean;
       titulo?: string;
       descripcion?: string;
+      es_borrador?: boolean;
     } | null;
     error?: string;
   }> {
@@ -282,11 +283,12 @@ const agenteIaService = {
         filas?: Array<{ id: string; titulo: string; detalle: string; meta: string }>;
         confirmacion?: { etiqueta: string; tipo: 'accion' | 'whatsapp' } | null;
         enlace?: {
-          url: string;
+          url?: string;
           cotizacion_id: number;
           busqueda_pendiente?: boolean;
           titulo?: string;
           descripcion?: string;
+          es_borrador?: boolean;
         } | null;
       };
     }>;

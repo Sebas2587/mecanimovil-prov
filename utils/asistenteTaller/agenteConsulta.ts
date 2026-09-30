@@ -17,11 +17,12 @@ export type ConfirmacionConsulta = {
 };
 
 export type EnlaceConsulta = {
-  url: string;
+  url?: string;
   cotizacion_id: number;
   busqueda_pendiente?: boolean;
   titulo?: string;
   descripcion?: string;
+  es_borrador?: boolean;
 };
 
 export type ResultadoConsulta = {
@@ -315,6 +316,72 @@ function tituloFrase(texto: string): string {
   }).join(' ');
 }
 
+function pesos(valor: number): string {
+  return `$${Math.max(0, Math.round(valor)).toLocaleString('es-CL')}`;
+}
+
+function origenPrecio(fuente: string, precio: number): string {
+  const clave = fuente.trim().toLowerCase();
+  if (clave === 'catalogo' || clave === 'catálogo' || clave === 'proveedor') return 'Precio del taller.';
+  if (clave === 'historial') return 'Precio del historial del taller.';
+  if (clave === 'web' || clave === 'ml' || clave === 'mercadolibre') return 'Precio consultado en tiendas.';
+  if (precio <= 0) return 'Todavía sin precio de tienda.';
+  return 'Precio de referencia.';
+}
+
+export function filasBorrador(cotizacion: {
+  servicio_nombre?: string;
+  mano_obra_clp?: number;
+  mano_obra_lineas?: Array<{ id?: string; nombre?: string; monto_clp?: number }>;
+  repuestos?: Array<{
+    id?: string;
+    nombre?: string;
+    precio_unitario_clp?: number;
+    fuente_marketplace?: string;
+    especificacion?: string;
+    comentario?: string;
+    especificacion_pendiente?: boolean;
+  }>;
+}): FilaConsulta[] {
+  const filas: FilaConsulta[] = [];
+  const labores = cotizacion.mano_obra_lineas?.length
+    ? cotizacion.mano_obra_lineas
+    : (cotizacion.mano_obra_clp || 0) > 0
+      ? [{ id: 'mo-1', nombre: cotizacion.servicio_nombre || 'Mano de obra', monto_clp: cotizacion.mano_obra_clp }]
+      : [];
+  labores.forEach((linea, index) => {
+    const monto = Math.round(Number(linea.monto_clp) || 0);
+    filas.push({
+      id: `mo-${linea.id || index}`,
+      titulo: (linea.nombre || 'Mano de obra').trim(),
+      detalle: 'Mano de obra de este borrador.',
+      meta: monto > 0 ? pesos(monto) : 'Sin precio',
+    });
+  });
+  (cotizacion.repuestos || []).forEach((rep, index) => {
+    const precio = Math.round(Number(rep.precio_unitario_clp) || 0);
+    const detalle = [
+      (rep.especificacion || '').trim(),
+      rep.especificacion_pendiente ? 'Falta confirmar la variante de esta pieza.' : '',
+      origenPrecio(rep.fuente_marketplace || '', precio),
+      (rep.comentario || '').trim(),
+    ].filter(Boolean).join('. ');
+    filas.push({
+      id: `rep-${rep.id || index}`,
+      titulo: (rep.nombre || 'Repuesto').trim(),
+      detalle,
+      meta: precio > 0 ? pesos(precio) : 'Sin precio',
+    });
+  });
+  return filas;
+}
+
+function patenteCompleta(texto: string): string {
+  const match = texto.toUpperCase().match(/\b([A-Z]{4}[\s.\-]*\d{2}|[A-Z]{2}[\s.\-]*\d{4})\b/);
+  if (!match) return '';
+  return match[1].replace(/[^A-Z0-9]/g, '');
+}
+
 export function frasesEsperaCotizacion(texto: string): string[] | null {
   const p = plano(texto);
   if (/se cotiza|cotiza mas|mas cotiz|cuantas cotiz/.test(p)) return null;
@@ -323,18 +390,21 @@ export function frasesEsperaCotizacion(texto: string): string[] | null {
     return null;
   }
   if (!/\b(cotizacion|cotizar|cotizale|cotizame|cotiza|presupuesto)\b/.test(p)) return null;
-  const patente = texto.toUpperCase().match(/\b([A-Z]{4}\s?-?\s?\d{2}|[A-Z]{2}\s?-?\s?\d{4})\b/);
-  const servicio = p.match(
+  const patente = patenteCompleta(texto);
+  const sinPatente = patente
+    ? p.replace(patente.toLowerCase(), ' ').replace(/\b[a-z]{4}\b(?=\s+\d{2}\b)/g, ' ')
+    : p;
+  const servicio = sinPatente.match(
     /\b((?:cambio|reparacion|mantencion|revision|alineacion|balanceo|diagnostico|instalacion)\s+de\s+[a-z0-9 ]{3,40})/,
   );
   const frases: string[] = [];
   if (patente) {
-    frases.push(`Buscando la patente ${patente[1].replace(/[\s-]/g, '')}…`);
+    frases.push(`Buscando la patente ${patente}…`);
   }
   const nombre = servicio
     ? tituloFrase(servicio[1].split(/\b(?:para|patente|domicilio)\b/)[0].trim())
     : 'la cotización';
-  const candidatos = [...p.matchAll(/\bpara\s+([a-zñ]+(?:\s+[a-zñ]+){0,2})(?:\s+((?:19|20)\d{2}))?/g)];
+  const candidatos = [...sinPatente.matchAll(/\bpara\s+([a-zñ]+(?:\s+[a-zñ]+){0,2})(?:\s+((?:19|20)\d{2}))?/g)];
   const auto = candidatos.find((item) => !['el', 'la', 'los', 'un', 'una', 'este'].includes(item[1].split(' ')[0]));
   const vehiculo = auto && auto[1].split(' ').length > 1
     ? `${tituloFrase(auto[1])}${auto[2] ? ` ${auto[2]}` : ''}`

@@ -1,12 +1,10 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react-native';
 import { InstitutionalText } from '@/app/design-system/components';
 import { COLORS, SHADOWS, SPACING } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import { ChatLinkPreview } from '@/components/chats/ChatLinkPreview';
 import type { FilaConsulta, ResultadoConsulta } from '@/utils/asistenteTaller/agenteConsulta';
 
 const I = COLORS.institutional;
@@ -69,31 +67,14 @@ export const PanelConsulta = React.memo(function PanelConsulta({
   onConfirmar,
   onElegirFila,
 }: Props) {
-  const queryClient = useQueryClient();
-  const enlace = resultado.enlace?.url ? resultado.enlace : null;
+  const borradorId = resultado.enlace?.cotizacion_id || 0;
   const confirmar = useCallback(() => {
     onConfirmar?.();
   }, [onConfirmar]);
-  const abrirEditor = useCallback(() => {
-    if (!enlace?.cotizacion_id) return;
-    router.push(`/cotizacion-canal/${enlace.cotizacion_id}`);
-  }, [enlace?.cotizacion_id]);
-
-  const enlaceUrl = enlace?.url || '';
-  const enlaceTitulo = enlace?.titulo || '';
-  const enlaceDescripcion = enlace?.descripcion || '';
-  useEffect(() => {
-    if (!enlaceUrl) return;
-    queryClient.setQueryData(['chat-link-preview', enlaceUrl], (prev: unknown) => (
-      prev ?? {
-        url: enlaceUrl,
-        title: enlaceTitulo,
-        description: enlaceDescripcion,
-        image: '',
-        site_name: '',
-      }
-    ));
-  }, [enlaceDescripcion, enlaceTitulo, enlaceUrl, queryClient]);
+  const abrirBorrador = useCallback(() => {
+    if (!borradorId) return;
+    router.push(`/cotizacion-canal/${borradorId}`);
+  }, [borradorId]);
 
   return (
     <View style={styles.panel}>
@@ -114,21 +95,6 @@ export const PanelConsulta = React.memo(function PanelConsulta({
         ) : null}
       </View>
       <InstitutionalText role="body">{resultado.resumen}</InstitutionalText>
-      {enlace ? (
-        <View>
-          <ChatLinkPreview url={enlace.url} esPropio={false} />
-          <Pressable
-            onPress={abrirEditor}
-            accessibilityRole="button"
-            accessibilityLabel="Corregir una línea"
-            style={styles.confirmar}
-          >
-            <InstitutionalText role="captionBold" color="primary">
-              Corregir una línea
-            </InstitutionalText>
-          </Pressable>
-        </View>
-      ) : null}
       {resultado.confirmacion && onConfirmar ? (
         <Pressable
           onPress={confirmar}
@@ -148,6 +114,18 @@ export const PanelConsulta = React.memo(function PanelConsulta({
           onElegir={onElegirFila}
         />
       ))}
+      {borradorId ? (
+        <Pressable
+          onPress={abrirBorrador}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir borrador"
+          style={styles.confirmar}
+        >
+          <InstitutionalText role="captionBold" color="primary">
+            Abrir borrador
+          </InstitutionalText>
+        </Pressable>
+      ) : null}
     </View>
   );
 });
