@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { X } from 'lucide-react-native';
+import { ChevronRight, X } from 'lucide-react-native';
 import { InstitutionalText } from '@/app/design-system/components';
 import { COLORS, SHADOWS, SPACING } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
@@ -17,7 +17,13 @@ type Props = {
 };
 
 function filaElegible(id: string): boolean {
-  return id.startsWith('dest:') || id.startsWith('persona:') || id.startsWith('chat:') || id.startsWith('cotizacion:');
+  return (
+    id.startsWith('dest:')
+    || id.startsWith('persona:')
+    || id.startsWith('chat:')
+    || id.startsWith('cotizacion:')
+    || id.startsWith('lead:')
+  );
 }
 
 const FilaResultado = React.memo(function FilaResultado({
@@ -51,6 +57,9 @@ const FilaResultado = React.memo(function FilaResultado({
         <InstitutionalText role="caption" color="muted">
           {fila.meta}
         </InstitutionalText>
+      ) : null}
+      {fila.id.startsWith('lead:') ? (
+        <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
       ) : null}
     </>
   );
