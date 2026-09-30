@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { X } from 'lucide-react-native';
 import { InstitutionalText } from '@/app/design-system/components';
@@ -11,9 +11,14 @@ const I = COLORS.institutional;
 type Props = {
   resultado: ResultadoConsulta;
   onCerrar?: () => void;
+  onConfirmar?: () => void;
 };
 
-export const PanelConsulta = React.memo(function PanelConsulta({ resultado, onCerrar }: Props) {
+export const PanelConsulta = React.memo(function PanelConsulta({ resultado, onCerrar, onConfirmar }: Props) {
+  const confirmar = useCallback(() => {
+    onConfirmar?.();
+  }, [onConfirmar]);
+
   return (
     <View style={styles.panel}>
       <View style={styles.cabeza}>
@@ -33,6 +38,18 @@ export const PanelConsulta = React.memo(function PanelConsulta({ resultado, onCe
         ) : null}
       </View>
       <InstitutionalText role="body">{resultado.resumen}</InstitutionalText>
+      {resultado.confirmacion && onConfirmar ? (
+        <Pressable
+          onPress={confirmar}
+          accessibilityRole="button"
+          accessibilityLabel={resultado.confirmacion.etiqueta}
+          style={styles.confirmar}
+        >
+          <InstitutionalText role="captionBold" color="primary">
+            {resultado.confirmacion.etiqueta}
+          </InstitutionalText>
+        </Pressable>
+      ) : null}
       {resultado.filas.map((fila, index) => (
         <View key={`${fila.id}-${index}`} style={styles.fila}>
           <View style={styles.texto}>
@@ -63,6 +80,13 @@ const styles = StyleSheet.create({
   },
   titulo: {
     flex: 1,
+  },
+  confirmar: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: I.surfaceSoft,
   },
   cerrar: {
     width: 36,

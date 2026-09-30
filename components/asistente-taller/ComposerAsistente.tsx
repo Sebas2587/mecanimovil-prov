@@ -14,14 +14,21 @@ type Props = {
   onInteract?: () => void;
 };
 
+type SpeechChunk = {
+  isFinal?: boolean;
+  0?: { transcript?: string };
+};
+
 type SpeechResult = {
-  results: ArrayLike<{ 0?: { transcript?: string } }>;
+  results: ArrayLike<SpeechChunk>;
 };
 
 type SpeechRecognitionLike = {
   lang: string;
   interimResults: boolean;
+  continuous: boolean;
   onresult: ((event: SpeechResult) => void) | null;
+  onerror: (() => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -37,7 +44,8 @@ function crearReconocimiento(): SpeechRecognitionLike | null {
   if (!Ctor) return null;
   const rec = new Ctor();
   rec.lang = 'es-CL';
-  rec.interimResults = false;
+  rec.interimResults = true;
+  rec.continuous = false;
   return rec;
 }
 
@@ -51,6 +59,8 @@ export const ComposerAsistente = React.memo(function ComposerAsistente({
   const [texto, setTexto] = useState('');
   const [escuchando, setEscuchando] = useState(false);
   const enviando = useRef(false);
+  const reconocimiento = useRef<SpeechRecognitionLike | null>(null);
+  const dicho = useRef('');
   const hayTexto = texto.trim().length > 0;
 
   const enviar = useCallback(() => {
@@ -64,20 +74,70 @@ export const ComposerAsistente = React.memo(function ComposerAsistente({
     });
   }, [disabled, onSubmit, texto]);
 
+  const publicarVoz = useCallback((frase: string) => {
+    const limpio = frase.trim();
+    if (!limpio || disabled || enviando.current) return;
+    enviando.current = true;
+    setTexto('');
+    dicho.current = '';
+    onInteract?.();
+    onSubmit(limpio);
+    queueMicrotask(() => {
+      enviando.current = false;
+    });
+  }, [disabled, onInteract, onSubmit]);
+
   const hablar = useCallback(() => {
+    if (reconocimiento.current) {
+      reconocimiento.current.stop();
+      return;
+    }
     const rec = crearReconocimiento();
     if (!rec) {
+      onInteract?.();
       onSinVoz?.();
       return;
     }
+    reconocimiento.current = rec;
+    dicho.current = '';
     setEscuchando(true);
+    onInteract?.();
     rec.onresult = (event) => {
-      const dicho = event.results[0]?.[0]?.transcript ?? '';
-      if (dicho.trim()) onSubmit(dicho.trim());
+      const lista = event.results;
+      let final = '';
+      let parcial = '';
+      for (let i = 0; i < lista.length; i += 1) {
+        const pieza = lista[i]?.[0]?.transcript ?? '';
+        if (lista[i]?.isFinal) final += pieza;
+        else parcial += pieza;
+      }
+      const visible = (final || parcial).trim();
+      dicho.current = final.trim() || visible;
+      if (visible) setTexto(visible);
     };
-    rec.onend = () => setEscuchando(false);
-    rec.start();
-  }, [onSinVoz, onSubmit]);
+    rec.onerror = () => {
+      setEscuchando(false);
+      reconocimiento.current = null;
+    };
+    rec.onend = () => {
+      setEscuchando(false);
+      reconocimiento.current = null;
+      const frase = dicho.current.trim();
+      if (!frase) {
+        onSinVoz?.();
+        return;
+      }
+      setTexto(frase);
+      setTimeout(() => publicarVoz(frase), 400);
+    };
+    try {
+      rec.start();
+    } catch {
+      setEscuchando(false);
+      reconocimiento.current = null;
+      onSinVoz?.();
+    }
+  }, [onInteract, onSinVoz, publicarVoz]);
 
   return (
     <View style={styles.pill}>

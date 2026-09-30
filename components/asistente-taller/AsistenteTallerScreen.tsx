@@ -249,6 +249,7 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
               titulo: vista.titulo || 'Agente del taller',
               resumen: vista.resumen || mensaje.texto,
               filas: vista.filas || [],
+              confirmacion: vista.confirmacion || null,
             }
             : {
               titulo: 'Agente del taller',
@@ -295,6 +296,13 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
         if (remoto.hilo_id) setHiloId(remoto.hilo_id);
         void cargarHilos();
         setMemoriaIds(remoto.memoria_ids || []);
+        if (remoto.abrir_whatsapp?.telefono) {
+          await abrirWhatsAppCotizacion({
+            telefono: remoto.abrir_whatsapp.telefono,
+            mensaje: remoto.abrir_whatsapp.texto,
+            url: '',
+          });
+        }
         setTurnos((prev) => prev.map((turno) => (
           turno.id === id
             ? {
@@ -304,6 +312,7 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
                 titulo: remoto.titulo,
                 resumen: remoto.resumen,
                 filas: remoto.filas || [],
+                confirmacion: remoto.confirmacion || null,
               },
             }
             : turno
@@ -339,30 +348,30 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
         setOcupado(false);
       }
     }
-    const accion = plan.accion;
-    if (accion?.tipo === 'mensaje') {
-      const item = items.find((row) => `${row.tipo_entidad}:${row.entidad_id}` === accion.id);
-      if (item?.cliente_telefono) {
-        await abrirWhatsAppCotizacion({
-          telefono: item.cliente_telefono,
-          mensaje: accion.texto,
-          url: '',
-        });
-      }
-    }
-    if (accion?.tipo === 'agendar' && accion.ids[0]) {
-      const lead = leads.find((item) => item.id === accion.ids[0]);
-      if (lead) void correrVerbo(lead, 'agendar');
-    }
     setMemoriaIds(plan.memoriaIds);
     setTurnos((prev) => prev.map((turno) => (
       turno.id === id ? { ...turno, haciendo: null, resultado } : turno
     )));
-  }, [agenda.eventos, cargarHilos, correrVerbo, hiloId, leads, memoriaIds, pipeline.data?.results]);
+  }, [agenda.eventos, cargarHilos, hiloId, memoriaIds, pipeline.data?.results, turnos]);
+
+  const onConfirmarPaso = useCallback(() => {
+    void onSubmit('sí');
+  }, [onSubmit]);
 
   const onSinVoz = useCallback(() => {
-    decir('asistente', 'En este teléfono escribe el pedido. El micrófono transcribe cuando el navegador puede escucharte.');
-  }, [decir]);
+    chatListo.current = true;
+    setChatAbierto(true);
+    setTurnos((prev) => [...prev, {
+      id: idMensaje(),
+      pregunta: 'Voz',
+      haciendo: null,
+      resultado: {
+        titulo: 'No pude escuchar',
+        resumen: 'Este navegador no transcribió la voz. Escribe el pedido en el campo.',
+        filas: [],
+      },
+    }]);
+  }, []);
 
   const onElegirPregunta = useCallback((id: string) => {
     const lead = leads.find((item) => item.id === id);
@@ -533,6 +542,7 @@ export function AsistenteTallerScreen({ enabled, alertas }: Props) {
               onCerrar={onCerrarChat}
               onNueva={onNuevaConversacion}
               onElegir={(id) => { void onElegirHilo(id); }}
+              onConfirmar={onConfirmarPaso}
             />
           ) : (
         <ScrollView

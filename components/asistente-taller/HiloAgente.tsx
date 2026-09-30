@@ -28,6 +28,7 @@ type Props = {
   onCerrar: () => void;
   onNueva: () => void;
   onElegir: (id: number) => void;
+  onConfirmar?: () => void;
 };
 
 const BurbujaDueno = React.memo(function BurbujaDueno({ texto }: { texto: string }) {
@@ -56,6 +57,7 @@ export const HiloAgente = React.memo(function HiloAgente({
   onCerrar,
   onNueva,
   onElegir,
+  onConfirmar,
 }: Props) {
   const ref = useRef<ScrollView>(null);
 
@@ -107,11 +109,16 @@ export const HiloAgente = React.memo(function HiloAgente({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {turnos.map((turno) => (
+        {turnos.map((turno, index) => (
           <View key={turno.id} style={styles.turno}>
             <BurbujaDueno texto={turno.pregunta} />
             {turno.haciendo ? <EstadoAgente texto={turno.haciendo} /> : null}
-            {turno.resultado ? <PanelConsulta resultado={turno.resultado} /> : null}
+            {turno.resultado ? (
+              <PanelConsulta
+                resultado={turno.resultado}
+                onConfirmar={index === turnos.length - 1 ? onConfirmar : undefined}
+              />
+            ) : null}
           </View>
         ))}
       </ScrollView>

@@ -249,6 +249,8 @@ const agenteIaService = {
     resumen: string;
     filas: Array<{ id: string; titulo: string; detalle: string; meta: string }>;
     memoria_ids: string[];
+    confirmacion?: { etiqueta: string; tipo: 'accion' | 'whatsapp' } | null;
+    abrir_whatsapp?: { telefono: string; texto: string } | null;
     error?: string;
   }> {
     const { data } = await api.post('/agente-ia/dueno/', payload);
@@ -267,7 +269,12 @@ const agenteIaService = {
       id: number;
       rol: 'dueno' | 'agente';
       texto: string;
-      vista?: { titulo?: string; resumen?: string; filas?: Array<{ id: string; titulo: string; detalle: string; meta: string }> };
+      vista?: {
+        titulo?: string;
+        resumen?: string;
+        filas?: Array<{ id: string; titulo: string; detalle: string; meta: string }>;
+        confirmacion?: { etiqueta: string; tipo: 'accion' | 'whatsapp' } | null;
+      };
     }>;
   }> {
     const { data } = await api.get(`/agente-ia/dueno/hilos/${hiloId}/`);

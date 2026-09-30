@@ -11,10 +11,16 @@ export type FilaConsulta = {
   meta: string;
 };
 
+export type ConfirmacionConsulta = {
+  etiqueta: string;
+  tipo: 'accion' | 'whatsapp';
+};
+
 export type ResultadoConsulta = {
   titulo: string;
   resumen: string;
   filas: FilaConsulta[];
+  confirmacion?: ConfirmacionConsulta | null;
 };
 
 export type AccionConsulta =
@@ -174,12 +180,12 @@ export function planificarConsulta(input: {
       const uno = base[0];
       return {
         pideRendimiento: false,
-        accion: { tipo: 'mensaje', id: claveDe(uno), texto: textoMensaje(texto) },
+        accion: null,
         memoriaIds: [claveDe(uno)],
         resultado: {
           titulo: `Mensaje a ${uno.cliente_nombre || 'el cliente'}`,
           resumen: uno.cliente_telefono
-            ? 'Abro WhatsApp con ese texto.'
+            ? `${textoMensaje(texto)}\nTeléfono: ${uno.cliente_telefono}`
             : 'Ese caso no tiene teléfono. El texto queda aquí para copiarlo.',
           filas: [filaDe(uno, estados)],
         },
@@ -191,13 +197,11 @@ export function planificarConsulta(input: {
     const lista = agendables.length > 0 ? agendables : base;
     return {
       pideRendimiento: false,
-      accion: { tipo: 'agendar', ids: lista.map((item) => item.entidad_id) },
-      memoriaIds: lista.map((item) => item.entidad_id),
+      accion: null,
+      memoriaIds: lista.map((item) => claveDe(item)),
       resultado: {
         titulo: lista.length === 1 ? 'Agendar' : `${lista.length} para agendar`,
-        resumen: lista.length === 1
-          ? `Abro la hora de ${lista[0].cliente_nombre || 'ese cliente'}.`
-          : `Abro la hora de ${lista[0].cliente_nombre || 'el primero'}. Las demás siguen en esta lista.`,
+        resumen: 'El cupo se confirma en este hilo. No pude leer la agenda del taller ahora.',
         filas: lista.map((item) => filaDe(item, estados)),
       },
     };
@@ -227,14 +231,19 @@ export function planificarConsulta(input: {
         resumen: delDia.length === 0
           ? 'Hoy no hay autos con hora.'
           : delDia.length === 1 ? 'Hay 1 auto con hora.' : `Hay ${delDia.length} autos con hora.`,
-        filas: delDia.map((evento) => ({
-          id: `${evento.origen}-${evento.id}`,
-          titulo: (evento.cliente_nombre || 'Cliente').trim(),
-          detalle: [evento.hora_servicio?.slice(0, 5), evento.servicio_nombre || evento.etiqueta]
+        filas: delDia.map((evento) => {
+          const auto = [evento.vehiculo_marca, evento.vehiculo_modelo, evento.vehiculo_patente]
             .filter(Boolean)
-            .join(' · '),
-          meta: (evento.vehiculo_patente || evento.mecanico_nombre || '').trim(),
-        })),
+            .join(' ');
+          return {
+            id: `${evento.origen}-${evento.id}`,
+            titulo: (evento.cliente_nombre || 'Cliente').trim(),
+            detalle: [evento.hora_servicio?.slice(0, 5), evento.servicio_nombre || evento.etiqueta]
+              .filter(Boolean)
+              .join(' · '),
+            meta: auto || 'Auto no anotado en la cita',
+          };
+        }),
       },
     };
   }
