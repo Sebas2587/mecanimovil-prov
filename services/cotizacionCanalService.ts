@@ -286,7 +286,8 @@ export interface CotizacionCanal {
     valores_estimativos?: boolean;
     respaldo_sin_gemini?: boolean;
     /** pendiente | ok | sin_resultados | error — búsqueda web Gemini URL Context */
-    busqueda_web_estado?: 'pendiente' | 'ok' | 'sin_resultados' | 'error' | string;
+    busqueda_web_estado?: 'pendiente' | 'ok' | 'sin_resultados' | 'error' | 'cancelada' | string;
+    busqueda_web_task_id?: string;
     busqueda_web_en?: string;
     busqueda_web_progreso?: ProgresoBusquedaWeb;
     busqueda_web_ids?: string[];
@@ -684,6 +685,7 @@ class CotizacionCanalService {
       intervalMs?: number;
       maxMs?: number;
       onTick?: (cotizacion: CotizacionCanal) => void;
+      shouldStop?: () => boolean;
     },
   ): Promise<CotizacionCanal> {
     const intervalMs = opts?.intervalMs ?? 1_000;
@@ -693,6 +695,7 @@ class CotizacionCanalService {
     opts?.onTick?.(last);
     while (
       last.metadata?.busqueda_web_estado === 'pendiente'
+      && !opts?.shouldStop?.()
       && Date.now() - started < maxMs
     ) {
       await new Promise((resolve) => {
@@ -892,6 +895,11 @@ class CotizacionCanalService {
   async cancelar(id: number): Promise<CotizacionCanal> {
     const response = await api.post(`/ordenes/cotizaciones-canal/${id}/cancelar/`);
     return response.data as CotizacionCanal;
+  }
+
+  async cancelarBusqueda(id: number): Promise<CotizacionCanal> {
+    const response = await api.post(`/ordenes/cotizaciones-canal/${id}/cancelar-busqueda/`);
+    return hidratarPreciosCotizacion(response.data as CotizacionCanal);
   }
 
   async marcarAceptada(id: number): Promise<CotizacionCanal> {

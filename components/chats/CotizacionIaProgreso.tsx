@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { HostMetricRow, HostPaperSection, HostSectionKicker } from '@/app/design-system/components';
+import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
 import type { ProgresoBusquedaWeb } from '@/services/cotizacionCanalService';
@@ -145,10 +146,18 @@ type Props = {
   progreso?: ProgresoBusquedaWeb | null;
   /** `repuestos`: ítems extra sobre una cotización que ya existe. */
   variante?: 'cotizacion' | 'repuestos';
+  onCancel?: () => void;
+  cancelando?: boolean;
 };
 
 /** Línea de tiempo Host (riel negro) mientras la IA arma la cotización. */
-export function CotizacionIaProgreso({ fase, progreso, variante = 'cotizacion' }: Props) {
+export function CotizacionIaProgreso({
+  fase,
+  progreso,
+  variante = 'cotizacion',
+  onCancel,
+  cancelando = false,
+}: Props) {
   const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
@@ -237,6 +246,16 @@ export function CotizacionIaProgreso({ fase, progreso, variante = 'cotizacion' }
             </InstitutionalText>
           ) : null}
         </HostPaperSection>
+      ) : null}
+      {onCancel && !completo ? (
+        <InstitutionalButton
+          label={cancelando ? 'Cancelando…' : 'Cancelar búsqueda'}
+          variant="outline"
+          size="compact"
+          onPress={onCancel}
+          loading={cancelando}
+          disabled={cancelando}
+        />
       ) : null}
     </View>
   );

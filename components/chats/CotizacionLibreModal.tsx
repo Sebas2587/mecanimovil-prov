@@ -172,6 +172,8 @@ export function CotizacionLibreModal({
   const draftRef = useRef<CotizacionCanal | null>(null);
   const [faseIa, setFaseIa] = useState<'idle' | 'generando' | 'precios' | 'listo'>('idle');
   const [progresoIa, setProgresoIa] = useState<ProgresoBusquedaWeb | null>(null);
+  const [cancelandoBusqueda, setCancelandoBusqueda] = useState(false);
+  const cancelBusquedaRef = useRef(false);
 
   const conversationId = contactoSeleccionado?.conversationId ?? (
     conversationIdProp ? parseInt(conversationIdProp, 10) : null
@@ -465,6 +467,8 @@ export function CotizacionLibreModal({
       return;
     }
     setErrorIa(null);
+    cancelBusquedaRef.current = false;
+    setCancelandoBusqueda(false);
     setGenerandoIa(true);
     setFaseIa('generando');
     setProgresoIa(null);
@@ -478,6 +482,17 @@ export function CotizacionLibreModal({
         return;
       }
       let lista = res.cotizacion;
+      draftRef.current = lista;
+      if (cancelBusquedaRef.current && lista.id) {
+        try {
+          lista = await cotizacionCanalService.cancelarBusqueda(lista.id);
+        } catch {
+          setErrorIa('No se pudo cancelar la búsqueda.');
+        }
+        setCotizacion(lista);
+        draftRef.current = lista;
+        return;
+      }
       const hayQueEsperarPrecios = Boolean(
         lista.id
         && (busquedaWebPendiente(lista) || resumenPreciosRepuestos(lista).sinTienda > 0),
@@ -487,7 +502,13 @@ export function CotizacionLibreModal({
         setProgresoIa(lista.metadata?.busqueda_web_progreso || null);
         lista = await esperarPreciosYReintentarSiFaltan(lista, {
           onTick: (cot) => setProgresoIa(cot.metadata?.busqueda_web_progreso || null),
+          shouldStop: () => cancelBusquedaRef.current,
         });
+        if (cancelBusquedaRef.current) {
+          setCotizacion(lista);
+          draftRef.current = lista;
+          return;
+        }
       }
       setFaseIa('listo');
       await new Promise<void>((resolve) => {
@@ -527,6 +548,26 @@ export function CotizacionLibreModal({
       setProgresoIa(null);
     }
   }, [validarAntesGenerar, payloadIntake]);
+
+  const handleCancelarBusqueda = useCallback(async () => {
+    cancelBusquedaRef.current = true;
+    setCancelandoBusqueda(true);
+    const id = draftRef.current?.id;
+    if (!id) return;
+    try {
+      const cortada = await cotizacionCanalService.cancelarBusqueda(id);
+      setCotizacion(cortada);
+      draftRef.current = cortada;
+      setGenerandoIa(false);
+      setFaseIa('idle');
+      setProgresoIa(null);
+    } catch {
+      cancelBusquedaRef.current = false;
+      setErrorIa('No se pudo cancelar la búsqueda.');
+    } finally {
+      setCancelandoBusqueda(false);
+    }
+  }, []);
 
   useEffect(() => {
     draftRef.current = cotizacion;
@@ -776,6 +817,8 @@ export function CotizacionLibreModal({
               <CotizacionIaProgreso
                 fase={faseIa === 'listo' ? 'listo' : faseIa === 'precios' ? 'precios' : 'generando'}
                 progreso={progresoIa}
+                onCancel={() => { void handleCancelarBusqueda(); }}
+                cancelando={cancelandoBusqueda}
               />
             ) : !cotizacion ? (
               <>

@@ -19,10 +19,18 @@ type Props = {
   visible: boolean;
   fase: FaseCotizacionIa;
   progreso?: ProgresoBusquedaWeb | null;
+  onCancel?: () => void;
+  cancelando?: boolean;
 };
 
 /** Ventana flotante con el mismo riel de casas/precios que al generar la cotización. */
-export function CotizacionIaBusquedaOverlay({ visible, fase, progreso }: Props) {
+export function CotizacionIaBusquedaOverlay({
+  visible,
+  fase,
+  progreso,
+  onCancel,
+  cancelando = false,
+}: Props) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -30,7 +38,9 @@ export function CotizacionIaBusquedaOverlay({ visible, fase, progreso }: Props) 
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={() => undefined}
+      onRequestClose={() => {
+        if (!cancelando) onCancel?.();
+      }}
     >
       <View style={styles.overlay} pointerEvents="auto">
         <View
@@ -51,6 +61,8 @@ export function CotizacionIaBusquedaOverlay({ visible, fase, progreso }: Props) 
               fase={fase === 'listo' ? 'listo' : 'precios'}
               progreso={progreso}
               variante="repuestos"
+              onCancel={onCancel}
+              cancelando={cancelando}
             />
           </ScrollView>
         </View>

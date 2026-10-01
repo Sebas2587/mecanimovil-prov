@@ -589,6 +589,20 @@ export const CotizacionIaEditor = React.forwardRef<
   const [busquedaIaVisible, setBusquedaIaVisible] = useState(false);
   const [faseBusquedaIa, setFaseBusquedaIa] = useState<'precios' | 'listo'>('precios');
   const [progresoBusquedaIa, setProgresoBusquedaIa] = useState<ProgresoBusquedaWeb | null>(null);
+  const [cancelandoBusqueda, setCancelandoBusqueda] = useState(false);
+  const cancelarBusquedaIa = useCallback(async () => {
+    if (!cotizacion.id || cancelandoBusqueda) return;
+    setCancelandoBusqueda(true);
+    try {
+      const saved = await cotizacionCanalService.cancelarBusqueda(cotizacion.id);
+      onChange(saved);
+      setBusquedaIaVisible(false);
+    } catch {
+      showAlert('No se pudo cancelar', 'La búsqueda sigue en curso.');
+    } finally {
+      setCancelandoBusqueda(false);
+    }
+  }, [cancelandoBusqueda, cotizacion.id, onChange]);
   const [cotizandoItems, setCotizandoItems] = useState(false);
   const [repuestoSheet, setRepuestoSheet] = useState<RepuestoCotizacion | null>(null);
   const repuestoSheetRef = useRef<RepuestoCotizacion | null>(null);
@@ -1885,6 +1899,8 @@ export const CotizacionIaEditor = React.forwardRef<
           visible
           fase={faseBusquedaIa}
           progreso={progresoBusquedaIa}
+          onCancel={() => { void cancelarBusquedaIa(); }}
+          cancelando={cancelandoBusqueda}
         />
       ) : null}
 

@@ -101,7 +101,10 @@ export function shouldHoldRevealForPrecios(c?: CotizacionCanal | null): boolean 
 /** Espera la búsqueda en curso y, si quedan piezas en $0, lanza una segunda pasada sin bloquear. */
 export async function esperarPreciosYReintentarSiFaltan(
   cot: CotizacionCanal,
-  opts?: { onTick?: (cotizacion: CotizacionCanal) => void },
+  opts?: {
+    onTick?: (cotizacion: CotizacionCanal) => void;
+    shouldStop?: () => boolean;
+  },
 ): Promise<CotizacionCanal> {
   const { default: cotizacionCanalService } = await import('@/services/cotizacionCanalService');
   let lista = cot;
@@ -110,7 +113,11 @@ export async function esperarPreciosYReintentarSiFaltan(
     lista = await cotizacionCanalService.esperarPreciosWeb(lista.id, {
       maxMs: ESPERA_PRECIOS_WEB_MS,
       onTick,
+      shouldStop: opts?.shouldStop,
     });
+  }
+  if (opts?.shouldStop?.() || lista.metadata?.busqueda_web_estado === 'cancelada') {
+    return lista;
   }
   if (esBorradorGeneradoPorAgente(lista)) return hidratarPreciosCotizacion(lista);
   const faltan = resumenPreciosRepuestos(lista).lineasSinTienda;

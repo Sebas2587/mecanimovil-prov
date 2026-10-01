@@ -115,6 +115,7 @@ export default function CotizacionCanalDetalleScreen() {
   const draftRef = useRef<CotizacionCanal | null>(null);
   const persistSeqRef = useRef(0);
   const [holdExpired, setHoldExpired] = useState(false);
+  const [cancelandoBusqueda, setCancelandoBusqueda] = useState(false);
   const [editando, setEditando] = useState(false);
 
   useEffect(() => {
@@ -157,6 +158,19 @@ export default function CotizacionCanalDetalleScreen() {
   }, [parsedId]);
 
   const holdPrecios = shouldHoldRevealForPrecios(data) && !holdExpired;
+  const cancelarBusqueda = useCallback(async () => {
+    if (!Number.isFinite(parsedId) || cancelandoBusqueda) return;
+    setCancelandoBusqueda(true);
+    try {
+      await cotizacionCanalService.cancelarBusqueda(parsedId);
+      setHoldExpired(true);
+      await refetch();
+    } catch {
+      showAlert('No se pudo cancelar', 'La búsqueda sigue en curso.');
+    } finally {
+      setCancelandoBusqueda(false);
+    }
+  }, [cancelandoBusqueda, parsedId, refetch]);
   useEffect(() => {
     if (!shouldHoldRevealForPrecios(data)) {
       setHoldExpired(false);
@@ -479,6 +493,8 @@ export default function CotizacionCanalDetalleScreen() {
               <CotizacionIaProgreso
                 fase="precios"
                 progreso={data?.metadata?.busqueda_web_progreso}
+                onCancel={() => { void cancelarBusqueda(); }}
+                cancelando={cancelandoBusqueda}
               />
             </View>
           ) : (
