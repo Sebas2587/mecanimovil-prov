@@ -31,6 +31,12 @@ import {
 } from '@/app/design-system/styles/institutionalInputs';
 import { COLORS, SPACING, BORDERS, TYPOGRAPHY, SHADOWS } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import {
+  PASO_ETIQUETA,
+  PASO_FRASE,
+  esPasoComercial,
+  type PasoComercial,
+} from '@/utils/pasoComercial';
 
 const I = COLORS.institutional;
 const T = TYPOGRAPHY.styles;
@@ -40,7 +46,7 @@ type PrioridadVista = PrioridadClientePipeline;
 
 const PRIORIDAD_TABS: Array<{ key: PrioridadVista; label: string }> = [
   { key: 'todos', label: 'Todos' },
-  { key: 'con_accion', label: 'Con acción' },
+  { key: 'con_accion', label: 'Por hacer' },
   { key: 'cerrados', label: 'Cerrados' },
 ];
 
@@ -84,6 +90,7 @@ type Props = {
   filtroOrigen?: OrigenPipeline;
   busquedaInicial?: string;
   prioridadInicial?: PrioridadVista;
+  pasoInicial?: PasoComercial;
   hintConAccion?: string;
 };
 
@@ -121,13 +128,26 @@ const ClienteRow = React.memo(function ClienteRow({
             <ChevronRight size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
           </View>
         </View>
-        <Text style={styles.leadMeta}>{etiquetaCasos(item.casos_count)}</Text>
+        <Text style={styles.leadMeta}>
+          {esPasoComercial(item.siguiente_paso)
+            ? PASO_FRASE[item.siguiente_paso]
+            : etiquetaCasos(item.casos_count)}
+        </Text>
         <View style={styles.leadTags}>
-          {item.aceptadas > 0 ? (
-            <InstitutionalTag label={`Aceptadas ${item.aceptadas}`} variant="success" size="sm" />
-          ) : null}
-          {item.rechazadas > 0 ? (
-            <InstitutionalTag label={`Rechazadas ${item.rechazadas}`} variant="error" size="sm" />
+          {esPasoComercial(item.siguiente_paso) ? (
+            <InstitutionalTag
+              label={PASO_ETIQUETA[item.siguiente_paso]}
+              variant={
+                item.siguiente_paso === 'por_agendar' || item.siguiente_paso === 'por_enviar'
+                  ? 'warning'
+                  : item.siguiente_paso === 'en_agenda'
+                    ? 'info'
+                    : item.siguiente_paso === 'cerrado'
+                      ? 'neutral'
+                      : 'primary'
+              }
+              size="sm"
+            />
           ) : null}
           {vehiculos.map((label) => (
             <InstitutionalTag key={label} label={label} variant="neutral" size="sm" />
@@ -143,9 +163,11 @@ export function PipelineClientesSection({
   filtroOrigen,
   busquedaInicial = '',
   prioridadInicial = 'todos',
+  pasoInicial,
   hintConAccion,
 }: Props) {
   const [prioridad, setPrioridad] = useState<PrioridadVista>(prioridadInicial);
+  const [paso, setPaso] = useState<PasoComercial | undefined>(pasoInicial);
   const [origen, setOrigen] = useState<OrigenPipeline | 'todos'>(filtroOrigen ?? 'todos');
   const [origenSheetVisible, setOrigenSheetVisible] = useState(false);
   const [busqueda, setBusqueda] = useState(busquedaInicial);
@@ -158,6 +180,10 @@ export function PipelineClientesSection({
   useEffect(() => {
     setPrioridad(prioridadInicial);
   }, [prioridadInicial]);
+
+  useEffect(() => {
+    setPaso(pasoInicial);
+  }, [pasoInicial]);
 
   useEffect(() => {
     const next = busquedaInicial.trim();
@@ -175,9 +201,10 @@ export function PipelineClientesSection({
       limite,
       origen: origen === 'todos' ? undefined : origen,
       prioridad,
+      paso,
       q: qDebounced || undefined,
     }),
-    [limite, origen, prioridad, qDebounced],
+    [limite, origen, prioridad, paso, qDebounced],
   );
 
   const { data, isPending, isFetching, refetch } = usePipelineClientesQuery(queryParams);
@@ -197,8 +224,10 @@ export function PipelineClientesSection({
   }, []);
 
   const handlePrioridad = useCallback((key: PrioridadVista) => {
+    setPaso(undefined);
     setPrioridad(key);
   }, []);
+  const verTodos = useCallback(() => setPaso(undefined), []);
 
   const keyExtractor = useCallback((item: PipelineClienteItem) => item.cliente_key, []);
 
@@ -249,13 +278,21 @@ export function PipelineClientesSection({
   return (
     <View style={styles.sectionFill}>
       <View style={hostScreenStyles.gutterX}>
-        {hintConAccion ? (
-          <View style={styles.filterHint}>
-            <InstitutionalText role="caption" color="muted">
-              {hintConAccion}
-            </InstitutionalText>
-          </View>
-        ) : null}
+        <View style={styles.filterHint}>
+          <InstitutionalText role="caption" color="muted">
+            {paso && esPasoComercial(paso)
+              ? `${PASO_ETIQUETA[paso]}. ${PASO_FRASE[paso]}`
+              : hintConAccion
+                || 'El camino es uno: enviar la cotización, esperar que acepte y, si acepta, agendarla.'}
+          </InstitutionalText>
+          {paso ? (
+            <TouchableOpacity onPress={verTodos} hitSlop={8} accessibilityRole="button">
+              <InstitutionalText role="captionBold" color="primary">
+                Ver todos los clientes
+              </InstitutionalText>
+            </TouchableOpacity>
+          ) : null}
+        </View>
         <View style={styles.filterBar}>
           <View style={styles.tabsGrow}>
             <InstitutionalScreenTabs
@@ -324,7 +361,7 @@ export function PipelineClientesSection({
             description={
               qDebounced
                 ? `Nadie coincide con «${qDebounced}».`
-                : 'Cuando envíes una cotización, el cliente aparece aquí con todas sus visitas.'
+                : 'Cuando envíes una cotización, la persona aparece aquí con el siguiente paso.'
             }
           />
         }
@@ -408,6 +445,7 @@ const styles = StyleSheet.create({
   searchWrap: { marginBottom: SPACING.fixed.sm },
   filterHint: {
     marginBottom: SPACING.fixed.sm,
+    gap: SPACING.fixed.xs,
   },
   listContentPad: {
     paddingBottom: SPACING.fixed['2xl'],

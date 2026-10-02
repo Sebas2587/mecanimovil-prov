@@ -29,7 +29,6 @@ import { usePipelineClienteDetalleQuery } from '@/hooks/usePipelineClientesQuery
 import {
   ESTADO_PIPELINE_LABELS,
   ORIGEN_PIPELINE_LABELS,
-  type EstadoPipelineNormalizado,
   type PipelineClienteCaso,
   type PipelineClienteVehiculoFicha,
 } from '@/services/pipelineComercialService';
@@ -43,6 +42,7 @@ import { folioCotizacionLabel } from '@/utils/entregaCotizacionCopy';
 import { formatearFechaServicioLista } from '@/utils/fechaLocal';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
 import { navegarCasoPipeline } from '@/utils/navegarCasoPipeline';
+import { PASO_ETIQUETA, PASO_FRASE, pasoDeCaso, type PasoComercial } from '@/utils/pasoComercial';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -50,13 +50,11 @@ const T = TYPOGRAPHY.styles;
 const GRID_GAP = SPACING.fixed.sm;
 const TWO_COL_MIN = 560;
 
-type FiltroCaso = 'todos' | 'en_edicion' | 'por_agendar' | EstadoPipelineNormalizado;
+type FiltroCaso = 'todos' | PasoComercial;
 
 function casoPasaFiltro(caso: PipelineClienteCaso, filtro: FiltroCaso): boolean {
   if (filtro === 'todos') return true;
-  if (filtro === 'en_edicion') return Boolean(caso.en_edicion);
-  if (filtro === 'por_agendar') return Boolean(caso.horario_por_confirmar);
-  return caso.estado_normalizado === filtro;
+  return pasoDeCaso(caso) === filtro;
 }
 
 function tagCaso(caso: PipelineClienteCaso): {
@@ -191,7 +189,8 @@ const CasoListing = React.memo(function CasoListing({
   const esAdicional = variante === 'adicional';
   const folio = folioCotizacionLabel(caso.numero_publico);
   const monto = caso.monto_clp != null ? formatearMontoCLP(caso.monto_clp) : null;
-  const operativo = tagCaso(caso);
+  const paso = pasoDeCaso(caso);
+  const operativo = { label: PASO_ETIQUETA[paso], variant: tagCaso(caso).variant };
   const origen = ORIGEN_PIPELINE_LABELS[caso.origen] || '';
   const fechaVisita = formatearFechaServicioLista(caso.fecha_agendada, caso.hora_agendada);
   const fecha = fechaVisita || fechaCorta(caso.fecha_referencia);
@@ -231,6 +230,9 @@ const CasoListing = React.memo(function CasoListing({
         {folio ? <InstitutionalTag label={folio} variant="neutral" size="sm" /> : null}
         <InstitutionalTag label={operativo.label} variant={operativo.variant} size="sm" />
       </View>
+      <Text style={styles.casoDesde} numberOfLines={2}>
+        {PASO_FRASE[paso]}
+      </Text>
       {desde ? (
         <Text style={styles.casoDesde} numberOfLines={1}>
           {desde}
@@ -319,15 +321,12 @@ export default function ClienteComercialScreen() {
   const filtrosDisponibles = useMemo(() => {
     const keys: FiltroCaso[] = ['todos'];
     if (!data) return keys;
-    const casos = data.vehiculos.flatMap((v) => v.casos);
-    if (casos.some((c) => c.en_edicion)) keys.push('en_edicion');
-    if (casos.some((c) => c.horario_por_confirmar)) keys.push('por_agendar');
-    const vistos = new Set<EstadoPipelineNormalizado>();
-    for (const caso of casos) {
-      if (!vistos.has(caso.estado_normalizado)) {
-        vistos.add(caso.estado_normalizado);
-        keys.push(caso.estado_normalizado);
-      }
+    const orden: PasoComercial[] = ['por_enviar', 'esperando', 'por_agendar', 'en_agenda', 'cerrado'];
+    const presentes = new Set(
+      data.vehiculos.flatMap((v) => v.casos).map((caso) => pasoDeCaso(caso)),
+    );
+    for (const paso of orden) {
+      if (presentes.has(paso)) keys.push(paso);
     }
     return keys;
   }, [data]);
@@ -352,9 +351,7 @@ export default function ClienteComercialScreen() {
 
   const labelFiltro = useCallback((key: FiltroCaso) => {
     if (key === 'todos') return 'Todos';
-    if (key === 'en_edicion') return 'En edición';
-    if (key === 'por_agendar') return 'Confirmar horario';
-    return ESTADO_PIPELINE_LABELS[key];
+    return PASO_ETIQUETA[key];
   }, []);
 
   const abrirChat = useCallback(() => {

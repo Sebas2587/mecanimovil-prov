@@ -49,7 +49,7 @@ function HomePrimaryActionsInner({
         </View>
         <InstitutionalText role="h4">Cotizar con IA</InstitutionalText>
         <InstitutionalText role="caption" color="body" numberOfLines={2}>
-          Borradores por revisar y enviar al cliente
+          Arma la cotización y mándala al cliente
         </InstitutionalText>
       </Card>
 
@@ -71,11 +71,11 @@ function HomePrimaryActionsInner({
             </View>
           ) : null}
         </View>
-        <InstitutionalText role="h4">Bandeja</InstitutionalText>
+        <InstitutionalText role="h4">Clientes</InstitutionalText>
         <InstitutionalText role="caption" color="body" numberOfLines={2}>
           {bandejaCount > 0
-            ? `${bandejaCount} caso${bandejaCount === 1 ? '' : 's'} en seguimiento`
-            : 'Abiertos, enviados, negociación y agendados'}
+            ? `${bandejaCount} con cotización en curso`
+            : 'Historial por persona: enviar, esperar y agendar'}
         </InstitutionalText>
       </Card>
     </View>

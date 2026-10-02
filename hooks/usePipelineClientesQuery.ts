@@ -15,6 +15,7 @@ export function pipelineClientesQueryKey(params: PipelineClientesParams) {
     params.limite ?? 100,
     params.origen ?? 'all',
     params.prioridad ?? 'todos',
+    params.paso ?? null,
     params.q?.trim() || null,
   ] as const;
 }

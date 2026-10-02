@@ -154,6 +154,7 @@ export interface PipelineClienteItem {
   aceptadas: number;
   rechazadas: number;
   abiertas: number;
+  siguiente_paso?: 'por_enviar' | 'esperando' | 'por_agendar' | 'en_agenda' | 'cerrado';
   ultima_actividad: string | null;
   conversation_id?: number | null;
 }
@@ -184,6 +185,7 @@ export interface PipelineComercialParams {
 export interface PipelineClientesParams {
   origen?: OrigenPipeline;
   prioridad?: PrioridadClientePipeline;
+  paso?: 'por_enviar' | 'esperando' | 'por_agendar' | 'en_agenda' | 'cerrado';
   limite?: number;
   q?: string;
 }
@@ -211,6 +213,7 @@ function buildClientesQuery(params?: PipelineClientesParams): string {
   if (params.prioridad && params.prioridad !== 'todos') {
     search.append('prioridad', params.prioridad);
   }
+  if (params.paso) search.append('paso', params.paso);
   if (params.limite != null) search.append('limite', String(params.limite));
   const trimmed = params.q?.trim();
   if (trimmed) search.append('q', trimmed);

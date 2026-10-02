@@ -38,7 +38,7 @@ function HomePendientesRevisionListInner({
   if (loading && borradores.length === 0) {
     return (
       <View style={styles.section}>
-        <HostSectionKicker label="Cotizaciones pendientes de revisión" />
+        <HostSectionKicker label="Por enviar" />
         <HostPaperSection>
           <View style={styles.loadingBox}>
             <ActivityIndicator color={I.primary} size="small" />
@@ -51,7 +51,7 @@ function HomePendientesRevisionListInner({
   return (
     <View style={styles.section}>
       <View style={styles.headerRow}>
-        <HostSectionKicker label="Cotizaciones pendientes de revisión" />
+        <HostSectionKicker label="Por enviar" />
         {borradores.length > 0 ? (
           <InstitutionalTag label={`${borradores.length}`} variant="warning" size="sm" />
         ) : null}
@@ -64,9 +64,9 @@ function HomePendientesRevisionListInner({
               <Sparkles size={20} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
             </View>
             <View style={styles.emptyCopy}>
-              <InstitutionalText role="bodyBold">Sin borradores por revisar</InstitutionalText>
+              <InstitutionalText role="bodyBold">Nada por enviar</InstitutionalText>
               <InstitutionalText role="caption" color="body">
-                Cuando la IA arme una cotización, aparece aquí. Al aprobarla pasa a Bandeja.
+                Cuando la cotización esté lista, revísala y mándala. Si el cliente acepta, eliges día y hora.
               </InstitutionalText>
             </View>
           </View>

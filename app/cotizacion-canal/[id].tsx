@@ -448,7 +448,7 @@ export default function CotizacionCanalDetalleScreen() {
       const actualizada = await cotizacionCanalService.marcarAceptada(draft.id);
       setDraft({ ...actualizada });
       await invalidateAll();
-      showAlert('Cotización aceptada', 'El caso quedó marcado como aceptado. Confirma el horario en Bandeja.');
+      showAlert('Cotización aceptada', 'Elige día y hora en Por agendar para empezar el trabajo.');
     } catch {
       showAlert('Error', 'Solo cotizaciones enviadas pueden marcarse como aceptadas.');
     } finally {

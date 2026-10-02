@@ -278,8 +278,8 @@ function mapLeadEvent(event: AgenteIaEvent): LeadFloatingAlert | null {
         id: `enviada-${event.cotizacion_id || Date.now()}`,
         title: 'Cotización enviada',
         leadTone: 'sent',
-        message: 'Ya está en Bandeja para seguimiento.',
-        href: '/(tabs)/bandeja?filtro=cotizacion_enviada',
+        message: 'Quedó esperando que el cliente acepte.',
+        href: '/(tabs)/bandeja?paso=esperando',
       };
     case 'agente_ia_cotizacion_aceptada':
       return {
@@ -287,10 +287,10 @@ function mapLeadEvent(event: AgenteIaEvent): LeadFloatingAlert | null {
         id: `aceptada-${event.cotizacion_id || Date.now()}`,
         title: 'Cliente aceptó cotización',
         leadTone: 'accepted',
-        message: 'El cliente aceptó. Confirma el horario en Bandeja.',
+        message: 'El cliente aceptó. Elige día y hora en Por agendar.',
         href: event.cita_id
           ? `/cita-agenda-personal/${event.cita_id}`
-          : '/(tabs)/bandeja?filtro=por_agendar',
+          : '/(tabs)/bandeja?paso=por_agendar',
       };
     case 'agente_ia_cotizacion_rechazada':
       return {

@@ -22,7 +22,7 @@ export function useCasoCotizacionAcciones({ cotizacionId, onCerrado, onAceptada 
     try {
       await cotizacionCanalService.marcarAceptada(cotizacionId);
       onAceptada?.();
-      showAlert('Cotización aceptada', 'Confirma el horario en Bandeja.');
+      showAlert('Cotización aceptada', 'Elige día y hora en Por agendar para empezar el trabajo.');
     } catch {
       showAlert('Error', 'Solo cotizaciones enviadas pueden marcarse como aceptadas.');
     } finally {

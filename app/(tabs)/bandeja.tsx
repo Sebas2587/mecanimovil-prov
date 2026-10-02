@@ -7,6 +7,7 @@ import PipelineClientesSection from '@/components/pipeline/PipelineClientesSecti
 import { COLORS, SPACING } from '@/app/design-system/tokens';
 import { hostScreenStyles } from '@/app/design-system/components';
 import type { OrigenPipeline, PrioridadClientePipeline } from '@/services/pipelineComercialService';
+import { esPasoComercial, type PasoComercial } from '@/utils/pasoComercial';
 import { navigateBack } from '@/utils/navigateBack';
 
 const I = COLORS.institutional;
@@ -16,6 +17,7 @@ export default function BandejaTabScreen() {
     filtro?: string | string[];
     origen?: string | string[];
     q?: string | string[];
+    paso?: string | string[];
   }>();
 
   const filtroParam = Array.isArray(params.filtro) ? params.filtro[0] : params.filtro;
@@ -23,6 +25,7 @@ export default function BandejaTabScreen() {
   const qParam = Array.isArray(params.q) ? params.q[0] : params.q;
   const filtroEsperando24h = filtroParam === 'esperando_24h';
   const filtroPorAgendar = filtroParam === 'por_agendar';
+  const pasoParam = Array.isArray(params.paso) ? params.paso[0] : params.paso;
 
   const filtroOrigen = useMemo((): OrigenPipeline | undefined => {
     if (!origenParam) return undefined;
@@ -46,11 +49,12 @@ export default function BandejaTabScreen() {
     return 'todos';
   }, [filtroEsperando24h, filtroPorAgendar]);
 
-  const hintConAccion = filtroEsperando24h
-    ? 'Clientes con cotizaciones sin respuesta. Entra a la ficha para abrir el folio o cerrar el caso.'
-    : filtroPorAgendar
-      ? 'Clientes con una cotización aceptada que aún no tiene horario.'
-      : undefined;
+  const pasoInicial = useMemo((): PasoComercial | undefined => {
+    if (esPasoComercial(pasoParam)) return pasoParam;
+    if (filtroPorAgendar) return 'por_agendar';
+    if (filtroEsperando24h) return 'esperando';
+    return undefined;
+  }, [filtroEsperando24h, filtroPorAgendar, pasoParam]);
 
   const handleBack = useCallback(() => {
     navigateBack('/(tabs)');
@@ -60,7 +64,7 @@ export default function BandejaTabScreen() {
     <TabScreenWrapper>
       <View style={styles.screen}>
         <Header
-          title="Bandeja Comercial"
+          title="Clientes"
           showBack
           onBackPress={handleBack}
           backgroundColor={I.canvas}
@@ -72,7 +76,7 @@ export default function BandejaTabScreen() {
             filtroOrigen={filtroOrigen}
             busquedaInicial={qParam?.trim() || ''}
             prioridadInicial={prioridadInicial}
-            hintConAccion={hintConAccion}
+            pasoInicial={pasoInicial}
           />
         </View>
       </View>
