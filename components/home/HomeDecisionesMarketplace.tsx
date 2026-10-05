@@ -21,7 +21,7 @@ import { obtenerMisOfertas, type OfertaProveedor } from '@/services/solicitudesS
 const I = COLORS.institutional;
 const MAX_ITEMS = 5;
 
-type Decision =
+export type Decision =
   | { kind: 'orden'; orden: Orden }
   | { kind: 'oferta'; oferta: OfertaProveedor };
 
@@ -43,7 +43,7 @@ async function fetchDecisiones(): Promise<Decision[]> {
   return decisiones;
 }
 
-function tituloDecision(item: Decision): string {
+export function tituloDecision(item: Decision): string {
   if (item.kind === 'orden') {
     return item.orden.lineas?.[0]?.servicio_nombre?.trim() || 'Trabajo del marketplace';
   }
@@ -53,7 +53,7 @@ function tituloDecision(item: Decision): string {
   return nombres.join(', ') || 'Trabajo del marketplace';
 }
 
-function resumenDecision(item: Decision): string {
+export function resumenDecision(item: Decision): string {
   if (item.kind === 'orden') {
     const nombre = obtenerNombreSeguro(item.orden.cliente_detail);
     const vehiculo = [item.orden.vehiculo_detail?.marca, item.orden.vehiculo_detail?.modelo]
@@ -66,14 +66,20 @@ function resumenDecision(item: Decision): string {
   return [detail?.cliente_nombre, detail?.vehiculo?.patente, vehiculo].filter(Boolean).join(' · ');
 }
 
-export function HomeDecisionesMarketplace({ enabled = true }: { enabled?: boolean }) {
-  const query = useQuery({
-    queryKey: ['ordenes-marketplace-decision'],
+export const HOME_DECISIONES_QUERY_KEY = ['ordenes-marketplace-decision'] as const;
+
+export function useHomeDecisionesQuery(enabled = true) {
+  return useQuery({
+    queryKey: HOME_DECISIONES_QUERY_KEY,
     queryFn: fetchDecisiones,
     enabled,
     staleTime: 15_000,
     refetchInterval: enabled ? 45_000 : false,
   });
+}
+
+export function HomeDecisionesMarketplace({ enabled = true }: { enabled?: boolean }) {
+  const query = useHomeDecisionesQuery(enabled);
 
   const items = (query.data ?? []).slice(0, MAX_ITEMS);
 

@@ -368,6 +368,7 @@ export interface EstadoProveedor {
   proveedor_id?: number;
   datos_proveedor?: {
     descripcion?: string;
+    foto_perfil?: string | null;
     politicas_cotizacion?: string;
     dias_validez_cotizacion?: number;
     telefono?: string;

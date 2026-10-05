@@ -86,8 +86,6 @@ export function createHomeScreenStyles(
       paddingHorizontal: L.horizontalPadding,
       paddingVertical: SPACING.fixed.sm,
       backgroundColor: c.canvas,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: c.hairlineSoft,
     },
     headerLeft: {
       flexDirection: 'row',
@@ -99,24 +97,20 @@ export function createHomeScreenStyles(
       width: L.avatarSize,
       height: L.avatarSize,
       borderRadius: avatarR,
-      borderWidth: 1,
-      borderColor: c.hairline,
     },
     avatarPlaceholder: {
       width: L.avatarSize,
       height: L.avatarSize,
       borderRadius: avatarR,
-      backgroundColor: c.surfaceStrong,
+      backgroundColor: c.surfaceSoft,
       justifyContent: 'center',
       alignItems: 'center',
-      borderWidth: 1,
-      borderColor: c.hairline,
     },
     avatarInitial: {
-      fontSize: h4.fontSize,
-      lineHeight: lineHeightPx(h4.fontSize, h4.lineHeight),
+      fontSize: body.fontSize,
+      lineHeight: lineHeightPx(body.fontSize, body.lineHeight),
       fontFamily: f.sansSemiBold,
-      color: c.primary,
+      color: c.ink,
     },
     /** Overline / etiqueta: caption + medium (alineado a caption / nav del DS). */
     welcomeLabel: {
@@ -124,40 +118,32 @@ export function createHomeScreenStyles(
       lineHeight: lineHeightPx(caption.fontSize, caption.lineHeight),
       color: c.muted,
       fontFamily: f.sansMedium,
-      textTransform: 'uppercase',
-      letterSpacing: TYPOGRAPHY.letterSpacing.wide,
     },
-    /** Nombre proveedor: title-md equivalente (h4 18 / semibold). */
+    /** Nombre del taller: body semibold, una línea. */
     providerName: {
-      fontSize: h4.fontSize,
-      lineHeight: lineHeightPx(h4.fontSize, h4.lineHeight),
+      fontSize: body.fontSize,
+      lineHeight: lineHeightPx(body.fontSize, body.lineHeight),
       fontFamily: f.sansSemiBold,
       color: c.ink,
     },
     bellOuter: {
       position: 'relative',
     },
-    /** Botón campana: placa surfaceStrong (patrón search-pill / icon plate del doc). */
     bellButton: {
       width: 44,
       height: 44,
       borderRadius: 22,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: c.surfaceStrong,
-      borderWidth: 1,
-      borderColor: c.hairline,
     },
     bellDot: {
       position: 'absolute',
-      top: 2,
-      right: 2,
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-      backgroundColor: c.semanticDown,
-      borderWidth: 2,
-      borderColor: c.canvas,
+      top: 8,
+      right: 8,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: c.primary,
     },
     /** Sin paddingHorizontal: el ScrollView ya usa hostScreenStyles.scrollInner. */
     sectionWrap: {

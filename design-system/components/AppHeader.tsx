@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { COLORS, SPACING, BORDERS } from '@/app/design-system/tokens';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
+import { useTallerShell } from '@/components/navigation/TallerShellContext';
 
 const C = COLORS;
 
@@ -35,6 +36,7 @@ export function AppHeader({
   style,
 }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
+  const { ocupaTope } = useTallerShell();
   const bg = backgroundColor ?? C.background.default;
 
   return (
@@ -42,7 +44,7 @@ export function AppHeader({
       style={[
         styles.container,
         {
-          paddingTop: Math.max(insets.top, SPACING.fixed.xs),
+          paddingTop: ocupaTope ? SPACING.fixed.sm : Math.max(insets.top, SPACING.fixed.xs),
           backgroundColor: bg,
           borderBottomColor: C.border.light,
         },

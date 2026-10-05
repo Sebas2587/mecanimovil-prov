@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   RefreshControl,
   TouchableOpacity,
   Image,
-  Animated,
 } from 'react-native';
 import { HomeAttentionFeed } from '@/components/home/HomeAttentionFeed';
 import {
@@ -24,7 +23,7 @@ import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
 import EstadoRevisionScreen from '@/components/EstadoRevisionScreen';
 import TabScreenWrapper from '@/components/TabScreenWrapper';
-import websocketService, { type NuevaSolicitudEvent } from '@/app/services/websocketService';
+import websocketService from '@/app/services/websocketService';
 import { useTheme } from '@/app/design-system/theme/useTheme';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, BORDERS } from '@/app/design-system/tokens';
 import { HOST_GUTTER, hostScreenStyles } from '@/app/design-system/components';
@@ -32,6 +31,7 @@ import AlertaPagoExpirado from '@/components/alerts/AlertaPagoExpirado';
 import { useAlerts } from '@/context/AlertsContext';
 import { AgendarDesdeCanalModal } from '@/components/chats/AgendarDesdeCanalModal';
 import { estadoProveedorReloadKey } from '@/utils/estadoProveedorReloadKey';
+import { useTallerShell } from '@/components/navigation/TallerShellContext';
 import { devLog, devWarn } from '@/utils/devLog';
 import { createHomeScreenStyles, type HomeScreenFonts } from '@/styles/homeScreenStyles';
 import { horariosAPI } from '@/services/api';
@@ -45,6 +45,7 @@ export default function HomeScreen() {
   // Hook del sistema de diseño - acceso seguro a tokens
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { accionFlotante } = useTallerShell();
   const { saludSuscripcion, alertasNoLeidas } = useAlerts();
 
   const {
@@ -68,7 +69,6 @@ export default function HomeScreen() {
   );
   const [refreshing, setRefreshing] = useState(false);
   const [agendarRapidoVisible, setAgendarRapidoVisible] = useState(false);
-  const [nuevasSolicitudesIds, setNuevasSolicitudesIds] = useState<Set<string>>(new Set());
 
   // Estado para alertas de pago expirado
   const [mostrarAlertaPago, setMostrarAlertaPago] = useState(false);
@@ -83,20 +83,6 @@ export default function HomeScreen() {
   /** Alertas operativas flotantes: descartables en la sesión (no fijas en el feed). */
   const [dismissHorariosAlert, setDismissHorariosAlert] = useState(false);
   const [dismissSuscripcionAlert, setDismissSuscripcionAlert] = useState(false);
-
-  // Animación de pulso para notificaciones y badges
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.3, duration: 1000, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, []);
 
   // Obtener valores seguros del tema con fallbacks
   const safeColors = useMemo(() => {
@@ -140,20 +126,6 @@ export default function HomeScreen() {
       verificarHorariosConfigurados();
     }
   }, [perfilProveedorKey, cuentaAprobadaPorAdmin, verificarHorariosConfigurados]);
-
-  // Badge de novedad en header al recibir solicitud por WebSocket
-  useEffect(() => {
-    if (!cuentaAprobadaPorAdmin) return;
-
-    const unsubscribe = websocketService.onNuevaSolicitud((event: NuevaSolicitudEvent) => {
-      devLog('📬 Nueva solicitud recibida vía WebSocket:', event);
-      setNuevasSolicitudesIds((prev) => new Set([...prev, event.solicitud_id]));
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [cuentaAprobadaPorAdmin]);
 
   // Suscribirse a eventos de pago expirado y cancelación
   useEffect(() => {
@@ -372,14 +344,6 @@ export default function HomeScreen() {
     dismissSuscripcionAlert,
   ]);
 
-  // Obtener saludo según hora del día
-  const obtenerSaludo = () => {
-    const hora = new Date().getHours();
-    if (hora >= 5 && hora < 12) return 'Buenos días';
-    if (hora >= 12 && hora < 19) return 'Buenas tardes';
-    return 'Buenas noches';
-  };
-
   const primaryObj = safeColors?.primary as any;
   const accentObj = safeColors?.accent as any;
 
@@ -415,7 +379,7 @@ export default function HomeScreen() {
       radiusCard: typeof br?.lg === 'number' ? br.lg : 16,
       radiusMd: typeof br?.md === 'number' ? br.md : 12,
       radiusSm: typeof br?.sm === 'number' ? br.sm : 8,
-      avatarSize: 48,
+      avatarSize: 40,
     });
   }, [palette, safeTypography, safeBorders, safeSpacing]);
 
@@ -475,9 +439,7 @@ export default function HomeScreen() {
                 <View style={themedStyles.bellButton}>
                   <Bell size={20} color={palette.ink} />
                 </View>
-                {alertasNoLeidas > 0 ? (
-                  <Animated.View style={[themedStyles.bellDot, { transform: [{ scale: pulseAnim }] }]} />
-                ) : null}
+                {alertasNoLeidas > 0 ? <View style={themedStyles.bellDot} /> : null}
               </TouchableOpacity>
             </View>
           </SafeAreaView>
@@ -491,39 +453,6 @@ export default function HomeScreen() {
   return (
     <TabScreenWrapper>
       <View style={[themedStyles.screen, { backgroundColor: palette.canvas }]}>
-        {/* 1. HEADER — Today */}
-        <SafeAreaView edges={['top']} style={{ backgroundColor: palette.canvas }}>
-          <View style={themedStyles.header}>
-            <View style={themedStyles.headerLeft}>
-              {(usuario as any)?.foto_perfil ? (
-                <Image source={{ uri: (usuario as any).foto_perfil }} style={themedStyles.avatar} />
-              ) : (
-                <View style={themedStyles.avatarPlaceholder}>
-                  <Text style={themedStyles.avatarInitial}>
-                    {(obtenerNombreProveedor() || 'T').charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <Text style={themedStyles.welcomeLabel}>{obtenerSaludo()}</Text>
-                <Text style={themedStyles.providerName} numberOfLines={1}>{obtenerNombreProveedor()}</Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={themedStyles.bellOuter}
-              activeOpacity={0.7}
-              onPress={() => router.push('/notificaciones')}
-            >
-              <View style={themedStyles.bellButton}>
-                <Bell size={20} color={palette.ink} />
-              </View>
-              {(nuevasSolicitudesIds.size > 0 || alertasNoLeidas > 0) && (
-                <Animated.View style={[themedStyles.bellDot, { transform: [{ scale: pulseAnim }] }]} />
-              )}
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-
         <ScrollView
           style={hostScreenStyles.scroll}
           showsVerticalScrollIndicator={false}
@@ -531,8 +460,8 @@ export default function HomeScreen() {
           contentContainerStyle={[
             hostScreenStyles.scrollInner,
             {
-              paddingTop: SPACING.fixed.xl,
-              paddingBottom: insets.bottom + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl),
+              paddingTop: SPACING.fixed.md,
+              paddingBottom: insets.bottom + (safeSpacing?.fixed?.xl ?? SPACING.fixed.xl) + (accionFlotante ? 72 : 0),
             },
           ]}
         >

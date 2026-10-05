@@ -1,12 +1,11 @@
 import { Tabs } from 'expo-router';
-import React, { useEffect } from 'react';
-import { Platform, View, Text, StyleSheet, Pressable } from 'react-native';
-import { Home, ClipboardList, MessageCircle, Calendar, Inbox, ArrowRight } from 'lucide-react-native';
+import React, { useEffect, useMemo } from 'react';
+import { Platform, View, Text, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
+import { Home, ClipboardList, ArrowRight, FileText, Users } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useAlerts } from '@/context/AlertsContext';
 import { useRadarOportunidades } from '@/context/RadarOportunidadesContext';
-import { useChats } from '@/context/ChatsContext';
 import websocketService from '@/app/services/websocketService';
 import connectionService from '@/services/connectionService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,25 +15,39 @@ import { TYPOGRAPHY } from '@/app/design-system/tokens/typography';
 import { useLegalConsentGate } from '@/hooks/useLegalConsentGate';
 import LegalConsentModal from '@/components/legal/LegalConsentModal';
 import MenuTabIcon from '@/components/navigation/MenuTabIcon';
+import { TallerShellContext } from '@/components/navigation/TallerShellContext';
+import { AgendaTabIcon, NuevaCotizacionFlotante, TallerChrome } from '@/components/navigation/TallerChrome';
+import { usePipelineComercialQuery } from '@/hooks/usePipelineComercialQuery';
+import { pasoDeCaso } from '@/utils/pasoComercial';
 
 const C = COLORS;
 
 /**
- * Orden estratégico (usabilidad taller):
- * 1. Hoy — hub del día
- * 2. Agenda — cuándo trabajar
- * 3. Servicios — activas / completadas / rechazadas (incl. citas personales)
- * 4. Mensajes — comunicación
- * 5. Menú — configuración y resto
- *
- * Bandeja comercial: no va en tabs (ya hay card en Hoy). Ruta oculta.
+ * Dueño: Hoy, Cotizaciones, Clientes y Agenda.
+ * Escritorio web: esa barra va arriba. Teléfono y app nativa: abajo.
+ * Mensajes, Servicios y Menú siguen a un toque en el cromado.
+ * Mecánico: Hoy, Servicios y Menú, siempre abajo.
  */
 export default function TabLayout() {
-  const { isAuthenticated, isLoading, esMecanicoEquipo } = useAuth();
+  const { isAuthenticated, isLoading, esMecanicoEquipo, estadoProveedor, obtenerNombreProveedor } = useAuth();
+  const { width } = useWindowDimensions();
+  const escritorio = Platform.OS === 'web' && width >= 1024 && !esMecanicoEquipo;
+  const cuentaAprobada = estadoProveedor?.estado_verificacion === 'aprobado';
   const { needsConsent, clearNeedsConsent } = useLegalConsentGate(isAuthenticated);
   const { radarOportunidadesActivo, radarPreferenciaCargada } = useRadarOportunidades();
-  const { totalMensajesNoLeidos } = useChats();
   const insets = useSafeAreaInsets();
+  const pipeline = usePipelineComercialQuery(
+    { limite: 100, fetchAllEstados: true },
+    { enabled: cuentaAprobada && !esMecanicoEquipo },
+  );
+  const porAgendar = useMemo(
+    () => (pipeline.data?.results ?? []).filter((row) => pasoDeCaso(row) === 'por_agendar').length,
+    [pipeline.data?.results],
+  );
+  const shell = useMemo(
+    () => ({ ocupaTope: !esMecanicoEquipo, accionFlotante: !escritorio && !esMecanicoEquipo }),
+    [esMecanicoEquipo, escritorio],
+  );
 
   useEffect(() => {
     websocketService.setMecanicoEquipoSession(Boolean(esMecanicoEquipo));
@@ -95,42 +108,53 @@ export default function TabLayout() {
   }, []);
 
   const tabH = Platform.OS === 'ios' ? 84 : 64;
+  const barraInferior = escritorio ? 0 : tabH + insets.bottom;
   /** Seleccionado = magenta Tinder; inactivo = muted Airbnb Hosts. */
   const activeTint = C.tab.selectedText;
   const inactiveTint = C.tab.unselected;
 
   return (
-    <>
+    <TallerShellContext.Provider value={shell}>
+    <View style={shellStyles.frame}>
+    {!esMecanicoEquipo ? (
+      <TallerChrome
+        nombre={obtenerNombreProveedor()}
+        porAgendar={porAgendar}
+        variante={escritorio ? 'superior' : 'marca'}
+        compacto={width < 1280}
+      />
+    ) : null}
+    <View style={shellStyles.escena}>
     <Tabs
+      tabBar={escritorio ? () => null : undefined}
       screenOptions={{
         tabBarActiveTintColor: activeTint,
         tabBarInactiveTintColor: inactiveTint,
         headerShown: false,
         tabBarBackground: () => (
-          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: C.background.paper }]} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: C.background.paper }]} />
         ),
-        tabBarStyle: {
-          backgroundColor: C.background.paper,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: C.border.light,
-          height: tabH + insets.bottom,
-          paddingBottom: insets.bottom,
-          paddingTop: 6,
-          ...platformShadow({
-            shadowColor: C.text.primary,
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: Platform.OS === 'ios' ? 0.04 : 0.06,
-            shadowRadius: 8,
-            elevation: 8,
-          }),
-        },
+        tabBarStyle: escritorio
+          ? { display: 'none', height: 0 }
+          : {
+            backgroundColor: C.background.paper,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: C.border.light,
+            height: tabH + insets.bottom,
+            paddingBottom: insets.bottom,
+            paddingTop: 6,
+            ...platformShadow({
+              shadowColor: C.text.primary,
+              shadowOffset: { width: 0, height: -2 },
+              shadowOpacity: Platform.OS === 'ios' ? 0.04 : 0.06,
+              shadowRadius: 8,
+              elevation: 8,
+            }),
+          },
         tabBarLabelStyle: {
           fontSize: 11,
           fontFamily: TYPOGRAPHY.fontFamily.sansMedium,
           marginTop: 2,
-        },
-        tabBarActiveLabelStyle: {
-          fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
         },
         tabBarIconStyle: {
           marginBottom: 0,
@@ -151,12 +175,34 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="cotizaciones"
+        options={{
+          title: 'Cotizaciones',
+          href: esMecanicoEquipo ? null : undefined,
+          tabBarIcon: ({ color, focused }) => (
+            <FileText size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="bandeja"
+        options={{
+          title: 'Clientes',
+          href: esMecanicoEquipo ? null : undefined,
+          tabBarIcon: ({ color, focused }) => (
+            <Users size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="calendario"
         options={{
           title: 'Agenda',
           href: esMecanicoEquipo ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <Calendar size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
+            <AgendaTabIcon color={color} focused={focused} conteo={porAgendar} />
           ),
         }}
       />
@@ -165,6 +211,7 @@ export default function TabLayout() {
         name="ordenes"
         options={{
           title: 'Servicios',
+          href: esMecanicoEquipo ? undefined : null,
           tabBarIcon: ({ color, focused }) => (
             <ClipboardList size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
           ),
@@ -175,19 +222,7 @@ export default function TabLayout() {
         name="chats"
         options={{
           title: 'Mensajes',
-          href: esMecanicoEquipo ? null : undefined,
-          tabBarIcon: ({ color, focused }) => (
-            <View style={tabStyles.iconWrap}>
-              <MessageCircle size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
-              {totalMensajesNoLeidos > 0 && (
-                <View style={tabStyles.badge}>
-                  <Text style={tabStyles.badgeText}>
-                    {totalMensajesNoLeidos > 99 ? '99+' : totalMensajesNoLeidos}
-                  </Text>
-                </View>
-              )}
-            </View>
-          ),
+          href: null,
         }}
       />
 
@@ -195,29 +230,23 @@ export default function TabLayout() {
         name="perfil"
         options={{
           title: 'Menú',
+          href: esMecanicoEquipo ? undefined : null,
           tabBarIcon: ({ focused }) => <MenuTabIcon focused={focused} />,
-        }}
-      />
-
-      {/* Bandeja: card en Hoy; no satura la barra inferior. */}
-      <Tabs.Screen
-        name="bandeja"
-        options={{
-          title: 'Bandeja',
-          href: null,
-          tabBarIcon: ({ color, focused }) => (
-            <Inbox size={22} color={color} strokeWidth={focused ? 2 : 1.75} />
-          ),
         }}
       />
 
       <Tabs.Screen name="checklist-demo" options={{ href: null }} />
     </Tabs>
-    <PlanUpdateEdge bottom={tabH + insets.bottom} />
+    </View>
+    {shell.accionFlotante ? (
+      <NuevaCotizacionFlotante bottom={barraInferior + 12} />
+    ) : null}
+    <PlanUpdateEdge bottom={barraInferior + (shell.accionFlotante ? 68 : 0)} />
     {needsConsent ? (
       <LegalConsentModal visible={needsConsent} onAccepted={clearNeedsConsent} />
     ) : null}
-    </>
+    </View>
+    </TallerShellContext.Provider>
   );
 }
 
@@ -297,30 +326,12 @@ const edgeStyles = StyleSheet.create({
   },
 });
 
-const tabStyles = StyleSheet.create({
-  iconWrap: {
-    width: 32,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
+const shellStyles = StyleSheet.create({
+  frame: {
+    flex: 1,
+    backgroundColor: C.institutional.canvas,
   },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -10,
-    backgroundColor: C.primary[500],
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: C.background.paper,
-  },
-  badgeText: {
-    color: C.text.onPrimary,
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.sansSemiBold,
+  escena: {
+    flex: 1,
   },
 });

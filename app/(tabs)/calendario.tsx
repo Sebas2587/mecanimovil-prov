@@ -50,6 +50,8 @@ import { OrigenOrdenBadge } from '@/components/ordenes/OrigenOrdenBadge';
 import type { OrigenOrden } from '@/utils/ordenProveedorUnificada';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { ChevronRight } from 'lucide-react-native';
+import { AgendaComercial } from '@/components/taller/AgendaComercial';
+import { useTallerShell } from '@/components/navigation/TallerShellContext';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -201,6 +203,7 @@ function formatearHoraStr(hora: string) {
 
 export default function CalendarioScreen() {
   const insets = useSafeAreaInsets();
+  const { accionFlotante } = useTallerShell();
   const queryClient = useQueryClient();
   const { estadoProveedor, esMecanicoEquipo, miembroId } = useAuth();
   const { fecha: fechaParam } = useLocalSearchParams<{ fecha?: string }>();
@@ -428,170 +431,18 @@ export default function CalendarioScreen() {
   return (
     <TabScreenWrapper>
       <View style={styles.container}>
-      <Header
-        title="Agenda"
-        backgroundColor={COLORS.background.default}
-        titleColor={I.ink}
-      />
-
       <ScrollView
         style={hostScreenStyles.scroll}
         contentContainerStyle={[
           hostScreenStyles.scrollInner,
-          { paddingBottom: insets.bottom + SPACING.fixed.md },
+          { paddingBottom: insets.bottom + SPACING.fixed.md + (accionFlotante ? 72 : 0) },
         ]}
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={I.primary} />
         }
       >
-        {loading && eventos.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={I.primary} />
-            <Text style={styles.loadingText}>Cargando calendario...</Text>
-          </View>
-        ) : (
-          <>
-            {!esMecanicoEquipo && mecanicos.length > 0 ? (
-              <View style={styles.mecanicoFilterWrap}>
-                <HostSectionKicker label="Filtrar por mecánico" />
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mecanicoFilterRow}>
-                  <TouchableOpacity
-                    style={[styles.mecanicoChip, miembroFiltroManual === null && styles.mecanicoChipActive]}
-                    onPress={() => setMiembroFiltroManual(null)}
-                  >
-                    <Text style={[styles.mecanicoChipText, miembroFiltroManual === null && styles.mecanicoChipTextActive]}>
-                      Todos
-                    </Text>
-                  </TouchableOpacity>
-                  {mecanicos.map((m) => {
-                    const active = miembroFiltroManual === m.id;
-                    return (
-                      <TouchableOpacity
-                        key={m.id}
-                        style={[styles.mecanicoChip, active && styles.mecanicoChipActive]}
-                        onPress={() => setMiembroFiltroManual(m.id)}
-                      >
-                        <Text style={[styles.mecanicoChipText, active && styles.mecanicoChipTextActive]}>
-                          {m.nombre}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            ) : null}
-
-            <Card elevated padding="host" style={styles.calendarCard}>
-              <View style={styles.monthNavRow}>
-                <TouchableOpacity
-                  style={styles.monthButton}
-                  onPress={() => cambiarMes('anterior')}
-                  activeOpacity={0.7}
-                  accessibilityLabel="Mes anterior"
-                >
-                  <InstitutionalIcon name="chevron-back" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                </TouchableOpacity>
-
-                <View style={styles.monthTitleContainer}>
-                  <Text style={styles.monthTitle}>
-                    {mesesNombres[mesActual.getMonth()]} {mesActual.getFullYear()}
-                  </Text>
-                  <InstitutionalButton
-                    label="Hoy"
-                    variant="outline"
-                    size="compact"
-                    onPress={irAHoy}
-                    style={styles.todayButton}
-                  />
-                </View>
-
-                <TouchableOpacity
-                  style={styles.monthButton}
-                  onPress={() => cambiarMes('siguiente')}
-                  activeOpacity={0.7}
-                  accessibilityLabel="Mes siguiente"
-                >
-                  <InstitutionalIcon name="chevron-forward" size={24} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.calendarGridSection}>
-                <View style={styles.diasSemanaContainer}>
-                  {diasSemana.map((dia, index) => (
-                    <View key={index} style={styles.diaSemanaHeader}>
-                      <Text style={styles.diaSemanaText}>{dia}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                <View style={styles.calendarGrid}>
-                  {calendario.map((diaCalendario, index) => (
-                    <CalendarDayCell
-                      key={index}
-                      diaCalendario={diaCalendario}
-                      fechaSeleccionada={fechaSeleccionada}
-                      onSelect={onSelectDay}
-                    />
-                  ))}
-                </View>
-              </View>
-            </Card>
-
-            <View style={styles.ordenesSection}>
-              <Text style={styles.ordenesSectionTitle}>{formatearFechaCompleta(fechaSeleccionada)}</Text>
-
-              {eventosFechaSeleccionada.length > 0 ? (
-                eventosFechaSeleccionada.map((evento) => (
-                  <AgendaEventCard
-                    key={`${evento.origen}-${evento.id}`}
-                    evento={evento}
-                    onPress={handleEventoPress}
-                  />
-                ))
-              ) : (
-                <View style={styles.emptyState}>
-                  <InstitutionalIcon name="event-busy" size={48} color={I.muted}  strokeWidth={ICON_STROKE_WIDTH} />
-                  <Text style={styles.emptyStateText}>
-                    {puedeAgendarEnSeleccion
-                      ? 'No hay citas para esta fecha'
-                      : 'No hay citas registradas en esta fecha'}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </>
-        )}
+        <AgendaComercial />
       </ScrollView>
-
-      {estadoProveedor?.estado_verificacion === 'aprobado' && puedeAgendarEnSeleccion && (
-        <TouchableOpacity
-          style={[styles.fab, { bottom: insets.bottom + SPACING.fixed.md }]}
-          onPress={handleAgendarCita}
-          activeOpacity={0.88}
-          accessibilityRole="button"
-          accessibilityLabel="Agendar cita"
-        >
-          <InstitutionalIcon name="add" size={28} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-        </TouchableOpacity>
-      )}
-
-      <BottomSheet visible={agendarOpcionesVisible} onClose={() => setAgendarOpcionesVisible(false)}>
-        <Text style={styles.agendarSheetTitle}>¿Qué quieres agendar?</Text>
-        <Text style={styles.agendarSheetSubtitle}>
-          Elige una cita personal o revisa solicitudes Mecanimovil disponibles.
-        </Text>
-        <InstitutionalButton
-          label="Cita personal"
-          onPress={handleAgendarPersonal}
-          style={styles.agendarSheetBtn}
-        />
-        <InstitutionalButton
-          label="Ver solicitudes disponibles"
-          variant="outline"
-          onPress={handleVerSolicitudesDisponibles}
-          style={styles.agendarSheetBtn}
-        />
-      </BottomSheet>
 
       <AgendarDesdeCanalModal
         visible={agendarModalVisible}
