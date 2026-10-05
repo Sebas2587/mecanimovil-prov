@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View, type ColorValue } from 'react-native';
 import { Image } from 'expo-image';
-import { router, usePathname } from 'expo-router';
+import { router, usePathname, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Bell,
@@ -24,10 +24,10 @@ const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
 
 const SECCIONES = [
-  { href: '/(tabs)', etiqueta: 'Hoy', coincide: (ruta: string) => ruta === '/' || ruta === '/index' },
-  { href: '/(tabs)/cotizaciones', etiqueta: 'Cotizaciones', coincide: (ruta: string) => ruta.includes('cotizaciones') },
-  { href: '/(tabs)/bandeja', etiqueta: 'Clientes', coincide: (ruta: string) => ruta.includes('bandeja') },
-  { href: '/(tabs)/calendario', etiqueta: 'Agenda', coincide: (ruta: string) => ruta.includes('calendario') },
+  { href: '/', etiqueta: 'Hoy', coincide: (ruta: string) => ruta === '/' || ruta === '/index' },
+  { href: '/cotizaciones', etiqueta: 'Cotizaciones', coincide: (ruta: string) => ruta === '/cotizaciones' || ruta.startsWith('/cotizaciones?') },
+  { href: '/bandeja', etiqueta: 'Clientes', coincide: (ruta: string) => ruta === '/bandeja' || ruta.startsWith('/bandeja?') },
+  { href: '/calendario', etiqueta: 'Agenda', coincide: (ruta: string) => ruta === '/calendario' || ruta.startsWith('/calendario?') },
 ] as const;
 
 type Props = {
@@ -131,15 +131,14 @@ export function TallerChrome({ nombre, porAgendar, variante }: Props) {
 
   return (
     <View style={styles.superior}>
-      <View style={styles.zona} pointerEvents="box-none">{marca}</View>
-      <View style={styles.navCentro} pointerEvents="box-none">
-        <View style={styles.nav} accessibilityRole="tablist">
+      <View style={styles.zona}>{marca}</View>
+      <View style={styles.nav} accessibilityRole="tablist">
           {SECCIONES.map((seccion) => {
             const activa = seccion.coincide(ruta);
             return (
               <Pressable
                 key={seccion.etiqueta}
-                onPress={() => router.push(seccion.href)}
+                onPress={() => router.navigate(seccion.href as Href)}
                 style={[styles.navItem, activa && styles.navItemOn]}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: activa }}
@@ -157,9 +156,8 @@ export function TallerChrome({ nombre, porAgendar, variante }: Props) {
               </Pressable>
             );
           })}
-        </View>
       </View>
-      <View style={styles.zonaDerecha} pointerEvents="box-none">
+      <View style={styles.zonaDerecha}>
         <Pressable
           onPress={() => router.push('/cotizar-ia')}
           style={styles.cta}
@@ -371,16 +369,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  navCentro: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
     gap: 4,
+    zIndex: 2,
   },
   navItem: {
     flexDirection: 'row',
