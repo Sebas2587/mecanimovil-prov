@@ -201,6 +201,10 @@ export function metaLinea(rep: RepuestoCotizacion): string {
 /** Qué le falta a la línea para tener precio (y qué hacer). */
 export function motivoSinPrecio(rep: RepuestoCotizacion): string | null {
   if (certezaDe(rep) !== 'sin_precio') return null;
+  if (rep.motivo_sin_precio === 'sin_ficha' || rep.motivo_sin_precio === 'pieza_escasa') {
+    return (rep.comentario || '').trim()
+      || 'No hay una ficha de esta pieza para este auto. Escribe el precio de tu casa.';
+  }
   if (rep.especificacion_pendiente || rep.motivo_sin_precio === 'especificacion') {
     return 'Elige el tipo para poder cotizar: el precio cambia según la variante.';
   }

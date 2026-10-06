@@ -137,7 +137,7 @@ function valorLinea(linea: NonNullable<ProgresoBusquedaWeb['lineas']>[number]): 
   if (linea.estado === 'ok' && linea.precio_clp) {
     return formatearMontoCLP(linea.precio_clp);
   }
-  if (linea.estado === 'sin_precio') return 'Sin ficha aún';
+  if (linea.estado === 'sin_precio') return linea.fuente || 'Sin ficha de este auto';
   return 'Buscando…';
 }
 
