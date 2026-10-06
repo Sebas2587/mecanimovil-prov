@@ -42,15 +42,51 @@ export function lineaPendientePrecio(rep: RepuestoCotizacion): boolean {
 }
 
 export function familiaDe(rep: RepuestoCotizacion): string {
-  if (rep.familia_sensible) return rep.familia_sensible;
   const n = (rep.nombre || '').toLowerCase();
-  if (n.includes('buj')) return 'bujia';
+  const stored = rep.familia_sensible || '';
+  if (stored && _familiaCalzaNombre(stored, n)) return stored;
+  if (n.includes('buj') && !_tieneAlguno(n, ['cable', 'bobina'])) return 'bujia';
   if (n.includes('pastilla') || n.includes('balata')) return 'pastilla_freno';
-  if (n.includes('aceite')) return 'aceite_motor';
-  if (n.includes('amortiguador')) return 'amortiguador';
-  if (n.includes('bater')) return 'bateria';
+  if (
+    (n.includes('aceite') || n.includes('lubricante'))
+    && !_tieneAlguno(n, [
+      'filtro', 'bomba', 'caja', 'transmision', 'transmisión', 'rodamiento',
+      'volante', 'piola', 'embrague', 'clutch', 'reten', 'retén',
+    ])
+  ) {
+    return 'aceite_motor';
+  }
+  if (n.includes('amortiguador') && !_tieneAlguno(n, ['soporte', 'buje'])) return 'amortiguador';
+  if (n.includes('bater') && !_tieneAlguno(n, ['cable', 'borne'])) return 'bateria';
   if (n.includes('disco') && n.includes('freno')) return 'disco_freno';
   return '';
+}
+
+function _tieneAlguno(nombre: string, claves: string[]): boolean {
+  return claves.some((clave) => nombre.includes(clave));
+}
+
+const _FAMILIA_EN_NOMBRE: Record<string, { incluye: string[]; excluye: string[] }> = {
+  bujia: { incluye: ['buj'], excluye: ['cable', 'bobina'] },
+  pastilla_freno: { incluye: ['pastilla', 'balata'], excluye: [] },
+  aceite_motor: {
+    incluye: ['aceite', 'lubricante'],
+    excluye: [
+      'filtro', 'bomba', 'caja', 'transmision', 'transmisión', 'rodamiento',
+      'volante', 'piola', 'embrague', 'clutch', 'reten', 'retén',
+    ],
+  },
+  amortiguador: { incluye: ['amortiguador'], excluye: ['soporte', 'buje'] },
+  bateria: { incluye: ['bater'], excluye: ['cable', 'borne'] },
+  disco_freno: { incluye: ['disco'], excluye: [] },
+};
+
+function _familiaCalzaNombre(familia: string, nombre: string): boolean {
+  const meta = _FAMILIA_EN_NOMBRE[familia];
+  if (!meta) return false;
+  if (meta.excluye.some((clave) => nombre.includes(clave))) return false;
+  if (familia === 'disco_freno' && !nombre.includes('freno')) return false;
+  return meta.incluye.some((clave) => nombre.includes(clave));
 }
 
 export function opcionesFamilia(rep: RepuestoCotizacion): string[] {

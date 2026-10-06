@@ -982,14 +982,28 @@ export const CotizacionIaEditor = React.forwardRef<
         especificacion: payload.especificacion,
         guardar_en_mis_precios: true,
       });
-      aplicarCotizacionServidor(res.cotizacion);
+      const latest = cotizacionRef.current;
+      const fresh = (res.cotizacion.repuestos || []).find((r) => String(r.id) === rid);
+      const reps = (latest.repuestos ?? []).map((r) => (
+        String(r.id) === rid && fresh ? { ...r, ...fresh } : r
+      ));
+      onChange({
+        ...latest,
+        ...res.cotizacion,
+        repuestos: reps,
+        mano_obra_lineas: latest.mano_obra_lineas ?? res.cotizacion.mano_obra_lineas,
+        metadata: {
+          ...(latest.metadata || {}),
+          ...(res.cotizacion.metadata || {}),
+        },
+      });
       setRepuestoSheet(null);
     } catch {
       showAlert('No se pudo confirmar', 'Revisa el monto e inténtalo de nuevo.');
     } finally {
       setPrecioBusy(false);
     }
-  }, [aplicarCotizacionServidor]);
+  }, [onChange]);
 
   const asumirPrecios = useCallback(async (
     ids: string[],

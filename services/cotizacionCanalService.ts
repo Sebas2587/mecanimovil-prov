@@ -539,15 +539,7 @@ export function patchPrecioEscritoPorTaller(precio: number): Partial<RepuestoCot
     precio_min_clp: next,
     precio_max_clp: next,
     certeza: 'asumido',
-    fuente_marketplace: '',
-    fuente_repuesto: '',
-    proveedor_nombre: '',
-    proveedor_id: null,
-    tienda_ml: '',
-    url_producto: '',
-    nombre_producto: '',
-    fuentes_detalle: [],
-    fuentes_n: 0,
+    precio_estimado: true,
   };
 }
 

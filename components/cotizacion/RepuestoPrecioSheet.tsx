@@ -78,16 +78,19 @@ export function RepuestoPrecioSheet({
 }: Props) {
   const { height: winH } = useWindowDimensions();
   const scrollMaxH = maxScrollHeight(winH);
-  const [mostrarForm, setMostrarForm] = useState(false);
+  const [mostrarForm, setMostrarForm] = useState(true);
   const [monto, setMonto] = useState(0);
   const [proveedorId, setProveedorId] = useState<number | null>(null);
   const [proveedorNombre, setProveedorNombre] = useState('');
 
   useEffect(() => {
-    setMostrarForm(false);
-    setMonto(0);
-    setProveedorId(null);
-    setProveedorNombre('');
+    if (!visible || !repuesto) return;
+    const { ficha: publicado, techo: margen } = montosFichaYTecho(repuesto);
+    const unit = Math.round(Number(repuesto.precio_unitario_clp) || 0);
+    setMostrarForm(true);
+    setMonto(unit > 0 ? unit : (publicado || margen));
+    setProveedorId(repuesto.proveedor_id ?? null);
+    setProveedorNombre((repuesto.proveedor_nombre || '').trim());
   }, [repuesto?.id, visible]);
 
   const opciones = useMemo(() => (repuesto ? opcionesFamilia(repuesto) : []), [repuesto]);
@@ -136,7 +139,8 @@ export function RepuestoPrecioSheet({
     if (monto <= 0) return;
     const rid = String(repuesto?.id || '');
     if (!rid) return;
-    const sinCasa = !proveedorId && !proveedorNombre.trim();
+    const casaEscrita = proveedorNombre.trim();
+    const sinCasa = !proveedorId && !casaEscrita;
     if (sinCasa && ficha > 0 && monto === ficha) {
       onAsumir('ficha');
       return;
@@ -150,7 +154,7 @@ export function RepuestoPrecioSheet({
       repuesto_id: rid,
       precio_clp: monto,
       proveedor_id: proveedorId,
-      proveedor_nombre: elegido?.nombre || proveedorNombre,
+      proveedor_nombre: elegido?.nombre || casaEscrita,
       especificacion: repuesto?.especificacion,
     });
   }, [
@@ -307,7 +311,10 @@ export function RepuestoPrecioSheet({
         {mostrarForm ? (
           <View style={styles.block}>
             <InstitutionalText role="label">Otro monto (IVA incl.)</InstitutionalText>
-            <ClpMoneyInput value={monto} onChangeValue={setMonto} editable />
+            <ClpMoneyInput live value={monto} onChangeValue={setMonto} editable />
+            <InstitutionalText role="caption" color="muted">
+              Al confirmar, este monto y la casa quedan en la cotización.
+            </InstitutionalText>
             <InstitutionalText role="label">Casa de repuestos</InstitutionalText>
             {proveedores.map((p) => (
               <TouchableOpacity
@@ -339,7 +346,7 @@ export function RepuestoPrecioSheet({
       <View style={styles.footer}>
         {mostrarForm ? (
           <InstitutionalButton
-            label="Confirmar"
+            label="Agregar a la cotización"
             onPress={handleConfirmar}
             loading={loading}
             disabled={monto <= 0}

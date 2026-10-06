@@ -17,6 +17,8 @@ export interface ClpMoneyInputProps {
   editable: boolean;
   placeholder?: string;
   compact?: boolean;
+  /** Avisa el monto en cada tecla. Sin esto solo se confirma al salir del campo. */
+  live?: boolean;
 }
 
 export function ClpMoneyInput({
@@ -25,6 +27,7 @@ export function ClpMoneyInput({
   editable,
   placeholder = '0',
   compact = false,
+  live = false,
 }: ClpMoneyInputProps) {
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState(() =>
@@ -81,7 +84,12 @@ export function ClpMoneyInput({
           onChangeValue(next);
         }}
         onChangeText={(t) => {
-          setDraft(t.replace(/[^\d]/g, ''));
+          const digits = t.replace(/[^\d]/g, '');
+          setDraft(digits);
+          if (!live) return;
+          const next = redondearCLP(parseMontoDecimal(digits));
+          lastEmittedRef.current = next;
+          onChangeValue(next);
         }}
       />
     </View>
