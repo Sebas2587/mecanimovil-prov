@@ -402,6 +402,8 @@ export default function CitaAgendaPersonalDetalleScreen() {
     || puedeRectificarSupervisor
     || (citaAgendada && !cita?.tiene_checklist && !editando)
     || puedeCancelarCita
+    || pasoSinRegistro
+    || checklistPendienteFirmaCliente
     || (esActiva && editando && permitirEditarCita)
     || (esCancelada && permitirEliminarCita),
   );
@@ -453,6 +455,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
       if (res.success) {
         setEditando(false);
         await recargarCita();
+        invalidateProveedorComercialQueries(queryClient);
         invalidateProveedorMarketplaceQueries(queryClient);
         mostrarFeedback({
           tipo: 'success',
@@ -492,12 +495,27 @@ export default function CitaAgendaPersonalDetalleScreen() {
       if (res.success) {
         setEditando(false);
         await recargarCita();
+        invalidateProveedorComercialQueries(queryClient);
         invalidateProveedorMarketplaceQueries(queryClient);
         mostrarFeedback({
           tipo: 'success',
-          titulo: 'Cita cancelada',
-          mensaje: 'La cita fue cancelada. El horario quedó liberado en tu agenda.',
+          titulo: pasoSinRegistro ? 'Visita no realizada' : 'Cita cancelada',
+          mensaje: pasoSinRegistro
+            ? 'La cita salió de la agenda. Si hay teléfono, se abre WhatsApp para avisarle al cliente.'
+            : 'La cita fue cancelada. El horario quedó liberado en tu agenda.',
         });
+        if (pasoSinRegistro) {
+          const tel = (cita?.detalle.cliente_telefono || '').replace(/\D/g, '');
+          const nombre = cita?.detalle.cliente_nombre?.trim();
+          const cuando = cita?.fecha_servicio
+            ? new Date(`${String(cita.fecha_servicio).slice(0, 10)}T12:00:00`).toLocaleDateString('es-CL', {
+              day: 'numeric',
+              month: 'long',
+            })
+            : 'la visita acordada';
+          const texto = `Hola${nombre ? ` ${nombre}` : ''}, te escribimos del taller. La visita del ${cuando} no se realizó. Si quieres, la reagendamos.`;
+          if (tel) void Linking.openURL(`https://wa.me/${tel}?text=${encodeURIComponent(texto)}`);
+        }
       } else {
         mostrarFeedback({
           tipo: 'error',
@@ -514,15 +532,15 @@ export default function CitaAgendaPersonalDetalleScreen() {
     } finally {
       setProcesando(false);
     }
-  }, [citaId, recargarCita, mostrarFeedback, queryClient]);
+  }, [cita, citaId, pasoSinRegistro, recargarCita, mostrarFeedback, queryClient]);
 
   const handleCancelar = useCallback(() => {
     if (pasoSinRegistro) {
       showConfirm(
-        'Cerrar sin registro',
-        'La cita sale de la agenda. No queda checklist ni un servicio iniciado.',
+        'La visita no se realizó',
+        'La cita sale de la agenda y, si hay teléfono, se abre WhatsApp para avisarle al cliente.',
         {
-          confirmText: 'Cerrar sin registro',
+          confirmText: 'Avisar y cerrar',
           onConfirm: ejecutarCancelar,
         },
       );
@@ -1041,7 +1059,16 @@ export default function CitaAgendaPersonalDetalleScreen() {
             <View style={styles.pasoSinRegistro}>
               <InstitutionalText role="bodyBold">Pasó sin registro</InstitutionalText>
               <InstitutionalText role="caption" color="body">
-                El día de la cita ya pasó y no hay checklist. Si el trabajo se hizo, inícialo para dejarlo en el sistema. Si no se hizo, ciérrala sin registro.
+                El servicio no se inició, así que el cliente no tiene un informe que firmar. Si el trabajo se hizo, inícialo: al terminar, el cliente firma. Si no se hizo, avísale y cierra la visita.
+              </InstitutionalText>
+            </View>
+          ) : null}
+
+          {checklistPendienteFirmaCliente ? (
+            <View style={styles.pasoSinRegistro}>
+              <InstitutionalText role="bodyBold">Falta la firma del cliente</InstitutionalText>
+              <InstitutionalText role="caption" color="body">
+                El trabajo ya está registrado. Envía el enlace: la cita se cierra cuando el cliente firma el informe.
               </InstitutionalText>
             </View>
           ) : null}
@@ -1297,6 +1324,21 @@ export default function CitaAgendaPersonalDetalleScreen() {
             permitirEliminar={permitirEliminarCita}
             permitirCancelar={puedeCancelarCita}
             cerrarSinRegistro={pasoSinRegistro}
+            esperaFirmaCliente={checklistPendienteFirmaCliente}
+            onCopiarEnlace={
+              cita.informe_publico_url
+                ? () => {
+                  const url = cita.informe_publico_url!;
+                  const tel = (det.cliente_telefono || '').replace(/\D/g, '');
+                  const texto = `Hola, tu servicio ya está listo. Para cerrarlo, firma el informe aquí: ${url}`;
+                  if (tel) {
+                    void Linking.openURL(`https://wa.me/${tel}?text=${encodeURIComponent(texto)}`);
+                    return;
+                  }
+                  void copiarEnlaceInformeCita(url);
+                }
+                : undefined
+            }
             permitirCerrarManual={citaAgendada && !cita.tiene_checklist}
             permitirConfirmarHorario={horarioPorConfirmar && permitirEditarCita}
             permitirIniciarServicio={puedeIniciarServicioSticky}
@@ -1425,6 +1467,8 @@ type CitaPersonalFooterProps = {
   permitirEliminar: boolean;
   permitirCancelar: boolean;
   cerrarSinRegistro?: boolean;
+  esperaFirmaCliente?: boolean;
+  onCopiarEnlace?: () => void;
   permitirCerrarManual: boolean;
   permitirConfirmarHorario?: boolean;
   permitirIniciarServicio?: boolean;
@@ -1453,6 +1497,8 @@ function CitaPersonalFooter({
   permitirEliminar,
   permitirCancelar,
   cerrarSinRegistro = false,
+  esperaFirmaCliente = false,
+  onCopiarEnlace,
   permitirCerrarManual,
   permitirConfirmarHorario = false,
   permitirIniciarServicio = false,
@@ -1472,6 +1518,20 @@ function CitaPersonalFooter({
   onEliminar,
 }: CitaPersonalFooterProps) {
   const ctaDerecha = (() => {
+    if (esperaFirmaCliente) {
+      return (
+        <View style={styles.footerStack}>
+          <TallerPildora
+            label="Enviar enlace al cliente"
+            tono="coral"
+            forma="hoja"
+            onPress={onCopiarEnlace ?? (() => undefined)}
+            disabled={procesando || !onCopiarEnlace}
+            style={styles.footerCta}
+          />
+        </View>
+      );
+    }
     if (permitirConfirmarHorario) {
       return (
         <TallerPildora
@@ -1542,9 +1602,18 @@ function CitaPersonalFooter({
       {esActiva && !editando ? (
         <View style={styles.footerStack}>
           {ctaDerecha}
-          {permitirCancelar ? (
+          {cerrarSinRegistro ? (
             <TallerPildora
-              label={cerrarSinRegistro ? 'Cerrar sin registro' : 'Cancelar visita'}
+              label="Avisar que no se realizó"
+              tono="suave"
+              forma="hoja"
+              onPress={onCancelar}
+              disabled={procesando}
+              style={styles.footerCta}
+            />
+          ) : permitirCancelar && !esperaFirmaCliente ? (
+            <TallerPildora
+              label="Cancelar visita"
               tono="suave"
               forma="hoja"
               onPress={onCancelar}

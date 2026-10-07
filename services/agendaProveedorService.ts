@@ -141,6 +141,7 @@ export interface EventoAgendaUnificado {
   tiene_checklist: boolean;
   /** Instancia real del checklist. Vacío si el servicio todavía no se inició. */
   checklist_id?: number | null;
+  checklist_estado?: string | null;
   cliente_nombre?: string;
   cliente_telefono?: string;
   vehiculo_marca?: string;
@@ -290,9 +291,15 @@ class AgendaProveedorService {
     }
   }
 
-  async cerrarCita(id: number): Promise<ServiceResponse<CitaAgendaPersonal>> {
+  async cerrarCita(
+    id: number,
+    motivo?: 'sin_checklist' | 'sin_firma_cliente',
+  ): Promise<ServiceResponse<CitaAgendaPersonal>> {
     try {
-      const response = await api.post(`${this.citasUrl}/${id}/cerrar/`);
+      const response = await api.post(
+        `${this.citasUrl}/${id}/cerrar/`,
+        motivo ? { motivo } : {},
+      );
       return { success: true, data: response.data };
     } catch (error) {
       return handleServiceError(error, 'cerrar cita personal');

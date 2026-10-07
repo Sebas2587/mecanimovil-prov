@@ -104,15 +104,19 @@ export function AgendaComercial() {
     const comerciales = citasAgendadas.map((evento) => {
       const cal = calendario.get(`${evento.origen}-${evento.id}`);
       const checklistId = cal?.checklist_id ?? null;
+      const estadoCita = (cal?.estado || '').toLowerCase();
+      if (estadoCita === 'cerrada' || CANCELADOS.has(estadoCita)) return null;
       return {
         ...evento,
         fecha_servicio: evento.fecha_servicio || cal?.fecha_servicio || '',
         hora_servicio: evento.hora_servicio || cal?.hora_servicio || '',
         checklist_id: checklistId,
+        checklist_estado: cal?.checklist_estado ?? null,
         tiene_checklist: Boolean(checklistId),
       };
     });
-    const clavesComerciales = new Set(comerciales.map((evento) => `${evento.origen}-${evento.id}`));
+    const comercialesVivas = comerciales.filter((evento): evento is EventoAgendaUnificado => evento != null);
+    const clavesComerciales = new Set(comercialesVivas.map((evento) => `${evento.origen}-${evento.id}`));
     const extras = soloEnAgenda
       ? []
       : [...mesActual.eventos, ...mesProx.eventos].filter((evento) => {
@@ -123,9 +127,16 @@ export function AgendaComercial() {
     const inicioHoy = startOfDay(hoy).getTime();
     const proximas: EventoAgendaUnificado[] = [];
     const pasaron: EventoAgendaUnificado[] = [];
-    for (const evento of [...comerciales, ...extras]) {
+    const esperandoFirma: EventoAgendaUnificado[] = [];
+    for (const evento of [...comercialesVivas, ...extras]) {
       if (CANCELADOS.has(String(evento.estado || '').toLowerCase())) continue;
+      if (String(evento.estado || '').toLowerCase() === 'cerrada') continue;
       const dia = parseFechaLocal(evento.fecha_servicio);
+      const esperaFirma = evento.checklist_estado === 'PENDIENTE_FIRMA_CLIENTE';
+      if (esperaFirma) {
+        esperandoFirma.push(evento);
+        continue;
+      }
       const sinChecklist = !evento.checklist_id;
       if (dia && dia.getTime() < inicioHoy && sinChecklist) {
         pasaron.push(evento);
@@ -142,6 +153,7 @@ export function AgendaComercial() {
     };
     proximas.sort(porFecha);
     pasaron.sort((a, b) => porFecha(b, a));
+    esperandoFirma.sort((a, b) => porFecha(b, a));
     const agrupar = (eventos: EventoAgendaUnificado[]) => {
       const grupos = new Map<string, EventoAgendaUnificado[]>();
       for (const evento of eventos) {
@@ -151,7 +163,11 @@ export function AgendaComercial() {
       }
       return Array.from(grupos.entries());
     };
-    return { proximas: agrupar(proximas), pasaron: agrupar(pasaron) };
+    return {
+      proximas: agrupar(proximas),
+      pasaron: agrupar(pasaron),
+      esperandoFirma: agrupar(esperandoFirma),
+    };
   }, [citasAgendadas, hoy, mesActual.eventos, mesProx.eventos, soloEnAgenda]);
 
   const agendar = useCallback((row: PendienteAgenda) => {
@@ -223,11 +239,35 @@ export function AgendaComercial() {
         )}
       </View> : null}
 
+      {!soloPorAgendar && listas.esperandoFirma.length > 0 ? (
+        <View style={styles.bloque}>
+          <InstitutionalText role="h4">Esperando firma del cliente</InstitutionalText>
+          <InstitutionalText role="caption" color="body">
+            El trabajo ya está registrado. Envía el enlace: la cita se cierra cuando el cliente firma.
+          </InstitutionalText>
+          {listas.esperandoFirma.map(([fecha, eventos]) => (
+            <View key={`firma-${fecha}`} style={styles.dia}>
+              <InstitutionalText role="captionBold" color="body">
+                {fecha ? fechaLargaCotizacion(fecha) : 'Día por confirmar'}
+              </InstitutionalText>
+              {eventos.map((evento) => (
+                <CitaFila
+                  key={`${evento.origen}-${evento.id}`}
+                  evento={evento}
+                  marca="Falta la firma"
+                  onPress={abrirEvento}
+                />
+              ))}
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       {!soloPorAgendar && listas.pasaron.length > 0 ? (
         <View style={styles.bloque}>
           <InstitutionalText role="h4">Pasaron sin registro</InstitutionalText>
           <InstitutionalText role="caption" color="body">
-            Se agendaron y el día ya pasó. No hay checklist: el sistema no sabe si el trabajo se hizo.
+            El día ya pasó y el servicio no se inició. El cliente todavía no tiene un informe que firmar.
           </InstitutionalText>
           {listas.pasaron.map(([fecha, eventos]) => (
             <View key={`paso-${fecha}`} style={styles.dia}>
