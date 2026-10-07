@@ -145,9 +145,12 @@ export function CotizacionesVista({ estadoInicial }: Props) {
     if (!puedeLimpiarLista) return;
     const ambito = filtro === 'rechazada' ? 'cotizaciones_rechazadas' : 'cotizaciones_terminadas';
     const titulo = filtro === 'rechazada' ? 'Limpiar rechazadas' : 'Limpiar terminadas';
+    const mensaje = filtro === 'rechazada'
+      ? 'Salen de Cotizaciones. El chat y lo que el agente ya aprendió se conservan.'
+      : 'Salen de la lista del día. Si el auto vuelve, el historial de la patente sigue con este trabajo y con el de la red.';
     showConfirm(
       titulo,
-      'Salen de Cotizaciones. El chat y lo que el agente de cotizaciones ya aprendió se conservan.',
+      mensaje,
       {
         confirmText: 'Quitar de la lista',
         onConfirm: async () => {
@@ -169,7 +172,7 @@ export function CotizacionesVista({ estadoInicial }: Props) {
   const quitarCotizacion = useCallback((cotizacion: CotizacionCanal) => {
     showConfirm(
       'Quitar de la lista',
-      'Esta ficha sale de Cotizaciones. El chat y el aprendizaje del agente se conservan.',
+      'Sale de Cotizaciones. El trabajo queda en el historial de la patente y el agente conserva lo aprendido.',
       {
         confirmText: 'Quitar',
         onConfirm: async () => {

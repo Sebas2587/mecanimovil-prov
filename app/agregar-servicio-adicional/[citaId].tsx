@@ -54,7 +54,7 @@ function textoBloqueoAdicional(cita: {
     return 'Ya hay un trabajo adicional pendiente. Revísalo o espera la respuesta del cliente.';
   }
   if (cita.horario_por_confirmar) {
-    return 'Confirma el horario primero. Mientras tanto puedes editar la cotización original.';
+    return 'Todavía no hay día y hora. Agrega el ítem en la cotización original y envíasela de nuevo para que el cliente la acepte.';
   }
   if (cita.estado === 'cerrada' || cita.checklist_estado === 'COMPLETADO') {
     return 'El cliente ya certificó este servicio. La visita quedó cerrada. Un hallazgo nuevo se cotiza como otro trabajo.';
@@ -297,6 +297,15 @@ export default function AgregarServicioAdicionalScreen() {
               tono="suave"
               forma="hoja"
               onPress={() => router.replace(`/cotizacion-canal/${cita.cotizacion_adicional_pendiente_id}`)}
+              style={{ marginTop: SPACING.md }}
+            />
+          ) : null}
+          {cita.horario_por_confirmar && cita.cotizacion_canal_origen_id ? (
+            <TallerPildora
+              label="Actualizar la cotización original"
+              tono="coral"
+              forma="hoja"
+              onPress={() => router.replace(`/cotizacion-canal/${cita.cotizacion_canal_origen_id}?actualizar=1`)}
               style={{ marginTop: SPACING.md }}
             />
           ) : null}

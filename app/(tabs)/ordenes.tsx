@@ -134,9 +134,12 @@ export default function OrdenesScreen() {
     if (tabActivo === 'activas') return;
     const ambito = tabActivo === 'completadas' ? 'servicios_completados' : 'servicios_rechazados';
     const titulo = tabActivo === 'completadas' ? 'Limpiar completadas' : 'Limpiar rechazadas';
+    const mensaje = tabActivo === 'completadas'
+      ? 'Salen de Servicios. Si el auto vuelve, el historial de la patente sigue con este trabajo y con el de la red.'
+      : 'Salen de Servicios. El chat y lo que los agentes ya aprendieron se conservan.';
     showConfirm(
       titulo,
-      'Salen de Servicios. El chat y lo que los agentes ya aprendieron se conservan.',
+      mensaje,
       {
         confirmText: 'Quitar de la lista',
         onConfirm: async () => {

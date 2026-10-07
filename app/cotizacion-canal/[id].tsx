@@ -93,7 +93,7 @@ function snapshot(c: CotizacionCanal): string {
 }
 
 export default function CotizacionCanalDetalleScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, actualizar } = useLocalSearchParams<{ id: string; actualizar?: string }>();
   const parsedId = Number(id);
   const insets = useSafeAreaInsets();
   const webViewport = useWebVisualViewport();
@@ -431,7 +431,8 @@ export default function CotizacionCanalDetalleScreen() {
   }, [draft]);
 
   const corregirCotizacion = useCallback(async () => {
-    if (!draft?.id || draft.estado !== 'enviada') return;
+    const aceptadaSinHorario = draft?.estado === 'aceptada' && !draft.tiene_horario_agendado;
+    if (!draft?.id || (draft.estado !== 'enviada' && !aceptadaSinHorario)) return;
     setGuardando(true);
     try {
       const reabierta = await cotizacionCanalService.reabrir(draft.id);
@@ -440,13 +441,23 @@ export default function CotizacionCanalDetalleScreen() {
       await invalidateAll();
     } catch {
       showAlert(
-        'No se pudo corregir',
-        'Solo puedes corregir una cotización enviada que el cliente todavía no acepta.',
+        'No se pudo actualizar',
+        aceptadaSinHorario
+          ? 'Solo puedes agregar ítems si la visita todavía no tiene día y hora.'
+          : 'Solo puedes corregir una cotización enviada que el cliente todavía no acepta.',
       );
     } finally {
       setGuardando(false);
     }
-  }, [draft?.estado, draft?.id, invalidateAll]);
+  }, [draft, invalidateAll]);
+
+  const actualizacionPedida = useRef(false);
+  useEffect(() => {
+    if (actualizar !== '1' || actualizacionPedida.current) return;
+    if (!draft?.id || draft.estado !== 'aceptada' || draft.tiene_horario_agendado) return;
+    actualizacionPedida.current = true;
+    void corregirCotizacion();
+  }, [actualizar, corregirCotizacion, draft?.estado, draft?.id, draft?.tiene_horario_agendado]);
 
   const marcarAceptada = useCallback(async () => {
     if (!draft?.id) return;
@@ -740,9 +751,15 @@ export default function CotizacionCanalDetalleScreen() {
           <RegistrarCompraCard cotizacion={draft} />
         ) : null}
 
-        {draft.estado === 'aceptada' ? (
+        {draft.estado === 'aceptada' && !tieneHorarioAgendado && !trabajoEntregado ? (
           <InstitutionalText role="caption" color="body">
-            Esta cotización ya fue aceptada y queda cerrada. Para sumar o cambiar trabajo, crea una cotización adicional.
+            Todavía no hay día y hora. Para sumar un ítem, actualiza esta cotización y envíasela de nuevo. El cliente tiene que aceptarla otra vez antes de agendar.
+          </InstitutionalText>
+        ) : null}
+
+        {draft.estado === 'aceptada' && tieneHorarioAgendado ? (
+          <InstitutionalText role="caption" color="body">
+            Esta cotización ya tiene visita. Para sumar trabajo, crea una cotización adicional.
           </InstitutionalText>
         ) : null}
 
@@ -852,15 +869,15 @@ export default function CotizacionCanalDetalleScreen() {
                 style={styles.footerCrece}
               />
             ) : null}
-            {citaParaAdicional ? (
-              <TallerPildora
-                label="Cotización adicional"
-                tono="suave"
-                forma="hoja"
-                onPress={() => router.push(`/agregar-servicio-adicional/${citaParaAdicional}`)}
-                style={styles.footerCrece}
-              />
-            ) : null}
+            <TallerPildora
+              label="Agregar ítem y avisar"
+              tono="suave"
+              forma="hoja"
+              loading={guardando}
+              disabled={guardando}
+              onPress={() => void corregirCotizacion()}
+              style={styles.footerCrece}
+            />
             <TallerPildora
               label="El cliente no continuó"
               tono="suave"

@@ -77,10 +77,11 @@ export const checklistItemStyles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansRegular,
     color: I.ink,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: I.paper,
+    minHeight: 48,
   },
   singleLineTextInput: {
-    minHeight: 44,
+    minHeight: 48,
   },
   multilineTextInput: {
     minHeight: 96,
@@ -104,16 +105,16 @@ export const checklistItemStyles = StyleSheet.create({
     minHeight: 48,
   },
   modernBooleanButtonSelected: {
-    backgroundColor: COLORS.base.soft,
-    borderColor: withOpacity(I.primary, 0.35),
+    backgroundColor: I.ink,
+    borderColor: I.ink,
   },
   modernBooleanButtonText: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansMedium,
-    color: I.body,
+    color: I.ink,
   },
   modernBooleanButtonTextSelected: {
-    color: I.primaryActive,
+    color: I.onDark,
     fontFamily: FF.sansSemiBold,
   },
   modernSelectContainer: {
@@ -127,12 +128,12 @@ export const checklistItemStyles = StyleSheet.create({
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: I.paper,
     minHeight: 48,
   },
   modernOptionButtonSelected: {
-    backgroundColor: COLORS.base.soft,
-    borderColor: withOpacity(I.primary, 0.35),
+    backgroundColor: I.ink,
+    borderColor: I.ink,
   },
   optionCheckIcon: {
     marginRight: SPACING.fixed.sm,
@@ -144,7 +145,7 @@ export const checklistItemStyles = StyleSheet.create({
     color: I.ink,
   },
   modernOptionTextSelected: {
-    color: I.primaryActive,
+    color: I.onDark,
     fontFamily: FF.sansSemiBold,
   },
   modernSelectButton: {
@@ -195,9 +196,7 @@ export const checklistItemStyles = StyleSheet.create({
     paddingVertical: SPACING.fixed.sm,
     paddingHorizontal: SPACING.fixed.md,
     borderRadius: BORDERS.radius.lg,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
+    backgroundColor: I.surfaceSoft,
     gap: SPACING.fixed.xs,
     minHeight: 48,
   },
@@ -304,10 +303,10 @@ export const checklistItemStyles = StyleSheet.create({
   descriptionModalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: withOpacity(I.ink, 0.45),
+    backgroundColor: withOpacity(I.ink, 0.18),
   },
   descriptionModalSheet: {
-    backgroundColor: COLORS.background.paper,
+    backgroundColor: I.paper,
     borderTopLeftRadius: BORDERS.radius.xl,
     borderTopRightRadius: BORDERS.radius.xl,
     paddingHorizontal: SPACING.fixed.md,
@@ -369,28 +368,27 @@ export const checklistItemStyles = StyleSheet.create({
   descriptionCancelButton: {
     flex: 1,
     paddingVertical: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.md,
-    borderWidth: BORDERS.width.thin,
-    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: I.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: 48,
   },
   descriptionCancelText: {
     fontSize: TYPOGRAPHY.fontSize.base,
     fontFamily: FF.sansSemiBold,
-    color: I.muted,
+    color: I.ink,
   },
   descriptionConfirmButton: {
     flex: 2,
     paddingVertical: SPACING.fixed.sm,
-    borderRadius: BORDERS.radius.md,
+    borderRadius: BORDERS.radius.lg,
     backgroundColor: I.primary,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: SPACING.fixed.xs,
-    minHeight: 44,
+    minHeight: 48,
   },
   descriptionConfirmText: {
     fontSize: TYPOGRAPHY.fontSize.base,

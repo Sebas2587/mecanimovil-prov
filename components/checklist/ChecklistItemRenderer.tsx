@@ -32,7 +32,7 @@ import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showConfirm } from '@/utils/platformAlert';
 import { useOrdenSignatureDisplay } from '@/hooks/useOrdenSignatureDisplay';
-import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
+import { TallerPildora } from '@/components/taller/TallerPildora';
 import {
   checklistItemStyles as styles,
   saludStyles,
@@ -966,7 +966,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
           }}
         >
           {selected && (
-            <InstitutionalIcon name="check-circle" size={18} color={I.primary} style={styles.optionCheckIcon}  strokeWidth={ICON_STROKE_WIDTH} />
+            <InstitutionalIcon name="check-circle" size={18} color={I.onDark} style={styles.optionCheckIcon} strokeWidth={ICON_STROKE_WIDTH} />
           )}
           <Text style={[
             styles.modernOptionText,
@@ -1226,7 +1226,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                 disabled={uploadingPhoto}
               >
                 <InstitutionalIcon name="camera-alt" size={22} color={I.ink}  strokeWidth={ICON_STROKE_WIDTH} />
-                <Text style={styles.modernPhotoButtonText}>Tomar Foto</Text>
+                <Text style={styles.modernPhotoButtonText}>Tomar foto</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1724,7 +1724,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
               <Text style={styles.completedText}>Completado</Text>
             </View>
           ) : null}
-          <InstitutionalButton
+          <TallerPildora
             label={
               uploadingPhoto
                 ? (uploadProgressText || 'Subiendo…')
@@ -1732,7 +1732,8 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
                   ? 'Actualizar y continuar'
                   : 'Guardar y continuar'
             }
-            variant="primary"
+            tono="coral"
+            forma="hoja"
             loading={uploadingPhoto || saving}
             disabled={
               uploadingPhoto
@@ -1740,6 +1741,7 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
               || photos.length < (item.min_fotos || 1)
             }
             onPress={handlePhotoSaveAndContinue}
+            style={{ alignSelf: 'stretch' }}
           />
         </View>
       ) : (
@@ -1750,12 +1752,14 @@ export const ChecklistItemRenderer: React.FC<ChecklistItemRendererProps> = ({
               <Text style={styles.completedText}>Completado</Text>
             </View>
           ) : null}
-          <InstitutionalButton
+          <TallerPildora
             label={saving ? 'Guardando…' : response?.completado ? 'Actualizar y continuar' : 'Guardar y continuar'}
-            variant="primary"
+            tono="coral"
+            forma="hoja"
             loading={saving}
             disabled={saving || (!isModified && !response?.completado && String(inputValue ?? '').trim() === '')}
             onPress={handleSave}
+            style={{ alignSelf: 'stretch' }}
           />
         </View>
       ))}

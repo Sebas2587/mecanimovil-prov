@@ -17,14 +17,14 @@ import { ChecklistProgressBar } from '@/components/checklist/ChecklistProgressBa
 import { ChecklistSignatureModal } from '@/components/checklist/ChecklistSignatureModal';
 import { ChecklistCompletedView } from '@/components/checklist/ChecklistCompletedView';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
 import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
 import { ICON_STROKE_WIDTH, ICON_SIZE } from '@/app/design-system/iconography';
 import { ChecklistDiffModal } from '@/components/checklist/ChecklistDiffModal';
 import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { showAlert, showConfirm, showAlertButtons } from '@/utils/platformAlert';
 import { useOrdenSignatureDisplay } from '@/hooks/useOrdenSignatureDisplay';
-import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { TallerPildora } from '@/components/taller/TallerPildora';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { HostSectionKicker } from '@/app/design-system/components/HostSurfaces';
@@ -575,20 +575,22 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             {preparando ? 'Preparando checklist…' : 'No se pudo cargar'}
           </Text>
           <Text style={styles.errorMessage}>{error}</Text>
-          <InstitutionalButton
+          <TallerPildora
             label="Reintentar"
+            tono="coral"
+            forma="hoja"
             onPress={() => {
               autoStartTriedRef.current = false;
               void refetch?.();
             }}
-            variant="secondary"
             style={{ minWidth: 160 }}
           />
-          <InstitutionalButton
+          <TallerPildora
             label="Volver"
+            tono="suave"
+            forma="hoja"
             onPress={() => onCancel?.()}
-            variant="outline"
-            style={{ minWidth: 160, marginTop: SPACING.fixed.sm }}
+            style={{ minWidth: 160 }}
           />
         </View>
       </SafeAreaView>
@@ -604,10 +606,11 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
           <Text style={styles.errorMessage}>
             Este servicio no tiene checklist. Puedes continuar con el servicio normalmente.
           </Text>
-          <InstitutionalButton
+          <TallerPildora
             label="Volver"
+            tono="suave"
+            forma="hoja"
             onPress={() => onCancel?.()}
-            variant="outline"
             style={{ minWidth: 160 }}
           />
         </View>
@@ -689,23 +692,19 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
               icon="verified-user"
             />
             {puedeFirmarSupervisor ? (
-              <InstitutionalButton
+              <TallerPildora
                 label="Revisar y firmar"
+                tono="coral"
+                forma="hoja"
                 onPress={() => setShowSupervisorSignatureModal(true)}
-                variant="primary"
-                leading={
-                  <InstitutionalIcon name="draw" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                }
                 style={{ alignSelf: 'stretch' }}
               />
             ) : (
-              <InstitutionalButton
+              <TallerPildora
                 label="Ver resumen del checklist"
+                tono="suave"
+                forma="hoja"
                 onPress={() => setShowCompletedView(true)}
-                variant="outline"
-                leading={
-                  <InstitutionalIcon name="visibility" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-                }
                 style={{ alignSelf: 'stretch' }}
               />
             )}
@@ -728,13 +727,11 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                   : 'Puedes reenviar este enlace las veces que necesites. El cliente puede volver a ver el informe.'}
               </Text>
             )}
-            <InstitutionalButton
-              label={esperandoFirmaCliente ? 'Copiar enlace del informe' : 'Copiar / compartir enlace'}
+            <TallerPildora
+              label={esperandoFirmaCliente ? 'Copiar enlace del informe' : 'Copiar enlace'}
+              tono="suave"
+              forma="hoja"
               onPress={() => void copiarEnlaceInforme(informeLink)}
-              variant="outline"
-              leading={
-                <InstitutionalIcon name="link" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-              }
               style={{ alignSelf: 'stretch' }}
             />
           </View>
@@ -752,13 +749,11 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
               }
               icon="schedule"
             />
-            <InstitutionalButton
+            <TallerPildora
               label="Ver resumen del checklist"
+              tono="suave"
+              forma="hoja"
               onPress={() => setShowCompletedView(true)}
-              variant="outline"
-              leading={
-                <InstitutionalIcon name="visibility" size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
-              }
               style={{ alignSelf: 'stretch' }}
             />
           </View>
@@ -778,13 +773,11 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             {autoStarting ? (
               <ActivityIndicator color={I.primary} style={{ marginTop: SPACING.fixed.sm }} />
             ) : (
-              <InstitutionalButton
+              <TallerPildora
                 label="Iniciar checklist"
+                tono="coral"
+                forma="hoja"
                 onPress={handleStart}
-                variant="primary"
-                leading={
-                  <InstitutionalIcon name="play-arrow" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-                }
                 style={{ alignSelf: 'stretch' }}
               />
             )}
@@ -800,13 +793,11 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
             <Text style={styles.onboardingDescription}>
               Puedes continuar donde lo dejaste. Revisa los ítems pendientes antes de finalizar.
             </Text>
-            <InstitutionalButton
+            <TallerPildora
               label="Continuar checklist"
+              tono="coral"
+              forma="hoja"
               onPress={handleResume}
-              variant="primary"
-              leading={
-                <InstitutionalIcon name="play-circle-filled" size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              }
               style={{ alignSelf: 'stretch' }}
             />
           </View>
@@ -913,13 +904,11 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
                 Tiempo total: {instance.tiempo_total_minutos} min
               </Text>
             ) : null}
-            <InstitutionalButton
+            <TallerPildora
               label="Ver resumen"
+              tono="suave"
+              forma="hoja"
               onPress={() => setShowCompletedView(true)}
-              variant="outline"
-              leading={
-                <InstitutionalIcon name="visibility" size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-              }
               style={{ alignSelf: 'stretch' }}
             />
           </View>
@@ -928,17 +917,13 @@ export const ChecklistContainer: React.FC<ChecklistContainerProps> = ({
 
       {instance.estado === 'EN_PROGRESO' && !isCompleted && canFinalize && (
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <InstitutionalButton
+          <TallerPildora
             label="Finalizar checklist"
+            tono="coral"
+            forma="hoja"
             onPress={handleFinalize}
-            variant="primary"
             disabled={finalizing}
             loading={finalizing}
-            leading={
-              !finalizing ? (
-                <InstitutionalIcon name="done-all" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-              ) : undefined
-            }
             style={styles.footerPrimaryButton}
           />
         </View>
@@ -1089,7 +1074,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.fixed.lg,
   },
   onboardingCard: {
-    backgroundColor: COLORS.background.paper,
+    backgroundColor: I.paper,
     borderRadius: BORDERS.radius.lg,
     padding: SPACING.fixed.lg,
     marginHorizontal: SPACING.fixed.md,
@@ -1097,7 +1082,6 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     gap: SPACING.fixed.sm,
-    ...SHADOWS.editorial,
   },
   onboardingTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
@@ -1135,9 +1119,8 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.lg,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
+    backgroundColor: I.paper,
     gap: SPACING.fixed.sm,
-    ...SHADOWS.editorial,
   },
   informeLinkTitle: {
     fontSize: TYPOGRAPHY.fontSize.md,
@@ -1150,7 +1133,7 @@ const styles = StyleSheet.create({
     color: I.body,
   },
   completedCard: {
-    backgroundColor: COLORS.background.paper,
+    backgroundColor: I.paper,
     borderRadius: BORDERS.radius.lg,
     padding: SPACING.fixed.lg,
     marginHorizontal: SPACING.fixed.md,
@@ -1159,7 +1142,6 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
     gap: SPACING.fixed.sm,
-    ...SHADOWS.editorial,
   },
   completedTitle: {
     fontSize: TYPOGRAPHY.fontSize.lg,
@@ -1178,7 +1160,7 @@ const styles = StyleSheet.create({
     color: I.semanticUp,
   },
   footer: {
-    backgroundColor: I.canvas,
+    backgroundColor: I.paper,
     borderTopWidth: BORDERS.width.thin,
     borderTopColor: I.hairline,
     paddingHorizontal: SPACING.fixed.md,
@@ -1200,12 +1182,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.fixed.md,
-    backgroundColor: COLORS.background.paper,
+    backgroundColor: I.paper,
     borderRadius: BORDERS.radius.lg,
     gap: SPACING.fixed.sm,
     borderWidth: BORDERS.width.thin,
     borderColor: I.hairline,
-    ...SHADOWS.editorial,
     ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : {}),
   },
   checkbox: {
@@ -1219,11 +1200,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkboxCompleted: {
-    backgroundColor: I.semanticUp,
-    borderColor: I.semanticUp,
+    backgroundColor: I.ink,
+    borderColor: I.ink,
   },
   checklistItemCompleted: {
-    borderColor: withOpacity(I.semanticUp, 0.28),
+    borderColor: I.hairline,
   },
   checklistItemRequired: {},
   checklistItemInfo: {

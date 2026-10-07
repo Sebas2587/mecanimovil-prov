@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -14,12 +13,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useChecklist } from '@/hooks/useChecklist';
 import { ChecklistItemRenderer } from '@/components/checklist/ChecklistItemRenderer';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { InstitutionalIcon } from '@/components/ui/InstitutionalIcon';
-import { ICON_STROKE_WIDTH, ICON_SIZE } from '@/app/design-system/iconography';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import Header from '@/components/Header';
+import { TallerPildora } from '@/components/taller/TallerPildora';
+import { BORDERS, COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import {
   HostPaperSection,
-  InstitutionalButton,
   InstitutionalText,
   hostScreenStyles,
 } from '@/app/design-system/components';
@@ -194,17 +192,11 @@ export default function ChecklistItemDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <InstitutionalIcon
-            name="error"
-            size={48}
-            color={I.semanticDown}
-            strokeWidth={ICON_STROKE_WIDTH}
-          />
           <Text style={styles.errorTitle}>Ruta inválida</Text>
           <Text style={styles.errorMessage}>
             No se pudo identificar la orden o cita del checklist.
           </Text>
-          <InstitutionalButton label="Volver" onPress={handleGoBack} variant="outline" />
+          <TallerPildora label="Volver" tono="suave" forma="hoja" onPress={handleGoBack} />
         </View>
       </SafeAreaView>
     );
@@ -225,17 +217,11 @@ export default function ChecklistItemDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <InstitutionalIcon
-            name="error"
-            size={48}
-            color={I.semanticDown}
-            strokeWidth={ICON_STROKE_WIDTH}
-          />
           <Text style={styles.errorTitle}>No se pudo cargar</Text>
           <Text style={styles.errorMessage}>
             No encontramos el checklist asociado a este ítem.
           </Text>
-          <InstitutionalButton label="Volver" onPress={handleGoBack} variant="outline" />
+          <TallerPildora label="Volver" tono="suave" forma="hoja" onPress={handleGoBack} />
         </View>
       </SafeAreaView>
     );
@@ -245,17 +231,11 @@ export default function ChecklistItemDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <InstitutionalIcon
-            name="error"
-            size={48}
-            color={I.semanticDown}
-            strokeWidth={ICON_STROKE_WIDTH}
-          />
           <Text style={styles.errorTitle}>Ítem no encontrado</Text>
           <Text style={styles.errorMessage}>
             No se pudo encontrar el ítem del checklist solicitado.
           </Text>
-          <InstitutionalButton label="Volver" onPress={handleGoBack} variant="outline" />
+          <TallerPildora label="Volver" tono="suave" forma="hoja" onPress={handleGoBack} />
         </View>
       </SafeAreaView>
     );
@@ -269,32 +249,27 @@ export default function ChecklistItemDetailScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.topBar}>
-          <TouchableOpacity onPress={handleGoBack} style={styles.closeButton} hitSlop={12} accessibilityLabel="Volver">
-            <InstitutionalIcon
-              name="arrow-back"
-              size={ICON_SIZE.md}
-              color={I.ink}
-              strokeWidth={ICON_STROKE_WIDTH}
-            />
-          </TouchableOpacity>
-          <InstitutionalText role="caption" color="muted" style={styles.topBarStep}>
-            {stepLabel}
-          </InstitutionalText>
-          <View style={styles.topBarSpacer} />
-        </View>
+        <Header
+          title={stepLabel}
+          dense
+          showBack
+          onBackPress={handleGoBack}
+          backgroundColor={I.canvas}
+          titleColor={I.ink}
+        />
 
         <ScrollView
           style={[hostScreenStyles.scroll, styles.content]}
           contentContainerStyle={[
             hostScreenStyles.scrollInner,
             styles.contentContainer,
+            styles.columna,
             { paddingBottom: Math.max(insets.bottom, 24) + 32 },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <InstitutionalText role="h2" style={styles.heroTitle}>
+          <InstitutionalText role="h3" style={styles.heroTitle}>
             {item.pregunta_texto}
           </InstitutionalText>
           {item.descripcion_ayuda ? (
@@ -358,6 +333,11 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingTop: SPACING.fixed.md,
+  },
+  columna: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
   heroTitle: {
     marginBottom: SPACING.fixed.sm,
