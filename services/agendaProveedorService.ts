@@ -139,6 +139,8 @@ export interface EventoAgendaUnificado {
   estado: string;
   editable: boolean;
   tiene_checklist: boolean;
+  /** Instancia real del checklist. Vacío si el servicio todavía no se inició. */
+  checklist_id?: number | null;
   cliente_nombre?: string;
   cliente_telefono?: string;
   vehiculo_marca?: string;

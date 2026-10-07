@@ -31,6 +31,7 @@ import { obtenerNombreSeguro } from '@/services/ordenesProveedor';
 import { navegarAtencionHoy } from '@/utils/navegarCasoPipeline';
 import { pasoDeCaso } from '@/utils/pasoComercial';
 import { estadoCotizacionVista } from '@/utils/cotizacionPresentacion';
+import { parseFechaLocal, startOfDay } from '@/utils/fechaLocal';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import {
   HOME_DECISIONES_QUERY_KEY,
@@ -51,14 +52,14 @@ interface HomeAttentionFeedProps {
   onAgendar?: () => void;
 }
 
-type VerboAccion = 'Agendar' | 'Revisar' | 'Aceptar' | 'Seguir';
+type VerboAccion = 'Agendar' | 'Iniciar' | 'Revisar' | 'Aceptar' | 'Seguir';
 
 type AccionHoy = {
   id: string;
   titulo: string;
   meta: string;
   verbo: VerboAccion;
-  icono: 'agenda' | 'revisar' | 'aceptar' | 'seguir';
+  icono: 'agenda' | 'iniciar' | 'revisar' | 'aceptar' | 'seguir';
 };
 
 type ActividadHoy = {
@@ -79,9 +80,10 @@ type MetricaHoy = {
 
 const ORDEN_VERBO: Record<VerboAccion, number> = {
   Agendar: 0,
-  Aceptar: 1,
-  Revisar: 2,
-  Seguir: 3,
+  Iniciar: 1,
+  Aceptar: 2,
+  Revisar: 3,
+  Seguir: 4,
 };
 
 function saludo(nombre: string): string {
@@ -167,6 +169,7 @@ export function HomeAttentionFeed({
     const cotizacionesEnPipeline = new Set(
       filas.map((row) => row.cotizacion_id).filter((id): id is number => id != null),
     );
+    const cotizacionesConAccion = new Set<number>();
 
     const cotizaciones = cotizacionesQuery.data ?? [];
     let porRevisar = cotizaciones.filter((cotizacion) => estadoCotizacionVista(cotizacion) === 'borrador').length;
@@ -187,6 +190,7 @@ export function HomeAttentionFeed({
           verbo: 'Agendar',
           icono: 'agenda',
         });
+        if (row.cotizacion_id) cotizacionesConAccion.add(row.cotizacion_id);
         continue;
       }
       if (paso === 'por_enviar') {
@@ -220,8 +224,50 @@ export function HomeAttentionFeed({
       }
     }
 
+    const hoy = startOfDay(new Date()).getTime();
     for (const cotizacion of cotizaciones) {
-      if (cotizacion.estado !== 'borrador' || !cotizacion.id) continue;
+      if (!cotizacion.id) continue;
+      const vista = estadoCotizacionVista(cotizacion);
+      const nombre = cotizacion.cliente_nombre?.trim() || 'el cliente';
+      if (vista === 'aceptada') {
+        if (cotizacionesConAccion.has(cotizacion.id)) continue;
+        const id = `agendar-cot-${cotizacion.id}`;
+        const citaId = cotizacion.cita_personal_id;
+        const cotizacionId = cotizacion.id;
+        accionesMapa.set(id, () => {
+          if (citaId) router.push(`/cita-agenda-personal/${citaId}?agendar=1`);
+          else router.push(`/cotizacion-canal/${cotizacionId}`);
+        });
+        acciones.push({
+          id,
+          titulo: `Agendar a ${nombre}`,
+          meta: metaCotizacion(cotizacion),
+          verbo: 'Agendar',
+          icono: 'agenda',
+        });
+        continue;
+      }
+      if (vista === 'agendada') {
+        const dia = parseFechaLocal(cotizacion.fecha_agendada);
+        const yaToca = !dia || dia.getTime() <= hoy;
+        if (!yaToca) continue;
+        const id = `iniciar-cot-${cotizacion.id}`;
+        const citaId = cotizacion.cita_personal_id;
+        const cotizacionId = cotizacion.id;
+        accionesMapa.set(id, () => {
+          if (citaId) router.push(`/cita-agenda-personal/${citaId}`);
+          else router.push(`/cotizacion-canal/${cotizacionId}`);
+        });
+        acciones.push({
+          id,
+          titulo: `Iniciar servicio de ${nombre}`,
+          meta: metaCotizacion(cotizacion),
+          verbo: 'Iniciar',
+          icono: 'iniciar',
+        });
+        continue;
+      }
+      if (vista !== 'borrador') continue;
       if (cotizacionesEnPipeline.has(cotizacion.id)) continue;
       const id = `enviar-${cotizacion.id}`;
       const cotizacionId = cotizacion.id;
@@ -230,7 +276,7 @@ export function HomeAttentionFeed({
       });
       acciones.push({
         id,
-        titulo: `Revisar cotización para ${cotizacion.cliente_nombre?.trim() || 'el cliente'}`,
+        titulo: `Revisar cotización para ${nombre}`,
         meta: metaCotizacion(cotizacion),
         verbo: 'Revisar',
         icono: 'revisar',
@@ -252,24 +298,36 @@ export function HomeAttentionFeed({
 
     acciones.sort((a, b) => ORDEN_VERBO[a.verbo] - ORDEN_VERBO[b.verbo]);
 
-    const actividad: ActividadHoy[] = [...filas]
-      .sort((a, b) => (b.fecha_referencia || '').localeCompare(a.fecha_referencia || ''))
+    const actividad: ActividadHoy[] = [...cotizaciones]
+      .filter((cotizacion) => cotizacion.estado !== 'cancelada' && cotizacion.estado !== 'rechazada')
+      .sort((a, b) => (b.actualizado_en || b.creado_en || '').localeCompare(a.actualizado_en || a.creado_en || ''))
       .slice(0, 3)
-      .map((row) => {
-        const id = `actividad-${row.tipo_entidad}-${row.entidad_id}`;
-        accionesMapa.set(id, () => navegarAtencionHoy(row));
+      .map((cotizacion) => {
+        const id = `actividad-cot-${cotizacion.id}`;
+        const cotizacionId = cotizacion.id;
+        const citaId = cotizacion.cita_personal_id;
+        accionesMapa.set(id, () => {
+          if (estadoCotizacionVista(cotizacion) === 'agendada' && citaId) {
+            router.push(`/cita-agenda-personal/${citaId}`);
+            return;
+          }
+          if (cotizacionId) router.push(`/cotizacion-canal/${cotizacionId}`);
+        });
         return {
           id,
-          nombre: row.cliente_nombre?.trim() || 'Cliente',
-          detalle: unirMeta([row.servicio_resumen, row.vehiculo_resumen]) || 'Cotización',
-          folio: row.numero_publico?.trim() || 'Ver caso',
+          nombre: cotizacion.cliente_nombre?.trim() || 'Cliente',
+          detalle: unirMeta([
+            cotizacion.servicio_nombre,
+            [cotizacion.vehiculo_marca, cotizacion.vehiculo_modelo, cotizacion.vehiculo_patente].filter(Boolean).join(' '),
+          ]) || 'Cotización',
+          folio: cotizacion.numero_publico?.trim() || 'Ver caso',
         };
       });
 
     const chatsPendientes = (chatsQuery.data ?? []).filter(chatEsperaCliente).length;
 
     return {
-      acciones: acciones.slice(0, 6),
+      acciones: acciones.slice(0, 8),
       accionesMapa,
       actividad,
       chatsPendientes,
@@ -528,6 +586,7 @@ function abrirDecision(decision: Decision) {
 
 const ICONO_ACCION: Record<AccionHoy['icono'], LucideIcon> = {
   agenda: CalendarClock,
+  iniciar: CheckCircle2,
   revisar: Send,
   aceptar: ClipboardList,
   seguir: Clock3,
@@ -542,7 +601,7 @@ const AccionRow = memo(function AccionRow({
 }) {
   const handlePress = useCallback(() => onPress(accion.id), [accion.id, onPress]);
   const Icono = ICONO_ACCION[accion.icono];
-  const acento = accion.icono === 'agenda';
+  const acento = accion.icono === 'agenda' || accion.icono === 'iniciar';
   return (
     <Pressable
       onPress={handlePress}

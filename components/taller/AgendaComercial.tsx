@@ -96,50 +96,52 @@ export function AgendaComercial() {
     [cotizaciones.data],
   );
 
-  const idsCasoAbierto = useMemo(
-    () => new Set(citasAgendadas.map((evento) => `${evento.origen}-${evento.id}`)),
-    [citasAgendadas],
-  );
-
   const listas = useMemo(() => {
-    const porClave = new Map<string, EventoAgendaUnificado>();
-    const base = soloEnAgenda
-      ? citasAgendadas
-      : [...mesActual.eventos, ...mesProx.eventos, ...citasAgendadas];
-    for (const evento of base) {
-      const clave = `${evento.origen}-${evento.id}`;
-      const previo = porClave.get(clave);
-      if (!previo || (evento.tiene_checklist && !previo.tiene_checklist)) {
-        porClave.set(clave, evento);
-      }
+    const calendario = new Map<string, EventoAgendaUnificado>();
+    for (const evento of [...mesActual.eventos, ...mesProx.eventos]) {
+      calendario.set(`${evento.origen}-${evento.id}`, evento);
     }
+    const comerciales = citasAgendadas.map((evento) => {
+      const cal = calendario.get(`${evento.origen}-${evento.id}`);
+      const checklistId = cal?.checklist_id ?? null;
+      return {
+        ...evento,
+        fecha_servicio: evento.fecha_servicio || cal?.fecha_servicio || '',
+        hora_servicio: evento.hora_servicio || cal?.hora_servicio || '',
+        checklist_id: checklistId,
+        tiene_checklist: Boolean(checklistId),
+      };
+    });
+    const clavesComerciales = new Set(comerciales.map((evento) => `${evento.origen}-${evento.id}`));
+    const extras = soloEnAgenda
+      ? []
+      : [...mesActual.eventos, ...mesProx.eventos].filter((evento) => {
+        const clave = `${evento.origen}-${evento.id}`;
+        return !clavesComerciales.has(clave);
+      });
+
     const inicioHoy = startOfDay(hoy).getTime();
     const proximas: EventoAgendaUnificado[] = [];
     const pasaron: EventoAgendaUnificado[] = [];
-    for (const evento of porClave.values()) {
+    for (const evento of [...comerciales, ...extras]) {
       if (CANCELADOS.has(String(evento.estado || '').toLowerCase())) continue;
-      const clave = `${evento.origen}-${evento.id}`;
       const dia = parseFechaLocal(evento.fecha_servicio);
-      const esAbierta = idsCasoAbierto.has(clave) || evento.estado === 'activa';
-      const pasoSinRegistro = Boolean(
-        esAbierta
-        && dia
-        && dia.getTime() < inicioHoy
-        && !evento.tiene_checklist,
-      );
-      if (pasoSinRegistro) {
+      const sinChecklist = !evento.checklist_id;
+      if (dia && dia.getTime() < inicioHoy && sinChecklist) {
         pasaron.push(evento);
         continue;
       }
-      if (soloEnAgenda || esAbierta || (dia != null && dia.getTime() >= inicioHoy)) {
-        if (!soloEnAgenda && dia != null && dia.getTime() < inicioHoy) continue;
+      if (!dia || dia.getTime() >= inicioHoy) {
         proximas.push(evento);
       }
     }
-    const porCercania = (a: EventoAgendaUnificado, b: EventoAgendaUnificado) =>
-      `${a.fecha_servicio}${a.hora_servicio}`.localeCompare(`${b.fecha_servicio}${b.hora_servicio}`);
-    proximas.sort(porCercania);
-    pasaron.sort((a, b) => porCercania(b, a));
+    const porFecha = (a: EventoAgendaUnificado, b: EventoAgendaUnificado) => {
+      const fa = a.fecha_servicio || '9999-99-99';
+      const fb = b.fecha_servicio || '9999-99-99';
+      return `${fa}${a.hora_servicio}`.localeCompare(`${fb}${b.hora_servicio}`);
+    };
+    proximas.sort(porFecha);
+    pasaron.sort((a, b) => porFecha(b, a));
     const agrupar = (eventos: EventoAgendaUnificado[]) => {
       const grupos = new Map<string, EventoAgendaUnificado[]>();
       for (const evento of eventos) {
@@ -150,7 +152,7 @@ export function AgendaComercial() {
       return Array.from(grupos.entries());
     };
     return { proximas: agrupar(proximas), pasaron: agrupar(pasaron) };
-  }, [citasAgendadas, hoy, idsCasoAbierto, mesActual.eventos, mesProx.eventos, soloEnAgenda]);
+  }, [citasAgendadas, hoy, mesActual.eventos, mesProx.eventos, soloEnAgenda]);
 
   const agendar = useCallback((row: PendienteAgenda) => {
     if (row.citaId || row.cotizacionId) {
