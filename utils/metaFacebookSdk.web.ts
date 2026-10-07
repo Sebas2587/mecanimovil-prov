@@ -135,7 +135,8 @@ export function launchEmbeddedSignup(config: {
       sessionInfoVersion: 2,
     };
     if (config.channel === 'whatsapp') {
-      extras.featureType = 'only_waba_sharing';
+      extras.featureType = 'whatsapp_business_app_onboarding';
+      extras.sessionInfoVersion = 3;
     }
 
     window.FB.login(

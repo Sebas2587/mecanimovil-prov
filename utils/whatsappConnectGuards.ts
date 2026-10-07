@@ -8,6 +8,7 @@ export type WhatsAppConnectErrorCode =
   | 'sin_permisos_admin'
   | 'codigo_expirado'
   | 'cancelado'
+  | 'numero_sin_registro'
   | 'generico';
 
 export const WHATSAPP_CONNECT_PRECHECK_TITLE = 'Antes de conectar WhatsApp';
@@ -26,6 +27,7 @@ const ERROR_TITLES: Record<WhatsAppConnectErrorCode, string> = {
   sin_numero_whatsapp: 'Sin número de WhatsApp Business',
   sin_permisos_admin: 'Sin permiso de administrador',
   codigo_expirado: 'La autorización expiró',
+  numero_sin_registro: 'WhatsApp sin terminar',
   cancelado: 'Conexión cancelada',
   generico: 'No se pudo conectar WhatsApp',
 };
@@ -40,6 +42,8 @@ const ERROR_FALLBACK: Record<WhatsAppConnectErrorCode, string> = {
   sin_permisos_admin:
     'Tu usuario de Facebook no es administrador de WhatsApp Business del taller.',
   codigo_expirado: 'La autorización expiró o ya fue usada. Pulsa Conectar otra vez.',
+  numero_sin_registro:
+    'El código llegó al WhatsApp, pero ese número todavía no puede enviar ni recibir en el chat. Pulsa Conectar otra vez y termina el alta en la misma ventana.',
   cancelado: 'Cancelaste la conexión. Cuando quieras, pulsa Conectar de nuevo.',
   generico: 'No pudimos vincular tu WhatsApp. Pulsa Conectar e intenta de nuevo.',
 };
