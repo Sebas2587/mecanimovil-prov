@@ -28,7 +28,7 @@ export function IaActivityStrip({ actividad, loading = false }: IaActivityStripP
   const eventos = actividad?.eventos_recientes ?? [];
 
   const handleVerCotizaciones = useCallback(() => {
-    router.push('/cotizar-ia');
+    router.push('/cotizaciones?estado=borrador');
   }, []);
 
   const handleOpenChat = useCallback((conversationId: number) => {

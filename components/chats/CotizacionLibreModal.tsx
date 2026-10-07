@@ -6,12 +6,15 @@ import {
   Modal,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Link2, Sparkles, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { TallerPildora } from '@/components/taller/TallerPildora';
+import { institutionalInputStyles } from '@/app/design-system/styles/institutionalInputs';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
@@ -36,7 +39,7 @@ import {
 import { nombreContactoAgendable } from '@/utils/nombreContactoAgendable';
 import type { ChannelSlug } from '@/utils/channelVisuals';
 import { channelRespondLabel } from '@/components/chats/ChannelBadge';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS, withOpacity } from '@/app/design-system/tokens';
 import { useWebVisualViewport, webFooterBottom } from '@/hooks/useWebVisualViewport';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { showAlert, showAlertButtons, showConfirm } from '@/utils/platformAlert';
@@ -778,23 +781,41 @@ export function CotizacionLibreModal({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="fullScreen"
+      transparent
+      animationType="fade"
+      statusBarTranslucent
       onRequestClose={handleClose}
     >
-      <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <View style={styles.overlay}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => {
+            if (!ocupado) handleClose();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar cotización"
+        >
+          {Platform.OS === 'web' ? (
+            <View style={[StyleSheet.absoluteFill, styles.scrim]} />
+          ) : (
+            <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
+          )}
+        </Pressable>
+        <View
+          style={[
+            styles.panel,
+            {
+              marginTop: Math.max(insets.top, 12) + 8,
+              marginBottom: Math.max(insets.bottom, 12),
+            },
+          ]}
+        >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.flex}
           keyboardVerticalOffset={0}
         >
           <View style={styles.header}>
-            <View style={styles.headerText}>
-              <Text style={styles.title} numberOfLines={2}>
-                {(cotizacion?.servicio_nombre || '').trim() || 'Nueva cotización'}
-              </Text>
-              <Text style={styles.subtitle}>{sheetSubtitle}</Text>
-            </View>
             <TouchableOpacity
               onPress={handleClose}
               disabled={ocupado}
@@ -803,8 +824,15 @@ export function CotizacionLibreModal({
               accessibilityRole="button"
               accessibilityLabel="Cerrar"
             >
-              <X size={22} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+              <X size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
             </TouchableOpacity>
+            <View style={styles.headerText}>
+              <Text style={styles.title} numberOfLines={1}>
+                {(cotizacion?.servicio_nombre || '').trim() || 'Nueva cotización'}
+              </Text>
+              <Text style={styles.subtitle} numberOfLines={1}>{sheetSubtitle}</Text>
+            </View>
+            <View style={styles.closeSpacer} />
           </View>
 
           <ScrollView
@@ -822,7 +850,7 @@ export function CotizacionLibreModal({
               />
             ) : !cotizacion ? (
               <>
-                <InstitutionalSectionHeader title="Cliente" />
+                <InstitutionalSectionHeader title="Cliente" style={styles.sectionTitle} />
                 <View style={styles.section}>
                   <ClienteCanalPickerSection
                     enabled={visible}
@@ -838,6 +866,7 @@ export function CotizacionLibreModal({
                     onClienteNombreChange={setClienteNombre}
                     clienteTelefono={clienteTelefono}
                     onClienteTelefonoChange={setClienteTelefono}
+                    telefonoHint="Opcional. 9 dígitos, empieza en 9."
                     manualFooterHint={HINT_CLIENTE_SIN_CANAL}
                     contextoChat={Boolean(conversationIdProp)}
                     patenteActual={vehiculo.patente}
@@ -855,7 +884,7 @@ export function CotizacionLibreModal({
                   />
                 </View>
 
-                <InstitutionalSectionHeader title="Vehículo" />
+                <InstitutionalSectionHeader title="Vehículo" style={styles.sectionTitle} />
                 <View style={styles.section}>
                   <VehiculoPatenteSection
                     value={vehiculo}
@@ -874,7 +903,7 @@ export function CotizacionLibreModal({
                   />
                 </View>
 
-                <InstitutionalSectionHeader title="Servicio" />
+                <InstitutionalSectionHeader title="Servicio" style={styles.sectionTitle} />
                 <View style={styles.section}>
                   <View style={styles.choiceBlock}>
                     <InstitutionalText role="captionBold" color="ink">
@@ -883,13 +912,13 @@ export function CotizacionLibreModal({
                     <InstitutionalText role="caption" color="muted">
                       ¿Dónde se realizará el trabajo?
                     </InstitutionalText>
-                    <View style={styles.underlineTabs}>
+                    <View style={styles.chips}>
                       {MODALIDAD_TABS.map((tab) => {
                         const active = modalidad === tab.key;
                         return (
                           <TouchableOpacity
                             key={tab.key}
-                            style={[styles.underlineTab, active && styles.underlineTabActive]}
+                            style={[styles.chip, active && styles.chipOn]}
                             onPress={() => {
                               setModalidad(tab.key);
                               if (tab.key === 'taller') {
@@ -897,13 +926,13 @@ export function CotizacionLibreModal({
                                 setDireccionValidada(null);
                               }
                             }}
-                            activeOpacity={0.75}
-                            accessibilityRole="tab"
+                            activeOpacity={0.8}
+                            accessibilityRole="radio"
                             accessibilityState={{ selected: active }}
                           >
                             <InstitutionalText
-                              role={active ? 'captionBold' : 'caption'}
-                              color={active ? 'ink' : 'muted'}
+                              role="captionBold"
+                              color={active ? I.onDark : I.ink}
                             >
                               {tab.label}
                             </InstitutionalText>
@@ -934,6 +963,7 @@ export function CotizacionLibreModal({
                       value={servicioNombre}
                       onChangeText={setServicioNombre}
                       placeholder="Ej. Cambio de aceite y filtros"
+                      inputStyle={institutionalInputStyles.inputSheet}
                     />
                     <InstitutionalField
                       label="Detalle del problema"
@@ -941,6 +971,7 @@ export function CotizacionLibreModal({
                       onChangeText={setDescripcion}
                       placeholder="Opcional"
                       multiline
+                      inputStyle={institutionalInputStyles.inputSheet}
                     />
                   </View>
                 </View>
@@ -973,15 +1004,17 @@ export function CotizacionLibreModal({
                     <InstitutionalText role="caption" color="muted" selectable style={styles.shareUrl}>
                       {shareUrl}
                     </InstitutionalText>
-                    <InstitutionalButton
+                    <TallerPildora
                       label="Copiar link"
-                      variant="primary"
+                      tono="coral"
+                      forma="hoja"
                       onPress={() => void avisarCopiaLink(shareUrl)}
                     />
                     {cotizacion?.cliente_telefono?.trim() ? (
-                      <InstitutionalButton
+                      <TallerPildora
                         label="Abrir WhatsApp"
-                        variant="secondary"
+                        tono="suave"
+                        forma="hoja"
                         onPress={() => void compartirLink(shareUrl, cotizacion)}
                       />
                     ) : null}
@@ -1003,17 +1036,17 @@ export function CotizacionLibreModal({
             {!cotizacion ? (
               <>
                 {generandoIa ? null : (
-                  <InstitutionalButton
+                  <TallerPildora
                     label={creandoManual ? 'Creando…' : 'Crear en blanco'}
-                    variant="outline"
-                    size="default"
+                    tono="suave"
+                    forma="hoja"
                     onPress={() => void handleCrearBorrador()}
                     disabled={ocupado}
                     loading={creandoManual}
                     style={[styles.footerBtnPair, webViewport.touch && styles.footerBtnFull]}
                   />
                 )}
-                <InstitutionalButton
+                <TallerPildora
                   label={
                     faseIa === 'precios'
                       ? 'Buscando precios…'
@@ -1021,13 +1054,13 @@ export function CotizacionLibreModal({
                         ? 'Generando…'
                         : 'Generar con IA'
                   }
-                  variant="primary"
-                  size="default"
+                  tono="coral"
+                  forma="hoja"
                   onPress={() => void handleGenerarIa()}
                   disabled={ocupado}
                   loading={generandoIa}
                   leading={generandoIa ? undefined : (
-                    <Sparkles size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <Sparkles size={16} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
                   )}
                   style={[styles.footerBtnPair, webViewport.touch && styles.footerBtnFull]}
                 />
@@ -1061,10 +1094,10 @@ export function CotizacionLibreModal({
                 />
               </View>
             ) : (
-              <InstitutionalButton
+              <TallerPildora
                 label="Listo"
-                variant="outline"
-                size="default"
+                tono="suave"
+                forma="hoja"
                 onPress={handleClose}
                 disabled={ocupado}
                 style={styles.footerBtnGrow}
@@ -1083,6 +1116,7 @@ export function CotizacionLibreModal({
             onAddManoObra={() => editorRef.current?.agregarManoObra()}
           />
         ) : null}
+        </View>
       </View>
       <VistaPreviaCotizacionClienteModal
         visible={previewVisible}
@@ -1104,57 +1138,101 @@ export function CotizacionLibreModal({
 }
 
 const styles = StyleSheet.create({
-  screen: {
+  overlay: {
     flex: 1,
-    minHeight: 0,
-    backgroundColor: COLORS.background.default,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrim: {
+    backgroundColor: withOpacity(I.ink, 0.18),
+    ...(Platform.OS === 'web'
+      ? ({ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' } as object)
+      : null),
+  },
+  panel: {
+    flex: 1,
+    zIndex: 2,
+    width: '100%',
+    maxWidth: 560,
+    marginHorizontal: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.xl,
+    overflow: 'hidden',
+    backgroundColor: I.paper,
+    borderWidth: 1,
+    borderColor: I.hairline,
+    ...SHADOWS.editorial,
   },
   flex: { flex: 1, minHeight: 0 },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.container.horizontal,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.md,
+    alignItems: 'center',
+    paddingHorizontal: SPACING.fixed.md,
+    paddingTop: SPACING.fixed.md,
+    paddingBottom: SPACING.fixed.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
-    gap: SPACING.sm,
+    backgroundColor: I.paper,
+    gap: SPACING.fixed.sm,
   },
   headerText: {
     flex: 1,
     minWidth: 0,
-    gap: SPACING.xs,
+    alignItems: 'center',
+    gap: 2,
   },
   title: {
     ...SHEET_TITLE,
     color: I.ink,
     fontWeight: '600',
+    textAlign: 'center',
   },
   subtitle: {
     ...SHEET_SUBTITLE,
     color: I.muted,
+    textAlign: 'center',
   },
   closeBtn: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
     flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: BORDERS.radius.md,
-    backgroundColor: I.surfaceStrong,
+    borderRadius: 18,
+  },
+  closeSpacer: {
+    width: 36,
+    height: 36,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.xs,
+  },
+  chip: {
+    borderWidth: 1,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: I.paper,
+  },
+  chipOn: {
+    backgroundColor: I.ink,
+    borderColor: I.ink,
   },
   scroll: { flex: 1, minHeight: 0 },
   scrollContent: {
     paddingHorizontal: SPACING.container.horizontal,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.xl,
-    gap: SPACING.sm,
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.lg,
+    gap: SPACING.fixed.xs,
+  },
+  sectionTitle: {
+    marginBottom: SPACING.fixed.xxs,
   },
   section: {
-    gap: SPACING.md,
-    marginBottom: SPACING.sm,
+    gap: SPACING.fixed.sm,
+    marginBottom: SPACING.fixed.sm,
   },
   choiceBlock: {
     gap: SPACING.sm,
@@ -1238,12 +1316,13 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING.sm,
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
     paddingHorizontal: SPACING.container.horizontal,
-    paddingTop: SPACING.md,
+    paddingTop: SPACING.fixed.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
+    backgroundColor: I.paper,
     zIndex: 5,
   },
   footerBtnPair: {

@@ -7,7 +7,7 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
-import { AlertTriangle, Car, MapPin, Phone, Sparkles, Trash2, UserRound } from 'lucide-react-native';
+import { AlertTriangle, MapPin, MessageCircle, Phone, Sparkles, Trash2 } from 'lucide-react-native';
 import { COLORS, SPACING, TYPOGRAPHY, BORDERS, withOpacity } from '@/app/design-system/tokens';
 import {
   HINT_CLIENTE_SIN_CANAL_CON_TELEFONO,
@@ -17,10 +17,9 @@ import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalSectionHeader } from '@/app/design-system/components/InstitutionalSectionHeader';
-import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { TallerPildora } from '@/components/taller/TallerPildora';
 import { InstitutionalScreenTabs } from '@/app/design-system/components/InstitutionalScreenTabs';
 import { Card } from '@/app/design-system/components';
-import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { ClpMoneyInput } from '@/components/forms/ClpMoneyInput';
 import { CotizacionPreciosEstadoBanner } from '@/components/cotizacion/CotizacionPreciosEstadoBanner';
@@ -126,6 +125,15 @@ const ESTADO_VARIANT: Record<
   rechazada: 'error',
   expirada: 'warning',
   cancelada: 'error',
+};
+
+const ESTADO_LABEL: Record<CotizacionCanal['estado'], string> = {
+  borrador: 'Por revisar',
+  enviada: 'Enviada',
+  aceptada: 'Aceptada',
+  rechazada: 'Rechazada',
+  expirada: 'Expirada',
+  cancelada: 'Cancelada',
 };
 
 const RepuestoRow = React.memo(function RepuestoRow({
@@ -359,20 +367,19 @@ const RepuestoRow = React.memo(function RepuestoRow({
         </InstitutionalText>
       ) : null}
       {editable && puedeBuscarIa && onBuscarIa && !precioPendiente ? (
-        <InstitutionalButton
+        <TallerPildora
           label="Buscar precio"
-          variant="outline"
-          size="compact"
+          tono="suave"
           onPress={() => onBuscarIa?.(rep)}
           leading={<Sparkles size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />}
         />
       ) : null}
       {editable && onConsultarCasas && !precioPendiente && (certeza === 'sin_precio' || rep.consulta_casas?.puede_consultar_otras) ? (
-        <InstitutionalButton
+        <TallerPildora
           label={rep.consulta_casas?.puede_consultar_otras ? 'Consultar otras casas' : 'Consultar casas'}
-          variant="outline"
-          size="compact"
+          tono="suave"
           loading={consultandoCasas}
+          disabled={consultandoCasas}
           onPress={() => onConsultarCasas(rep, Boolean(rep.consulta_casas?.puede_consultar_otras))}
         />
       ) : null}
@@ -396,10 +403,9 @@ const RepuestoRow = React.memo(function RepuestoRow({
             <View style={styles.precioMetaTexto} />
           )}
           {hayPrecioParaConfirmar ? (
-            <InstitutionalButton
+            <TallerPildora
               label="Confirmar precio"
-              variant="tertiary"
-              size="compact"
+              tono="coral"
               onPress={() => onConfirmar(rep)}
             />
           ) : null}
@@ -556,7 +562,7 @@ export type CotizacionIaEditorHandle = {
 
 export const CotizacionIaEditor = React.forwardRef<
   CotizacionIaEditorHandle,
-  CotizacionIaEditorProps
+  CotizacionIaEditorProps,
 >(function CotizacionIaEditor({
   cotizacion,
   onChange,
@@ -1201,44 +1207,40 @@ export const CotizacionIaEditor = React.forwardRef<
       <View style={styles.headerRow}>
         {compactHeader ? (
           <View style={styles.headerTagsCol}>
-            <InstitutionalText role="h4" numberOfLines={2}>
+            <InstitutionalText role="h3" numberOfLines={3}>
               {(cotizacion.servicio_nombre || '').trim()
                 || (cotizacion.es_cotizacion_adicional ? 'Trabajo adicional' : 'Cotización')}
             </InstitutionalText>
+            <InstitutionalText role="caption" color="body">
+              {[
+                vehiculoTitulo,
+                cotizacion.vehiculo_patente ? `Patente ${cotizacion.vehiculo_patente.toUpperCase()}` : '',
+                cotizacion.modalidad === 'domicilio' ? 'A domicilio' : cotizacion.modalidad ? 'En el taller' : '',
+              ].filter(Boolean).join(' · ')}
+            </InstitutionalText>
+            <View style={styles.estadoQuieto}>
+              <View
+                style={[
+                  styles.estadoPunto,
+                  (cotizacion.estado === 'cancelada' || cotizacion.estado === 'rechazada') && styles.estadoPuntoBaja,
+                  cotizacion.estado === 'aceptada' && styles.estadoPuntoAlta,
+                ]}
+              />
+              <InstitutionalText role="captionBold">
+                {ESTADO_LABEL[cotizacion.estado] || cotizacion.estado}
+              </InstitutionalText>
+            </View>
             <View style={styles.headerTags}>
               {cotizacion.metadata?.origen === 'agente_ia' ? (
-                <InstitutionalTag label="IA" variant="warning" size="sm" />
-              ) : null}
-              {cotizacion.metadata?.respaldo_sin_gemini ? (
-                <InstitutionalTag label="Completar" variant="info" size="sm" />
+                <InstitutionalTag label="IA" variant="neutral" size="sm" />
               ) : null}
               {cotizacion.es_cotizacion_adicional ? (
-                <InstitutionalTag label="Adicional" variant="adicional" size="sm" />
-              ) : null}
-              {cotizacion.numero_publico ? (
-                <InstitutionalTag
-                  label={`#${cotizacion.numero_publico}`}
-                  variant="neutral"
-                  size="sm"
-                />
+                <InstitutionalTag label="Adicional" variant="neutral" size="sm" />
               ) : null}
               {cotizacion.estado !== 'borrador'
                 && (cotizacion.tipo_documento === 'estimacion'
                   || cotizacion.tipo_documento_emitido === 'estimacion') ? (
-                <InstitutionalTag label="Estimación · rangos" variant="warning" size="sm" />
-              ) : null}
-              <InstitutionalTag
-                label={cotizacion.estado}
-                variant={ESTADO_VARIANT[cotizacion.estado] || 'neutral'}
-                size="sm"
-                uppercase
-              />
-              {cotizacion.modalidad ? (
-                <InstitutionalTag
-                  label={cotizacion.modalidad === 'domicilio' ? 'Domicilio' : 'Taller'}
-                  variant="neutral"
-                  size="sm"
-                />
+                <InstitutionalTag label="Estimación" variant="neutral" size="sm" />
               ) : null}
             </View>
             {cotizacion.es_cotizacion_adicional && cotizacion.servicio_principal_nombre ? (
@@ -1306,17 +1308,19 @@ export const CotizacionIaEditor = React.forwardRef<
       ) : null}
 
       {cotizacion.es_cotizacion_adicional && (cotizacion.cita_origen_id || cotizacion.cita_personal_id) ? (
-        <InstitutionalButton
+        <TallerPildora
           label={
             cotizacion.servicio_principal_nombre
               ? 'Ver trabajo principal'
               : 'Ver trabajo en curso'
           }
-          variant="outline"
+          tono="suave"
+          forma="hoja"
           onPress={() => {
             const citaId = cotizacion.cita_origen_id || cotizacion.cita_personal_id;
             if (citaId) router.push(`/cita-agenda-personal/${citaId}`);
           }}
+          style={styles.accionSuelta}
         />
       ) : null}
 
@@ -1372,12 +1376,9 @@ export const CotizacionIaEditor = React.forwardRef<
           {showVehiculoCard ? (
             <Card elevated padding="host" style={[styles.factsColCard, !stackedFacts && styles.factsColHalf]}>
               <View style={styles.factsHeader}>
-                <View style={hostIconPlateStyle}>
-                  <Car size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                </View>
                 <View style={styles.motorCopy}>
-                  <InstitutionalText role="label" color="muted">
-                    VEHÍCULO
+                  <InstitutionalText role="captionBold" color="muted">
+                    Vehículo
                   </InstitutionalText>
                   <InstitutionalText role="h5" numberOfLines={2}>
                     {vehiculoTitulo || cotizacion.vehiculo_patente?.toUpperCase() || 'Sin datos'}
@@ -1407,12 +1408,9 @@ export const CotizacionIaEditor = React.forwardRef<
           {showClienteCard ? (
             <Card elevated padding="host" style={[styles.factsColCard, !stackedFacts && styles.factsColHalf]}>
               <View style={styles.factsHeader}>
-                <View style={hostIconPlateStyle}>
-                  <UserRound size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                </View>
                 <View style={styles.motorCopy}>
-                  <InstitutionalText role="label" color="muted">
-                    CLIENTE
+                  <InstitutionalText role="captionBold" color="muted">
+                    Cliente
                   </InstitutionalText>
                   <InstitutionalText role="h5" numberOfLines={1}>
                     {cotizacion.cliente_nombre || 'Sin nombre'}
@@ -1454,6 +1452,34 @@ export const CotizacionIaEditor = React.forwardRef<
                 </View>
               ) : (
                 <View style={styles.factsGrid}>
+                  <View style={styles.clienteAcciones}>
+                    {cotizacion.cliente_telefono ? (
+                      <TouchableOpacity
+                        style={styles.iconoCircular}
+                        onPress={() => {
+                          const tel = (cotizacion.cliente_telefono || '').replace(/[^\d+]/g, '');
+                          if (tel) void Linking.openURL(`tel:${tel}`);
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Llamar al cliente"
+                      >
+                        <Phone size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                      </TouchableOpacity>
+                    ) : null}
+                    {cotizacion.cliente_telefono ? (
+                      <TouchableOpacity
+                        style={styles.iconoCircular}
+                        onPress={() => {
+                          const tel = (cotizacion.cliente_telefono || '').replace(/\D/g, '');
+                          if (tel) void Linking.openURL(`https://wa.me/${tel}`);
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Escribir por WhatsApp"
+                      >
+                        <MessageCircle size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                   {cotizacion.cliente_telefono ? (
                     <View style={styles.factRow}>
                       <InstitutionalText role="small" color="muted">
@@ -1487,8 +1513,11 @@ export const CotizacionIaEditor = React.forwardRef<
         </View>
       ) : null}
 
-      <Card elevated padding="host" style={styles.sectionCard}>
-        <InstitutionalSectionHeader title="Servicio" />
+      {editable || cotizacion.descripcion_problema || cotizacion.aviso_motor ? (
+      <Card elevated={editable} padding="host" style={styles.sectionCard}>
+        {editable || cotizacion.descripcion_problema ? (
+          <InstitutionalSectionHeader title="Servicio" />
+        ) : null}
         {editable ? (
           <View style={styles.contactBlock}>
             <InstitutionalField
@@ -1508,18 +1537,13 @@ export const CotizacionIaEditor = React.forwardRef<
               multiline
             />
           </View>
-        ) : (
+        ) : cotizacion.descripcion_problema ? (
           <View style={styles.problemaBox}>
-            <InstitutionalText role="h5" color="ink">
-              {(cotizacion.servicio_nombre || '').trim() || 'Sin servicio'}
+            <InstitutionalText role="caption" color="body">
+              {cotizacion.descripcion_problema}
             </InstitutionalText>
-            {cotizacion.descripcion_problema ? (
-              <InstitutionalText role="caption" color="body">
-                {cotizacion.descripcion_problema}
-              </InstitutionalText>
-            ) : null}
           </View>
-        )}
+        ) : null}
         {cotizacion.aviso_motor ? (
           <View style={[styles.warningBox, styles.warningAfterProblema]}>
             <AlertTriangle size={16} color={I.accentYellow} strokeWidth={ICON_STROKE_WIDTH} />
@@ -1529,6 +1553,7 @@ export const CotizacionIaEditor = React.forwardRef<
           </View>
         ) : null}
       </Card>
+      ) : null}
 
       <View style={styles.section}>
         <InstitutionalSectionHeader
@@ -1890,18 +1915,20 @@ export const CotizacionIaEditor = React.forwardRef<
             />
           ) : null}
           {editable && onGuardarPlantilla ? (
-            <InstitutionalButton
+            <TallerPildora
               label="Guardar como plantilla"
-              variant="outline"
+              tono="suave"
+              forma="hoja"
               onPress={onGuardarPlantilla}
               loading={guardandoPlantilla}
               disabled={guardandoPlantilla}
             />
           ) : null}
           {cotizacion.estado === 'enviada' && onMarcarAceptada ? (
-            <InstitutionalButton
+            <TallerPildora
               label="Cliente aceptó (manual)"
-              variant="success"
+              tono="coral"
+              forma="hoja"
               onPress={onMarcarAceptada}
             />
           ) : null}
@@ -2123,6 +2150,42 @@ const styles = StyleSheet.create({
   },
   advertenciasBox: { gap: 4 },
   readinessCard: { gap: SPACING.fixed.xs },
+  estadoQuieto: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  estadoPunto: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: I.ink,
+  },
+  estadoPuntoBaja: {
+    backgroundColor: I.semanticDown,
+  },
+  estadoPuntoAlta: {
+    backgroundColor: I.semanticUp,
+  },
+  clienteAcciones: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.xs,
+  },
+  iconoCircular: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: I.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: I.paper,
+  },
   factsColumns: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -2189,6 +2252,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     paddingRight: SPACING.fixed.sm,
+  },
+  accionSuelta: {
+    alignSelf: 'flex-start',
   },
   actionsFooter: {
     gap: SPACING.fixed.sm,

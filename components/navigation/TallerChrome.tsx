@@ -19,6 +19,7 @@ import { useAlerts } from '@/context/AlertsContext';
 import { useAuth } from '@/context/AuthContext';
 import { useChats } from '@/context/ChatsContext';
 import websocketService, { type NuevaSolicitudEvent } from '@/app/services/websocketService';
+import { useTallerShell } from '@/components/navigation/TallerShellContext';
 
 const I = COLORS.institutional;
 const FF = TYPOGRAPHY.fontFamily;
@@ -63,6 +64,7 @@ export function TallerChrome({ nombre, porAgendar, variante }: Props) {
     return unsubscribe;
   }, []);
 
+  const { abrirNuevaCotizacion } = useTallerShell();
   const avisos = alertasNoLeidas + solicitudesNuevas;
   const marca = (
     <Pressable
@@ -159,7 +161,7 @@ export function TallerChrome({ nombre, porAgendar, variante }: Props) {
       </View>
       <View style={styles.zonaDerecha}>
         <Pressable
-          onPress={() => router.push('/cotizar-ia')}
+          onPress={abrirNuevaCotizacion}
           style={styles.cta}
           accessibilityRole="button"
           accessibilityLabel="Nueva cotización"
@@ -217,10 +219,11 @@ export function TallerChrome({ nombre, porAgendar, variante }: Props) {
 }
 
 export function NuevaCotizacionFlotante({ bottom }: { bottom: number }) {
+  const { abrirNuevaCotizacion } = useTallerShell();
   return (
     <View pointerEvents="box-none" style={[styles.flotanteWrap, { bottom }]}>
       <Pressable
-        onPress={() => router.push('/cotizar-ia')}
+        onPress={abrirNuevaCotizacion}
         style={styles.flotante}
         accessibilityRole="button"
         accessibilityLabel="Nueva cotización"

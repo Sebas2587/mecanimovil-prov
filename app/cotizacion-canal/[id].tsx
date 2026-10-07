@@ -18,7 +18,7 @@ import { RegistrarCompraCard } from '@/components/cotizacion/RegistrarCompraCard
 import { CotizacionBorradorAcciones } from '@/components/cotizacion/CotizacionBorradorAcciones';
 import { CotizacionEditorFab, type CotizacionFabAction } from '@/components/cotizacion/CotizacionEditorFab';
 import { COPY_PRECIO_TALLER, lineaPendientePrecio } from '@/components/cotizacion/repuestoCerteza';
-import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
+import { TallerPildora } from '@/components/taller/TallerPildora';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { etiquetaAgenda } from '@/components/chats/OmnichannelChatHeader';
@@ -486,7 +486,7 @@ export default function CotizacionCanalDetalleScreen() {
     return (
       <View style={styles.screen}>
         <Stack.Screen options={STACK_OPTIONS} />
-        <Header title="Cotización" showBack onBackPress={() => router.back()} />
+        <Header title="Cotización" dense showBack onBackPress={() => router.back()} backgroundColor={I.canvas} titleColor={I.ink} />
         <View style={styles.center}>
           {holdPrecios ? (
             <View style={styles.holdProgreso}>
@@ -509,7 +509,7 @@ export default function CotizacionCanalDetalleScreen() {
     return (
       <View style={styles.screen}>
         <Stack.Screen options={STACK_OPTIONS} />
-        <Header title="Cotización" showBack onBackPress={() => router.back()} />
+        <Header title="Cotización" dense showBack onBackPress={() => router.back()} backgroundColor={I.canvas} titleColor={I.ink} />
         <View style={styles.center}>
           <InstitutionalText role="body">No encontramos esta cotización.</InstitutionalText>
         </View>
@@ -623,9 +623,11 @@ export default function CotizacionCanalDetalleScreen() {
       <Stack.Screen options={STACK_OPTIONS} />
       <Header
         title={titulo}
-        titleRole="h4"
+        dense
         showBack
         onBackPress={() => router.back()}
+        backgroundColor={I.canvas}
+        titleColor={I.ink}
         rightComponent={
           editable && draft.estado === 'borrador' ? (
             <TouchableOpacity
@@ -694,7 +696,7 @@ export default function CotizacionCanalDetalleScreen() {
           onEnviarEstimacion={() => void abrirVistaPrevia('estimacion')}
         />
 
-        {draft.estado === 'aceptada' ? (
+        {draft.estado !== 'borrador' ? (
           <RegistrarCompraCard cotizacion={draft} />
         ) : null}
 
@@ -718,11 +720,22 @@ export default function CotizacionCanalDetalleScreen() {
       {showFooter ? (
       <View style={[styles.footer, { paddingBottom: footerBottom }]}>
         {tieneHorarioAgendado && draft.cita_personal_id ? (
-          <InstitutionalButton
-            label="Agregar ítems o servicio adicional"
-            variant="primary"
-            onPress={() => router.push(`/agregar-servicio-adicional/${draft.cita_personal_id}`)}
-          />
+          <View style={styles.footerFila}>
+            <TallerPildora
+              label="Ver cita"
+              tono="coral"
+              forma="hoja"
+              onPress={() => router.push(`/cita-agenda-personal/${draft.cita_personal_id}`)}
+              style={styles.footerCrece}
+            />
+            <TallerPildora
+              label="Cotización adicional"
+              tono="suave"
+              forma="hoja"
+              onPress={() => router.push(`/agregar-servicio-adicional/${draft.cita_personal_id}`)}
+              style={styles.footerCrece}
+            />
+          </View>
         ) : null}
 
         {draft.estado === 'borrador' ? (
@@ -753,30 +766,50 @@ export default function CotizacionCanalDetalleScreen() {
           </View>
         ) : null}
 
-        {draft.estado === 'enviada' && !editando && draft.entrega_pendiente_compartir && (draft.share_url || draft.url_publica) ? (
-          <InstitutionalButton
-            label="Compartir por WhatsApp"
-            variant="primary"
-            leading={<Phone size={18} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />}
-            onPress={() => void compartir()}
-          />
+        {draft.estado === 'enviada' && !editando ? (
+          <View style={styles.footerFila}>
+            {draft.entrega_pendiente_compartir && (draft.share_url || draft.url_publica) ? (
+              <TallerPildora
+                label="Compartir por WhatsApp"
+                tono="coral"
+                forma="hoja"
+                onPress={() => void compartir()}
+                style={styles.footerCrece}
+              />
+            ) : null}
+            <TallerPildora
+              label="Corregir cotización"
+              tono={draft.entrega_pendiente_compartir ? 'suave' : 'coral'}
+              forma="hoja"
+              loading={guardando}
+              disabled={guardando}
+              onPress={() => void corregirCotizacion()}
+              style={styles.footerCrece}
+            />
+          </View>
         ) : null}
 
-        {draft.estado === 'enviada' ? (
-          <InstitutionalButton
-            label="Corregir cotización"
-            variant={draft.entrega_pendiente_compartir ? 'outline' : 'primary'}
-            loading={guardando}
-            onPress={() => void corregirCotizacion()}
-          />
-        ) : null}
-
-        {draft.estado === 'aceptada' && citaParaAdicional && !tieneHorarioAgendado ? (
-          <InstitutionalButton
-            label="Nueva cotización adicional"
-            variant="primary"
-            onPress={() => router.push(`/agregar-servicio-adicional/${citaParaAdicional}`)}
-          />
+        {draft.estado === 'aceptada' && !tieneHorarioAgendado ? (
+          <View style={styles.footerFila}>
+            {draft.cita_personal_id ? (
+              <TallerPildora
+                label="Agendar cita"
+                tono="coral"
+                forma="hoja"
+                onPress={() => router.push(`/cita-agenda-personal/${draft.cita_personal_id}?agendar=1`)}
+                style={styles.footerCrece}
+              />
+            ) : null}
+            {citaParaAdicional ? (
+              <TallerPildora
+                label="Cotización adicional"
+                tono={draft.cita_personal_id ? 'suave' : 'coral'}
+                forma="hoja"
+                onPress={() => router.push(`/agregar-servicio-adicional/${citaParaAdicional}`)}
+                style={styles.footerCrece}
+              />
+            ) : null}
+          </View>
         ) : null}
       </View>
       ) : null}
@@ -813,7 +846,7 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     minHeight: 0,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: I.canvas,
   },
   scroll: {
     flex: 1,
@@ -834,15 +867,27 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   scrollInner: {
-    gap: SPACING.fixed.md,
-    paddingTop: SPACING.fixed.sm,
+    gap: SPACING.fixed.lg,
+    paddingTop: SPACING.fixed.md,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+  },
+  footerFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+  },
+  footerCrece: {
+    flex: 1,
+    minWidth: 0,
   },
   footer: {
     flexShrink: 0,
     zIndex: 5,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: I.hairline,
-    backgroundColor: COLORS.background.paper,
+    backgroundColor: I.paper,
     paddingHorizontal: SPACING.fixed.lg,
     paddingTop: SPACING.fixed.sm,
     gap: SPACING.fixed.xs,

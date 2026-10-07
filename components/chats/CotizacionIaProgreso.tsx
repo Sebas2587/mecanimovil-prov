@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { HostMetricRow, HostPaperSection, HostSectionKicker } from '@/app/design-system/components';
-import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { TallerPildora } from '@/components/taller/TallerPildora';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
 import type { ProgresoBusquedaWeb } from '@/services/cotizacionCanalService';
@@ -248,10 +248,9 @@ export function CotizacionIaProgreso({
         </HostPaperSection>
       ) : null}
       {onCancel && !completo ? (
-        <InstitutionalButton
+        <TallerPildora
           label={cancelando ? 'Cancelando…' : 'Cancelar búsqueda'}
-          variant="outline"
-          size="compact"
+          tono="suave"
           onPress={onCancel}
           loading={cancelando}
           disabled={cancelando}

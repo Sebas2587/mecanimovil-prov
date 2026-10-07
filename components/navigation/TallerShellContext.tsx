@@ -5,9 +5,15 @@ type TallerShellValue = {
   ocupaTope: boolean;
   /** Hay un botón flotante sobre la barra inferior. */
   accionFlotante: boolean;
+  /** Abre el formulario de cotización encima de la pantalla actual. */
+  abrirNuevaCotizacion: () => void;
 };
 
-const VACIO: TallerShellValue = { ocupaTope: false, accionFlotante: false };
+const VACIO: TallerShellValue = {
+  ocupaTope: false,
+  accionFlotante: false,
+  abrirNuevaCotizacion: () => {},
+};
 
 export const TallerShellContext = createContext<TallerShellValue>(VACIO);
 

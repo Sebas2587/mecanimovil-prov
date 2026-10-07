@@ -292,6 +292,7 @@ export interface CotizacionCanal {
     busqueda_web_progreso?: ProgresoBusquedaWeb;
     busqueda_web_ids?: string[];
     reabierta_por_taller?: boolean;
+    compra_repuestos_registrada?: boolean;
     cotizacion_original_id?: number;
     cita_personal_id?: number;
     entrega_canal?: 'app' | 'sesion_meta' | 'whatsapp_template' | 'link_publico' | string;

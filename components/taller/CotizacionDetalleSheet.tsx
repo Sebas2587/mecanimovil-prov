@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
   },
   boton: {
     minHeight: 48,
-    borderRadius: BORDERS.radius.md,
+    borderRadius: BORDERS.radius.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -643,6 +643,6 @@ const styles = StyleSheet.create({
   botonSecundario: {
     borderWidth: 1,
     borderColor: I.hairline,
-    backgroundColor: I.paper,
+    backgroundColor: I.surfaceSoft,
   },
 });

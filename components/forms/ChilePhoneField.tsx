@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, TextInput } from 'react-native';
+import { StyleSheet, View, TextInput } from 'react-native';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import {
   institutionalInputPlaceholder,
@@ -18,6 +18,7 @@ type Props = {
   value: string;
   onChangeValue: (stored: string) => void;
   required?: boolean;
+  compact?: boolean;
 };
 
 export function getChilePhoneError(nueveDigitos: string, required = true): string | null {
@@ -39,6 +40,7 @@ export function ChilePhoneField({
   value,
   onChangeValue,
   required = true,
+  compact = false,
 }: Props) {
   const nueveDigitos = useMemo(() => extraerNueveDigitosDesdeGuardado(value), [value]);
   const error = getChilePhoneError(nueveDigitos, required);
@@ -62,6 +64,7 @@ export function ChilePhoneField({
       <View
         style={[
           institutionalInputStyles.inputRow,
+          compact && styles.rowCompact,
           nueveDigitos && error ? institutionalInputStyles.inputError : null,
         ]}
       >
@@ -87,5 +90,12 @@ export function ChilePhoneField({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  rowCompact: {
+    minHeight: 48,
+    borderRadius: 16,
+  },
+});
 
 export default ChilePhoneField;

@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { SPACING } from '@/app/design-system/tokens';
+import { TallerPildora } from '@/components/taller/TallerPildora';
 
 type Props = {
   pendientesPrecio: number;
@@ -32,12 +32,14 @@ export function CotizacionBorradorAcciones({
 }: Props) {
   if (puedeEnviarFirme) {
     return (
-      <InstitutionalButton
+      <TallerPildora
         label={enviarFirmeLabel}
-        variant="primary"
+        tono="coral"
+        forma="hoja"
         onPress={onEnviarFirme}
         disabled={sendDisabled}
         loading={loading}
+        style={styles.full}
       />
     );
   }
@@ -45,13 +47,14 @@ export function CotizacionBorradorAcciones({
   return (
     <View style={styles.wrap}>
       {pendientesPrecio > 0 ? (
-        <InstitutionalText role="caption" color="muted">
+        <InstitutionalText role="caption" color="muted" style={styles.nota}>
           {pendientesPrecio === 1 ? '1 precio sin fijar' : `${pendientesPrecio} precios sin fijar`}
         </InstitutionalText>
-      ) : null}
-      <InstitutionalButton
+      ) : <View style={styles.nota} />}
+      <TallerPildora
         label="Confirmar precios"
-        variant="primary"
+        tono="coral"
+        forma="hoja"
         onPress={onConfirmarPrecios}
         disabled={confirmDisabled}
       />
@@ -61,7 +64,17 @@ export function CotizacionBorradorAcciones({
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: SPACING.fixed.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.fixed.md,
+  },
+  nota: {
+    flex: 1,
+    minWidth: 0,
+  },
+  full: {
+    alignSelf: 'stretch',
   },
 });
 

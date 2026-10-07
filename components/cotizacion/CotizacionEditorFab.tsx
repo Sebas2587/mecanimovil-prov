@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { MoreHorizontal, Package, Plus, Wrench, X, type LucideIcon } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
-import { ICON_STROKE_WIDTH_EMPHASIS } from '@/app/design-system/iconography';
-import { COLORS, SHADOWS, SPACING } from '@/app/design-system/tokens';
+import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { BORDERS, COLORS, SHADOWS, SPACING, withOpacity } from '@/app/design-system/tokens';
 
 const I = COLORS.institutional;
 const FAB_SIZE = 56;
@@ -47,11 +47,13 @@ function FabAction({
       accessibilityLabel={label}
       style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}
     >
-      <InstitutionalText role="captionBold" color="onPrimary" style={styles.actionLabel}>
-        {label}
-      </InstitutionalText>
+      <View style={styles.actionLabel}>
+        <InstitutionalText role="captionBold" color="ink">
+          {label}
+        </InstitutionalText>
+      </View>
       <View style={styles.actionDot}>
-        <Icon size={18} color={COLORS.buttonSecondary.text} strokeWidth={ICON_STROKE_WIDTH_EMPHASIS} />
+        <Icon size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
       </View>
     </Pressable>
   );
@@ -134,11 +136,11 @@ export function CotizacionEditorFab({
           style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
         >
           {open ? (
-            <X size={24} color={COLORS.buttonSecondary.text} strokeWidth={ICON_STROKE_WIDTH_EMPHASIS} />
+            <X size={22} color={I.onDark} strokeWidth={ICON_STROKE_WIDTH} />
           ) : look === 'plus' ? (
-            <Plus size={26} color={COLORS.buttonSecondary.text} strokeWidth={ICON_STROKE_WIDTH_EMPHASIS} />
+            <Plus size={22} color={I.onDark} strokeWidth={ICON_STROKE_WIDTH} />
           ) : (
-            <MoreHorizontal size={26} color={COLORS.buttonSecondary.text} strokeWidth={ICON_STROKE_WIDTH_EMPHASIS} />
+            <MoreHorizontal size={22} color={I.onDark} strokeWidth={ICON_STROKE_WIDTH} />
           )}
         </Pressable>
       </View>
@@ -154,7 +156,7 @@ const styles = StyleSheet.create({
   },
   scrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: COLORS.background.overlay,
+    backgroundColor: withOpacity(I.ink, 0.18),
   },
   cluster: {
     position: 'absolute',
@@ -172,24 +174,28 @@ const styles = StyleSheet.create({
     gap: SPACING.fixed.sm,
   },
   actionLabel: {
-    textShadowColor: I.ink,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.paper,
+    borderWidth: 1,
+    borderColor: I.hairline,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   actionDot: {
     width: ACTION_SIZE,
     height: ACTION_SIZE,
     borderRadius: ACTION_SIZE / 2,
-    backgroundColor: COLORS.buttonSecondary.background,
+    backgroundColor: I.paper,
+    borderWidth: 1,
+    borderColor: I.hairline,
     alignItems: 'center',
     justifyContent: 'center',
-    ...SHADOWS.button,
   },
   fab: {
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
-    backgroundColor: COLORS.buttonSecondary.background,
+    backgroundColor: I.surfaceDark,
     alignItems: 'center',
     justifyContent: 'center',
     ...SHADOWS.lg,

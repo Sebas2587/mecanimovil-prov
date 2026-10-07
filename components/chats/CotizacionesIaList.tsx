@@ -6,17 +6,14 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
-import { FileText, Search } from 'lucide-react-native';
+import { Search } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
-import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
 import { CotizacionPendienteRow } from '@/components/home/CotizacionPendienteRow';
-import {
-  useCotizacionesCanalTallerQuery,
-  useInvalidateCotizacionesCanalTaller,
-} from '@/hooks/useCotizacionesCanalTallerQuery';
+import { useCotizacionesCanalTallerQuery } from '@/hooks/useCotizacionesCanalTallerQuery';
 import {
   AGENTE_IA_BORRADORES_KEY,
   useAgenteBorradoresPendientesQuery,
@@ -24,18 +21,13 @@ import {
 import { type CotizacionCanal } from '@/services/cotizacionCanalService';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import {
-  HostEmptyState,
   HOST_GUTTER,
   HostPaperSection,
-  HostSectionKicker,
   hostScreenStyles,
 } from '@/app/design-system/components';
-import { BORDERS, COLORS, SPACING, SHADOWS } from '@/app/design-system/tokens';
+import { BORDERS, COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
-import {
-  institutionalInputPlaceholder,
-  institutionalInputStyles,
-} from '@/app/design-system/styles/institutionalInputs';
+import { institutionalInputPlaceholder } from '@/app/design-system/styles/institutionalInputs';
 import { useQueryClient } from '@tanstack/react-query';
 import { useWebVisualViewport, webFooterBottom } from '@/hooks/useWebVisualViewport';
 
@@ -71,12 +63,7 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
   const listBottom = webFooterBottom(webViewport, insets.bottom, SPACING.fixed.lg);
   const { data = [], isPending, isFetching, refetch } = useCotizacionesCanalTallerQuery(enabled);
   const { data: borradoresAgente } = useAgenteBorradoresPendientesQuery(enabled);
-  const invalidate = useInvalidateCotizacionesCanalTaller();
-  const [crearVisible, setCrearVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const abrirCrear = useCallback(() => setCrearVisible(true), []);
-  const cerrarCrear = useCallback(() => setCrearVisible(false), []);
 
   const borradoresPorRevisar = useMemo(
     () =>
@@ -115,24 +102,10 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
     if (item.id) router.push(`/cotizacion-canal/${item.id}`);
   }, []);
 
-  const irABandeja = useCallback(() => {
-    // Cotizar está encima de los tabs: un push deja Bandeja detrás y en iOS traba el stack.
-    if (router.canDismiss()) {
-      router.dismissTo('/(tabs)/bandeja');
-      return;
-    }
-    router.replace('/(tabs)/bandeja');
-  }, []);
-
   const onRefresh = useCallback(() => {
     void refetch();
     qc.invalidateQueries({ queryKey: AGENTE_IA_BORRADORES_KEY });
   }, [qc, refetch]);
-
-  const onEnviada = useCallback(() => {
-    void invalidate();
-    void refetch();
-  }, [invalidate, refetch]);
 
   const borradoresCount = borradoresAgente?.count ?? borradoresPorRevisar.length;
 
@@ -143,10 +116,10 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
   const header = useMemo(
     () => (
       <View style={styles.headerBlock}>
-        <View style={institutionalInputStyles.inputRow}>
-          <Search size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+        <View style={styles.buscador}>
+          <Search size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
           <TextInput
-            style={institutionalInputStyles.inputRowField}
+            style={styles.buscadorInput}
             placeholder="Cliente, servicio, patente o folio"
             placeholderTextColor={institutionalInputPlaceholder}
             value={searchQuery}
@@ -157,49 +130,32 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
             returnKeyType="search"
           />
         </View>
-        <HostEmptyState
-          icon={FileText}
-          title={mostrarTextoVacio ? 'Sin borradores por revisar' : undefined}
-          description={
-            mostrarTextoVacio
-              ? 'Crea una cotización en blanco o con IA. Lo ya enviado está en Bandeja.'
-              : undefined
-          }
-          primaryAction={{ label: 'Nueva cotización', onPress: abrirCrear }}
-          secondaryAction={{ label: 'Ir a Bandeja', onPress: irABandeja }}
-        />
+        {mostrarTextoVacio ? (
+          <InstitutionalText role="caption" color="muted" style={styles.vacioCentro}>
+            No hay borradores por revisar. Nueva cotización abre el formulario desde la barra.
+          </InstitutionalText>
+        ) : null}
         {borradoresFiltrados.length > 0 ? (
-          <HostSectionKicker
-            label={`Por revisar${borradoresCount > 0 ? ` (${borradoresFiltrados.length})` : ''}`}
-            style={styles.kicker}
-          />
+          <InstitutionalText role="captionBold" color="muted" style={styles.kicker}>
+            {`Por revisar${borradoresCount > 0 ? ` · ${borradoresFiltrados.length}` : ''}`}
+          </InstitutionalText>
         ) : null}
       </View>
     ),
-    [abrirCrear, borradoresCount, borradoresFiltrados.length, irABandeja, mostrarTextoVacio, searchQuery],
+    [borradoresCount, borradoresFiltrados.length, mostrarTextoVacio, searchQuery],
   );
 
   const renderItem = useCallback(
-    ({ item, index }: { item: CotizacionCanal; index: number }) => {
-      const last = index === borradoresFiltrados.length - 1;
-      return (
-        <View
-          style={[
-            styles.paperListItem,
-            index === 0 && styles.paperListFirst,
-            last && styles.paperListLast,
-          ]}
-        >
-          <CotizacionPendienteRow item={item} onPress={abrirDetalle} last={last} />
-        </View>
-      );
-    },
-    [abrirDetalle, borradoresFiltrados.length],
+    ({ item }: { item: CotizacionCanal }) => (
+      <CotizacionPendienteRow item={item} onPress={abrirDetalle} presentacion="tarjeta" />
+    ),
+    [abrirDetalle],
   );
 
   const screenHeader = (
     <Header
       title="Cotizar"
+      dense
       showBack
       onBackPress={onBack}
       backgroundColor={I.canvas}
@@ -221,11 +177,6 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
             </View>
           </HostPaperSection>
         </View>
-        <CotizacionLibreModal
-          visible={crearVisible}
-          onClose={cerrarCrear}
-          onEnviada={onEnviada}
-        />
       </View>
     );
   }
@@ -246,7 +197,7 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
           },
           borradoresFiltrados.length === 0 && styles.listEmpty,
         ]}
-        style={hostScreenStyles.scroll}
+        style={[hostScreenStyles.scroll, styles.listaAncho]}
         keyboardShouldPersistTaps="handled"
         removeClippedSubviews
         maxToRenderPerBatch={12}
@@ -262,19 +213,11 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
         }
         ListEmptyComponent={
           buscando ? (
-            <HostEmptyState
-              icon={FileText}
-              title="Sin coincidencias"
-              description={`Nada coincide con «${searchQuery.trim()}».`}
-            />
+            <InstitutionalText role="caption" color="muted" style={styles.vacio}>
+              {`Nada coincide con «${searchQuery.trim()}».`}
+            </InstitutionalText>
           ) : null
         }
-      />
-
-      <CotizacionLibreModal
-        visible={crearVisible}
-        onClose={cerrarCrear}
-        onEnviada={onEnviada}
       />
     </View>
   );
@@ -282,40 +225,57 @@ export function CotizacionesIaList({ enabled = true, onBack }: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, minHeight: 0, backgroundColor: I.canvas },
+  listaAncho: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+  },
   list: {
     paddingTop: SPACING.fixed.sm,
-    gap: 0,
+    gap: SPACING.fixed.sm,
   },
   listEmpty: {
     flexGrow: 1,
   },
   headerBlock: {
     gap: SPACING.fixed.sm,
-    marginBottom: SPACING.fixed.xs,
+    marginBottom: SPACING.fixed.sm,
+  },
+  buscador: {
+    width: '100%',
+    maxWidth: 576,
+    height: 40,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    borderWidth: 1,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.paper,
+    paddingHorizontal: SPACING.fixed.md,
+  },
+  buscadorInput: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontSize: 14,
+    color: I.ink,
+    backgroundColor: 'transparent',
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    borderWidth: 0,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as object) : null),
+  },
+  vacio: {
+    paddingVertical: SPACING.fixed.sm,
+  },
+  vacioCentro: {
+    textAlign: 'center',
+    paddingVertical: SPACING.fixed.sm,
   },
   kicker: {
     marginTop: 0,
-  },
-  paperListItem: {
-    backgroundColor: COLORS.background.paper,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderColor: I.hairline,
-    paddingHorizontal: SPACING.fixed.md,
-  },
-  paperListFirst: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopLeftRadius: BORDERS.radius.lg,
-    borderTopRightRadius: BORDERS.radius.lg,
-    overflow: 'hidden',
-  },
-  paperListLast: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomLeftRadius: BORDERS.radius.lg,
-    borderBottomRightRadius: BORDERS.radius.lg,
-    overflow: 'hidden',
-    marginBottom: SPACING.fixed.sm,
-    ...SHADOWS.editorial,
   },
   loadingPad: {
     paddingTop: SPACING.fixed.lg,

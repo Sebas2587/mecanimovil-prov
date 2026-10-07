@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { TallerPildora } from '@/components/taller/TallerPildora';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING, BORDERS, withOpacity } from '@/app/design-system/tokens';
 
@@ -60,10 +60,9 @@ export function CotizacionPreciosEstadoBanner({
         </View>
       </View>
       {!pendiente && onBuscar ? (
-        <InstitutionalButton
+        <TallerPildora
           label={sinTienda === 1 ? 'Buscar el precio que falta' : `Buscar los ${sinTienda} precios`}
-          variant="secondary"
-          size="compact"
+          tono="coral"
           onPress={onBuscar}
           loading={buscando}
           disabled={buscando}

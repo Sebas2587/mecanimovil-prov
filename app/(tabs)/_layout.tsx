@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, View, Text, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { Home, ClipboardList, ArrowRight, FileText, Users } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -19,6 +19,8 @@ import { TallerShellContext } from '@/components/navigation/TallerShellContext';
 import { AgendaTabIcon, NuevaCotizacionFlotante, TallerChrome } from '@/components/navigation/TallerChrome';
 import { usePipelineComercialQuery } from '@/hooks/usePipelineComercialQuery';
 import { pasoDeCaso } from '@/utils/pasoComercial';
+import { CotizacionLibreModal } from '@/components/chats/CotizacionLibreModal';
+import { useInvalidateCotizacionesCanalTaller } from '@/hooks/useCotizacionesCanalTallerQuery';
 
 const C = COLORS;
 
@@ -44,9 +46,16 @@ export default function TabLayout() {
     () => (pipeline.data?.results ?? []).filter((row) => pasoDeCaso(row) === 'por_agendar').length,
     [pipeline.data?.results],
   );
+  const [nuevaCotizacionAbierta, setNuevaCotizacionAbierta] = useState(false);
+  const invalidarCotizaciones = useInvalidateCotizacionesCanalTaller();
+  const abrirNuevaCotizacion = useCallback(() => setNuevaCotizacionAbierta(true), []);
   const shell = useMemo(
-    () => ({ ocupaTope: !esMecanicoEquipo, accionFlotante: !escritorio && !esMecanicoEquipo }),
-    [esMecanicoEquipo, escritorio],
+    () => ({
+      ocupaTope: !esMecanicoEquipo,
+      accionFlotante: !escritorio && !esMecanicoEquipo,
+      abrirNuevaCotizacion,
+    }),
+    [esMecanicoEquipo, escritorio, abrirNuevaCotizacion],
   );
 
   useEffect(() => {
@@ -244,6 +253,16 @@ export default function TabLayout() {
     <PlanUpdateEdge bottom={barraInferior + (shell.accionFlotante ? 68 : 0)} />
     {needsConsent ? (
       <LegalConsentModal visible={needsConsent} onAccepted={clearNeedsConsent} />
+    ) : null}
+    {!esMecanicoEquipo ? (
+      <CotizacionLibreModal
+        visible={nuevaCotizacionAbierta}
+        onClose={() => setNuevaCotizacionAbierta(false)}
+        onEnviada={() => {
+          setNuevaCotizacionAbierta(false);
+          invalidarCotizaciones();
+        }}
+      />
     ) : null}
     </View>
     </TallerShellContext.Provider>

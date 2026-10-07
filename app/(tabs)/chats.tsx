@@ -37,12 +37,11 @@ import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens
 import {
   Card,
   hostScreenStyles,
-  InstitutionalButton,
   InstitutionalText,
   institutionalInputPlaceholder,
-  institutionalInputStyles,
 } from '@/app/design-system/components';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
+import { TallerPildora } from '@/components/taller/TallerPildora';
 import { formatVehiculoPillLabel } from '@/utils/formatVehiculoPillLabel';
 import { ChannelBadge } from '@/components/chats/ChannelBadge';
 import { etiquetaAgenda } from '@/components/chats/OmnichannelChatHeader';
@@ -756,6 +755,9 @@ export default function ChatsScreen() {
       <View style={styles.screen}>
         <Header
           title="Mensajes"
+          dense
+          titleColor={I.ink}
+          backgroundColor={I.canvas}
           badge={totalMensajesNoLeidos > 0 ? totalMensajesNoLeidos : undefined}
           rightComponent={
             totalNoLeidos > 0 || markingAllRead ? (
@@ -778,10 +780,10 @@ export default function ChatsScreen() {
         />
 
         <View style={[styles.searchBarWrap, hostScreenStyles.gutterX]}>
-          <View style={institutionalInputStyles.inputRow}>
-            <Search size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
+          <View style={styles.searchPill}>
+            <Search size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
             <TextInput
-              style={institutionalInputStyles.inputRowField}
+              style={styles.searchInput}
               placeholder="Cliente, teléfono, patente o mensaje"
               placeholderTextColor={institutionalInputPlaceholder}
               value={searchQuery}
@@ -933,14 +935,16 @@ export default function ChatsScreen() {
             Elige cotizar o agendar para este contacto.
           </InstitutionalText>
           <View style={styles.jobChooserActions}>
-            <InstitutionalButton
+            <TallerPildora
               label="Cotizar"
-              variant="outline"
+              tono="suave"
+              forma="hoja"
               onPress={() => setJobModal('cotizar')}
             />
-            <InstitutionalButton
+            <TallerPildora
               label="Agendar cita"
-              variant="primary"
+              tono="coral"
+              forma="hoja"
               onPress={() => setJobModal('agendar')}
             />
           </View>
@@ -982,7 +986,7 @@ export default function ChatsScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: COLORS.background.default,
+    backgroundColor: I.canvas,
   },
   headerReadAll: {
     flexDirection: 'row',
@@ -1006,8 +1010,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabsOuter: {
-    paddingTop: SPACING.fixed.sm,
-    paddingBottom: SPACING.fixed.xs,
+    paddingTop: SPACING.fixed.xs,
+    paddingBottom: 0,
     gap: SPACING.fixed.sm,
   },
   tabsRow: {
@@ -1082,8 +1086,34 @@ const styles = StyleSheet.create({
     backgroundColor: I.surfaceSoft,
   },
   searchBarWrap: {
-    paddingTop: SPACING.xs,
-    paddingBottom: SPACING.xs,
+    paddingTop: SPACING.fixed.sm,
+    paddingBottom: SPACING.fixed.xs,
+    alignItems: 'center',
+  },
+  searchPill: {
+    width: '100%',
+    maxWidth: 576,
+    height: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
+    borderWidth: 1,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.paper,
+    paddingHorizontal: SPACING.fixed.md,
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: TYPOGRAPHY.fontFamily.sansRegular,
+    fontSize: 14,
+    color: I.ink,
+    backgroundColor: 'transparent',
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    borderWidth: 0,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as object) : null),
   },
   tagsRow: {
     flexDirection: 'row',
@@ -1129,8 +1159,8 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.fixed.xxs,
   },
   chatCardHighlighted: {
-    backgroundColor: COLORS.selection.background,
-    borderColor: COLORS.selection.border,
+    backgroundColor: I.surfaceSoft,
+    borderColor: I.hairline,
   },
   listItemFallback: {
     marginBottom: SPACING.sm,

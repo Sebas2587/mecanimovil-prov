@@ -19,6 +19,8 @@ export type AppHeaderProps = {
   titleColor?: string;
   titleRole?: 'h2' | 'h3' | 'h4' | 'h5';
   badge?: number | string;
+  /** Título bajo, sin la franja de 44 px. Para pantallas que ya tienen el chrome del taller. */
+  dense?: boolean;
   style?: object;
 };
 
@@ -33,25 +35,32 @@ export function AppHeader({
   titleColor,
   titleRole = 'h2',
   badge,
+  dense = false,
   style,
 }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
   const { ocupaTope } = useTallerShell();
   const bg = backgroundColor ?? C.background.default;
+  const role = dense ? (titleRole === 'h2' ? 'h5' : titleRole) : titleRole;
 
   return (
     <View
       style={[
         styles.container,
+        dense && styles.containerDense,
         {
-          paddingTop: ocupaTope ? SPACING.fixed.sm : Math.max(insets.top, SPACING.fixed.xs),
+          paddingTop: dense
+            ? (ocupaTope ? 0 : Math.max(insets.top, 0))
+            : ocupaTope
+              ? SPACING.fixed.sm
+              : Math.max(insets.top, SPACING.fixed.xs),
           backgroundColor: bg,
           borderBottomColor: C.border.light,
         },
         style,
       ]}
     >
-      <View style={styles.row}>
+      <View style={[styles.row, dense && styles.rowDense]}>
         <View style={styles.side}>
           {leftComponent ??
             (showBack ? (
@@ -67,7 +76,7 @@ export function AppHeader({
         </View>
 
         <View style={styles.center}>
-          <InstitutionalText role={titleRole} color={titleColor} numberOfLines={1} style={{ textAlign: 'center' }}>
+          <InstitutionalText role={role} color={titleColor} numberOfLines={1} style={{ textAlign: 'center' }}>
             {title}
           </InstitutionalText>
           {badge != null && badge !== 0 ? (
@@ -91,10 +100,16 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.fixed.sm,
     paddingHorizontal: SPACING.fixed.md,
   },
+  containerDense: {
+    paddingBottom: SPACING.fixed.xs,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 44,
+  },
+  rowDense: {
+    minHeight: 36,
   },
   side: {
     minWidth: 44,

@@ -30,10 +30,10 @@ import {
   platformShadow,
 } from '@/app/design-system/tokens';
 import {
-  HostSectionKicker,
   HostPaperSection,
   HostMetricRow,
   HostAvatar,
+  InstitutionalText,
   hostScreenStyles,
   HOST_GUTTER,
 } from '@/app/design-system/components';
@@ -55,7 +55,7 @@ import ChileAddressField from '@/components/forms/ChileAddressField';
 import type { ChileFormattedAddress } from '@/utils/chileAddressSearch';
 import { extraerNueveDigitosDesdeGuardado, normalizarTelefonoChileParaGuardar } from '@/utils/chilePhone';
 import { calcularDuracionMinutos, esRangoHorarioValido, sumarMinutosAHora } from '@/utils/citaPersonalHorario';
-import { parseFechaLocal, formatFechaHoraPropuesta, formatearFechaServicioExacta } from '@/utils/fechaLocal';
+import { parseFechaLocal, startOfDay, formatFechaHoraPropuesta, formatearFechaServicioExacta } from '@/utils/fechaLocal';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { consultarPatente } from '@/services/vehiculoService';
 import { VerHistorialPatenteLink } from '@/components/vehiculos/VerHistorialPatenteLink';
@@ -76,7 +76,7 @@ import { CitaResumenEconomicoCard } from '@/components/agenda/CitaResumenEconomi
 import { CitaCasoIdentidad } from '@/components/agenda/CitaCasoIdentidad';
 import { CotizacionIaEditor } from '@/components/chats/CotizacionIaEditor';
 import { useCotizacionCanalDetalleQuery } from '@/hooks/useCotizacionCanalDetalleQuery';
-import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
+import { TallerPildora } from '@/components/taller/TallerPildora';
 import { checklistService } from '@/services/checklistService';
 import { mapCitaEstadoOperativo } from '@/utils/estadoOperativo';
 import { omnichannelChatHref } from '@/utils/chatRoutes';
@@ -292,13 +292,11 @@ export default function CitaAgendaPersonalDetalleScreen() {
   );
   const esDiaServicio = Boolean(
     cita?.puede_iniciar_servicio_hoy
-    ?? (cita?.fecha_servicio && (() => {
+    || (cita?.fecha_servicio && (() => {
       const f = parseFechaLocal(cita.fecha_servicio);
       if (!f) return false;
-      const hoy = new Date();
-      return f.getFullYear() === hoy.getFullYear()
-        && f.getMonth() === hoy.getMonth()
-        && f.getDate() === hoy.getDate();
+      const hoy = startOfDay(new Date());
+      return startOfDay(f).getTime() <= hoy.getTime();
     })()),
   );
   const checklistEnCurso =
@@ -370,11 +368,20 @@ export default function CitaAgendaPersonalDetalleScreen() {
     return () => clearInterval(timer);
   }, [esperaCierreCliente, citaId, refetchCita]);
 
+  const pasoSinRegistro = Boolean(
+    citaAgendada
+    && esDiaServicio
+    && !cita?.checklist_id
+    && cita?.fecha_servicio
+    && (() => {
+      const f = parseFechaLocal(cita.fecha_servicio);
+      return f != null && startOfDay(f).getTime() < startOfDay(new Date()).getTime();
+    })(),
+  );
   const puedeIniciarServicioSticky = Boolean(
     esActiva
-    && cita?.tiene_checklist
     && puedeOperarChecklist
-    && !cita.checklist_id
+    && !cita?.checklist_id
     && citaAgendada
     && esDiaServicio
     && !editando,
@@ -510,11 +517,22 @@ export default function CitaAgendaPersonalDetalleScreen() {
   }, [citaId, recargarCita, mostrarFeedback, queryClient]);
 
   const handleCancelar = useCallback(() => {
+    if (pasoSinRegistro) {
+      showConfirm(
+        'Cerrar sin registro',
+        'La cita sale de la agenda. No queda checklist ni un servicio iniciado.',
+        {
+          confirmText: 'Cerrar sin registro',
+          onConfirm: ejecutarCancelar,
+        },
+      );
+      return;
+    }
     showConfirm('Cancelar visita', '¿Confirmas que deseas cancelar esta visita?', {
       confirmText: 'Sí, cancelar',
       onConfirm: ejecutarCancelar,
     });
-  }, [ejecutarCancelar]);
+  }, [ejecutarCancelar, pasoSinRegistro]);
 
   const ejecutarEliminar = useCallback(async () => {
     setFeedbackAccion(null);
@@ -742,10 +760,10 @@ export default function CitaAgendaPersonalDetalleScreen() {
     }
     if (!esDiaServicio) {
       showAlert(
-        'Fuera de fecha',
+        'Todavía no es el día',
         cita?.fecha_servicio
-          ? `Solo puedes iniciar el servicio el día de la cita (${formatearFecha(cita.fecha_servicio)}).`
-          : 'Solo puedes iniciar el servicio el día de la cita.',
+          ? `Puedes iniciar el servicio desde el ${formatearFecha(cita.fecha_servicio)}.`
+          : 'Puedes iniciar el servicio desde el día de la cita.',
       );
       return;
     }
@@ -965,7 +983,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
       <Stack.Screen options={stackOptions} />
       <Header
         title={tituloCita}
-        titleRole="h4"
+        dense
         showBack
         onBackPress={() => router.back()}
         backgroundColor={I.canvas}
@@ -1019,6 +1037,15 @@ export default function CitaAgendaPersonalDetalleScreen() {
             />
           )}
 
+          {pasoSinRegistro ? (
+            <View style={styles.pasoSinRegistro}>
+              <InstitutionalText role="bodyBold">Pasó sin registro</InstitutionalText>
+              <InstitutionalText role="caption" color="body">
+                El día de la cita ya pasó y no hay checklist. Si el trabajo se hizo, inícialo para dejarlo en el sistema. Si no se hizo, ciérrala sin registro.
+              </InstitutionalText>
+            </View>
+          ) : null}
+
           {editando && esActiva && permitirEditarCita ? (
             <>
               <EditSection title="Cliente">
@@ -1061,7 +1088,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
             </>
           ) : (
             <>
-              <HostSectionKicker label="Fecha y hora" />
+              <InstitutionalText role="h5">Fecha y hora</InstitutionalText>
               <HostPaperSection style={styles.section}>
                 <HostMetricRow
                   label="Fecha"
@@ -1087,7 +1114,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                 ) : null}
               </HostPaperSection>
 
-              <HostSectionKicker label="Ubicación del servicio" />
+              <InstitutionalText role="h5">Ubicación</InstitutionalText>
               <HostPaperSection style={styles.section}>
                 <Text style={styles.addressText}>{textoUbicacion}</Text>
                 {!esDomicilio ? (
@@ -1105,7 +1132,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                 />
               ) : (
                 <>
-                  <HostSectionKicker label="Servicios solicitados" />
+                  <InstitutionalText role="h5">Servicio</InstitutionalText>
                   <HostPaperSection style={styles.section}>
                     <Text style={styles.servicioDetalleNombre} numberOfLines={3}>
                       {nombreServicio}
@@ -1124,7 +1151,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
               {(cita.cotizaciones_adicionales?.length ?? 0) > 0 ? (
                 <>
-                  <HostSectionKicker label="Trabajos adicionales" />
+                  <InstitutionalText role="h5">Trabajos adicionales</InstitutionalText>
                   <HostPaperSection style={styles.section}>
                     {(cita.cotizaciones_adicionales ?? []).map((ad, idx, arr) => {
                       const slot = formatFechaHoraPropuesta(ad.fecha_propuesta, ad.hora_propuesta);
@@ -1187,7 +1214,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
                 </>
               ) : null}
 
-              <HostSectionKicker label="Técnico asignado" />
+              <InstitutionalText role="h5">Técnico</InstitutionalText>
               <HostPaperSection style={styles.section}>
                 <View style={styles.tecnicoRow}>
                   <HostAvatar name={cita.mecanico_nombre?.trim() || 'Sin técnico'} size="sm" />
@@ -1209,14 +1236,14 @@ export default function CitaAgendaPersonalDetalleScreen() {
 
               {puedeMostrarAsistenteIa ? (
                 <>
-                  <HostSectionKicker label="Guía de reparación" />
+                  <InstitutionalText role="h5">Guía de reparación</InstitutionalText>
                   <AsistenteDiagnosticoCard origen="cita" entityId={cita.id} habilitado />
                 </>
               ) : null}
 
               {cita.informe_publico_url ? (
                 <>
-                  <HostSectionKicker label="Informe del cliente" />
+                  <InstitutionalText role="h5">Informe del cliente</InstitutionalText>
                   <HostPaperSection style={styles.section}>
                     <Text style={styles.informeLinkHint}>
                       {checklistPendienteFirmaCliente
@@ -1226,13 +1253,14 @@ export default function CitaAgendaPersonalDetalleScreen() {
                     <Text style={styles.informeLinkUrl} numberOfLines={2}>
                       {cita.informe_publico_url}
                     </Text>
-                    <InstitutionalButton
+                    <TallerPildora
                       label={
                         checklistPendienteFirmaCliente
                           ? 'Copiar enlace'
                           : 'Copiar / compartir enlace'
                       }
-                      variant="outline"
+                      tono="suave"
+                      forma="hoja"
                       onPress={() => void copiarEnlaceInformeCita(cita.informe_publico_url!)}
                     />
                   </HostPaperSection>
@@ -1268,6 +1296,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
             bottomPad={footerBottomPad}
             permitirEliminar={permitirEliminarCita}
             permitirCancelar={puedeCancelarCita}
+            cerrarSinRegistro={pasoSinRegistro}
             permitirCerrarManual={citaAgendada && !cita.tiene_checklist}
             permitirConfirmarHorario={horarioPorConfirmar && permitirEditarCita}
             permitirIniciarServicio={puedeIniciarServicioSticky}
@@ -1379,7 +1408,7 @@ export default function CitaAgendaPersonalDetalleScreen() {
 function EditSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <>
-      <HostSectionKicker label={title} />
+      <InstitutionalText role="h5">{title}</InstitutionalText>
       <HostPaperSection style={styles.section}>
         <View style={styles.editFields}>{children}</View>
       </HostPaperSection>
@@ -1395,6 +1424,7 @@ type CitaPersonalFooterProps = {
   bottomPad: number;
   permitirEliminar: boolean;
   permitirCancelar: boolean;
+  cerrarSinRegistro?: boolean;
   permitirCerrarManual: boolean;
   permitirConfirmarHorario?: boolean;
   permitirIniciarServicio?: boolean;
@@ -1422,6 +1452,7 @@ function CitaPersonalFooter({
   bottomPad,
   permitirEliminar,
   permitirCancelar,
+  cerrarSinRegistro = false,
   permitirCerrarManual,
   permitirConfirmarHorario = false,
   permitirIniciarServicio = false,
@@ -1443,59 +1474,63 @@ function CitaPersonalFooter({
   const ctaDerecha = (() => {
     if (permitirConfirmarHorario) {
       return (
-        <InstitutionalButton
+        <TallerPildora
           label="Confirmar horario"
-          variant="primary"
+          tono="coral"
+          forma="hoja"
           onPress={onConfirmarHorario ?? (() => undefined)}
           disabled={procesando}
-          leading={
-            <InstitutionalIcon name="calendar-today" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-          }
+          style={styles.footerCta}
         />
       );
     }
     if (permitirIniciarServicio) {
       return (
-        <InstitutionalButton
+        <TallerPildora
           label={iniciandoServicio ? 'Preparando…' : 'Iniciar servicio'}
-          variant="primary"
+          tono="coral"
+          forma="hoja"
           loading={iniciandoServicio}
           onPress={onIniciarServicio ?? (() => undefined)}
           disabled={procesando}
+          style={styles.footerCta}
         />
       );
     }
     if (permitirFirmarSupervisor) {
       return (
-        <InstitutionalButton
+        <TallerPildora
           label={firmandoSupervisor ? 'Generando…' : 'Revisar y firmar'}
-          variant="primary"
+          tono="coral"
+          forma="hoja"
           loading={firmandoSupervisor}
           onPress={onFirmarSupervisor ?? (() => undefined)}
           disabled={procesando || firmandoSupervisor}
+          style={styles.footerCta}
         />
       );
     }
     if (permitirContinuarChecklist) {
       return (
-        <InstitutionalButton
+        <TallerPildora
           label={continuarChecklistLabel}
-          variant="primary"
+          tono="coral"
+          forma="hoja"
           onPress={onContinuarChecklist ?? (() => undefined)}
           disabled={procesando}
+          style={styles.footerCta}
         />
       );
     }
     if (permitirCerrarManual) {
       return (
-        <InstitutionalButton
+        <TallerPildora
           label="Completar"
-          variant="success"
+          tono="coral"
+          forma="hoja"
           onPress={onCompletar}
           disabled={procesando}
-          leading={
-            <InstitutionalIcon name="check-circle" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-          }
+          style={styles.footerCta}
         />
       );
     }
@@ -1508,13 +1543,13 @@ function CitaPersonalFooter({
         <View style={styles.footerStack}>
           {ctaDerecha}
           {permitirCancelar ? (
-            <InstitutionalButton
-              label="Cancelar visita"
-              variant="tertiary"
-              size="compact"
+            <TallerPildora
+              label={cerrarSinRegistro ? 'Cerrar sin registro' : 'Cancelar visita'}
+              tono="suave"
+              forma="hoja"
               onPress={onCancelar}
               disabled={procesando}
-              style={styles.footerCancelLink}
+              style={styles.footerCta}
             />
           ) : null}
         </View>
@@ -1522,41 +1557,34 @@ function CitaPersonalFooter({
 
       {esActiva && editando ? (
         <View style={styles.footerRow}>
-          <InstitutionalButton
+          <TallerPildora
             label="Descartar"
-            variant="outline"
+            tono="suave"
+            forma="hoja"
             onPress={onDescartar}
             disabled={procesando}
-            leading={
-              <InstitutionalIcon name="close" size={20} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-            }
             style={styles.footerBtnGrow}
           />
-          <InstitutionalButton
+          <TallerPildora
             label="Guardar cambios"
-            variant="primary"
+            tono="coral"
+            forma="hoja"
             onPress={onGuardar}
             disabled={procesando}
             loading={procesando}
-            leading={
-              procesando
-                ? undefined
-                : <InstitutionalIcon name="save" size={20} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
-            }
             style={styles.footerBtnGrow}
           />
         </View>
       ) : null}
 
       {esCancelada && permitirEliminar ? (
-        <InstitutionalButton
+        <TallerPildora
           label="Eliminar cita"
-          variant="destructiveOutline"
+          tono="suave"
+          forma="hoja"
           onPress={onEliminar}
           disabled={procesando}
-          leading={
-            <InstitutionalIcon name="delete" size={20} color={I.semanticDown} strokeWidth={ICON_STROKE_WIDTH} />
-          }
+          style={styles.footerCta}
         />
       ) : null}
     </View>
@@ -1566,17 +1594,21 @@ function CitaPersonalFooter({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: I.canvas,
   },
   screenRoot: {
     flex: 1,
-    backgroundColor: I.surfaceSoft,
+    backgroundColor: I.canvas,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingTop: SPACING.fixed.sm,
+    paddingTop: SPACING.fixed.md,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    gap: SPACING.fixed.md,
   },
   documentoCargando: {
     paddingVertical: SPACING.fixed.lg,
@@ -1862,12 +1894,21 @@ const styles = StyleSheet.create({
     marginTop: SPACING.fixed.xs,
   },
 
+  pasoSinRegistro: {
+    gap: SPACING.fixed.xs,
+    padding: SPACING.fixed.md,
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: I.surfaceSoft,
+  },
+  footerCta: {
+    alignSelf: 'stretch',
+  },
   footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: I.canvas,
+    backgroundColor: I.paper,
     paddingHorizontal: HOST_GUTTER,
     paddingTop: SPACING.fixed.sm,
     borderTopWidth: BORDERS.width.thin,

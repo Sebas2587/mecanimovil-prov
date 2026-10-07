@@ -34,7 +34,7 @@ function mapEvent(event: AgenteIaEvent): FloatingLeadAlert | null {
         id: `borrador-${event.cotizacion_id || conv || Date.now()}`,
         title: 'Cotización lista para revisar',
         message: 'La IA dejó un borrador. Ábrelo en pendientes o Cotizar con IA.',
-        href: '/cotizar-ia',
+        href: '/cotizaciones?estado=borrador',
       };
     case 'agente_ia_cotizacion_enviada':
       return {

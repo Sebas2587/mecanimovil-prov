@@ -12,7 +12,7 @@ import {
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
-import { InstitutionalButton } from '@/design-system/components/InstitutionalButton';
+import { TallerPildora } from '@/components/taller/TallerPildora';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import {
   COLORS,
@@ -292,9 +292,10 @@ export default function AgregarServicioAdicionalScreen() {
             {textoBloqueoAdicional(cita)}
           </Text>
           {cita.cotizacion_adicional_pendiente_id ? (
-            <InstitutionalButton
+            <TallerPildora
               label="Abrir cotización pendiente"
-              variant="outline"
+              tono="suave"
+              forma="hoja"
               onPress={() => router.replace(`/cotizacion-canal/${cita.cotizacion_adicional_pendiente_id}`)}
               style={{ marginTop: SPACING.md }}
             />
@@ -446,9 +447,10 @@ export default function AgregarServicioAdicionalScreen() {
             </>
           )}
 
-          <InstitutionalButton
+          <TallerPildora
             label={enviando ? 'Creando borrador…' : 'Crear borrador para revisar'}
-            variant="primary"
+            tono="coral"
+            forma="hoja"
             onPress={() => void handleSubmit()}
             disabled={enviando}
             loading={enviando}

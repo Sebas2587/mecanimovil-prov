@@ -387,7 +387,7 @@ export default function OrdenesScreen() {
     return (
       <TabScreenWrapper>
         <View style={styles.screenRoot}>
-          <Header title="Servicios" backgroundColor={COLORS.background.default} titleColor={I.ink} />
+          <Header title="Servicios" dense backgroundColor={I.canvas} titleColor={I.ink} />
           <View style={styles.centeredContainer}>
             <Shield size={64} color={I.muted} />
             <Text style={styles.noVerificadoTitle}>Perfil en Verificación</Text>
@@ -403,7 +403,7 @@ export default function OrdenesScreen() {
   return (
     <TabScreenWrapper>
       <View style={styles.screenRoot}>
-        <Header title="Servicios" backgroundColor={COLORS.background.default} titleColor={I.ink} />
+        <Header title="Servicios" dense backgroundColor={I.canvas} titleColor={I.ink} />
 
         <View style={[styles.tabsOuter, hostScreenStyles.gutterX]}>
           <InstitutionalScreenTabs
@@ -548,7 +548,7 @@ export default function OrdenesScreen() {
 const styles = StyleSheet.create({
   screenRoot: {
     flex: 1,
-    backgroundColor: COLORS.background.default,
+    backgroundColor: I.canvas,
   },
   scrollContent: {
     paddingTop: SPACING.fixed.sm,
@@ -570,8 +570,8 @@ const styles = StyleSheet.create({
   },
 
   tabsOuter: {
-    paddingTop: SPACING.fixed.sm,
-    paddingBottom: SPACING.fixed.xs,
+    paddingTop: SPACING.fixed.xs,
+    paddingBottom: 0,
   },
   section: {
     marginBottom: SPACING.fixed.lg,
@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
   pagoBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: I.surfaceStrong,
+    backgroundColor: I.surfaceSoft,
     paddingHorizontal: SPACING.fixed.xs + 2,
     paddingVertical: 3,
     borderRadius: BORDERS.radius.md,
@@ -718,7 +718,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: I.surfaceStrong,
+    backgroundColor: I.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.fixed.md,

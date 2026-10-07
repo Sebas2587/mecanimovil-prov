@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { ChevronDown, Search, UserRound, X } from 'lucide-react-native';
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
-import { Card } from '@/app/design-system/components';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { InstitutionalField } from '@/components/forms/InstitutionalField';
 import { ChilePhoneField } from '@/components/forms/ChilePhoneField';
@@ -19,7 +18,8 @@ import { ChannelBadge } from '@/components/chats/ChannelBadge';
 import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
 import { useChatInboxQuery } from '@/hooks/useChatInboxQuery';
 import type { InboxChatItem } from '@/services/omnichannelService';
-import { COLORS, SPACING, TYPOGRAPHY, BORDERS, SHADOWS } from '@/app/design-system/tokens';
+import { COLORS, SPACING, TYPOGRAPHY, BORDERS } from '@/app/design-system/tokens';
+import { institutionalInputStyles } from '@/app/design-system/styles/institutionalInputs';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { getChannelVisual, type ChannelSlug } from '@/utils/channelVisuals';
 import { nombreContactoAgendable } from '@/utils/nombreContactoAgendable';
@@ -190,24 +190,24 @@ export function ClienteCanalPickerSection({
   return (
     <>
       {mostrarTabsModo ? (
-        <View style={styles.underlineTabs}>
+        <View style={styles.chips}>
           {CLIENTE_TABS.map((tab) => {
             const active = clienteModo === tab.key;
             return (
               <TouchableOpacity
                 key={tab.key}
-                style={[styles.underlineTab, active && styles.underlineTabActive]}
+                style={[styles.chip, active && styles.chipOn]}
                 onPress={() => {
                   onClienteModoChange(tab.key);
                   if (tab.key === 'manual') onLimpiarContacto();
                 }}
-                activeOpacity={0.75}
-                accessibilityRole="tab"
+                activeOpacity={0.8}
+                accessibilityRole="radio"
                 accessibilityState={{ selected: active }}
               >
                 <InstitutionalText
-                  role={active ? 'captionBold' : 'caption'}
-                  color={active ? 'ink' : 'muted'}
+                  role="captionBold"
+                  color={active ? I.onDark : I.ink}
                 >
                   {tab.label}
                 </InstitutionalText>
@@ -220,11 +220,8 @@ export function ClienteCanalPickerSection({
       {contextoChat || clienteModo === 'mensajes' ? (
         <>
           {contactoSeleccionado ? (
-            <Card elevated padding="host" style={styles.selectedContact}>
+            <View style={styles.selectedContact}>
               <View style={styles.selectedContactMain}>
-                <View style={hostIconPlateStyle}>
-                  <UserRound size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                </View>
                 <View style={styles.selectedContactText}>
                   <InstitutionalText role="h5" numberOfLines={1}>
                     {nombreContactoAgendable(contactoSeleccionado.nombre)
@@ -257,20 +254,18 @@ export function ClienteCanalPickerSection({
                   </InstitutionalText>
                 </TouchableOpacity>
               ) : null}
-            </Card>
+            </View>
           ) : (
-            <Card
-              elevated
-              padding="host"
+            <TouchableOpacity
               style={styles.pickerTrigger}
               onPress={abrirPicker}
+              activeOpacity={0.75}
+              accessibilityRole="button"
             >
               <View style={styles.pickerTriggerLeft}>
-                <View style={hostIconPlateStyle}>
-                  <Search size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-                </View>
+                <Search size={16} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
                 <View style={styles.pickerTriggerText}>
-                  <InstitutionalText role="h5">Elegir cliente</InstitutionalText>
+                  <InstitutionalText role="captionBold">Elegir cliente</InstitutionalText>
                   <InstitutionalText role="caption" color="muted" numberOfLines={1}>
                     {inboxLoading
                       ? 'Cargando contactos…'
@@ -281,7 +276,7 @@ export function ClienteCanalPickerSection({
                 </View>
               </View>
               <ChevronDown size={18} color={I.muted} strokeWidth={ICON_STROKE_WIDTH} />
-            </Card>
+            </TouchableOpacity>
           )}
           {!inboxLoading && contactos.length === 0 ? (
             <InstitutionalText role="caption" color="muted">
@@ -291,10 +286,11 @@ export function ClienteCanalPickerSection({
           {contactoSeleccionado && !nombreContactoAgendable(contactoSeleccionado.nombre) ? (
             <InstitutionalField
               label="Nombre del cliente *"
-              hint="Obligatorio para generar la cotización. El canal no envió un nombre usable."
+              hint="Obligatorio. El canal no envió un nombre usable."
               value={clienteNombre}
               onChangeText={onClienteNombreChange}
               placeholder="Nombre del cliente"
+              inputStyle={institutionalInputStyles.inputSheet}
             />
           ) : null}
         </>
@@ -305,6 +301,7 @@ export function ClienteCanalPickerSection({
             value={clienteNombre}
             onChangeText={onClienteNombreChange}
             placeholder="Nombre del cliente"
+            inputStyle={institutionalInputStyles.inputSheet}
           />
           <ChilePhoneField
             label="Teléfono"
@@ -312,6 +309,7 @@ export function ClienteCanalPickerSection({
             value={clienteTelefono}
             onChangeValue={onClienteTelefonoChange}
             required={false}
+            compact
           />
           {manualFooterHint ? (
             <InstitutionalText role="caption" color="muted">
@@ -415,31 +413,35 @@ export function ClienteCanalPickerSection({
 }
 
 const styles = StyleSheet.create({
-  underlineTabs: {
+  chips: {
     flexDirection: 'row',
-    alignItems: 'stretch',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: I.hairline,
-    marginBottom: SPACING.fixed.xs,
+    flexWrap: 'wrap',
+    gap: SPACING.fixed.xs,
   },
-  underlineTab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: SPACING.fixed.sm,
-    paddingBottom: SPACING.fixed.sm,
-    paddingTop: SPACING.fixed.xs,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-    marginBottom: -StyleSheet.hairlineWidth,
+  chip: {
+    borderWidth: 1,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: I.paper,
   },
-  underlineTabActive: {
-    borderBottomColor: I.ink,
+  chipOn: {
+    backgroundColor: I.ink,
+    borderColor: I.ink,
   },
   pickerTrigger: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: SPACING.fixed.sm,
+    paddingHorizontal: SPACING.fixed.md,
+    paddingVertical: SPACING.fixed.xs,
+    borderWidth: 1,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.paper,
   },
   pickerTriggerLeft: {
     flex: 1,
@@ -515,7 +517,12 @@ const styles = StyleSheet.create({
   },
   contactoText: { flex: 1, minWidth: 0, gap: 2 },
   selectedContact: {
-    gap: SPACING.fixed.sm,
+    gap: SPACING.fixed.xs,
+    padding: SPACING.fixed.md,
+    borderWidth: 1,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: I.paper,
   },
   selectedContactMain: {
     flexDirection: 'row',

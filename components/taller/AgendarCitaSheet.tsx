@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
   confirmar: {
     minHeight: 48,
     paddingHorizontal: SPACING.fixed.lg,
-    borderRadius: BORDERS.radius.md,
+    borderRadius: BORDERS.radius.lg,
     backgroundColor: I.primary,
     alignItems: 'center',
     justifyContent: 'center',

@@ -270,7 +270,7 @@ function mapLeadEvent(event: AgenteIaEvent): LeadFloatingAlert | null {
         title: 'Cotización lista para revisar',
         leadTone: 'draft',
         message: 'La IA dejó un borrador. Ábrelo en pendientes o Cotizar con IA.',
-        href: '/cotizar-ia',
+        href: '/cotizaciones?estado=borrador',
       };
     case 'agente_ia_cotizacion_enviada':
       return {

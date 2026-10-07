@@ -96,28 +96,61 @@ export function AgendaComercial() {
     [cotizaciones.data],
   );
 
-  const porDia = useMemo(() => {
-    const vistos = new Set<string>();
+  const idsCasoAbierto = useMemo(
+    () => new Set(citasAgendadas.map((evento) => `${evento.origen}-${evento.id}`)),
+    [citasAgendadas],
+  );
+
+  const listas = useMemo(() => {
+    const porClave = new Map<string, EventoAgendaUnificado>();
     const base = soloEnAgenda
       ? citasAgendadas
       : [...mesActual.eventos, ...mesProx.eventos, ...citasAgendadas];
-    const eventos = base.filter((evento) => {
-      if (vistos.has(`${evento.origen}-${evento.id}`)) return false;
-      vistos.add(`${evento.origen}-${evento.id}`);
-      if (CANCELADOS.has(String(evento.estado || '').toLowerCase())) return false;
-      if (soloEnAgenda) return true;
-      const dia = parseFechaLocal(evento.fecha_servicio);
-      return dia != null && dia.getTime() >= startOfDay(hoy).getTime();
-    });
-    eventos.sort((a, b) => `${a.fecha_servicio}${a.hora_servicio}`.localeCompare(`${b.fecha_servicio}${b.hora_servicio}`));
-    const grupos = new Map<string, EventoAgendaUnificado[]>();
-    for (const evento of eventos) {
-      const lista = grupos.get(evento.fecha_servicio) ?? [];
-      lista.push(evento);
-      grupos.set(evento.fecha_servicio, lista);
+    for (const evento of base) {
+      const clave = `${evento.origen}-${evento.id}`;
+      const previo = porClave.get(clave);
+      if (!previo || (evento.tiene_checklist && !previo.tiene_checklist)) {
+        porClave.set(clave, evento);
+      }
     }
-    return Array.from(grupos.entries());
-  }, [citasAgendadas, hoy, mesActual.eventos, mesProx.eventos, soloEnAgenda]);
+    const inicioHoy = startOfDay(hoy).getTime();
+    const proximas: EventoAgendaUnificado[] = [];
+    const pasaron: EventoAgendaUnificado[] = [];
+    for (const evento of porClave.values()) {
+      if (CANCELADOS.has(String(evento.estado || '').toLowerCase())) continue;
+      const clave = `${evento.origen}-${evento.id}`;
+      const dia = parseFechaLocal(evento.fecha_servicio);
+      const esAbierta = idsCasoAbierto.has(clave) || evento.estado === 'activa';
+      const pasoSinRegistro = Boolean(
+        esAbierta
+        && dia
+        && dia.getTime() < inicioHoy
+        && !evento.tiene_checklist,
+      );
+      if (pasoSinRegistro) {
+        pasaron.push(evento);
+        continue;
+      }
+      if (soloEnAgenda || esAbierta || (dia != null && dia.getTime() >= inicioHoy)) {
+        if (!soloEnAgenda && dia != null && dia.getTime() < inicioHoy) continue;
+        proximas.push(evento);
+      }
+    }
+    const porCercania = (a: EventoAgendaUnificado, b: EventoAgendaUnificado) =>
+      `${a.fecha_servicio}${a.hora_servicio}`.localeCompare(`${b.fecha_servicio}${b.hora_servicio}`);
+    proximas.sort(porCercania);
+    pasaron.sort((a, b) => porCercania(b, a));
+    const agrupar = (eventos: EventoAgendaUnificado[]) => {
+      const grupos = new Map<string, EventoAgendaUnificado[]>();
+      for (const evento of eventos) {
+        const lista = grupos.get(evento.fecha_servicio) ?? [];
+        lista.push(evento);
+        grupos.set(evento.fecha_servicio, lista);
+      }
+      return Array.from(grupos.entries());
+    };
+    return { proximas: agrupar(proximas), pasaron: agrupar(pasaron) };
+  }, [citasAgendadas, hoy, idsCasoAbierto, mesActual.eventos, mesProx.eventos, soloEnAgenda]);
 
   const agendar = useCallback((row: PendienteAgenda) => {
     if (row.citaId || row.cotizacionId) {
@@ -188,19 +221,43 @@ export function AgendaComercial() {
         )}
       </View> : null}
 
+      {!soloPorAgendar && listas.pasaron.length > 0 ? (
+        <View style={styles.bloque}>
+          <InstitutionalText role="h4">Pasaron sin registro</InstitutionalText>
+          <InstitutionalText role="caption" color="body">
+            Se agendaron y el día ya pasó. No hay checklist: el sistema no sabe si el trabajo se hizo.
+          </InstitutionalText>
+          {listas.pasaron.map(([fecha, eventos]) => (
+            <View key={`paso-${fecha}`} style={styles.dia}>
+              <InstitutionalText role="captionBold" color="body">
+                {fecha ? fechaLargaCotizacion(fecha) : 'Día por confirmar'}
+              </InstitutionalText>
+              {eventos.map((evento) => (
+                <CitaFila
+                  key={`${evento.origen}-${evento.id}`}
+                  evento={evento}
+                  marca="Pasó sin registro"
+                  onPress={abrirEvento}
+                />
+              ))}
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       {!soloPorAgendar ? <View style={styles.bloque}>
         <InstitutionalText role="h4">{soloEnAgenda ? 'En agenda' : 'Próximas citas'}</InstitutionalText>
-        {porDia.length === 0 ? (
+        {listas.proximas.length === 0 ? (
           <View style={styles.vacio}>
             <InstitutionalText role="caption" color="body">
               {soloEnAgenda ? 'No hay citas en la agenda.' : 'Aún no hay citas programadas.'}
             </InstitutionalText>
           </View>
         ) : (
-          porDia.map(([fecha, eventos]) => (
-            <View key={fecha} style={styles.dia}>
+          listas.proximas.map(([fecha, eventos]) => (
+            <View key={fecha || 'sin-dia'} style={styles.dia}>
               <InstitutionalText role="captionBold" color="body">
-                {fechaLargaCotizacion(fecha)}
+                {fecha ? fechaLargaCotizacion(fecha) : 'Día por confirmar'}
               </InstitutionalText>
               {eventos.map((evento) => (
                 <CitaFila key={`${evento.origen}-${evento.id}`} evento={evento} onPress={abrirEvento} />
@@ -255,9 +312,11 @@ const PendienteCard = memo(function PendienteCard({
 const CitaFila = memo(function CitaFila({
   evento,
   onPress,
+  marca,
 }: {
   evento: EventoAgendaUnificado;
   onPress: (evento: EventoAgendaUnificado) => void;
+  marca?: string;
 }) {
   const handlePress = useCallback(() => onPress(evento), [evento, onPress]);
   const vehiculo = [evento.vehiculo_marca, evento.vehiculo_modelo, evento.vehiculo_patente]
@@ -273,6 +332,9 @@ const CitaFila = memo(function CitaFila({
         <InstitutionalText role="bodyBold" numberOfLines={1}>
           {evento.cliente_nombre || 'Cliente'}
         </InstitutionalText>
+        {marca ? (
+          <InstitutionalText role="captionBold" color="muted">{marca}</InstitutionalText>
+        ) : null}
         <InstitutionalText role="caption" color="body" numberOfLines={1}>
           {evento.servicio_nombre || evento.etiqueta}
         </InstitutionalText>

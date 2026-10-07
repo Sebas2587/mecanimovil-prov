@@ -1,6 +1,7 @@
 import React, { memo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import {
+  CarFront,
   ChevronRight,
   Instagram,
   Link2,
@@ -9,7 +10,7 @@ import {
 } from 'lucide-react-native';
 import { InstitutionalTag, InstitutionalText } from '@/app/design-system/components';
 import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
-import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { BORDERS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import type { CotizacionCanal } from '@/services/cotizacionCanalService';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
@@ -51,12 +52,19 @@ export type CotizacionPendienteRowProps = {
   item: CotizacionCanal;
   onPress: (item: CotizacionCanal) => void;
   last?: boolean;
+  /** Tarjeta suelta, como en Cotizaciones. La fila sigue el listado del inicio. */
+  presentacion?: 'fila' | 'tarjeta';
 };
 
 /**
  * Fila Host Listing: título + monto, vehículo, meta quieta. Un paper padre, no card anidada.
  */
-function CotizacionPendienteRowInner({ item, onPress, last }: CotizacionPendienteRowProps) {
+function CotizacionPendienteRowInner({
+  item,
+  onPress,
+  last,
+  presentacion = 'fila',
+}: CotizacionPendienteRowProps) {
   const handlePress = useCallback(() => onPress(item), [item, onPress]);
   const canalKey = (item.canal || '').toLowerCase();
   const canal = CANAL_LABELS[canalKey] || (item.es_libre ? 'Link libre' : 'Canal');
@@ -71,6 +79,58 @@ function CotizacionPendienteRowInner({ item, onPress, last }: CotizacionPendient
     item.numero_publico ? `#${item.numero_publico}` : '',
     item.estado === 'enviada' && item.entrega_pendiente_compartir ? 'Por compartir' : '',
   ].filter(Boolean);
+
+  if (presentacion === 'tarjeta') {
+    const titulo = cliente || item.servicio_nombre || 'Cotización';
+    const detalle = [item.servicio_nombre, vehiculo, patente ? patente.toUpperCase() : '']
+      .filter(Boolean)
+      .join(' · ');
+    return (
+      <TouchableOpacity
+        style={styles.tarjeta}
+        onPress={handlePress}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+      >
+        <View style={styles.media}>
+          <View style={styles.mediaIcono}>
+            <CarFront size={22} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+          </View>
+          <View style={styles.estado}>
+            <View style={styles.estadoPunto} />
+            <InstitutionalText role="captionBold">Por revisar</InstitutionalText>
+          </View>
+        </View>
+        <View style={styles.tarjetaCopy}>
+          <View style={styles.tarjetaTitulo}>
+            <InstitutionalText role="bodyBold" numberOfLines={1} style={styles.servicio}>
+              {titulo}
+            </InstitutionalText>
+            {item.numero_publico ? (
+              <InstitutionalText role="caption" color="muted">
+                {item.numero_publico}
+              </InstitutionalText>
+            ) : null}
+          </View>
+          {detalle ? (
+            <InstitutionalText role="caption" color="body" numberOfLines={2}>
+              {detalle}
+            </InstitutionalText>
+          ) : null}
+          {metaBits.length > 0 ? (
+            <InstitutionalText role="caption" color="muted" numberOfLines={1}>
+              {metaBits.join(' · ')}
+            </InstitutionalText>
+          ) : null}
+          {total > 0 ? (
+            <InstitutionalText role="bodyBold">{formatearMontoCLP(total)}</InstitutionalText>
+          ) : (
+            <InstitutionalText role="caption" color="muted">Sin precio todavía</InstitutionalText>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <TouchableOpacity
@@ -171,6 +231,58 @@ const styles = StyleSheet.create({
   },
   precio: {
     fontSize: TYPOGRAPHY.styles.body.fontSize,
+  },
+  tarjeta: {
+    alignSelf: 'stretch',
+    gap: SPACING.fixed.sm,
+    padding: SPACING.fixed.sm,
+    borderWidth: 1,
+    borderColor: I.hairline,
+    borderRadius: BORDERS.radius.xl,
+    backgroundColor: I.paper,
+    ...SHADOWS.editorial,
+  },
+  media: {
+    minHeight: 112,
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: I.surfaceSoft,
+    padding: SPACING.fixed.md,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  mediaIcono: {
+    width: 48,
+    height: 48,
+    borderRadius: BORDERS.radius.lg,
+    backgroundColor: I.paper,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  estado: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.paper,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  estadoPunto: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: I.ink,
+  },
+  tarjetaCopy: {
+    gap: 2,
+    paddingHorizontal: SPACING.fixed.xs,
+    paddingBottom: SPACING.fixed.xs,
+  },
+  tarjetaTitulo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.fixed.sm,
   },
   tags: {
     flexDirection: 'row',

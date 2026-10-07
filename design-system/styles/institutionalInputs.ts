@@ -45,6 +45,22 @@ export const institutionalInputStyles = StyleSheet.create({
     fontSize: T.caption.fontSize,
     lineHeight: Math.round(T.caption.fontSize * T.caption.lineHeight),
   } satisfies TextStyle,
+  /** Campo de hoja: alto 48, radio amplio, blanco sobre el canvas. */
+  inputSheet: {
+    minHeight: 48,
+    borderRadius: BORDERS.radius.lg,
+    paddingVertical: 12,
+    backgroundColor: I.paper,
+    borderColor: I.hairline,
+  } satisfies TextStyle,
+  /** Campo píldora del taller: blanco, borde hairline, radio completo. */
+  inputPill: {
+    minHeight: 44,
+    borderRadius: BORDERS.radius.pill,
+    paddingVertical: 10,
+    backgroundColor: I.paper,
+    borderColor: I.hairline,
+  } satisfies TextStyle,
   /** Montos / cantidades (Poppins Medium — Host). */
   inputMono: {
     fontFamily: FF.monoMedium,

@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { Linking, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { BottomSheet } from '@/app/design-system/components/BottomSheet';
-import { InstitutionalButton } from '@/app/design-system/components/InstitutionalButton';
+import { TallerPildora } from '@/components/taller/TallerPildora';
 import { InstitutionalTag } from '@/app/design-system/components/InstitutionalTag';
 import { InstitutionalText } from '@/app/design-system/components/InstitutionalText';
 import { COLORS, SPACING } from '@/app/design-system/tokens';
@@ -81,14 +81,14 @@ export function ConfirmarPreciosSheet({
           : ''}
       </InstitutionalText>
       {onEnviarEstimacion ? (
-        <InstitutionalButton
+        <TallerPildora
           label="Enviar estimación (el cliente ve rangos)"
-          variant="tertiary"
+          tono="suave"
+          forma="hoja"
           onPress={() => {
             onClose();
             onEnviarEstimacion();
           }}
-          accessibilityLabel="Enviar estimación al cliente. Ve rangos y el de margen, no un precio cerrado."
         />
       ) : null}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.list}>
@@ -145,20 +145,18 @@ export function ConfirmarPreciosSheet({
                 </View>
               ) : null}
               {ficha > 0 && rep.id ? (
-                <InstitutionalButton
+                <TallerPildora
                   label={hayBanda
                     ? `${PRECIO.deLaTienda} ${formatearMontoCLP(ficha)}`
                     : `Usar ${formatearMontoCLP(ficha)}`}
-                  variant="outline"
-                  size="compact"
+                  tono="suave"
                   onPress={() => onAsumir([rep.id as string], 'ficha')}
                 />
               ) : null}
               {hayBanda && rep.id ? (
-                <InstitutionalButton
+                <TallerPildora
                   label={`${PRECIO.conMargen} ${formatearMontoCLP(techo)}`}
-                  variant="tertiary"
-                  size="compact"
+                  tono="coral"
                   onPress={() => onAsumir([rep.id as string], 'techo')}
                 />
               ) : null}
@@ -167,22 +165,27 @@ export function ConfirmarPreciosSheet({
         })}
       </ScrollView>
       <View style={styles.footer}>
-        <InstitutionalButton
+        <TallerPildora
           label="Pedir todo por WhatsApp"
-          variant="outline"
+          tono="suave"
+          forma="hoja"
           onPress={pedirTodo}
         />
-        <InstitutionalButton
+        <TallerPildora
           label={PRECIO.usarTiendaTodas}
+          tono="suave"
+          forma="hoja"
           onPress={() => onAsumir(ids, 'ficha')}
           loading={loading}
           disabled={!ids.length}
         />
-        <InstitutionalButton
+        <TallerPildora
           label={PRECIO.usarMargenTodas}
-          variant="outline"
+          tono="coral"
+          forma="hoja"
           onPress={() => onAsumir(ids, 'techo')}
           disabled={!ids.length || loading}
+          loading={loading}
         />
       </View>
     </BottomSheet>

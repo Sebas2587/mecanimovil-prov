@@ -9,6 +9,7 @@ import type { CotizacionPlantilla } from '@/services/cotizacionCanalService';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
+import { institutionalInputStyles } from '@/app/design-system/styles/institutionalInputs';
 import { withWebLineHeight } from '@/utils/webTypography';
 
 const I = COLORS.institutional;
@@ -187,6 +188,7 @@ export function VehiculoPatenteSection({
         onChangeText={handlePatenteChange}
         placeholder="ABCD12"
         autoCapitalize="characters"
+        inputStyle={institutionalInputStyles.inputSheet}
         onBlur={() => void handlePatenteBlur()}
         editable={!buscandoPatente}
       />
@@ -258,6 +260,7 @@ export function VehiculoPatenteSection({
                 value={value.marca}
                 onChangeText={(marca) => onChange({ ...value, marca })}
                 placeholder="Ej. Toyota"
+                inputStyle={institutionalInputStyles.inputSheet}
               />
             </View>
             <View style={styles.fieldHalf}>
@@ -266,6 +269,7 @@ export function VehiculoPatenteSection({
                 value={value.modelo}
                 onChangeText={(modelo) => onChange({ ...value, modelo })}
                 placeholder="Ej. Corolla"
+                inputStyle={institutionalInputStyles.inputSheet}
               />
             </View>
           </View>

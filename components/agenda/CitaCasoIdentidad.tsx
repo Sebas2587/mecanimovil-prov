@@ -1,13 +1,12 @@
 import React from 'react';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Car, MapPin, Phone, UserRound } from 'lucide-react-native';
-import { Card, InstitutionalTag, InstitutionalText } from '@/app/design-system/components';
-import { hostIconPlateStyle } from '@/app/design-system/styles/institutionalSemantic';
-import { COLORS, SPACING } from '@/app/design-system/tokens';
+import { Linking, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { MapPin, MessageCircle, Phone } from 'lucide-react-native';
+import { Card, InstitutionalText } from '@/app/design-system/components';
+import { BORDERS, COLORS, SPACING } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/app/design-system/iconography';
 import { VerHistorialPatenteLink } from '@/components/vehiculos/VerHistorialPatenteLink';
 import type { EstadoOperativoUnificado } from '@/utils/estadoOperativo';
-import { ESTADO_OPERATIVO_LABELS, ESTADO_OPERATIVO_VARIANT } from '@/utils/estadoOperativo';
+import { ESTADO_OPERATIVO_LABELS } from '@/utils/estadoOperativo';
 import { cilindrajeEfectivo } from '@/utils/extraerCilindrajeDesdeTexto';
 
 const I = COLORS.institutional;
@@ -62,37 +61,40 @@ export function CitaCasoIdentidad({
   return (
     <View style={styles.root}>
       <View style={styles.headerTagsCol}>
-        <InstitutionalText role="h4">
+        <InstitutionalText role="h3" numberOfLines={3}>
           {servicioNombre}
         </InstitutionalText>
-        <View style={styles.headerTags}>
-          {folioLabel ? (
-            <InstitutionalTag label={folioLabel} variant="neutral" size="sm" />
-          ) : null}
-          <InstitutionalTag
-            label={ESTADO_OPERATIVO_LABELS[estadoOperativo]}
-            variant={ESTADO_OPERATIVO_VARIANT[estadoOperativo]}
-            size="sm"
-            uppercase
+        <InstitutionalText role="caption" color="body">
+          {[
+            vehiculoTitulo,
+            vehiculoPatente ? `Patente ${vehiculoPatente.toUpperCase()}` : '',
+            modalidadLabel === 'Domicilio' ? 'A domicilio' : 'En el taller',
+            fechaHoraLabel,
+          ].filter(Boolean).join(' · ')}
+        </InstitutionalText>
+        <View style={styles.estadoQuieto}>
+          <View
+            style={[
+              styles.estadoPunto,
+              (estadoOperativo === 'cancelado') && styles.estadoPuntoBaja,
+              (estadoOperativo === 'completado' || estadoOperativo === 'cerrado') && styles.estadoPuntoAlta,
+            ]}
           />
-          <InstitutionalTag label={modalidadLabel} variant="neutral" size="sm" />
-        </View>
-        {fechaHoraLabel ? (
-          <InstitutionalText role="caption" color={horarioPorConfirmar ? 'muted' : 'ink'}>
-            {fechaHoraLabel}
+          <InstitutionalText role="captionBold">
+            {horarioPorConfirmar ? 'Horario por confirmar' : ESTADO_OPERATIVO_LABELS[estadoOperativo]}
           </InstitutionalText>
+        </View>
+        {folioLabel ? (
+          <InstitutionalText role="caption" color="muted">{folioLabel}</InstitutionalText>
         ) : null}
       </View>
 
       <View style={[styles.factsColumns, stacked && styles.factsColumnsStacked]}>
-        <Card elevated padding="host" style={[styles.factsColCard, !stacked && styles.factsColHalf]}>
+        <Card elevated={false} padding="host" style={[styles.factsColCard, !stacked && styles.factsColHalf]}>
           <View style={styles.factsHeader}>
-            <View style={hostIconPlateStyle}>
-              <Car size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-            </View>
             <View style={styles.motorCopy}>
-              <InstitutionalText role="label" color="muted">
-                VEHÍCULO
+              <InstitutionalText role="captionBold" color="muted">
+                Vehículo
               </InstitutionalText>
               <InstitutionalText role="h5" numberOfLines={2}>
                 {vehiculoTitulo || vehiculoPatente?.toUpperCase() || 'Sin datos'}
@@ -113,14 +115,11 @@ export function CitaCasoIdentidad({
           ) : null}
         </Card>
 
-        <Card elevated padding="host" style={[styles.factsColCard, !stacked && styles.factsColHalf]}>
+        <Card elevated={false} padding="host" style={[styles.factsColCard, !stacked && styles.factsColHalf]}>
           <View style={styles.factsHeader}>
-            <View style={hostIconPlateStyle}>
-              <UserRound size={18} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
-            </View>
             <View style={styles.motorCopy}>
-              <InstitutionalText role="label" color="muted">
-                CLIENTE
+              <InstitutionalText role="captionBold" color="muted">
+                Cliente
               </InstitutionalText>
               <InstitutionalText role="h5" numberOfLines={1}>
                 {clienteNombre || 'Sin nombre'}
@@ -128,6 +127,29 @@ export function CitaCasoIdentidad({
             </View>
           </View>
           <View style={styles.factsGrid}>
+            {clienteTelefono ? (
+              <View style={styles.clienteAcciones}>
+                <Pressable
+                  onPress={onLlamar}
+                  style={styles.iconoCircular}
+                  accessibilityRole="button"
+                  accessibilityLabel="Llamar al cliente"
+                >
+                  <Phone size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    const tel = clienteTelefono.replace(/\D/g, '');
+                    if (tel) void Linking.openURL(`https://wa.me/${tel}`);
+                  }}
+                  style={styles.iconoCircular}
+                  accessibilityRole="button"
+                  accessibilityLabel="Escribir por WhatsApp"
+                >
+                  <MessageCircle size={16} color={I.ink} strokeWidth={ICON_STROKE_WIDTH} />
+                </Pressable>
+              </View>
+            ) : null}
             {clienteTelefono ? (
               <View style={styles.factRow}>
                 <InstitutionalText role="small" color="muted">
@@ -184,11 +206,41 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: SPACING.xs,
   },
-  headerTags: {
+  estadoQuieto: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.xs,
     alignItems: 'center',
+    gap: 6,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  estadoPunto: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: I.ink,
+  },
+  estadoPuntoBaja: {
+    backgroundColor: I.semanticDown,
+  },
+  estadoPuntoAlta: {
+    backgroundColor: I.semanticUp,
+  },
+  clienteAcciones: {
+    flexDirection: 'row',
+    gap: SPACING.fixed.xs,
+  },
+  iconoCircular: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: I.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: I.paper,
   },
   factsColumns: {
     flexDirection: 'row',
