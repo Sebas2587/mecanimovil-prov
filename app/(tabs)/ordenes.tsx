@@ -32,6 +32,8 @@ import { EstadoBanner } from '@/components/solicitudes/EstadoBanner';
 import { useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateProveedorMarketplaceQueries } from '@/utils/invalidateProveedorMarketplace';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
+import { limpiarVistaTaller } from '@/services/vistaTallerService';
 import websocketService from '@/app/services/websocketService';
 import Header from '@/components/Header';
 import { COLORS, withOpacity, TYPOGRAPHY, BORDERS, SPACING } from '@/app/design-system/tokens';
@@ -127,6 +129,31 @@ export default function OrdenesScreen() {
   const invalidateOrdenesYOfertas = useCallback(() => {
     invalidateProveedorMarketplaceQueries(queryClient);
   }, [queryClient]);
+
+  const limpiarServicios = useCallback(() => {
+    if (tabActivo === 'activas') return;
+    const ambito = tabActivo === 'completadas' ? 'servicios_completados' : 'servicios_rechazados';
+    const titulo = tabActivo === 'completadas' ? 'Limpiar completadas' : 'Limpiar rechazadas';
+    showConfirm(
+      titulo,
+      'Salen de Servicios. El chat y lo que los agentes ya aprendieron se conservan.',
+      {
+        confirmText: 'Quitar de la lista',
+        onConfirm: async () => {
+          try {
+            const ocultos = await limpiarVistaTaller(ambito);
+            await refetchAll();
+            showAlert(
+              'Lista al día',
+              ocultos > 0 ? `Quitamos ${ocultos} de la lista.` : 'No había fichas para quitar.',
+            );
+          } catch {
+            showAlert('No se pudo limpiar', 'Intenta de nuevo.');
+          }
+        },
+      },
+    );
+  }, [refetchAll, tabActivo]);
 
   useEffect(() => {
     if (!isVerified) return;
@@ -487,16 +514,28 @@ export default function OrdenesScreen() {
                             : sectionMeta.title
                         }
                       />
-                      {filtroCompletadasActivo ? (
-                        <Pressable
-                          onPress={handleClearFiltroCompletadas}
-                          hitSlop={8}
-                          accessibilityRole="button"
-                          accessibilityLabel="Quitar filtro"
-                        >
-                          <Text style={styles.clearFilterText}>Quitar filtro</Text>
-                        </Pressable>
-                      ) : null}
+                      <View style={styles.sectionAcciones}>
+                        {tabActivo !== 'activas' && sectionMeta.count > 0 ? (
+                          <Pressable
+                            onPress={limpiarServicios}
+                            hitSlop={8}
+                            accessibilityRole="button"
+                            accessibilityLabel="Limpiar esta lista"
+                          >
+                            <Text style={[styles.clearFilterText, styles.limpiarText]}>Limpiar lista</Text>
+                          </Pressable>
+                        ) : null}
+                        {filtroCompletadasActivo ? (
+                          <Pressable
+                            onPress={handleClearFiltroCompletadas}
+                            hitSlop={8}
+                            accessibilityRole="button"
+                            accessibilityLabel="Quitar filtro"
+                          >
+                            <Text style={styles.clearFilterText}>Quitar filtro</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
                     </View>
                     {filtroCompletadasActivo ? (
                       <Text style={styles.filtroInlineText}>
@@ -581,11 +620,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  sectionAcciones: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   clearFilterText: {
     fontSize: TS.caption.fontSize,
     fontFamily: FF.sansSemiBold,
     lineHeight: lh(TS.caption.fontSize, TS.caption.lineHeight),
     color: I.primary,
+  },
+  limpiarText: {
+    color: I.ink,
   },
   filtroInlineText: {
     fontSize: TS.small.fontSize,

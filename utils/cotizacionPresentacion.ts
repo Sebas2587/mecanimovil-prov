@@ -17,7 +17,7 @@ export const ESTADO_COTIZACION_LABEL: Record<EstadoCotizacionVista, string> = {
   enviada: 'Enviada',
   aceptada: 'Aceptada',
   agendada: 'Agendada',
-  entregada: 'Entregada',
+  entregada: 'Terminada',
   rechazada: 'Rechazada',
 };
 

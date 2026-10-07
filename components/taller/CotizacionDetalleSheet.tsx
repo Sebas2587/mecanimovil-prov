@@ -343,7 +343,7 @@ function Seguimiento({ cotizacion }: { cotizacion: CotizacionCanal }) {
   ];
   if (estado !== 'rechazada') {
     pasos.push({
-      label: estado === 'entregada' ? 'Trabajo entregado' : 'Cita agendada',
+      label: estado === 'entregada' ? 'Trabajo terminado' : 'Cita agendada',
       fecha: estado === 'entregada'
         ? 'El cliente ya firmó'
         : cotizacion.fecha_agendada

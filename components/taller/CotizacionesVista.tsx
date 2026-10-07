@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CalendarCheck,
   CarFront,
+  BadgeCheck,
   CircleCheck,
   CircleX,
   Layers,
@@ -28,12 +29,16 @@ import {
 import { InstitutionalText } from '@/design-system/components/InstitutionalText';
 import { BORDERS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '@/app/design-system/tokens';
 import { ICON_STROKE_WIDTH } from '@/design-system/iconography';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCotizacionesCanalTallerQuery } from '@/hooks/useCotizacionesCanalTallerQuery';
+import { PIPELINE_COMERCIAL_QUERY_KEY } from '@/hooks/usePipelineComercialQuery';
 import { useTallerShell } from '@/components/navigation/TallerShellContext';
 import type { CotizacionCanal } from '@/services/cotizacionCanalService';
 import { CotizacionDetalleSheet } from '@/components/taller/CotizacionDetalleSheet';
 import { CotizacionEstadoBadge } from '@/components/taller/CotizacionEstadoBadge';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
+import { showAlert, showConfirm } from '@/utils/platformAlert';
+import { limpiarVistaTaller, ocultarFichaTaller } from '@/services/vistaTallerService';
 import {
   estadoCotizacionVista,
   etiquetaEstadoCotizacion,
@@ -52,7 +57,7 @@ const FILTROS: { value: Filtro; label: string; icon: LucideIcon }[] = [
   { value: 'enviada', label: 'Enviadas', icon: Send },
   { value: 'aceptada', label: 'Aceptadas', icon: CircleCheck },
   { value: 'agendada', label: 'Agendadas', icon: CalendarCheck },
-  { value: 'entregada', label: 'Entregadas', icon: CircleCheck },
+  { value: 'entregada', label: 'Terminadas', icon: BadgeCheck },
   { value: 'rechazada', label: 'Rechazadas', icon: CircleX },
 ];
 
@@ -77,6 +82,7 @@ export function CotizacionesVista({ estadoInicial }: Props) {
   const offsetAnterior = useRef(0);
   const buscadorVisible = useRef(true);
   const query = useCotizacionesCanalTallerQuery();
+  const queryClient = useQueryClient();
   const cotizaciones = query.data ?? [];
 
   const conteos = useMemo(() => {
@@ -86,10 +92,12 @@ export function CotizacionesVista({ estadoInicial }: Props) {
       enviada: 0,
       aceptada: 0,
       agendada: 0,
+      entregada: 0,
       rechazada: 0,
     };
     for (const cotizacion of cotizaciones) {
-      base[estadoCotizacionVista(cotizacion)] += 1;
+      const estado = estadoCotizacionVista(cotizacion);
+      base[estado] = (base[estado] ?? 0) + 1;
     }
     return base;
   }, [cotizaciones]);
@@ -132,6 +140,50 @@ export function CotizacionesVista({ estadoInicial }: Props) {
   }, []);
   const cerrar = useCallback(() => setAbiertaId(null), []);
   const limpiar = useCallback(() => setBusqueda(''), []);
+  const puedeLimpiarLista = filtro === 'rechazada' || filtro === 'entregada';
+  const limpiarLista = useCallback(() => {
+    if (!puedeLimpiarLista) return;
+    const ambito = filtro === 'rechazada' ? 'cotizaciones_rechazadas' : 'cotizaciones_terminadas';
+    const titulo = filtro === 'rechazada' ? 'Limpiar rechazadas' : 'Limpiar terminadas';
+    showConfirm(
+      titulo,
+      'Salen de Cotizaciones. El chat y lo que el agente de cotizaciones ya aprendió se conservan.',
+      {
+        confirmText: 'Quitar de la lista',
+        onConfirm: async () => {
+          try {
+            const ocultos = await limpiarVistaTaller(ambito);
+            await query.refetch();
+            await queryClient.invalidateQueries({ queryKey: [PIPELINE_COMERCIAL_QUERY_KEY] });
+            showAlert(
+              'Lista al día',
+              ocultos > 0 ? `Quitamos ${ocultos} de la lista.` : 'No había fichas para quitar.',
+            );
+          } catch {
+            showAlert('No se pudo limpiar', 'Intenta de nuevo.');
+          }
+        },
+      },
+    );
+  }, [filtro, puedeLimpiarLista, query, queryClient]);
+  const quitarCotizacion = useCallback((cotizacion: CotizacionCanal) => {
+    showConfirm(
+      'Quitar de la lista',
+      'Esta ficha sale de Cotizaciones. El chat y el aprendizaje del agente se conservan.',
+      {
+        confirmText: 'Quitar',
+        onConfirm: async () => {
+          try {
+            await ocultarFichaTaller('cotizacion', cotizacion.id);
+            await query.refetch();
+            await queryClient.invalidateQueries({ queryKey: [PIPELINE_COMERCIAL_QUERY_KEY] });
+          } catch {
+            showAlert('No se pudo quitar', 'Solo se pueden quitar rechazadas o terminadas.');
+          }
+        },
+      },
+    );
+  }, [query, queryClient]);
   const mostrarBuscador = useCallback((visible: boolean) => {
     if (buscadorVisible.current === visible) return;
     buscadorVisible.current = visible;
@@ -260,6 +312,16 @@ export function CotizacionesVista({ estadoInicial }: Props) {
             <InstitutionalText role="caption" color="body" style={styles.resumen}>
               {formatearMontoCLP(esperando)} esperando respuesta · {formatearMontoCLP(aceptado)} aceptado
             </InstitutionalText>
+            {puedeLimpiarLista && visibles.length > 0 ? (
+              <Pressable
+                onPress={limpiarLista}
+                style={styles.limpiar}
+                accessibilityRole="button"
+                accessibilityLabel="Limpiar esta lista"
+              >
+                <InstitutionalText role="captionBold">Limpiar esta lista</InstitutionalText>
+              </Pressable>
+            ) : null}
           </View>
         )}
         ListEmptyComponent={(
@@ -275,7 +337,12 @@ export function CotizacionesVista({ estadoInicial }: Props) {
           </View>
         )}
         renderItem={({ item }) => (
-          <CotizacionCard cotizacion={item} onOpen={abrir} onAgendar={agendar} />
+          <CotizacionCard
+            cotizacion={item}
+            onOpen={abrir}
+            onAgendar={agendar}
+            onQuitar={quitarCotizacion}
+          />
         )}
       />
 
@@ -289,7 +356,7 @@ const TITULO_FILTRO: Record<Exclude<Filtro, 'todas'>, string> = {
   enviada: 'Esperando respuesta',
   aceptada: 'Por agendar',
   agendada: 'En agenda',
-  entregada: 'Entregadas',
+  entregada: 'Terminadas',
   rechazada: 'Rechazadas',
 };
 
@@ -339,14 +406,17 @@ const CotizacionCard = memo(function CotizacionCard({
   cotizacion,
   onOpen,
   onAgendar,
+  onQuitar,
 }: {
   cotizacion: CotizacionCanal;
   onOpen: (id: number) => void;
   onAgendar: (cotizacion: CotizacionCanal) => void;
+  onQuitar: (cotizacion: CotizacionCanal) => void;
 }) {
   const estado = estadoCotizacionVista(cotizacion);
   const handlePress = useCallback(() => onOpen(cotizacion.id), [cotizacion.id, onOpen]);
   const handleAgendar = useCallback(() => onAgendar(cotizacion), [cotizacion, onAgendar]);
+  const handleQuitar = useCallback(() => onQuitar(cotizacion), [cotizacion, onQuitar]);
   const vehiculo = [
     cotizacion.vehiculo_marca,
     cotizacion.vehiculo_modelo,
@@ -378,6 +448,16 @@ const CotizacionCard = memo(function CotizacionCard({
           >
             <CalendarCheck size={14} color={I.onPrimary} strokeWidth={ICON_STROKE_WIDTH} />
             <InstitutionalText role="captionBold" color="onPrimary">Agendar</InstitutionalText>
+          </Pressable>
+        ) : null}
+        {estado === 'rechazada' || estado === 'entregada' ? (
+          <Pressable
+            onPress={handleQuitar}
+            style={styles.cardQuitar}
+            accessibilityRole="button"
+            accessibilityLabel={`Quitar a ${nombre} de la lista`}
+          >
+            <InstitutionalText role="captionBold">Quitar</InstitutionalText>
           </Pressable>
         ) : null}
         {estado === 'agendada' && cotizacion.fecha_agendada ? (
@@ -530,6 +610,14 @@ const styles = StyleSheet.create({
   resumen: {
     marginBottom: 0,
   },
+  limpiar: {
+    alignSelf: 'flex-start',
+    marginTop: SPACING.fixed.xs,
+    backgroundColor: I.surfaceSoft,
+    borderRadius: BORDERS.radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
   vacio: {
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -584,6 +672,16 @@ const styles = StyleSheet.create({
     gap: 4,
     borderRadius: BORDERS.radius.pill,
     backgroundColor: I.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  cardQuitar: {
+    position: 'absolute',
+    zIndex: 1,
+    right: 12,
+    bottom: 12,
+    borderRadius: BORDERS.radius.pill,
+    backgroundColor: I.surfaceSoft,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },

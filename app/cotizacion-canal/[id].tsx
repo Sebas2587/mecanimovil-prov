@@ -717,7 +717,7 @@ export default function CotizacionCanalDetalleScreen() {
         showsVerticalScrollIndicator={false}
       >
         {trabajoEntregado ? (
-          <InstitutionalTag label="Trabajo entregado" variant="success" size="sm" />
+          <InstitutionalTag label="Trabajo terminado" variant="success" size="sm" />
         ) : null}
         {tieneHorarioAgendado && draft.fecha_agendada ? (
           <InstitutionalTag
