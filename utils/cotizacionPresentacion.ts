@@ -9,6 +9,7 @@ export type EstadoCotizacionVista =
   | 'enviada'
   | 'aceptada'
   | 'agendada'
+  | 'entregada'
   | 'rechazada';
 
 export const ESTADO_COTIZACION_LABEL: Record<EstadoCotizacionVista, string> = {
@@ -16,12 +17,16 @@ export const ESTADO_COTIZACION_LABEL: Record<EstadoCotizacionVista, string> = {
   enviada: 'Enviada',
   aceptada: 'Aceptada',
   agendada: 'Agendada',
+  entregada: 'Entregada',
   rechazada: 'Rechazada',
 };
 
-export function estadoCotizacionVista(
-  cotizacion: Pick<CotizacionCanal, 'estado' | 'tiene_horario_agendado' | 'fecha_agendada'>,
-): EstadoCotizacionVista {
+type CotizacionParaVista = Pick<CotizacionCanal, 'estado' | 'tiene_horario_agendado' | 'fecha_agendada'> & {
+  cita_personal_id?: number | null;
+  cita_ultima_estado?: string | null;
+};
+
+export function estadoCotizacionVista(cotizacion: CotizacionParaVista): EstadoCotizacionVista {
   if (cotizacion.estado === 'borrador') return 'borrador';
   if (
     cotizacion.estado === 'rechazada'
@@ -29,6 +34,14 @@ export function estadoCotizacionVista(
     || cotizacion.estado === 'cancelada'
   ) {
     return 'rechazada';
+  }
+  if (
+    cotizacion.estado === 'aceptada'
+    && cotizacion.cita_ultima_estado === 'cerrada'
+    && !cotizacion.tiene_horario_agendado
+    && !cotizacion.cita_personal_id
+  ) {
+    return 'entregada';
   }
   if (cotizacion.estado === 'aceptada' && (cotizacion.tiene_horario_agendado || cotizacion.fecha_agendada)) {
     return 'agendada';

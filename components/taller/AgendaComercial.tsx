@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarCheck, CarFront, Clock } from 'lucide-react-native';
 import { InstitutionalText } from '@/design-system/components/InstitutionalText';
 import { BORDERS, COLORS, SHADOWS, SPACING } from '@/app/design-system/tokens';
@@ -9,12 +9,37 @@ import { ICON_STROKE_WIDTH } from '@/design-system/iconography';
 import { useCotizacionesCanalTallerQuery } from '@/hooks/useCotizacionesCanalTallerQuery';
 import { AgendarCitaSheet } from '@/components/taller/AgendarCitaSheet';
 import { useAgendaCalendarioQuery } from '@/hooks/useAgendaCalendarioQuery';
-import type { EventoAgendaUnificado } from '@/services/agendaProveedorService';
+import type { CitaAgendaPersonal, EventoAgendaUnificado } from '@/services/agendaProveedorService';
+import { agendaProveedorService } from '@/services/agendaProveedorService';
+import { carrilDeCita } from '@/utils/tableroTaller';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import { estadoCotizacionVista, fechaCortaCotizacion, fechaLargaCotizacion } from '@/utils/cotizacionPresentacion';
 import type { CotizacionCanal } from '@/services/cotizacionCanalService';
-import { parseFechaLocal, startOfDay } from '@/utils/fechaLocal';
 import { openCitaPersonalDetalle, openOfertaDetalle } from '@/utils/navigateProveedorDetalle';
+
+function eventoDeCita(cita: CitaAgendaPersonal): EventoAgendaUnificado {
+  const detalle = cita.detalle;
+  return {
+    id: String(cita.id),
+    origen: 'personal',
+    etiqueta: detalle?.servicio_nombre || 'Cita',
+    fecha_servicio: (cita.fecha_servicio || '').slice(0, 10),
+    hora_servicio: (cita.hora_servicio || '').slice(0, 5),
+    estado: cita.estado,
+    editable: cita.estado === 'activa',
+    tiene_checklist: Boolean(cita.checklist_id),
+    checklist_id: cita.checklist_id ?? null,
+    checklist_estado: cita.checklist_estado ?? null,
+    cliente_nombre: detalle?.cliente_nombre,
+    cliente_telefono: detalle?.cliente_telefono,
+    vehiculo_marca: detalle?.vehiculo_marca,
+    vehiculo_modelo: detalle?.vehiculo_modelo,
+    vehiculo_patente: detalle?.vehiculo_patente,
+    vehiculo_anio: detalle?.vehiculo_anio,
+    servicio_nombre: detalle?.servicio_nombre,
+    descripcion: detalle?.descripcion,
+  };
+}
 
 function eventoDeCotizacionAgendada(cotizacion: CotizacionCanal): EventoAgendaUnificado | null {
   if (estadoCotizacionVista(cotizacion) !== 'agendada') return null;
@@ -70,6 +95,14 @@ export function AgendaComercial() {
   const cotizaciones = useCotizacionesCanalTallerQuery();
   const mesActual = useAgendaCalendarioQuery({ mesActual: hoy, miembroFiltro: null });
   const mesProx = useAgendaCalendarioQuery({ mesActual: mesSiguiente, miembroFiltro: null });
+  const citasActivas = useQuery({
+    queryKey: ['citas-activas-proveedor'],
+    queryFn: async () => {
+      const result = await agendaProveedorService.obtenerCitasActivas();
+      if (!result.success || !result.data) return [];
+      return result.data;
+    },
+  });
 
   const porAgendar = useMemo(() => {
     return (cotizaciones.data ?? [])
@@ -97,54 +130,55 @@ export function AgendaComercial() {
   );
 
   const listas = useMemo(() => {
+    const desdeCitas = (citasActivas.data ?? [])
+      .filter((cita) => !cita.horario_por_confirmar)
+      .map(eventoDeCita);
+    const clavesPersonales = new Set(desdeCitas.map((evento) => `personal-${evento.id}`));
     const calendario = new Map<string, EventoAgendaUnificado>();
     for (const evento of [...mesActual.eventos, ...mesProx.eventos]) {
       calendario.set(`${evento.origen}-${evento.id}`, evento);
     }
-    const comerciales = citasAgendadas.map((evento) => {
-      const cal = calendario.get(`${evento.origen}-${evento.id}`);
-      const checklistId = cal?.checklist_id ?? null;
-      const estadoCita = (cal?.estado || '').toLowerCase();
-      if (estadoCita === 'cerrada' || CANCELADOS.has(estadoCita)) return null;
-      return {
-        ...evento,
-        fecha_servicio: evento.fecha_servicio || cal?.fecha_servicio || '',
-        hora_servicio: evento.hora_servicio || cal?.hora_servicio || '',
-        checklist_id: checklistId,
-        checklist_estado: cal?.checklist_estado ?? null,
-        tiene_checklist: Boolean(checklistId),
-      };
-    });
-    const comercialesVivas = comerciales.filter((evento): evento is EventoAgendaUnificado => evento != null);
-    const clavesComerciales = new Set(comercialesVivas.map((evento) => `${evento.origen}-${evento.id}`));
+    const comerciales = citasActivas.isSuccess
+      ? desdeCitas
+      : citasAgendadas.map((evento) => {
+        const cal = calendario.get(`${evento.origen}-${evento.id}`);
+        const checklistId = cal?.checklist_id ?? null;
+        const estadoCita = (cal?.estado || '').toLowerCase();
+        if (estadoCita === 'cerrada' || CANCELADOS.has(estadoCita)) return null;
+        return {
+          ...evento,
+          fecha_servicio: evento.fecha_servicio || cal?.fecha_servicio || '',
+          hora_servicio: evento.hora_servicio || cal?.hora_servicio || '',
+          checklist_id: checklistId,
+          checklist_estado: cal?.checklist_estado ?? null,
+          tiene_checklist: Boolean(checklistId),
+        };
+      }).filter((evento): evento is EventoAgendaUnificado => evento != null);
+    const clavesComerciales = new Set(comerciales.map((evento) => `${evento.origen}-${evento.id}`));
     const extras = soloEnAgenda
       ? []
       : [...mesActual.eventos, ...mesProx.eventos].filter((evento) => {
         const clave = `${evento.origen}-${evento.id}`;
-        return !clavesComerciales.has(clave);
+        if (clavesComerciales.has(clave) || clavesPersonales.has(clave)) return false;
+        return evento.origen !== 'personal';
       });
 
-    const inicioHoy = startOfDay(hoy).getTime();
     const proximas: EventoAgendaUnificado[] = [];
     const pasaron: EventoAgendaUnificado[] = [];
     const esperandoFirma: EventoAgendaUnificado[] = [];
-    for (const evento of [...comercialesVivas, ...extras]) {
-      if (CANCELADOS.has(String(evento.estado || '').toLowerCase())) continue;
-      if (String(evento.estado || '').toLowerCase() === 'cerrada') continue;
-      const dia = parseFechaLocal(evento.fecha_servicio);
-      const esperaFirma = evento.checklist_estado === 'PENDIENTE_FIRMA_CLIENTE';
-      if (esperaFirma) {
-        esperandoFirma.push(evento);
-        continue;
-      }
-      const sinChecklist = !evento.checklist_id;
-      if (dia && dia.getTime() < inicioHoy && sinChecklist) {
-        pasaron.push(evento);
-        continue;
-      }
-      if (!dia || dia.getTime() >= inicioHoy) {
-        proximas.push(evento);
-      }
+    const enTaller: EventoAgendaUnificado[] = [];
+    for (const evento of [...comerciales, ...extras]) {
+      const carril = carrilDeCita({
+        estado: evento.estado,
+        fecha: evento.fecha_servicio,
+        checklistId: evento.checklist_id,
+        checklistEstado: evento.checklist_estado,
+        hoy,
+      });
+      if (carril === 'esperando_firma') esperandoFirma.push(evento);
+      else if (carril === 'en_taller') enTaller.push(evento);
+      else if (carril === 'sin_registro') pasaron.push(evento);
+      else if (carril === 'proxima') proximas.push(evento);
     }
     const porFecha = (a: EventoAgendaUnificado, b: EventoAgendaUnificado) => {
       const fa = a.fecha_servicio || '9999-99-99';
@@ -154,6 +188,7 @@ export function AgendaComercial() {
     proximas.sort(porFecha);
     pasaron.sort((a, b) => porFecha(b, a));
     esperandoFirma.sort((a, b) => porFecha(b, a));
+    enTaller.sort((a, b) => porFecha(b, a));
     const agrupar = (eventos: EventoAgendaUnificado[]) => {
       const grupos = new Map<string, EventoAgendaUnificado[]>();
       for (const evento of eventos) {
@@ -167,8 +202,9 @@ export function AgendaComercial() {
       proximas: agrupar(proximas),
       pasaron: agrupar(pasaron),
       esperandoFirma: agrupar(esperandoFirma),
+      enTaller: agrupar(enTaller),
     };
-  }, [citasAgendadas, hoy, mesActual.eventos, mesProx.eventos, soloEnAgenda]);
+  }, [citasActivas.data, citasActivas.isSuccess, citasAgendadas, hoy, mesActual.eventos, mesProx.eventos, soloEnAgenda]);
 
   const agendar = useCallback((row: PendienteAgenda) => {
     if (row.citaId || row.cotizacionId) {
@@ -263,6 +299,30 @@ export function AgendaComercial() {
         </View>
       ) : null}
 
+      {!soloPorAgendar && listas.enTaller.length > 0 ? (
+        <View style={styles.bloque}>
+          <InstitutionalText role="h4">En el taller</InstitutionalText>
+          <InstitutionalText role="caption" color="body">
+            El servicio ya empezó y sigue abierto, aunque el día de la cita haya pasado.
+          </InstitutionalText>
+          {listas.enTaller.map(([fecha, eventos]) => (
+            <View key={`taller-${fecha}`} style={styles.dia}>
+              <InstitutionalText role="captionBold" color="body">
+                {fecha ? fechaLargaCotizacion(fecha) : 'Día por confirmar'}
+              </InstitutionalText>
+              {eventos.map((evento) => (
+                <CitaFila
+                  key={`${evento.origen}-${evento.id}`}
+                  evento={evento}
+                  marca={evento.checklist_estado === 'PENDIENTE_FIRMA_SUPERVISOR' ? 'Falta la revisión' : 'En el taller'}
+                  onPress={abrirEvento}
+                />
+              ))}
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       {!soloPorAgendar && listas.pasaron.length > 0 ? (
         <View style={styles.bloque}>
           <InstitutionalText role="h4">Pasaron sin registro</InstitutionalText>
@@ -287,27 +347,30 @@ export function AgendaComercial() {
         </View>
       ) : null}
 
-      {!soloPorAgendar ? <View style={styles.bloque}>
+      {!soloPorAgendar && listas.proximas.length > 0 ? <View style={styles.bloque}>
         <InstitutionalText role="h4">{soloEnAgenda ? 'En agenda' : 'Próximas citas'}</InstitutionalText>
-        {listas.proximas.length === 0 ? (
+        {listas.proximas.map(([fecha, eventos]) => (
+          <View key={fecha || 'sin-dia'} style={styles.dia}>
+            <InstitutionalText role="captionBold" color="body">
+              {fecha ? fechaLargaCotizacion(fecha) : 'Día por confirmar'}
+            </InstitutionalText>
+            {eventos.map((evento) => (
+              <CitaFila key={`${evento.origen}-${evento.id}`} evento={evento} onPress={abrirEvento} />
+            ))}
+          </View>
+        ))}
+      </View> : null}
+
+      {!soloPorAgendar && listas.proximas.length === 0 && listas.pasaron.length === 0 && listas.enTaller.length === 0 && listas.esperandoFirma.length === 0 ? (
+        <View style={styles.bloque}>
+          <InstitutionalText role="h4">{soloEnAgenda ? 'En agenda' : 'Próximas citas'}</InstitutionalText>
           <View style={styles.vacio}>
             <InstitutionalText role="caption" color="body">
               {soloEnAgenda ? 'No hay citas en la agenda.' : 'Aún no hay citas programadas.'}
             </InstitutionalText>
           </View>
-        ) : (
-          listas.proximas.map(([fecha, eventos]) => (
-            <View key={fecha || 'sin-dia'} style={styles.dia}>
-              <InstitutionalText role="captionBold" color="body">
-                {fecha ? fechaLargaCotizacion(fecha) : 'Día por confirmar'}
-              </InstitutionalText>
-              {eventos.map((evento) => (
-                <CitaFila key={`${evento.origen}-${evento.id}`} evento={evento} onPress={abrirEvento} />
-              ))}
-            </View>
-          ))
-        )}
-      </View> : null}
+        </View>
+      ) : null}
 
       <AgendarCitaSheet
         visible={agenda != null}

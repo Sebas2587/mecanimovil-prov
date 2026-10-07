@@ -52,6 +52,7 @@ const FILTROS: { value: Filtro; label: string; icon: LucideIcon }[] = [
   { value: 'enviada', label: 'Enviadas', icon: Send },
   { value: 'aceptada', label: 'Aceptadas', icon: CircleCheck },
   { value: 'agendada', label: 'Agendadas', icon: CalendarCheck },
+  { value: 'entregada', label: 'Entregadas', icon: CircleCheck },
   { value: 'rechazada', label: 'Rechazadas', icon: CircleX },
 ];
 
@@ -116,7 +117,7 @@ export function CotizacionesVista({ estadoInicial }: Props) {
   const aceptado = cotizaciones
     .filter((cotizacion) => {
       const estado = estadoCotizacionVista(cotizacion);
-      return estado === 'aceptada' || estado === 'agendada';
+      return estado === 'aceptada' || estado === 'agendada' || estado === 'entregada';
     })
     .reduce((sum, cotizacion) => sum + montoCotizacion(cotizacion), 0);
 
@@ -288,6 +289,7 @@ const TITULO_FILTRO: Record<Exclude<Filtro, 'todas'>, string> = {
   enviada: 'Esperando respuesta',
   aceptada: 'Por agendar',
   agendada: 'En agenda',
+  entregada: 'Entregadas',
   rechazada: 'Rechazadas',
 };
 
@@ -297,6 +299,7 @@ function filtroInicial(value: string | null | undefined): Filtro {
     || value === 'enviada'
     || value === 'aceptada'
     || value === 'agendada'
+    || value === 'entregada'
     || value === 'rechazada'
   ) {
     return value;

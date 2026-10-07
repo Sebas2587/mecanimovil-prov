@@ -67,7 +67,7 @@ function CotizacionDetalleSheetInner({ cotizacionId, onClose }: Props) {
 
   const agendar = useCallback(() => {
     if (!cotizacion) return;
-    const citaId = cotizacion.cita_personal_id || cotizacion.cita_origen_id;
+    const citaId = cotizacion.cita_ultima_id || cotizacion.cita_personal_id || cotizacion.cita_origen_id;
     onClose();
     if (citaId) {
       router.push(`/cita-agenda-personal/${citaId}`);
@@ -338,16 +338,18 @@ function Seguimiento({ cotizacion }: { cotizacion: CotizacionCanal }) {
       fecha: estado === 'rechazada'
         ? (fechaCortaCotizacion(cotizacion.rechazada_en) || 'Cerrada')
         : (fechaCortaCotizacion(cotizacion.aceptada_en) || 'Esperando respuesta'),
-      hecho: estado === 'aceptada' || estado === 'agendada' || estado === 'rechazada',
+      hecho: estado === 'aceptada' || estado === 'agendada' || estado === 'entregada' || estado === 'rechazada',
     },
   ];
   if (estado !== 'rechazada') {
     pasos.push({
-      label: 'Cita agendada',
-      fecha: cotizacion.fecha_agendada
-        ? `${fechaCortaCotizacion(cotizacion.fecha_agendada)}${cotizacion.hora_agendada ? ` · ${cotizacion.hora_agendada.slice(0, 5)}` : ''}`
-        : 'Pendiente',
-      hecho: estado === 'agendada',
+      label: estado === 'entregada' ? 'Trabajo entregado' : 'Cita agendada',
+      fecha: estado === 'entregada'
+        ? 'El cliente ya firmó'
+        : cotizacion.fecha_agendada
+          ? `${fechaCortaCotizacion(cotizacion.fecha_agendada)}${cotizacion.hora_agendada ? ` · ${cotizacion.hora_agendada.slice(0, 5)}` : ''}`
+          : 'Pendiente',
+      hecho: estado === 'agendada' || estado === 'entregada',
     });
   }
 
@@ -406,6 +408,13 @@ function Acciones({
       <View style={styles.accionesFila}>
         <Boton label="No aceptó" onPress={onRechazar} icon={X} />
         <Boton label="Cliente aceptó" onPress={onAceptar} primario icon={Check} flex={2} />
+      </View>
+    );
+  }
+  if (estado === 'entregada') {
+    return (
+      <View style={styles.acciones}>
+        <Boton label="Ver el trabajo" onPress={onAgendar} icon={CalendarCheck} />
       </View>
     );
   }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -184,6 +185,12 @@ export default function CotizacionCanalDetalleScreen() {
   const esEmitida = draft?.estado === 'enviada' || draft?.estado === 'aceptada';
   const modoVista = Boolean(esEmitida && editable && !editando);
   const tieneHorarioAgendado = Boolean(draft?.tiene_horario_agendado);
+  const trabajoEntregado = Boolean(
+    draft?.estado === 'aceptada'
+    && draft.cita_ultima_estado === 'cerrada'
+    && !tieneHorarioAgendado
+    && !draft.cita_personal_id,
+  );
   const hayCambios = useMemo(() => {
     if (!draft || !data) return false;
     return snapshot(draft) !== snapshot(data);
@@ -458,8 +465,14 @@ export default function CotizacionCanalDetalleScreen() {
 
   const cerrarCaso = useCallback(() => {
     if (!draft?.id) return;
-    showConfirm('Cerrar caso', 'El lead pasará a Perdidos. Podrás seguir viéndolo en ese filtro.', {
-      confirmText: 'Cerrar caso',
+    const sinAgenda = draft.estado === 'aceptada' && !draft.tiene_horario_agendado;
+    showConfirm(
+      sinAgenda ? 'El cliente no continuó' : 'Cerrar caso',
+      sinAgenda
+        ? 'Sale de Por agendar. Si hay teléfono, se abre WhatsApp para avisarle que no se agendó la visita.'
+        : 'El caso queda cerrado. Podrás seguir viéndolo en rechazadas.',
+      {
+      confirmText: sinAgenda ? 'Avisar y cerrar' : 'Cerrar caso',
       onConfirm: async () => {
         setAccionLead(true);
         try {
@@ -472,15 +485,29 @@ export default function CotizacionCanalDetalleScreen() {
             );
             return;
           }
+          if (sinAgenda) {
+            const tel = (draft.cliente_telefono || '').replace(/\D/g, '');
+            const nombre = draft.cliente_nombre?.trim();
+            const servicio = (draft.servicio_nombre || 'el servicio').trim();
+            const texto = `Hola${nombre ? ` ${nombre}` : ''}, te escribimos del taller. La cotización de ${servicio} quedó cerrada porque no llegamos a agendar la visita. Si quieres retomarla, avísanos.`;
+            if (tel) void Linking.openURL(`https://wa.me/${tel}?text=${encodeURIComponent(texto)}`);
+          }
           router.back();
-        } catch {
-          showAlert('Error', 'No se pudo cerrar el caso.');
+        } catch (err) {
+          const data = (err as { response?: { data?: { estado?: string | string[] } } })?.response?.data;
+          const estado = data?.estado;
+          const mensaje = Array.isArray(estado)
+            ? String(estado[0] || '')
+            : typeof estado === 'string'
+              ? estado
+              : '';
+          showAlert('No se pudo cerrar', mensaje || 'Revisa si hay una visita con día y hora todavía abierta.');
         } finally {
           setAccionLead(false);
         }
       },
     });
-  }, [draft?.id, invalidateAll]);
+  }, [draft, invalidateAll]);
 
   if (!Number.isFinite(parsedId) || isPending || holdPrecios) {
     return (
@@ -579,11 +606,13 @@ export default function CotizacionCanalDetalleScreen() {
         onPress: () => void recordarWhatsApp(),
       });
     }
-    const puedeCerrarCaso = draft.estado === 'enviada'
+    const puedeCerrarCaso = !trabajoEntregado && (
+      draft.estado === 'enviada'
       || (
         draft.estado === 'aceptada'
         && (draft.es_cotizacion_adicional || !tieneHorarioAgendado)
-      );
+      )
+    );
     if (draft.estado === 'enviada') {
       fabActions.push({
         key: 'aceptar',
@@ -598,6 +627,14 @@ export default function CotizacionCanalDetalleScreen() {
         label: 'Cerrar caso',
         icon: X,
         onPress: cerrarCaso,
+      });
+    }
+    if (trabajoEntregado && draft.cita_ultima_id) {
+      fabActions.push({
+        key: 'cita',
+        label: 'Ver el trabajo',
+        icon: Calendar,
+        onPress: () => router.push(`/cita-agenda-personal/${draft.cita_ultima_id}`),
       });
     }
     if (tieneHorarioAgendado && draft.cita_personal_id) {
@@ -615,7 +652,7 @@ export default function CotizacionCanalDetalleScreen() {
     (tieneHorarioAgendado && draft.cita_personal_id)
     || draft.estado === 'borrador'
     || draft.estado === 'enviada'
-    || (draft.estado === 'aceptada' && citaParaAdicional)
+    || draft.estado === 'aceptada'
   );
 
   return (
@@ -679,6 +716,9 @@ export default function CotizacionCanalDetalleScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {trabajoEntregado ? (
+          <InstitutionalTag label="Trabajo entregado" variant="success" size="sm" />
+        ) : null}
         {tieneHorarioAgendado && draft.fecha_agendada ? (
           <InstitutionalTag
             label={etiquetaAgenda(draft.fecha_agendada, draft.hora_agendada)}
@@ -789,7 +829,19 @@ export default function CotizacionCanalDetalleScreen() {
           </View>
         ) : null}
 
-        {draft.estado === 'aceptada' && !tieneHorarioAgendado ? (
+        {trabajoEntregado && draft.cita_ultima_id ? (
+          <View style={styles.footerFila}>
+            <TallerPildora
+              label="Ver el trabajo"
+              tono="suave"
+              forma="hoja"
+              onPress={() => router.push(`/cita-agenda-personal/${draft.cita_ultima_id}`)}
+              style={styles.footerCrece}
+            />
+          </View>
+        ) : null}
+
+        {draft.estado === 'aceptada' && !tieneHorarioAgendado && !trabajoEntregado ? (
           <View style={styles.footerFila}>
             {draft.cita_personal_id ? (
               <TallerPildora
@@ -803,12 +855,20 @@ export default function CotizacionCanalDetalleScreen() {
             {citaParaAdicional ? (
               <TallerPildora
                 label="Cotización adicional"
-                tono={draft.cita_personal_id ? 'suave' : 'coral'}
+                tono="suave"
                 forma="hoja"
                 onPress={() => router.push(`/agregar-servicio-adicional/${citaParaAdicional}`)}
                 style={styles.footerCrece}
               />
             ) : null}
+            <TallerPildora
+              label="El cliente no continuó"
+              tono="suave"
+              forma="hoja"
+              onPress={cerrarCaso}
+              disabled={accionLead}
+              style={styles.footerCrece}
+            />
           </View>
         ) : null}
       </View>

@@ -12,6 +12,7 @@ const PUNTO: Record<EstadoCotizacionVista | 'vista', string> = {
   vista: I.primary,
   aceptada: I.semanticUp,
   agendada: I.ink,
+  entregada: I.ink,
   rechazada: I.semanticDown,
 };
 

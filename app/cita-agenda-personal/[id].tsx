@@ -1073,6 +1073,19 @@ export default function CitaAgendaPersonalDetalleScreen() {
             </View>
           ) : null}
 
+          {cita?.checklist_id && !pasoSinRegistro && !checklistPendienteFirmaCliente && !checklistCompletado ? (
+            <View style={styles.pasoSinRegistro}>
+              <InstitutionalText role="bodyBold">
+                {checklistPendienteSupervisor ? 'Falta la revisión' : 'En el taller'}
+              </InstitutionalText>
+              <InstitutionalText role="caption" color="body">
+                {checklistPendienteSupervisor
+                  ? 'El mecánico ya terminó su parte. Revisa el checklist para que el cliente pueda firmar.'
+                  : 'El servicio ya empezó. Sigue el checklist hasta dejar el informe listo para el cliente.'}
+              </InstitutionalText>
+            </View>
+          ) : null}
+
           {editando && esActiva && permitirEditarCita ? (
             <>
               <EditSection title="Cliente">

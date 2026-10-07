@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { router, type Href } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   CalendarClock,
@@ -12,6 +12,7 @@ import {
   MessageCircle,
   Send,
   Users,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
@@ -30,8 +31,10 @@ import type { InboxChatItem } from '@/services/omnichannelService';
 import { obtenerNombreSeguro } from '@/services/ordenesProveedor';
 import { navegarAtencionHoy } from '@/utils/navegarCasoPipeline';
 import { pasoDeCaso } from '@/utils/pasoComercial';
+import { agendaProveedorService, type CitaAgendaPersonal } from '@/services/agendaProveedorService';
 import { estadoCotizacionVista } from '@/utils/cotizacionPresentacion';
 import { parseFechaLocal, startOfDay } from '@/utils/fechaLocal';
+import { carrilDeCita, type CarrilCita } from '@/utils/tableroTaller';
 import { formatearMontoCLP } from '@/utils/formatearMontoCLP';
 import {
   HOME_DECISIONES_QUERY_KEY,
@@ -52,14 +55,14 @@ interface HomeAttentionFeedProps {
   onAgendar?: () => void;
 }
 
-type VerboAccion = 'Agendar' | 'Iniciar' | 'Revisar' | 'Aceptar' | 'Seguir';
+type VerboAccion = 'Agendar' | 'Iniciar' | 'Continuar' | 'Enviar' | 'Revisar' | 'Aceptar' | 'Seguir';
 
 type AccionHoy = {
   id: string;
   titulo: string;
   meta: string;
   verbo: VerboAccion;
-  icono: 'agenda' | 'iniciar' | 'revisar' | 'aceptar' | 'seguir';
+  icono: 'agenda' | 'iniciar' | 'continuar' | 'firma' | 'revisar' | 'aceptar' | 'seguir';
 };
 
 type ActividadHoy = {
@@ -81,9 +84,11 @@ type MetricaHoy = {
 const ORDEN_VERBO: Record<VerboAccion, number> = {
   Agendar: 0,
   Iniciar: 1,
-  Aceptar: 2,
-  Revisar: 3,
-  Seguir: 4,
+  Continuar: 2,
+  Enviar: 3,
+  Aceptar: 4,
+  Revisar: 5,
+  Seguir: 6,
 };
 
 function saludo(nombre: string): string {
@@ -158,6 +163,15 @@ export function HomeAttentionFeed({
     { enabled },
   );
   const cotizacionesQuery = useCotizacionesCanalTallerQuery(enabled);
+  const citasActivasQuery = useQuery({
+    queryKey: ['citas-activas-proveedor'],
+    queryFn: async () => {
+      const result = await agendaProveedorService.obtenerCitasActivas();
+      if (!result.success || !result.data) return [] as CitaAgendaPersonal[];
+      return result.data;
+    },
+    enabled,
+  });
   const borradoresQuery = useAgenteBorradoresPendientesQuery(enabled);
   const decisionesQuery = useHomeDecisionesQuery(enabled);
   const chatsQuery = useChatInboxQuery(enabled);
@@ -172,10 +186,26 @@ export function HomeAttentionFeed({
     const cotizacionesConAccion = new Set<number>();
 
     const cotizaciones = cotizacionesQuery.data ?? [];
+    const citas = citasActivasQuery.data ?? [];
+    const citaPorId = new Map(citas.map((cita) => [cita.id, cita]));
+    const citaPorCotizacion = new Map(
+      citas
+        .filter((cita) => cita.cotizacion_canal_origen_id != null)
+        .map((cita) => [cita.cotizacion_canal_origen_id as number, cita]),
+    );
     let porRevisar = cotizaciones.filter((cotizacion) => estadoCotizacionVista(cotizacion) === 'borrador').length;
     let esperando = cotizaciones.filter((cotizacion) => estadoCotizacionVista(cotizacion) === 'enviada').length;
     const porAgendar = cotizaciones.filter((cotizacion) => estadoCotizacionVista(cotizacion) === 'aceptada').length;
-    const enAgenda = cotizaciones.filter((cotizacion) => estadoCotizacionVista(cotizacion) === 'agendada').length;
+    const enAgendaPorPapel = cotizaciones.filter((cotizacion) => estadoCotizacionVista(cotizacion) === 'agendada').length;
+    const enAgenda = citasActivasQuery.isSuccess
+      ? citas.filter((cita) => carrilDeCita({
+        estado: cita.estado,
+        horarioPorConfirmar: cita.horario_por_confirmar,
+        fecha: cita.fecha_servicio,
+        checklistId: cita.checklist_id,
+        checklistEstado: cita.checklist_estado,
+      }) !== 'fuera').length
+      : enAgendaPorPapel;
 
     for (const row of filas) {
       const paso = pasoDeCaso(row);
@@ -225,6 +255,50 @@ export function HomeAttentionFeed({
     }
 
     const hoy = startOfDay(new Date()).getTime();
+    const citasAtendidas = new Set<number>();
+    const empujarCita = (cita: CitaAgendaPersonal, cotizacion?: CotizacionCanal) => {
+      const carril: CarrilCita = carrilDeCita({
+        estado: cita.estado,
+        horarioPorConfirmar: cita.horario_por_confirmar,
+        fecha: cita.fecha_servicio,
+        checklistId: cita.checklist_id,
+        checklistEstado: cita.checklist_estado,
+      });
+      const dia = parseFechaLocal(cita.fecha_servicio || cotizacion?.fecha_agendada);
+      const yaToca = !dia || dia.getTime() <= hoy;
+      const nombre = cita.detalle?.cliente_nombre?.trim()
+        || cotizacion?.cliente_nombre?.trim()
+        || 'el cliente';
+      const meta = cotizacion
+        ? metaCotizacion(cotizacion)
+        : unirMeta([
+          cita.detalle?.servicio_nombre,
+          [cita.detalle?.vehiculo_marca, cita.detalle?.vehiculo_modelo, cita.detalle?.vehiculo_patente].filter(Boolean).join(' '),
+        ]);
+      const id = `cita-${cita.id}`;
+      const abrir = () => router.push(`/cita-agenda-personal/${cita.id}`);
+      if (carril === 'esperando_firma') {
+        accionesMapa.set(id, abrir);
+        acciones.push({ id, titulo: `Pedir la firma a ${nombre}`, meta, verbo: 'Enviar', icono: 'firma' });
+        return;
+      }
+      if (carril === 'en_taller') {
+        const enRevision = (cita.checklist_estado || '').toUpperCase() === 'PENDIENTE_FIRMA_SUPERVISOR';
+        accionesMapa.set(id, abrir);
+        acciones.push({
+          id,
+          titulo: enRevision ? `Revisar servicio de ${nombre}` : `Continuar servicio de ${nombre}`,
+          meta,
+          verbo: 'Continuar',
+          icono: 'continuar',
+        });
+        return;
+      }
+      if (carril === 'sin_registro' || (carril === 'proxima' && yaToca)) {
+        accionesMapa.set(id, abrir);
+        acciones.push({ id, titulo: `Iniciar servicio de ${nombre}`, meta, verbo: 'Iniciar', icono: 'iniciar' });
+      }
+    };
     for (const cotizacion of cotizaciones) {
       if (!cotizacion.id) continue;
       const vista = estadoCotizacionVista(cotizacion);
@@ -248,6 +322,14 @@ export function HomeAttentionFeed({
         continue;
       }
       if (vista === 'agendada') {
+        const cita = (cotizacion.cita_personal_id ? citaPorId.get(cotizacion.cita_personal_id) : undefined)
+          ?? citaPorCotizacion.get(cotizacion.id);
+        if (cita) {
+          citasAtendidas.add(cita.id);
+          if (citasActivasQuery.isSuccess) empujarCita(cita, cotizacion);
+          continue;
+        }
+        if (citasActivasQuery.isSuccess) continue;
         const dia = parseFechaLocal(cotizacion.fecha_agendada);
         const yaToca = !dia || dia.getTime() <= hoy;
         if (!yaToca) continue;
@@ -283,6 +365,13 @@ export function HomeAttentionFeed({
       });
     }
 
+    if (citasActivasQuery.isSuccess) {
+      for (const cita of citas) {
+        if (citasAtendidas.has(cita.id) || cita.horario_por_confirmar) continue;
+        empujarCita(cita);
+      }
+    }
+
     for (const decision of decisionesQuery.data ?? []) {
       const id = idDecision(decision);
       accionesMapa.set(id, () => abrirDecision(decision));
@@ -307,6 +396,10 @@ export function HomeAttentionFeed({
         const cotizacionId = cotizacion.id;
         const citaId = cotizacion.cita_personal_id;
         accionesMapa.set(id, () => {
+          if (estadoCotizacionVista(cotizacion) === 'entregada' && cotizacion.cita_ultima_id) {
+            router.push(`/cita-agenda-personal/${cotizacion.cita_ultima_id}`);
+            return;
+          }
           if (estadoCotizacionVista(cotizacion) === 'agendada' && citaId) {
             router.push(`/cita-agenda-personal/${citaId}`);
             return;
@@ -366,7 +459,7 @@ export function HomeAttentionFeed({
         },
       ] satisfies MetricaHoy[],
     };
-  }, [chatsQuery.data, cotizacionesQuery.data, decisionesQuery.data, pipelineQuery.data?.results]);
+  }, [chatsQuery.data, citasActivasQuery.data, citasActivasQuery.isSuccess, cotizacionesQuery.data, decisionesQuery.data, pipelineQuery.data?.results]);
 
   accionesRef.current = modelo.accionesMapa;
 
@@ -587,6 +680,8 @@ function abrirDecision(decision: Decision) {
 const ICONO_ACCION: Record<AccionHoy['icono'], LucideIcon> = {
   agenda: CalendarClock,
   iniciar: CheckCircle2,
+  continuar: Wrench,
+  firma: FilePenLine,
   revisar: Send,
   aceptar: ClipboardList,
   seguir: Clock3,
@@ -601,7 +696,7 @@ const AccionRow = memo(function AccionRow({
 }) {
   const handlePress = useCallback(() => onPress(accion.id), [accion.id, onPress]);
   const Icono = ICONO_ACCION[accion.icono];
-  const acento = accion.icono === 'agenda' || accion.icono === 'iniciar';
+  const acento = accion.icono === 'agenda' || accion.icono === 'iniciar' || accion.icono === 'continuar' || accion.icono === 'firma';
   return (
     <Pressable
       onPress={handlePress}

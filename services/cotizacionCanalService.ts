@@ -207,6 +207,10 @@ export interface CotizacionCanal {
   canal?: CanalCotizacion;
   /** Cita creada al aceptar (libre); en adicionales apunta a la cita principal. */
   cita_personal_id?: number | null;
+  /** Visita vigente o, si ya se entregó, la última cita cerrada. */
+  cita_ultima_id?: number | null;
+  /** activa | cerrada | vacío si todavía no hay visita. */
+  cita_ultima_estado?: 'activa' | 'cerrada' | '' | null;
   cita_origen_id?: number | null;
   /** Cita activa con día y hora confirmados. */
   tiene_horario_agendado?: boolean;
