@@ -1,13 +1,14 @@
 import { useCallback, useRef } from 'react';
-import { Linking } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import omnichannelService, { type CanalSlug } from '@/services/omnichannelService';
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { showAlert } from '@/utils/platformAlert';
 import {
-  confirmChannelConnectGuards,
   extraerErrorWhatsAppDeApi,
   showWhatsAppConnectAlert,
 } from '@/utils/whatsappConnectGuards';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export type MetaConnectResult = 'ok' | 'fail' | 'cuota' | 'cancelled';
 
@@ -21,30 +22,25 @@ function extractApiError(error: unknown, fallback: string): string {
   return fallback;
 }
 
-export function useMetaChannelConnect(_onComplete: () => void) {
+export function useMetaChannelConnect(onComplete: () => void) {
   const connectingRef = useRef<CanalSlug | null>(null);
 
   const connect = useCallback(async (slug: CanalSlug): Promise<MetaConnectResult> => {
     try {
       connectingRef.current = slug;
-      const allowed = await confirmChannelConnectGuards(slug);
-      if (!allowed) return 'cancelled';
 
       const result = await omnichannelService.iniciarConexion(slug);
       if (!result.auth_url) {
         throw new Error('No se recibió URL de autorización');
       }
-      const canOpen = await Linking.canOpenURL(result.auth_url);
-      if (!canOpen) {
-        throw new Error('No se pudo abrir el navegador');
-      }
-      await Linking.openURL(result.auth_url);
-      showAlert(
-        slug === 'whatsapp' ? 'Continúa en Facebook' : 'Conectar canal',
-        slug === 'whatsapp'
-          ? 'Entra con el Facebook administrador del taller y elige WhatsApp Business. Al volver, te diremos si faltó algo.'
-          : 'Completa el proceso en Meta y vuelve a la app. El estado se actualizará automáticamente.',
+      const session = await WebBrowser.openAuthSessionAsync(
+        result.auth_url,
+        result.embedded?.redirect_uri,
       );
+      onComplete();
+      if (session.type === 'cancel' || session.type === 'dismiss') {
+        return 'cancelled';
+      }
       return 'ok';
     } catch (error: unknown) {
       if (esErrorCuota(error)) {
@@ -64,7 +60,7 @@ export function useMetaChannelConnect(_onComplete: () => void) {
     } finally {
       connectingRef.current = null;
     }
-  }, []);
+  }, [onComplete]);
 
   const isConnecting = useCallback((slug: CanalSlug) => connectingRef.current === slug, []);
 

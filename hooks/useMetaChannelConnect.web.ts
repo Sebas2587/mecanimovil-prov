@@ -9,7 +9,6 @@ import {
   type MetaEmbeddedSession,
 } from '@/utils/metaFacebookSdk.web';
 import {
-  confirmChannelConnectGuards,
   extraerErrorWhatsAppDeApi,
   showWhatsAppConnectAlert,
 } from '@/utils/whatsappConnectGuards';
@@ -29,9 +28,6 @@ export function useMetaChannelConnect(onComplete: () => void) {
 
   const connectEmbedded = useCallback(
     async (slug: CanalSlug) => {
-      const allowed = await confirmChannelConnectGuards(slug);
-      if (!allowed) return false;
-
       const sessionRef: MetaEmbeddedSession = {};
       let removeListener: (() => void) | null = null;
       let signupFailed = false;
@@ -39,13 +35,7 @@ export function useMetaChannelConnect(onComplete: () => void) {
       try {
         const start = await omnichannelService.iniciarConexion(slug);
         const embedded = start.embedded;
-        const paginaHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
-        const useEmbeddedSdk =
-          paginaHttps
-          && slug === 'whatsapp'
-          && embedded?.enabled
-          && embedded.config_id
-          && embedded.app_id;
+        const useEmbeddedSdk = false;
 
         if (useEmbeddedSdk) {
           removeListener = listenEmbeddedSignupSession((event) => {
