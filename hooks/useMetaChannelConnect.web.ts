@@ -39,8 +39,13 @@ export function useMetaChannelConnect(onComplete: () => void) {
       try {
         const start = await omnichannelService.iniciarConexion(slug);
         const embedded = start.embedded;
+        const paginaHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
         const useEmbeddedSdk =
-          slug === 'whatsapp' && embedded?.enabled && embedded.config_id && embedded.app_id;
+          paginaHttps
+          && slug === 'whatsapp'
+          && embedded?.enabled
+          && embedded.config_id
+          && embedded.app_id;
 
         if (useEmbeddedSdk) {
           removeListener = listenEmbeddedSignupSession((event) => {
@@ -105,7 +110,9 @@ export function useMetaChannelConnect(onComplete: () => void) {
         if (!start.auth_url) {
           throw new Error('Meta no está configurado para conexión embebida');
         }
-        const popupResult = await openOAuthPopup(start.auth_url);
+        const popupResult = await openOAuthPopup(start.auth_url, [
+          embedded?.redirect_uri || '',
+        ]);
         if (popupResult.success === false) {
           if (slug === 'whatsapp') {
             showWhatsAppConnectAlert(

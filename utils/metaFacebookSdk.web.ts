@@ -162,20 +162,27 @@ export function launchEmbeddedSignup(config: {
   });
 }
 
-export function openOAuthPopup(authUrl: string): Promise<{
+export function openOAuthPopup(
+  authUrl: string,
+  extraOrigins: string[] = [],
+): Promise<{
   success: boolean;
   message?: string;
   error_code?: string;
   instruction?: string;
 }> {
   return new Promise((resolve, reject) => {
-    const apiOrigin = (() => {
+    const allowedOrigins = new Set<string>();
+    if (typeof window !== 'undefined') {
+      allowedOrigins.add(window.location.origin);
+    }
+    for (const raw of [authUrl, ...extraOrigins]) {
       try {
-        return new URL(authUrl).origin;
+        if (raw) allowedOrigins.add(new URL(raw).origin);
       } catch {
-        return '';
+        // Un origen mal formado no entra en la lista.
       }
-    })();
+    }
     const width = 520;
     const height = 720;
     const left = window.screenX + (window.outerWidth - width) / 2;
@@ -204,7 +211,7 @@ export function openOAuthPopup(authUrl: string): Promise<{
     };
 
     const onMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin && event.origin !== apiOrigin) return;
+      if (!allowedOrigins.has(event.origin)) return;
       const data = event.data;
       if (!data || data.type !== 'mecanimovil:meta-oauth') return;
       finish({
