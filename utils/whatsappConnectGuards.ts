@@ -48,7 +48,7 @@ const ERROR_FALLBACK: Record<WhatsAppConnectErrorCode, string> = {
   numero_sin_registro:
     'El código llegó al WhatsApp, pero ese número todavía no puede enviar ni recibir en el chat. Pulsa Conectar otra vez y termina el alta en la misma ventana.',
   whatsapp_en_el_telefono:
-    'Este número sigue solo en la app de WhatsApp Business. Pulsa Conectar, elige ese WhatsApp y escribe el código en el teléfono, en Conectar a la plataforma.',
+    'Facebook compartió la cuenta, pero no abrió el paso para vincular el WhatsApp del teléfono. En la app de Meta, el registro insertado tiene que usar la incorporación de la app de WhatsApp Business.',
   cancelado: 'Cancelaste la conexión. Cuando quieras, pulsa Conectar de nuevo.',
   generico: 'No pudimos vincular tu WhatsApp. Pulsa Conectar e intenta de nuevo.',
 };
