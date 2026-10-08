@@ -9,16 +9,18 @@ export type WhatsAppConnectErrorCode =
   | 'codigo_expirado'
   | 'cancelado'
   | 'numero_sin_registro'
+  | 'whatsapp_en_el_telefono'
   | 'generico';
 
 export const WHATSAPP_CONNECT_PRECHECK_TITLE = 'Antes de conectar WhatsApp';
 
 export const WHATSAPP_CONNECT_PRECHECK_BODY = [
-  'No todos los números sirven: WhatsApp personal no se puede conectar.',
+  'Entras con el Facebook del taller. Un WhatsApp personal no se puede conectar.',
   '',
-  'Confirma esto antes de iniciar sesión en Facebook:',
-  '• Entras con el Facebook administrador del taller (Meta Business Suite), no un Facebook personal.',
-  '• El número es WhatsApp Business, vinculado a ese Facebook.',
+  'Si el número ya está en WhatsApp Business:',
+  '• Elige conectar esa app.',
+  '• El código se escribe en el teléfono, en el aviso de WhatsApp.',
+  '• No cierres la ventana hasta que termine.',
 ].join('\n');
 
 const ERROR_TITLES: Record<WhatsAppConnectErrorCode, string> = {
@@ -28,6 +30,7 @@ const ERROR_TITLES: Record<WhatsAppConnectErrorCode, string> = {
   sin_permisos_admin: 'Sin permiso de administrador',
   codigo_expirado: 'La autorización expiró',
   numero_sin_registro: 'WhatsApp sin terminar',
+  whatsapp_en_el_telefono: 'Falta vincular el teléfono',
   cancelado: 'Conexión cancelada',
   generico: 'No se pudo conectar WhatsApp',
 };
@@ -44,6 +47,8 @@ const ERROR_FALLBACK: Record<WhatsAppConnectErrorCode, string> = {
   codigo_expirado: 'La autorización expiró o ya fue usada. Pulsa Conectar otra vez.',
   numero_sin_registro:
     'El código llegó al WhatsApp, pero ese número todavía no puede enviar ni recibir en el chat. Pulsa Conectar otra vez y termina el alta en la misma ventana.',
+  whatsapp_en_el_telefono:
+    'Este número sigue solo en la app de WhatsApp Business. Pulsa Conectar, elige ese WhatsApp y escribe el código en el teléfono, en Conectar a la plataforma.',
   cancelado: 'Cancelaste la conexión. Cuando quieras, pulsa Conectar de nuevo.',
   generico: 'No pudimos vincular tu WhatsApp. Pulsa Conectar e intenta de nuevo.',
 };

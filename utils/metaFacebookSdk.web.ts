@@ -136,7 +136,7 @@ export function launchEmbeddedSignup(config: {
     };
     if (config.channel === 'whatsapp') {
       extras.featureType = 'whatsapp_business_app_onboarding';
-      extras.sessionInfoVersion = 3;
+      extras.sessionInfoVersion = '3';
     }
 
     window.FB.login(
