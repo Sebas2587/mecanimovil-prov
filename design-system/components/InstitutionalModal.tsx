@@ -1,14 +1,14 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   Animated,
   Modal,
   View,
   StyleSheet,
+  Pressable,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   useWindowDimensions,
-  type GestureResponderEvent,
   type ModalProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,10 +49,6 @@ export function InstitutionalModal({
     if (visible) reset();
   }, [visible, reset]);
 
-  const absorbSheetPress = useCallback((e: GestureResponderEvent) => {
-    e.stopPropagation?.();
-  }, []);
-
   if (!visible) return null;
 
   return (
@@ -64,13 +60,14 @@ export function InstitutionalModal({
       statusBarTranslucent
       presentationStyle="overFullScreen"
     >
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={handleClose}
-        style={styles.overlay}
-        accessibilityRole="button"
-        accessibilityLabel="Cerrar"
-      >
+      <View style={styles.overlay}>
+        {/* Fondo hermano del sheet: en web un role="button" no puede envolver los botones del contenido. */}
+        <Pressable
+          onPress={handleClose}
+          style={StyleSheet.absoluteFill}
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar"
+        />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardWrap}
@@ -87,7 +84,7 @@ export function InstitutionalModal({
             ]}
             {...panHandlers}
           >
-            <TouchableOpacity activeOpacity={1} onPress={absorbSheetPress}>
+            <View>
               {!IS_WEB ? (
                 <View
                   style={styles.handleHit}
@@ -111,10 +108,10 @@ export function InstitutionalModal({
               </View>
               <View style={[styles.body, !footer && styles.bodySolo]}>{children}</View>
               {footer ? <View style={styles.footer}>{footer}</View> : null}
-            </TouchableOpacity>
+            </View>
           </Animated.View>
         </KeyboardAvoidingView>
-      </TouchableOpacity>
+      </View>
     </Modal>
   );
 }
