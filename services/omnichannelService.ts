@@ -40,6 +40,15 @@ export interface MetaEmbeddedConfig {
   graph_version?: string;
 }
 
+/** Cómo entra el número a WhatsApp: ya está en la app del teléfono o es nuevo (código SMS). */
+export type ModoAltaWhatsApp = 'app_whatsapp' | 'numero_nuevo';
+
+export interface OpcionesAltaWhatsApp {
+  modo?: ModoAltaWhatsApp;
+  /** Número con código de país; el servidor lo usa para elegirlo entre los que comparte Facebook. */
+  numero?: string;
+}
+
 export interface IniciarConexionCanalResponse {
   success: boolean;
   connection_id: string;
@@ -117,9 +126,15 @@ const omnichannelService = {
     return data;
   },
 
-  async iniciarConexion(channel: CanalSlug): Promise<IniciarConexionCanalResponse> {
+  async iniciarConexion(
+    channel: CanalSlug,
+    opciones: OpcionesAltaWhatsApp = {},
+  ): Promise<IniciarConexionCanalResponse> {
+    const params = new URLSearchParams({ channel });
+    if (opciones.modo) params.set('modo', opciones.modo);
+    if (opciones.numero) params.set('numero', opciones.numero);
     const { data } = await api.get<IniciarConexionCanalResponse>(
-      `/omnichannel/connections/iniciar-conexion/?channel=${channel}`,
+      `/omnichannel/connections/iniciar-conexion/?${params.toString()}`,
     );
     return data;
   },

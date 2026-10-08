@@ -1,6 +1,9 @@
 import { useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
-import omnichannelService, { type CanalSlug } from '@/services/omnichannelService';
+import omnichannelService, {
+  type CanalSlug,
+  type OpcionesAltaWhatsApp,
+} from '@/services/omnichannelService';
 import {
   launchEmbeddedSignup,
   listenEmbeddedSignupSession,
@@ -27,13 +30,13 @@ export function useMetaChannelConnect(onComplete: () => void) {
   const connectingRef = useRef<CanalSlug | null>(null);
 
   const connectEmbedded = useCallback(
-    async (slug: CanalSlug) => {
+    async (slug: CanalSlug, opciones: OpcionesAltaWhatsApp = {}) => {
       const sessionRef: MetaEmbeddedSession = {};
       let removeListener: (() => void) | null = null;
       let signupFailed = false;
 
       try {
-        const start = await omnichannelService.iniciarConexion(slug);
+        const start = await omnichannelService.iniciarConexion(slug, opciones);
         const embedded = start.embedded;
         const useEmbeddedSdk = false;
 
@@ -153,10 +156,10 @@ export function useMetaChannelConnect(onComplete: () => void) {
   );
 
   const connect = useCallback(
-    async (slug: CanalSlug) => {
+    async (slug: CanalSlug, opciones: OpcionesAltaWhatsApp = {}) => {
       connectingRef.current = slug;
       try {
-        return await connectEmbedded(slug);
+        return await connectEmbedded(slug, opciones);
       } finally {
         connectingRef.current = null;
       }

@@ -1,6 +1,9 @@
 import { useCallback, useRef } from 'react';
 import * as WebBrowser from 'expo-web-browser';
-import omnichannelService, { type CanalSlug } from '@/services/omnichannelService';
+import omnichannelService, {
+  type CanalSlug,
+  type OpcionesAltaWhatsApp,
+} from '@/services/omnichannelService';
 import { esErrorCuota, mensajeCuotaError } from '@/utils/cuotaError';
 import { showAlert } from '@/utils/platformAlert';
 import {
@@ -25,11 +28,14 @@ function extractApiError(error: unknown, fallback: string): string {
 export function useMetaChannelConnect(onComplete: () => void) {
   const connectingRef = useRef<CanalSlug | null>(null);
 
-  const connect = useCallback(async (slug: CanalSlug): Promise<MetaConnectResult> => {
+  const connect = useCallback(async (
+    slug: CanalSlug,
+    opciones: OpcionesAltaWhatsApp = {},
+  ): Promise<MetaConnectResult> => {
     try {
       connectingRef.current = slug;
 
-      const result = await omnichannelService.iniciarConexion(slug);
+      const result = await omnichannelService.iniciarConexion(slug, opciones);
       if (!result.auth_url) {
         throw new Error('No se recibió URL de autorización');
       }

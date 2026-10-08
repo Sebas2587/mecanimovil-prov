@@ -10,6 +10,7 @@ export type WhatsAppConnectErrorCode =
   | 'cancelado'
   | 'numero_sin_registro'
   | 'whatsapp_en_el_telefono'
+  | 'numero_no_encontrado'
   | 'generico';
 
 export const WHATSAPP_CONNECT_PRECHECK_TITLE = 'Antes de conectar WhatsApp';
@@ -31,6 +32,7 @@ const ERROR_TITLES: Record<WhatsAppConnectErrorCode, string> = {
   codigo_expirado: 'La autorización expiró',
   numero_sin_registro: 'WhatsApp sin terminar',
   whatsapp_en_el_telefono: 'Falta vincular el teléfono',
+  numero_no_encontrado: 'Número no compartido',
   cancelado: 'Conexión cancelada',
   generico: 'No se pudo conectar WhatsApp',
 };
@@ -46,9 +48,11 @@ const ERROR_FALLBACK: Record<WhatsAppConnectErrorCode, string> = {
     'Tu usuario de Facebook no es administrador de WhatsApp Business del taller.',
   codigo_expirado: 'La autorización expiró o ya fue usada. Pulsa Conectar otra vez.',
   numero_sin_registro:
-    'El código llegó al WhatsApp, pero ese número todavía no puede enviar ni recibir en el chat. Pulsa Conectar otra vez y termina el alta en la misma ventana.',
+    'El código llegó al WhatsApp, pero ese número todavía no puede enviar ni recibir en el chat. Pulsa Cambiar número, elige «Número nuevo para el chat» y termina el alta en la misma ventana.',
   whatsapp_en_el_telefono:
-    'Facebook compartió la cuenta, pero no abrió el paso para vincular el WhatsApp del teléfono. En la app de Meta, el registro insertado tiene que usar la incorporación de la app de WhatsApp Business.',
+    'Ese número sigue solo en la app WhatsApp Business del teléfono y Facebook no terminó de vincularlo. Pulsa Cambiar número: si Facebook no muestra el código QR, usa «Número nuevo para el chat».',
+  numero_no_encontrado:
+    'Facebook no compartió el número que escribiste. Pulsa Cambiar número otra vez y elige ese mismo número en la ventana de Facebook.',
   cancelado: 'Cancelaste la conexión. Cuando quieras, pulsa Conectar de nuevo.',
   generico: 'No pudimos vincular tu WhatsApp. Pulsa Conectar e intenta de nuevo.',
 };

@@ -16,6 +16,7 @@ import { Stack, router } from 'expo-router';
 import {
   MessageCircle,
   Link2,
+  RefreshCw,
   Unlink,
 } from 'lucide-react-native';
 import { ChannelBrandIcon } from '@/components/chats/ChannelBrandIcon';
@@ -33,7 +34,9 @@ import Header from '@/components/Header';
 import omnichannelService, {
   type CanalSlug,
   type ConexionCanal,
+  type OpcionesAltaWhatsApp,
 } from '@/services/omnichannelService';
+import { AltaWhatsAppModal } from '@/components/canales/AltaWhatsAppModal';
 import { useMetaChannelConnect } from '@/hooks/useMetaChannelConnect';
 import {
   OMNICHANNEL_CONNECTIONS_QUERY_KEY,
@@ -117,6 +120,10 @@ export default function ConfiguracionCanalesScreen() {
     visible: false,
     mensaje: '',
   });
+  const [altaWhatsApp, setAltaWhatsApp] = useState<{ visible: boolean; cambio: boolean }>({
+    visible: false,
+    cambio: false,
+  });
   const oauthInProgress = useRef(false);
   const oauthChannelRef = useRef<CanalSlug | null>(null);
 
@@ -196,7 +203,8 @@ export default function ConfiguracionCanalesScreen() {
           const conn = (refreshed.data?.connections || []).find(
             (item) => item.channel_slug === 'whatsapp',
           );
-          if (conn?.status === 'error' && conn.mensaje_estado) {
+          const cambioFallido = /sigue conectado/i.test(conn?.mensaje_estado || '');
+          if (conn?.mensaje_estado && (conn.status === 'error' || cambioFallido)) {
             showWhatsAppConnectAlert(undefined, conn.mensaje_estado);
           }
         })();
@@ -205,12 +213,12 @@ export default function ConfiguracionCanalesScreen() {
     return () => sub.remove();
   }, [refetchCanales, refreshUso]);
 
-  const handleConectar = async (slug: CanalSlug) => {
+  const lanzarConexion = async (slug: CanalSlug, opciones: OpcionesAltaWhatsApp = {}) => {
     try {
       setConectando(slug);
       oauthInProgress.current = true;
       oauthChannelRef.current = slug;
-      const result = await conectarCanalMeta(slug);
+      const result = await conectarCanalMeta(slug, opciones);
       if (result === 'cuota') {
         oauthInProgress.current = false;
         oauthChannelRef.current = null;
@@ -228,6 +236,23 @@ export default function ConfiguracionCanalesScreen() {
     } finally {
       setConectando(null);
     }
+  };
+
+  const handleConectar = (slug: CanalSlug) => {
+    if (slug === 'whatsapp') {
+      setAltaWhatsApp({ visible: true, cambio: false });
+      return;
+    }
+    void lanzarConexion(slug);
+  };
+
+  const handleCambiarNumero = () => {
+    setAltaWhatsApp({ visible: true, cambio: true });
+  };
+
+  const handleConfirmarAltaWhatsApp = (opciones: Required<OpcionesAltaWhatsApp>) => {
+    setAltaWhatsApp((prev) => ({ ...prev, visible: false }));
+    void lanzarConexion('whatsapp', opciones);
   };
 
   const canalesConectados =
@@ -320,6 +345,22 @@ export default function ConfiguracionCanalesScreen() {
                 )}
               </TouchableOpacity>
             ) : null}
+            {conn && conectada && cfg.slug === 'whatsapp' ? (
+              <TouchableOpacity
+                style={styles.btnSecondary}
+                onPress={handleCambiarNumero}
+                disabled={isConnecting}
+              >
+                {isConnecting ? (
+                  <ActivityIndicator color={I.primary} />
+                ) : (
+                  <>
+                    <RefreshCw size={18} color={I.primary} strokeWidth={ICON_STROKE_WIDTH} />
+                    <InstitutionalText role="button" color="primary">Cambiar número</InstitutionalText>
+                  </>
+                )}
+              </TouchableOpacity>
+            ) : null}
             {conn && (conectada || conn.status === 'pendiente' || conn.status === 'error') ? (
               <TouchableOpacity
                 style={styles.btnSecondary}
@@ -374,6 +415,13 @@ export default function ConfiguracionCanalesScreen() {
           {CANALES.map(renderCanal)}
         </ScrollView>
       )}
+      <AltaWhatsAppModal
+        visible={altaWhatsApp.visible}
+        cambio={altaWhatsApp.cambio}
+        numeroActual={findConnection(connections, 'whatsapp')?.display_identifier}
+        onClose={() => setAltaWhatsApp((prev) => ({ ...prev, visible: false }))}
+        onConfirm={handleConfirmarAltaWhatsApp}
+      />
       <UpsellCuotaModal
         visible={upsellCuota.visible}
         mensaje={upsellCuota.mensaje}
@@ -407,7 +455,7 @@ const styles = StyleSheet.create({
   cardStatus: {},
   hint: { marginBottom: SPACING.sm },
   msgEstado: { marginBottom: SPACING.sm },
-  actions: { flexDirection: 'row', marginTop: SPACING.xs },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.xs },
   btnPrimary: {
     flexDirection: 'row',
     alignItems: 'center',
