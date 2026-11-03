@@ -1,4 +1,4 @@
-import type { Router } from 'expo-router';
+import { router as expoRouter } from 'expo-router';
 import type { EstadoProveedor } from '@/services/api';
 
 export type ProveedorRouteHref =
@@ -66,7 +66,7 @@ export function shouldSkipTipoCuenta(estado: EstadoProveedor | null | undefined)
 }
 
 /** Aplica la ruta resuelta. @returns false si no navegó (retry/stay). */
-export function applyProveedorRoute(router: Router, route: ProveedorRoute): boolean {
+export function applyProveedorRoute(router: typeof expoRouter, route: ProveedorRoute): boolean {
   if (route.kind === 'retry' || route.kind === 'stay') {
     return false;
   }

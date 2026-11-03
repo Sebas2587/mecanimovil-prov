@@ -32,12 +32,12 @@ jest.mock('expo-router', () => ({
   },
 }));
 
-// Mock react-native-reanimated
-jest.mock('react-native-reanimated', () => {
-  const Reanimated = require('react-native-reanimated/mock');
-  Reanimated.default.call = () => {};
-  return Reanimated;
-});
+// Mock react-native-reanimated (jest-expo provides its own mock)
+// jest.mock('react-native-reanimated', () => {
+//   const Reanimated = require('react-native-reanimated/mock');
+//   Reanimated.default.call = () => {};
+//   return Reanimated;
+// });
 
 // Mock expo modules that might not be available in test environment
 jest.mock('expo-constants', () => ({

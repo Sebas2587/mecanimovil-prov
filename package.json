@@ -14,15 +14,15 @@
     "deploy:vercel:hook": "curl -fsS -X POST https://api.vercel.com/v1/integrations/deploy/prj_p5ArLTR43TKeYVxNtrNBd3RDEXRW/ncckJ5aige -H 'Content-Type: application/json'",
     "deploy:vercel:cli": "npx vercel@53.2.0 deploy --prod --yes",
     "lint": "expo lint",
-    "test": "jest --maxWorkers=1 --forceExit",
+    "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage --forceExit"
+    "test:coverage": "jest --coverage"
   },
   "jest": {
     "preset": "jest-expo",
-    "testEnvironment": "node",
     "testTimeout": 10000,
-    "bail": false,
+    "workerIdleMemoryLimit": "512MB",
+    "maxWorkers": "50%",
     "transformIgnorePatterns": [
       "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|lucide-react-native)"
     ],
@@ -126,11 +126,14 @@
     "@types/react": "~19.2.4",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~57.0.2",
-    "expo-modules-core": "^58.0.29",
     "jest": "^30.5.2",
     "jest-expo": "^58.0.14",
     "react-test-renderer": "19.2.3",
     "typescript": "~5.6.3"
+  },
+  "overrides": {
+    "react-native-worklets": "0.10.1",
+    "@react-native/jest-preset": "^0.88.1"
   },
   "private": true
 }

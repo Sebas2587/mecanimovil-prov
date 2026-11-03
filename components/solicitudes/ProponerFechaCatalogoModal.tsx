@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
       : null),
   },
   dismissHit: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: withOpacity(I.ink, 0.48),
   },
   sheet: {

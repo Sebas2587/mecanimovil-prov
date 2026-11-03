@@ -1,4 +1,4 @@
-import type { Router } from 'expo-router';
+import { router as expoRouter } from 'expo-router';
 import type { QueryClient } from '@tanstack/react-query';
 import { prefetchSolicitudDetalle } from '@/hooks/useSolicitudDetalleQuery';
 import { openOfertaDetalle } from '@/utils/navigateProveedorDetalle';
@@ -33,7 +33,7 @@ function pickOrdenId(data: PushNotificationData): string | null {
  * Navega según el payload `data` de una push Expo o Web Push (tap o cold start).
  */
 export function navigateByPushNotification(
-  router: Router,
+  router: typeof expoRouter,
   data: PushNotificationData | null | undefined,
   queryClient?: QueryClient,
 ): boolean {

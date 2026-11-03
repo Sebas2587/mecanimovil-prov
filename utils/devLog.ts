@@ -1,3 +1,5 @@
+import logger from './logger';
+
 /**
  * Logs de depuración: solo cuando __DEV__ es true (Expo / React Native).
  * No ejecuta en producción: menos ruido, menos serialización y menos datos sensibles en consola.
